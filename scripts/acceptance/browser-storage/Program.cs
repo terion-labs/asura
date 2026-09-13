@@ -30,6 +30,14 @@ internal static class Program
                 File.SetUnixFileMode(source, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             }
             File.WriteAllBytes(Path.Combine(source, "Cookies"), RandomNumberGenerator.GetBytes(700_000));
+            if (!OperatingSystem.IsWindows())
+            {
+                // Reproduce the process links left behind by a Chromium crash.
+                foreach (var marker in new[] { "SingletonLock", "SingletonSocket", "SingletonCookie", "RunningChromeVersion" })
+                {
+                    File.CreateSymbolicLink(Path.Combine(source, marker), "missing-process-marker");
+                }
+            }
             store.Seal(key, source);
         }
         else if (string.Equals(mode, "read", StringComparison.Ordinal))
@@ -40,6 +48,10 @@ internal static class Program
                     .SequenceEqual(File.ReadAllBytes(Path.Combine(restored, "Cookies"))))
             {
                 throw new InvalidDataException("Native AOT archive did not round-trip.");
+            }
+            if (Directory.EnumerateFileSystemEntries(restored).Count() != 1)
+            {
+                throw new InvalidDataException("Chromium process markers were restored into a new process.");
             }
             store.Seal(key, restored);
             Console.WriteLine("Native AOT browser storage survived a process restart and rewrite.");

@@ -553,6 +553,19 @@ public sealed class EncryptedBrowserProfileStateStore :
                     throw new IOException("The browser profile contains too many files.");
                 }
 
+                var relative = Path.GetRelativePath(root, path)
+                    .Replace(Path.DirectorySeparatorChar, '/');
+                // Chromium leaves these root-level process markers after a
+                // crash, including dangling symlinks and a link to its socket.
+                // They must never be followed or carried into a new process.
+                // Keep rejecting every other linked path, including these
+                // same names inside a profile subdirectory.
+                if (relative is "SingletonLock" or "SingletonSocket"
+                    or "SingletonCookie" or "RunningChromeVersion")
+                {
+                    continue;
+                }
+
                 var info = File.GetAttributes(path);
                 if ((info & (FileAttributes.ReparsePoint | FileAttributes.Device)) != 0
                     || new FileInfo(path).LinkTarget is not null
@@ -562,8 +575,6 @@ public sealed class EncryptedBrowserProfileStateStore :
                         "The browser profile contains an unsupported linked path.");
                 }
 
-                var relative = Path.GetRelativePath(root, path)
-                    .Replace(Path.DirectorySeparatorChar, '/');
                 if ((info & FileAttributes.Directory) != 0)
                 {
                     archive.CreateEntry(relative.TrimEnd('/') + '/');

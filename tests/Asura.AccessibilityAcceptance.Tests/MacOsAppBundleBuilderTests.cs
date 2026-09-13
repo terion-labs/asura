@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Xml.Linq;
 using Asura.Packaging;
 
 namespace Asura.AccessibilityAcceptance;
@@ -175,6 +176,15 @@ public sealed partial class MacOsAppBundleBuilderTests : IDisposable
             "<string>Asura</string>",
             infoPlist,
             StringComparison.Ordinal);
+        // Validate the assembled app, not just the source template: macOS
+        // terminates WebAuthn's Bluetooth request if this key is absent or
+        // its value is not a purpose string on the responsible app bundle.
+        var bluetoothPurpose = XDocument.Parse(infoPlist)
+            .Root!.Element("dict")!.Elements("key")
+            .Single(key => key.Value == "NSBluetoothAlwaysUsageDescription")
+            .ElementsAfterSelf().First();
+        Assert.Equal("string", bluetoothPurpose.Name.LocalName);
+        Assert.Contains("passkey", bluetoothPurpose.Value, StringComparison.Ordinal);
         Assert.True(File.Exists(Path.Combine(
             output,
             "Contents",
