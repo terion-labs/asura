@@ -53,7 +53,9 @@ internal sealed class FakePortablePtyConnection : IPortablePtyConnection
 
     public event EventHandler<PortablePtyExit>? ProcessExited;
 
-    public Stream Reader => _outputReader;
+    public Stream? ReaderOverride { get; set; }
+
+    public Stream Reader => ReaderOverride ?? _outputReader;
 
     public Stream Writer => _input;
 

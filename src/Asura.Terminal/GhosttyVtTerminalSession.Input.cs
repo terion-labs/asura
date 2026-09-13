@@ -328,7 +328,9 @@ internal sealed partial class GhosttyVtTerminalSession
                     .ConfigureAwait(false);
                 if (count == 0)
                 {
-                    MarkProcessExited(exitCode: null);
+                    // Closing output can precede process exit. Only the local
+                    // process observer can publish a completed session and its code.
+                    TryMarkKnownProcessExit();
                     break;
                 }
 
