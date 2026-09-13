@@ -12,6 +12,66 @@ public sealed class EncryptedBrowserProfileStateStoreTests : IDisposable
         .FullName;
 
     [Fact]
+    public void CrashLeftChromiumProcessLinksAreNotArchivedOrFollowed()
+    {
+        var source = Path.Combine(_root, "crashed-runtime");
+        CreatePrivateDirectory(source);
+        Directory.CreateDirectory(Path.Combine(source, "Default"));
+        File.WriteAllText(Path.Combine(source, "Local State"), "engine-state");
+        File.WriteAllText(Path.Combine(source, "Default", "Cookies"), "saved-session");
+        var outside = Path.Combine(_root, "outside");
+        File.WriteAllText(outside, "do-not-read-or-change");
+        string[] markers = ["SingletonLock", "SingletonSocket", "SingletonCookie", "RunningChromeVersion"];
+        foreach (var marker in markers)
+        {
+            // Chromium uses both dangling links and a link to a socket outside
+            // the profile. Neither is durable browser data.
+            File.CreateSymbolicLink(Path.Combine(source, marker),
+                marker == "SingletonSocket" ? outside : "missing-process-marker");
+        }
+
+        using var store = new EncryptedBrowserProfileStateStore(
+            Path.Combine(_root, "store"), new TestApplicationEncryption());
+        var key = StateKey("profile.crashed", "engine");
+        Assert.True(store.Seal(key, source) > 0);
+        var restored = Path.Combine(_root, "restored");
+        store.Restore(key, restored);
+
+        Assert.Equal("engine-state", File.ReadAllText(Path.Combine(restored, "Local State")));
+        Assert.Equal("saved-session", File.ReadAllText(Path.Combine(restored, "Default", "Cookies")));
+        Assert.Equal(2, Directory.EnumerateFileSystemEntries(restored).Count());
+        Assert.Equal("do-not-read-or-change", File.ReadAllText(outside));
+        foreach (var marker in markers)
+        {
+            Assert.NotNull(new FileInfo(Path.Combine(source, marker)).LinkTarget);
+        }
+    }
+
+    [Theory]
+    [InlineData("unexpected-link")]
+    [InlineData("Default/SingletonLock")]
+    [InlineData("Default/SingletonSocket")]
+    [InlineData("Default/SingletonCookie")]
+    [InlineData("Default/RunningChromeVersion")]
+    public void OtherLinkedPathsStillFailWithoutReplacingSavedState(string relativePath)
+    {
+        using var store = new EncryptedBrowserProfileStateStore(
+            Path.Combine(_root, "store"), new TestApplicationEncryption());
+        var key = StateKey("profile.link-rejected", "engine");
+        SealMarker(store, key, "last-good");
+        var source = Path.Combine(_root, "linked-runtime");
+        CreatePrivateDirectory(source);
+        var link = Path.Combine(source, relativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(link)!);
+        File.CreateSymbolicLink(link, "missing-target");
+
+        Assert.Throws<InvalidDataException>(() => store.Seal(key, source));
+        var restored = Path.Combine(_root, "restored");
+        store.Restore(key, restored);
+        Assert.Equal("last-good", File.ReadAllText(Path.Combine(restored, "marker")));
+    }
+
+    [Fact]
     public void CompleteChromiumTreeRoundTripsAcrossStoreInstances()
     {
         var encryption = new TestApplicationEncryption();

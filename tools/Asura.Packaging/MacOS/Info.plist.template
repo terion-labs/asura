@@ -30,6 +30,11 @@
     <string>13.0</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright 2026 Terion Labs. All rights reserved.</string>
+    <!-- Chromium's WebAuthn phone-passkey flow requests Bluetooth directly,
+         outside CEF's website permission callbacks. TCC requires this on the
+         responsible app or terminates it before displaying the permission UI. -->
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>Asura uses Bluetooth when you choose a nearby phone or device to sign in to a website with a passkey.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSSupportsAutomaticGraphicsSwitching</key>
