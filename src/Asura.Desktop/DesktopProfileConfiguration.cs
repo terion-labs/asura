@@ -8,15 +8,17 @@ public sealed class DesktopProfileConfiguration
 {
     internal const string ThrowawaySwitch = "--throwaway-profile";
     internal const string ResumeThrowawaySwitch = "--resume-throwaway-profile";
+    internal const string RecoverySwitch = "--recovery-workspace";
     private const string SmokeServicePrefix = "sh.asura.development.smoke.";
     private DesktopProfileConfiguration(AsuraDataPaths data, LocalArtifactPaths artifacts,
-        BrowserProfileStoragePaths browser, string secretServiceName, bool isThrowaway)
+        BrowserProfileStoragePaths browser, string secretServiceName, bool isThrowaway, bool isRecovery = false)
     {
         Data = data;
         Artifacts = artifacts;
         Browser = browser;
         SecretServiceName = secretServiceName;
         IsThrowaway = isThrowaway;
+        IsRecovery = isRecovery;
     }
 
     public AsuraDataPaths Data { get; }
@@ -24,6 +26,25 @@ public sealed class DesktopProfileConfiguration
     public BrowserProfileStoragePaths Browser { get; }
     public string SecretServiceName { get; }
     public bool IsThrowaway { get; }
+    public bool IsRecovery { get; }
+
+    // A stable, separate workspace lets users keep working when the original
+    // profile cannot be opened. Reopening it retains the work done there.
+    internal static DesktopProfileConfiguration CreateRecovery(int number = 1, DesktopProfileConfiguration? throwaway = null)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(number, 1);
+        var suffix = number == 1 ? "" : "." + number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var root = (throwaway?.Data.DataDirectory ?? AsuraDataPaths.CreateDefault().DataDirectory) + " Recovery" + suffix;
+        var data = Path.Combine(root, "data");
+        return new(new(data, Path.Combine(data, "asura.db")),
+            new(Path.Combine(root, "cache"), Path.Combine(root, "logs"), durableDataDirectory: data),
+            new(Path.Combine(data, "browser", "state"),
+                throwaway is null
+                    ? Path.Combine(Path.GetTempPath(), ApplicationStorageIdentity.DirectoryName, "recovery-browser-runtime" + suffix)
+                    : throwaway.Browser.RuntimeDirectory + ".recovery" + suffix),
+            (throwaway?.SecretServiceName ?? ApplicationStorageIdentity.SecretServiceName) + ".recovery" + suffix,
+            throwaway is not null, true);
+    }
 
     public static DesktopProfileConfiguration CreateDefault() => new(
         AsuraDataPaths.CreateDefault(), LocalArtifactPaths.CreateDefault(),
@@ -39,6 +60,30 @@ public sealed class DesktopProfileConfiguration
 
     internal static DesktopProfileConfiguration FromCommandLine(string[] arguments, bool productionBuild)
     {
+        var recoveryArguments = arguments.Where(argument => argument.StartsWith(RecoverySwitch, StringComparison.Ordinal)).ToArray();
+        if (recoveryArguments.Length > 0)
+        {
+            if (recoveryArguments.Length != 1)
+            {
+                throw new ArgumentException("Choose one workspace to open.");
+            }
+            var argument = recoveryArguments[0];
+            var number = 1;
+            if (!string.Equals(argument, RecoverySwitch, StringComparison.Ordinal)
+                && (!argument.StartsWith(RecoverySwitch + "=", StringComparison.Ordinal)
+                    || !int.TryParse(argument[(RecoverySwitch.Length + 1)..],
+                        System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out number)
+                    || number < 1 || number == int.MaxValue))
+            {
+                throw new ArgumentException("The recovery workspace number is invalid.");
+            }
+            var hasThrowaway = arguments.Any(value => value.StartsWith(ThrowawaySwitch, StringComparison.Ordinal)
+                || value.StartsWith(ResumeThrowawaySwitch, StringComparison.Ordinal));
+            var throwaway = hasThrowaway
+                ? FromCommandLine([.. arguments.Where(value => !value.StartsWith(RecoverySwitch, StringComparison.Ordinal))], productionBuild)
+                : null;
+            return CreateRecovery(number, throwaway);
+        }
         var resume = arguments.Contains(ResumeThrowawaySwitch, StringComparer.Ordinal);
         var selectedSwitch = resume ? ResumeThrowawaySwitch : ThrowawaySwitch;
         var index = Array.IndexOf(arguments, selectedSwitch);
@@ -109,6 +154,26 @@ public sealed class DesktopProfileConfiguration
             claim.WriteLine(service);
         }
         return CreateThrowaway(root, service);
+    }
+
+    internal static string[] NextRecoveryArguments(string[] arguments)
+    {
+        // A failure inside a recovery workspace must still offer a fresh one.
+        // Each numbered workspace retains its own data and can be reopened.
+        var argument = arguments.FirstOrDefault(value => value.StartsWith(RecoverySwitch, StringComparison.Ordinal));
+        var current = string.Equals(argument, RecoverySwitch, StringComparison.Ordinal) ? 1 : 0;
+        if (argument?.StartsWith(RecoverySwitch + "=", StringComparison.Ordinal) == true)
+        {
+            _ = int.TryParse(argument[(RecoverySwitch.Length + 1)..], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out current);
+        }
+        var next = current is > 0 and < int.MaxValue - 1 ? current + 1 : 1;
+        var selection = RecoverySwitch + "=" + next.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var throwawayIndex = Array.IndexOf(arguments, ResumeThrowawaySwitch);
+        if (throwawayIndex >= 0 && throwawayIndex + 1 < arguments.Length)
+        {
+            return [ResumeThrowawaySwitch, arguments[throwawayIndex + 1], selection];
+        }
+        return [selection];
     }
 
     private static DesktopProfileConfiguration CreateThrowaway(string root, string service)

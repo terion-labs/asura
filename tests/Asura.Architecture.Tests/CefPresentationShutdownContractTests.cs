@@ -59,22 +59,19 @@ public sealed class CefPresentationShutdownContractTests
         var program = File.ReadAllText(
             Path.Combine(RepositoryRoot, "src", "Asura.Desktop", "Program.cs"));
 
-        var initialization = RequiredIndexOf(
-            program,
-            "BrowserEngineRuntime.Initialize(");
-        var chromiumFailure = RequiredIndexOf(
-            program,
-            "desktop.cef-initialize.failed",
-            initialization);
-        var lifetime = RequiredIndexOf(program, "lifetime.Start(args)", chromiumFailure);
-        var desktopFailure = RequiredIndexOf(
-            program,
-            "desktop.runtime.failed",
-            lifetime);
+        var browserStartup = File.ReadAllText(
+            Path.Combine(RepositoryRoot, "src", "Asura.Desktop", "DesktopBrowserStartup.cs"));
+        var initialization = RequiredIndexOf(browserStartup, "BrowserEngineRuntime.Initialize(");
+        var chromiumFailure = RequiredIndexOf(browserStartup, "desktop.cef-initialize.failed", initialization);
+        var browserStart = RequiredIndexOf(program, "browserStartup.Start(");
+        var lifetime = RequiredIndexOf(program, "lifetime.Start(args)", browserStart);
+        var desktopFailure = RequiredIndexOf(program, "desktop.runtime.failed", lifetime);
 
         Assert.True(initialization < chromiumFailure);
-        Assert.True(chromiumFailure < lifetime);
+        Assert.True(browserStart < lifetime);
         Assert.True(lifetime < desktopFailure);
+        Assert.DoesNotContain("desktop.cef-initialize.failed", program, StringComparison.Ordinal);
+        Assert.DoesNotContain("lifetime.Start(", browserStartup, StringComparison.Ordinal);
     }
 
     [Fact]

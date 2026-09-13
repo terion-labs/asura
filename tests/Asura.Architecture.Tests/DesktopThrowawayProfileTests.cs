@@ -148,6 +148,56 @@ public sealed class DesktopThrowawayProfileTests
         Assert.Empty(Directory.EnumerateFileSystemEntries(root.Path));
     }
 
+    [Fact]
+    public void Recovery_workspaces_are_available_in_production_and_keep_every_store_separate()
+    {
+        var original = DesktopProfileConfiguration.CreateDefault();
+        var first = DesktopProfileConfiguration.FromCommandLine([DesktopProfileConfiguration.RecoverySwitch], true);
+        var reopened = DesktopProfileConfiguration.FromCommandLine([DesktopProfileConfiguration.RecoverySwitch + "=1"], true);
+        var another = DesktopProfileConfiguration.FromCommandLine(
+            DesktopProfileConfiguration.NextRecoveryArguments([DesktopProfileConfiguration.RecoverySwitch]), true);
+        Assert.True(first.IsRecovery);
+        Assert.False(first.IsThrowaway);
+        Assert.Equal(first.Data, reopened.Data);
+        Assert.Equal(first.Browser, reopened.Browser);
+        Assert.Equal(first.SecretServiceName, reopened.SecretServiceName);
+        foreach (var profile in new[] { original, another })
+        {
+            Assert.NotEqual(first.Data.DataDirectory, profile.Data.DataDirectory, StringComparer.Ordinal);
+            Assert.NotEqual(first.Data.DatabasePath, profile.Data.DatabasePath, StringComparer.Ordinal);
+            Assert.NotEqual(first.Artifacts.CacheDirectory, profile.Artifacts.CacheDirectory, StringComparer.Ordinal);
+            Assert.NotEqual(first.Artifacts.ApplicationLogDirectory, profile.Artifacts.ApplicationLogDirectory, StringComparer.Ordinal);
+            Assert.NotEqual(first.Browser.PersistentDirectory, profile.Browser.PersistentDirectory, StringComparer.Ordinal);
+            Assert.NotEqual(first.Browser.RuntimeDirectory, profile.Browser.RuntimeDirectory, StringComparer.Ordinal);
+            Assert.NotEqual(first.SecretServiceName, profile.SecretServiceName, StringComparer.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void AutomaticRecoveryOfDisposableProfilesStaysInsideTheirPrivateRoot()
+    {
+        using var root = PrivateRoot.Create();
+        var first = DesktopProfileConfiguration.FromCommandLine([DesktopProfileConfiguration.ThrowawaySwitch, root.Path], false);
+        var arguments = DesktopProfileConfiguration.NextRecoveryArguments([DesktopProfileConfiguration.ResumeThrowawaySwitch, root.Path]);
+        var recovery = DesktopProfileConfiguration.FromCommandLine(arguments, false);
+        Assert.True(recovery.IsThrowaway);
+        Assert.True(recovery.IsRecovery);
+        Assert.StartsWith(root.Path + System.IO.Path.DirectorySeparatorChar, recovery.Data.DataDirectory, StringComparison.Ordinal);
+        Assert.StartsWith(root.Path + System.IO.Path.DirectorySeparatorChar, recovery.Browser.RuntimeDirectory, StringComparison.Ordinal);
+        Assert.NotEqual(first.SecretServiceName, recovery.SecretServiceName, StringComparer.Ordinal);
+        Assert.Equal(recovery.Data, DesktopProfileConfiguration.FromCommandLine(arguments, false).Data);
+        Assert.Throws<ArgumentException>(() => DesktopProfileConfiguration.FromCommandLine(arguments, true));
+    }
+
+    [Theory]
+    [InlineData("--recovery-workspace=/tmp/arbitrary")]
+    [InlineData("--recovery-workspace=-1")]
+    [InlineData("--recovery-workspace=0")]
+    [InlineData("--recovery-workspace=2147483647")]
+    [InlineData("--recovery-workspace-unrecognized")]
+    public void Recovery_cannot_select_an_arbitrary_path_or_invalid_identity(string argument) =>
+        Assert.Throws<ArgumentException>(() => DesktopProfileConfiguration.FromCommandLine([argument], true));
+
     private static object Field(object instance, string name) =>
         instance.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(instance)!;
 

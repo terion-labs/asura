@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Asura.Application;
 using Avalonia;
+using Avalonia.Threading;
 using Exclr8Cef;
 using Exclr8Cef.WebView;
 
@@ -34,7 +35,25 @@ public static class BrowserEngineRuntime
     public static AppBuilder Configure(AppBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
-        return builder.UseExclr8Cef();
+        return builder.AfterSetup(_ =>
+        {
+            var timer = new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Background,
+                (_, _) => PumpIfRunning());
+            timer.Start();
+        });
+    }
+
+    internal static void PumpIfRunning()
+    {
+        lock (StateGate)
+        {
+            // The desktop remains usable when CEF is missing or failed to
+            // initialize. Never enter native code in those states.
+            if (_initialized && !_shutdown)
+            {
+                Cef.DoMessageLoopWork();
+            }
+        }
     }
 
     /// <summary>

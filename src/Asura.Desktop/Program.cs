@@ -71,6 +71,13 @@ internal static class Program
             return;
         }
 
+        if (args.Length > 0 && string.Equals(args[0], DesktopStartupFailurePresenter.RecoveryUiSwitch, StringComparison.Ordinal))
+        {
+            DesktopStartupFailurePresenter.TryShow("Asura needs to recover",
+                "The workspace stopped unexpectedly. Your saved profile is kept.", args[1..]);
+            return;
+        }
+
         try
         {
             var cefExitCode = BrowserEngineRuntime.ExecuteSubprocess();
@@ -85,8 +92,13 @@ internal static class Program
             SecretSafeDiagnosticProjection.WriteStandardError(
                 "desktop.cef-subprocess.failed",
                 error);
-            Environment.ExitCode = 1;
-            return;
+            if (args.Any(argument => argument.StartsWith("--type=", StringComparison.Ordinal)))
+            {
+                Environment.ExitCode = 1;
+                return;
+            }
+            // A missing browser runtime must not prevent the desktop from
+            // opening. Browser startup will report its own recoverable error.
         }
 
         if (args.Contains(
@@ -105,8 +117,15 @@ internal static class Program
         catch (Exception error) when (error is ArgumentException or IOException or UnauthorizedAccessException)
         {
             SecretSafeDiagnosticProjection.WriteStandardError("desktop.profile-selection.rejected", error);
+            DesktopStartupFailurePresenter.TryShow("Choose a workspace to recover",
+                "The selected workspace could not be opened. Your saved data is kept.", args);
             Environment.ExitCode = 2;
             return;
+        }
+        if (profile.IsThrowaway)
+        {
+            args = [.. args.Select(argument => string.Equals(argument, DesktopProfileConfiguration.ThrowawaySwitch, StringComparison.Ordinal)
+                ? DesktopProfileConfiguration.ResumeThrowawaySwitch : argument)];
         }
         if (!profile.IsThrowaway)
         {
@@ -121,7 +140,24 @@ internal static class Program
         // finalization out the same way. Private credential helpers have
         // already exited without loading CEF; normal runs and CEF --type
         // subprocesses preserve CEF's required first-dispatch ordering.
+        var originalArguments = args;
+        var profileAlreadyExists = Directory.Exists(profile.Data.DataDirectory);
         var prepared = PrepareAsync(profile).GetAwaiter().GetResult();
+        while (prepared is StartupPreparation.Failed)
+        {
+            // A damaged profile is preserved in place. Open another persistent
+            // workspace automatically, with independent storage and keys.
+            args = DesktopProfileConfiguration.NextRecoveryArguments(args);
+            profile = DesktopProfileConfiguration.FromCommandLine(args);
+            profileAlreadyExists = Directory.Exists(profile.Data.DataDirectory);
+            prepared = PrepareAsync(profile).GetAwaiter().GetResult();
+            if (prepared is StartupPreparation.Failed && !profileAlreadyExists)
+            {
+                // If even a new workspace cannot open, another empty directory
+                // cannot repair unavailable storage or the operating-system vault.
+                break;
+            }
+        }
         if (prepared is StartupPreparation.Failed failure)
         {
             // Preparation resumes on worker threads. Avalonia, including an
@@ -139,7 +175,8 @@ internal static class Program
         }
 
         var (services, instanceCoordinator) = ready;
-        var cefInitialized = false;
+        var browserStartup = services.GetRequiredService<DesktopBrowserStartup>();
+        string[]? restartArguments = null;
         MainWindowViewModel? mainWindowViewModel = null;
         INativeNotificationService? nativeNotifications = null;
         try
@@ -159,29 +196,36 @@ internal static class Program
                     cancellationToken => services
                         .GetRequiredService<AsuraApplication>()
                         .PrepareForUpdateRestartAsync(cancellationToken));
+                browserStartup.ConfigureRestart(() =>
+                {
+                    restartArguments = originalArguments;
+                    updateShutdown.Request();
+                });
                 BrowserEngineRuntime.Configure(BuildAvaloniaApp(services))
                     .SetupWithLifetime(lifetime);
                 nativeNotifications =
                     services.GetRequiredService<INativeNotificationService>();
                 nativeNotifications.Activated += OnNativeNotificationActivated;
                 mainWindowViewModel = services.GetRequiredService<MainWindowViewModel>();
+                if (profile.IsRecovery)
+                {
+                    lifetime.Startup += (_, _) =>
+                    {
+                        if (lifetime.MainWindow is { } window)
+                        {
+                            window.Title = "Asura recovery workspace";
+                        }
+                        if (!profileAlreadyExists)
+                        {
+                            browserStartup.ReportRecoveryWorkspace();
+                        }
+                    };
+                }
                 lifetime.Exit += (_, _) =>
                     TeardownPresentationOrReport(mainWindowViewModel);
                 void InitializeBrowserRuntime()
                 {
-                    try
-                    {
-                        BrowserEngineRuntime.Initialize(
-                            CreateBrowserEngineOptions(services));
-                        cefInitialized = true;
-                    }
-                    catch (Exception error)
-                    {
-                        SecretSafeDiagnosticProjection.WriteStandardError(
-                            "desktop.cef-initialize.failed",
-                            error);
-                        throw;
-                    }
+                    _ = browserStartup.Start(CreateBrowserEngineOptions(services));
                 }
 
                 var encryption = services
@@ -191,19 +235,16 @@ internal static class Program
                     DeferredStartupCoordinator.Arm(
                         services.GetRequiredService<IStartupProtection>(),
                         () => InitializeProfileCoreAsync(services),
-                        InitializeBrowserRuntime);
+                        InitializeBrowserRuntime,
+                        _ =>
+                        {
+                            restartArguments = DesktopProfileConfiguration.NextRecoveryArguments(args);
+                            updateShutdown.Request();
+                        });
                 }
                 else
                 {
-                    try
-                    {
-                        InitializeBrowserRuntime();
-                    }
-                    catch
-                    {
-                        Environment.ExitCode = 1;
-                        return;
-                    }
+                    InitializeBrowserRuntime();
                 }
 
                 Environment.ExitCode = lifetime.Start(args);
@@ -218,45 +259,86 @@ internal static class Program
                 SecretSafeDiagnosticProjection.WriteStandardError(
                     "desktop.runtime.failed",
                     error);
+                // Avalonia cannot be set up twice in one process. Show recovery
+                // in a fresh process after releasing this profile's ownership.
+                restartArguments ??= profileAlreadyExists
+                    ? DesktopProfileConfiguration.NextRecoveryArguments(args)
+                    : [DesktopStartupFailurePresenter.RecoveryUiSwitch, .. args];
                 Environment.ExitCode = 1;
             }
             finally
             {
-                services.GetRequiredService<DesktopUpdateShutdown>().Detach();
-                instanceCoordinator.StopAcceptingActivations();
-                nativeNotifications?.Activated -= OnNativeNotificationActivated;
-
-                // Startup and finalization failures also converge here before
-                // CEF closes browsers and stops its message pump.
-                TeardownPresentationOrReport(mainWindowViewModel);
-                QuiescePresentationOrReport(services);
-                if (cefInitialized)
+                try
                 {
-                    var profiles = services.GetRequiredService<CefBrowserProfileStore>();
-                    if (!BrowserEngineRuntime.Shutdown(profiles))
+                    services.GetRequiredService<DesktopUpdateShutdown>().Detach();
+                    instanceCoordinator.StopAcceptingActivations();
+                    nativeNotifications?.Activated -= OnNativeNotificationActivated;
+
+                    // Startup and finalization failures also converge here before
+                    // CEF closes browsers and stops its message pump.
+                    TeardownPresentationOrReport(mainWindowViewModel);
+                    QuiescePresentationOrReport(services);
+                    if (browserStartup.IsRunning)
                     {
-                        Environment.ExitCode = 1;
-                    }
-                    else
-                    {
-                        Func<string, string, CancellationToken, Task>? copyEngineSnapshot =
-                            OperatingSystem.IsMacOS()
-                                ? new BrowserEngineSnapshotCopy(services.GetRequiredService<IConnectionCommandRunner>()).CopyAsync
-                                : null;
-                        if (!BrowserEngineRuntime.SealStateAfterShutdownAsync(profiles, copyEngineSnapshot)
-                                .GetAwaiter().GetResult())
+                        var profiles = browserStartup.RequireRunningProfile();
+                        if (!BrowserEngineRuntime.Shutdown(profiles))
                         {
                             Environment.ExitCode = 1;
                         }
+                        else
+                        {
+                            Func<string, string, CancellationToken, Task>? copyEngineSnapshot =
+                                OperatingSystem.IsMacOS()
+                                    ? new BrowserEngineSnapshotCopy(services.GetRequiredService<IConnectionCommandRunner>()).CopyAsync
+                                    : null;
+                            if (!BrowserEngineRuntime.SealStateAfterShutdownAsync(profiles, copyEngineSnapshot)
+                                    .GetAwaiter().GetResult())
+                            {
+                                Environment.ExitCode = 1;
+                            }
+                        }
                     }
-                }
 
-                services.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                }
+                catch (Exception error) when (error is not OutOfMemoryException)
+                {
+                    SecretSafeDiagnosticProjection.WriteStandardError("desktop.shutdown.failed", error);
+                    Environment.ExitCode = 1;
+                }
+                try
+                {
+                    services.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                }
+                catch (Exception error) when (error is not OutOfMemoryException)
+                {
+                    SecretSafeDiagnosticProjection.WriteStandardError("desktop.service-dispose.failed", error);
+                    Environment.ExitCode = 1;
+                }
             }
         }
         finally
         {
-            instanceCoordinator.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            try
+            {
+                instanceCoordinator.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            }
+            catch (Exception error) when (error is not OutOfMemoryException)
+            {
+                SecretSafeDiagnosticProjection.WriteStandardError("desktop.instance-dispose.failed", error);
+                Environment.ExitCode = 1;
+            }
+        }
+        if (restartArguments is not null)
+        {
+            try
+            {
+                DesktopStartupFailurePresenter.Launch(restartArguments);
+            }
+            catch (Exception error) when (error is not OutOfMemoryException)
+            {
+                SecretSafeDiagnosticProjection.WriteStandardError("desktop.restart.failed", error);
+                Environment.ExitCode = 1;
+            }
         }
     }
 
@@ -310,9 +392,17 @@ internal static class Program
     {
         ConfigureDockDiagnostics();
 
-        var instanceStart = await SingleInstanceCoordinator.StartAsync(
-            profile.Data.DataDirectory,
-            CancellationToken.None);
+        SingleInstanceStartResult instanceStart;
+        try
+        {
+            instanceStart = await SingleInstanceCoordinator.StartAsync(
+                profile.Data.DataDirectory, CancellationToken.None);
+        }
+        catch (Exception error) when (error is not OutOfMemoryException)
+        {
+            SecretSafeDiagnosticProjection.WriteStandardError("desktop.instance-start.failed", error);
+            return new StartupPreparation.Failed("The workspace could not be opened. Try again or use a separate recovery workspace.");
+        }
         if (instanceStart is SingleInstanceStartResult.ExistingInstanceActivated)
         {
             return null;
@@ -327,9 +417,10 @@ internal static class Program
 
         var instanceCoordinator =
             ((SingleInstanceStartResult.Primary)instanceStart).Coordinator;
-        var services = DesktopComposition.CreateServiceProvider(profile);
+        ServiceProvider? services = null;
         try
         {
+            services = DesktopComposition.CreateServiceProvider(profile);
             // Before anything opens the configuration database: an encrypted
             // database needs its key in hand for the very first connection —
             // from the OS keystore, or, when protection sealed the keys under
@@ -360,16 +451,35 @@ internal static class Program
 
             return new StartupPreparation.Ready(services, instanceCoordinator);
         }
-        catch
+        catch (Exception error) when (error is not OutOfMemoryException)
         {
+            SecretSafeDiagnosticProjection.WriteStandardError("desktop.profile-prepare.failed", error);
             Abandon();
-            throw;
+            return new StartupPreparation.Failed("Saved data could not be opened. Your profile is kept. Try again or use a separate recovery workspace.");
         }
 
         void Abandon()
         {
-            services.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            instanceCoordinator.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            try
+            {
+                services?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            }
+            catch (Exception error) when (error is not OutOfMemoryException)
+            {
+                SecretSafeDiagnosticProjection.WriteStandardError("desktop.abandoned-profile-dispose.failed", error);
+            }
+            finally
+            {
+                services = null;
+                try
+                {
+                    instanceCoordinator.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                }
+                catch (Exception error) when (error is not OutOfMemoryException)
+                {
+                    SecretSafeDiagnosticProjection.WriteStandardError("desktop.abandoned-instance-dispose.failed", error);
+                }
+            }
         }
     }
 
@@ -384,14 +494,9 @@ internal static class Program
 
     private static async Task<string?> InitializeProfileCoreAsync(IServiceProvider services)
     {
-        if (!services.GetRequiredService<CefBrowserProfileStore>()
-                .RecoverOrphanedRuntimeState())
-        {
-            SecretSafeDiagnosticProjection.WriteStandardError(
-                "desktop.browser-profile-recovery.failed",
-                SecretSafeDiagnosticKind.Unexpected);
-            return "Saved browser sessions could not be recovered safely.";
-        }
+        // Browser failures are isolated from configuration and terminal startup.
+        // The shell exposes a retry action while the saved browser data stays closed.
+        _ = services.GetRequiredService<DesktopBrowserStartup>().RecoverProfile();
 
         var runStore = services.GetRequiredService<IApplicationRunStore>();
         var startResult = await runStore.BeginRunAsync(CancellationToken.None);

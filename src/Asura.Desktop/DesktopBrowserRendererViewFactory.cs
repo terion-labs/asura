@@ -9,7 +9,7 @@ namespace Asura.Desktop;
 internal sealed class DesktopBrowserRendererViewFactory(
     BrowserPanelSessionFactory sessionFactory,
     SshNetBrowserTunnelFactory tunnelFactory,
-    CefBrowserProfileStore profileStore) : IBrowserRendererViewFactory, IDisposable, IAsyncDisposable
+    DesktopBrowserStartup browserStartup) : IBrowserRendererViewFactory, IDisposable, IAsyncDisposable
 {
     private readonly object _routeGate = new();
     private readonly Dictionary<RemoteRouteKey, RemoteRoute> _remoteRoutes = [];
@@ -18,13 +18,14 @@ internal sealed class DesktopBrowserRendererViewFactory(
 
     public BrowserRendererView Create()
     {
-        var profile = profileStore.AcquireLocal(BrowserProfileKey.Global);
+        var profile = browserStartup.RequireRunningProfile().AcquireLocal(BrowserProfileKey.Global);
         return CreateView(profile);
     }
 
     public BrowserRendererView CreateIsolatedHtmlPreview()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        _ = browserStartup.RequireRunningProfile();
         var surface = BrowserSurface.CreateIsolatedHtmlPreview(
             sessionFactory.CapabilityProfile);
         return new BrowserRendererView(
@@ -88,8 +89,8 @@ internal sealed class DesktopBrowserRendererViewFactory(
         if (connection.Endpoint is ConnectionEndpoint.Local)
         {
             var localLease = networkConnector is null
-                ? profileStore.AcquireLocal(profile)
-                : profileStore.AcquireRouted(
+                ? browserStartup.RequireRunningProfile().AcquireLocal(profile)
+                : browserStartup.RequireRunningProfile().AcquireRouted(
                     profile,
                     networkConnector.LocalProxyEndpoint.AbsoluteUri,
                     networkConnector);
@@ -120,7 +121,7 @@ internal sealed class DesktopBrowserRendererViewFactory(
         CefBrowserProfileLease? profileLease = null;
         try
         {
-            profileLease = profileStore.AcquireRouted(
+            profileLease = browserStartup.RequireRunningProfile().AcquireRouted(
                 profile,
                 route.Tunnel.ProfileRouteIdentity,
                 route.Proxy,
@@ -157,7 +158,7 @@ internal sealed class DesktopBrowserRendererViewFactory(
         ArgumentOutOfRangeException.ThrowIfLessThan(socksProxyPort, 1);
         ArgumentException.ThrowIfNullOrWhiteSpace(routeIdentity);
         cancellationToken.ThrowIfCancellationRequested();
-        var lease = profileStore.AcquireRouted(
+        var lease = browserStartup.RequireRunningProfile().AcquireRouted(
             profile,
             routeIdentity,
             socksProxyPort);

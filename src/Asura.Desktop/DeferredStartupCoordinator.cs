@@ -1,5 +1,4 @@
 using Asura.Application;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 
 namespace Asura.Desktop;
@@ -9,20 +8,21 @@ namespace Asura.Desktop;
 /// encryption keys arrived sealed under the PIN. The window opens locked;
 /// the first successful unlock hands the keys to the encryption runtime and
 /// this coordinator then does what startup would have done — once, off the
-/// UI thread. A failure at that point is exactly as fatal as it would have
-/// been before the window existed, and is reported the same way before the
-/// application closes.
+/// UI thread. Failure requests a restart into a separate recovery workspace;
+/// it must never silently terminate the newly unlocked application.
 /// </summary>
 internal static class DeferredStartupCoordinator
 {
     public static void Arm(
         IStartupProtection protection,
         Func<Task<string?>> initializeProfile,
-        Action initializeBrowserRuntime)
+        Action initializeBrowserRuntime,
+        Action<string> showRecovery)
     {
         ArgumentNullException.ThrowIfNull(protection);
         ArgumentNullException.ThrowIfNull(initializeProfile);
         ArgumentNullException.ThrowIfNull(initializeBrowserRuntime);
+        ArgumentNullException.ThrowIfNull(showRecovery);
         var armed = 0;
         protection.Changed += OnChanged;
 
@@ -40,7 +40,7 @@ internal static class DeferredStartupCoordinator
             {
                 error = await Task.Run(initializeProfile);
             }
-            catch (Exception exception)
+            catch (Exception exception) when (exception is not OutOfMemoryException)
             {
                 SecretSafeDiagnosticProjection.WriteStandardError(
                     "desktop.deferred-startup.failed",
@@ -55,7 +55,7 @@ internal static class DeferredStartupCoordinator
                     await Dispatcher.UIThread.InvokeAsync(initializeBrowserRuntime);
                     return;
                 }
-                catch (Exception exception)
+                catch (Exception exception) when (exception is not OutOfMemoryException)
                 {
                     SecretSafeDiagnosticProjection.WriteStandardError(
                         "desktop.deferred-browser-initialize.failed",
@@ -67,15 +67,7 @@ internal static class DeferredStartupCoordinator
             SecretSafeDiagnosticProjection.WriteStandardError(
                 "desktop.deferred-profile-open.failed",
                 SecretSafeDiagnosticKind.Unexpected);
-            Environment.ExitCode = 1;
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (Avalonia.Application.Current?.ApplicationLifetime
-                    is IClassicDesktopStyleApplicationLifetime desktop)
-                {
-                    desktop.Shutdown(1);
-                }
-            });
+            await Dispatcher.UIThread.InvokeAsync(() => showRecovery(error));
         }
     }
 }

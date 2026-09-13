@@ -138,7 +138,7 @@ public sealed class ApplicationEncryptionRuntime : IApplicationEncryption, IDisp
         {
             StartupError =
                 "The configuration database is truncated and cannot be opened safely. "
-                + "Restore a backup or remove it to create a new encrypted profile.";
+                + "Your data is kept. Try again or open a separate recovery workspace.";
             return;
         }
 
@@ -160,7 +160,7 @@ public sealed class ApplicationEncryptionRuntime : IApplicationEncryption, IDisp
         {
             StartupError =
                 "The configuration database is encrypted but its key is not in the OS keystore. "
-                + "Restore the keystore entry, or delete the database to start over.";
+                + "Your data is kept. Try again or open a separate recovery workspace.";
             return;
         }
 
