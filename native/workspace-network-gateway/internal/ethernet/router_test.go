@@ -71,6 +71,9 @@ func TestEthernetRoutesTCPUDPAndDNS(t *testing.T) {
 						dest = ip.DestinationAddress()
 					} else {
 						ip := header.IPv4(packet)
+						if ip.TTL() != 63 {
+							t.Fatalf("forwarded IPv4 TTL = %d, want 63", ip.TTL())
+						}
 						source = ip.SourceAddress()
 						dest = ip.DestinationAddress()
 					}

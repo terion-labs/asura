@@ -2,6 +2,9 @@ module github.com/terion-labs/asura/native/workspace-network-gateway
 
 go 1.26.3
 
+// Prepared and verified by scripts/prepare-gvisor-forwarding.py.
+replace gvisor.dev/gvisor => ../../.deps/gvisor-69c2d17aea96-asura1
+
 require (
 	github.com/xjasonlyu/tun2socks/v2 v2.7.0
 	golang.org/x/net v0.56.0

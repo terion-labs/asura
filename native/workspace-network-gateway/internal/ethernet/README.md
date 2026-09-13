@@ -1,5 +1,13 @@
 # Host-owned Ethernet gateway
 
+Builds use the pinned gVisor module with a local IPv4 forwarding lifetime fix:
+the TTL is read before copying packet storage can release its header view.
+`scripts/prepare-gvisor-forwarding.py` verifies the upstream Go checksum and
+the patched source checksum, then prepares the immutable `.deps` copy selected
+by `go.mod`. The native check and build scripts run this preparation automatically.
+Before running Go commands directly, run that Python script from the repository
+root. The shared Go module cache is never modified.
+
 `workspace-network-gateway ethernet --socket PATH` receives the VM's connected
 Unix datagram NIC on descriptor 3. Stdin contains exactly 32 key bytes followed
 by EOF. The socket parent must already exist with owner-only permissions. The

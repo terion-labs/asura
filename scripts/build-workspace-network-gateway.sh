@@ -66,6 +66,8 @@ export LC_ALL=C
 export SOURCE_DATE_EPOCH=0
 export TZ=UTC
 
+python3 "${script_dir}/prepare-gvisor-forwarding.py"
+
 (
     cd "${module_dir}"
     go test ./...
@@ -159,6 +161,9 @@ for rid in "${rids[@]}"; do
         printf '# Workspace network gateway notices\n\n'
         printf 'Built with %s. The Go toolchain and standard library license is shipped as workspace-network-gateway-GO-LICENSE.txt beside this notice.\n\n' "${expected_go_version}"
         printf 'The executable contains the following third-party Go modules. Each module license follows its module entry.\n'
+        printf '\ngVisor includes the Asura IPv4 forwarding lifetime fix. The patch captures TTL before copying packet storage.\n'
+        printf 'Rebuild preparation: scripts/prepare-gvisor-forwarding.py (pinned source and patched SHA-256 checks).\n'
+        printf 'Patched ipv4.go SHA-256: d3e0582dbd70f231c87010cf46e1bf068d39cb509bfac9164e1349c2a6c4c173\n'
         while IFS=$'\t' read -r module version; do
             module_directory="$({
                 cd "${module_dir}"
