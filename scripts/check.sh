@@ -45,6 +45,7 @@ cd "${repository_dir}"
 
 python3 "${script_dir}/check-product-name.py"
 python3 "${script_dir}/test-cef-keychain-scope.py"
+python3 "${script_dir}/test-gvisor-forwarding.py"
 "${script_dir}/check-network-native.sh" "${mode}"
 "${dotnet}" tool restore
 "${dotnet}" restore Asura.slnx --locked-mode

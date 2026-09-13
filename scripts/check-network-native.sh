@@ -22,6 +22,7 @@ if [[ -n "${unformatted}" ]]; then
 fi
 
 if [[ "${mode}" == --full ]]; then
+    python3 "${script_dir}/prepare-gvisor-forwarding.py"
     (
         cd "${module_dir}"
         go mod verify
