@@ -771,7 +771,7 @@ internal sealed partial class GhosttyVtTerminalSession : ITerminalPanelSession
         return true;
     }
 
-    private void MarkProcessExited(int? exitCode)
+    private void MarkProcessExited(int exitCode)
     {
         lock (_gate)
         {
@@ -780,7 +780,7 @@ internal sealed partial class GhosttyVtTerminalSession : ITerminalPanelSession
                 return;
             }
 
-            _exitCode = exitCode ?? _exitCode;
+            _exitCode = exitCode;
             if (!_processExited)
             {
                 _processExited = true;

@@ -1199,6 +1199,28 @@ public sealed class GhosttyVtTerminalSessionTests
     }
 
     [Fact]
+    public async Task Output_eof_before_process_exit_keeps_session_active_until_exit_code_is_known()
+    {
+        _ = GhosttyVtTestRuntime.RequireStagedRuntime();
+        var ptyFactory = new FakePortablePtyFactory();
+        ptyFactory.Connection.ReaderOverride = Stream.Null;
+        var factory = new GhosttyVtTerminalSessionFactory(ptyFactory);
+        await using var session = await factory.CreateAsync(
+            SessionId.New(),
+            new TerminalLaunchRequest(
+                Environment.CurrentDirectory,
+                connectionMetadata: new TerminalConnectionMetadata("SSH: user@host:22", null)),
+            default);
+
+        // Stream.Null delivers EOF synchronously before CreateAsync returns.
+        Assert.Equal(SessionLifecycle.Active, (await session.SnapshotAsync(default)).Lifecycle);
+        ptyFactory.Connection.Exit(255);
+        var snapshot = await session.SnapshotAsync(default);
+        Assert.Equal(SessionLifecycle.Closed, snapshot.Lifecycle);
+        Assert.Equal("The OpenSSH process exited with code 255.", snapshot.StatusDetail);
+    }
+
+    [Fact]
     public async Task RealOpenSshProcessExitReportsLocalExitCodeWithoutEndpointText()
     {
         _ = GhosttyVtTestRuntime.RequireStagedRuntime();
