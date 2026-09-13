@@ -114,6 +114,10 @@
   <PropertyGroup Condition="'$(AsuraMacReleaseNativeAot)' == 'true'">
     <NuGetLockFilePath>packages.osx-arm64.aot.lock.json</NuGetLockFilePath>
     <PublishAot>true</PublishAot>
+    <!-- ILC 10.0.11 reproducibly crashes with SIGBUS with server GC on macOS
+         arm64. Use workstation GC for the compiler; this does not change the
+         application's GC or disable any Native AOT analysis. -->
+    <IlcUseServerGc>false</IlcUseServerGc>
     <SelfContained>true</SelfContained>
     <OptimizationPreference>Speed</OptimizationPreference>
     <StripSymbols>true</StripSymbols>
