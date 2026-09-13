@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using Asura.Infrastructure;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -11,6 +13,8 @@ namespace Asura.Desktop;
 
 internal static class DesktopStartupFailurePresenter
 {
+    internal const string RecoveryUiSwitch = "--startup-recovery";
+
     public static void TryShow(
         string title,
         string message,
@@ -23,7 +27,7 @@ internal static class DesktopStartupFailurePresenter
         try
         {
             AppBuilder
-                .Configure(() => new StartupFailureApplication(title, message))
+                .Configure(() => new StartupFailureApplication(title, message, arguments))
                 .UsePlatformDetect()
                 .WithInterFont()
                 .StartWithClassicDesktopLifetime(
@@ -41,7 +45,8 @@ internal static class DesktopStartupFailurePresenter
 
     private sealed class StartupFailureApplication(
         string title,
-        string message) : Avalonia.Application
+        string message,
+        string[] arguments) : Avalonia.Application
     {
         public override void Initialize()
         {
@@ -54,21 +59,23 @@ internal static class DesktopStartupFailurePresenter
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
                 desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
-                desktop.MainWindow = CreateWindow(title, message);
+                desktop.MainWindow = CreateWindow(title, message, arguments);
             }
 
             base.OnFrameworkInitializationCompleted();
         }
 
-        private static Window CreateWindow(string title, string message)
+        internal static Window CreateWindow(string title, string message, string[] arguments)
         {
-            var closeButton = new Button
+            var retryButton = new Button
             {
-                Content = "Close",
-                HorizontalAlignment = HorizontalAlignment.Right,
+                Content = "Try again",
                 MinWidth = 96,
             };
-            AutomationProperties.SetName(closeButton, "Close startup message");
+            var recoveryButton = new Button { Content = "Open recovery workspace" };
+            AutomationProperties.SetName(retryButton, "Try opening saved profile again");
+            AutomationProperties.SetName(recoveryButton, "Open a separate recovery workspace");
+            var failureText = new TextBlock { TextWrapping = TextWrapping.Wrap };
 
             var window = new Window
             {
@@ -99,14 +106,57 @@ internal static class DesktopStartupFailurePresenter
                                 Opacity = 0.82,
                                 TextWrapping = TextWrapping.Wrap,
                             },
-                            closeButton,
+                            new TextBlock
+                            {
+                                Text = "Your saved profile is kept. You can retry or use a separate recovery workspace. Work done there is saved separately.",
+                                TextWrapping = TextWrapping.Wrap,
+                            },
+                            new StackPanel
+                            {
+                                Orientation = Orientation.Horizontal,
+                                Spacing = 10,
+                                Children = { retryButton, recoveryButton },
+                            },
+                            failureText,
                         },
                     },
                 },
             };
             AutomationProperties.SetName(window, title);
-            closeButton.Click += (_, _) => window.Close();
+            retryButton.Click += (_, _) => Launch(arguments);
+            recoveryButton.Click += (_, _) => Launch(DesktopProfileConfiguration.NextRecoveryArguments(arguments));
             return window;
+
+            void Launch(string[] nextArguments)
+            {
+                try
+                {
+                    DesktopStartupFailurePresenter.Launch(nextArguments);
+                    window.Close();
+                }
+                catch (Exception error) when (error is not OutOfMemoryException)
+                {
+                    Asura.Application.SecretSafeDiagnosticProjection.WriteStandardError("desktop.recovery-launch.failed", error);
+                    failureText.Text = "Asura could not start another window. You can try again after checking available disk space and access to the app.";
+                }
+            }
         }
+    }
+
+    internal static void Launch(string[] arguments)
+    {
+        using var process = Process.Start(CreateRestartStartInfo(arguments))
+            ?? throw new IOException("The new Asura process did not start.");
+    }
+
+    internal static ProcessStartInfo CreateRestartStartInfo(string[] arguments)
+    {
+        var launch = SelfReentryLaunch.Detect();
+        var start = new ProcessStartInfo(launch.Executable) { UseShellExecute = false };
+        foreach (var argument in launch.PrefixArguments.Concat(arguments))
+        {
+            start.ArgumentList.Add(argument);
+        }
+        return start;
     }
 }

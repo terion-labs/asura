@@ -6,6 +6,15 @@ namespace Asura.Browser.Tests;
 public sealed class BrowserEngineRuntimeTests
 {
     [Fact]
+    public void DesktopPumpDoesNotEnterNativeCodeBeforeBrowserInitialization()
+    {
+        // This test host has no initialized CEF runtime. Failed browser startup
+        // must leave the Avalonia dispatcher safe to keep running.
+        BrowserEngineRuntime.PumpIfRunning();
+        BrowserEngineRuntime.PumpIfRunning();
+    }
+
+    [Fact]
     public void RuntimeDisablesEveryUnusedOnDeviceModelStartupPath()
     {
         Assert.Equal(

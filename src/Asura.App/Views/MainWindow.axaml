@@ -417,7 +417,26 @@
          collapse it whole. The browser is now an ordinary Avalonia visual, but
          a collapsed ancestor also hides any native terminal hosts that a veil
          alone could not cover. -->
-    <Panel IsVisible="{CompiledBinding !ApplicationSecurityEditor.IsLocked}">
+    <Grid RowDefinitions="*,Auto" IsVisible="{CompiledBinding !ApplicationSecurityEditor.IsLocked}">
+    <controls:SurfaceCard
+        Grid.Row="1"
+        IsVisible="{CompiledBinding BrowserStartupRecovery.HasError}"
+        Margin="{controls:Inset Left=Md, Right=Md, Bottom=Md}"
+        Padding="{controls:Inset Horizontal=Md, Vertical=Sm}"
+        Tone="Notice"
+        AutomationProperties.LiveSetting="Polite"
+        AutomationProperties.Name="Browser recovery">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+        <TextBlock
+            Text="{CompiledBinding BrowserStartupRecovery.Message}"
+            TextWrapping="Wrap"
+            VerticalAlignment="Center" />
+        <Button Grid.Column="1"
+            IsVisible="{CompiledBinding BrowserStartupRecovery.CanRetry}"
+            Content="{CompiledBinding BrowserStartupRecovery.RetryLabel}"
+            Command="{CompiledBinding BrowserStartupRecovery.RetryCommand}" />
+      </Grid>
+    </controls:SurfaceCard>
     <!-- Runtime workspace -->
     <views:WorkspaceView
         x:Name="WorkspaceRouteView"
@@ -603,7 +622,7 @@
           Body="{Binding WorkspaceIsolationStartingBody}"
           IsVisible="{Binding IsWorkspaceIsolationStarting}" />
     </Border>
-    </Panel>
+    </Grid>
 
     <!-- Last child of the root grid on purpose: when the shell is locked,
          the veil sits above every panel, overlay and toast — and the layer

@@ -849,9 +849,9 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
                 ? $"{state.ActiveContexts} runtime context(s), {state.ActiveLeases} open browser owner(s), {state.StoredBytes} encrypted byte(s) saved between runs."
                 : "No saved or active web data for this profile.";
         }
-        catch (ObjectDisposedException)
+        catch (Exception error) when (error is InvalidOperationException or IOException or UnauthorizedAccessException)
         {
-            StateText = "Browser profile data control is unavailable.";
+            StateText = "Saved browser data is kept while the browser is unavailable. Use Retry browser to recover it.";
         }
     }
 

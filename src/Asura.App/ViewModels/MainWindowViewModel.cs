@@ -180,13 +180,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         IWorkspaceIsolationRuntimeInstaller? workspaceIsolationRuntimeInstaller = null,
         IWorkspaceRuntimeServicesFactory? workspaceRuntimeServicesFactory = null,
         IWorkspaceNetworkRuntime? workspaceNetworkRuntime = null,
-        ILocalMcpServerControl? localMcpServerControl = null)
+        ILocalMcpServerControl? localMcpServerControl = null,
+        IBrowserStartupRecovery? browserStartupRecovery = null)
     {
         SessionClient = sessionClient ?? throw new ArgumentNullException(nameof(sessionClient));
         _workspaceDefinitionOccupancy = workspaceDefinitionOccupancy
             ?? new WorkspaceDefinitionOccupancy();
         _uiThreadDispatcher = uiThreadDispatcher ?? AvaloniaUiThreadDispatcher.Instance;
         LocalMcpServerSettings = new(localMcpServerControl, _uiThreadDispatcher);
+        BrowserStartupRecovery = new(browserStartupRecovery, _uiThreadDispatcher);
         _workspaceNetworkRuntime = workspaceNetworkRuntime;
         _inactiveWorkspaceNetwork = new WorkspaceNetworkControlViewModel(
             new WorkspaceNetworkPolicyUpdate(NetworkPolicy.Direct, []),
@@ -7527,6 +7529,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     public bool ExitTerminalCopyMode() =>
         (ActivePanel as TerminalRuntimePanelViewModel)?.ExitCopyMode() == true;
 
+    public BrowserStartupRecoveryViewModel BrowserStartupRecovery { get; }
+
     public void ClearError() => OperationError = null;
 
     public void ShowApplicationKeySequenceHint(string message)
@@ -12483,6 +12487,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         lock (_shutdownGate)
         {
             _shutdownStarted = true;
+            BrowserStartupRecovery.Dispose();
             History.StopPresentationUpdates();
             try
             {

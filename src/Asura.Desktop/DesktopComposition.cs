@@ -221,19 +221,11 @@ public static class DesktopComposition
             provider.GetRequiredService<SqliteBrowserProfilePreferences>());
         services.AddSingleton<IBrowserProfileAuthenticationResolver,
             BrowserProfileAuthenticationResolver>();
-        services.AddSingleton(provider => new EncryptedBrowserProfileStateStore(
-            provider.GetRequiredService<BrowserProfileStoragePaths>()
-                .PersistentDirectory,
-            provider.GetRequiredService<IApplicationEncryption>()));
-        services.AddSingleton<IBrowserProfileStateStore>(provider =>
-            provider.GetRequiredService<EncryptedBrowserProfileStateStore>());
-        services.AddSingleton(provider => new CefBrowserProfileStore(
-            provider.GetRequiredService<IBrowserProfileAuthenticationResolver>(),
-            provider.GetRequiredService<IBrowserProfileStateStore>(),
-            provider.GetRequiredService<BrowserProfileStoragePaths>()
-                .RuntimeDirectory));
+        services.AddSingleton<DesktopBrowserStartup>();
+        services.AddSingleton<IBrowserStartupRecovery>(provider =>
+            provider.GetRequiredService<DesktopBrowserStartup>());
         services.AddSingleton<IBrowserProfileDataControl>(provider =>
-            provider.GetRequiredService<CefBrowserProfileStore>());
+            provider.GetRequiredService<DesktopBrowserStartup>());
         services.AddSingleton(provider => new PreviewContentCache(
             provider.GetRequiredService<IFilePreviewPreferences>(),
             Path.Combine(
