@@ -19,6 +19,10 @@ internal sealed record WorkspaceSdkConfiguration(
 
 internal sealed record WorkspaceSdkMount(string Source, string Destination, bool ReadOnly);
 
+internal sealed record WorkspaceSdkBootImagePin(string Sha256, long Size);
+
+internal sealed record WorkspaceSdkBootImages(string Directory, WorkspaceSdkBootImagePin Kernel, WorkspaceSdkBootImagePin Initfs);
+
 internal sealed record WorkspaceSdkExecRequest(
     IReadOnlyList<string> Arguments,
     IReadOnlyDictionary<string, string> Environment,
@@ -32,5 +36,6 @@ internal sealed record WorkspaceSdkExecRequest(
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(WorkspaceSdkConfiguration))]
+[JsonSerializable(typeof(WorkspaceSdkBootImages))]
 [JsonSerializable(typeof(WorkspaceSdkExecRequest))]
 internal sealed partial class WorkspaceSdkJsonContext : JsonSerializerContext;

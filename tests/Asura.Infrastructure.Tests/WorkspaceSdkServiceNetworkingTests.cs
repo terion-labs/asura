@@ -82,8 +82,19 @@ public sealed class WorkspaceSdkServiceNetworkingTests : IDisposable
         Directory.CreateDirectory(disk);
         await File.WriteAllTextAsync(Path.Combine(disk, "image.txt"), WorkspaceIsolationImages.Default, CancellationToken.None);
         await File.WriteAllTextAsync(Path.Combine(disk, "rootfs.ext4"), "fixture", CancellationToken.None);
+        var boot = Path.Combine(_directory, "boot");
+        Directory.CreateDirectory(boot);
+        await File.WriteAllTextAsync(Path.Combine(boot, "kernel.bin"), "kernel", CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(boot, "initfs.ext4"), "initfs", CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(disk, "runtime.json"), JsonSerializer.Serialize(new
+        {
+            rootfsPath = Path.Combine(disk, "rootfs.ext4"),
+            kernelPath = Path.Combine(boot, "kernel.bin"),
+            initfsPath = Path.Combine(boot, "initfs.ext4"),
+            initialArguments = new[] { "/sbin/init" },
+        }), CancellationToken.None);
         return new WorkspaceSdkIsolationProvider("/app/workspace-runtime", state, "/app/gateway", _runner,
-            501, 20, (_, _) => Task.FromResult("/app"), serviceIsolate: service);
+            501, 20, (_, _) => Task.FromResult(boot), serviceIsolate: service);
     }
 
     private static WorkspaceIsolationBinding Prepared(WorkspaceIsolationResult<WorkspaceIsolationBinding> result) =>

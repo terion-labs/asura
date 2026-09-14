@@ -4,13 +4,20 @@ using Asura.Core;
 
 namespace Asura.Infrastructure.Tests;
 
-public sealed class WorkspaceSdkIsolationProviderTests : IDisposable
+public sealed partial class WorkspaceSdkIsolationProviderTests : IDisposable
 {
     private readonly string _directory = Path.Combine(Path.GetTempPath(), $"asura-sdk-test-{Guid.NewGuid():N}");
     private readonly WorkspaceId _workspace = new("sdk-workspace");
     private readonly RecordingRunner _runner = new();
 
-    public WorkspaceSdkIsolationProviderTests() => Directory.CreateDirectory(_directory);
+    private string BootDirectory => Path.Combine(_directory, "boot-cache");
+
+    public WorkspaceSdkIsolationProviderTests()
+    {
+        Directory.CreateDirectory(BootDirectory);
+        File.WriteAllText(Path.Combine(BootDirectory, "kernel.bin"), "kernel before app update");
+        File.WriteAllText(Path.Combine(BootDirectory, "initfs.ext4"), "boot filesystem before app update");
+    }
 
     [Theory]
     [InlineData(null)]
@@ -72,8 +79,8 @@ public sealed class WorkspaceSdkIsolationProviderTests : IDisposable
         using var config = JsonDocument.Parse(await File.ReadAllTextAsync(serve.Arguments[2], CancellationToken.None));
         Assert.Equal(disk, config.RootElement.GetProperty("rootfsPath").GetString());
         Assert.Equal(JsonValueKind.Null, config.RootElement.GetProperty("memoryBytes").ValueKind);
-        Assert.Equal(Path.GetFullPath("/app/kernel.bin"), config.RootElement.GetProperty("kernelPath").GetString());
-        Assert.Equal(Path.GetFullPath("/app/initfs.ext4"), config.RootElement.GetProperty("initfsPath").GetString());
+        Assert.Equal(Path.Combine(BootDirectory, "kernel.bin"), config.RootElement.GetProperty("kernelPath").GetString());
+        Assert.Equal(Path.Combine(BootDirectory, "initfs.ext4"), config.RootElement.GetProperty("initfsPath").GetString());
         Assert.Equal("/sbin/init", config.RootElement.GetProperty("initialArguments")[0].GetString());
         Assert.Empty(config.RootElement.GetProperty("mounts").EnumerateArray());
         Assert.DoesNotContain(_runner.Commands, command => command.Executable.EndsWith("/container", StringComparison.Ordinal));
@@ -88,7 +95,7 @@ public sealed class WorkspaceSdkIsolationProviderTests : IDisposable
         var disk = await SeedDiskAsync();
         var provider = new WorkspaceSdkIsolationProvider("/app/workspace-runtime", Path.Combine(_directory, "state"),
             "/app/workspace-network-gateway", _runner, 501, 20,
-            (_, _) => Task.FromResult("/app"), serviceIsolate: true);
+            (_, _) => Task.FromResult(BootDirectory), serviceIsolate: true);
         var binding = Success(await provider.PrepareAsync(new WorkspaceIsolationPrepareRequest(_workspace), CancellationToken.None));
         using var config = JsonDocument.Parse(await File.ReadAllTextAsync(_runner.Starts[0].Arguments[2], CancellationToken.None));
         Assert.Equal(1024UL * 1024 * 1024, config.RootElement.GetProperty("memoryBytes").GetUInt64());
@@ -109,7 +116,7 @@ public sealed class WorkspaceSdkIsolationProviderTests : IDisposable
         _runner.Readiness = "invalid readiness";
         var provider = new WorkspaceSdkIsolationProvider("/app/workspace-runtime", Path.Combine(_directory, "state"),
             "/app/workspace-network-gateway", _runner, 501, 20,
-            (_, _) => Task.FromResult("/app"), serviceIsolate: true);
+            (_, _) => Task.FromResult(BootDirectory), serviceIsolate: true);
         _ = Assert.IsType<WorkspaceIsolationResult<WorkspaceIsolationBinding>.Failure>(
             await provider.PrepareAsync(new WorkspaceIsolationPrepareRequest(_workspace), CancellationToken.None));
         Assert.False(File.Exists(disk));
@@ -255,9 +262,10 @@ public sealed class WorkspaceSdkIsolationProviderTests : IDisposable
         Assert.True(File.Exists(disk));
     }
 
-    private WorkspaceSdkIsolationProvider Provider() => new(
+    private WorkspaceSdkIsolationProvider Provider(
+        Func<IProgress<WorkspaceIsolationProgress>?, CancellationToken, Task<string>>? prepareBootAssets = null) => new(
         "/app/workspace-runtime", Path.Combine(_directory, "state"),
-        "/app/workspace-network-gateway", _runner, 501, 20, (_, _) => Task.FromResult("/app"));
+        "/app/workspace-network-gateway", _runner, 501, 20, prepareBootAssets ?? ((_, _) => Task.FromResult(BootDirectory)));
 
     private async Task<string> SeedDiskAsync()
     {
@@ -266,6 +274,13 @@ public sealed class WorkspaceSdkIsolationProviderTests : IDisposable
         var disk = Path.Combine(path, "rootfs.ext4");
         await File.WriteAllTextAsync(Path.Combine(path, "image.txt"), WorkspaceIsolationImages.Default, CancellationToken.None);
         await File.WriteAllTextAsync(disk, "persistent disk", CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(path, "runtime.json"), JsonSerializer.Serialize(new
+        {
+            rootfsPath = disk,
+            kernelPath = Path.Combine(BootDirectory, "kernel.bin"),
+            initfsPath = Path.Combine(BootDirectory, "initfs.ext4"),
+            initialArguments = new[] { "/sbin/init" },
+        }), CancellationToken.None);
         return disk;
     }
 
