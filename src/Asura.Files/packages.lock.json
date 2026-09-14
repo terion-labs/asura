@@ -13,9 +13,9 @@
       },
       "FluentFTP": {
         "type": "Direct",
-        "requested": "[54.2.0, )",
-        "resolved": "54.2.0",
-        "contentHash": "n+OyaqU80gnOltXo2xBPZklAqbtxJAfl2GfblOIe5OCAk4jr/3zYW9Jf1fG6eR/USZq4AKWQcUMmKE9neSk8og=="
+        "requested": "[54.2.1, )",
+        "resolved": "54.2.1",
+        "contentHash": "Rv7MWPUR8orjoSHoDgH2Yp8JC7on6T4dh6+l76lvplu8p4nGmI+tl97hsiERy06HqigxCdhAccuZAv978d7aeQ=="
       },
       "LiteDB": {
         "type": "Direct",
