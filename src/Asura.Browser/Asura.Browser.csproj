@@ -14,6 +14,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Asura" />
     <InternalsVisibleTo Include="Asura.Browser.Tests" />
+    <InternalsVisibleTo Include="Asura.App.Tests" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -1431,12 +1431,15 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
     private void ThrowIfDisposed() =>
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-    private void OnBeforePopup(object? sender, BeforePopupEventArgs args)
+    private void OnBeforePopup(object? sender, BeforePopupEventArgs args) =>
+        RequestNewTab(args.TargetUrl, args.UserGesture);
+
+    private void RequestNewTab(string targetUrl, bool userGesture)
     {
         // Subscribing is the cancellation signal in Exclr8CEF. Only addresses
         // accepted by Asura's normal navigation boundary are promoted to
         // a shell tab; unsupported popup schemes stay closed.
-        if (!BrowserAddress.TryParse(args.TargetUrl, out var address))
+        if (!BrowserAddress.TryParse(targetUrl, out var address))
         {
             return;
         }
@@ -1449,7 +1452,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
                     this,
                     new BrowserNewTabRequestedEventArgs(
                         address,
-                        args.UserGesture));
+                        userGesture));
             }
         });
     }

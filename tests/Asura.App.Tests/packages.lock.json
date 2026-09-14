@@ -70,6 +70,11 @@
         "resolved": "3.1.4",
         "contentHash": "5mj99LvCqrq3CNi06xYdyIAXOEh+5b33F2nErCzI5zWiDdLHXiPXEWFSUAF8zlIv0ZWqjZNCwHTQeAPYbF3pCg=="
       },
+      "AngleSharp": {
+        "type": "Transitive",
+        "resolved": "1.5.2",
+        "contentHash": "LVZ7rrr6GHbhERhTgVDarVygl1e6KwE96pronA90LBOMacDhxR4lB+xYLjn/vlnUu+xbOB2RM9fuCPEx5bdyWA=="
+      },
       "Avalonia.BuildServices": {
         "type": "Transitive",
         "resolved": "11.3.2",
@@ -372,6 +377,9 @@
       "asura.app": {
         "type": "Project",
         "dependencies": {
+          "Asura.Application": "[1.0.0, )",
+          "Asura.Core": "[1.0.0, )",
+          "Asura.Docking": "[1.0.0, )",
           "Avalonia": "[12.0.5, )",
           "Avalonia.AvaloniaEdit": "[12.0.0, )",
           "Avalonia.Controls.ColorPicker": "[12.0.5, )",
@@ -384,9 +392,6 @@
           "Dock.Avalonia.Themes.Fluent": "[12.0.0.2, )",
           "Dock.Model.Inpc": "[12.0.0.2, )",
           "FluentIcons.Avalonia": "[2.1.333, )",
-          "Asura.Application": "[1.0.0, )",
-          "Asura.Core": "[1.0.0, )",
-          "Asura.Docking": "[1.0.0, )",
           "Markdig": "[1.3.2, )",
           "Mermaider": "[0.12.1, )",
           "Svg.Controls.Skia.Avalonia": "[12.0.0.13, )",
@@ -398,6 +403,15 @@
         "type": "Project",
         "dependencies": {
           "Asura.Core": "[1.0.0, )"
+        }
+      },
+      "asura.browser": {
+        "type": "Project",
+        "dependencies": {
+          "Asura.Application": "[1.0.0, )",
+          "Exclr8Cef.WebView": "[0.8.0, )",
+          "FluentIcons.Avalonia": "[2.1.333, )",
+          "ReverseMarkdown": "[6.2.1, )"
         }
       },
       "asura.core": {
@@ -421,6 +435,16 @@
           "Asura.Application": "[1.0.0, )",
           "Asura.Core": "[1.0.0, )",
           "Asura.Protocol": "[1.0.0, )"
+        }
+      },
+      "exclr8cef": {
+        "type": "Project"
+      },
+      "exclr8cef.webview": {
+        "type": "Project",
+        "dependencies": {
+          "Avalonia": "[12.0.3, )",
+          "Exclr8Cef": "[0.8.0, )"
         }
       },
       "Avalonia": {
@@ -566,6 +590,15 @@
         "dependencies": {
           "Microsoft.Extensions.ObjectPool": "10.0.3",
           "Sugiyama": "0.12.1"
+        }
+      },
+      "ReverseMarkdown": {
+        "type": "CentralTransitive",
+        "requested": "[6.2.1, )",
+        "resolved": "6.2.1",
+        "contentHash": "4ef2AoeNdBHrKoMU6t04dxTQ72TXsNO3RfWU1YN5jaJjCIrQhvNo9nhfO+6z+j7UBZNadsdN2d4rzAFO27xUnw==",
+        "dependencies": {
+          "AngleSharp": "1.5.2"
         }
       },
       "Svg.Controls.Skia.Avalonia": {
