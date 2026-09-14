@@ -565,6 +565,9 @@ public sealed class SettingsViewContractTests
 
         // The colour-mode tiles are the control: one exclusive group, so the
         // preview a user clicks is the same element that carries the choice.
+        // Their shared parent scopes the group to this page, even while detached.
+        var appearanceModeParent = FindNamedElement(root, "AppearanceModeSystem").Parent;
+        Assert.NotNull(appearanceModeParent);
         foreach (var tileName in new[]
                  {
                      "AppearanceModeSystem",
@@ -574,7 +577,8 @@ public sealed class SettingsViewContractTests
         {
             var tile = FindNamedElement(root, tileName);
             Assert.Equal("RadioButton", tile.Name.LocalName);
-            Assert.Equal("AppearanceMode", AttributeValue(tile, "GroupName"));
+            Assert.Null(AttributeValue(tile, "GroupName"));
+            Assert.Same(appearanceModeParent, tile.Parent);
             Assert.Equal("PresetCard", AttributeValue(tile, "Classes"));
         }
 
