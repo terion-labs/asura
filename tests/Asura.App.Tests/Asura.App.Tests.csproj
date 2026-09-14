@@ -31,6 +31,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Asura.App\Asura.App.csproj" />
+    <!-- Exercise native browser callbacks on the app's headless UI dispatcher. -->
+    <ProjectReference Include="..\..\src\Asura.Browser\Asura.Browser.csproj" />
     <!-- The real session host, so a shell-level test can be wrong about the
          host's rules instead of agreeing with a fake that has none. -->
     <ProjectReference Include="..\..\src\Asura.SessionHost\Asura.SessionHost.csproj" />

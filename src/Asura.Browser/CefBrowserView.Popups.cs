@@ -16,11 +16,31 @@ internal sealed partial class CefBrowserView
         ?? Volatile.Read(ref _resourceRequestPolicy)
         ?? _popupOpener?.ReadResourceRequestPolicy();
 
-    private void OnHostPopup(object? sender, HostPopupEventArgs args)
+    internal void OnHostPopup(object? sender, HostPopupEventArgs args)
     {
-        if (!CanHostPopup(_disposed, Dispatcher.UIThread.CheckAccess(),
+        if (!CanOpenPopup(_disposed, Dispatcher.UIThread.CheckAccess(),
                 _contentPolicy, args.UserGesture, args.TargetUrl))
         {
+            return;
+        }
+
+        // Chromium clears the frame name for ordinary target=_blank links.
+        // Keep blank WindowProxy handshakes and named windows on the native path.
+        var hasBlankTarget = string.Equals(
+            args.TargetFrameName, "_blank", StringComparison.OrdinalIgnoreCase);
+        var isUnnamedNavigation = string.IsNullOrEmpty(args.TargetFrameName)
+            && BrowserAddress.TryParse(args.TargetUrl, out var target)
+            && target != BrowserAddress.Blank;
+        if ((hasBlankTarget || isUnnamedNavigation)
+            && args.Disposition is Cef.WindowOpenDisposition.NewForegroundTab
+            or Cef.WindowOpenDisposition.NewBackgroundTab
+            or Cef.WindowOpenDisposition.NewWindow)
+        {
+            // The native host callback cancels an unadopted child without
+            // invoking BeforePopup. Forward tab requests explicitly before
+            // declining adoption. Named and programmatic blank windows keep
+            // their original native child and WindowProxy for sign-in flows.
+            RequestNewTab(args.TargetUrl, args.UserGesture);
             return;
         }
 
@@ -65,7 +85,7 @@ internal sealed partial class CefBrowserView
         }
     }
 
-    internal static bool CanHostPopup(bool disposed, bool hasUiAccess,
+    internal static bool CanOpenPopup(bool disposed, bool hasUiAccess,
         CefBrowserContentPolicy policy, bool userGesture, string targetUrl) =>
         !disposed && hasUiAccess && userGesture
         && policy is CefBrowserContentPolicy.Ordinary
