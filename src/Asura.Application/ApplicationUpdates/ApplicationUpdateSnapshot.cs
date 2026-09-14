@@ -5,8 +5,7 @@ public sealed record ApplicationUpdateSnapshot(
     ApplicationUpdateStage Stage,
     string? AvailableVersion = null,
     int? DownloadProgress = null,
-    ApplicationUpdateError Error = ApplicationUpdateError.None,
-    bool ApplyAllowed = true)
+    ApplicationUpdateError Error = ApplicationUpdateError.None)
 {
     public bool CanCheck => Stage is ApplicationUpdateStage.Idle
         or ApplicationUpdateStage.UpToDate
@@ -14,8 +13,8 @@ public sealed record ApplicationUpdateSnapshot(
         or ApplicationUpdateStage.Failed;
 
     public bool CanDownload =>
-        Stage == ApplicationUpdateStage.Available && ApplyAllowed;
+        Stage == ApplicationUpdateStage.Available;
 
     public bool CanRestartToApply =>
-        Stage == ApplicationUpdateStage.ReadyToRestart && ApplyAllowed;
+        Stage == ApplicationUpdateStage.ReadyToRestart;
 }

@@ -38,24 +38,19 @@ internal sealed class VelopackApplicationUpdateService : IApplicationUpdateServi
                 AllowVersionDowngrade = false,
             },
             locator);
-        var applyAllowed = ApplyDoesNotRequireMacOsElevation(
-            Environment.ProcessPath);
         Snapshot = !_updates.IsInstalled
             ? new(
                 distribution,
                 ApplicationUpdateStage.Unavailable,
-                Error: ApplicationUpdateError.NotInstalledByVelopack,
-                ApplyAllowed: applyAllowed)
+                Error: ApplicationUpdateError.NotInstalledByVelopack)
             : _updates.UpdatePendingRestart is { } pending
                 ? new(
                     distribution,
                     ApplicationUpdateStage.ReadyToRestart,
-                    pending.Version.ToString(),
-                    ApplyAllowed: applyAllowed)
+                    pending.Version.ToString())
                 : new(
                     distribution,
-                    ApplicationUpdateStage.Idle,
-                    ApplyAllowed: applyAllowed);
+                    ApplicationUpdateStage.Idle);
     }
 
     public event EventHandler<ApplicationUpdateSnapshot>? Changed;
@@ -189,9 +184,9 @@ internal sealed class VelopackApplicationUpdateService : IApplicationUpdateServi
             // session history. It gives up after Velopack's 60-second limit.
             _updates.WaitExitThenApplyUpdates(
                 release,
-                // Velopack 1.2.0 refuses its macOS elevation path in silent mode.
-                // Location checks are only UI guidance, never an authority boundary.
-                silent: OperatingSystem.IsMacOS(),
+                // Let Velopack request macOS authorization when replacing a
+                // protected bundle. Silent mode prevents that update path.
+                silent: false,
                 restart: true,
                 restartArgs: null);
             _requestShutdown();
@@ -214,24 +209,5 @@ internal sealed class VelopackApplicationUpdateService : IApplicationUpdateServi
     {
         Snapshot = snapshot;
         Changed?.Invoke(this, snapshot);
-    }
-
-    private static bool ApplyDoesNotRequireMacOsElevation(string? processPath)
-    {
-        if (!OperatingSystem.IsMacOS())
-        {
-            return true;
-        }
-
-        if (string.IsNullOrWhiteSpace(processPath))
-        {
-            return false;
-        }
-
-        var fullPath = Path.GetFullPath(processPath);
-        return !fullPath.StartsWith("/Applications/", StringComparison.Ordinal)
-            && !fullPath.StartsWith(
-                "/System/Applications/",
-                StringComparison.Ordinal);
     }
 }

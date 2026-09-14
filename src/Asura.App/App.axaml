@@ -10,6 +10,9 @@
       <NativeMenuItem
           Header="About Asura…"
           Click="OnAboutMenuClick" />
+      <NativeMenuItem
+          Header="Check for Updates…"
+          Click="OnCheckForUpdatesMenuClick" />
       <NativeMenuItemSeparator />
       <NativeMenuItem
           Header="Settings…"

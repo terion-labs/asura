@@ -310,6 +310,16 @@ public sealed partial class App : Avalonia.Application
         MainWindow.NavigateToSettings(SettingsPage.About);
     }
 
+    private async void OnCheckForUpdatesMenuClick(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        var window = MainWindow;
+        window.Show();
+        window.Activate();
+        await window.CheckForUpdatesAsync();
+    }
+
     private void AttachAppearance()
     {
         _platformSettings = PlatformSettings

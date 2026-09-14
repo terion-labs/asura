@@ -27,7 +27,9 @@ redirect downloads.
 Direct GitHub builds use Velopack 1.2.0. The channel combines runtime and track,
 for example `osx-arm64-stable`, so a feed cannot cross operating systems or CPU
 architectures. Update checks run only after the user selects "Check for
-updates". A second action downloads the selected package. "Restart to update"
+updates" in Settings > About or "Check for Updates…" in the native application
+menu. The menu opens the About page so the result and next action are visible.
+A second action downloads the selected package. "Restart to update"
 arms Velopack's external updater and then requests Asura's normal shutdown,
 which preserves the existing session, recovery, database, and browser cleanup.
 Automatic startup checks and automatic startup application are disabled.
@@ -69,8 +71,11 @@ inside the direct updater. GitHub checks remain user initiated. Downloads use
 Velopack's package checksum and cache, and installation waits for a graceful app
 exit.
 
-Velopack can request elevation for a bundle in `/Applications`. Asura does
-not offer download or apply actions for those system-wide installs, avoiding a
-privileged local-package replacement path; they require the signed installer.
+GitHub builds can download and apply updates regardless of their installation
+directory, including `/Applications`. Asura starts Velopack with `silent: false`
+so it can request macOS authorization when bundle replacement needs elevation
+and display update errors. No separate installer is required. The updater owns
+the permission check; a path prefix does not determine whether replacement is
+allowed. This supersedes the original system-wide-install restriction.
 App Store builds remain sandboxed and platform managed; Velopack does not support
 the macOS App Sandbox.

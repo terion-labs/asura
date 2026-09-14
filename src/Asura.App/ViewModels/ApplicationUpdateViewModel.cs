@@ -43,14 +43,10 @@ public sealed class ApplicationUpdateViewModel : ObservableObject, IDisposable
             "No check has run yet. Asura checks only when you ask.",
         ApplicationUpdateStage.Checking => "Checking for updates…",
         ApplicationUpdateStage.UpToDate => "Asura is up to date.",
-        ApplicationUpdateStage.Available when !_snapshot.ApplyAllowed =>
-            $"Version {_snapshot.AvailableVersion} is available, but this system-wide install requires the signed installer.",
         ApplicationUpdateStage.Available =>
             $"Version {_snapshot.AvailableVersion} is available.",
         ApplicationUpdateStage.Downloading =>
             $"Downloading version {_snapshot.AvailableVersion} · {_snapshot.DownloadProgress ?? 0}%",
-        ApplicationUpdateStage.ReadyToRestart when !_snapshot.ApplyAllowed =>
-            $"Version {_snapshot.AvailableVersion} is downloaded, but this system-wide install requires the signed installer.",
         ApplicationUpdateStage.ReadyToRestart =>
             $"Version {_snapshot.AvailableVersion} is ready. Restart to apply it.",
         ApplicationUpdateStage.Failed => FailureStatus(_snapshot.Error),
