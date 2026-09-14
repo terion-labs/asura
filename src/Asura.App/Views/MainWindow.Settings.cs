@@ -251,6 +251,12 @@ public sealed partial class MainWindow
     {
         _ = sender;
         _ = e;
+        await CheckForUpdatesAsync();
+    }
+
+    internal async Task CheckForUpdatesAsync()
+    {
+        NavigateToSettings(SettingsPage.About);
         try
         {
             await ViewModel.ApplicationUpdates.CheckAsync(_lifetime.Token);

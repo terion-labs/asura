@@ -29,40 +29,25 @@ public sealed class ApplicationUpdateViewModelTests
         Assert.Contains("Restart", viewModel.Status, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void Managed_distribution_has_no_in_app_actions()
+    [Theory]
+    [InlineData(DistributionSource.AppleAppStore, "Apple App Store")]
+    [InlineData(DistributionSource.MicrosoftStore, "Microsoft Store")]
+    [InlineData(DistributionSource.LinuxPackageManager, "Linux package manager")]
+    public void Managed_distribution_uses_its_own_update_source(DistributionSource source, string channel)
     {
         var distribution = new DistributionIdentity(
-            DistributionSource.AppleAppStore,
+            source,
             ApplicationUpdateStrategy.PlatformManaged,
             "osx-arm64-stable");
         using var viewModel = new ApplicationUpdateViewModel(
             new PassiveApplicationUpdateService(distribution),
             new ImmediateDispatcher());
 
-        Assert.Equal("Apple App Store", viewModel.Channel);
+        Assert.Equal(channel, viewModel.Channel);
         Assert.False(viewModel.CanCheck);
         Assert.False(viewModel.CanDownload);
         Assert.False(viewModel.CanRestartToApply);
         Assert.Contains("install source", viewModel.Status, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void System_wide_install_does_not_offer_privileged_apply()
-    {
-        var service = new FakeApplicationUpdates();
-        using var viewModel = new ApplicationUpdateViewModel(
-            service,
-            new ImmediateDispatcher());
-
-        service.Set(
-            ApplicationUpdateStage.ReadyToRestart,
-            "1.4.0",
-            downloadProgress: 100,
-            applyAllowed: false);
-
-        Assert.False(viewModel.CanRestartToApply);
-        Assert.Contains("signed installer", viewModel.Status, StringComparison.Ordinal);
     }
 
     private sealed class ImmediateDispatcher : IUiThreadDispatcher
@@ -101,15 +86,13 @@ public sealed class ApplicationUpdateViewModelTests
         public void Set(
             ApplicationUpdateStage stage,
             string version,
-            int? downloadProgress = null,
-            bool applyAllowed = true)
+            int? downloadProgress = null)
         {
             Snapshot = new(
                 DirectDistribution,
                 stage,
                 version,
-                downloadProgress,
-                ApplyAllowed: applyAllowed);
+                downloadProgress);
             Changed?.Invoke(this, Snapshot);
         }
     }

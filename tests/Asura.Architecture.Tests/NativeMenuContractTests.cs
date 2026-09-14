@@ -22,7 +22,11 @@ public sealed class NativeMenuContractTests
             .Select(element => AttributeValue(element, "Header") ?? string.Empty)
             .ToArray();
 
-        Assert.Equal(["About Asura…", "Settings…"], headers);
+        Assert.Equal(["About Asura…", "Check for Updates…", "Settings…"], headers);
+        var checkForUpdates = Assert.Single(
+            application.Descendants(),
+            element => AttributeValue(element, "Header") == "Check for Updates…");
+        Assert.Equal("OnCheckForUpdatesMenuClick", AttributeValue(checkForUpdates, "Click"));
     }
 
     [Fact]
