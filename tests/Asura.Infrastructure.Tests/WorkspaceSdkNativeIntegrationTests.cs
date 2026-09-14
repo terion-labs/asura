@@ -72,6 +72,8 @@ public sealed class WorkspaceSdkNativeIntegrationTests
             Assert.Equal("routed", await ExecuteAsync(provider, binding,
                 "set -eu; test ! -e /opt/asura/bin/workspace-gateway; "
                 + "getent ahostsv4 example.com >/dev/null; curl -4 --fail --silent --show-error --max-time 25 https://example.com >/dev/null; "
+                + "sudo env DEBIAN_FRONTEND=noninteractive apt-get update -qq; "
+                + "sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends jq >/dev/null; "
                 + "printf persistent > /home/asura/sdk-persistence-test; printf routed", deadline.Token));
             await session.DisposeAsync();
             session = null;
@@ -81,8 +83,15 @@ public sealed class WorkspaceSdkNativeIntegrationTests
 
             _ = Prepared(await provider.StopAsync(binding, deadline.Token));
             binding = null;
+            // A fresh provider models relaunch after app replacement. Existing
+            // workspaces must not enter even the image-selection/download path.
+            provider = new WorkspaceSdkIsolationProvider(executable, Path.Combine(directory, "state"),
+                gateway, processes, 1000, 1000,
+                (_, _) => throw new InvalidOperationException("A persistent workspace must not select new boot images."));
             binding = Prepared(await provider.PrepareAsync(new WorkspaceIsolationPrepareRequest(workspace), deadline.Token));
-            Assert.Equal("persistent", await ExecuteAsync(provider, binding, "cat /home/asura/sdk-persistence-test", deadline.Token));
+            Assert.Equal("persistent", await ExecuteAsync(provider, binding,
+                "set -eu; dpkg-query -W -f='${Status}' jq | grep -q 'install ok installed'; "
+                + "test \"$(printf '{\"value\":42}' | jq -r .value)\" = 42; cat /home/asura/sdk-persistence-test", deadline.Token));
         }
         finally
         {

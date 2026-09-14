@@ -41,7 +41,6 @@ public sealed partial class WorkspaceSdkIsolationProvider : IWorkspaceConnection
     // Keep their guest ceiling bounded independently of the host-scaled workspace policy.
     internal const ulong ServiceMemoryBytes = 1024UL * 1024 * 1024;
     private readonly Func<IProgress<WorkspaceIsolationProgress>?, CancellationToken, Task<string>> _prepareBootAssets;
-    private string? _bootDirectory;
     private readonly ConcurrentDictionary<WorkspaceId, WorkspaceState> _workspaces = new();
 
     public WorkspaceSdkIsolationProvider(string executable, string? stateRoot = null)
@@ -120,7 +119,7 @@ public sealed partial class WorkspaceSdkIsolationProvider : IWorkspaceConnection
         await state.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var image = request.ImageReference ?? WorkspaceIsolationImages.Default;
+            var image = request.ImageReference ?? state.Image ?? WorkspaceIsolationImages.Default;
             if (state.Process is { HasExited: false })
             {
                 if (!string.Equals(state.Image, image, StringComparison.Ordinal)
@@ -145,12 +144,17 @@ public sealed partial class WorkspaceSdkIsolationProvider : IWorkspaceConnection
             CreatePrivateDirectory(_socketRoot);
             var socketDirectory = SocketDirectory(request.WorkspaceId);
             CreatePrivateDirectory(socketDirectory);
-            _bootDirectory = await _prepareBootAssets(progress, cancellationToken).ConfigureAwait(false);
             var rootfs = Path.Combine(directory, "rootfs.ext4");
             var imageMarker = Path.Combine(directory, "image.txt");
             if (File.Exists(imageMarker))
             {
-                if (!string.Equals(await File.ReadAllTextAsync(imageMarker, cancellationToken).ConfigureAwait(false), image, StringComparison.Ordinal))
+                var savedImage = await File.ReadAllTextAsync(imageMarker, cancellationToken).ConfigureAwait(false);
+                if (request.ImageReference is null)
+                {
+                    // A changed app default applies only to newly created environments.
+                    image = savedImage;
+                }
+                if (!string.Equals(savedImage, image, StringComparison.Ordinal))
                 {
                     return Failure("The persistent or staged workspace uses another image. Recreate the environment to change it.");
                 }
@@ -169,10 +173,20 @@ public sealed partial class WorkspaceSdkIsolationProvider : IWorkspaceConnection
                 File.Move(pendingMarker, imageMarker, overwrite: false);
             }
 
+            state.BootDirectory = await SelectWorkspaceBootImagesAsync(directory, progress, cancellationToken).ConfigureAwait(false);
+            var readyMarker = Path.Combine(directory, "disk.ready");
             if (!File.Exists(rootfs))
             {
+                if (File.Exists(readyMarker))
+                {
+                    return Failure("The persistent workspace disk is missing. Restore it from backup or explicitly recreate the environment.");
+                }
                 progress?.Report(new WorkspaceIsolationProgress("Preparing the SDK workspace disk…"));
-                await PrepareDiskAsync(request, rootfs, progress, cancellationToken).ConfigureAwait(false);
+                await PrepareDiskAsync(request, rootfs, image, progress, cancellationToken).ConfigureAwait(false);
+            }
+            if (!File.Exists(readyMarker))
+            {
+                await WritePrivateAsync(readyMarker, ReadOnlyMemory<byte>.Empty, cancellationToken).ConfigureAwait(false);
             }
 
             state.Mounts = request.Mounts;
@@ -387,6 +401,8 @@ public sealed partial class WorkspaceSdkIsolationProvider : IWorkspaceConnection
             }
 
             CreatePrivateDirectory(directory);
+            state.BootDirectory = null;
+            state.Image = null;
             return WorkspaceIsolationResult<Unit>.Succeed(Unit.Value);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or OperationCanceledException)
@@ -460,7 +476,8 @@ public sealed partial class WorkspaceSdkIsolationProvider : IWorkspaceConnection
     private WorkspaceSdkConfiguration Configuration(
         WorkspaceIsolationPrepareRequest request, string rootfs, string socket, IReadOnlyList<string> initialArguments)
     {
-        var assetDirectory = _bootDirectory ?? throw new InvalidOperationException("Boot images must be provisioned before starting a workspace.");
+        var assetDirectory = _workspaces[request.WorkspaceId].BootDirectory
+            ?? throw new InvalidOperationException("Boot images must be selected before starting a workspace.");
         return new(ResourceName(request.WorkspaceId), socket, rootfs,
             Path.Combine(assetDirectory, "kernel.bin"),
             Path.Combine(assetDirectory, "initfs.ext4"), _gatewayExecutable,
@@ -611,6 +628,7 @@ public sealed partial class WorkspaceSdkIsolationProvider : IWorkspaceConnection
         public IWorkspaceGatewayProcess? Process { get; set; }
         public IReadOnlyList<WorkspaceIsolationMount> Mounts { get; set; } = [];
         public string? Image { get; set; }
+        public string? BootDirectory { get; set; }
         public WorkspaceIsolationNetworkBinding? Network { get; set; }
         public IReadOnlyList<uint> Groups { get; set; } = [];
     }

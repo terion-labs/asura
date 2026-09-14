@@ -33,6 +33,7 @@ public sealed partial class WorkspaceSdkIsolationProvider
     private async ValueTask PrepareDiskAsync(
         WorkspaceIsolationPrepareRequest request,
         string rootfs,
+        string image,
         IProgress<WorkspaceIsolationProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -40,18 +41,19 @@ public sealed partial class WorkspaceSdkIsolationProvider
         {
             // The template has no user mounts, credentials, account or connection
             // state. Provision it once, then clone a private mutable disk per route.
-            var identity = $"service-v1-capacity4096MiB\n{FullyQualifiedImage(request.ImageReference ?? WorkspaceIsolationImages.Default)}\n{BootstrapScript}";
+            var identity = $"service-v1-capacity4096MiB\n{FullyQualifiedImage(image)}\n{BootstrapScript}";
             await WorkspaceServiceDiskTemplate.CloneAsync(Path.Combine(_stateRoot, "service-templates"), identity,
-                rootfs, (template, token) => PrepareFreshDiskAsync(request, template, progress, token),
+                rootfs, (template, token) => PrepareFreshDiskAsync(request, template, image, progress, token),
                 cancellationToken).ConfigureAwait(false);
             return;
         }
-        await PrepareFreshDiskAsync(request, rootfs, progress, cancellationToken).ConfigureAwait(false);
+        await PrepareFreshDiskAsync(request, rootfs, image, progress, cancellationToken).ConfigureAwait(false);
     }
 
     private async ValueTask PrepareFreshDiskAsync(
         WorkspaceIsolationPrepareRequest request,
         string rootfs,
+        string image,
         IProgress<WorkspaceIsolationProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -60,7 +62,7 @@ public sealed partial class WorkspaceSdkIsolationProvider
         {
             var prepareArguments = new List<string>
             {
-                "prepare", "--image", FullyQualifiedImage(request.ImageReference ?? WorkspaceIsolationImages.Default),
+                "prepare", "--image", FullyQualifiedImage(image),
                 "--rootfs", pending, "--state-directory", Path.Combine(_stateRoot, "images"),
             };
             if (_serviceIsolate) { prepareArguments.AddRange(["--capacity-mib", "4096"]); }
