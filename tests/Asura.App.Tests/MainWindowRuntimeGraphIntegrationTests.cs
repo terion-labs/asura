@@ -559,8 +559,12 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
         Assert.Single(window.OpenWorkspaces);
     }
 
-    [Fact]
-    public async Task PendingWorkspaceRecoveryBlocksColdIsolationEditsBeforeProviderPreparationFinishes()
+    [Theory]
+    [InlineData(null)]
+    [InlineData(WorkspaceIsolationErrorCode.PrepareFailed)]
+    [InlineData(WorkspaceIsolationErrorCode.Cancelled)]
+    public async Task PendingWorkspaceRecoveryShowsProgressAndBlocksEditsUntilPreparationCompletes(
+        WorkspaceIsolationErrorCode? failure)
     {
         var snapshot = WithWorkspaceIsolation(CreateCatalogSnapshot(), WorkspaceId);
         var workspace = snapshot.Workspaces
@@ -591,6 +595,8 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
         {
             PrepareEntered = new(TaskCreationOptions.RunContinuationsAsynchronously),
             AllowPrepare = new(TaskCreationOptions.RunContinuationsAsynchronously),
+            PrepareProgress = new WorkspaceIsolationProgress("Starting the workspace environment…"),
+            PrepareFailure = failure,
         };
         var (recoveryClient, _) = CreateSessionClient();
         var (editingClient, _) = CreateSessionClient();
@@ -604,8 +610,25 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
             catalog,
             workspaceDefinitionOccupancy: occupancy);
 
-        var restoring = recoveryWindow.RestoreRuntimeSnapshotsAsync([recoverySnapshot]);
+        using var cancellation = new CancellationTokenSource();
+        var progressShown = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        recoveryWindow.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(MainWindowViewModel.WorkspaceIsolationStartingHeading)
+                && recoveryWindow.WorkspaceIsolationStartingHeading == provider.PrepareProgress.Status)
+            {
+                progressShown.TrySetResult();
+            }
+        };
+        var restoring = recoveryWindow.RestoreRuntimeSnapshotsAsync([recoverySnapshot], cancellation.Token);
         await provider.PrepareEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await progressShown.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(recoveryWindow.IsWorkspaceIsolationStarting);
+        Assert.Contains(workspace.Name, recoveryWindow.WorkspaceIsolationStartingBody, StringComparison.Ordinal);
+        Assert.True(recoveryWindow.IsWorkspaceVisible);
+        Assert.False(recoveryWindow.IsWorkspaceCanvasVisible);
+        Assert.True(recoveryWindow.Workspaces.Single(item => item.Id == WorkspaceId).IsInFront);
+        Assert.Null(recoveryWindow.RuntimeWorkspace);
         Assert.True(editingWindow.WorkspaceSettings.TryBeginEdit(
             WorkspaceId,
             out _,
@@ -623,8 +646,20 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
         Assert.False(blocked.IsSuccess);
         Assert.Equal(DefinitionStoreErrorCode.InvalidDefinition, blocked.Error?.Code);
 
+        if (failure == WorkspaceIsolationErrorCode.Cancelled)
+        {
+            await cancellation.CancelAsync();
+        }
+
         provider.AllowPrepare.TrySetResult(true);
-        Assert.True(await restoring);
+        Assert.Equal(failure is null, await restoring.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.False(recoveryWindow.IsWorkspaceIsolationStarting);
+        Assert.True(recoveryWindow.IsWorkspaceCanvasVisible);
+        if (failure is not null)
+        {
+            Assert.Null(recoveryWindow.RuntimeWorkspace);
+            Assert.True(recoveryWindow.HasOperationError);
+        }
     }
 
     [Fact]
@@ -676,6 +711,7 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
 
         Assert.False(await restoring.WaitAsync(TimeSpan.FromSeconds(5)));
         Assert.Null(viewModel.RuntimeWorkspace);
+        Assert.False(viewModel.IsWorkspaceIsolationStarting);
         Assert.Single(provider.StopBindings);
     }
 
@@ -748,11 +784,15 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
 
         var restoring = viewModel.RestoreRuntimeSnapshotsAsync([recoverySnapshot]);
         await recorder.DelayedRegistrationEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(viewModel.IsWorkspaceIsolationStarting);
+        Assert.False(viewModel.IsWorkspaceCanvasVisible);
+        Assert.Equal("Restoring workspace panels and connections…", viewModel.WorkspaceIsolationStartingHeading);
         catalogProxy.Snapshot = CreateCatalogSnapshot();
         recorder.AllowDelayedRegistration.TrySetResult();
 
         Assert.False(await restoring.WaitAsync(TimeSpan.FromSeconds(5)));
         Assert.Null(viewModel.RuntimeWorkspace);
+        Assert.False(viewModel.IsWorkspaceIsolationStarting);
         Assert.Null(recorder.CurrentWorkspace);
         Assert.Single(provider.StopBindings);
         Assert.Contains(

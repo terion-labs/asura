@@ -26,8 +26,8 @@ public sealed partial class MainWindowViewModel
 
     public string WorkspaceIsolationStartingBody =>
         _workspaceIsolationStartingWorkspaceName is { } name
-            ? $"Preparing the persistent isolate for “{name}”."
-            : "Preparing the workspace's persistent isolate.";
+            ? $"Preparing the isolated environment for “{name}”."
+            : "Preparing the workspace's isolated environment.";
 
     private string WorkspaceIsolationRuntimeDisplayName =>
         _workspaceIsolationRuntimeInstaller?.RuntimeDisplayName
@@ -280,6 +280,7 @@ public sealed partial class MainWindowViewModel
 
     private ValueTask<WorkspaceIsolationPreparation> PrepareRecoveredWorkspaceIsolationAsync(
         RuntimeWorkspaceRecoveryPayload recovered,
+        Guid activationId,
         CancellationToken cancellationToken)
     {
         if (recovered.HistorySource?.ToHistorySource() is not { } source
@@ -340,6 +341,13 @@ public sealed partial class MainWindowViewModel
                 "The workspace runtime image changed since this recovery snapshot was written. "
                 + "Discard the snapshot and reopen the workspace.");
             return ValueTask.FromResult(WorkspaceIsolationPreparation.Failed);
+        }
+
+        if (workspace.IsIsolated)
+        {
+            // Session restore needs the same visible preparation state as a
+            // manual open, before the first provider operation can suspend.
+            BeginWorkspaceIsolationStartup(workspace, activationId);
         }
 
         return PrepareWorkspaceIsolationAsync(workspace, cancellationToken);

@@ -3842,6 +3842,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             var isolation = await PrepareRecoveredWorkspaceIsolationAsync(
                 payload.Workspace,
+                activationId,
                 operationCancellation);
             if (!isolation.Succeeded || _shutdownStarted)
             {
@@ -3856,6 +3857,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     "Workspace isolation or host mounts changed while recovery was preparing. "
                     + "Discard the recovery snapshot or restore it again with the saved configuration.");
                 return false;
+            }
+
+            if (_workspaceIsolationStartupId == activationId)
+            {
+                ReportWorkspaceIsolationProgress(new WorkspaceIsolationProgress(
+                    "Restoring workspace panels and connections…"));
             }
 
             runtime = RestoreWorkspace(
@@ -3972,6 +3979,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             }
             finally
             {
+                CompleteWorkspaceIsolationStartup(activationId);
                 CompleteWorkspaceActivation(activationId, activationCompletion);
             }
         }
