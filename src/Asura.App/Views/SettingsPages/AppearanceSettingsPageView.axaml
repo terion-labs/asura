@@ -23,12 +23,13 @@
       <!--
         The tile is the control. Each one previews the chrome its mode produces
         using that mode's literal surface, border, and text values.
+        Sibling radio buttons use their logical parent as the group, so detached
+        settings pages cannot change selections in another page.
       -->
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceMd}">
         <RadioButton
             x:Name="AppearanceModeSystem"
             Classes="PresetCard"
-            GroupName="AppearanceMode"
             IsCheckedChanged="OnAppearanceChanged"
             AutomationProperties.Name="Color mode System">
           <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
@@ -49,7 +50,6 @@
         <RadioButton
             x:Name="AppearanceModeDark"
             Classes="PresetCard"
-            GroupName="AppearanceMode"
             IsCheckedChanged="OnAppearanceChanged"
             AutomationProperties.Name="Color mode Dark">
           <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
@@ -69,7 +69,6 @@
         <RadioButton
             x:Name="AppearanceModeLight"
             Classes="PresetCard"
-            GroupName="AppearanceMode"
             IsCheckedChanged="OnAppearanceChanged"
             AutomationProperties.Name="Color mode Light">
           <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
@@ -544,7 +543,7 @@
             <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize11}" Text="Where the tab strip sits" />
           </StackPanel>
           <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-            <RadioButton x:Name="TabPlacementTop" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" GroupName="TabPlacement" AutomationProperties.Name="Tab strip at the top">
+            <RadioButton x:Name="TabPlacementTop" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Tab strip at the top">
               <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                 <Border Height="56" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Xs}">
                   <StackPanel VerticalAlignment="Top" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
@@ -556,7 +555,7 @@
                 <TextBlock HorizontalAlignment="Center" Classes="PresetName" Text="Top" />
               </StackPanel>
             </RadioButton>
-            <RadioButton x:Name="TabPlacementBottom" Grid.Column="1" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" GroupName="TabPlacement" AutomationProperties.Name="Tab strip at the bottom">
+            <RadioButton x:Name="TabPlacementBottom" Grid.Column="1" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Tab strip at the bottom">
               <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                 <Border Height="56" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Xs}">
                   <StackPanel VerticalAlignment="Bottom" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
@@ -568,7 +567,7 @@
                 <TextBlock HorizontalAlignment="Center" Classes="PresetName" Text="Bottom" />
               </StackPanel>
             </RadioButton>
-            <RadioButton x:Name="TabPlacementLeft" Grid.Column="2" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" GroupName="TabPlacement" AutomationProperties.Name="Tab strip on the left">
+            <RadioButton x:Name="TabPlacementLeft" Grid.Column="2" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Tab strip on the left">
               <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                 <Border Height="56" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Xs}">
                   <StackPanel HorizontalAlignment="Left" Spacing="{DynamicResource ShellSpaceXs}">
@@ -580,7 +579,7 @@
                 <TextBlock HorizontalAlignment="Center" Classes="PresetName" Text="Left" />
               </StackPanel>
             </RadioButton>
-            <RadioButton x:Name="TabPlacementRight" Grid.Column="3" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" GroupName="TabPlacement" AutomationProperties.Name="Tab strip on the right">
+            <RadioButton x:Name="TabPlacementRight" Grid.Column="3" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Tab strip on the right">
               <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                 <Border Height="56" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Xs}">
                   <StackPanel HorizontalAlignment="Right" Spacing="{DynamicResource ShellSpaceXs}">
@@ -602,7 +601,7 @@
             <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize11}" Text="Which edge the squares dock to" />
           </StackPanel>
           <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-            <RadioButton x:Name="WorkspacePanelLeft" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" GroupName="WorkspacePanelPlacement" AutomationProperties.Name="Workspaces panel on the left">
+            <RadioButton x:Name="WorkspacePanelLeft" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Workspaces panel on the left">
               <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                 <Border Height="56" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Xs}">
                   <StackPanel HorizontalAlignment="Left" Spacing="{DynamicResource ShellSpaceXs}">
@@ -614,7 +613,7 @@
                 <TextBlock HorizontalAlignment="Center" Classes="PresetName" Text="Left" />
               </StackPanel>
             </RadioButton>
-            <RadioButton x:Name="WorkspacePanelRight" Grid.Column="1" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" GroupName="WorkspacePanelPlacement" AutomationProperties.Name="Workspaces panel on the right">
+            <RadioButton x:Name="WorkspacePanelRight" Grid.Column="1" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Workspaces panel on the right">
               <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                 <Border Height="56" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Xs}">
                   <StackPanel HorizontalAlignment="Right" Spacing="{DynamicResource ShellSpaceXs}">
