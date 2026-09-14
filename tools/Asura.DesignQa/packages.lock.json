@@ -86,8 +86,8 @@
       },
       "Avalonia.Remote.Protocol": {
         "type": "Transitive",
-        "resolved": "12.0.5",
-        "contentHash": "/S4T1uZzXvPpN0Sqs44u3Rl5/qCZHHefRK7xyORONHH1w60IfsfsE5RbwFSku7qmib1DsGZZXxtweJq24ERfbg=="
+        "resolved": "12.1.2",
+        "contentHash": "DdLTe9xKXxxfRcXmUw1trXZpBpz1YiZYWXx0DfMVPFAnkCszKsHLi67kaZfGJqtfQq2EySKd2qgRYX2QYkSxcg=="
       },
       "AWSSDK.Core": {
         "type": "Transitive",
@@ -186,16 +186,16 @@
       },
       "FluentIcons.Common": {
         "type": "Transitive",
-        "resolved": "2.1.333",
-        "contentHash": "ph0Tqd6TIkSOr9Iixw+k6og1Y92UldfGLTxlDfj+FmdKtlG95qDX418TseY6gRcQVS9w+Tt2ye10RVM0kcGHmg=="
+        "resolved": "2.1.341",
+        "contentHash": "oB8C18x3YdHv/NiEtQ8b5eluveW4gClgLFat7GHYaGj2iyq3rYp9zflOk0i08wg70cH/e31Q8p2t0UY4TnaSAw=="
       },
       "FluentIcons.Resources.Avalonia": {
         "type": "Transitive",
-        "resolved": "2.1.333",
-        "contentHash": "RaFZs1cjhW0qzUE6ir5tjLQqIxq5c2l0QhuYb1Dckp3FHleHfGsLrME2/yYVLoF6eA6SCpQ+5ki+XiiNrSgamA==",
+        "resolved": "2.1.341",
+        "contentHash": "fA4XK35fyQ0X/D/hGFWujbn0usqH/MGDfaTtnqthUzW31837lS2/tE/V9oyky3OWEUbZurbOfTlWWoee47kAlQ==",
         "dependencies": {
           "Avalonia": "12.0.0",
-          "FluentIcons.Common": "[2.1.333]"
+          "FluentIcons.Common": "[2.1.341]"
         }
       },
       "HarfBuzzSharp": {
@@ -234,8 +234,8 @@
       },
       "MicroCom.Runtime": {
         "type": "Transitive",
-        "resolved": "0.11.4",
-        "contentHash": "yZ8+Lgwo+KtRI29TB2mIOEMzV+csMJ+pKZg4YHReAP3vRewWLKKeYfrBDo5FS69rWnEbCfU3sbM+ZEQr+GDLtg=="
+        "resolved": "0.11.6",
+        "contentHash": "NdNWGDiZ6eS/Mf/9+QHR91cj1K7Hy+PX9yrHI/zM7xFYuj9IWT2uxtB6sCHjrnxAeLV9fut1R6zHDUGKX6f9lQ=="
       },
       "Microsoft.Bcl.AsyncInterfaces": {
         "type": "Transitive",
@@ -581,7 +581,10 @@
       "asura.app": {
         "type": "Project",
         "dependencies": {
-          "Avalonia": "[12.0.5, )",
+          "Asura.Application": "[1.0.0, )",
+          "Asura.Core": "[1.0.0, )",
+          "Asura.Docking": "[1.0.0, )",
+          "Avalonia": "[12.1.2, )",
           "Avalonia.AvaloniaEdit": "[12.0.0, )",
           "Avalonia.Controls.ColorPicker": "[12.0.5, )",
           "Avalonia.Controls.DataGrid": "[12.0.1, )",
@@ -592,10 +595,7 @@
           "Dock.Avalonia": "[12.0.0.2, )",
           "Dock.Avalonia.Themes.Fluent": "[12.0.0.2, )",
           "Dock.Model.Inpc": "[12.0.0.2, )",
-          "FluentIcons.Avalonia": "[2.1.333, )",
-          "Asura.Application": "[1.0.0, )",
-          "Asura.Core": "[1.0.0, )",
-          "Asura.Docking": "[1.0.0, )",
+          "FluentIcons.Avalonia": "[2.1.341, )",
           "Markdig": "[1.3.2, )",
           "Mermaider": "[0.12.1, )",
           "Svg.Controls.Skia.Avalonia": "[12.0.0.13, )",
@@ -615,11 +615,11 @@
       "asura.databases": {
         "type": "Project",
         "dependencies": {
+          "Asura.Application": "[1.0.0, )",
+          "Asura.Core": "[1.0.0, )",
           "ClickHouse.Client": "[7.14.0, )",
           "DuckDB.NET.Data.Full": "[1.5.5, )",
           "FirebirdSql.Data.FirebirdClient": "[10.3.1, )",
-          "Asura.Application": "[1.0.0, )",
-          "Asura.Core": "[1.0.0, )",
           "Microsoft.Data.SqlClient": "[6.0.2, )",
           "Microsoft.Data.Sqlite.Core": "[10.0.10, )",
           "MySqlConnector": "[2.4.0, )",
@@ -638,9 +638,9 @@
         "type": "Project",
         "dependencies": {
           "AWSSDK.S3": "[4.0.102.4, )",
-          "FluentFTP": "[54.2.0, )",
           "Asura.Application": "[1.0.0, )",
           "Asura.Core": "[1.0.0, )",
+          "FluentFTP": "[54.2.0, )",
           "LiteDB": "[5.0.21, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.10, )",
           "SMBLibrary": "[1.5.7.1, )",
@@ -660,13 +660,13 @@
       },
       "Avalonia": {
         "type": "CentralTransitive",
-        "requested": "[12.0.5, )",
-        "resolved": "12.0.5",
-        "contentHash": "eGDbwos1AMlOaXnGN5IQ+JGG3RViFFuyN3GP70irOSbqZt4H9A6quIP6uVFVni/bBczmt5ELGuHzN+lkLQSD1A==",
+        "requested": "[12.1.2, )",
+        "resolved": "12.1.2",
+        "contentHash": "GHSe4qxjbqqxB570xuB4KtoD+Qhk3uKXJUXbelGYhGz/ti8xEoL7e5DGun8hcsXHondszPPBEdcC68szw7vUKg==",
         "dependencies": {
           "Avalonia.BuildServices": "11.3.2",
-          "Avalonia.Remote.Protocol": "12.0.5",
-          "MicroCom.Runtime": "0.11.4"
+          "Avalonia.Remote.Protocol": "12.1.2",
+          "MicroCom.Runtime": "0.11.6"
         }
       },
       "Avalonia.AvaloniaEdit": {
@@ -814,13 +814,13 @@
       },
       "FluentIcons.Avalonia": {
         "type": "CentralTransitive",
-        "requested": "[2.1.333, )",
-        "resolved": "2.1.333",
-        "contentHash": "rysgTNvvjI8dlRVvt9bmSxfK06ZmPi1X8WIvo1Od+MgA3lI+QUp7mWvaD42Ni7Leh34iFKCME8dEAJdyKZWtlQ==",
+        "requested": "[2.1.341, )",
+        "resolved": "2.1.341",
+        "contentHash": "jNSssfEvuA4qxKMZfhFwZ+uZmlCzfTsalaQ+fcumWiQt8iQFxaZZsbr3Om2tv2QIa143jQNTYL+yNuxrpnYXHw==",
         "dependencies": {
           "Avalonia": "12.0.0",
-          "FluentIcons.Common": "[2.1.333]",
-          "FluentIcons.Resources.Avalonia": "[2.1.333]"
+          "FluentIcons.Common": "[2.1.341]",
+          "FluentIcons.Resources.Avalonia": "[2.1.341]"
         }
       },
       "LiteDB": {
