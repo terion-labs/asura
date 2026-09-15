@@ -14,6 +14,9 @@ static atomic_int stopped, ready[64], loaded[64], closed[64], cookie_seen;
 static atomic_int proxy_auth, server_auth, reply_ready;
 static atomic_int preference_completed, preference_accepted;
 static int owners[64], children[64], last_child, close_during_creation, close_child_during_creation, proxy_port;
+static atomic_int menu_ready, link_tab_requested;
+static uint64_t menu_token;
+static char menu_items[16384], menu_link[2048];
 static int waiting_message, next_message, reply_success, unexpected_auth;
 
 static void pump(void) {
@@ -90,6 +93,80 @@ static int evaluate(int browser, const char* expression) {
     return excef_execute_devtools_method(browser, waiting_message, "Runtime.evaluate", parameters)
         && wait_value(&reply_ready, 1) && reply_success;
 }
+static void context_menu(int browser, uint64_t token, int x, int y,
+        const char* items, const char* link, const char* source) {
+    (void)browser; (void)x; (void)y; (void)source;
+    menu_token = token;
+    size_t offset = 0;
+    for (const char* character = items; *character && offset + 1 < sizeof(menu_items); ++character) {
+        if (*character != '&') menu_items[offset++] = *character;
+    }
+    menu_items[offset] = '\0';
+    snprintf(menu_link, sizeof(menu_link), "%s", link);
+    atomic_store(&menu_ready, 1);
+}
+static void new_tab(int browser, const char* url, const char* frame, int disposition, int gesture) {
+    (void)browser; (void)frame;
+    fprintf(stderr, "Context link requested %s disposition=%d gesture=%d\n", url, disposition, gesture);
+    if (strcmp(url, "http://fixture.invalid/context-link") == 0 && disposition == 3 && gesture)
+        atomic_store(&link_tab_requested, 1);
+}
+static int menu_command(const char* label) {
+    const char* line = menu_items;
+    while (*line) {
+        const char* end = strchr(line, '\n');
+        const char* found = strstr(line, label);
+        if (found && (!end || found < end)) {
+            int id = 0;
+            if (sscanf(line, "%d", &id) == 1) return id;
+        }
+        if (!end) break;
+        line = end + 1;
+    }
+    return -1;
+}
+static int test_context_menu(int browser) {
+    if (!evaluate(browser, "window.fixtureBody=document.body.innerHTML; document.body.innerHTML='<a href=/context-link style=position:fixed;left:0;top:0;width:200px;height:80px>Context link</a>'; true")) return 0;
+    excef_set_browser_focus(browser, 1);
+    if (!evaluate(browser, "document.elementFromPoint(20,20)!==null")) return 0;
+    // Let the renderer publish the hit-test data for the edited fixture.
+    for (int frame = 0; frame < 60; ++frame) pump();
+    atomic_store(&menu_ready, 0);
+    excef_send_mouse_move(browser, 20, 20, 0, 0);
+    excef_send_mouse_click(browser, 20, 20, 2, 0, 1, 0);
+    excef_send_mouse_click(browser, 20, 20, 2, 1, 1, 0);
+    if (!wait_value(&menu_ready, 1)) { fprintf(stderr, "No native context callback\n"); return 0; }
+    int link_command = menu_command("Open Link in New Tab");
+    int success = link_command >= 0 && menu_command("Back") >= 0
+        && menu_command("Forward") >= 0 && menu_command("Reload") >= 0
+        && menu_command("Select All") >= 0
+        && strcmp(menu_link, "http://fixture.invalid/context-link") == 0;
+    fprintf(stderr, "Native link context menu: %s\n", menu_items);
+    excef_resolve_context_menu(menu_token, success ? link_command : -1);
+    success = success && wait_value(&link_tab_requested, 1);
+    if (success) success = evaluate(browser, "document.body.innerHTML='<input value=editable style=position:fixed;left:0;top:0;width:200px;height:80px>'; document.querySelector('input').focus(); true");
+    excef_set_browser_focus(browser, 1);
+    if (!evaluate(browser, "document.elementFromPoint(20,20)!==null")) return 0;
+    // Let the renderer publish the hit-test data for the edited fixture.
+    for (int frame = 0; frame < 60; ++frame) pump();
+    atomic_store(&menu_ready, 0);
+    excef_send_mouse_move(browser, 20, 20, 0, 0);
+    excef_send_mouse_click(browser, 20, 20, 2, 0, 1, 0);
+    excef_send_mouse_click(browser, 20, 20, 2, 1, 1, 0);
+    success = success && wait_value(&menu_ready, 1);
+    if (atomic_load(&menu_ready)) {
+        fprintf(stderr, "Native edit context menu: %s\n", menu_items);
+        int select_all = menu_command("Select all");
+        if (select_all < 0) select_all = menu_command("Select All");
+        success = success && select_all >= 0 && menu_command("Cut") >= 0
+            && menu_command("Copy") >= 0 && menu_command("Paste") >= 0;
+        excef_resolve_context_menu(menu_token, success ? select_all : -1);
+        if (success) success = evaluate(browser, "document.querySelector('input').selectionStart===0 && document.querySelector('input').selectionEnd===8");
+    }
+    if (!evaluate(browser, "document.body.innerHTML=window.fixtureBody; true")) success = 0;
+    fprintf(stderr, "Native context menu metadata/actions: %s\n", success ? "passed" : "FAILED");
+    return success;
+}
 static int eventually(int browser, const char* expression) {
     time_t deadline = time(NULL) + 10;
     while (time(NULL) < deadline) {
@@ -160,6 +237,8 @@ int main(int argc, char** argv) {
     excef_set_load_end_callback(load_ended);
     excef_set_browser_closed_callback(browser_closed);
     excef_set_host_popup_callback(host_popup);
+    excef_set_before_popup_callback(new_tab);
+    excef_set_context_menu_callback_v2(context_menu);
     excef_set_auth_request_callback_v2(authenticate);
     excef_set_devtools_message_callback(devtools);
     excef_set_request_context_completion_callback(preference_applied);
@@ -174,6 +253,7 @@ int main(int argc, char** argv) {
     if (!excef_set_preference_async(context, "asura.invalid.preference", "true", 2)
         || !wait_value(&preference_completed, 1) || atomic_load(&preference_accepted)) return 4;
     int parent = create_parent(context), success = parent > 0;
+    if (success) success = test_context_menu(parent);
     if (success) success = evaluate(parent, "document.cookie='fixture=shared; path=/'; document.cookie.includes('fixture=shared')");
     if (success) success = evaluate(parent, "window.popup=window.open('', 'fixture'); !!window.popup && popup.opener===window");
     int child = children[parent];

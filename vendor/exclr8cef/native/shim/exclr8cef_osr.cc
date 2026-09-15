@@ -1508,7 +1508,7 @@ void Exclr8CefOsrHandler::OnDownloadUpdated(CefRefPtr<CefBrowser> /*browser*/,
 }
 
 void Exclr8CefOsrHandler::OnBeforeContextMenu(
-        CefRefPtr<CefBrowser> /*browser*/,
+        CefRefPtr<CefBrowser> browser,
         CefRefPtr<CefFrame> /*frame*/,
         CefRefPtr<CefContextMenuParams> params,
         CefRefPtr<CefMenuModel> model) {
@@ -1583,6 +1583,21 @@ void Exclr8CefOsrHandler::OnBeforeContextMenu(
         return;
     }
 
+    // Alloy/OSR does not supply the complete Chrome page menu.
+    // Preserve CEF's selection, spelling and edit actions and add page commands.
+    if (model->GetCount() > 0) model->AddSeparator();
+    const auto add_page_command = [&](int id, const char* label, bool enabled) {
+        if (model->GetIndexOf(id) < 0) model->AddItem(id, label);
+        model->SetEnabled(id, enabled);
+    };
+    add_page_command(MENU_ID_BACK, "Back", browser && browser->CanGoBack());
+    add_page_command(MENU_ID_FORWARD, "Forward", browser && browser->CanGoForward());
+    add_page_command(MENU_ID_RELOAD, "Reload", true);
+    add_page_command(MENU_ID_STOPLOAD, "Stop", browser && browser->IsLoading());
+    model->AddSeparator();
+    add_page_command(MENU_ID_SELECT_ALL, "Select All", true);
+    add_page_command(MENU_ID_VIEW_SOURCE, "View Page Source", true);
+
     const auto page_edit_flags = params->GetEditStateFlags();
     const bool can_copy_selection =
         !params->GetSelectionText().empty() ||
@@ -1649,7 +1664,8 @@ bool Exclr8CefOsrHandler::RunContextMenu(CefRefPtr<CefBrowser> /*browser*/,
       }
     };
     append_model(model, 0);
-    g_context_menu_cb(id_, token, params->GetXCoord(), params->GetYCoord(), items.c_str());
+    g_context_menu_cb(id_, token, params->GetXCoord(), params->GetYCoord(), items.c_str(),
+        params->GetLinkUrl().ToString().c_str(), params->GetSourceUrl().ToString().c_str());
     return true;
 }
 
@@ -3237,7 +3253,7 @@ extern "C" void excef_set_scroll_offset_callback(excef_scroll_offset_cb_t cb) { 
 extern "C" void excef_set_auto_resize_callback(excef_auto_resize_cb_t cb) { exclr8cef::g_auto_resize_cb = cb; }
 extern "C" void excef_set_js_dialog_callback(excef_js_dialog_cb_t cb) { exclr8cef::g_js_dialog_cb = cb; }
 extern "C" void excef_set_file_dialog_callback(excef_file_dialog_cb_t cb) { exclr8cef::g_file_dialog_cb = cb; }
-extern "C" void excef_set_context_menu_callback(excef_context_menu_cb_t cb) { exclr8cef::g_context_menu_cb = cb; }
+extern "C" void excef_set_context_menu_callback_v2(excef_context_menu_cb_t cb) { exclr8cef::g_context_menu_cb = cb; }
 extern "C" void excef_set_download_starting_callback(excef_download_starting_cb_t cb) { exclr8cef::g_download_starting_cb = cb; }
 extern "C" void excef_set_download_progress_callback(excef_download_progress_cb_t cb) { exclr8cef::g_download_progress_cb = cb; }
 extern "C" void excef_set_auth_request_callback_v2(excef_auth_request_cb_t cb) { exclr8cef::g_auth_request_cb = cb; }

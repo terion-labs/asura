@@ -437,11 +437,38 @@ public sealed class ContextMenuEventArgs : EventArgs
     /// <summary>Click position in CSS pixels relative to the page.</summary>
     public int Y { get; }
     /// <summary>The menu items CEF would have shown. Render these in the host UI.</summary>
-    public IReadOnlyList<ContextMenuItem> Items { get; }
+    public IReadOnlyList<ContextMenuItem> Items => _items;
+    private readonly List<ContextMenuItem> _items;
+    private readonly Dictionary<int, Func<Task>> _hostCommands = new();
+    public string LinkUrl { get; }
+    public string SourceUrl { get; }
 
-    internal ContextMenuEventArgs(ulong token, int x, int y, ContextMenuItem[] items)
+    internal ContextMenuEventArgs(ulong token, int x, int y, ContextMenuItem[] items,
+        string linkUrl = "", string sourceUrl = "")
     {
-        _token = token; X = x; Y = y; Items = items;
+        _token = token; X = x; Y = y; _items = new(items);
+        LinkUrl = linkUrl; SourceUrl = sourceUrl;
+    }
+
+    /// <summary>Add a host-owned action before the menu is displayed.</summary>
+    public void InsertCommand(int index, string label, Func<Task> action)
+    {
+        var id = -2 - _hostCommands.Count;
+        _hostCommands.Add(id, action);
+        _items.Insert(index, new ContextMenuItem(id, label, ContextMenuItemKind.Command, true, false, 0));
+    }
+
+    public Task ExecuteAsync(int commandId)
+    {
+        if (!_hostCommands.TryGetValue(commandId, out var action))
+        {
+            Continue(commandId);
+            return Task.CompletedTask;
+        }
+        if (System.Threading.Interlocked.Exchange(ref _resolved, 1) != 0)
+            return Task.CompletedTask;
+        Native.Excef.excef_resolve_context_menu(_token, -1);
+        return action();
     }
 
     /// <summary>Resolve with the chosen command id (must match one of <see cref="Items"/>).</summary>

@@ -36,10 +36,13 @@ public interface IBrowserNewTabRequestSource
 
 public sealed class BrowserNewTabRequestedEventArgs(
     BrowserAddress address,
-    bool userGesture) : EventArgs
+    bool userGesture,
+    BrowserOpenTarget target = BrowserOpenTarget.NewTab) : EventArgs
 {
     public BrowserAddress Address { get; } =
         address ?? throw new ArgumentNullException(nameof(address));
 
     public bool UserGesture { get; } = userGesture;
+
+    public BrowserOpenTarget Target { get; } = target;
 }

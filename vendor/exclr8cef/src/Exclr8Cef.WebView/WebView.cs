@@ -1830,7 +1830,7 @@ public class WebView : Control, IWebView, IDisposable
         return normalized.ToString();
     }
 
-    private void ResolveBrowserContextMenu(
+    private async void ResolveBrowserContextMenu(
         ContextMenu menu,
         ContextMenuEventArgs request,
         int commandId)
@@ -1843,8 +1843,12 @@ public class WebView : Control, IWebView, IDisposable
 
         _browserContextMenu = null;
         _browserContextMenuRequest = null;
-        request.Continue(commandId);
         menu.Close();
+        try { await request.ExecuteAsync(commandId); }
+        catch (Exception exception)
+        {
+            System.Diagnostics.Trace.TraceError("Browser context action failed: {0}", exception.Message);
+        }
     }
 
     private void CancelBrowserContextMenu(

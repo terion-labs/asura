@@ -701,5 +701,25 @@ internal static class SqliteSchema
             DROP TABLE definition_payload_migration_v20_guard;
             """,
             IsDestructive: true),
+        new(
+            21,
+            "browser-address-history",
+            """
+            CREATE TABLE browser_history (
+                profile_id TEXT NOT NULL,
+                partition_kind INTEGER NOT NULL,
+                partition_identity TEXT NOT NULL,
+                address TEXT NOT NULL,
+                title TEXT NOT NULL,
+                visited REAL NOT NULL,
+                PRIMARY KEY (profile_id, partition_kind, partition_identity, address)
+            ) WITHOUT ROWID;
+
+            UPDATE definitions
+            SET payload_json = json_set(payload_json, '$.privacy.history', 'BoundedLocalHistory')
+            WHERE kind = 'browser-profile' AND schema_version = 1
+                AND lower(json_extract(payload_json, '$.persistence')) = 'durablemetadata'
+                AND lower(json_extract(payload_json, '$.privacy.history')) = 'donotrecord';
+            """),
     ];
 }

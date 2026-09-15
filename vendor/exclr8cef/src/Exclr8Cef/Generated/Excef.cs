@@ -404,7 +404,7 @@ internal static unsafe partial class Excef
     public static extern void excef_resolve_file_dialog([NativeTypeName("uint64_t")] ulong token, [NativeTypeName("const char *")] sbyte* paths);
 
     [DllImport("exclr8cef", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    public static extern void excef_set_context_menu_callback([NativeTypeName("excef_context_menu_cb_t")] delegate* unmanaged[Cdecl]<int, ulong, int, int, sbyte*, void> cb);
+    public static extern void excef_set_context_menu_callback_v2([NativeTypeName("excef_context_menu_cb_t")] delegate* unmanaged[Cdecl]<int, ulong, int, int, sbyte*, sbyte*, sbyte*, void> cb);
 
     [DllImport("exclr8cef", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     public static extern void excef_resolve_context_menu([NativeTypeName("uint64_t")] ulong token, int command_id);

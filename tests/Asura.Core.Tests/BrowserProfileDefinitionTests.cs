@@ -20,7 +20,7 @@ public sealed class BrowserProfileDefinitionTests
         Assert.Equal(
             BrowserPermissionRetention.DenyAll,
             profile.Privacy.Permissions);
-        Assert.Equal(BrowserActivityRetention.DoNotRecord, profile.Privacy.History);
+        Assert.Equal(BrowserActivityRetention.BoundedLocalHistory, profile.Privacy.History);
         Assert.Equal(BrowserActivityRetention.DoNotRecord, profile.Privacy.Downloads);
     }
 

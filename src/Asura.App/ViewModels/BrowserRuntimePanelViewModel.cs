@@ -9,6 +9,13 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
     private readonly CancellationTokenSource _lifetime = new();
     private readonly IBrowserRendererViewFactory _rendererViewFactory;
     private readonly ConnectionProfile _connection;
+    private readonly IBrowserHistory? _history;
+    private BrowserAddress? _recordedAddress;
+    private long _recordedRevision = -1;
+    private string? _recordedTitle;
+    private CancellationTokenSource? _historySearch;
+    private IReadOnlyList<BrowserHistoryEntry> _historySuggestions = [];
+    private bool _isHistoryVisible;
     private readonly BrowserProfileBinding _profile;
     private readonly string? _connectionDisplayName;
     private BrowserRendererView? _rendererView;
@@ -77,7 +84,8 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         ConnectionProfile connection,
         BrowserProfileBinding profile,
         IBrowserRendererViewFactory rendererViewFactory,
-        string? connectionDisplayName = null)
+        string? connectionDisplayName = null,
+        IBrowserHistory? history = null)
         : base(id, PanelKind.Browser, title, "Browser")
     {
         ArgumentNullException.ThrowIfNull(owner);
@@ -88,6 +96,7 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         _profile = profile ?? throw new ArgumentNullException(nameof(profile));
         _connectionDisplayName = connectionDisplayName;
+        _history = history;
         if (connection.Endpoint is not (ConnectionEndpoint.Local or ConnectionEndpoint.Ssh))
         {
             throw new ArgumentException(
@@ -197,6 +206,139 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
     {
         ArgumentNullException.ThrowIfNull(state);
         CurrentAddress = state.Address;
+        if (state.LoadState == BrowserLoadState.Ready && state.DocumentRevision > 0
+            && (_recordedAddress != state.Address || _recordedRevision != state.DocumentRevision
+                || !string.Equals(_recordedTitle, state.Title, StringComparison.Ordinal)))
+        {
+            _recordedAddress = state.Address;
+            _recordedRevision = state.DocumentRevision;
+            _recordedTitle = state.Title;
+            _ = RememberAddressAsync(state);
+        }
+    }
+
+    public IReadOnlyList<BrowserHistoryEntry> HistorySuggestions
+    {
+        get => _historySuggestions;
+        private set => SetProperty(ref _historySuggestions, value);
+    }
+
+    public bool IsHistoryVisible
+    {
+        get => _isHistoryVisible;
+        set
+        {
+            if (!value)
+            {
+                CancelHistorySearch();
+            }
+            SetProperty(ref _isHistoryVisible, value);
+        }
+    }
+
+    public void ShowHistory(string query)
+    {
+        CancelHistorySearch();
+        if (!_disposed)
+        {
+            _ = PopulateHistoryAsync(query);
+        }
+    }
+
+    public void CancelHistorySearch() => _historySearch?.Cancel();
+
+    public void HideHistory() => IsHistoryVisible = false;
+
+    private async Task PopulateHistoryAsync(string query)
+    {
+        using var search = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        _historySearch = search;
+        try
+        {
+            await Task.Delay(120, search.Token);
+            var entries = await SearchHistoryAsync(query, search.Token);
+            if (!search.IsCancellationRequested)
+            {
+                HistorySuggestions = entries;
+                IsHistoryVisible = entries.Count > 0 || HistoryStatus is not null;
+            }
+        }
+        catch (OperationCanceledException) when (search.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            if (ReferenceEquals(_historySearch, search))
+            {
+                _historySearch = null;
+            }
+        }
+    }
+
+    public string? HistoryStatus { get; private set; }
+
+    public async Task<IReadOnlyList<BrowserHistoryEntry>> SearchHistoryAsync(
+        string query, CancellationToken cancellationToken)
+    {
+        if (_history is null || _profile.Definition.Persistence == BrowserProfilePersistence.PrivateSession
+            || _profile.Definition.Privacy.History == BrowserActivityRetention.DoNotRecord)
+        {
+            return [];
+        }
+        try
+        {
+            var entries = await _history.SearchAsync(_profile.Selection, query, cancellationToken);
+            HistoryStatus = null;
+            OnPropertyChanged(nameof(HistoryStatus));
+            return entries;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            HistoryStatus = "Browser history unavailable: " + exception.Message;
+            OnPropertyChanged(nameof(HistoryStatus));
+            return [];
+        }
+    }
+
+    public async Task ClearHistoryAsync(CancellationToken cancellationToken)
+    {
+        if (_history is null)
+        {
+            return;
+        }
+        try
+        {
+            await _history.ClearAsync(_profile.Selection, cancellationToken);
+            HistorySuggestions = [];
+            HistoryStatus = null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            HistoryStatus = "Could not clear browser history: " + exception.Message;
+        }
+        OnPropertyChanged(nameof(HistoryStatus));
+        IsHistoryVisible = HistoryStatus is not null;
+    }
+
+    private async Task RememberAddressAsync(BrowserSessionState state)
+    {
+        if (_history is null || _profile.Definition.Persistence == BrowserProfilePersistence.PrivateSession
+            || _profile.Definition.Privacy.History == BrowserActivityRetention.DoNotRecord)
+        {
+            return;
+        }
+        try
+        {
+            await _history.RecordAsync(_profile.Selection, state.Address, state.Title, _lifetime.Token);
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            HistoryStatus = "Browser history unavailable: " + exception.Message;
+            OnPropertyChanged(nameof(HistoryStatus));
+        }
     }
 
     private async Task InitializeAsync()

@@ -994,9 +994,10 @@ typedef void (*excef_context_menu_cb_t)(
     int browser_id,
     uint64_t token,
     int x, int y,
-    const char* items_joined);
+    const char* items_joined,
+    const char* link_url, const char* source_url);
 
-EXCEF_API void excef_set_context_menu_callback(excef_context_menu_cb_t cb);
+EXCEF_API void excef_set_context_menu_callback_v2(excef_context_menu_cb_t cb);
 
 // Resolve with the chosen command id, or -1 to dismiss without action.
 EXCEF_API void excef_resolve_context_menu(uint64_t token, int command_id);

@@ -216,6 +216,7 @@ public static class DesktopComposition
         services.AddSingleton<IFilePreviewPreferences>(provider =>
             provider.GetRequiredService<SqliteFilePreviewPreferences>());
         services.AddSingleton<IGitPanelPreferences, SqliteGitPanelPreferences>();
+        services.AddSingleton<IBrowserHistory, SqliteBrowserHistory>();
         services.AddSingleton<SqliteBrowserProfilePreferences>();
         services.AddSingleton<IBrowserProfilePreferences>(provider =>
             provider.GetRequiredService<SqliteBrowserProfilePreferences>());

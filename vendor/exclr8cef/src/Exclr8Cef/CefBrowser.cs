@@ -1462,8 +1462,9 @@ public sealed partial class CefBrowser : IDisposable
     internal void RaiseFileDialog(ulong token, Cef.FileDialogMode mode, string title, string defaultPath, string[] filters)
         => FileDialog?.Invoke(this, new FileDialogEventArgs(token, mode, title, defaultPath, filters));
 
-    internal void RaiseContextMenu(ulong token, int x, int y, ContextMenuItem[] items)
-        => ContextMenu?.Invoke(this, new ContextMenuEventArgs(token, x, y, items));
+    internal void RaiseContextMenu(ulong token, int x, int y, ContextMenuItem[] items,
+        string linkUrl = "", string sourceUrl = "")
+        => ContextMenu?.Invoke(this, new ContextMenuEventArgs(token, x, y, items, linkUrl, sourceUrl));
 
     internal bool HasDownloadStartingSubscriber => DownloadStarting is not null;
 

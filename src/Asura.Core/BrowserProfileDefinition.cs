@@ -28,6 +28,7 @@ public enum BrowserPermissionRetention
 public enum BrowserActivityRetention
 {
     DoNotRecord,
+    BoundedLocalHistory,
 }
 
 public enum BrowserAuthenticationScheme
@@ -39,8 +40,8 @@ public enum BrowserAuthenticationScheme
 /// <summary>
 /// The closed set of privacy choices implemented by the current browser host.
 /// Durable content is sealed into encrypted application storage. Permission
-/// requests and downloads are blocked, and navigation history is not projected
-/// into Asura's durable activity records.
+/// requests and downloads are blocked. Durable profiles retain bounded local
+/// address suggestions; private sessions do not record browsing history.
 /// </summary>
 public sealed record BrowserProfilePrivacyPolicy
 {
@@ -54,7 +55,7 @@ public sealed record BrowserProfilePrivacyPolicy
         if (!Enum.IsDefined(webContent)
             || !Enum.IsDefined(permissions)
             || !Enum.IsDefined(history)
-            || !Enum.IsDefined(downloads))
+            || downloads != BrowserActivityRetention.DoNotRecord)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(webContent),
@@ -70,7 +71,7 @@ public sealed record BrowserProfilePrivacyPolicy
     public static BrowserProfilePrivacyPolicy Strict { get; } = new(
         BrowserWebContentRetention.EncryptedBetweenRuns,
         BrowserPermissionRetention.DenyAll,
-        BrowserActivityRetention.DoNotRecord,
+        BrowserActivityRetention.BoundedLocalHistory,
         BrowserActivityRetention.DoNotRecord);
 
     public static BrowserProfilePrivacyPolicy PrivateSession { get; } = new(
