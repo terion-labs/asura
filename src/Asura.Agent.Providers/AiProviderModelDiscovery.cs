@@ -6,10 +6,9 @@ namespace Asura.Agent.Providers;
 
 internal sealed class AiProviderModelDiscovery(
     AiProviderHttpTransport transport,
-    AiProviderRuntimeLimits limits)
+    AiProviderRuntimeLimits limits,
+    Func<CancellationToken, ValueTask<string?>>? readCodexVersion)
 {
-    private const string CodexClientVersion = "0.145.0";
-
     public async ValueTask<IReadOnlyList<AiProviderModelDescriptor>> ListAsync(
         AiProviderProfile profile,
         CancellationToken cancellationToken)
@@ -43,7 +42,6 @@ internal sealed class AiProviderModelDiscovery(
             using var document = await ParseAsync(limited, operation.Token).ConfigureAwait(false);
             return ParseModels(
                 document.RootElement,
-                profile.Identity,
                 discovery,
                 limits.MaximumModels);
         }
@@ -75,10 +73,23 @@ internal sealed class AiProviderModelDiscovery(
         operation.CancelAfter(limits.DiscoveryTimeout);
         try
         {
+            // Model discovery is versioned by the installed Codex release. Do not
+            // claim a fixed client version or reuse Codex credentials or sessions.
+            var version = readCodexVersion is null
+                ? null
+                : await readCodexVersion(operation.Token).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(version))
+            {
+                throw new AiProviderClientException(
+                    AiProviderRuntimeErrorCode.InvalidConfiguration,
+                    "ai_provider_codex_version_unavailable",
+                    "Could not read the installed Codex version. Install Codex and make it available on PATH, then retry.");
+            }
+
             using var request = await transport.CreateRequestAsync(
                 profile,
                 HttpMethod.Get,
-                $"models?client_version={CodexClientVersion}",
+                $"models?client_version={Uri.EscapeDataString(version)}",
                 "application/json",
                 body: null,
                 operation.Token).ConfigureAwait(false);
@@ -142,7 +153,6 @@ internal sealed class AiProviderModelDiscovery(
 
     private static IReadOnlyList<AiProviderModelDescriptor> ParseModels(
         JsonElement root,
-        AiProviderKind identity,
         AiProviderModelDiscoveryKind discovery,
         int maximumModels)
     {
@@ -172,12 +182,6 @@ internal sealed class AiProviderModelDiscovery(
             }
 
             var id = ReadModelId(item, discovery);
-            if (identity == AiProviderKind.GitHubCopilot
-                && !IsSupportedGitHubCopilotModel(id))
-            {
-                continue;
-            }
-
             if (models.Count == maximumModels)
             {
                 throw AiProviderClientException.Create(
@@ -248,12 +252,6 @@ internal sealed class AiProviderModelDiscovery(
         return id[prefix.Length..];
     }
 
-    private static bool IsSupportedGitHubCopilotModel(string modelId) =>
-        modelId.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase)
-        || modelId.StartsWith("claude-", StringComparison.OrdinalIgnoreCase)
-        || modelId.StartsWith("gemini-3", StringComparison.OrdinalIgnoreCase)
-        || modelId.StartsWith("grok-code", StringComparison.OrdinalIgnoreCase);
-
     private static IReadOnlyList<AiProviderModelDescriptor> ParseOpenAiCodexModels(
         JsonElement root,
         int maximumModels)
@@ -304,9 +302,21 @@ internal sealed class AiProviderModelDiscovery(
                     AiProviderRuntimeErrorCode.ProtocolError);
             }
 
+            int? contextWindow = null;
+            if (item.TryGetProperty("context_window", out var context)
+                && context.ValueKind != JsonValueKind.Null)
+            {
+                if (context.ValueKind != JsonValueKind.Number || !context.TryGetInt32(out var tokens))
+                {
+                    throw AiProviderClientException.Create(AiProviderRuntimeErrorCode.ProtocolError);
+                }
+
+                contextWindow = tokens;
+            }
+
             try
             {
-                models.Add(new AiProviderModelDescriptor(id, displayName));
+                models.Add(new AiProviderModelDescriptor(id, displayName, contextWindowTokens: contextWindow));
             }
             catch (ArgumentException exception)
             {

@@ -71,7 +71,7 @@
               ColumnDefinitions="*,*"
               ColumnSpacing="{DynamicResource ShellSpaceSm}">
             <controls:LabeledField Label="Default model">
-              <TextBox Text="{Binding DefaultModel}" />
+              <TextBox Text="{Binding DefaultModel}" PlaceholderText="Run Test to discover models, or enter a model ID" />
             </controls:LabeledField>
             <controls:LabeledField Grid.Column="1" Label="Display order">
               <NumericUpDown Minimum="0" Maximum="10000" Value="{Binding Order}" />

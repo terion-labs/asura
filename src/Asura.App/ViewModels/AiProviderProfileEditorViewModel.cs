@@ -64,7 +64,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
     private string _endpoint = AiProviderProfile
         .DefaultEndpoint(AiProviderKind.OpenAi)
         .AbsoluteUri;
-    private string _defaultModel = "gpt-5.6-terra";
+    private string _defaultModel = string.Empty;
     private int _order;
     private bool _isEnabled = true;
     private AiProviderSecretOption? _selectedCredential;
@@ -193,22 +193,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
             }
 
             Endpoint = AiProviderProfile.DefaultEndpoint(value).AbsoluteUri;
-            DefaultModel = value switch
-            {
-                AiProviderKind.Anthropic => "claude-sonnet-5",
-                AiProviderKind.OpenAi => "gpt-5.6-terra",
-                AiProviderKind.Google => "gemini-3.1-pro-preview",
-                AiProviderKind.XAi => "grok-4.6",
-                AiProviderKind.DeepSeek => "deepseek-v4-pro",
-                AiProviderKind.MoonshotAi => "kimi-k3",
-                AiProviderKind.OpenRouter => "openai/gpt-5.6-terra",
-                AiProviderKind.GitHubCopilot => "gpt-5.6-terra",
-                AiProviderKind.Bedrock =>
-                    "anthropic.claude-sonnet-4-5-20250929-v1:0",
-                AiProviderKind.Ollama => "llama3.2",
-                AiProviderKind.OpenAiCompatible => "local-model",
-                _ => string.Empty,
-            };
+            DefaultModel = string.Empty;
             _oauthSessionReference = null;
             RebuildAuthenticationOptions(DefaultAuthenticationMode(value));
             OnPropertyChanged(nameof(CanDisableAuthentication));
@@ -645,7 +630,9 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
         AiProviderProfile profile;
         try
         {
-            profile = BuildProfile();
+            // Discovery does not send a model ID. The temporary value satisfies
+            // the durable profile invariant until the provider returns its list.
+            profile = BuildProfile(string.IsNullOrWhiteSpace(DefaultModel) ? "discovery-only" : null);
         }
         catch (Exception exception) when (exception is ArgumentException or UriFormatException)
         {
@@ -665,6 +652,21 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
                 // Discovery can succeed even when the chosen default model is unavailable.
                 _modelCatalogProfile = profile;
                 Models = result.Models;
+                if (string.IsNullOrWhiteSpace(DefaultModel)
+                    && (result.IsSuccess || result.ErrorCode == AiProviderRuntimeErrorCode.ModelUnavailable))
+                {
+                    DefaultModel = result.Models[0].Id;
+                    if (result.ErrorCode == AiProviderRuntimeErrorCode.ModelUnavailable)
+                    {
+                        result = result with
+                        {
+                            IsSuccess = true,
+                            Code = "ai_provider_test_succeeded",
+                            Message = $"Connected to {Name}; {result.Models.Count} model(s) are available.",
+                            ErrorCode = null,
+                        };
+                    }
+                }
             }
             TestStatus = !result.IsSuccess
                 ? "Test failed"
@@ -689,7 +691,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
         }
     }
 
-    private AiProviderProfile BuildProfile()
+    private AiProviderProfile BuildProfile(string? discoveryModel = null)
     {
         if (!IsProviderRuntimeSupported)
         {
@@ -733,7 +735,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
             Kind,
             endpoint,
             authentication,
-            Required(DefaultModel, "Default model"),
+            discoveryModel ?? Required(DefaultModel, "Default model"),
             Order,
             IsEnabled,
             discoveredModelIds: _modelCatalogProfile is { } tested

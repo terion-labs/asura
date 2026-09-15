@@ -144,5 +144,11 @@ public sealed class PathConnectionExecutableLocator : IConnectionExecutableLocat
         {
             return fullPath;
         }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // A dangling symlink or a candidate removed during lookup must not
+            // prevent searching later PATH entries or installed app bundles.
+            return null;
+        }
     }
 }

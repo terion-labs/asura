@@ -298,11 +298,13 @@ public static class DesktopComposition
         // renderer as an unsupported preview rather than a failure.
         services.AddSingleton<IFileProviderProfileRuntime>(provider =>
             provider.GetRequiredService<CatalogFileProviderRuntime>());
+        services.AddSingleton<SystemCodexVersion>();
         services.AddSingleton(provider => new CatalogAiProviderRuntime(
             provider.GetRequiredService<IDefinitionCatalog>(),
             provider.GetRequiredService<ISecretVault>(),
             oauthOptions: provider.GetRequiredService<AiProviderOAuthOptions>(),
-            routedHandlerFactory: provider.GetRequiredService<WorkspaceNetworkRouteRegistry>().CreateHttpHandler));
+            routedHandlerFactory: provider.GetRequiredService<WorkspaceNetworkRouteRegistry>().CreateHttpHandler,
+            readCodexVersion: provider.GetRequiredService<SystemCodexVersion>().ReadAsync));
         services.AddSingleton<IAiProviderProfileRuntime>(provider =>
             provider.GetRequiredService<CatalogAiProviderRuntime>());
         services.AddSingleton(_ => new AiProviderOAuthOptions(

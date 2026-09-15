@@ -157,7 +157,7 @@ public sealed class AiProviderAuthenticationRuntimeTests
             CancellationToken.None);
         using var handler = new OAuthHandler(JsonResponse(
             """{"models":[{"slug":"gpt-visible","display_name":"Visible","visibility":"list"},{"slug":"gpt-hidden","display_name":"Hidden","visibility":"hide"}]}"""));
-        using var factory = new AiProviderFactory(vault, handler);
+        using var factory = new AiProviderFactory(vault, handler, readCodexVersion: _ => ValueTask.FromResult<string?>("1.23.45"));
         var profile = new AiProviderProfile(
             ProfileId,
             AiProviderProfile.CurrentSchemaVersion,
@@ -175,7 +175,7 @@ public sealed class AiProviderAuthenticationRuntimeTests
         Assert.Equal("gpt-visible", Assert.Single(models).Id);
         var request = Assert.Single(handler.Requests);
         Assert.Equal(
-            "https://chatgpt.com/backend-api/codex/models?client_version=0.145.0",
+            "https://chatgpt.com/backend-api/codex/models?client_version=1.23.45",
             request.Uri.AbsoluteUri);
         Assert.Equal("Bearer openai-access-secret", request.Authorization);
         Assert.Equal("account-123", request.Headers["ChatGPT-Account-Id"]);
