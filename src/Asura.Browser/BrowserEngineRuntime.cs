@@ -276,7 +276,9 @@ public static class BrowserEngineRuntime
             // receive child cache paths under this owner-private working root.
             CachePath = null,
             RootCachePath = options.ProfileDirectory,
-            UserAgentProduct = $"Asura/{options.ProductVersion}",
+            // Leave Chromium's user agent and client hints consistent. CEF's
+            // UserAgentProduct replaces the Chrome/version token; it does not
+            // append application branding to the default user agent.
             // The vendor callback cannot suppress Chromium's default console
             // emission. Disable native persistence and project warning/error
             // callbacks through CefConsoleMessagePolicy instead.

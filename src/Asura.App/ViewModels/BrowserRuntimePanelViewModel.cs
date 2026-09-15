@@ -14,7 +14,7 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
     private long _recordedRevision = -1;
     private string? _recordedTitle;
     private CancellationTokenSource? _historySearch;
-    private IReadOnlyList<BrowserHistoryEntry> _historySuggestions = [];
+    private IReadOnlyList<BrowserHistorySuggestion> _historySuggestions = [];
     private bool _isHistoryVisible;
     private readonly BrowserProfileBinding _profile;
     private readonly string? _connectionDisplayName;
@@ -217,7 +217,7 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         }
     }
 
-    public IReadOnlyList<BrowserHistoryEntry> HistorySuggestions
+    public IReadOnlyList<BrowserHistorySuggestion> HistorySuggestions
     {
         get => _historySuggestions;
         private set => SetProperty(ref _historySuggestions, value);
@@ -259,7 +259,7 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
             var entries = await SearchHistoryAsync(query, search.Token);
             if (!search.IsCancellationRequested)
             {
-                HistorySuggestions = entries;
+                HistorySuggestions = [.. entries.Select(entry => new BrowserHistorySuggestion(entry))];
                 IsHistoryVisible = entries.Count > 0 || HistoryStatus is not null;
             }
         }

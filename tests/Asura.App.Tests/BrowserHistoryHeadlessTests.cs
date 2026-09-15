@@ -1,4 +1,5 @@
 using Asura.App.Controls;
+using Asura.App.ViewModels;
 using Asura.App.Views.RuntimePanels;
 using Asura.Application;
 using Avalonia.Controls;
@@ -33,7 +34,7 @@ public sealed class BrowserHistoryHeadlessTests
             var host = view.FindControl<BrowserPresentationHost>("RuntimeBrowser")!;
             box.IsEnabled = true;
             box.Focus();
-            var entry = new BrowserHistoryEntry("https://example.test/reference", "Reference guide");
+            var entry = new BrowserHistorySuggestion(new BrowserHistoryEntry("https://example.test/reference", "Reference guide"));
             list.ItemsSource = new[] { entry };
             popup.IsOpen = true;
             Dispatcher.UIThread.RunJobs();
@@ -48,9 +49,9 @@ public sealed class BrowserHistoryHeadlessTests
 
             if (pointer)
             {
-                var button = list.GetVisualDescendants().OfType<Button>()
-                    .Single(item => ReferenceEquals(item.DataContext, entry));
-                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                var row = list.GetVisualDescendants().OfType<Grid>()
+                    .Single(item => ReferenceEquals(item.DataContext, entry) && item.MinHeight == 36);
+                row.RaiseEvent(new TappedEventArgs(InputElement.TappedEvent, null!));
             }
             else
             {
@@ -80,7 +81,7 @@ public sealed class BrowserHistoryHeadlessTests
             box.Focus();
             var popup = view.FindControl<Popup>("HistoryPopup")!;
             var list = view.FindControl<ListBox>("HistoryList")!;
-            list.ItemsSource = new[] { new BrowserHistoryEntry("https://example.test/", "Example") };
+            list.ItemsSource = new[] { new BrowserHistorySuggestion(new BrowserHistoryEntry("https://example.test/", "Example")) };
             list.SelectedIndex = 0;
             popup.IsOpen = true;
             var navigated = false;

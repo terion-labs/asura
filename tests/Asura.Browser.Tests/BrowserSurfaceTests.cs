@@ -2053,6 +2053,30 @@ public sealed class BrowserSurfaceTests
     }
 
     [Fact]
+    public void PageTitlesSurviveNavigationAndUpdateWithoutCommittingAnotherDocument()
+    {
+        var nativeView = new RecordingEmbeddedBrowserView();
+        var surface = Surface(nativeView);
+        var document = Address("https://example.test/reference");
+        nativeView.RaiseNavigationStarted(document);
+        nativeView.RaiseTitleChanged("Reference guide");
+        nativeView.RaiseNavigationCompleted(document, isSuccess: true);
+        Assert.Equal("Reference guide", surface.State.Title);
+        var revision = surface.State.DocumentRevision;
+
+        nativeView.RaiseTitleChanged("Updated reference guide");
+
+        Assert.Equal("Updated reference guide", surface.State.Title);
+        Assert.Equal(document, surface.State.Address);
+        Assert.Equal(revision, surface.State.DocumentRevision);
+        Assert.Equal(BrowserLoadState.Ready, surface.State.LoadState);
+
+        nativeView.RaiseTitleChanged(new string('x', 2000) + "\0");
+        Assert.Equal(BrowserSessionState.MaximumTitleLength, surface.State.Title.Length);
+        Assert.DoesNotContain('\0', surface.State.Title);
+    }
+
+    [Fact]
     public void SameDocumentAddressChangeUpdatesChromeWithoutAdvancingRevision()
     {
         var nativeView = new RecordingEmbeddedBrowserView();

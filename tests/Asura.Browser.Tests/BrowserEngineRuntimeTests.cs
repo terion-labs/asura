@@ -91,6 +91,8 @@ public sealed class BrowserEngineRuntimeTests
 
         var settings = BrowserEngineRuntime.CreateSettings(options);
 
+        Assert.Null(settings.UserAgent);
+        Assert.Null(settings.UserAgentProduct);
         Assert.Null(settings.CachePath);
         Assert.Equal(options.ProfileDirectory, settings.RootCachePath);
         Assert.True(settings.PersistSessionCookies);

@@ -11,6 +11,10 @@ internal interface IEmbeddedBrowserView : IDisposable
 {
     Control View { get; }
 
+    string Title { get; }
+
+    event EventHandler? TitleChanged;
+
     bool CanGoBack { get; }
 
     bool CanGoForward { get; }

@@ -96,7 +96,7 @@ public sealed partial class BrowserRuntimePanelView : UserControl
         }
         if (e.Key == Key.Enter)
         {
-            if (HistoryPopup.IsOpen && HistoryList.SelectedItem is BrowserHistoryEntry entry)
+            if (HistoryPopup.IsOpen && HistoryList.SelectedItem is BrowserHistorySuggestion entry)
             {
                 RuntimeBrowser.AddressText = entry.Address;
             }
@@ -142,15 +142,24 @@ public sealed partial class BrowserRuntimePanelView : UserControl
         HistoryList.SelectedIndex = -1;
     }
 
-    private void OnHistoryEntryClick(object? sender, RoutedEventArgs e)
+    private void OnHistoryEntryTapped(object? sender, TappedEventArgs e)
     {
         _ = e;
-        if (sender is Control { DataContext: BrowserHistoryEntry entry })
+        if (sender is Control { DataContext: BrowserHistorySuggestion entry })
         {
             RuntimeBrowser.AddressText = entry.Address;
             DismissHistory();
             AddressKeyDown?.Invoke(RuntimeBrowser, new KeyEventArgs { Key = Key.Enter });
         }
+    }
+
+    private void OnHistoryPopupOpened(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        HistorySurface.Width = Math.Min(
+            Math.Clamp(AddressBox.Bounds.Width, 360, 560),
+            Math.Max(0, Bounds.Width - 16));
     }
 
     private void OnClearHistoryClick(object? sender, RoutedEventArgs e)

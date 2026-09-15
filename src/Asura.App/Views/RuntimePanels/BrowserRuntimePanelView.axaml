@@ -3,8 +3,8 @@
     x:DataType="vm:BrowserRuntimePanelViewModel"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="using:Avalonia.Data.Converters"
     xmlns:vm="using:Asura.App.ViewModels"
-    xmlns:application="using:Asura.Application"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:icons="using:FluentIcons.Avalonia"
@@ -81,32 +81,56 @@
               x:Name="HistoryPopup"
               IsOpen="{Binding IsHistoryVisible, Mode=TwoWay}"
               IsLightDismissEnabled="True"
-              Placement="Bottom"
+              Opened="OnHistoryPopupOpened"
+              Placement="BottomEdgeAlignedLeft"
+              VerticalOffset="4"
               PlacementTarget="{Binding #AddressBox}">
             <Border
-                MinWidth="320"
-                MaxWidth="640"
-                Padding="{controls:Inset Sm}"
+                x:Name="HistorySurface"
+                Width="400"
+                Padding="{controls:Inset Xs}"
                 Background="{DynamicResource ShellPopupSurfaceBrush}"
                 BorderBrush="{DynamicResource ShellBorderBrush}"
                 BorderThickness="{DynamicResource ShellHairline}"
-                CornerRadius="{DynamicResource ShellInnerCornerRadius}">
+                CornerRadius="{DynamicResource ShellControlCornerRadius}">
               <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                <TextBlock Text="Browsing history" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" />
-                <ListBox x:Name="HistoryList" ItemsSource="{Binding HistorySuggestions}" KeyDown="OnAddressKeyDown" MaxHeight="320" AutomationProperties.Name="Browser address suggestions">
+                <Grid Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" ColumnDefinitions="*,Auto">
+                  <TextBlock Text="History" Classes="Muted" VerticalAlignment="Center"
+                      FontSize="{DynamicResource ShellFontSize9}" />
+                  <Button Grid.Column="1" Classes="IconButton" Click="OnClearHistoryClick"
+                      AutomationProperties.Name="Clear browsing history" ToolTip.Tip="Clear browsing history">
+                    <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize11}" Symbol="Delete" />
+                  </Button>
+                </Grid>
+                <ListBox x:Name="HistoryList" Classes="Rows" ItemsSource="{Binding HistorySuggestions}"
+                    KeyDown="OnAddressKeyDown" MaxHeight="288"
+                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                    AutomationProperties.Name="Browser address suggestions">
+                  <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                      <Setter Property="Margin" Value="0" />
+                      <Setter Property="Padding" Value="0" />
+                      <Setter Property="MinHeight" Value="0" />
+                    </Style>
+                  </ListBox.Styles>
                   <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="application:BrowserHistoryEntry">
-                      <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="OnHistoryEntryClick">
-                        <StackPanel>
-                          <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" FontSize="{DynamicResource ShellFontSize10}" />
-                          <TextBlock Text="{Binding Address}" TextTrimming="CharacterEllipsis" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" />
+                    <DataTemplate x:DataType="vm:BrowserHistorySuggestion">
+                      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceMd}" MinHeight="36" Margin="{controls:Inset Horizontal=Md, Vertical=Xs}"
+                          Background="Transparent" Tapped="OnHistoryEntryTapped" ToolTip.Tip="{Binding Address}">
+                        <icons:SymbolIcon Symbol="History" FontSize="{DynamicResource ShellFontSize13}"
+                            Foreground="{DynamicResource ShellMutedBrush}" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"
+                              FontSize="{DynamicResource ShellFontSize11}" />
+                          <TextBlock Text="{Binding DisplayAddress}" TextTrimming="CharacterEllipsis"
+                              Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" />
                         </StackPanel>
-                      </Button>
+                      </Grid>
                     </DataTemplate>
                   </ListBox.ItemTemplate>
                 </ListBox>
-                <Button Content="Clear browsing history" Click="OnClearHistoryClick" />
-                <TextBlock Text="{Binding HistoryStatus}" TextWrapping="Wrap" FontSize="{DynamicResource ShellFontSize9}" />
+                <TextBlock Text="{Binding HistoryStatus}" IsVisible="{Binding HistoryStatus, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}"
+                    Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" TextWrapping="Wrap" FontSize="{DynamicResource ShellFontSize9}" />
               </StackPanel>
             </Border>
           </Popup>

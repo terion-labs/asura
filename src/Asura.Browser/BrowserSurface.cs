@@ -175,6 +175,7 @@ public sealed partial class BrowserSurface :
         _nativeView.NavigationStarted += OnNavigationStarted;
         _nativeView.NavigationCompleted += OnNavigationCompleted;
         _nativeView.AddressChanged += OnAddressChanged;
+        _nativeView.TitleChanged += OnTitleChanged;
         _nativeView.NavigationRejected += OnNavigationRejected;
         _nativeView.RenderProcessFailed += OnRenderProcessFailed;
         _nativeView.NewTabRequested += OnNativeNewTabRequested;
@@ -303,6 +304,7 @@ public sealed partial class BrowserSurface :
         nativeView.NavigationStarted -= OnNavigationStarted;
         nativeView.NavigationCompleted -= OnNavigationCompleted;
         nativeView.AddressChanged -= OnAddressChanged;
+        nativeView.TitleChanged -= OnTitleChanged;
         nativeView.NewTabRequested -= OnNativeNewTabRequested;
         nativeView.ProductEvent -= OnNativeProductEvent;
         nativeView.NavigationRejected -= OnNavigationRejected;
@@ -3045,7 +3047,7 @@ public sealed partial class BrowserSurface :
             {
                 Publish(new BrowserSessionState(
                     args.Address,
-                    string.Empty,
+                    ReadNativeTitle(),
                     BrowserLoadState.Ready,
                     _nativeView.CanGoBack,
                     _nativeView.CanGoForward,
@@ -3109,7 +3111,7 @@ public sealed partial class BrowserSurface :
 
         Publish(new BrowserSessionState(
             address,
-            string.Empty,
+            ReadNativeTitle(),
             BrowserLoadState.Ready,
             _nativeView.CanGoBack,
             _nativeView.CanGoForward,
@@ -3117,6 +3119,33 @@ public sealed partial class BrowserSurface :
             viewport: State.Viewport,
             viewportRevision: State.ViewportRevision,
             inputEpoch: State.InputEpoch));
+    }
+
+    private string ReadNativeTitle()
+    {
+        var title = _nativeView.Title.Replace("\0", string.Empty, StringComparison.Ordinal);
+        return title[..Math.Min(title.Length, BrowserSessionState.MaximumTitleLength)];
+    }
+
+    private void OnTitleChanged(object? sender, EventArgs args)
+    {
+        _ = args;
+        if (!ReferenceEquals(sender, _nativeView) || _disposed
+            || State.LoadState != BrowserLoadState.Ready)
+        {
+            return;
+        }
+
+        var title = ReadNativeTitle();
+        if (string.Equals(State.Title, title, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        Publish(new BrowserSessionState(
+            State.Address, title, State.LoadState, State.CanGoBack, State.CanGoForward,
+            State.DocumentRevision, State.Failure, State.Viewport,
+            State.ViewportRevision, State.InputEpoch));
     }
 
     private void OnAddressChanged(
@@ -3335,7 +3364,7 @@ public sealed partial class BrowserSurface :
 
         Publish(new BrowserSessionState(
             args.Address,
-            string.Empty,
+            ReadNativeTitle(),
             BrowserLoadState.Ready,
             _nativeView.CanGoBack,
             _nativeView.CanGoForward,
@@ -3445,6 +3474,7 @@ public sealed partial class BrowserSurface :
         quarantined.NavigationStarted -= OnNavigationStarted;
         quarantined.NavigationCompleted -= OnNavigationCompleted;
         quarantined.AddressChanged -= OnAddressChanged;
+        quarantined.TitleChanged -= OnTitleChanged;
         quarantined.NewTabRequested -= OnNativeNewTabRequested;
         quarantined.ProductEvent -= OnNativeProductEvent;
         quarantined.NavigationRejected -= OnNavigationRejected;
@@ -3468,6 +3498,7 @@ public sealed partial class BrowserSurface :
             quarantined.NavigationStarted += OnNavigationStarted;
             quarantined.NavigationCompleted += OnNavigationCompleted;
             quarantined.AddressChanged += OnAddressChanged;
+            quarantined.TitleChanged += OnTitleChanged;
             quarantined.NewTabRequested += OnNativeNewTabRequested;
             quarantined.ProductEvent += OnNativeProductEvent;
             quarantined.NavigationRejected += OnNavigationRejected;
@@ -3479,6 +3510,7 @@ public sealed partial class BrowserSurface :
         _nativeView.NavigationStarted += OnNavigationStarted;
         _nativeView.NavigationCompleted += OnNavigationCompleted;
         _nativeView.AddressChanged += OnAddressChanged;
+        _nativeView.TitleChanged += OnTitleChanged;
         _nativeView.NewTabRequested += OnNativeNewTabRequested;
         _nativeView.ProductEvent += OnNativeProductEvent;
         _nativeView.NavigationRejected += OnNavigationRejected;
