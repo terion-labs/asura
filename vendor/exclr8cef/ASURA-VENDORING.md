@@ -48,3 +48,8 @@ The macOS host disables interactive file-Keychain access before loading CEF
 in every browser/helper entry point. Asura packaging scopes the pinned CEF
 framework service literal with `scripts/scope-cef-keychain.py` before signing;
 it preserves real random-key cookie encryption and separates development keys.
+
+The v2 context-menu callback carries native link and media URLs to host-owned
+commands. The host can add actions before rendering and cancels CEF's pending
+menu before executing a host action. Page navigation and selection commands
+remain Chromium-owned. Older callback ABIs cannot bind to the v2 export.

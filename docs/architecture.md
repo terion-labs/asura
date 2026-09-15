@@ -492,6 +492,21 @@ or suspended, and versioning state can change after any session-time check.
 
 ## 9. Built-in browser
 
+Browser link context menus can open a link in a new tab or split the clicked
+panel left/right. Both retain the source connection and pinned browser profile.
+The native menu also retains Chromium's editing, spelling and page commands;
+host-owned commands add copying link/image addresses and developer tools.
+A versioned context-menu callback carries native target URLs across the bridge.
+
+The address editor suggests recent URLs and page titles from a local SQLite
+history table, scoped to the named profile and workspace partition. Durable
+profiles retain up to 1,000 HTTP(S) addresses; the dropdown shows up to 12 matches
+and supports arrow keys, Enter, Escape and pointer selection. Private sessions
+and profiles with `DoNotRecord` history policy are excluded. Migration 21 enables
+bounded history for existing durable profiles. History uses the application's
+configuration-database encryption policy, can be cleared from the dropdown,
+and is removed when all data for its profile is cleared.
+
 Desktop browser panels use the pinned Chromium Embedded Framework runtime:
 
 | Platform | Rendering/deployment |

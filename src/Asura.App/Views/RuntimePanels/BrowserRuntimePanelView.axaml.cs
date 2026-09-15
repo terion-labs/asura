@@ -2,6 +2,7 @@ using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
 using Asura.Application;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -11,6 +12,7 @@ namespace Asura.App.Views.RuntimePanels;
 public sealed partial class BrowserRuntimePanelView : UserControl
 {
     private const string BlankAddressPlaceholder = "about:blank";
+    private BrowserRuntimePanelViewModel? _historyPanel;
 
     public BrowserRuntimePanelView()
     {
@@ -20,6 +22,19 @@ public sealed partial class BrowserRuntimePanelView : UserControl
             OnPanelKeyDown,
             RoutingStrategies.Tunnel,
             handledEventsToo: true);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        DismissHistory();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        _historyPanel?.HideHistory();
+        _historyPanel = DataContext as BrowserRuntimePanelViewModel;
+        base.OnDataContextChanged(e);
     }
 
     public event EventHandler<KeyEventArgs>? AddressKeyDown;
@@ -61,24 +76,91 @@ public sealed partial class BrowserRuntimePanelView : UserControl
     private void OnAddressKeyDown(object? sender, KeyEventArgs e)
     {
         _ = sender;
+        if (e.Key is Key.Down or Key.Up && HistoryPopup.IsOpen)
+        {
+            var count = HistoryList.ItemCount;
+            if (count > 0)
+            {
+                HistoryList.SelectedIndex = Math.Clamp(
+                    HistoryList.SelectedIndex + (e.Key == Key.Down ? 1 : -1), 0, count - 1);
+                HistoryList.ScrollIntoView(HistoryList.SelectedItem!);
+            }
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.Escape)
+        {
+            DismissHistory();
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.Enter)
+        {
+            if (HistoryPopup.IsOpen && HistoryList.SelectedItem is BrowserHistoryEntry entry)
+            {
+                RuntimeBrowser.AddressText = entry.Address;
+            }
+            DismissHistory();
+        }
         AddressKeyDown?.Invoke(RuntimeBrowser, e);
     }
 
-    private static void OnAddressGotFocus(object? sender, RoutedEventArgs e)
+    private void OnAddressGotFocus(object? sender, RoutedEventArgs e)
     {
         _ = e;
         if (sender is TextBox addressBox)
         {
             addressBox.PlaceholderText = null;
+            _historyPanel?.ShowHistory(string.Empty);
         }
     }
 
-    private static void OnAddressLostFocus(object? sender, RoutedEventArgs e)
+    private void OnAddressLostFocus(object? sender, RoutedEventArgs e)
     {
         _ = e;
         if (sender is TextBox addressBox)
         {
             addressBox.PlaceholderText = BlankAddressPlaceholder;
+            _historyPanel?.CancelHistorySearch();
+        }
+    }
+
+    private void OnAddressTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (AddressBox.IsFocused)
+        {
+            _historyPanel?.ShowHistory(AddressBox.Text ?? string.Empty);
+        }
+    }
+
+    private void DismissHistory()
+    {
+        _historyPanel?.HideHistory();
+        HistoryPopup.IsOpen = false;
+        HistoryList.SelectedIndex = -1;
+    }
+
+    private void OnHistoryEntryClick(object? sender, RoutedEventArgs e)
+    {
+        _ = e;
+        if (sender is Control { DataContext: BrowserHistoryEntry entry })
+        {
+            RuntimeBrowser.AddressText = entry.Address;
+            DismissHistory();
+            AddressKeyDown?.Invoke(RuntimeBrowser, new KeyEventArgs { Key = Key.Enter });
+        }
+    }
+
+    private void OnClearHistoryClick(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        DismissHistory();
+        if (DataContext is BrowserRuntimePanelViewModel panel)
+        {
+            _ = panel.ClearHistoryAsync(CancellationToken.None);
         }
     }
 

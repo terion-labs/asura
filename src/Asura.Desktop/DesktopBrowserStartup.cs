@@ -14,7 +14,8 @@ namespace Asura.Desktop;
 internal sealed class DesktopBrowserStartup(
     BrowserProfileStoragePaths paths,
     IApplicationEncryption encryption,
-    IBrowserProfileAuthenticationResolver authentication) : IBrowserStartupRecovery, IBrowserProfileDataControl, IDisposable
+    IBrowserProfileAuthenticationResolver authentication,
+    IBrowserHistory? history = null) : IBrowserStartupRecovery, IBrowserProfileDataControl, IDisposable
 {
     private readonly object _gate = new();
     private readonly SemaphoreSlim _retryGate = new(1, 1);
@@ -192,11 +193,34 @@ internal sealed class DesktopBrowserStartup(
             ? _profiles.ReadState(selection, expectedRevision)
             : throw new InvalidOperationException(Error ?? "Browser profile recovery has not finished.");
 
-    public ValueTask<BrowserProfileClearResult> ClearAsync(BrowserProfileClearRequest request, CancellationToken cancellationToken) =>
-        IsRunning && _profiles is not null
-            ? _profiles.ClearAsync(request, cancellationToken)
-            : ValueTask.FromResult(new BrowserProfileClearResult(BrowserProfileClearStatus.Failed, 0,
-                "Saved browser data is kept while recovery is pending. Retry recovery before clearing it."));
+    public async ValueTask<BrowserProfileClearResult> ClearAsync(BrowserProfileClearRequest request, CancellationToken cancellationToken)
+    {
+        if (!IsRunning || _profiles is null)
+        {
+            return new BrowserProfileClearResult(BrowserProfileClearStatus.Failed, 0,
+                "Saved browser data is kept while recovery is pending. Retry recovery before clearing it.");
+        }
+        var result = await _profiles.ClearAsync(request, cancellationToken);
+        if (result.Status == BrowserProfileClearStatus.Cleared
+            && request.Categories.HasFlag(BrowserProfileDataCategory.AllWebContent) && history is not null)
+        {
+            try
+            {
+                await history.ClearAsync(request.Selection, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new BrowserProfileClearResult(BrowserProfileClearStatus.Cancelled, result.ClearedBytes,
+                    "Browser data was cleared; clearing browsing history was cancelled.");
+            }
+            catch (Exception exception)
+            {
+                return new BrowserProfileClearResult(BrowserProfileClearStatus.Failed, result.ClearedBytes,
+                    "Browser data was cleared, but browsing history could not be cleared: " + exception.Message);
+            }
+        }
+        return result;
+    }
 
     private void SetError(string? message)
     {

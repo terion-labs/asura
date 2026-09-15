@@ -668,7 +668,7 @@ public static partial class Cef
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-    private static unsafe void ContextMenuTrampoline(int browserId, ulong token, int x, int y, sbyte* itemsJoined)
+    private static unsafe void ContextMenuTrampoline(int browserId, ulong token, int x, int y, sbyte* itemsJoined, sbyte* linkUrl, sbyte* sourceUrl)
     {
         if (!s_browsers.TryGetValue(browserId, out var b))
         {
@@ -682,7 +682,9 @@ public static partial class Cef
         }
         var raw = Marshal.PtrToStringUTF8((IntPtr)itemsJoined) ?? "";
         var items = ParseContextMenuItems(raw);
-        try { b.RaiseContextMenu(token, x, y, items); }
+        try { b.RaiseContextMenu(token, x, y, items,
+            Marshal.PtrToStringUTF8((IntPtr)linkUrl) ?? "",
+            Marshal.PtrToStringUTF8((IntPtr)sourceUrl) ?? ""); }
         catch { Excef.excef_resolve_context_menu(token, -1); }
     }
 

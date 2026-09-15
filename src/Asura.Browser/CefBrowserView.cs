@@ -552,6 +552,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         // or filesystem-affecting operation therefore defaults closed until a
         // future typed product contract owns the corresponding user decision.
         browser.BeforePopup += OnBeforePopup;
+        browser.ContextMenu += OnContextMenu;
         browser.HostPopup += OnHostPopup;
         browser.JsDialog += BlockJavaScriptDialog;
         browser.FileDialog += BlockFileDialog;
@@ -576,6 +577,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         browser.RenderProcessGone -= OnRenderProcessGone;
         browser.ConsoleMessage -= CefConsoleMessagePolicy.Handle;
         browser.BeforePopup -= OnBeforePopup;
+        browser.ContextMenu -= OnContextMenu;
         browser.HostPopup -= OnHostPopup;
         browser.JsDialog -= BlockJavaScriptDialog;
         browser.FileDialog -= BlockFileDialog;
@@ -1434,7 +1436,8 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
     private void OnBeforePopup(object? sender, BeforePopupEventArgs args) =>
         RequestNewTab(args.TargetUrl, args.UserGesture);
 
-    private void RequestNewTab(string targetUrl, bool userGesture)
+    private void RequestNewTab(string targetUrl, bool userGesture,
+        BrowserOpenTarget target = BrowserOpenTarget.NewTab)
     {
         // Subscribing is the cancellation signal in Exclr8CEF. Only addresses
         // accepted by Asura's normal navigation boundary are promoted to
@@ -1452,7 +1455,8 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
                     this,
                     new BrowserNewTabRequestedEventArgs(
                         address,
-                        userGesture));
+                        userGesture,
+                        target));
             }
         });
     }

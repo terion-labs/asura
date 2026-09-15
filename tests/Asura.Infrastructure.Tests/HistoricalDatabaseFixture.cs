@@ -104,6 +104,10 @@ internal static class HistoricalDatabaseFixture
                 "migrate-durable-definition-payloads",
                 "90A375AB80FE3B05EC6346D5E5DFF00A62A91CCC6DEAF3B9F73D935CD05A1CD6",
                 IsDestructive: true),
+            [21] = new(
+                "browser-address-history",
+                "F50929DD9BED1361CB7AFC4B0C31B02BB2FD27DC3DABFC1432113A9974E48DAD",
+                IsDestructive: false),
         };
 
     public static readonly DateTimeOffset ReferenceTime =
@@ -381,6 +385,7 @@ internal static class HistoricalDatabaseFixture
             17 => "mcp_server_diagnostic_summary",
             18 => "agent_run_history_retention",
             19 => "definition_payload_migration_v20_guard",
+            20 => "browser_history",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(currentVersion),
                 currentVersion,

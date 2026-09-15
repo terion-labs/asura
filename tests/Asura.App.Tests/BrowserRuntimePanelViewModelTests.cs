@@ -486,6 +486,53 @@ public sealed class BrowserRuntimePanelViewModelTests
             panel.BrowserProfileDisplayName);
     }
 
+    [Theory]
+    [InlineData(BrowserProfilePersistence.DurableMetadata, 2)]
+    [InlineData(BrowserProfilePersistence.PrivateSession, 0)]
+    public void OnlyCommittedDurablePagesAreRemembered(BrowserProfilePersistence persistence, int expectedRecords)
+    {
+        var history = new RecordingHistory();
+        var profile = new BrowserProfileDefinition(new BrowserProfileId("browser.history"), 1,
+            "History", persistence, BrowserProfilePrivacyPolicy.Strict);
+        var panelId = new PanelInstanceId("browser-history");
+        using var panel = new BrowserRuntimePanelViewModel(panelId, "Browser",
+            new SessionOwner(HostMode.Desktop, new WindowInstanceId("window"),
+                new WorkspaceInstanceId("workspace"), new TabInstanceId("tab"), panelId),
+            BrowserAddress.Blank, DispatchProxy.Create<ISessionHostClient, NoopSessionClient>(),
+            new ClientId("client"), BuiltInConnections.Local,
+            new BrowserProfileBinding(new BrowserProfileSelection(profile.Id, BrowserProfileKey.Global), profile, 1),
+            new RecordingBrowserRendererViewFactory(new BrowserRendererView(new Border(), new RecordingBrowserRenderer())),
+            history: history);
+        var address = Address("https://example.test/history");
+        panel.ApplyBrowserState(new BrowserSessionState(address, "Initial", BrowserLoadState.Ready, false, false, 0));
+        panel.ApplyBrowserState(new BrowserSessionState(address, "Loading", BrowserLoadState.Loading, false, false, 1));
+        Assert.Empty(history.Titles);
+        var loaded = new BrowserSessionState(address, "Loaded", BrowserLoadState.Ready, false, false, 1);
+        panel.ApplyBrowserState(loaded);
+        panel.ApplyBrowserState(loaded);
+        panel.ApplyBrowserState(new BrowserSessionState(address, "Updated title", BrowserLoadState.Ready, false, false, 1));
+        Assert.Equal(expectedRecords, history.Titles.Count);
+    }
+
+    private sealed class RecordingHistory : IBrowserHistory
+    {
+        public List<string> Titles { get; } = [];
+
+        public ValueTask RecordAsync(BrowserProfileSelection profile, BrowserAddress address,
+            string title, CancellationToken cancellationToken)
+        {
+            Titles.Add(title);
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask<IReadOnlyList<BrowserHistoryEntry>> SearchAsync(BrowserProfileSelection profile,
+            string query, CancellationToken cancellationToken) =>
+            ValueTask.FromResult<IReadOnlyList<BrowserHistoryEntry>>([]);
+
+        public ValueTask ClearAsync(BrowserProfileSelection profile, CancellationToken cancellationToken) =>
+            ValueTask.CompletedTask;
+    }
+
     private static BrowserAddress Address(string value)
     {
         Assert.True(BrowserAddress.TryParse(value, out var address));

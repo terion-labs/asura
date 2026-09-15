@@ -1340,7 +1340,7 @@ public static partial class Cef
                 Excef.excef_set_auto_resize_callback(&AutoResizeTrampoline);
                 Excef.excef_set_js_dialog_callback(&JsDialogTrampoline);
                 Excef.excef_set_file_dialog_callback(&FileDialogTrampoline);
-                Excef.excef_set_context_menu_callback(&ContextMenuTrampoline);
+                Excef.excef_set_context_menu_callback_v2(&ContextMenuTrampoline);
                 Excef.excef_set_download_starting_callback(&DownloadStartingTrampoline);
                 Excef.excef_set_download_progress_callback(&DownloadProgressTrampoline);
                 Excef.excef_set_auth_request_callback_v2(&AuthRequestTrampoline);

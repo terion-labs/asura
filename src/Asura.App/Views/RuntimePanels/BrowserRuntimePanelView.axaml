@@ -4,6 +4,7 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:application="using:Asura.Application"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:icons="using:FluentIcons.Avalonia"
@@ -63,18 +64,53 @@
             ToolTip.Tip="Forward">
           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize13}" Symbol="ArrowRight" />
         </Button>
-        <TextBox
-            x:Name="AddressBox"
-            Grid.Column="2"
-            VerticalAlignment="Center"
-            AutomationProperties.Name="Browser address"
-            FontSize="{DynamicResource ShellFontSize10}"
-            GotFocus="OnAddressGotFocus"
-            IsEnabled="{Binding IsLive, ElementName=RuntimeBrowser}"
-            KeyDown="OnAddressKeyDown"
-            LostFocus="OnAddressLostFocus"
-            PlaceholderText="about:blank"
-            Text="{Binding AddressText, ElementName=RuntimeBrowser, Mode=TwoWay}" />
+        <Grid Grid.Column="2">
+          <TextBox
+              x:Name="AddressBox"
+              VerticalAlignment="Center"
+              AutomationProperties.Name="Browser address"
+              FontSize="{DynamicResource ShellFontSize10}"
+              GotFocus="OnAddressGotFocus"
+              IsEnabled="{Binding IsLive, ElementName=RuntimeBrowser}"
+              KeyDown="OnAddressKeyDown"
+              LostFocus="OnAddressLostFocus"
+              PlaceholderText="about:blank"
+              TextChanged="OnAddressTextChanged"
+              Text="{Binding AddressText, ElementName=RuntimeBrowser, Mode=TwoWay}" />
+          <Popup
+              x:Name="HistoryPopup"
+              IsOpen="{Binding IsHistoryVisible, Mode=TwoWay}"
+              IsLightDismissEnabled="True"
+              Placement="Bottom"
+              PlacementTarget="{Binding #AddressBox}">
+            <Border
+                MinWidth="320"
+                MaxWidth="640"
+                Padding="{controls:Inset Sm}"
+                Background="{DynamicResource ShellPopupSurfaceBrush}"
+                BorderBrush="{DynamicResource ShellBorderBrush}"
+                BorderThickness="{DynamicResource ShellHairline}"
+                CornerRadius="{DynamicResource ShellInnerCornerRadius}">
+              <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+                <TextBlock Text="Browsing history" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" />
+                <ListBox x:Name="HistoryList" ItemsSource="{Binding HistorySuggestions}" KeyDown="OnAddressKeyDown" MaxHeight="320" AutomationProperties.Name="Browser address suggestions">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="application:BrowserHistoryEntry">
+                      <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="OnHistoryEntryClick">
+                        <StackPanel>
+                          <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" FontSize="{DynamicResource ShellFontSize10}" />
+                          <TextBlock Text="{Binding Address}" TextTrimming="CharacterEllipsis" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" />
+                        </StackPanel>
+                      </Button>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <Button Content="Clear browsing history" Click="OnClearHistoryClick" />
+                <TextBlock Text="{Binding HistoryStatus}" TextWrapping="Wrap" FontSize="{DynamicResource ShellFontSize9}" />
+              </StackPanel>
+            </Border>
+          </Popup>
+        </Grid>
         <Button
             Grid.Column="3"
             AutomationProperties.Name="Reload page"

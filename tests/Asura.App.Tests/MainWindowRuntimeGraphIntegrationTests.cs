@@ -2951,6 +2951,39 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
     }
 
     [Fact]
+    public async Task BrowserLinkSplitsItsSourcePanelAndPreservesTheProfile()
+    {
+        var browserFactory = new RecordingBrowserRendererViewFactory();
+        var (client, _) = CreateSessionClient();
+        using var viewModel = CreateViewModel(client, CreateCatalogSnapshot(),
+            browserRendererFactory: browserFactory);
+        Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+        var workspace = Assert.IsType<RuntimeWorkspaceViewModel>(viewModel.RuntimeWorkspace);
+        var tab = workspace.ActiveTab!;
+        var source = Assert.IsType<BrowserRuntimePanelViewModel>(
+            Assert.Single(tab.Panels, panel => panel.Kind == PanelKind.Browser));
+        var renderer = Assert.Single(browserFactory.Renderers);
+        var tabs = workspace.Tabs.Count;
+        var panels = tab.Panels.Count;
+        var address = new BrowserAddress(new Uri("https://docs.example.test/beside"));
+        // A different active panel must not redirect the requested split.
+        var other = tab.Panels.First(panel => panel != source);
+        Assert.True(tab.ActivatePanel(other.Id));
+
+        renderer.RaiseNewTabRequested(address, target: BrowserOpenTarget.NewPanel);
+
+        await WaitForAsync(() => tab.Panels.Count == panels + 1);
+        Assert.Equal(tabs, workspace.Tabs.Count);
+        var opened = Assert.IsType<BrowserRuntimePanelViewModel>(tab.Panels[^1]);
+        Assert.Equal(address, opened.CurrentAddress);
+        Assert.Equal(source.ConnectionId, opened.ConnectionId);
+        Assert.Equal(source.ProfileBinding, opened.ProfileBinding);
+        Assert.True(opened.LayoutColumn > source.LayoutColumn);
+        Assert.Equal(source.LayoutRow, opened.LayoutRow);
+        Assert.Equal(source.LayoutRowSpan, opened.LayoutRowSpan);
+    }
+
+    [Fact]
     public async Task NamedBrowserProfileRevisionIsPinnedAndReusedByPopup()
     {
         var profile = new BrowserProfileDefinition(
@@ -9521,10 +9554,11 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
 
         public void RaiseNewTabRequested(
             BrowserAddress address,
-            bool userGesture = true) =>
+            bool userGesture = true,
+            BrowserOpenTarget target = BrowserOpenTarget.NewTab) =>
             NewTabRequested?.Invoke(
                 this,
-                new BrowserNewTabRequestedEventArgs(address, userGesture));
+                new BrowserNewTabRequestedEventArgs(address, userGesture, target));
 
         public void BindPhysicalInputGate(
             Func<NativeRendererPhysicalInput, bool>? physicalInputGate)

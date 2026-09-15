@@ -49,6 +49,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     public FileTransferClipboard FileTransferClipboard { get; } = new();
     private readonly IBrowserRendererViewFactory? _browserRendererViewFactory;
     private readonly IBrowserProfilePreferences _browserProfilePreferences;
+    private readonly IBrowserHistory? _browserHistory;
     private readonly CatalogBrowserProfileRuntime _browserProfileRuntime;
     private readonly IDatabasePanelClient? _databasePanelClient;
     private readonly IDatabaseConnectionCatalog? _databaseConnectionCatalog;
@@ -181,7 +182,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         IWorkspaceRuntimeServicesFactory? workspaceRuntimeServicesFactory = null,
         IWorkspaceNetworkRuntime? workspaceNetworkRuntime = null,
         ILocalMcpServerControl? localMcpServerControl = null,
-        IBrowserStartupRecovery? browserStartupRecovery = null)
+        IBrowserStartupRecovery? browserStartupRecovery = null,
+        IBrowserHistory? browserHistory = null)
     {
         SessionClient = sessionClient ?? throw new ArgumentNullException(nameof(sessionClient));
         _workspaceDefinitionOccupancy = workspaceDefinitionOccupancy
@@ -284,6 +286,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             _uiThreadDispatcher);
         FileTransferState.PropertyChanged += OnFileTransferStatePropertyChanged;
         _browserRendererViewFactory = browserRendererViewFactory;
+        _browserHistory = browserHistory;
         _browserProfilePreferences = browserProfilePreferences
             ?? new InMemoryBrowserProfilePreferences();
         _databasePanelClient = databasePanelClient;
@@ -6490,7 +6493,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         Action commit,
         CancellationToken cancellationToken,
         RuntimeGraphStaleProposalHandling staleProposalHandling =
-            RuntimeGraphStaleProposalHandling.RefreshAndRetry)
+            RuntimeGraphStaleProposalHandling.RefreshAndRetry,
+        PanelInstanceId? adjacentTo = null)
     {
         ArgumentNullException.ThrowIfNull(workspace);
         ArgumentNullException.ThrowIfNull(tab);
@@ -6498,6 +6502,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         ArgumentException.ThrowIfNullOrWhiteSpace(operation);
         ArgumentNullException.ThrowIfNull(commit);
 
+        var replacementTarget = adjacentTo is null ? tab.ReplaceTarget : null;
         var navigation = CaptureRuntimeMutationNavigation();
         var replacesLauncher = IsLauncherTab(tab);
         var firstPanelTitle = replacesLauncher
@@ -6506,7 +6511,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var attached = false;
         try
         {
-            if (tab.ReplaceTarget is null
+            if (replacementTarget is null
                 && !HasRuntimeWorkspacePanelCapacity(
                     workspace,
                     removedPanelCount: 0,
@@ -6524,7 +6529,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 // panel the client had already dropped.
                 currentWorkspace =>
                 {
-                    var replacement = tab.ReplaceTarget is { } replacedPanelId
+                    if (adjacentTo is { } sourceId && !currentWorkspace.Tabs
+                        .Any(candidate => candidate.Id == tab.Id && candidate.Panels.Any(item => item.Id == sourceId)))
+                    {
+                        throw new InvalidOperationException("The source browser panel has closed.");
+                    }
+                    var replacement = replacementTarget is { } replacedPanelId
                         ? ReplaceRuntimePanel(
                             CaptureRuntimeWorkspaceGraph(currentWorkspace),
                             tab.Id,
@@ -10792,7 +10802,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             connection,
             pinned.Binding!,
             browserRenderer,
-            WorkspaceConnectionDisplayName(workspaceId, connection));
+            WorkspaceConnectionDisplayName(workspaceId, connection),
+            _browserHistory);
         browser.NewTabRequested += OnBrowserNewTabRequested;
         return browser;
     }
@@ -10845,9 +10856,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         try
         {
-            await OpenBrowserPopupInNewTabAsync(
+            await OpenBrowserLinkAsync(
                 source,
                 args.Address,
+                args.Target,
                 _runtimeGraphLifetime.Token);
         }
         catch (OperationCanceledException) when (
@@ -10856,13 +10868,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
         catch (Exception exception)
         {
-            SetError($"The browser could not open a new tab: {exception.Message}");
+            SetError($"The browser could not open the link: {exception.Message}");
         }
     }
 
-    private Task<bool> OpenBrowserPopupInNewTabAsync(
+    private Task<bool> OpenBrowserLinkAsync(
         BrowserRuntimePanelViewModel source,
         BrowserAddress address,
+        BrowserOpenTarget target,
         CancellationToken cancellationToken)
     {
         var workspace = _openWorkspaces
@@ -10884,6 +10897,20 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             SetError("The browser route used by this page is no longer available.");
             return Task.FromResult(false);
+        }
+
+        if (target == BrowserOpenTarget.NewPanel)
+        {
+            var tab = workspace.Tabs.Single(item => item.Panels.Contains(source));
+            var panel = CreateBrowserPanel(workspace.Id, tab.Id, PanelInstanceId.New(),
+                "Browser", address, connection, source.ProfileBinding);
+            return AddRuntimePanelUnderReceiptAsync(workspace, tab, panel,
+                "browser link panel split",
+                () =>
+                {
+                    _ = tab.SplitWithPanel(source.Id, PanelSplitOrientation.LeftRight, panel);
+                    StartTrackingRecovery(panel);
+                }, cancellationToken, adjacentTo: source.Id);
         }
 
         return AppendRuntimeTabAsync(

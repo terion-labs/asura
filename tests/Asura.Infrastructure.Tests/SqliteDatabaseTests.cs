@@ -347,7 +347,7 @@ public sealed class SqliteDatabaseTests
         await using var retried = await temporary.Database.OpenConnectionAsync(
             CancellationToken.None);
         Assert.Equal(
-            payloadMigration.Version.ToString(
+            SqliteSchema.Migrations[^1].Version.ToString(
                 System.Globalization.CultureInfo.InvariantCulture),
             await ScalarAsync(retried, "SELECT MAX(version) FROM schema_migrations;"));
         Assert.Equal(
