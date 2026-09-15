@@ -164,6 +164,16 @@ internal sealed class RecordingEmbeddedBrowserView : IEmbeddedBrowserView
 
     public event EventHandler<NativeBrowserNavigationCompletedEventArgs>? NavigationCompleted;
 
+    public string Title { get; set; } = string.Empty;
+
+    public event EventHandler? TitleChanged;
+
+    public void RaiseTitleChanged(string title)
+    {
+        Title = title;
+        TitleChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     public event EventHandler<NativeBrowserAddressChangedEventArgs>? AddressChanged;
 
     public event EventHandler<NativeBrowserNavigationRejectedEventArgs>?

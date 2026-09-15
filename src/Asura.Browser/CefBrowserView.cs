@@ -133,6 +133,10 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
     public event EventHandler<NativeBrowserNavigationCompletedEventArgs>?
         NavigationCompleted;
 
+    public string Title => _webView.Browser?.Title ?? string.Empty;
+
+    public event EventHandler? TitleChanged;
+
     public event EventHandler<NativeBrowserAddressChangedEventArgs>?
         AddressChanged;
 
@@ -541,6 +545,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         browser.ResourceRequest += OnResourceRequest;
         browser.BeforeBrowse += OnBeforeBrowse;
         browser.AddressChanged += OnAddressChanged;
+        browser.TitleChanged += OnTitleChanged;
         browser.LoadingStateChanged += OnLoadingStateChanged;
         browser.LoadStart += OnLoadStart;
         browser.LoadEnd += OnLoadEnd;
@@ -570,6 +575,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         browser.ResourceRequest -= OnResourceRequest;
         browser.BeforeBrowse -= OnBeforeBrowse;
         browser.AddressChanged -= OnAddressChanged;
+        browser.TitleChanged -= OnTitleChanged;
         browser.LoadingStateChanged -= OnLoadingStateChanged;
         browser.LoadStart -= OnLoadStart;
         browser.LoadEnd -= OnLoadEnd;
@@ -815,6 +821,15 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
             args.Cancel = true;
         }
     }
+
+    private void OnTitleChanged(object? sender, string title) =>
+        RunOnUiThread(() =>
+        {
+            if (!_disposed)
+            {
+                TitleChanged?.Invoke(this, EventArgs.Empty);
+            }
+        });
 
     private void OnAddressChanged(object? sender, string url) =>
         RunOnUiThread(() =>
