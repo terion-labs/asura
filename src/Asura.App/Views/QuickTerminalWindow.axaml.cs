@@ -179,11 +179,19 @@ public sealed partial class QuickTerminalWindow : Window
 
     private void ApplyTransparencyHint(IReadOnlyList<WindowTransparencyLevel> hint)
     {
-        // Avalonia.Native 12.0.1 resets a repeated, already-satisfied hint to
-        // opaque. Keep this setter idempotent so show/hide cycles cannot toggle
-        // the native window between transparent and opaque modes.
+        // Avalonia.Native 12.0.5 skips an already-active hint and selects the
+        // next fallback (or None). Avoid replaying a satisfied request, but
+        // repair the native mode if it drifted while the requested list stayed
+        // unchanged. Both lists start with a mode supported by macOS.
         if (TransparencyLevelHint.SequenceEqual(hint))
         {
+            if (OperatingSystem.IsMacOS()
+                && ActualTransparencyLevel != hint[0])
+            {
+                // A new list notifies Avalonia even though its values match.
+                TransparencyLevelHint = [.. hint];
+            }
+
             return;
         }
 
