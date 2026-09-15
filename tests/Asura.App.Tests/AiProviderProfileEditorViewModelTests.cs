@@ -72,7 +72,7 @@ public sealed class AiProviderProfileEditorViewModelTests
             Assert.Equal("synthetic-inline-key", System.Text.Encoding.UTF8.GetString(bytes));
             return ValueTask.FromResult(Stored(request));
         })
-        { Name = "Gateway", ApiKeyValue = "synthetic-inline-key" };
+        { Name = "Gateway", ApiKeyValue = "synthetic-inline-key", DefaultModel = "chosen-model" };
 
         AiProviderProfile? profile;
         if (test)
@@ -190,6 +190,7 @@ public sealed class AiProviderProfileEditorViewModelTests
             suggestedOrder: 3)
         {
             Name = "OpenAI",
+            DefaultModel = "chosen-model",
         };
 
         var request = editor.CreateSaveRequest();
@@ -307,6 +308,33 @@ public sealed class AiProviderProfileEditorViewModelTests
     }
 
     [Fact]
+    public async Task Discovery_selects_a_returned_model_when_no_default_is_configured()
+    {
+        using var runtime = new StubRuntime
+        {
+            Result = new AiProviderTestResult(false, "ai_provider_model_unavailable", "Choose a model.",
+                [new AiProviderModelDescriptor("new-provider-model", "New model")],
+                AiProviderRuntimeErrorCode.ModelUnavailable),
+        };
+        var editor = new AiProviderProfileEditorViewModel(runtime, [])
+        {
+            Name = "Local",
+            Kind = AiProviderKind.OpenAiCompatible,
+            Endpoint = "http://localhost:11434/v1/",
+            UseNoAuthentication = true,
+        };
+        Assert.Empty(editor.DefaultModel);
+
+        await editor.TestAsync(CancellationToken.None);
+
+        Assert.Equal("new-provider-model", editor.DefaultModel);
+        Assert.Equal("Provider connected", editor.TestStatus);
+        var saved = editor.CreateSaveRequest().Profile;
+        Assert.Equal("new-provider-model", saved.DefaultModel);
+        Assert.Equal(["new-provider-model"], saved.DiscoveredModelIds);
+    }
+
+    [Fact]
     public async Task Discovery_remains_available_when_the_default_model_needs_correction()
     {
         using var runtime = new StubRuntime
@@ -327,8 +355,10 @@ public sealed class AiProviderProfileEditorViewModelTests
         Assert.Equal(["actual-model"], editor.CreateSaveRequest().Profile.DiscoveredModelIds);
     }
 
-    [Fact]
-    public async Task Configuration_only_test_does_not_claim_a_live_provider_connection()
+    [Theory]
+    [InlineData("model")]
+    [InlineData("")]
+    public async Task Configuration_only_test_does_not_claim_a_live_provider_connection(string defaultModel)
     {
         using var runtime = new StubRuntime
         {
@@ -343,7 +373,7 @@ public sealed class AiProviderProfileEditorViewModelTests
             Name = "Local",
             Kind = AiProviderKind.OpenAiCompatible,
             Endpoint = "http://localhost:11434/v1/",
-            DefaultModel = "model",
+            DefaultModel = defaultModel,
             UseNoAuthentication = true,
         };
 
@@ -391,7 +421,7 @@ public sealed class AiProviderProfileEditorViewModelTests
 
         editor.Kind = AiProviderKind.GitHubCopilot;
 
-        Assert.Equal("gpt-5.6-terra", editor.DefaultModel);
+        Assert.Empty(editor.DefaultModel);
         Assert.Equal(AiProviderProtocol.GitHubCopilot.ToString(), editor.ProviderProtocol);
         Assert.Equal(
             AiProviderEditorAuthenticationMode.OAuthDevice,
@@ -475,6 +505,7 @@ public sealed class AiProviderProfileEditorViewModelTests
             authenticationRuntime: authentication)
         {
             Name = "OpenAI OAuth",
+            DefaultModel = "chosen-model",
         };
         editor.SelectedAuthentication = editor.AuthenticationOptions.Single(option =>
             option.Mode == AiProviderEditorAuthenticationMode.OAuthBrowser);

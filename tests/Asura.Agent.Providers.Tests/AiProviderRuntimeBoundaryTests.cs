@@ -13,6 +13,65 @@ public sealed class AiProviderRuntimeBoundaryTests
     private static readonly DateTimeOffset StoredAt =
         new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
+    [Theory]
+    [InlineData(AiProviderOAuthFlow.Browser)]
+    [InlineData(AiProviderOAuthFlow.Device)]
+    public async Task OAuth_accepts_new_models_and_reads_the_current_installed_version(AiProviderOAuthFlow flow)
+    {
+        using var vault = new InMemorySecretVault();
+        var id = new AiProviderProfileId("new-model-provider");
+        var secret = new SecretRef("new-model-session");
+        await new AiProviderOAuthVault(vault).StoreAsync(id, secret,
+            new AiProviderOAuthSession(AiProviderOAuthSession.CurrentSchemaVersion,
+                "openai", "asura-token", null, DateTimeOffset.MaxValue, "asura-account"),
+            CancellationToken.None);
+        var profile = new AiProviderProfile(id, AiProviderProfile.CurrentSchemaVersion,
+            "OpenAI", AiProviderKind.OpenAi, AiProviderProfile.DefaultEndpoint(AiProviderKind.OpenAi),
+            new AiProviderAuthentication.OAuth(secret, flow), "future-model", 0);
+        var version = "1.23.45";
+        var handler = new StubHttpMessageHandler((_, _) => JsonResponseAsync(
+            """{"models":[{"slug":"future-model","display_name":"Future model","visibility":"list","context_window":1048576}]}"""));
+        using var factory = new AiProviderFactory(vault, handler,
+            readCodexVersion: _ => ValueTask.FromResult<string?>(version));
+        using var runtime = new CatalogAiProviderRuntime(new FixedDefinitionCatalog(Snapshot(profile)), factory);
+
+        Assert.True((await runtime.TestAsync(profile, CancellationToken.None)).IsSuccess);
+        Assert.Equal("?client_version=1.23.45", handler.LastRequest!.Uri.Query);
+        Assert.Equal("Bearer asura-token", handler.LastRequest.Authorization);
+        version = "1.24.0";
+        Assert.True((await runtime.DiscoverModelsAsync(id, CancellationToken.None)).IsSuccess);
+        Assert.Equal("?client_version=1.24.0", handler.LastRequest!.Uri.Query);
+        var model = Assert.Single(Assert.Single(runtime.Profiles).Models);
+        Assert.Equal("future-model", model.Id);
+        Assert.Equal(1048576, model.ContextWindowTokens);
+        Assert.NotNull(factory.Create(profile, model.Id));
+        await factory.ValidateAuthenticationAsync(profile, CancellationToken.None);
+        Assert.Equal(2, handler.CallCount);
+    }
+
+    [Fact]
+    public async Task Missing_codex_version_is_explained_without_sending_a_fallback_version()
+    {
+        using var vault = new InMemorySecretVault();
+        var profile = new AiProviderProfile(new AiProviderProfileId("missing-codex"),
+            AiProviderProfile.CurrentSchemaVersion, "OpenAI", AiProviderKind.OpenAi,
+            AiProviderProfile.DefaultEndpoint(AiProviderKind.OpenAi),
+            new AiProviderAuthentication.OAuth(new SecretRef("session"), AiProviderOAuthFlow.Browser),
+            "future-model", 0);
+        var handler = new StubHttpMessageHandler((_, _) => throw new InvalidOperationException("No request expected."));
+        using var factory = new AiProviderFactory(vault, handler,
+            readCodexVersion: _ => ValueTask.FromResult<string?>(null));
+        using var runtime = new CatalogAiProviderRuntime(new FixedDefinitionCatalog(Snapshot(profile)), factory);
+
+        var result = await runtime.TestAsync(profile, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("ai_provider_codex_version_unavailable", result.Code);
+        Assert.Contains("installed Codex version", result.Message, StringComparison.Ordinal);
+        Assert.Empty(result.Models);
+        Assert.Equal(0, handler.CallCount);
+    }
+
     [Fact]
     public async Task Open_ai_model_discovery_uses_exact_uri_bearer_auth_and_vault_scope()
     {
@@ -336,7 +395,7 @@ public sealed class AiProviderRuntimeBoundaryTests
             order: 0);
         var handler = new StubHttpMessageHandler((_, _) => JsonResponseAsync(
             """{"models":[{"slug":"gpt-5.6-terra","display_name":"GPT-5.6 Terra","visibility":"list"}]}"""));
-        using var factory = new AiProviderFactory(vault, handler);
+        using var factory = new AiProviderFactory(vault, handler, readCodexVersion: _ => ValueTask.FromResult<string?>("1.23.45"));
         using var runtime = new CatalogAiProviderRuntime(
             new FixedDefinitionCatalog(DefinitionCatalogSnapshot.Empty),
             factory);
@@ -346,7 +405,7 @@ public sealed class AiProviderRuntimeBoundaryTests
         Assert.Equal("ai_provider_test_succeeded", result.Code);
         Assert.Equal("gpt-5.6-terra", Assert.Single(result.Models).Id);
         Assert.Equal(
-            new Uri("https://chatgpt.com/backend-api/codex/models?client_version=0.145.0"),
+            new Uri("https://chatgpt.com/backend-api/codex/models?client_version=1.23.45"),
             handler.LastRequest!.Uri);
         Assert.Equal("Bearer fresh-access-token", handler.LastRequest.Authorization);
         Assert.Equal("account-id", handler.LastRequest.ChatGptAccountId);
@@ -380,7 +439,7 @@ public sealed class AiProviderRuntimeBoundaryTests
     }
 
     [Fact]
-    public async Task GitHubCopilotDiscoveryFiltersToSupportedModelFamilies()
+    public async Task GitHubCopilotDiscoveryAcceptsNewModelFamilies()
     {
         using var vault = new InMemorySecretVault();
         var profileId = new AiProviderProfileId("provider-github-copilot");
@@ -410,7 +469,7 @@ public sealed class AiProviderRuntimeBoundaryTests
               {"id":"gpt-5.6-terra"},
               {"id":"gpt-5.3-codex"},
               {"id":"claude-sonnet-4.6"},
-              {"id":"unsupported-preview"}
+              {"id":"future-preview"}
             ]}
             """));
         using var factory = new AiProviderFactory(vault, handler);
@@ -418,7 +477,7 @@ public sealed class AiProviderRuntimeBoundaryTests
         var models = await factory.ListModelsAsync(profile, CancellationToken.None);
 
         Assert.Equal(
-            ["claude-sonnet-4.6", "gpt-5.3-codex", "gpt-5.6-terra"],
+            ["claude-sonnet-4.6", "future-preview", "gpt-5.3-codex", "gpt-5.6-terra"],
             models.Select(model => model.Id), StringComparer.Ordinal);
         Assert.Equal(
             new Uri("https://api.githubcopilot.com/models"),
@@ -929,7 +988,7 @@ public sealed class AiProviderRuntimeBoundaryTests
     }
 
     [Fact]
-    public void Catalog_runtime_projects_codex_context_windows_for_compaction()
+    public void Catalog_runtime_does_not_invent_models_or_context_windows()
     {
         var profile = new AiProviderProfile(
             new AiProviderProfileId("provider-openai-context"),
@@ -952,14 +1011,9 @@ public sealed class AiProviderRuntimeBoundaryTests
 
         var descriptor = Assert.Single(runtime.Profiles);
 
-        Assert.Equal(
-            272_000,
-            descriptor.Models.Single(model => string.Equals(model.Id, "gpt-5.6-terra", StringComparison.Ordinal))
-                .ContextWindowTokens);
-        Assert.Equal(
-            128_000,
-            descriptor.Models.Single(model => string.Equals(model.Id, "gpt-5.3-codex-spark", StringComparison.Ordinal))
-                .ContextWindowTokens);
+        var model = Assert.Single(descriptor.Models);
+        Assert.Equal(profile.DefaultModel, model.Id);
+        Assert.Null(model.ContextWindowTokens);
     }
 
     [Fact]
@@ -1072,7 +1126,7 @@ public sealed class AiProviderRuntimeBoundaryTests
         HttpMessageHandler handler,
         AiProviderRuntimeLimits? limits = null)
     {
-        var factory = new AiProviderFactory(vault, handler, limits);
+        var factory = new AiProviderFactory(vault, handler, limits, readCodexVersion: _ => ValueTask.FromResult<string?>("1.23.45"));
         return new CatalogAiProviderRuntime(
             new FixedDefinitionCatalog(DefinitionCatalogSnapshot.Empty),
             factory);

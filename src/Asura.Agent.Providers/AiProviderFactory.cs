@@ -18,8 +18,9 @@ public sealed class AiProviderFactory : IDisposable
     public AiProviderFactory(
         ISecretVault secretVault,
         AiProviderRuntimeLimits? limits = null,
-        AiProviderOAuthOptions? oauthOptions = null)
-        : this(secretVault, handler: null, limits, oauthOptions)
+        AiProviderOAuthOptions? oauthOptions = null,
+        Func<CancellationToken, ValueTask<string?>>? readCodexVersion = null)
+        : this(secretVault, handler: null, limits, oauthOptions, readCodexVersion: readCodexVersion)
     {
     }
 
@@ -28,7 +29,8 @@ public sealed class AiProviderFactory : IDisposable
         HttpMessageHandler? handler,
         AiProviderRuntimeLimits? limits = null,
         AiProviderOAuthOptions? oauthOptions = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        Func<CancellationToken, ValueTask<string?>>? readCodexVersion = null)
     {
         _limits = limits ?? AiProviderRuntimeLimits.Default;
         _transport = new AiProviderHttpTransport(
@@ -37,7 +39,7 @@ public sealed class AiProviderFactory : IDisposable
             oauthOptions,
             oauthHandler: handler,
             timeProvider);
-        _modelDiscovery = new AiProviderModelDiscovery(_transport, _limits);
+        _modelDiscovery = new AiProviderModelDiscovery(_transport, _limits, readCodexVersion);
     }
 
     public IAgentProvider Create(
@@ -60,14 +62,6 @@ public sealed class AiProviderFactory : IDisposable
             profile,
             selectedModel,
             serviceTier);
-        if (profile.Identity == AiProviderKind.OpenAi
-            && profile.Authentication is AiProviderAuthentication.OAuth
-            && !IsOpenAiCodexOAuthModel(selectedModel))
-        {
-            throw AiProviderClientException.Create(
-                AiProviderRuntimeErrorCode.ModelUnavailable);
-        }
-
         if (profile.Authentication is AiProviderAuthentication.AwsCredentialChain)
         {
             // AWS remains typed but fail-closed until the credential-chain
@@ -145,15 +139,7 @@ public sealed class AiProviderFactory : IDisposable
         ArgumentNullException.ThrowIfNull(profile);
         ObjectDisposedException.ThrowIf(_disposed, this);
         EnsureRuntimeSupported(profile);
-        var selectedModel = ValidateModel(profile.DefaultModel);
-        if (profile.Identity == AiProviderKind.OpenAi
-            && profile.Authentication is AiProviderAuthentication.OAuth
-            && !IsOpenAiCodexOAuthModel(selectedModel))
-        {
-            throw AiProviderClientException.Create(
-                AiProviderRuntimeErrorCode.ModelUnavailable);
-        }
-
+        _ = ValidateModel(profile.DefaultModel);
         using var request = await _transport.CreateRequestAsync(
             profile,
             HttpMethod.Post,
@@ -209,24 +195,6 @@ public sealed class AiProviderFactory : IDisposable
 
     internal static bool UsesGitHubCopilotResponses(string modelId) =>
         modelId.Contains("-codex", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsOpenAiCodexOAuthModel(string modelId) => modelId switch
-    {
-        "gpt-5.1-codex-max" or
-        "gpt-5.1-codex-mini" or
-        "gpt-5.1-codex" or
-        "gpt-5.2" or
-        "gpt-5.2-codex" or
-        "gpt-5.3-codex" or
-        "gpt-5.3-codex-spark" or
-        "gpt-5.4-mini" or
-        "gpt-5.5" or
-        "gpt-5.6" or
-        "gpt-5.6-sol" or
-        "gpt-5.6-terra" or
-        "gpt-5.6-luna" => true,
-        _ => false,
-    };
 
     private static void EnsureRuntimeSupported(AiProviderProfile profile)
     {

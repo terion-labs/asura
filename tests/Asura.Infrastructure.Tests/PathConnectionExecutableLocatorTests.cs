@@ -54,6 +54,24 @@ public sealed class PathConnectionExecutableLocatorTests : IDisposable
         Assert.Null(locator.Find("docker"));
     }
 
+    [Fact]
+    public void Find_skips_a_dangling_symlink_before_a_valid_installation()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var stale = Directory.CreateDirectory(Path.Combine(_temporaryDirectory.FullName, "stale"));
+        var valid = Directory.CreateDirectory(Path.Combine(_temporaryDirectory.FullName, "valid"));
+        File.CreateSymbolicLink(Path.Combine(stale.FullName, "codex"),
+            Path.Combine(stale.FullName, "missing-codex"));
+        var executable = CreateExecutable(valid.FullName, "codex");
+        var locator = new PathConnectionExecutableLocator(stale.FullName, [valid.FullName]);
+
+        Assert.Equal(executable, locator.Find("codex"));
+    }
+
     public void Dispose() => _temporaryDirectory.Delete(recursive: true);
 
     private static string CreateExecutable(string directory, string name)

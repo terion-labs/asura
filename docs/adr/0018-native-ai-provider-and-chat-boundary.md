@@ -33,6 +33,17 @@ normalized endpoint, default model, enabled state, order, and an opaque
 profiles are accepted only for exact loopback endpoints. Endpoint user
 information, query strings, and fragments are rejected.
 
+Model availability comes from provider discovery and saved user selections,
+not a compiled catalogue or model-name allowlist. New provider forms discover
+a default model rather than guessing one. OpenAI OAuth discovery obtains its
+`client_version` from the installed system Codex executable via `codex --version`.
+Infrastructure owns that bounded, cancellable process and supplies only the
+release triplet to the provider boundary. macOS desktop bundles are checked when
+Codex is absent from PATH. An unavailable version produces an explicit discovery
+error; no fixed version is substituted. Codex authentication, configuration, and
+chat sessions are not reused. Browser and device authentication continue to use
+Asura's own vault session.
+
 Every request is constructed beneath the configured base path and must retain
 the configured scheme, host, and port. Automatic redirects, ambient
 credentials, cookies, and proxy discovery are disabled, and the response origin

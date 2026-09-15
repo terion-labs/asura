@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
@@ -15,18 +14,6 @@ public sealed class CatalogAiProviderRuntime :
     private const int MaximumPromptLength = 64 * 1024;
     private const string ChatSystemPrompt =
         "You are Asura's chat-only assistant. You have no tools and no access to terminals, files, processes, browsers, sessions, credentials, or remote machines. Never claim that you performed an action.";
-    private static readonly ImmutableArray<AiProviderModelDescriptor> OpenAiCodexModels =
-    [
-        new("gpt-5.6-sol", "GPT-5.6 Sol", contextWindowTokens: 272_000),
-        new("gpt-5.6-terra", "GPT-5.6 Terra", contextWindowTokens: 272_000),
-        new("gpt-5.6-luna", "GPT-5.6 Luna", contextWindowTokens: 272_000),
-        new("gpt-5.5", "GPT-5.5", contextWindowTokens: 272_000),
-        new("gpt-5.4", "GPT-5.4", contextWindowTokens: 272_000),
-        new("gpt-5.4-mini", "GPT-5.4 mini", contextWindowTokens: 272_000),
-        new("gpt-5.3-codex", "GPT-5.3 Codex", contextWindowTokens: 272_000),
-        new("gpt-5.3-codex-spark", "GPT-5.3 Codex Spark", contextWindowTokens: 128_000),
-    ];
-
     private readonly object _gate = new();
     private readonly IDefinitionCatalog _catalog;
     private readonly AiProviderFactory _factory;
@@ -46,20 +33,23 @@ public sealed class CatalogAiProviderRuntime :
         ISecretVault secretVault,
         AiProviderRuntimeLimits? limits = null,
         AiProviderOAuthOptions? oauthOptions = null,
-        Func<Uri, HttpMessageHandler>? routedHandlerFactory = null)
+        Func<Uri, HttpMessageHandler>? routedHandlerFactory = null,
+        Func<CancellationToken, ValueTask<string?>>? readCodexVersion = null)
         : this(
             catalog,
             new AiProviderFactory(
                 secretVault ?? throw new ArgumentNullException(nameof(secretVault)),
                 limits,
-                oauthOptions),
+                oauthOptions,
+                readCodexVersion),
             proxy => new AiProviderFactory(
                 secretVault,
                 routedHandlerFactory is null
                     ? AiProviderHttpTransport.CreateHandler(CreateWebProxy(proxy))
                     : routedHandlerFactory(proxy),
                 limits,
-                oauthOptions))
+                oauthOptions,
+                readCodexVersion: readCodexVersion))
     {
     }
 
@@ -706,7 +696,7 @@ public sealed class CatalogAiProviderRuntime :
                 model.DisplayName,
                 AiProviderReasoningPolicy.SupportedEfforts(profile, model.Id),
                 AiProviderServiceTierPolicy.SupportedTiers(profile, model.Id),
-                model.ContextWindowTokens ?? ContextWindowTokens(profile, model.Id)))
+                model.ContextWindowTokens))
             .ToArray();
         var defaultModel = models.Single(model => string.Equals(
             model.Id,
@@ -751,51 +741,12 @@ public sealed class CatalogAiProviderRuntime :
                 .Select(id => new AiProviderModelDescriptor(id, id))];
         }
 
-        if (profile.Identity == AiProviderKind.OpenAi
-            && profile.Authentication is AiProviderAuthentication.OAuth)
-        {
-            var models = OpenAiCodexModels;
-            if (models.Any(model => string.Equals(
-                    model.Id,
-                    profile.DefaultModel,
-                    StringComparison.Ordinal)))
-            {
-                return models;
-            }
-
-            return models.Insert(
-                0,
-                new AiProviderModelDescriptor(
-                    profile.DefaultModel,
-                    profile.DefaultModel));
-        }
-
         return
         [
             new AiProviderModelDescriptor(
                 profile.DefaultModel,
                 profile.DefaultModel),
         ];
-    }
-
-    private static int? ContextWindowTokens(
-        AiProviderProfile profile,
-        string modelId)
-    {
-        if (profile.Identity != AiProviderKind.OpenAi
-            || profile.Authentication is not AiProviderAuthentication.OAuth)
-        {
-            return null;
-        }
-
-        return string.Equals(
-            modelId,
-            "gpt-5.3-codex-spark",
-            StringComparison.Ordinal)
-                ? 128_000
-                : modelId.StartsWith("gpt-5", StringComparison.Ordinal)
-                    ? 272_000
-                    : null;
     }
 
     private static AiProviderTestResult Failure(AiProviderClientException exception) => new(
