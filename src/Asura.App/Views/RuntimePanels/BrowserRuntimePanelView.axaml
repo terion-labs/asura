@@ -77,8 +77,11 @@
               PlaceholderText="about:blank"
               TextChanged="OnAddressTextChanged"
               Text="{Binding AddressText, ElementName=RuntimeBrowser, Mode=TwoWay}" />
+          <!-- Keep changing suggestions in the window compositor, avoiding native popup
+               window resizing as the result count changes. -->
           <Popup
               x:Name="HistoryPopup"
+              ShouldUseOverlayLayer="True"
               IsOpen="{Binding IsHistoryVisible, Mode=TwoWay}"
               IsLightDismissEnabled="True"
               Opened="OnHistoryPopupOpened"
