@@ -562,6 +562,8 @@ public sealed class WorkspaceEditorViewModelTests
         Assert.Null(request.ExpectedRevision);
         Assert.Equal("Personal", request.Definition.Name);
         Assert.Equal(WorkspaceDefinition.DefaultIcon, request.Definition.Icon);
+        Assert.Equal(WorkspaceBrowserProfileMode.Isolated, editor.SelectedBrowserProfile.Mode);
+        Assert.Equal(WorkspaceBrowserProfileMode.Isolated, request.Definition.BrowserProfileOverride);
     }
 
     [Fact]

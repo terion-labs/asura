@@ -124,7 +124,8 @@ public sealed class WorkspaceSettingsViewModel : ObservableObject, IDisposable
             "Untitled workspace",
             description: null,
             accent: null,
-            []);
+            [],
+            browserProfileOverride: WorkspaceBrowserProfileMode.Isolated);
         Editor = CreateEditor(definition, expectedRevision: null);
         identity = new(
             definition.Key,
@@ -235,7 +236,8 @@ public sealed class WorkspaceSettingsViewModel : ObservableObject, IDisposable
             string.IsNullOrWhiteSpace(name) ? "Workspace" : name.Trim(),
             "An Asura workspace.",
             accent: null,
-            []);
+            [],
+            browserProfileOverride: WorkspaceBrowserProfileMode.Isolated);
         return _catalog.SaveWorkspaceAsync(definition, null, cancellationToken);
     }
 

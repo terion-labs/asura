@@ -46,6 +46,7 @@ public sealed class DefinitionCatalogTests
 
         var workspace = Assert.Single(snapshot.Workspaces).Value;
         Assert.Null(workspace.Accent);
+        Assert.Equal(WorkspaceBrowserProfileMode.Isolated, workspace.BrowserProfileOverride);
         Assert.Contains(workspace.Entries, entry =>
             entry is WorkspaceEntry.ConnectionReference reference
             && reference.ConnectionId == connection.Id);
@@ -215,6 +216,7 @@ public sealed class DefinitionCatalogTests
         // definitions were persisted, and only it.
         var defaultWorkspace = Assert.Single(second.Value.Workspaces).Value;
         Assert.Equal(WorkspaceDefinition.DefaultWorkspaceId, defaultWorkspace.Id.Value);
+        Assert.Equal(WorkspaceBrowserProfileMode.Isolated, defaultWorkspace.BrowserProfileOverride);
         Assert.Empty(defaultWorkspace.Entries);
         Assert.Null(defaultWorkspace.Accent);
         Assert.Equal(attemptsAfterFirstInitialization, fixture.TotalSaveAttempts);
