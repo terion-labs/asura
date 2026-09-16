@@ -1433,7 +1433,8 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                         WorkspaceDefinition.DefaultWorkspaceName,
                         "Your local Asura workspace.",
                         null,
-                        []),
+                        [],
+                        browserProfileOverride: WorkspaceBrowserProfileMode.Isolated),
                     null,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -1703,7 +1704,8 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                 new WorkspaceEntry.ScreenReference(
                     new WorkspaceEntryId("local-screen"),
                     screen.Id),
-            ]);
+            ],
+            browserProfileOverride: WorkspaceBrowserProfileMode.Isolated);
         return new FirstRunDefinitions(connection, layout, screen, workspace);
     }
 

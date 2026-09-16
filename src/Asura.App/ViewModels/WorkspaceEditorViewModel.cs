@@ -59,7 +59,8 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
             string.IsNullOrWhiteSpace(name) ? "New workspace" : name.Trim(),
             null,
             null,
-            []);
+            [],
+            browserProfileOverride: WorkspaceBrowserProfileMode.Isolated);
         return new WorkspaceEditorViewModel(
             workspace,
             expectedRevision: null,

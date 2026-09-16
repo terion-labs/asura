@@ -60,6 +60,8 @@ public sealed class WorkspaceSettingsViewModelTests
 
         var editor = Assert.IsType<WorkspaceEditorViewModel>(viewModel.Editor);
         Assert.True(editor.CanInstallIsolationRuntime);
+        Assert.Equal(WorkspaceBrowserProfileMode.Isolated, editor.SelectedBrowserProfile.Mode);
+        Assert.Equal(WorkspaceBrowserProfileMode.Isolated, editor.CreateSaveRequest().Definition.BrowserProfileOverride);
         Assert.Equal(
             "Install Apple container to enable isolation",
             editor.IsolationRuntimeRequirementLabel);
@@ -230,6 +232,7 @@ public sealed class WorkspaceSettingsViewModelTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal("New workspace", fixture.Proxy.LastSavedWorkspace?.Name);
+        Assert.Equal(WorkspaceBrowserProfileMode.Isolated, fixture.Proxy.LastSavedWorkspace?.BrowserProfileOverride);
         Assert.Null(fixture.Proxy.LastSavedWorkspace?.Accent);
         Assert.False(fixture.Proxy.LastSavedWorkspace?.HasExplicitAccent);
         Assert.Null(fixture.Proxy.LastExpectedRevision);
