@@ -16,6 +16,13 @@ internal static class RemoteTerminalIdleClassifier
     public static bool AppliesTo(TerminalLaunchRequest launch)
     {
         ArgumentNullException.ThrowIfNull(launch);
+        // Only the exact interactive shell actions offered by the Kubernetes UI
+        // qualify. An arbitrary pod command (including sh -c) remains unknown.
+        if (launch.KubernetesTarget is { } pod)
+        {
+            return pod.Request.Command is ["/bin/sh" or "/bin/bash"];
+        }
+
         return launch.ConnectionMetadata?.ConnectionBoundary.StartsWith(
                    "SSH:",
                    StringComparison.OrdinalIgnoreCase) == true
@@ -59,6 +66,7 @@ internal static class RemoteTerminalIdleClassifier
                 || prefix.EndsWith(']')
                 || prefix.EndsWith(':')
                 || HasHostPathPrefix(prefix)
+                || (prompt is '$' or '#' && HasVersionedShellPrefix(prefix))
                 || (prefix.EndsWith(' ')
                     && (trimmedPrefix.StartsWith('/')
                         || trimmedPrefix.StartsWith('~'))),
@@ -117,6 +125,25 @@ internal static class RemoteTerminalIdleClassifier
             text.Append(cell.Text.Length == 0 ? ' ' : cell.Text);
             column += cell.Width;
         }
+    }
+
+    private static bool HasVersionedShellPrefix(string prefix)
+    {
+        // Bash's default \s-\v\$ prompt becomes sh-5.1# when invoked as /bin/sh.
+        // Accept only the complete shell name and dotted ASCII version, not text
+        // merely containing a shell name or ending in a prompt character.
+        ReadOnlySpan<char> version = prefix.StartsWith("sh-", StringComparison.Ordinal) ? prefix.AsSpan(3)
+            : prefix.StartsWith("bash-", StringComparison.Ordinal) ? prefix.AsSpan(5) : [];
+        if (version.Length is < 3 or > 32) { return false; }
+        bool hasDot = false;
+        bool hasDigit = false;
+        foreach (char character in version)
+        {
+            if (char.IsAsciiDigit(character)) { hasDigit = true; }
+            else if (character == '.' && hasDigit) { hasDot = true; hasDigit = false; }
+            else { return false; }
+        }
+        return hasDot && hasDigit;
     }
 
     private static bool HasHostPathPrefix(string prefix)

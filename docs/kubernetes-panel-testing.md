@@ -16,6 +16,8 @@ The core panel is implemented on `codex/kubernetes-panel`. The design rationale 
 
 Fixture suites cover parse-only trust review, credential refresh, unknown resources, pagination, expired watches, bounded streaming, UID/resourceVersion conflicts, server dry-run, unknown write outcomes, exec channels/resize/exit, route cancellation, forwarded endpoint revocation and replay prevention. App tests cover review invalidation, Service candidate selection, split layouts and typed target persistence. New policy defaults and imported definitions are tested alongside existing session/agent contracts.
 
+Pod terminals launched through the Shell action use the existing conservative remote-prompt idle check, including default `sh-5.1#` and `bash-5.2$` prompts. The fallback is limited to the UI's exact `/bin/sh` and `/bin/bash` launches. Arbitrary exec commands, active command output, alternate-screen programs and mouse-tracking programs retain close confirmation. Explicit shell-integration command-running signals take precedence over prompt text. Native terminal tests exercise idle, running and returned-to-prompt states through the real Kubernetes terminal factory with simulated exec streams; these are not live pod-exec acceptance tests.
+
 Native DesignQa routes: `workspace-kubernetes`, `workspace-kubernetes-detail`, `workspace-kubernetes-nodes`, `workspace-kubernetes-narrow`, `workspace-kubernetes-manifest` and `workspace-kubernetes-namespaces`. Captures use the real MainWindow, panel controls and theme with explicitly labelled synthetic data. The Lens comparison set uses 1840×1196 for Pods, the Pod drawer and Nodes, and 1080×680 for two narrow panels. The inspected captures and three normalized side-by-side comparisons are in `artifacts/design-qa/kubernetes-lens/`; the local review report is `design-qa.md`.
 
 A Native AOT spike exercises the selected SDK's unknown-resource JSON, watch and YAML path. It does not substitute for publishing and exercising every packaged desktop/guest target.
@@ -64,6 +66,8 @@ The implementation currently requires WebSocket exec v5, POSIX shell/head for co
 Packaged Linux guest, service-VM, SSH/proxy/VPN WebSocket interoperability, other desktop OSes and screen-reader acceptance remain release checks. Release legal evidence must be renewed against the changed dependency closure; prior signed approval hashes are not rewritten as if they authorized new dependencies.
 
 ## Repository gate
+
+The pod-shell idle fix passes all 175 Terminal tests, including the native Kubernetes terminal factory regressions. Its full-gate run passed formatting, dependency audit and the warning-free Release build, then stopped at the same owner-approved release-evidence mismatch described below.
 
 For the Lens UI revision, the warning-free Release solution build, dependency audit and formatting passed. `./scripts/check.sh --full` ran the first test project: 294 passed and one failed at the owner-approved release-evidence check, which stops that script. The affected projects were then run independently: App 2,153 passed; architecture 857 passed with five existing environment skips; Kubernetes engine 70 passed. The manifest editor and namespace selector follow-up passed all 2,164 App tests, including 77 Kubernetes tests. The earlier implementation baseline ran all 28 projects (8,501 passed, one approval failure, 18 existing environment skips). New dependency hashes require a renewed owner decision; no test or hook was disabled. See [the exact dependency change](kubernetes-dependency-review.md).
 

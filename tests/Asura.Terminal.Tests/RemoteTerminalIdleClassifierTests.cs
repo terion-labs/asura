@@ -104,6 +104,67 @@ public sealed class RemoteTerminalIdleClassifierTests
         Assert.False(IsAtShellPrompt("root@ubuntu:~# ", state));
     }
 
+    [Theory]
+    [InlineData("sh-5.1# ")]
+    [InlineData("sh-5.1$ ")]
+    [InlineData("bash-5.2$ ")]
+    [InlineData("bash-5.2.37# ")]
+    public void Exact_default_versioned_shell_prompts_are_idle(string prompt)
+    {
+        Assert.True(IsAtShellPrompt(prompt, State(prompt.Length)));
+    }
+
+    [Theory]
+    [InlineData("sh-5# ")]
+    [InlineData("sh-.1# ")]
+    [InlineData("sh-5.# ")]
+    [InlineData("sh-5..1# ")]
+    [InlineData("sh-5.1-rc1# ")]
+    [InlineData("sh-５.１# ")]
+    [InlineData("sh-5.1% ")]
+    [InlineData("sh-5.1 # ")]
+    [InlineData("message sh-5.1# ")]
+    [InlineData(" sh-5.1# ")]
+    [InlineData("bash-5.1# sleep 10")]
+    [InlineData("zsh-5.1# ")]
+    public void Version_like_output_and_entered_commands_remain_confirmation_worthy(string text)
+    {
+        Assert.False(IsAtShellPrompt(text, State(text.Length)));
+    }
+
+    [Theory]
+    [InlineData("/bin/sh", true)]
+    [InlineData("/bin/bash", true)]
+    [InlineData("sh", false)]
+    [InlineData("/usr/bin/bash", false)]
+    [InlineData("/bin/top", false)]
+    [InlineData("/bin/sh -c sleep 10", false)]
+    public void Pod_fallback_is_limited_to_explicit_interactive_shell_launches(string executable, bool expected)
+    {
+        Assert.Equal(expected, RemoteTerminalIdleClassifier.AppliesTo(PodLaunch([executable])));
+    }
+
+    [Fact]
+    public void Pod_shell_with_command_arguments_does_not_enable_prompt_fallback()
+    {
+        Assert.False(RemoteTerminalIdleClassifier.AppliesTo(PodLaunch(["/bin/sh", "-c", "sleep 10"])));
+        Assert.False(RemoteTerminalIdleClassifier.AppliesTo(PodLaunch(["/bin/bash", "-i"])));
+    }
+
+    [Fact]
+    public void Non_shell_pod_exec_cannot_inherit_an_outer_shell_fallback()
+    {
+        var launch = PodLaunch(["/bin/sh", "-c", "sleep 10"]);
+        Assert.False(RemoteTerminalIdleClassifier.AppliesTo(
+            launch.WithShellActivityFallback(TerminalShellActivityFallback.PromptShape)));
+        Assert.False(RemoteTerminalIdleClassifier.AppliesTo(new TerminalLaunchRequest(null,
+            connectionMetadata: new("SSH: gateway", null), kubernetesTarget: launch.KubernetesTarget)));
+    }
+
+    private static TerminalLaunchRequest PodLaunch(IReadOnlyList<string> command) => new(null,
+        kubernetesTarget: new(new(new("cluster"), 1, "Cluster", "/config", "context"),
+            new(new("", "v1", "pods", "team", "pod", "pod-uid", "1"), "app", command)));
+
     [Fact]
     public void Explicit_prompt_shape_fallback_applies_to_local_container_shells()
     {
