@@ -22,7 +22,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
     private KubernetesResourceReference? _reviewedResource;
     private string _mutationStatus = "Edit YAML or JSON. Review the server dry run before applying.";
 
-    public string PreviewManifest { get => _previewManifest; private set => SetProperty(ref _previewManifest, value); }
+    public string PreviewManifest { get => _previewManifest; private set => SetProperty(ref _previewManifest, FormatManifestJson(value)); }
     public bool HasMutationPreview => PreviewManifest.Length > 0;
     public ICommand DryRunCommand => _dryRunCommand;
     public ICommand ApplyManifestCommand => _applyCommand;
@@ -31,17 +31,17 @@ public sealed partial class KubernetesRuntimePanelViewModel
     public bool CanEditManifest => _session?.Features.HasFlag(KubernetesSessionFeatures.Mutations | KubernetesSessionFeatures.ManifestConversion) == true && _inspection is not null && SelectedKind?.Verbs.Contains("patch", StringComparer.Ordinal) == true
         && !string.Equals(SelectedKind.Resource, "secrets", StringComparison.Ordinal);
     public bool ManifestReadOnly => !CanEditManifest || IsBusy;
-    public bool HasUnsavedChanges => _manifestDraft is not null && !string.Equals(_manifestDraft, Manifest, StringComparison.Ordinal);
+    public bool HasUnsavedChanges => _manifestDraft is not null && !string.Equals(_manifestDraft, FormattedManifest, StringComparison.Ordinal);
     public bool CanApplyManifest => !IsBusy && CanEditManifest && HasUnsavedChanges
         && _reviewedForceOwnership == ForceOwnership && _reviewedResource == _inspection?.Reference && string.Equals(_reviewedManifest, ManifestDraft, StringComparison.Ordinal);
     public string ManifestDraft
     {
-        get => _manifestDraft ?? Manifest;
+        get => _manifestDraft ?? FormattedManifest;
         set
         {
             if (!CanEditManifest || IsBusy || string.Equals(value, ManifestDraft, StringComparison.Ordinal)) { return; }
             ClearOperationReview(); ClearNodeReview();
-            _manifestDraft = value;
+            _manifestDraft = string.Equals(value, FormattedManifest, StringComparison.Ordinal) ? null : value;
             _reviewedManifest = null;
             _reviewedJson = null;
             PreviewManifest = string.Empty;
@@ -82,6 +82,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
         OnPropertyChanged(nameof(HasNodeMaintenance)); OnPropertyChanged(nameof(CanConfirmNode)); OnPropertyChanged(nameof(CanConfirmHelm));
         PublishOperationState();
         OnPropertyChanged(nameof(HasMutationPreview));
+        OnPropertyChanged(nameof(FormattedManifest)); OnPropertyChanged(nameof(ManifestGrammarExtension));
         OnPropertyChanged(nameof(ManifestDraft)); OnPropertyChanged(nameof(HasUnsavedChanges));
         OnPropertyChanged(nameof(CanEditManifest)); OnPropertyChanged(nameof(ManifestReadOnly)); OnPropertyChanged(nameof(CanApplyManifest));
         _refreshCommand.RaiseCanExecuteChanged();

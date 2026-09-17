@@ -9,6 +9,33 @@ namespace Asura.App.Tests;
 public sealed class KubernetesLiveSelectionTests
 {
     [Fact]
+    public async Task ReturningToFormattedBaselineLetsCleanDraftFollowWatchUpdates()
+    {
+        var watches = Channel.CreateUnbounded<KubernetesWatchEvent>();
+        var client = new KubernetesUiSession { AllowPatching = true, ExtraFeatures = KubernetesSessionFeatures.Watch, WatchChanges = watches };
+        using var panel = new KubernetesRuntimePanelViewModel(PanelInstanceId.New(), "Kubernetes",
+            new(KubernetesConnectionProfileId.New(), 1, "Cluster", "/config", "context"),
+            _ => ValueTask.FromResult<IKubernetesClientSession>(client));
+        await panel.Initialization;
+        panel.SelectedResource = panel.Resources[0];
+        await panel.SelectionLoading;
+        string baseline = panel.ManifestDraft;
+        panel.ManifestDraft = baseline + "\n";
+        panel.ManifestDraft = baseline;
+        Assert.False(panel.HasUnsavedChanges);
+        var updated = KubernetesUiSession.Pod with
+        {
+            Reference = KubernetesUiSession.Pod.Reference with { ResourceVersion = "11" },
+            Json = """{"kind":"Pod","status":{"phase":"Running"}}""",
+        };
+        await ObserveAsync(panel, () => panel.Manifest == updated.Json,
+            () => watches.Writer.TryWrite(new(KubernetesWatchEventKind.Modified, "11", updated)));
+        Assert.Equal(panel.FormattedManifest, panel.ManifestDraft);
+        Assert.Contains("\n  \"status\": {", panel.ManifestDraft, StringComparison.Ordinal);
+        Assert.False(panel.HasUnsavedChanges);
+    }
+
+    [Fact]
     public async Task WatchVersionChangeKeepsLogsAndDraftButInvalidatesReviewedWrite()
     {
         var watches = Channel.CreateUnbounded<KubernetesWatchEvent>();
@@ -50,7 +77,9 @@ public sealed class KubernetesLiveSelectionTests
         Assert.Equal(draft, panel.ManifestDraft);
         panel.DiscardManifestChanges();
         Assert.Equal(updated.Json, panel.Manifest);
-        Assert.Equal(updated.Json, panel.ManifestDraft);
+        Assert.Equal(panel.FormattedManifest, panel.ManifestDraft);
+        Assert.Contains("\n", panel.ManifestDraft, StringComparison.Ordinal);
+        Assert.False(panel.HasUnsavedChanges);
         panel.ManifestDraft += "\n";
         await panel.DryRunAsync();
         Assert.Equal("11", client.Mutations[^1].Resource.ResourceVersion);

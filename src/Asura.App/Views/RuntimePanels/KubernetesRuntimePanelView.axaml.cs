@@ -2,7 +2,6 @@ using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 
 namespace Asura.App.Views.RuntimePanels;
@@ -56,23 +55,6 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
     {
         if (_observed is { } model) { model.ShowForwardManager = false; model.SelectedResource = null; }
         UpdateLayoutMode();
-    }
-
-    private void OnNamespaceSelectionChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        if (sender is AutoCompleteBox { SelectedItem: string selected } && _observed is { } model)
-        {
-            model.NamespaceSelection = selected;
-        }
-    }
-
-    private void OnNamespaceKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Enter && sender is AutoCompleteBox picker && _observed is { } model)
-        {
-            e.Handled = true;
-            model.NamespaceSelection = picker.Text ?? string.Empty;
-        }
     }
 
     private async void OnFollowLogsClick(object? sender, RoutedEventArgs e)

@@ -68,7 +68,7 @@
         <Grid.ColumnDefinitions><ColumnDefinition Width="{Binding ResourceColumnWidth}" /><ColumnDefinition Width="{Binding InspectorColumnWidth}" /></Grid.ColumnDefinitions>
         <Grid x:Name="ResourceBrowser" Grid.ColumnSpan="2" IsVisible="{Binding IsResourceBrowserVisible}" RowDefinitions="Auto,*,Auto,Auto">
           <Grid ColumnDefinitions="Auto,*,Auto" Margin="{controls:Inset Sm}" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-            <AutoCompleteBox x:Name="NamespacePicker" ItemsSource="{Binding NamespaceChoices}" Text="{Binding NamespaceSelection, Mode=OneWay}" IsVisible="{Binding IsNamespaceScopeVisible}" MinWidth="150" MaxWidth="220" PlaceholderText="All namespaces" MinimumPrefixLength="0" SelectionChanged="OnNamespaceSelectionChanged" KeyDown="OnNamespaceKeyDown" AutomationProperties.Name="Kubernetes namespace, choose or type and press Enter" />
+            <ComboBox x:Name="NamespacePicker" ItemsSource="{Binding NamespaceChoices}" SelectedItem="{Binding NamespaceSelection, Mode=TwoWay}" IsVisible="{Binding IsNamespaceScopeVisible}" IsEnabled="{Binding !IsBusy}" MinWidth="150" MaxWidth="220" HorizontalAlignment="Stretch" PlaceholderText="Choose namespace" AutomationProperties.Name="Kubernetes namespace" />
             <TextBox Grid.Column="1" Text="{Binding Filter, Mode=TwoWay}" PlaceholderText="Search resources…" AutomationProperties.Name="Filter Kubernetes resources" />
             <TextBlock Grid.Column="2" Text="{Binding ResourceCountLabel}" Classes="Muted" VerticalAlignment="Center" />
           </Grid>
@@ -122,13 +122,13 @@
                     <Button Content="Discard edits" Command="{Binding DiscardManifestCommand}" />
                   </WrapPanel>
                   <TextBlock Grid.Row="1" Text="{Binding MutationStatus}" Classes="Muted" TextWrapping="Wrap" />
-                  <TextBox Grid.Row="2" Text="{Binding ManifestDraft, Mode=TwoWay}" IsReadOnly="{Binding ManifestReadOnly}" AcceptsReturn="True" TextWrapping="NoWrap" FontFamily="avares://Asura.App/Assets/Fonts/JetBrainsMono#JetBrains Mono" AutomationProperties.Name="Kubernetes resource manifest, YAML or JSON" />
+                  <components:CodeEditBox x:Name="ManifestEditor" Grid.Row="2" Text="{Binding ManifestDraft, Mode=TwoWay}" GrammarExtension="{Binding ManifestGrammarExtension}" IsReadOnly="{Binding ManifestReadOnly}" ShowLineNumbers="True" WordWrap="False" AutomationProperties.Name="Kubernetes resource manifest, YAML or JSON" />
                 </Grid>
               </TabItem>
               <TabItem Header="Review" IsVisible="{Binding HasMutationPreview}">
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                  <Grid RowDefinitions="Auto,*"><TextBlock Text="Current resource" /><TextBox Grid.Row="1" Text="{Binding Manifest}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" /></Grid>
-                  <Grid Grid.Column="1" RowDefinitions="Auto,*"><TextBlock Text="Server dry run result" /><TextBox Grid.Row="1" Text="{Binding PreviewManifest}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" /></Grid>
+                  <Grid RowDefinitions="Auto,*"><TextBlock Text="Current resource" /><components:CodePreviewView Grid.Row="1" Text="{Binding FormattedManifest}" FileName="resource.json" WordWrap="False" AutomationProperties.Name="Current Kubernetes resource" /></Grid>
+                  <Grid Grid.Column="1" RowDefinitions="Auto,*"><TextBlock Text="Server dry run result" /><components:CodePreviewView Grid.Row="1" Text="{Binding PreviewManifest}" FileName="dry-run.json" WordWrap="False" AutomationProperties.Name="Server dry run result" /></Grid>
                 </Grid>
               </TabItem>
               <TabItem Header="Node" IsVisible="{Binding HasNodeMaintenance}">

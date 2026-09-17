@@ -466,6 +466,16 @@ internal sealed class QaApplication : Avalonia.Application
             vm.ShowWorkspace();
             AddSampleKubernetesPanel(vm, narrow: false, selected: true);
         }, Width: 1840, Height: 1196),
+        new("workspace-kubernetes-manifest", vm =>
+        {
+            vm.ShowWorkspace();
+            AddSampleKubernetesPanel(vm, narrow: false, selected: true);
+        }, Width: 1840, Height: 1196, PrepareCapture: SelectKubernetesManifest),
+        new("workspace-kubernetes-namespaces", vm =>
+        {
+            vm.ShowWorkspace();
+            AddSampleKubernetesPanel(vm, narrow: false);
+        }, Width: 1840, Height: 1196, PrepareCapture: OpenKubernetesNamespaceSelector),
         new("workspace-kubernetes-nodes", vm =>
         {
             vm.ShowWorkspace();
@@ -2337,8 +2347,9 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                     : savedTheme);
             }
         };
+        var sessionClient = DispatchProxy.Create<ISessionHostClient, UnusedProxy>();
         var viewModel = new MainWindowViewModel(
-            DispatchProxy.Create<ISessionHostClient, UnusedProxy>(),
+            sessionClient,
             catalog,
             new UnusedConnectionRuntime(),
             new MemoryOnlySecretVault(),
@@ -2356,6 +2367,13 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             databasePanelClient: new QaDatabasePanelClient(),
             dockerEngineClient: Docker,
             gitRepositoryClient: Git);
+        ((UnusedProxy)sessionClient).WorkspaceSnapshot = () =>
+        {
+            var runtime = viewModel.RuntimeWorkspace
+                ?? throw new InvalidOperationException("The capture has no active workspace.");
+            return new WorkspaceGraphSnapshot(viewModel.WindowId,
+                RuntimeWorkspaceGraphProjection.Capture(runtime), runtime.HostRevision, runtime.HostSequence);
+        };
 
         // Real connection pills, so the row that carries them is reviewable
         // rather than rendering empty.
@@ -2684,6 +2702,11 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
     private static void AddSampleKubernetesPanel(MainWindowViewModel viewModel, bool narrow, bool selected = false, bool nodes = false)
     {
         var workspace = viewModel.RuntimeWorkspace ?? throw new InvalidOperationException("Kubernetes capture needs a workspace.");
+        foreach (var background in workspace.Tabs.Where(tab => tab.Panels.Count == 0))
+        {
+            background.AddPanel(new UnavailableRuntimePanelViewModel(new($"{background.Id.Value}-placeholder"),
+                PanelKind.Terminal, background.Title, "DEMO", "Presentation fixture without a live session."));
+        }
         foreach (var stale in workspace.Tabs.Where(tab => tab.Panels.Any(panel => panel is KubernetesRuntimePanelViewModel)).ToArray())
         { workspace.Tabs.Remove(stale); stale.DisposePanels(); }
         var tab = new RuntimeTabViewModel(new("qa-tab-kubernetes"), "Demo cluster", "Kubernetes");
@@ -2827,6 +2850,26 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             panel.AddNewKeyEntry();
             panel.BeginCreateKey();
         }
+    }
+
+    private static void SelectKubernetesManifest(MainWindow window)
+    {
+        var inspector = window.GetVisualDescendants().OfType<TabControl>()
+            .Single(control => string.Equals(control.Name, "InspectorTabs", StringComparison.Ordinal));
+        inspector.SelectedItem = inspector.Items.OfType<TabItem>()
+            .Single(tab => string.Equals(tab.Header as string, "YAML / JSON", StringComparison.Ordinal));
+    }
+
+    private static void OpenKubernetesNamespaceSelector(MainWindow window)
+    {
+        var selector = window.GetVisualDescendants().OfType<ComboBox>()
+            .Single(control => string.Equals(control.Name, "NamespacePicker", StringComparison.Ordinal));
+        if (selector.Items.Count < 2)
+        {
+            throw new InvalidOperationException("The Kubernetes namespace capture requires discovered fixture namespaces.");
+        }
+
+        selector.IsDropDownOpen = true;
     }
 
     private static void SelectDockerReadmePreview(MainWindow window)
