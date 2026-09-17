@@ -845,6 +845,14 @@ internal sealed partial class GhosttyVtTerminalSession : ITerminalPanelSession
             return false;
         }
 
+        // Pod exec connects directly to the remote process. Unlike an outer
+        // SSH or Docker shell, its command-running signal describes the pod
+        // command itself and must take precedence over prompt-shaped output.
+        if (_launch.KubernetesTarget is not null && _shellActivity == TerminalShellActivityState.Running)
+        {
+            return true;
+        }
+
         if (!RemoteTerminalIdleClassifier.AppliesTo(_launch))
         {
             return true;
