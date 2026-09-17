@@ -101,7 +101,7 @@ public sealed partial class KubernetesClientSession
                 throw new KubernetesRequestException(KubernetesErrorCode.ResponseTooLarge, "The Kubernetes API exceeded the requested page limit.");
             }
 
-            results.Add(Project(item, request.ApiResource.Group, request.ApiResource.Version, request.ApiResource.Resource));
+            results.Add(Project(item, request.ApiResource.Group, request.ApiResource.Version, request.ApiResource.Resource, request.ApiResource.Kind));
         }
 
         JsonElement metadata = Property(root, "metadata");
@@ -189,7 +189,7 @@ public sealed partial class KubernetesClientSession
         }
     }
 
-    private static KubernetesResourceDocument Project(JsonElement value, string group, string version, string resource)
+    private static KubernetesResourceDocument Project(JsonElement value, string group, string version, string resource, string? discoveredKind = null)
     {
         JsonElement metadata = Property(value, "metadata");
         string name = Text(metadata, "name");
@@ -202,6 +202,7 @@ public sealed partial class KubernetesClientSession
         var reference = new KubernetesResourceReference(group, version, resource, ns.Length == 0 ? null : ns,
             name, Text(metadata, "uid"), Text(metadata, "resourceVersion"));
         string kind = Text(value, "kind");
+        if (kind.Length == 0 && discoveredKind is not null) { kind = discoveredKind; }
         string summary = Text(Property(value, "status"), "phase");
         if (summary.Length == 0 && Property(Property(value, "status"), "conditions") is { ValueKind: JsonValueKind.Array } conditions)
         {

@@ -13,6 +13,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
     private bool _nodeMetrics;
     private int? _helmOffset;
     public bool HasMetrics => _session?.Features.HasFlag(KubernetesSessionFeatures.Metrics) == true;
+    public bool HasResourceMetrics => HasMetrics && SelectedResource?.Reference is { Group: "", Resource: "pods" or "nodes" };
     public bool HasHelm => _session?.Features.HasFlag(KubernetesSessionFeatures.HelmRead) == true;
     public bool NodeMetrics { get => _nodeMetrics; set => SetProperty(ref _nodeMetrics, value); }
     public string MetricsStatus { get => _metricsStatus; private set => SetProperty(ref _metricsStatus, value); }
@@ -26,27 +27,65 @@ public sealed partial class KubernetesRuntimePanelViewModel
         get => _selectedRelease;
         set { if (SetProperty(ref _selectedRelease, value)) { ClearHelmReview(); HelmHistory = []; HelmHistoryLoading = LoadHelmHistoryAsync(value); } }
     }
-    public async Task LoadMetricsAsync()
+    private bool _isMetricsLoading;
+    private int _metricsVersion;
+    public bool IsMetricsLoading { get => _isMetricsLoading; private set => SetProperty(ref _isMetricsLoading, value); }
+    public string SelectedCpuUsage => FormatSelectedUsage(false);
+    public string SelectedMemoryUsage => FormatSelectedUsage(true);
+    public Task LoadMetricsAsync() => RefreshResourceUsageAsync();
+    public async Task RefreshResourceUsageAsync()
     {
-        if (!HasMetrics || _session is null || IsBusy || _disposed) { return; }
-        var generation = _generation;
-        IsBusy = true;
-        Issue = null;
+        if (!HasMetrics || _session is null || _disposed) { return; }
+        var cancellationToken = _lifetime.Token;
+        int version = ++_metricsVersion;
+        int generation = _generation;
+        string? resource = SelectedKind?.Resource;
+        if (SelectedKind?.Group.Length != 0 || resource is not ("pods" or "nodes")) { IsMetricsLoading = false; ClearResourceUsage(); return; }
+        bool nodes = string.Equals(resource, "nodes", StringComparison.Ordinal);
+        string? ns = nodes ? null : EffectiveNamespace;
+        IsMetricsLoading = true;
+        ClearResourceUsage();
+        MetricsStatus = "Loading current usage…";
         try
         {
-            var snapshot = await _session.ReadMetricsAsync(new(NodeMetrics ? KubernetesMetricsKind.Nodes : KubernetesMetricsKind.Pods, NodeMetrics ? null : EffectiveNamespace), _lifetime.Token);
-            if (_disposed || generation != _generation) { return; }
+            var snapshot = await _session.ReadMetricsAsync(new(nodes ? KubernetesMetricsKind.Nodes : KubernetesMetricsKind.Pods, ns), cancellationToken);
+            if (_disposed || generation != _generation || version != _metricsVersion) { return; }
+            await DiscoverMetricsProvidersAsync();
+            if (_disposed || generation != _generation || version != _metricsVersion) { return; }
+            var provider = SelectedPrometheusProvider;
+            string source = "Metrics API";
+            if ((snapshot.Availability != KubernetesDataAvailability.Available || snapshot.Entries.Count == 0) && provider is not null)
+            {
+                snapshot = await _session.ReadMetricsAsync(new(nodes ? KubernetesMetricsKind.Nodes : KubernetesMetricsKind.Pods, ns, provider.Service), cancellationToken);
+                source = provider.DisplayName;
+            }
+            if (_disposed || generation != _generation || version != _metricsVersion) { return; }
             Usage = [.. snapshot.Entries.Select(entry => new KubernetesUsageRow(entry))];
             MetricsStatus = snapshot.Availability switch
             {
-                KubernetesDataAvailability.Available => "Current usage. Missing values are shown as unavailable.",
+                KubernetesDataAvailability.Available when snapshot.Entries.Count > 0 => $"{source} · {snapshot.Entries.Max(entry => entry.Timestamp)?.ToString("HH:mm:ss", CultureInfo.InvariantCulture) ?? "Time unknown"} UTC",
                 KubernetesDataAvailability.Forbidden => "Metrics access denied. Resource browsing remains available.",
-                _ => "The cluster metrics API is unavailable. Resource browsing remains available.",
+                _ => nodes && provider is not null ? "Node usage unavailable. Prometheus requires node-exporter samples linked to Kubernetes node identity." : "Current usage unavailable. " + MetricsProviderStatus,
             };
+            PublishUsage();
         }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (KubernetesRequestException exception) { PresentError(exception); }
-        finally { if (!_disposed) { IsBusy = false; } }
+        catch (OperationCanceledException) { if (!_disposed && version == _metricsVersion) { MetricsStatus = "Metrics request canceled or timed out."; } }
+        catch (KubernetesRequestException exception) { if (!_disposed && generation == _generation && version == _metricsVersion) { MetricsStatus = exception.Message; } }
+        finally { if (!_disposed && version == _metricsVersion) { IsMetricsLoading = false; } }
+    }
+    private void ClearResourceUsage() { Usage = []; PublishUsage(); }
+    private void PublishUsage()
+    {
+        OnPropertyChanged(nameof(SelectedCpuUsage));
+        OnPropertyChanged(nameof(SelectedMemoryUsage));
+        PublishResourceRows();
+    }
+    private string FormatSelectedUsage(bool memory)
+    {
+        var selected = _inspection ?? SelectedResource;
+        if (selected is null) { return "N/A"; }
+        var row = KubernetesResourceRow.Create(selected, Usage.Select(item => item.Entry));
+        return memory ? row.Memory : row.CpuValue is not null ? $"{row.Cpu} cores" : "N/A";
     }
     public async Task LoadHelmAsync(bool nextPage = false)
     {
@@ -80,7 +119,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
     }
     private void ClearObservability()
     {
-        Usage = []; Releases = []; SelectedRelease = null; HelmHistory = []; _helmOffset = null;
+        ++_metricsVersion; IsMetricsLoading = false; ClearResourceUsage(); Releases = []; SelectedRelease = null; HelmHistory = []; _helmOffset = null;
         OnPropertyChanged(nameof(HasMoreHelm));
     }
 }
