@@ -68,6 +68,7 @@ internal static partial class ManagedComponentEvidenceBuilder
         "Asura.Files.dll",
         "Asura.Git.dll",
         "Asura.Infrastructure.dll",
+        "Asura.Kubernetes.dll",
         "Asura.Mcp.dll",
         "Asura.Mcp.Server.dll",
         "Asura.Monitoring.dll",
@@ -102,12 +103,12 @@ internal static partial class ManagedComponentEvidenceBuilder
             ManagedEvidenceProfile.LinuxBackend => new("Asura.Backend", "linux-arm64",
                 ["Asura.Backend.dll", "Asura.ConnectionBackend.dll", "Asura.Application.dll",
                     "Asura.Core.dll", "Asura.Databases.dll", "Asura.Files.dll",
-                    "Asura.Infrastructure.dll", "Asura.Redis.dll"],
+                    "Asura.Infrastructure.dll", "Asura.Kubernetes.dll", "Asura.Redis.dll"],
                 ["linux", "unix-arm64", "unix", "any", "base"], [], []),
             ManagedEvidenceProfile.LinuxX64Backend => new("Asura.Backend", "linux-x64",
                 ["Asura.Backend.dll", "Asura.ConnectionBackend.dll", "Asura.Application.dll",
                     "Asura.Core.dll", "Asura.Databases.dll", "Asura.Files.dll",
-                    "Asura.Infrastructure.dll", "Asura.Redis.dll"],
+                    "Asura.Infrastructure.dll", "Asura.Kubernetes.dll", "Asura.Redis.dll"],
                 ["linux", "unix-x64", "unix", "any", "base"], [], []),
             _ => throw new ArgumentOutOfRangeException(nameof(profile)),
         };
@@ -132,11 +133,14 @@ internal static partial class ManagedComponentEvidenceBuilder
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
     };
 
-    internal static void ValidateCatalogFile(string catalogPath)
+    internal static void ValidateCatalogFile(
+        string catalogPath,
+        ManagedEvidenceProfile profile = ManagedEvidenceProfile.MacOsDesktop)
     {
         var bytes = ReadRegularFile(catalogPath, MaximumCatalogBytes, "managed-component catalog");
         // Schema validation needs a concrete version only to resolve catalog placeholders.
-        _ = ParseCatalog(bytes, "0.0.0");
+        var catalog = ParseCatalog(bytes, "0.0.0");
+        ValidateRequiredProjectSet(catalog.Dependencies, TargetProfile.For(profile));
     }
 
     public static ManagedComponentEvidence Build(
