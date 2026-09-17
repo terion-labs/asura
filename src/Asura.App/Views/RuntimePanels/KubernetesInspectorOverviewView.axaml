@@ -1,87 +1,310 @@
-<UserControl x:Class="Asura.App.Views.RuntimePanels.KubernetesInspectorOverviewView"
+<UserControl
+    x:Class="Asura.App.Views.RuntimePanels.KubernetesInspectorOverviewView"
     x:DataType="vm:KubernetesRuntimePanelViewModel"
-    xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:vm="using:Asura.App.ViewModels" xmlns:controls="using:Asura.App.Controls">
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:controls="using:Asura.App.Controls">
   <UserControl.Styles>
-    <Style Selector="Border.PropertyRow"><Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" /><Setter Property="BorderThickness" Value="0,0,0,1" /><Setter Property="Padding" Value="{controls:Inset Vertical=Sm}" /></Style>
-    <Style Selector="TextBlock.SectionTitle"><Setter Property="FontSize" Value="{DynamicResource ShellFontSize14}" /><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Margin" Value="{controls:Inset Top=Lg, Bottom=Sm}" /></Style>
-    <Style Selector="Button.PropertyLink"><Setter Property="HorizontalAlignment" Value="Left" /><Setter Property="HorizontalContentAlignment" Value="Left" /><Setter Property="MinHeight" Value="0" /><Setter Property="Padding" Value="0" /><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" /></Style>
+    <!-- One record per hairline row, inset like the database row inspector's
+         fields, so both drawers read as the same control. -->
+    <Style Selector="Border.PropertyRow">
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="Padding" Value="{controls:Inset Horizontal=Md, Vertical=Sm}" />
+    </Style>
+    <Style Selector="Border.PropertyRow TextBlock">
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+    </Style>
+    <Style Selector="Border.PropertyRow TextBlock.Muted">
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+    </Style>
+    <Style Selector="Border.PropertyRow TextBlock.Value">
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+    </Style>
+
+    <Style Selector="TextBlock.SectionTitle">
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+      <Setter Property="Margin" Value="{controls:Inset Left=Md, Right=Md, Top=Lg, Bottom=Xs}" />
+    </Style>
+    <Style Selector="TextBlock.SectionNote">
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+      <Setter Property="Margin" Value="{controls:Inset Horizontal=Md}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="ToggleButton.SectionDisclosure">
+      <Setter Property="Margin" Value="{controls:Inset Left=Xs, Right=Xs, Top=Md}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="TextBlock.MetricValue">
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize14}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="Button.PropertyLink">
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.PropertyLink /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.PropertyLink TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    </Style>
+    <Style Selector="Button.PropertyLink:pointerover TextBlock">
+      <Setter Property="TextDecorations" Value="Underline" />
+    </Style>
   </UserControl.Styles>
-  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceXs}">
-      <StackPanel IsVisible="{Binding HasResourceMetrics}" Spacing="{DynamicResource ShellSpaceSm}">
-        <TextBlock Text="Metrics" Classes="SectionTitle" />
-        <ProgressBar Classes="WorkingStripe" IsVisible="{Binding IsMetricsLoading}" IsIndeterminate="True" AutomationProperties.Name="Loading resource metrics" />
-        <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-          <StackPanel><TextBlock Text="CPU" Classes="Muted" /><TextBlock Text="{Binding SelectedCpuUsage}" FontSize="{DynamicResource ShellFontSize16}" /></StackPanel>
-          <StackPanel Grid.Column="1"><TextBlock Text="Memory" Classes="Muted" /><TextBlock Text="{Binding SelectedMemoryUsage}" FontSize="{DynamicResource ShellFontSize16}" /></StackPanel>
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="{controls:Inset Bottom=Lg}">
+      <StackPanel IsVisible="{Binding HasResourceMetrics}">
+        <TextBlock Classes="SectionTitle" Text="Metrics" />
+        <ProgressBar
+            Classes="WorkingStripe"
+            IsVisible="{Binding IsMetricsLoading}"
+            AutomationProperties.Name="Loading resource metrics" />
+        <Grid
+            Margin="{controls:Inset Horizontal=Md, Vertical=Xs}"
+            ColumnDefinitions="*,*"
+            ColumnSpacing="{DynamicResource ShellSpaceMd}">
+          <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+            <TextBlock Classes="Eyebrow" Text="CPU" />
+            <TextBlock Classes="MetricValue" Text="{Binding SelectedCpuUsage}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
+            <TextBlock Classes="Eyebrow" Text="Memory" />
+            <TextBlock Classes="MetricValue" Text="{Binding SelectedMemoryUsage}" />
+          </StackPanel>
         </Grid>
-        <StackPanel IsVisible="{Binding IsNodeTable}"><TextBlock Text="Disk · Root filesystem (/)" Classes="Muted" /><TextBlock Text="{Binding SelectedDiskUsage}" FontSize="{DynamicResource ShellFontSize16}" TextWrapping="Wrap" /></StackPanel>
-        <TextBlock Text="{Binding MetricsStatus}" Classes="Muted" TextWrapping="Wrap" />
-        <Grid IsVisible="{Binding HasMetricsProviderChoices}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-          <ComboBox ItemsSource="{Binding PrometheusProviders}" SelectedItem="{Binding SelectedPrometheusProvider, Mode=TwoWay}" PlaceholderText="Choose metrics provider" HorizontalAlignment="Stretch" AutomationProperties.Name="Kubernetes metrics provider"><ComboBox.ItemTemplate><DataTemplate x:DataType="vm:KubernetesMetricsProviderOption"><TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
-          <CheckBox Grid.Column="1" IsVisible="{Binding HasMetricHistory}" Content="Memory" IsChecked="{Binding MemoryHistory, Mode=TwoWay}" />
+        <StackPanel
+            Margin="{controls:Inset Horizontal=Md, Vertical=Xs}"
+            IsVisible="{Binding IsNodeTable}"
+            Spacing="{DynamicResource ShellSpaceXs}">
+          <TextBlock Classes="Eyebrow" Text="Disk · root filesystem (/)" />
+          <TextBlock Classes="MetricValue" Text="{Binding SelectedDiskUsage}" TextWrapping="Wrap" />
+        </StackPanel>
+        <TextBlock Classes="SectionNote" Text="{Binding MetricsStatus}" />
+
+        <Grid
+            Margin="{controls:Inset Left=Md, Right=Md, Top=Sm}"
+            ColumnDefinitions="*,Auto"
+            ColumnSpacing="{DynamicResource ShellSpaceSm}"
+            IsVisible="{Binding HasMetricsProviderChoices}">
+          <ComboBox
+              HorizontalAlignment="Stretch"
+              ItemsSource="{Binding PrometheusProviders}"
+              SelectedItem="{Binding SelectedPrometheusProvider, Mode=TwoWay}"
+              PlaceholderText="Choose metrics provider"
+              AutomationProperties.Name="Kubernetes metrics provider">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:KubernetesMetricsProviderOption">
+                <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <!-- Which series the history draws: the same either-or the rest of
+               the shell writes as a segmented picker. -->
+          <Border
+              Grid.Column="1"
+              VerticalAlignment="Center"
+              Classes="Segmented"
+              IsVisible="{Binding HasMetricHistory}">
+            <UniformGrid Columns="2">
+              <RadioButton
+                  Classes="Segment"
+                  Content="CPU"
+                  IsChecked="{Binding !MemoryHistory, Mode=OneWay}"
+                  AutomationProperties.Name="Show CPU history" />
+              <RadioButton
+                  Classes="Segment"
+                  Content="Memory"
+                  IsChecked="{Binding MemoryHistory, Mode=TwoWay}"
+                  AutomationProperties.Name="Show memory history" />
+            </UniformGrid>
+          </Border>
         </Grid>
       </StackPanel>
-      <StackPanel IsVisible="{Binding HasMetricHistory}" Spacing="{DynamicResource ShellSpaceSm}">
-        <StackPanel IsVisible="{Binding HasSelectedMetricsProvider}" Spacing="{DynamicResource ShellSpaceSm}">
-        <ProgressBar Classes="WorkingStripe" IsVisible="{Binding IsHistoryLoading}" IsIndeterminate="True" AutomationProperties.Name="Loading metric history" />
-        <ItemsControl ItemsSource="{Binding MetricHistory}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:KubernetesHistoryRow">
-          <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-            <TextBlock Text="{Binding Container}" Classes="Muted" />
-            <controls:TimeSeriesChart Values="{Binding Values}" Maximum="{Binding Maximum}" Height="120" LineBrush="{DynamicResource ShellAccentBrush}" GridBrush="{DynamicResource ShellBorderBrush}" AutomationProperties.Name="Selected resource metric history over the past hour" />
-            <TextBlock Text="{Binding Scale}" Classes="Muted" />
-          </StackPanel>
-        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-        <TextBlock Text="{Binding HistoryStatus}" Classes="Muted" TextWrapping="Wrap" />
+
+      <StackPanel IsVisible="{Binding HasMetricHistory}">
+        <StackPanel IsVisible="{Binding HasSelectedMetricsProvider}">
+          <ProgressBar
+              Classes="WorkingStripe"
+              IsVisible="{Binding IsHistoryLoading}"
+              AutomationProperties.Name="Loading metric history" />
+          <ItemsControl Margin="{controls:Inset Left=Md, Right=Md, Top=Sm}" ItemsSource="{Binding MetricHistory}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:KubernetesHistoryRow">
+                <StackPanel Margin="{controls:Inset Bottom=Sm}" Spacing="{DynamicResource ShellSpaceXs}">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                    <TextBlock Classes="Eyebrow" Text="{Binding Container}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1" Classes="Eyebrow" Text="{Binding Scale}" />
+                  </Grid>
+                  <controls:TimeSeriesChart
+                      Height="96"
+                      GridBrush="{DynamicResource ShellBorderBrush}"
+                      LineBrush="{DynamicResource ShellAccentBrush}"
+                      Maximum="{Binding Maximum}"
+                      Values="{Binding Values}"
+                      AutomationProperties.Name="Selected resource metric history over the past hour" />
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Classes="SectionNote" Text="{Binding HistoryStatus}" />
         </StackPanel>
       </StackPanel>
-      <TextBlock Text="Properties" Classes="SectionTitle" />
-      <TextBlock Text="{Binding DetailsStatus}" Classes="Muted" TextWrapping="Wrap" />
-      <ItemsControl ItemsSource="{Binding DetailProperties}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:KubernetesDetailProperty">
-        <Border Classes="PropertyRow"><Grid ColumnDefinitions="130,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-          <TextBlock Text="{Binding Label}" Classes="Muted" TextWrapping="Wrap" />
-          <TextBlock Grid.Column="1" Text="{Binding Value}" IsVisible="{Binding !CanNavigate}" TextWrapping="Wrap" />
-          <Button Grid.Column="1" Classes="PropertyLink" Command="{Binding NavigateCommand}" IsVisible="{Binding CanNavigate}"><TextBlock Text="{Binding Value}" Foreground="{DynamicResource ShellAccentBrush}" TextWrapping="Wrap" /></Button>
-        </Grid></Border>
-      </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-      <Expander Header="Labels" IsExpanded="True" IsVisible="{Binding HasDetailLabels}">
-        <ItemsControl ItemsSource="{Binding DetailLabels}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:KubernetesDetailProperty">
-          <Border Classes="PropertyRow"><Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}"><TextBlock Text="{Binding Label}" Classes="Muted" TextWrapping="Wrap" /><TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap" /></Grid></Border>
-        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-      </Expander>
-      <Expander Header="Annotations" IsVisible="{Binding HasDetailAnnotations}">
-        <ItemsControl ItemsSource="{Binding DetailAnnotations}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:KubernetesDetailProperty">
-          <Border Classes="PropertyRow"><StackPanel Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Text="{Binding Label}" Classes="Muted" TextWrapping="Wrap" /><TextBlock Text="{Binding Value}" TextWrapping="Wrap" /></StackPanel></Border>
-        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-      </Expander>
+
+      <TextBlock Classes="SectionTitle" Text="Properties" />
+      <TextBlock Classes="SectionNote" Text="{Binding DetailsStatus}" />
+      <ItemsControl ItemsSource="{Binding DetailProperties}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:KubernetesDetailProperty">
+            <Border Classes="PropertyRow">
+              <Grid ColumnDefinitions="120,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                <TextBlock Classes="Muted" Text="{Binding Label}" TextWrapping="Wrap" />
+                <TextBlock
+                    Grid.Column="1"
+                    Classes="Value"
+                    IsVisible="{Binding !CanNavigate}"
+                    Text="{Binding Value}"
+                    TextWrapping="Wrap" />
+                <Button
+                    Grid.Column="1"
+                    Classes="PropertyLink"
+                    Command="{Binding NavigateCommand}"
+                    IsVisible="{Binding CanNavigate}">
+                  <TextBlock Classes="Value" Text="{Binding Value}" TextWrapping="Wrap" />
+                </Button>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <ToggleButton
+          x:Name="LabelsDisclosure"
+          Classes="SectionDisclosure"
+          Content="Labels"
+          IsChecked="True"
+          IsVisible="{Binding HasDetailLabels}" />
+      <ItemsControl ItemsSource="{Binding DetailLabels}">
+        <ItemsControl.IsVisible>
+          <MultiBinding Converter="{x:Static BoolConverters.And}">
+            <Binding Path="HasDetailLabels" />
+            <Binding Path="#LabelsDisclosure.IsChecked" />
+          </MultiBinding>
+        </ItemsControl.IsVisible>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:KubernetesDetailProperty">
+            <Border Classes="PropertyRow">
+              <Grid ColumnDefinitions="2*,3*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                <TextBlock Classes="Muted Value" Text="{Binding Label}" TextWrapping="Wrap" />
+                <TextBlock Grid.Column="1" Classes="Value" Text="{Binding Value}" TextWrapping="Wrap" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <ToggleButton
+          x:Name="AnnotationsDisclosure"
+          Classes="SectionDisclosure"
+          Content="Annotations"
+          IsVisible="{Binding HasDetailAnnotations}" />
+      <ItemsControl ItemsSource="{Binding DetailAnnotations}">
+        <ItemsControl.IsVisible>
+          <MultiBinding Converter="{x:Static BoolConverters.And}">
+            <Binding Path="HasDetailAnnotations" />
+            <Binding Path="#AnnotationsDisclosure.IsChecked" />
+          </MultiBinding>
+        </ItemsControl.IsVisible>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:KubernetesDetailProperty">
+            <Border Classes="PropertyRow">
+              <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+                <TextBlock Classes="Muted Value" Text="{Binding Label}" TextWrapping="Wrap" />
+                <TextBlock Classes="Value" Text="{Binding Value}" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
       <StackPanel IsVisible="{Binding HasDetailConditions}">
-        <TextBlock Text="Conditions" Classes="SectionTitle" />
-        <ItemsControl ItemsSource="{Binding DetailConditions}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:KubernetesDetailCondition">
-          <Border Classes="PropertyRow"><StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="{Binding Type}" /><TextBlock Grid.Column="1" Text="{Binding Status}" /></Grid>
-            <TextBlock Text="{Binding Reason}" Classes="Muted" TextWrapping="Wrap" /><TextBlock Text="{Binding Message}" Classes="Muted" TextWrapping="Wrap" /><TextBlock Text="{Binding ChangedAt}" Classes="Muted" />
-          </StackPanel></Border>
-        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+        <TextBlock Classes="SectionTitle" Text="Conditions" />
+        <ItemsControl ItemsSource="{Binding DetailConditions}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:KubernetesDetailCondition">
+              <Border Classes="PropertyRow">
+                <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                    <TextBlock FontWeight="SemiBold" Text="{Binding Type}" />
+                    <TextBlock Grid.Column="1" Classes="Muted" Text="{Binding Status}" />
+                  </Grid>
+                  <TextBlock Classes="Muted" IsVisible="{Binding Reason, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding Reason}" TextWrapping="Wrap" />
+                  <TextBlock Classes="Muted" IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding Message}" TextWrapping="Wrap" />
+                  <TextBlock Classes="Muted" Text="{Binding ChangedAt}" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
       </StackPanel>
+
       <StackPanel IsVisible="{Binding HasDetailContainers}">
-        <TextBlock Text="Containers" Classes="SectionTitle" />
-        <ItemsControl ItemsSource="{Binding DetailContainers}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:KubernetesDetailContainer">
-          <Border Classes="PropertyRow"><StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" /><TextBlock Text="{Binding Image}" TextWrapping="Wrap" Classes="Muted" />
-            <Grid ColumnDefinitions="*,*"><TextBlock Text="{Binding State}" /><TextBlock Grid.Column="1" Text="{Binding Ready}" /></Grid>
-            <TextBlock Text="{Binding Restarts, StringFormat='Restarts: {0}'}" Classes="Muted" /><TextBlock Text="{Binding Ports}" Classes="Muted" TextWrapping="Wrap" />
-          </StackPanel></Border>
-        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+        <TextBlock Classes="SectionTitle" Text="Containers" />
+        <ItemsControl ItemsSource="{Binding DetailContainers}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:KubernetesDetailContainer">
+              <Border Classes="PropertyRow">
+                <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                    <TextBlock FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1" Classes="Muted" Text="{Binding State}" />
+                  </Grid>
+                  <TextBlock Classes="Muted Value" Text="{Binding Image}" TextWrapping="Wrap" />
+                  <TextBlock Classes="Muted" Text="{Binding Ready}" />
+                  <TextBlock Classes="Muted" Text="{Binding Restarts, StringFormat='Restarts: {0}'}" />
+                  <TextBlock Classes="Muted" IsVisible="{Binding Ports, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding Ports}" TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
       </StackPanel>
-      <TextBlock Text="Events" Classes="SectionTitle" />
-      <TextBlock Text="{Binding EventsStatus}" Classes="Muted" TextWrapping="Wrap" />
-      <ItemsControl ItemsSource="{Binding RelatedEvents}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:KubernetesDetailEvent">
-        <Border Classes="PropertyRow"><StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-          <Grid ColumnDefinitions="*,Auto"><TextBlock Text="{Binding Reason}" FontWeight="SemiBold" /><TextBlock Grid.Column="1" Text="{Binding Type}" Classes="Muted" /></Grid>
-          <TextBlock Text="{Binding Message}" TextWrapping="Wrap" /><TextBlock Text="{Binding Count, StringFormat='Count: {0}'}" Classes="Muted" /><TextBlock Text="{Binding LastSeen}" Classes="Muted" />
-        </StackPanel></Border>
-      </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+
+      <TextBlock Classes="SectionTitle" Text="Events" />
+      <TextBlock Classes="SectionNote" Text="{Binding EventsStatus}" />
+      <ItemsControl ItemsSource="{Binding RelatedEvents}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:KubernetesDetailEvent">
+            <Border Classes="PropertyRow">
+              <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                  <TextBlock FontWeight="SemiBold" Text="{Binding Reason}" />
+                  <TextBlock Grid.Column="1" Classes="Muted" Text="{Binding Type}" />
+                </Grid>
+                <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                  <TextBlock Classes="Muted" Text="{Binding LastSeen}" />
+                  <TextBlock Grid.Column="1" Classes="Muted" Text="{Binding Count, StringFormat='×{0}'}" />
+                </Grid>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

@@ -173,6 +173,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
                 if (_disposed) { await session.DisposeAsync(); return; }
                 _session = session;
                 OnPropertyChanged(nameof(HasMetrics)); OnPropertyChanged(nameof(HasHelm));
+                OnPropertyChanged(nameof(IsHelmNavigationVisible)); OnPropertyChanged(nameof(HasNavigationMatches));
             }
             if (Kinds.Count == 0)
             {

@@ -11,6 +11,8 @@ public sealed partial class KubernetesRuntimePanelViewModel
     private IReadOnlyList<KubernetesNavigationGroup> _navigationGroups = [];
     private IReadOnlyList<string> _namespaceChoices = ["All namespaces"];
     private string _labelSelector = string.Empty;
+    private string _namespaceFilter = string.Empty;
+    private string _navigationFilter = string.Empty;
     private bool _publishingRows;
     private bool _namespaceDiscoveryAttempted;
     public IReadOnlyList<KubernetesResourceRow> Rows => _rows;
@@ -23,9 +25,25 @@ public sealed partial class KubernetesRuntimePanelViewModel
             // Replacing unchanged items during a selection change can make ComboBox
             // restore its previous item before the new scope finishes publishing.
             if (!_namespaceChoices.SequenceEqual(value, StringComparer.Ordinal))
-            { SetProperty(ref _namespaceChoices, value); }
+            { SetProperty(ref _namespaceChoices, value); OnPropertyChanged(nameof(FilteredNamespaceChoices)); }
         }
     }
+    public string NamespaceFilter
+    {
+        get => _namespaceFilter;
+        set { if (SetProperty(ref _namespaceFilter, value ?? string.Empty)) { OnPropertyChanged(nameof(FilteredNamespaceChoices)); } }
+    }
+    public IReadOnlyList<string> FilteredNamespaceChoices => NamespaceFilter.Trim() is { Length: > 0 } filter
+        ? [.. NamespaceChoices.Where(choice => choice.Contains(filter, StringComparison.OrdinalIgnoreCase))]
+        : NamespaceChoices;
+    public string NavigationFilter
+    {
+        get => _navigationFilter;
+        set { if (SetProperty(ref _navigationFilter, value ?? string.Empty)) { ApplyNavigationFilter(); } }
+    }
+    public bool IsHelmNavigationVisible => HasHelm && (NavigationFilter.Trim() is not { Length: > 0 } filter
+        || "Helm releases".Contains(filter, StringComparison.OrdinalIgnoreCase));
+    public bool HasNavigationMatches => IsHelmNavigationVisible || NavigationGroups.Any(group => group.HasVisibleItems);
     public bool IsPodTable => SelectedKind is { Group: "", Resource: "pods" };
     public bool IsNodeTable => SelectedKind is { Group: "", Resource: "nodes" };
     public bool IsGenericTable => !IsPodTable && !IsNodeTable;
@@ -64,7 +82,16 @@ public sealed partial class KubernetesRuntimePanelViewModel
                 .Select(item => new KubernetesNavigationItem(KubernetesResourceNames.Title(item)
                     + (category is "Custom Resources" ? $" · {item.Group}" : ""), item, SelectNavigationAsync))]))
             .Where(group => group.Items.Count > 0)];
+        ApplyNavigationFilter();
         PublishNavigation();
+    }
+
+    private void ApplyNavigationFilter()
+    {
+        var filter = NavigationFilter.Trim();
+        foreach (var group in NavigationGroups) { group.ApplyFilter(filter); }
+        OnPropertyChanged(nameof(IsHelmNavigationVisible));
+        OnPropertyChanged(nameof(HasNavigationMatches));
     }
 
     private void PublishNavigation()

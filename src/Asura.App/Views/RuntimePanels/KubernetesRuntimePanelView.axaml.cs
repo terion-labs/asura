@@ -2,6 +2,7 @@ using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 
 namespace Asura.App.Views.RuntimePanels;
@@ -9,11 +10,19 @@ namespace Asura.App.Views.RuntimePanels;
 public sealed partial class KubernetesRuntimePanelView : UserControl
 {
     private KubernetesRuntimePanelViewModel? _observed;
+    private bool _resizingNavigator;
+    private double _resizeOriginX;
+    private double _resizeOriginWidth;
 
     public KubernetesRuntimePanelView()
     {
         InitializeComponent();
-        SizeChanged += (_, _) => UpdateLayoutMode();
+        SizeChanged += (_, _) =>
+        {
+            Inspector.Classes.Add("resizing");
+            try { UpdateLayoutMode(); }
+            finally { Inspector.Classes.Remove("resizing"); }
+        };
         DataContextChanged += OnDataContextChanged;
     }
 
@@ -41,6 +50,76 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
         ResourcesTab.IsSelected = true;
         OverviewTab.IsSelected = true;
         _observed?.CompleteNavigation();
+    }
+
+    private void OnNavigatorResizePressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (_observed is null) { return; }
+        _resizingNavigator = true;
+        _resizeOriginX = e.GetPosition(this).X;
+        _resizeOriginWidth = _observed.NavigatorWidth;
+        Navigator.Classes.Add("resizing");
+        e.Pointer.Capture(NavigatorResizeHandle);
+        e.Handled = true;
+    }
+
+    private void OnNavigatorResizeMoved(object? sender, PointerEventArgs e)
+    {
+        if (_resizingNavigator) { _observed?.ResizeNavigator(_resizeOriginWidth + e.GetPosition(this).X - _resizeOriginX); }
+    }
+
+    private void OnNavigatorResizeReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        e.Pointer.Capture(null);
+        EndNavigatorResize();
+    }
+
+    private void OnNavigatorResizeCaptureLost(object? sender, PointerCaptureLostEventArgs e) => EndNavigatorResize();
+
+    private void EndNavigatorResize()
+    {
+        _resizingNavigator = false;
+        Navigator.Classes.Remove("resizing");
+    }
+
+    private void OnHelmNavigationClick(object? sender, RoutedEventArgs e)
+    {
+        HelmTab.IsSelected = true;
+        _observed?.CompleteNavigation();
+    }
+
+    private void OnNamespaceFlyoutOpened(object? sender, EventArgs e)
+    {
+        if (_observed is { } model) { model.NamespaceFilter = string.Empty; }
+        NamespaceFilterBox.Focus();
+    }
+
+    private void OnNamespaceFilterKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key is Key.Down) { NamespaceList.Focus(); e.Handled = true; return; }
+        if (e.Key is not Key.Enter || _observed?.FilteredNamespaceChoices.FirstOrDefault() is not { } first) { return; }
+        ChooseNamespace(first);
+        e.Handled = true;
+    }
+
+    // Choosing is a tap or Enter, never a selection change: arrowing through the
+    // list and filtering both move the selection without meaning "this one".
+    private void OnNamespaceListTapped(object? sender, TappedEventArgs e)
+    {
+        if (e.Source is Control { DataContext: string choice }) { ChooseNamespace(choice); }
+    }
+
+    private void OnNamespaceListKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key is not Key.Enter || NamespaceList.SelectedItem is not string choice) { return; }
+        ChooseNamespace(choice);
+        e.Handled = true;
+    }
+
+    private void ChooseNamespace(string choice)
+    {
+        NamespacePicker.Flyout?.Hide();
+        if (_observed is { } model) { model.NamespaceSelection = choice; }
     }
 
     private void OnShowForwardsClick(object? sender, RoutedEventArgs e)
