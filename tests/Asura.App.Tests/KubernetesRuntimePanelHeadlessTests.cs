@@ -183,7 +183,7 @@ public sealed class KubernetesRuntimePanelHeadlessTests
             Assert.Equal(1, drawerBrush.Opacity);
             Assert.False(model.HasMetricsProviderChoices);
             Assert.Single(view.GetVisualDescendants().OfType<TextBlock>(), text => text.IsEffectivelyVisible
-                && text.Text?.Contains("No eligible Prometheus service", StringComparison.Ordinal) == true);
+                && text.Text?.Contains("No Prometheus or VictoriaMetrics query service", StringComparison.Ordinal) == true);
             model.SelectedResource = null;
             window.Width = 420;
             Dispatcher.UIThread.RunJobs();

@@ -50,20 +50,253 @@ public sealed class KubernetesMetricsProviderTests
     }
 
     [Fact]
-    public async Task AmbiguousProvidersRequireChoiceBeforeSendingAnyPrometheusQuery()
+    public async Task MultiplePrometheusServicesAutomaticallyUseAPreferredProvider()
     {
         var metrics = new List<KubernetesMetricsRequest>();
         var history = new List<KubernetesMetricHistoryRequest>();
         using var panel = Create(Session([Service("prometheus-operated"), Service("prometheus-server")], metrics, history));
         await panel.Initialization;
         await panel.RefreshResourceUsageAsync();
-        Assert.Null(panel.SelectedPrometheusProvider);
-        Assert.All(metrics, request => Assert.Null(request.Provider));
-        Assert.Empty(panel.Usage);
+        Assert.Equal("prometheus-operated", panel.SelectedPrometheusProvider!.Service.Service);
+        Assert.Contains(metrics, request => request.Provider?.Service == "prometheus-operated");
+        Assert.NotEmpty(panel.Usage);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AutomaticSelectionSkipsEmptyOrBrokenProviders(bool broken)
+    {
+        var requests = new List<KubernetesMetricsRequest>();
+        var session = new KubernetesUiSession
+        {
+            ExtraFeatures = KubernetesSessionFeatures.Metrics,
+            ListItems = request => request.ApiResource.Resource == "services"
+                ? [Service("prometheus-operated"), Service("prometheus-server")] : [KubernetesUiSession.Pod],
+            Metrics = request =>
+            {
+                requests.Add(request);
+                if (broken && request.Provider?.Service == "prometheus-operated")
+                { throw new KubernetesRequestException(KubernetesErrorCode.InvalidResponse, "Not a query endpoint."); }
+                return ValueTask.FromResult(request.Provider?.Service == "prometheus-server"
+                    ? new KubernetesMetricsSnapshot(KubernetesDataAvailability.Available, [new("app-123", "restricted", "app", null, "5m", 1m, 2m)])
+                    : new(KubernetesDataAvailability.Unavailable, []));
+            },
+        };
+        using var panel = Create(session);
+        await panel.Initialization;
+        Assert.Equal("prometheus-server", panel.SelectedPrometheusProvider!.Service.Service);
+        Assert.Equal(1m, Assert.Single(panel.Usage).Entry.CpuCores);
+        Assert.Contains(requests, request => request.Provider?.Service == "prometheus-operated");
+
+        // A deliberate user choice remains selected, even if it is unavailable.
         panel.SelectedPrometheusProvider = panel.PrometheusProviders[0];
         await panel.ProviderSelectionLoading;
-        Assert.Contains(metrics, request => request.Provider is not null);
+        Assert.Equal("prometheus-operated", panel.SelectedPrometheusProvider.Service.Service);
+        Assert.Empty(panel.Usage);
     }
+
+    [Fact]
+    public async Task FallbackFillsPartialMetricsWithoutReplacingKnownApiUsage()
+    {
+        var session = new KubernetesUiSession
+        {
+            ExtraFeatures = KubernetesSessionFeatures.Metrics,
+            ListItems = request => request.ApiResource.Resource == "services" ? [Service("prometheus-operated")] : [KubernetesUiSession.Pod],
+            Metrics = request => ValueTask.FromResult(new KubernetesMetricsSnapshot(KubernetesDataAvailability.Available,
+                [new("app-123", "restricted", "app", null, "30s", request.Provider is null ? 0.5m : 2m, request.Provider is null ? null : 1048576m)])),
+        };
+        using var panel = Create(session);
+        await panel.Initialization;
+        var row = Assert.Single(panel.Rows);
+        Assert.Equal(0.5m, row.CpuValue);
+        Assert.Equal(1048576m, row.MemoryValue);
+    }
+
+    [Fact]
+    public async Task AutomaticSelectionPrefersCompleteMeasurementsOverAPartialProvider()
+    {
+        var session = new KubernetesUiSession
+        {
+            ExtraFeatures = KubernetesSessionFeatures.Metrics,
+            ListItems = request => request.ApiResource.Resource == "services"
+                ? [Service("prometheus-operated"), Service("prometheus-server")] : [KubernetesUiSession.Pod],
+            Metrics = request => ValueTask.FromResult(request.Provider is null
+                ? new KubernetesMetricsSnapshot(KubernetesDataAvailability.Unavailable, [])
+                : new(KubernetesDataAvailability.Available,
+                    [new("app-123", "restricted", "app", null, "5m", 0.5m, request.Provider.Service == "prometheus-server" ? 1048576m : null)])),
+        };
+        using var panel = Create(session);
+        await panel.Initialization;
+        Assert.Equal("prometheus-server", panel.SelectedPrometheusProvider!.Service.Service);
+        Assert.Equal(1048576m, Assert.Single(panel.Rows).MemoryValue);
+    }
+
+    [Fact]
+    public async Task UnavailableProvidersTriggerRediscoveryOnTheNextRefresh()
+    {
+        int serviceRevision = 0;
+        var session = new KubernetesUiSession
+        {
+            ExtraFeatures = KubernetesSessionFeatures.Metrics,
+            ListItems = request => request.ApiResource.Resource == "services"
+                ? serviceRevision == 1 ? [] : [Service(serviceRevision == 2 ? "prometheus-server" : "prometheus-operated")] : [KubernetesUiSession.Pod],
+            Metrics = request => ValueTask.FromResult(request.Provider?.Service == "prometheus-server"
+                ? new KubernetesMetricsSnapshot(KubernetesDataAvailability.Available, [new("app-123", "restricted", "app", null, "5m", 0.5m, 1048576m)])
+                : new(KubernetesDataAvailability.Unavailable, [])),
+        };
+        using var panel = Create(session);
+        await panel.Initialization;
+        Assert.Empty(panel.Usage);
+        serviceRevision = 1;
+        await panel.RefreshAsync();
+        Assert.Null(panel.SelectedPrometheusProvider);
+        serviceRevision = 2;
+        await panel.RefreshAsync();
+        Assert.Equal("prometheus-server", panel.SelectedPrometheusProvider!.Service.Service);
+        Assert.Equal(0.5m, Assert.Single(panel.Rows).CpuValue);
+    }
+
+    [Fact]
+    public async Task MetricsApiFailureStillUsesPrometheus()
+    {
+        var session = new KubernetesUiSession
+        {
+            ExtraFeatures = KubernetesSessionFeatures.Metrics,
+            ListItems = request => request.ApiResource.Resource == "services" ? [Service("prometheus-operated")] : [KubernetesUiSession.Pod],
+            Metrics = request => request.Provider is null
+                ? throw new KubernetesRequestException(KubernetesErrorCode.InvalidResponse, "API unavailable.")
+                : ValueTask.FromResult(new KubernetesMetricsSnapshot(KubernetesDataAvailability.Available,
+                    [new("app-123", "restricted", "app", null, "5m", 0.5m, 1048576m)])),
+        };
+        using var panel = Create(session);
+        await panel.Initialization;
+        Assert.Equal(0.5m, Assert.Single(panel.Rows).CpuValue);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task EmptyOrFailedDiscoveryRetriesOnRefresh(bool failFirst)
+    {
+        int discoveries = 0;
+        var session = new KubernetesUiSession
+        {
+            ExtraFeatures = KubernetesSessionFeatures.Metrics,
+            ListItems = request =>
+            {
+                if (request.ApiResource.Resource != "services") { return [KubernetesUiSession.Pod]; }
+                if (++discoveries == 1)
+                {
+                    if (failFirst) { throw new KubernetesRequestException(KubernetesErrorCode.Forbidden, "Forbidden"); }
+                    return [];
+                }
+                return [Service("prometheus-operated")];
+            },
+            Metrics = request => ValueTask.FromResult(request.Provider is null ? new KubernetesMetricsSnapshot(KubernetesDataAvailability.Unavailable, [])
+                : new(KubernetesDataAvailability.Available, [new("app-123", "restricted", "app", null, "5m", 0.5m, 1048576m)])),
+        };
+        using var panel = Create(session);
+        await panel.Initialization;
+        Assert.Null(panel.SelectedPrometheusProvider);
+        await panel.RefreshAsync();
+        Assert.NotNull(panel.SelectedPrometheusProvider);
+        Assert.Equal(0.5m, Assert.Single(panel.Rows).CpuValue);
+    }
+
+    [Fact]
+    public async Task VictoriaMetricsTenantZeroIsAutomaticallyUsedForUsageAndHistory()
+    {
+        var metrics = new List<KubernetesMetricsRequest>();
+        var history = new List<KubernetesMetricHistoryRequest>();
+        using var panel = Create(Session([LabelledService("vmselect-monitoring", "vmselect", 8481)], metrics, history));
+        await panel.Initialization;
+        Assert.Equal("0", panel.SelectedPrometheusProvider!.Service.VictoriaMetricsTenant);
+        Assert.Contains(metrics, request => request.Provider is { Port: 8481, VictoriaMetricsTenant: "0" });
+        Assert.Equal(0.25m, Assert.Single(panel.Rows).CpuValue);
+        panel.SelectedResource = panel.Resources[0];
+        await panel.SelectionLoading;
+        Assert.NotEmpty(history);
+        Assert.All(history, request => Assert.Equal("0", request.Service.VictoriaMetricsTenant));
+    }
+
+    [Fact]
+    public async Task LateAutomaticProviderResultCannotOverwriteAManualChoice()
+    {
+        var delayed = new TaskCompletionSource<KubernetesMetricsSnapshot>();
+        var started = new TaskCompletionSource();
+        var session = new KubernetesUiSession
+        {
+            ExtraFeatures = KubernetesSessionFeatures.Metrics,
+            ListItems = request => request.ApiResource.Resource == "services"
+                ? [Service("prometheus-operated"), Service("prometheus-server")] : [KubernetesUiSession.Pod],
+            Metrics = request =>
+            {
+                if (request.Provider is null) { return ValueTask.FromResult(new KubernetesMetricsSnapshot(KubernetesDataAvailability.Unavailable, [])); }
+                if (request.Provider.Service == "prometheus-operated") { started.SetResult(); return new(delayed.Task); }
+                return ValueTask.FromResult(new KubernetesMetricsSnapshot(KubernetesDataAvailability.Available,
+                    [new("app-123", "restricted", "app", null, "5m", 2m, 3m)]));
+            },
+        };
+        using var panel = Create(session);
+        await started.Task;
+        panel.SelectedPrometheusProvider = panel.PrometheusProviders.Single(item => item.Service.Service == "prometheus-server");
+        await panel.ProviderSelectionLoading;
+        delayed.SetResult(new(KubernetesDataAvailability.Available, [new("app-123", "restricted", "app", null, "5m", 99m, 99m)]));
+        await panel.Initialization;
+        Assert.Equal("prometheus-server", panel.SelectedPrometheusProvider!.Service.Service);
+        Assert.Equal(2m, Assert.Single(panel.Rows).CpuValue);
+    }
+
+    [Fact]
+    public async Task NodesUsePrometheusForDiskEvenWhenCpuAndMemoryApiWorks()
+    {
+        var node = new KubernetesResourceDocument(new("", "v1", "nodes", null, "node-1", "uid", "1"), "Node", "", "{}");
+        var session = new KubernetesUiSession
+        {
+            ExtraFeatures = KubernetesSessionFeatures.Metrics,
+            ListedResource = node,
+            ListItems = request => request.ApiResource.Resource == "services" ? [Service("prometheus-operated")] : [node],
+            Metrics = request => ValueTask.FromResult(new KubernetesMetricsSnapshot(KubernetesDataAvailability.Available,
+                [new("node-1", null, null, null, "30s", request.Provider is null ? 0.5m : 2m, 1048576m,
+                    request.Provider is null ? null : 25m, request.Provider is null ? null : 100m)])),
+        };
+        using var panel = Create(session);
+        await panel.Initialization;
+        var row = Assert.Single(panel.Rows);
+        Assert.Equal(0.5m, row.CpuValue);
+        Assert.Equal("25%", row.Disk);
+        panel.SelectedResource = node;
+        await panel.SelectionLoading;
+        Assert.Contains("Root filesystem (/)", panel.SelectedDiskUsage, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("monitoring-prometheus", "kube-prometheus-stack-prometheus", 9090, null)]
+    [InlineData("vmselect-monitoring", "vmselect", 8481, "0")]
+    [InlineData("vmsingle-monitoring", "vmsingle", 8428, null)]
+    public void DiscoversPrometheusChartAndVictoriaMetricsQueryServices(string name, string app, int port, string? tenant)
+    {
+        var option = Assert.Single(KubernetesRuntimePanelViewModel.FindMetricsProviders(LabelledService(name, app, port)));
+        Assert.Equal(port, option.Service.Port);
+        Assert.Equal(tenant, option.Service.VictoriaMetricsTenant);
+    }
+
+    [Theory]
+    [InlineData("vmagent", 8429)]
+    [InlineData("vminsert", 8480)]
+    [InlineData("vmstorage", 8482)]
+    [InlineData("prometheus-node-exporter", 9100)]
+    [InlineData("kube-state-metrics", 8080)]
+    public void ExportersAndIngestionServicesAreNotQueryProviders(string app, int port)
+    {
+        Assert.Empty(KubernetesRuntimePanelViewModel.FindMetricsProviders(LabelledService(app + "-monitoring", app, port)));
+    }
+
+    private static KubernetesResourceDocument LabelledService(string name, string app, int port) => Service(name) with
+    {
+        Json = $$$"""{"metadata":{"labels":{"app.kubernetes.io/name":"{{{app}}}"}},"spec":{"ports":[{"name":"http","port":{{{port}}}}]}}""",
+    };
 
     [Fact]
     public async Task LateHistoryCannotPopulateAnotherSelection()

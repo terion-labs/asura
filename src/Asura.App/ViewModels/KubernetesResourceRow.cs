@@ -34,7 +34,9 @@ public sealed record KubernetesResourceRow(KubernetesResourceDocument Document)
     public string Roles { get; init; } = "—";
     public string Version { get; init; } = "—";
     public string Taints { get; init; } = "—";
-    public string Disk => "N/A";
+    public string Disk { get; init; } = "N/A";
+    public decimal? DiskPercentValue { get; init; }
+    public string DiskDetail { get; init; } = "Root filesystem (/) usage unavailable";
     public string Type { get; init; } = "—";
     public string Detail => Document.Summary;
     public string StatusTone { get; init; } = "Muted";
@@ -55,6 +57,18 @@ public sealed record KubernetesResourceRow(KubernetesResourceDocument Document)
             Memory = memory is { } bytes ? FormatBytes(bytes) : "N/A",
             Type = document.Kind,
         };
+        if (document.Reference is { Group: "", Resource: "nodes" } && measurements is [var measurement]
+            && measurement.DiskUsedBytes is { } used && measurement.DiskCapacityBytes is > 0 and { } capacity
+            && used >= 0 && used <= capacity)
+        {
+            decimal percent = used / capacity * 100;
+            row = row with
+            {
+                DiskPercentValue = percent,
+                Disk = percent.ToString("0.#", CultureInfo.InvariantCulture) + "%",
+                DiskDetail = $"{FormatBytes(used)} / {FormatBytes(capacity)} used · Root filesystem (/)",
+            };
+        }
         try
         {
             using var json = JsonDocument.Parse(document.Json);

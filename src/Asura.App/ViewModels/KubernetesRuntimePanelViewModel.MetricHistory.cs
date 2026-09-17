@@ -22,6 +22,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
         int version = ++_historyVersion;
         OnPropertyChanged(nameof(SelectedCpuUsage));
         OnPropertyChanged(nameof(SelectedMemoryUsage));
+        OnPropertyChanged(nameof(SelectedDiskUsage));
         MetricHistory = [];
         if (!HasMetricHistory || _session is null || SelectedResource is not { Reference.Namespace: { } ns } pod || _disposed) { IsHistoryLoading = false; return; }
         var cancellationToken = _lifetime.Token;

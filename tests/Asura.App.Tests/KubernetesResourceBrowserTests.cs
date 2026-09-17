@@ -103,6 +103,42 @@ public sealed class KubernetesResourceBrowserTests
     }
 
     [Fact]
+    public void NodeDiskUsesRootFilesystemRatioAndPreservesNumericSortValue()
+    {
+        var node = Document("nodes", "Node", "{}");
+        var row = KubernetesResourceRow.Create(node,
+            [new("api", "team", null, null, "30s", 0.5m, 1024m, 25 * 1024 * 1024 * 1024m, 100 * 1024 * 1024 * 1024m)]);
+        Assert.Equal("25%", row.Disk);
+        Assert.Equal(25m, row.DiskPercentValue);
+        Assert.Equal("25 GiB / 100 GiB used · Root filesystem (/)", row.DiskDetail);
+        Assert.Equal("0.5", row.Cpu);
+    }
+
+    [Theory]
+    [InlineData(null, 100)]
+    [InlineData(10, null)]
+    [InlineData(10, 0)]
+    [InlineData(-1, 100)]
+    [InlineData(101, 100)]
+    public void MissingOrInvalidDiskSamplesRemainUnavailable(int? used, int? capacity)
+    {
+        var row = KubernetesResourceRow.Create(Document("nodes", "Node", "{}"),
+            [new("api", "team", null, null, "30s", 0.5m, 1024m, used, capacity)]);
+        Assert.Equal("N/A", row.Disk);
+        Assert.Null(row.DiskPercentValue);
+        Assert.Equal("0.5", row.Cpu);
+    }
+
+    [Fact]
+    public void DiskSamplesAreNotSummedAcrossEntriesOrPublishedForPods()
+    {
+        var measurement = new KubernetesUsageEntry("api", "team", null, null, "30s", 0.5m, 1024m, 25m, 100m);
+        Assert.Equal("N/A", KubernetesResourceRow.Create(Document("nodes", "Node", "{}"), [measurement, measurement]).Disk);
+        Assert.Equal("N/A", KubernetesResourceRow.Create(Document("pods", "Pod", "{}"), [measurement]).Disk);
+        Assert.Equal("0%", KubernetesResourceRow.Create(Document("nodes", "Node", "{}"), [measurement with { DiskUsedBytes = 0 }]).Disk);
+    }
+
+    [Fact]
     public async Task BrowserStartsWithoutInspectorAndMapsTableSelectionToOwnedDocument()
     {
         var client = new KubernetesUiSession();

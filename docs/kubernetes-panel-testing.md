@@ -9,7 +9,7 @@ The core panel is implemented on `codex/kubernetes-panel`. The design rationale 
 3. Browse grouped resource families using the navigator. Pods and Nodes have dedicated sortable tables. Selecting a row opens the right-hand properties drawer with related-resource links, labels, conditions, containers and events. The YAML / JSON tab opens indented JSON in the shared syntax-highlighted editor with line numbers; pasted YAML uses YAML highlighting. User drafts remain exactly as typed. Dry-run review shows formatted, highlighted JSON for the current and proposed resource. Pod views expose container selection, previous/current logs, follow, a terminal, read-only files and port forwarding. Service forwarding resolves ready matching pods and requires an explicit pod/port choice.
 4. Edit a manifest and run server dry-run before applying. Scale, rollout restart, delete and node scheduling also have separate review and confirmation. Drain displays skipped/blocked pods and per-pod outcomes. Never retry an unknown outcome without inspecting current cluster state.
 5. Workspace-owned forwards remain available after closing the original inspector. Open their browser or database action to use the workspace's private endpoint. Stop the forward explicitly or close the workspace. Live forwards are not recreated on recovery: their browser panels reopen at `about:blank` and database panels reopen as unconfigured pickers. Forwarded database passwords are not restored.
-6. Current Pod and Node metrics populate the table and properties drawer automatically. The Metrics API is preferred; when unavailable, eligible in-cluster Prometheus services are discovered through the Kubernetes API. A unique provider is selected automatically; multiple providers require a choice. Pod history loads in the drawer through the service API proxy. Helm has its own tab. Helm must be installed in the backend execution environment. Helm changes review an exact release revision; upgrade additionally requires an OCI chart digest and version.
+6. Current Pod and Node metrics populate the table and properties drawer automatically. The Metrics API is preferred; missing measurements fall back to discovered Prometheus or VictoriaMetrics query services through the Kubernetes API proxy. Multiple services no longer require a choice: automatic probing prefers a working provider with complete measurements, while the drawer still allows manual selection. Probing is bounded to eight candidates and 30 seconds; failed/empty discovery and unavailable providers are retried on Refresh. Common Prometheus Operator and kube-prometheus-stack services, VictoriaMetrics `vmselect` with tenant `0`, and `vmsingle` are recognized. Node Disk shows root-filesystem (`/`) used percentage, with used/capacity bytes in its tooltip and drawer; missing exporter samples remain unavailable. Pod history uses the selected provider. Helm has its own tab. Helm must be installed in the backend execution environment. Helm changes review an exact release revision; upgrade additionally requires an OCI chart digest and version.
 7. Agent settings have separate Kubernetes Data, Control and Exec grants, all Off by default. Read tools return bounded resource references. Preview and commit are separate operations. Pod input uses Kubernetes Exec, not host command authority. Agent writes target existing resources; node and Helm administration remain native UI operations. Pod File Viewer panels do not expose agent file authority.
 
 ## Automated coverage
@@ -43,6 +43,16 @@ python3 scripts/test-kubernetes-live.py browsercity-rancher \
 
 This reads current Pod and Node usage with fixed bulk queries and one hour of CPU and memory history for the first listed pod. It rejects cross-namespace Pod samples and reports only availability and sample counts.
 
+For the existing Core VictoriaMetrics cluster:
+
+```sh
+python3 scripts/test-kubernetes-live.py browsercity-core \
+  --trust-existing-exec --namespace kube-system \
+  --prometheus browsercity-observability/vmselect-monitoring:8481 --prometheus-tenant 0
+```
+
+The tenant is a validated numeric account or account:project, and both current and history queries use the [documented VictoriaMetrics tenant route](https://docs.victoriametrics.com/victoriametrics/url-examples/#api-v1-query). Exporters and ingestion/storage services are excluded from query-provider discovery. Node disk uses the [node-exporter filesystem metrics](https://prometheus.io/docs/guides/node-exporter/), restricted to the root mount, with pseudo filesystems excluded. Used bytes are total minus free bytes; mountpoints are not summed. The Metrics API cannot supply this disk measurement, so Prometheus-compatible providers supplement it even when CPU and memory are available there.
+
 Direct read-only checks on 2026-09-17 reached:
 
 | Context | Kubernetes version | Authentication | Discovery |
@@ -57,6 +67,8 @@ The rebuilt macOS development app was also exercised against the existing browse
 
 The manifest/selector follow-up was verified in the native app against the existing browsercity-rancher profile: All namespaces loaded 50 Pods; choosing argocd loaded seven; restarting retained the argocd selection and its visible label. The selected live Pod manifest displayed indented JSON, line numbers and syntax colors. No manifest was edited or submitted during this check.
 
+The metrics follow-up found two separate discovery failures: Rancher's Prometheus aliases were considered ambiguous, and Core's VictoriaMetrics `vmselect` label was not recognized. After the fix, read-only acceptance through the rebuilt private worker passed on both contexts. In kube-system, Core returned 28 container CPU/memory entries and Rancher returned 25. Each returned three node CPU, memory and root-filesystem measurements, all matching the three listed Kubernetes node identities. Each also returned 61 samples for both CPU and memory history for the selected pod. Automatic selection, fallback between multiple providers, partial API supplementation and delayed-response handling were verified in App tests; these live commands select their provider explicitly to validate the serialized engine path.
+
 ## Acceptance boundaries
 
 No live resource mutation, pod command, container-file read, port-forward consumer, drain or Helm change was performed. These require a selected disposable namespace/workload before live acceptance. The harness does not write kubeconfig or cluster resources; it invokes the existing approved authentication helper when needed.
@@ -65,7 +77,11 @@ The implementation currently requires WebSocket exec v5, POSIX shell/head for co
 
 Packaged Linux guest, service-VM, SSH/proxy/VPN WebSocket interoperability, other desktop OSes and screen-reader acceptance remain release checks. Release legal evidence must be renewed against the changed dependency closure; prior signed approval hashes are not rewritten as if they authorized new dependencies.
 
+Automatic VictoriaMetrics cluster discovery uses tenant `0`. Explicit UI configuration for other tenants and authenticated query gateways is tracked by `asura-dp53.15`; the backend and live harness accept a validated numeric account:project tenant.
+
 ## Repository gate
+
+The automatic metrics follow-up passes all 2,190 App tests and 88 Kubernetes engine tests. Formatting, dependency audit and the warning-free Release solution build pass. Its full gate still stops at the existing owner-approved release-evidence mismatch (294 passed, one failed in the first test project).
 
 The pod-shell idle fix passes all 175 Terminal tests, including the native Kubernetes terminal factory regressions. Its full-gate run passed formatting, dependency audit and the warning-free Release build, then stopped at the same owner-approved release-evidence mismatch described below.
 
