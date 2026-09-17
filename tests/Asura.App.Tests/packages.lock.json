@@ -158,16 +158,16 @@
       },
       "FluentIcons.Common": {
         "type": "Transitive",
-        "resolved": "2.1.333",
-        "contentHash": "ph0Tqd6TIkSOr9Iixw+k6og1Y92UldfGLTxlDfj+FmdKtlG95qDX418TseY6gRcQVS9w+Tt2ye10RVM0kcGHmg=="
+        "resolved": "2.1.341",
+        "contentHash": "oB8C18x3YdHv/NiEtQ8b5eluveW4gClgLFat7GHYaGj2iyq3rYp9zflOk0i08wg70cH/e31Q8p2t0UY4TnaSAw=="
       },
       "FluentIcons.Resources.Avalonia": {
         "type": "Transitive",
-        "resolved": "2.1.333",
-        "contentHash": "RaFZs1cjhW0qzUE6ir5tjLQqIxq5c2l0QhuYb1Dckp3FHleHfGsLrME2/yYVLoF6eA6SCpQ+5ki+XiiNrSgamA==",
+        "resolved": "2.1.341",
+        "contentHash": "fA4XK35fyQ0X/D/hGFWujbn0usqH/MGDfaTtnqthUzW31837lS2/tE/V9oyky3OWEUbZurbOfTlWWoee47kAlQ==",
         "dependencies": {
           "Avalonia": "12.0.0",
-          "FluentIcons.Common": "[2.1.333]"
+          "FluentIcons.Common": "[2.1.341]"
         }
       },
       "HarfBuzzSharp": {
@@ -385,13 +385,13 @@
           "Avalonia.Controls.ColorPicker": "[12.0.5, )",
           "Avalonia.Controls.DataGrid": "[12.0.1, )",
           "Avalonia.Fonts.Inter": "[12.0.5, )",
-          "Avalonia.Skia": "[12.0.5, )",
+          "Avalonia.Skia": "[12.1.2, )",
           "Avalonia.Themes.Fluent": "[12.0.5, )",
           "AvaloniaEdit.TextMate": "[12.0.0, )",
           "Dock.Avalonia": "[12.0.0.2, )",
           "Dock.Avalonia.Themes.Fluent": "[12.0.0.2, )",
           "Dock.Model.Inpc": "[12.0.0.2, )",
-          "FluentIcons.Avalonia": "[2.1.333, )",
+          "FluentIcons.Avalonia": "[2.1.341, )",
           "Markdig": "[1.3.2, )",
           "Mermaider": "[0.12.1, )",
           "Svg.Controls.Skia.Avalonia": "[12.0.0.13, )",
@@ -410,7 +410,7 @@
         "dependencies": {
           "Asura.Application": "[1.0.0, )",
           "Exclr8Cef.WebView": "[0.8.0, )",
-          "FluentIcons.Avalonia": "[2.1.333, )",
+          "FluentIcons.Avalonia": "[2.1.341, )",
           "ReverseMarkdown": "[6.2.1, )"
         }
       },
@@ -497,11 +497,11 @@
       },
       "Avalonia.Skia": {
         "type": "CentralTransitive",
-        "requested": "[12.0.5, )",
-        "resolved": "12.0.5",
-        "contentHash": "cSLTpvzsm5JpUA1tQvuht3qN6oiy1PNRgbrp1g7jCSzAFf+OKZecSne+KT1apBQUkevciaHxwtAxLolPGD9izg==",
+        "requested": "[12.1.2, )",
+        "resolved": "12.1.2",
+        "contentHash": "x0TDDdZgNepbxRd6gSQyv3A/hHoVJk3kYqjRa1baI43XPGPuO87lArf4DRKAERgWUxUp1ad28aTvVsE3x0JM0g==",
         "dependencies": {
-          "Avalonia": "12.0.5",
+          "Avalonia": "12.1.2",
           "HarfBuzzSharp": "8.3.1.3",
           "HarfBuzzSharp.NativeAssets.Linux": "8.3.1.3",
           "HarfBuzzSharp.NativeAssets.WebAssembly": "8.3.1.3",
@@ -567,13 +567,13 @@
       },
       "FluentIcons.Avalonia": {
         "type": "CentralTransitive",
-        "requested": "[2.1.333, )",
-        "resolved": "2.1.333",
-        "contentHash": "rysgTNvvjI8dlRVvt9bmSxfK06ZmPi1X8WIvo1Od+MgA3lI+QUp7mWvaD42Ni7Leh34iFKCME8dEAJdyKZWtlQ==",
+        "requested": "[2.1.341, )",
+        "resolved": "2.1.341",
+        "contentHash": "jNSssfEvuA4qxKMZfhFwZ+uZmlCzfTsalaQ+fcumWiQt8iQFxaZZsbr3Om2tv2QIa143jQNTYL+yNuxrpnYXHw==",
         "dependencies": {
           "Avalonia": "12.0.0",
-          "FluentIcons.Common": "[2.1.333]",
-          "FluentIcons.Resources.Avalonia": "[2.1.333]"
+          "FluentIcons.Common": "[2.1.341]",
+          "FluentIcons.Resources.Avalonia": "[2.1.341]"
         }
       },
       "Markdig": {
