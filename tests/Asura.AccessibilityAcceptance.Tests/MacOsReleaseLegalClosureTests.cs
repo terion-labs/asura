@@ -67,13 +67,14 @@ public sealed class MacOsReleaseLegalClosureTests : IDisposable
     }
 
     [Theory]
-    [InlineData("managed-components.json")]
-    [InlineData("workspace-backend-managed-components.json")]
-    [InlineData("workspace-backend-x64-managed-components.json")]
-    public void Checked_in_component_catalogs_pass_release_schema_validation(string catalogName)
+    [InlineData("managed-components.json", nameof(ManagedEvidenceProfile.MacOsDesktop))]
+    [InlineData("workspace-backend-managed-components.json", nameof(ManagedEvidenceProfile.LinuxBackend))]
+    [InlineData("workspace-backend-x64-managed-components.json", nameof(ManagedEvidenceProfile.LinuxX64Backend))]
+    public void Checked_in_component_catalogs_pass_release_schema_validation(
+        string catalogName, string profile)
     {
         ManagedComponentEvidenceBuilder.ValidateCatalogFile(
-            Path.Combine(FindRepositoryRoot(), "licenses", catalogName));
+            Path.Combine(FindRepositoryRoot(), "licenses", catalogName), Enum.Parse<ManagedEvidenceProfile>(profile));
     }
 
     [Theory]

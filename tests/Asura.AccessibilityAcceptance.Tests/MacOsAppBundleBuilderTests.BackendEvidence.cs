@@ -96,7 +96,7 @@ public sealed partial class MacOsAppBundleBuilderTests
         var packages = Path.Combine(publish, "package-fixtures");
         Directory.CreateDirectory(packages);
         string[] projects = ["Asura.Backend", "Asura.ConnectionBackend", "Asura.Application", "Asura.Core",
-            "Asura.Databases", "Asura.Files", "Asura.Infrastructure", "Asura.Redis"];
+            "Asura.Databases", "Asura.Files", "Asura.Infrastructure", "Asura.Kubernetes", "Asura.Redis"];
         var libraries = new JsonObject();
         var target = new JsonObject();
         var entries = new JsonArray();

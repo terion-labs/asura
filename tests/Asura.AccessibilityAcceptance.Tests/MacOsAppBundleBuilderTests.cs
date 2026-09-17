@@ -35,6 +35,7 @@ public sealed partial class MacOsAppBundleBuilderTests : IDisposable
         "Asura.Files",
         "Asura.Git",
         "Asura.Infrastructure",
+        "Asura.Kubernetes",
         "Asura.Mcp",
         "Asura.Mcp.Server",
         "Asura.Monitoring",
