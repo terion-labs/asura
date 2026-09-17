@@ -10,7 +10,7 @@ Add a Credentials button to the workspace corner controls. It opens a contextual
 
 Passkey private keys and certificate private keys remain with their providers. Asura requests registration, authentication, or certificate selection. It never imports those private keys into `ISecretVault`, implements their synchronization, or adds its own software authenticator. Public certificate information may be displayed without changing private-key custody.
 
-Use KeePassXC as the first external integration to prove contextual login discovery and the multi-source design. Support Bitwarden passwords through a deliberately scoped CLI integration, with its separate unlock experience explained at setup. Qualify passkeys separately because available provider operations do not solve the browser integration boundary by themselves. Select client certificates from the browser's platform-backed candidates.
+Use KeePassXC as the first external integration to prove contextual login discovery and the multi-source design. Offer Bitwarden CLI as an advanced connector for explicitly linked items, with its separate unlock experience explained at setup. Full Bitwarden discovery needs a supported, qualified interface that does not export unrelated private-key material. Qualify passkeys separately because available provider operations do not solve the browser integration boundary by themselves. Select client certificates from the browser's platform-backed candidates.
 
 The shared UI does not imply universal CRUD, a complete inventory of every passkey, or support for every credential type in every source.
 
@@ -42,13 +42,15 @@ Older browser ADRs describe earlier engines and staged capabilities. Implementat
 | Windows platform | Existing DPAPI-protected Asura storage | Native WebAuthn APIs; installed provider support is version-dependent | Named-pipe/agent implementation must be qualified | Browser-visible Windows certificate identities |
 | Linux platform | Secret Service for byte secrets | Secret Service is not a WebAuthn API; qualify browser/device paths separately | Unix agent socket | Browser-visible certificate/token store; distribution-specific qualification |
 | KeePassXC | Paired browser protocol for URL matches, login writes and TOTP | Explicit registration/assertion protocol | KeePassXC can load keys into an existing SSH agent | No delegated TLS signing interface established by this investigation |
-| Bitwarden | Password Manager CLI or local Vault Management API | Extension/mobile support is established; Asura route is conditional | Desktop SSH agent | No delegated TLS signing interface established by this investigation |
+| Bitwarden | Field-specific CLI retrieval for explicit bindings; automatic discovery needs a separately qualified interface | Extension/mobile support is established; Asura route is conditional | Desktop SSH agent | No delegated TLS signing interface established by this investigation |
 
 These are integration routes, not a support announcement. Runtime capability detection and release qualification determine what the picker enables.
 
 Bitwarden distinguishes its organizational Public API from the local Vault Management API. Neither should be confused with the separate Secrets Manager product. Use the Password Manager tooling for users' logins. [Bitwarden APIs](https://bitwarden.com/help/bitwarden-apis/).
 
 The CLI has its own login/unlock state. API-key login does not substitute for decrypting the vault. `bw serve` starts a local HTTP service and preserves origin protection by default. This design prefers short-lived CLI processes over a persistent HTTP listener, subject to the secret-input experiment below. [CLI documentation](https://bitwarden.com/help/cli/).
+
+Source inspection found a further constraint: CLI `CipherResponse` uses `LoginResponse`, which inherits `LoginExport`; that export includes FIDO2 records with a `keyValue` field. Treat whole-item output as potentially containing passkey private material. Do not use `bw list items`, `bw get item`, vault exports or equivalent whole-item API responses for picker discovery, even if Asura would later discard those fields. Use field-specific getters with exact user-linked item IDs, not ambiguous names, and qualify their actual output. The vendor CLI may decrypt its own vault internally; Asura must not receive the unwanted key fields. A small Asura-authored JSON filter after extraction would not meet this boundary. [CLI response](https://github.com/bitwarden/clients/blob/be364be6b4b1f0f179ae44f8a35103a65e1fc556/apps/cli/src/models/response/login.response.ts), [login export](https://github.com/bitwarden/clients/blob/be364be6b4b1f0f179ae44f8a35103a65e1fc556/libs/common/src/models/export/login.export.ts), [FIDO2 export](https://github.com/bitwarden/clients/blob/be364be6b4b1f0f179ae44f8a35103a65e1fc556/libs/common/src/models/export/fido2-credential.export.ts).
 
 KeePassXC's protocol exposes association, URL-scoped login retrieval, TOTP, login writes, and passkey registration/assertion. Login results can already contain passwords, so a metadata-only UI does not imply metadata-only backend access. The adapter must bound and dispose those responses. KeePassXC is the initial target; generic KeePass plugins and direct KDBX editing are separate integrations. [Protocol](https://github.com/keepassxreboot/keepassxc-browser/blob/develop/keepassxc-protocol.md).
 
@@ -90,6 +92,8 @@ alex@example.com · Bitwarden          [Unlock & fill]
 This is a behavioral wireframe, not a final visual mockup. Match the existing shell controls, use a compact scrollable list, preserve keyboard focus, support Escape, and announce busy/error states without speaking secret values. No hover action reveals or copies a secret.
 
 The picker lists exact destination bindings first, then safe provider matches. It never merges entries solely because names or usernames match. Source and account are always visible. Search initially filters already-retrieved results; it must not send every keystroke or a global vault query to every backend.
+
+For the initial Bitwarden CLI connector, results are limited to explicitly linked entries. Setup asks the user to choose/copy an item identifier in Bitwarden and associate an exact destination in Asura. The connector retrieves only the selected fields after authorization. Label it as limited integration, not full vault search. Prefer a supported desktop/provider integration for the eventual seamless experience; generic access to the DuckDuckGo interface still needs qualification and upstream support confirmation.
 
 For SSH, show username, endpoint and key fingerprint with “Use for this connection”. For a TLS request, show the requesting host, whether it is a proxy, certificate subject, issuer, expiry and fingerprint. For passkeys, show the requesting site and available providers; a provider may own account selection and present its own dialog.
 
@@ -249,7 +253,7 @@ The product design is complete enough to split implementation, but these experim
 | G1: browser authentication | Signed packaged CEF 150 OSR app; native WebAuthn create/get/cancel on macOS, Windows and Linux; hardware key and available platform/phone UI; window parenting and profile isolation | Disable the unqualified route; do not infer support from regular Chrome |
 | G2: direct passkey provider | Paired KeePassXC test database; find a trusted CEF request route; exercise RP/origin validation, abort, reload, registration ambiguity and required UV/extensions | Password integration can ship; direct passkeys remain unavailable until browser boundary is resolved |
 | G3: Apple | Establish entitlement eligibility and signed build behavior; native authorization, selected credential metadata, denial and platform-dialog completion | Show unavailable state; preserve other providers |
-| G4: Bitwarden | Dedicated test account/CLI directory; safe unlock and session handoff, sync, offline reads, account switching, cancellation; separately assess upstream-supported IPC and installed Windows provider | CLI only if boundary is acceptable; no promise of desktop unlock or passkeys |
+| G4: Bitwarden | Dedicated test account/CLI directory; safe unlock/session handoff, field-specific output for a login containing a passkey, sync, offline reads, account switching and cancellation; separately assess upstream-supported IPC and installed Windows provider | Explicit bindings only if field retrieval passes; no whole-item discovery, desktop-unlock or passkey promise |
 | G5: mTLS | Local test CA/server requiring client auth; platform-generated non-exportable key; correct candidate list, selection, denial, expiry, profile separation and cache revocation | Keep certificate capability off for that platform/transport |
 | G6: browser filling | React/ordinary forms, multi-step login, stale targets, frame swaps, unusual origins, redirects, hidden fields, partial fill and agent readback | Fix dedicated delivery path; do not use clipboard or generic agent text as fallback |
 | G7: isolated workspace | Guest host-key verification, scoped identity, destination binding, revoke/reconnect/crash; demonstrate host socket is inaccessible | Keep guest credential capability unavailable; host browser feature can remain independent |
@@ -274,6 +278,7 @@ The architecture does not depend on choosing these now. Proposed defaults are sh
 | Choice | Proposed default |
 | --- | --- |
 | First external password source | KeePassXC, because the contextual protocol is directly documented; move Bitwarden earlier if it is the user's primary vault |
+| Bitwarden experience | Supported provider integration for full discovery; optional advanced CLI connector with explicit item bindings and separate unlock |
 | Unlock experience | Provider-owned UI wherever available; explain the separate CLI session when using Bitwarden CLI |
 | Credential metadata persistence | Only local entries and explicit bindings; no mirrored inventory of external vaults |
 | Automatic behavior | Explicit fill, code use and submission; optional exact-destination preferences later |
