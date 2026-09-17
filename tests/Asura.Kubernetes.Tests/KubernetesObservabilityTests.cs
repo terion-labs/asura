@@ -133,6 +133,114 @@ public sealed class KubernetesObservabilityTests
     }
 
     [Fact]
+    public async Task NodeDiskUsageReadsOnlyTheRootFilesystemWithoutChangingCpuOrMemory()
+    {
+        int requests = 0;
+        await using var session = Create(request =>
+        {
+            requests++;
+            string query = Uri.UnescapeDataString(request.RequestUri!.Query);
+            string value = query.Contains("node_cpu_seconds_total", StringComparison.Ordinal) ? "0.5"
+                : query.Contains("node_memory", StringComparison.Ordinal) ? "1024"
+                : query.Contains("node_filesystem_free_bytes", StringComparison.Ordinal) ? "100" : "400";
+            if (query.Contains("node_filesystem", StringComparison.Ordinal))
+            {
+                Assert.Contains("mountpoint=\"/\"", query, StringComparison.Ordinal);
+                Assert.Contains("fstype!~", query, StringComparison.Ordinal);
+                Assert.Contains("kube_node_info", query, StringComparison.Ordinal);
+            }
+            return NodeVector(value);
+        });
+        var snapshot = await session.ReadMetricsAsync(new(KubernetesMetricsKind.Nodes, Provider: new("monitoring", "prometheus", 9090)), CancellationToken.None);
+        var entry = Assert.Single(snapshot.Entries);
+        Assert.Equal(4, requests);
+        Assert.Equal(0.5m, entry.CpuCores);
+        Assert.Equal(1024m, entry.MemoryBytes);
+        Assert.Equal(100m, entry.DiskUsedBytes);
+        Assert.Equal(400m, entry.DiskCapacityBytes);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MissingOrForbiddenDiskDataPreservesKnownCpuAndMemory(bool forbidden)
+    {
+        await using var session = Create(request =>
+        {
+            string query = Uri.UnescapeDataString(request.RequestUri!.Query);
+            if (!query.Contains("node_filesystem", StringComparison.Ordinal)) { return NodeVector("10"); }
+            if (forbidden && !query.Contains("node_filesystem_free_bytes", StringComparison.Ordinal)) { return new(HttpStatusCode.Forbidden); }
+            return forbidden ? NodeVector("5") : Json("""{"status":"success","data":{"resultType":"vector","result":[]}}""");
+        });
+        var snapshot = await session.ReadMetricsAsync(new(KubernetesMetricsKind.Nodes, Provider: new("monitoring", "prometheus", 9090)), CancellationToken.None);
+        Assert.Equal(KubernetesDataAvailability.Available, snapshot.Availability);
+        var entry = Assert.Single(snapshot.Entries);
+        Assert.Equal(10m, entry.CpuCores);
+        Assert.Equal(10m, entry.MemoryBytes);
+        Assert.Null(entry.DiskUsedBytes);
+        Assert.Null(entry.DiskCapacityBytes);
+    }
+
+    [Theory]
+    [InlineData("100", "0")]
+    [InlineData("101", "100")]
+    public async Task InconsistentDiskMeasurementsRemainUnavailable(string used, string capacity)
+    {
+        await using var session = Create(request =>
+        {
+            string query = Uri.UnescapeDataString(request.RequestUri!.Query);
+            return NodeVector(query.Contains("node_filesystem_free_bytes", StringComparison.Ordinal) ? used
+                : query.Contains("node_filesystem_size_bytes", StringComparison.Ordinal) ? capacity : "10");
+        });
+        var snapshot = await session.ReadMetricsAsync(new(KubernetesMetricsKind.Nodes, Provider: new("monitoring", "prometheus", 9090)), CancellationToken.None);
+        var entry = Assert.Single(snapshot.Entries);
+        Assert.Equal(10m, entry.CpuCores);
+        Assert.Null(entry.DiskUsedBytes);
+        Assert.Null(entry.DiskCapacityBytes);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("12:34")]
+    [InlineData("4294967295:4294967295")]
+    public async Task VictoriaMetricsUsesValidatedTenantForCurrentAndHistoricalMetrics(string tenant)
+    {
+        await using var session = Create(request =>
+        {
+            string path = Uri.UnescapeDataString(request.RequestUri!.AbsolutePath);
+            string prefix = $"/api/v1/namespaces/monitoring/services/http:vmselect:8481/proxy/select/{tenant}/prometheus/api/v1/";
+            Assert.StartsWith(prefix, path, StringComparison.Ordinal);
+            return path.EndsWith("query_range", StringComparison.Ordinal)
+                ? Json("""{"status":"success","data":{"resultType":"matrix","result":[]}}""")
+                : Json("""{"status":"success","data":{"resultType":"vector","result":[]}}""");
+        });
+        var provider = new KubernetesPrometheusService("monitoring", "vmselect", 8481, VictoriaMetricsTenant: tenant);
+        await session.ReadMetricsAsync(new(KubernetesMetricsKind.Pods, "demo", provider), CancellationToken.None);
+        await session.ReadMetricHistoryAsync(HistoryRequest() with { Service = provider }, CancellationToken.None);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("../0")]
+    [InlineData("0/prometheus")]
+    [InlineData("0?query=up")]
+    [InlineData("-1")]
+    [InlineData("4294967296")]
+    [InlineData("0:4294967296")]
+    [InlineData("0:1:2")]
+    [InlineData("0:")]
+    [InlineData("٠")]
+    public async Task VictoriaMetricsRejectsUnsafeTenantBeforeNetworkAccess(string tenant)
+    {
+        await using var session = Create(_ => throw new InvalidOperationException("No network request is expected."));
+        var provider = new KubernetesPrometheusService("monitoring", "vmselect", 8481, VictoriaMetricsTenant: tenant);
+        var current = await Assert.ThrowsAsync<KubernetesRequestException>(() => session.ReadMetricsAsync(new(KubernetesMetricsKind.Pods, "demo", provider), CancellationToken.None).AsTask());
+        var history = await Assert.ThrowsAsync<KubernetesRequestException>(() => session.ReadMetricHistoryAsync(HistoryRequest() with { Service = provider }, CancellationToken.None).AsTask());
+        Assert.Equal(KubernetesErrorCode.InvalidConfiguration, current.Code);
+        Assert.Equal(KubernetesErrorCode.InvalidConfiguration, history.Code);
+    }
+
+    [Fact]
     public async Task PrometheusMissingNodeLabelsNeverBecomeZeroOrInventNodeIdentity()
     {
         await using var session = Create(_ => Json("""{"status":"success","data":{"resultType":"vector","result":[{"metric":{"instance":"10.0.0.1:9100"},"value":[1700000000,"10"]}]}}"""));
@@ -218,6 +326,8 @@ public sealed class KubernetesObservabilityTests
         KubernetesHistoryMetric.CpuCores, DateTimeOffset.FromUnixTimeSeconds(1700000000), DateTimeOffset.FromUnixTimeSeconds(1700000600));
 
     private static HttpResponseMessage Json(string json) => new(HttpStatusCode.OK) { Content = new StringContent(json) };
+
+    private static HttpResponseMessage NodeVector(string value) => Json("{\"status\":\"success\",\"data\":{\"resultType\":\"vector\",\"result\":[{\"metric\":{\"node\":\"worker-one\"},\"value\":[1700000000,\"" + value + "\"]}]}}");
 
     private static KubernetesClientSession Create(Func<HttpRequestMessage, HttpResponseMessage> respond) =>
         new(new(new Uri("https://cluster.test")), handlers: () => [new Fixture(respond)]);

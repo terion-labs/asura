@@ -74,8 +74,7 @@ public sealed partial class KubernetesClientSession
         string query = request.Metric == KubernetesHistoryMetric.CpuCores
             ? $"max by (container) (rate(container_cpu_usage_seconds_total{{{selector}}}[5m]))"
             : $"max by (container) (container_memory_working_set_bytes{{{selector}}})";
-        string service = $"{(request.Service.Https ? "https" : "http")}:{request.Service.Service}:{request.Service.Port.ToString(CultureInfo.InvariantCulture)}";
-        string path = $"api/v1/namespaces/{request.Service.Namespace}/services/{Uri.EscapeDataString(service)}/proxy/api/v1/query_range";
+        string path = PrometheusApiPath(request.Service, "query_range");
         var parameters = new List<KeyValuePair<string, string>>
         {
             new("query", query), new("start", request.Start.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)),

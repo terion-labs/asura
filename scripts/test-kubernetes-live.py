@@ -74,8 +74,27 @@ def prometheus_service(value):
     return dict(namespace=match[1], service=match[2], port=int(match[3]))
 
 
+def prometheus_tenant(value):
+    if (len(value) > 21 or re.fullmatch(r"[0-9]+(?::[0-9]+)?", value) is None
+            or any(int(part) > 4294967295 for part in value.split(":"))):
+        raise argparse.ArgumentTypeError("Use a numeric VictoriaMetrics account or account:project tenant")
+    return value
+
+
 def read_prometheus(worker, provider, namespace, pod_reference):
     result = {}
+    node_names = set()
+    continuation = None
+    for _ in range(10):
+        nodes = worker.invoke(2, list=dict(apiResource=dict(group="", version="v1", resource="nodes",
+                            kind="Node", namespaced=False, verbs=["list"]),
+                            limit=1000, continueToken=continuation))["page"]
+        node_names.update(item["reference"]["name"] for item in nodes["items"])
+        continuation = nodes.get("continueToken")
+        if not continuation:
+            break
+    if continuation:
+        raise RuntimeError("node_identity_inventory_incomplete")
     for kind, name in [(0, "pods"), (1, "nodes")]:
         request = dict(kind=kind, provider=provider)
         if kind == 0:
@@ -88,7 +107,14 @@ def read_prometheus(worker, provider, namespace, pod_reference):
             raise RuntimeError("prometheus_scope_mismatch")
         result["prometheus_" + name] = dict(
             entries=len(entries), cpu_samples=sum(entry.get("cpuCores") is not None for entry in entries),
-            memory_samples=sum(entry.get("memoryBytes") is not None for entry in entries))
+            memory_samples=sum(entry.get("memoryBytes") is not None for entry in entries),
+            disk_samples=sum(entry.get("diskUsedBytes") is not None
+                             and entry.get("diskCapacityBytes") is not None
+                             and entry["diskCapacityBytes"] > 0
+                             and 0 <= entry["diskUsedBytes"] <= entry["diskCapacityBytes"] for entry in entries))
+        if kind == 1:
+            result["prometheus_nodes"].update(node_count=len(node_names),
+                node_identity_matches=sum(entry.get("name") in node_names for entry in entries))
     if pod_reference is not None:
         end = datetime.datetime.now(datetime.timezone.utc).replace(second=0, microsecond=0)
         for metric, name in [(0, "cpu"), (1, "memory")]:
@@ -114,7 +140,13 @@ def main():
                         help="Read optional pod metrics and Helm release metadata in the selected namespace")
     parser.add_argument("--prometheus", type=prometheus_service,
                         help="Read bulk pod/node usage and first-pod history through namespace/service:port API proxy")
+    parser.add_argument("--prometheus-tenant", type=prometheus_tenant,
+                        help="VictoriaMetrics vmselect tenant, such as 0 or 123:456; requires --prometheus")
     args = parser.parse_args()
+    if args.prometheus_tenant is not None:
+        if args.prometheus is None:
+            parser.error("--prometheus-tenant requires --prometheus")
+        args.prometheus["victoriaMetricsTenant"] = args.prometheus_tenant
     dotnet = root / ".dotnet/dotnet"
     assembly = root / "src/Asura.Backend/bin/Release/net10.0/Asura.Backend.dll"
     failed = False

@@ -16,6 +16,7 @@
           <StackPanel><TextBlock Text="CPU" Classes="Muted" /><TextBlock Text="{Binding SelectedCpuUsage}" FontSize="{DynamicResource ShellFontSize16}" /></StackPanel>
           <StackPanel Grid.Column="1"><TextBlock Text="Memory" Classes="Muted" /><TextBlock Text="{Binding SelectedMemoryUsage}" FontSize="{DynamicResource ShellFontSize16}" /></StackPanel>
         </Grid>
+        <StackPanel IsVisible="{Binding IsNodeTable}"><TextBlock Text="Disk · Root filesystem (/)" Classes="Muted" /><TextBlock Text="{Binding SelectedDiskUsage}" FontSize="{DynamicResource ShellFontSize16}" TextWrapping="Wrap" /></StackPanel>
         <TextBlock Text="{Binding MetricsStatus}" Classes="Muted" TextWrapping="Wrap" />
         <Grid IsVisible="{Binding HasMetricsProviderChoices}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
           <ComboBox ItemsSource="{Binding PrometheusProviders}" SelectedItem="{Binding SelectedPrometheusProvider, Mode=TwoWay}" PlaceholderText="Choose metrics provider" HorizontalAlignment="Stretch" AutomationProperties.Name="Kubernetes metrics provider"><ComboBox.ItemTemplate><DataTemplate x:DataType="vm:KubernetesMetricsProviderOption"><TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>

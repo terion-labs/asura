@@ -7,14 +7,17 @@ public enum KubernetesMetricsKind { Pods, Nodes }
 public sealed record KubernetesMetricsRequest(KubernetesMetricsKind Kind, string? Namespace = null,
     KubernetesPrometheusService? Provider = null);
 
-/// <summary>Null usage means missing or unparseable data. CPU is cores; memory is bytes.</summary>
+/// <summary>Null usage means missing or unparseable data. CPU is cores; memory is bytes.
+/// Disk describes the node's root filesystem only: used is size minus free bytes, capacity is its total size.</summary>
 public sealed record KubernetesUsageEntry(string Name, string? Namespace, string? Container,
-    DateTimeOffset? Timestamp, string Window, decimal? CpuCores, decimal? MemoryBytes);
+    DateTimeOffset? Timestamp, string Window, decimal? CpuCores, decimal? MemoryBytes,
+    decimal? DiskUsedBytes = null, decimal? DiskCapacityBytes = null);
 
 public sealed record KubernetesMetricsSnapshot(KubernetesDataAvailability Availability, IReadOnlyList<KubernetesUsageEntry> Entries);
 
 /// <summary>An explicitly configured in-cluster service reached only through the Kubernetes API proxy.</summary>
-public sealed record KubernetesPrometheusService(string Namespace, string Service, int Port, bool Https = false);
+public sealed record KubernetesPrometheusService(string Namespace, string Service, int Port, bool Https = false,
+    string? VictoriaMetricsTenant = null);
 
 public enum KubernetesHistoryMetric { CpuCores, MemoryBytes }
 

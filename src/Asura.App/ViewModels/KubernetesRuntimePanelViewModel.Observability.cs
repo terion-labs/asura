@@ -32,6 +32,8 @@ public sealed partial class KubernetesRuntimePanelViewModel
     public bool IsMetricsLoading { get => _isMetricsLoading; private set => SetProperty(ref _isMetricsLoading, value); }
     public string SelectedCpuUsage => FormatSelectedUsage(false);
     public string SelectedMemoryUsage => FormatSelectedUsage(true);
+    public string SelectedDiskUsage => (_inspection ?? SelectedResource) is { } selected
+        ? KubernetesResourceRow.Create(selected, Usage.Select(item => item.Entry)).DiskDetail : "N/A";
     public Task LoadMetricsAsync() => RefreshResourceUsageAsync();
     public async Task RefreshResourceUsageAsync()
     {
@@ -48,16 +50,34 @@ public sealed partial class KubernetesRuntimePanelViewModel
         MetricsStatus = "Loading current usage…";
         try
         {
-            var snapshot = await _session.ReadMetricsAsync(new(nodes ? KubernetesMetricsKind.Nodes : KubernetesMetricsKind.Pods, ns), cancellationToken);
+            var kind = nodes ? KubernetesMetricsKind.Nodes : KubernetesMetricsKind.Pods;
+            var snapshot = new KubernetesMetricsSnapshot(KubernetesDataAvailability.Unavailable, []);
+            string? apiFailure = null;
+            try { snapshot = await _session.ReadMetricsAsync(new(kind, ns), cancellationToken); }
+            catch (KubernetesRequestException exception) { apiFailure = exception.Message; }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { apiFailure = "Metrics API timed out."; }
             if (_disposed || generation != _generation || version != _metricsVersion) { return; }
             await DiscoverMetricsProvidersAsync();
             if (_disposed || generation != _generation || version != _metricsVersion) { return; }
             var provider = SelectedPrometheusProvider;
             string source = "Metrics API";
-            if ((snapshot.Availability != KubernetesDataAvailability.Available || snapshot.Entries.Count == 0) && provider is not null)
+            // Node disk has no Metrics API equivalent. For pods, fill missing
+            // measurements/container rows without discarding available API data.
+            bool missingUsage = snapshot.Availability != KubernetesDataAvailability.Available || snapshot.Entries.Count == 0
+                || _allResources.Any(item => KubernetesResourceRow.Create(item, snapshot.Entries) is { CpuValue: null } or { MemoryValue: null });
+            if ((nodes || missingUsage) && provider is not null)
             {
-                snapshot = await _session.ReadMetricsAsync(new(nodes ? KubernetesMetricsKind.Nodes : KubernetesMetricsKind.Pods, ns, provider.Service), cancellationToken);
-                source = provider.DisplayName;
+                var fallback = await ReadAvailableProviderUsageAsync(kind, ns, snapshot, cancellationToken);
+                if (_disposed || generation != _generation || version != _metricsVersion) { return; }
+                if (fallback is { } available)
+                {
+                    bool hadApiUsage = snapshot.Entries.Any(entry => entry.CpuCores is not null || entry.MemoryBytes is not null);
+                    snapshot = MergeMetrics(snapshot, available.Snapshot);
+                    provider = available.Provider;
+                    if (!_metricsProviderChosenByUser) { SelectAutomaticMetricsProvider(provider); }
+                    source = (hadApiUsage ? "Metrics API + " : "") + $"{provider.Product} · {provider.DisplayName}";
+                }
+                else if (!_metricsProviderChosenByUser) { _providerDiscoverySucceeded = false; }
             }
             if (_disposed || generation != _generation || version != _metricsVersion) { return; }
             Usage = [.. snapshot.Entries.Select(entry => new KubernetesUsageRow(entry))];
@@ -65,7 +85,8 @@ public sealed partial class KubernetesRuntimePanelViewModel
             {
                 KubernetesDataAvailability.Available when snapshot.Entries.Count > 0 => $"{source} · {snapshot.Entries.Max(entry => entry.Timestamp)?.ToString("HH:mm:ss", CultureInfo.InvariantCulture) ?? "Time unknown"} UTC",
                 KubernetesDataAvailability.Forbidden => "Metrics access denied. Resource browsing remains available.",
-                _ => nodes && provider is not null ? "Node usage unavailable. Prometheus requires node-exporter samples linked to Kubernetes node identity." : "Current usage unavailable. " + MetricsProviderStatus,
+                _ => nodes && provider is not null ? "Node usage unavailable. The metrics service needs node-exporter samples linked to Kubernetes nodes."
+                    : "Current usage unavailable. " + (apiFailure ?? MetricsProviderStatus),
             };
             PublishUsage();
         }
@@ -78,6 +99,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
     {
         OnPropertyChanged(nameof(SelectedCpuUsage));
         OnPropertyChanged(nameof(SelectedMemoryUsage));
+        OnPropertyChanged(nameof(SelectedDiskUsage));
         PublishResourceRows();
     }
     private string FormatSelectedUsage(bool memory)
