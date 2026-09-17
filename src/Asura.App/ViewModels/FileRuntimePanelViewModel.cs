@@ -199,9 +199,11 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
         IInMemoryDatabaseRegistry? databaseRegistry = null,
         IFilePreviewPreferences? previewPreferences = null,
         FileTransferClipboard? clipboard = null,
-        FileProviderProfileId? recoveryProfileId = null)
+        FileProviderProfileId? recoveryProfileId = null,
+        KubernetesFileTarget? kubernetesTarget = null)
         : base(id, PanelKind.FileViewer, title, "Files")
     {
+        KubernetesTarget = kubernetesTarget;
         _clipboard = clipboard;
         _recoveryProfileId = recoveryProfileId;
         _clipboard?.Changed += OnTransferClipboardChanged;
@@ -309,10 +311,13 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
 
     public ConnectionId ConnectionId => _connection.Id;
 
+    public KubernetesFileTarget? KubernetesTarget { get; }
+
     public FileProviderProfileId? RecoveryProfileId
     {
         get
         {
+            if (KubernetesTarget is not null) { return null; }
             if (_recoveryProfileId is { } recoveryProfileId)
             {
                 return recoveryProfileId;

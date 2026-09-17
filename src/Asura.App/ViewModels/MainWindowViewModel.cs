@@ -183,7 +183,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         IWorkspaceNetworkRuntime? workspaceNetworkRuntime = null,
         ILocalMcpServerControl? localMcpServerControl = null,
         IBrowserStartupRecovery? browserStartupRecovery = null,
-        IBrowserHistory? browserHistory = null)
+        IBrowserHistory? browserHistory = null,
+        IKubernetesPanelSessionFactory? kubernetesPanelSessionFactory = null)
     {
         SessionClient = sessionClient ?? throw new ArgumentNullException(nameof(sessionClient));
         _workspaceDefinitionOccupancy = workspaceDefinitionOccupancy
@@ -308,7 +309,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 _fileTransferQueue,
                 _databasePanelClient,
                 _redisPanelSessionFactory,
-                _browserRendererViewFactory),
+                _browserRendererViewFactory,
+                kubernetesPanelSessionFactory: kubernetesPanelSessionFactory),
             WorkspaceNetworkRoute.Direct);
         _workspaceRuntimeLeases = new WorkspaceRuntimeLeaseCoordinator(
             _connectionRuntime,
@@ -4259,7 +4261,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         ConnectionId? terminalConnectionId = null,
         FileProviderProfileId? fileProfileId = null,
         DatabaseConnectionProfileId? databaseProfileId = null,
-        SavedConnectionFamily initialFamily = SavedConnectionFamily.Terminal)
+        SavedConnectionFamily initialFamily = SavedConnectionFamily.Terminal,
+        KubernetesConnectionProfileId? kubernetesProfileId = null)
     {
         var terminal = CreateConnectionEditor(terminalConnectionId);
         FileProviderProfileEditorViewModel? files = null;
@@ -4296,7 +4299,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             files,
             database,
             lockedFamily,
-            initialFamily);
+            initialFamily,
+            new KubernetesConnectionEditorViewModel(kubernetesProfileId is { } kubernetesId ? FindKubernetesConnection(kubernetesId) : null,
+                ReviewKubernetesConfigurationAsync));
     }
 
     public async ValueTask<DefinitionStoreResult<StoredDefinition<FileProviderProfile>>>
@@ -5867,6 +5872,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         ArgumentNullException.ThrowIfNull(launch);
         return launch.Target switch
         {
+            PanelConnectionOptionViewModel.Target.Kubernetes kubernetes => AddKubernetesPanelAsync(cancellationToken, kubernetes.Id),
             PanelConnectionOptionViewModel.Target.Connection connection =>
                 AddConnectionPanelAsync(connection.Id, launch.Panel, cancellationToken),
             PanelConnectionOptionViewModel.Target.FileProvider fileProvider =>
@@ -6663,6 +6669,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         ArgumentNullException.ThrowIfNull(launch);
         return launch.Target switch
         {
+            PanelConnectionOptionViewModel.Target.Kubernetes kubernetes => LaunchSavedKubernetesAsync(kubernetes.Id, cancellationToken),
             PanelConnectionOptionViewModel.Target.Connection connection =>
                 AddConnectionPanelTabAsync(
                     connection.Id,
@@ -6970,6 +6977,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             or PanelKind.ProcessMonitor
             or PanelKind.DatabaseViewer
             or PanelKind.Docker
+            or PanelKind.Kubernetes
             or PanelKind.Git))
         {
             throw new ArgumentOutOfRangeException(nameof(kind), kind, null);
@@ -7040,6 +7048,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     PanelInstanceId.New(),
                     title,
                     workspaceId: workspaceId),
+                PanelKind.Kubernetes => CreateKubernetesPanel(PanelInstanceId.New(), title, workspaceId: workspaceId),
                 PanelKind.Docker => CreateDockerPanel(
                     PanelInstanceId.New(),
                     title,
@@ -7076,6 +7085,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         PanelKind.ProcessMonitor => "Process Monitor",
         PanelKind.DatabaseViewer => "Database",
         PanelKind.Docker => "Docker",
+        PanelKind.Kubernetes => "Kubernetes",
         PanelKind.Git => "Git",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
@@ -8775,7 +8785,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             connections,
             fileConnections,
             databaseConnections,
-            screens);
+            screens,
+            [.. snapshot.KubernetesConnections.Select(item => new LauncherConnectionViewModel(
+                new ConnectionId(item.Value.Id.Value), item.Revision, item.Value.Name, "Kubernetes", item.Value.ContextName,
+                "Validated on connect", item.Value.IsEnabled, [], SavedConnectionFamily.Kubernetes, item.Value.Id.Value))]);
         ReconcileAgentSavedScreenTemplate();
         // A rail item that was replaced arrives with its runtime flags cleared,
         // and the flags are derived rather than stored, so nothing else would
@@ -8803,6 +8816,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         OnPropertyChanged(nameof(PanelConnectionOptions));
         OnPropertyChanged(nameof(BrowserConnectionOptions));
         OnPropertyChanged(nameof(DatabasePanelConnectionOptions));
+        OnPropertyChanged(nameof(KubernetesPanelConnectionOptions));
         OnPropertyChanged(nameof(FileConnectionOptions));
         RefreshOpenTerminalRenderProfiles();
         OnPropertyChanged(nameof(ActiveTerminalProfile));
@@ -8903,6 +8917,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 FileProviderEndpoint(item.Value.Configuration),
                 liveFileProfiles.Contains(item.Value.Id.Value),
                 item.Value.Configuration.PanelLaunchCapabilities)));
+        shortcuts.AddRange(_catalog.Snapshot.KubernetesConnections.Select(item => CreateSavedConnectionShortcut(
+            new PanelConnectionOptionViewModel.Target.Kubernetes(item.Value.Id), item.Value.Name, "Kubernetes",
+            item.Value.ContextName, item.Value.IsEnabled, item.Value.PanelLaunchCapabilities)));
         return [.. shortcuts
             .OrderBy(shortcut => shortcut.Name, StringComparer.OrdinalIgnoreCase)
             .ThenBy(shortcut => shortcut.Kind, StringComparer.OrdinalIgnoreCase)];
@@ -8942,6 +8959,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         PanelKind.Statistics => "Open statistics",
         PanelKind.ProcessMonitor => "Open processes",
         PanelKind.Docker => "Open Docker",
+        PanelKind.Kubernetes => "Open Kubernetes",
         PanelKind.Git => "Open Git",
         _ => throw new ArgumentOutOfRangeException(nameof(panel), panel, null),
     };
@@ -8953,6 +8971,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         PanelKind.Statistics => Symbol.PulseSquare,
         PanelKind.ProcessMonitor => Symbol.Gauge,
         PanelKind.Docker => Symbol.Box,
+        PanelKind.Kubernetes => Symbol.Grid,
         PanelKind.Git => Symbol.BranchFork,
         _ => throw new ArgumentOutOfRangeException(nameof(panel), panel, null),
     };
@@ -9456,6 +9475,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     ? null
                     : "The database drivers are unavailable in this build.",
                 ["create", "new", "database", "sql", "sqlite", "postgres", "mysql", "panel"]),
+            new LauncherSearchResultViewModel(new LauncherSearchTarget.CreatePanel(PanelKind.Kubernetes), Symbol.Grid,
+                "Create · Kubernetes", "New Kubernetes panel", "Browse cluster resources, manifests and pod logs.", "Open",
+                true, null, ["create", "new", "kubernetes", "k8s", "cluster", "panel"]),
             new LauncherSearchResultViewModel(
                 new LauncherSearchTarget.CreatePanel(PanelKind.Docker),
                 Symbol.Box,
@@ -9549,6 +9571,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 connection.Kind,
                 connection.Detail,
             ])));
+        candidates.AddRange(Launcher.KubernetesConnections.Select(connection => new LauncherSearchResultViewModel(
+            new LauncherSearchTarget.KubernetesConnection(new KubernetesConnectionProfileId(connection.TargetId)), Symbol.Grid,
+            "Kubernetes connection", connection.Name, connection.Detail, "Open", connection.CanOpen, null,
+            ["kubernetes", "k8s", "cluster", connection.Name, connection.Detail])));
         candidates.AddRange(DatabaseConnections.Select(connection => new LauncherSearchResultViewModel(
             new LauncherSearchTarget.DatabaseConnection(
                 new DatabaseConnectionProfileId(connection.TargetId)),
@@ -10162,6 +10188,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 workspaceId: workspaceId);
         }
 
+        if (recovered.Kind == RuntimePanelRecoveryKind.Kubernetes)
+        {
+            return CreateKubernetesPanel(PanelInstanceId.New(), recovered.Title, recovered.KubernetesTarget, workspaceId);
+        }
+
         if (recovered.Kind == RuntimePanelRecoveryKind.Docker)
         {
             var connection = recovered.ConnectionId is { } dockerConnectionId
@@ -10462,6 +10493,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 panel.Startup.Location,
                 panel.ConnectionId is { } tunnelId ? FindConnection(tunnelId) : null,
                 workspaceId: workspaceId);
+        }
+
+        if (panel.Kind == ScreenPanelKind.Kubernetes)
+        {
+            return CreateKubernetesPanel(PanelInstanceId.New(), title, panel.KubernetesTarget, workspaceId);
         }
 
         if (panel.Kind == ScreenPanelKind.Docker)
@@ -11067,7 +11103,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         WorkspaceInstanceId? workspaceId = null,
         string? sessionPassword = null,
         DatabaseRecoveryState? recovery = null,
-        bool persistedConnection = true)
+        bool persistedConnection = true,
+        bool transientConnection = false)
     {
         var runtimeServices = workspaceId is { } runtimeWorkspaceId
             ? WorkspaceRuntimeServicesFor(runtimeWorkspaceId)
@@ -11093,7 +11130,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             tunnelConnection ??= BuiltInConnections.Local;
         }
 
-        recovery ??= new DatabaseRecoveryState(_secretVault);
+        if (!transientConnection) { recovery ??= new DatabaseRecoveryState(_secretVault); }
         var effectiveDriver = driverId ?? savedConnection?.DriverId;
         if (string.Equals(effectiveDriver, RedisDatabase.DriverId, StringComparison.Ordinal))
         {
@@ -11149,7 +11186,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 deferStoredCredentialAccess: deferStoredCredentialAccess,
                 sessionPassword: sessionPassword,
                 recovery: recovery,
-                persistedConnection: persistedConnection);
+                persistedConnection: persistedConnection,
+                transientConnection: transientConnection);
     }
 
     private static string DatabasePasswordStoreLabel(string adapter) => adapter switch
@@ -11440,7 +11478,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             savedConnection: source.BoundConnectionProfile,
             initialObject: databaseObject?.Id,
             workspaceId: workspaceId,
-            sessionPassword: source.SessionPassword);
+            sessionPassword: source.SessionPassword,
+            persistedConnection: !source.IsTransientConnection,
+            transientConnection: source.IsTransientConnection);
     }
 
     /// <summary>
@@ -11884,6 +11924,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         OnPropertyChanged(nameof(DatabaseConnectionOptions));
         OnPropertyChanged(nameof(DatabasePanelConnectionOptions));
+        OnPropertyChanged(nameof(KubernetesPanelConnectionOptions));
     }
 
     private void StartAcceptedRuntimePanels(RuntimeWorkspaceViewModel runtime)
@@ -11961,6 +12002,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     SessionClient,
                     ClientId,
                     owner),
+                KubernetesRuntimePanelViewModel kubernetes => kubernetes.StartHostingAsync(SessionClient, ClientId, owner),
                 DockerRuntimePanelViewModel docker => docker.StartHostingAsync(
                     SessionClient,
                     ClientId,
@@ -12893,6 +12935,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         ScreenPanelKind.ProcessMonitor => "Processes",
         ScreenPanelKind.DatabaseViewer => "Database",
         ScreenPanelKind.Docker => "Docker",
+        ScreenPanelKind.Kubernetes => "Kubernetes",
         ScreenPanelKind.Git => "Git",
         _ => "Panel",
     };
@@ -12906,6 +12949,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         PanelKind.ProcessMonitor => "Process Monitor",
         PanelKind.DatabaseViewer => "Database",
         PanelKind.Docker => "Docker",
+        PanelKind.Kubernetes => "Kubernetes",
         PanelKind.Git => "Git",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
@@ -12919,6 +12963,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         ScreenPanelKind.ProcessMonitor => PanelKind.ProcessMonitor,
         ScreenPanelKind.DatabaseViewer => PanelKind.DatabaseViewer,
         ScreenPanelKind.Docker => PanelKind.Docker,
+        ScreenPanelKind.Kubernetes => PanelKind.Kubernetes,
         ScreenPanelKind.Git => PanelKind.Git,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
@@ -12933,6 +12978,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             "PROCESSMONITOR" => PanelKind.ProcessMonitor,
             "DATABASE" or "DATABASEVIEWER" => PanelKind.DatabaseViewer,
             "DOCKER" => PanelKind.Docker,
+            "KUBERNETES" => PanelKind.Kubernetes,
             "GIT" => PanelKind.Git,
             _ => throw new InvalidOperationException(
                 "The recovered panel kind is not supported by this build."),

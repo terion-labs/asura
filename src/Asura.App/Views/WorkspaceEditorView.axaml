@@ -589,6 +589,7 @@
                     <Button Classes="TextButton Accent" Click="OnAddProcessMonitorPanelClick" Content="+ Processes" IsEnabled="{Binding CanAddPanel}" />
                     <Button Classes="TextButton Accent" Click="OnAddDatabasePanelClick" Content="+ Database" IsEnabled="{Binding CanAddPanel}" />
                     <Button Classes="TextButton Accent" Click="OnAddDockerPanelClick" Content="+ Docker" IsEnabled="{Binding CanAddPanel}" />
+                    <Button Classes="TextButton Accent" Click="OnAddKubernetesPanelClick" Content="+ Kubernetes" IsEnabled="{Binding CanAddPanel}" />
                     <Button Classes="TextButton Accent" Click="OnAddGitPanelClick" Content="+ Git" IsEnabled="{Binding CanAddPanel}" />
                   </WrapPanel>
                 </Grid>
@@ -638,6 +639,15 @@
                             <ComboBox ItemsSource="{Binding FileProviderOptions}" SelectedItem="{Binding SelectedFileProvider, Mode=TwoWay}">
                               <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
+                          </controls:LabeledField>
+
+                          <controls:LabeledField Label="Kubernetes connection" IsVisible="{Binding IsKubernetes}">
+                            <ComboBox ItemsSource="{Binding KubernetesOptions}" SelectedItem="{Binding SelectedKubernetes, Mode=TwoWay}" AutomationProperties.Name="Kubernetes connection">
+                              <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                          </controls:LabeledField>
+                          <controls:LabeledField Label="Namespace" IsVisible="{Binding IsKubernetes}">
+                            <TextBox Text="{Binding KubernetesNamespace, Mode=TwoWay}" PlaceholderText="All permitted namespaces" AutomationProperties.Name="Kubernetes namespace" />
                           </controls:LabeledField>
 
                           <controls:LabeledField Label="Startup location" IsVisible="{Binding SupportsLocation}">

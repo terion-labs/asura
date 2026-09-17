@@ -453,6 +453,9 @@ public sealed partial class WorkspaceEditorView : UserControl
     private void OnAddDockerPanelClick(object? sender, RoutedEventArgs e) =>
         AddPanel(sender, e, ScreenPanelKind.Docker);
 
+    private void OnAddKubernetesPanelClick(object? sender, RoutedEventArgs e) =>
+        AddPanel(sender, e, ScreenPanelKind.Kubernetes);
+
     private void OnAddGitPanelClick(object? sender, RoutedEventArgs e) =>
         AddPanel(sender, e, ScreenPanelKind.Git);
 

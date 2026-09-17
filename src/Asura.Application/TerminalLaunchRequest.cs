@@ -25,7 +25,8 @@ public sealed record TerminalLaunchRequest
         string? initialCommand = null,
         TerminalShellActivityFallback shellActivityFallback =
             TerminalShellActivityFallback.None,
-        TerminalMultiplexerSession? multiplexerSession = null)
+        TerminalMultiplexerSession? multiplexerSession = null,
+        KubernetesTerminalTarget? kubernetesTarget = null)
     {
         ValidateText(workingDirectory, nameof(workingDirectory));
         ValidateText(executable, nameof(executable));
@@ -72,6 +73,12 @@ public sealed record TerminalLaunchRequest
         InitialCommand = initialCommand;
         ShellActivityFallback = shellActivityFallback;
         MultiplexerSession = multiplexerSession;
+        KubernetesTarget = kubernetesTarget;
+        if (kubernetesTarget is not null && (executable is not null || argumentSnapshot.Count != 0
+            || Environment.Count != 0 || initialCommand is not null || multiplexerSession is not null))
+        {
+            throw new ArgumentException("A Kubernetes terminal cannot also describe a host process or startup command.", nameof(kubernetesTarget));
+        }
     }
 
     public string? WorkingDirectory { get; }
@@ -108,6 +115,8 @@ public sealed record TerminalLaunchRequest
 
     public TerminalMultiplexerSession? MultiplexerSession { get; }
 
+    public KubernetesTerminalTarget? KubernetesTarget { get; }
+
     public TerminalLaunchRequest WithPresentationProfiles(
         TerminalRenderProfileSnapshot? renderProfile,
         TerminalKeymapSnapshot? keymap) =>
@@ -122,7 +131,8 @@ public sealed record TerminalLaunchRequest
             ConnectionMetadata,
             InitialCommand,
             ShellActivityFallback,
-            MultiplexerSession);
+            MultiplexerSession,
+            KubernetesTarget);
 
     public TerminalLaunchRequest WithShellActivityFallback(
         TerminalShellActivityFallback fallback) =>
@@ -137,7 +147,8 @@ public sealed record TerminalLaunchRequest
             ConnectionMetadata,
             InitialCommand,
             fallback,
-            MultiplexerSession);
+            MultiplexerSession,
+            KubernetesTarget);
 
     private static IReadOnlyList<string> SnapshotArguments(IReadOnlyList<string>? arguments)
     {

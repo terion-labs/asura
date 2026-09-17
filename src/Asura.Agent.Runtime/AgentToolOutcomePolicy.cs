@@ -34,6 +34,8 @@ internal static class AgentToolOutcomePolicy
                 AgentToolOutcomeDisposition.Reconcile,
             FileAgentToolResultJson.FileMutationOutcomeUnknownStableCode =>
                 AgentToolOutcomeDisposition.Reconcile,
+            "kubernetes_mutation_outcome_unknown" =>
+                AgentToolOutcomeDisposition.Reconcile,
             DockerAgentControlToolResultJson.OutcomeUnknownStableCode =>
                 AgentToolOutcomeDisposition.Reconcile,
             GitAgentToolResultJson.MutationOutcomeUnknownStableCode =>

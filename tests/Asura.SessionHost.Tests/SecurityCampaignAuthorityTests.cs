@@ -160,7 +160,7 @@ public sealed class SecurityCampaignAuthorityTests
     private static Task FileAsync(string toolName, Func<AgentFileSessionHostTests, Task> valid) =>
         RunAsync(toolName, static () => new AgentFileSessionHostTests().Trusted_scope_change_during_authorization_denies_provider_dispatch(), () => valid(new AgentFileSessionHostTests()));
 
-    private static async Task RunAsync(
+    internal static async Task RunAsync(
         string toolName,
         Func<Task> rejectsDriftedBinding,
         Func<Task> dispatchesCorrectSink)

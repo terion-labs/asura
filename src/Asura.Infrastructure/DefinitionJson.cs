@@ -30,6 +30,7 @@ internal static class DefinitionJson
             AiProviderProfile value => JsonSerializer.Serialize(value, Context.AiProviderProfile),
             McpServerProfile value => JsonSerializer.Serialize(value, Context.McpServerProfile),
             BrowserProfileDefinition value => JsonSerializer.Serialize(value, Context.BrowserProfileDefinition),
+            KubernetesConnectionProfile value => JsonSerializer.Serialize(value, Context.KubernetesConnectionProfile),
             DatabaseConnectionProfile value => JsonSerializer.Serialize(value, Context.DatabaseConnectionProfile),
             QuickTerminalSettings value => JsonSerializer.Serialize(value, Context.QuickTerminalSettings),
             NetworkConnectionProfile value => JsonSerializer.Serialize(value, Context.NetworkConnectionProfile),
@@ -63,6 +64,8 @@ internal static class DefinitionJson
                 JsonSerializer.Deserialize(payloadJson, Context.McpServerProfile),
             var value when value == DefinitionKind.BrowserProfile =>
                 JsonSerializer.Deserialize(payloadJson, Context.BrowserProfileDefinition),
+            var value when value == DefinitionKind.KubernetesConnection =>
+                JsonSerializer.Deserialize(payloadJson, Context.KubernetesConnectionProfile),
             var value when value == DefinitionKind.DatabaseConnection =>
                 JsonSerializer.Deserialize(payloadJson, Context.DatabaseConnectionProfile),
             var value when value == DefinitionKind.QuickTerminalSettings =>
@@ -159,6 +162,7 @@ internal static class DefinitionJson
 [JsonSerializable(typeof(AiProviderProfile))]
 [JsonSerializable(typeof(McpServerProfile))]
 [JsonSerializable(typeof(BrowserProfileDefinition))]
+[JsonSerializable(typeof(KubernetesConnectionProfile))]
 [JsonSerializable(typeof(DatabaseConnectionProfile))]
 [JsonSerializable(typeof(QuickTerminalSettings))]
 [JsonSerializable(typeof(NetworkConnectionProfile))]

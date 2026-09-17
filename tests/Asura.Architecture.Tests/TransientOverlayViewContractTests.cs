@@ -314,7 +314,12 @@ public sealed class TransientOverlayViewContractTests
         var choices = catalogRoot.Descendants()
             .Where(element => string.Equals(element.Name.LocalName, "ChooserTile", StringComparison.Ordinal))
             .ToArray();
-        Assert.Equal(8, choices.Length);
+        Assert.Equal(
+        [
+            "New terminal", "New browser", "Statistics", "File Viewer", "Process monitor", "Database", "Docker", "Kubernetes", "Git",
+        ], choices.Select(element => AttributeValue(element, "Title")), StringComparer.Ordinal);
+        Assert.Contains(choices, element => string.Equals(AttributeValue(element, "Click"), "OnNewKubernetesClick", StringComparison.Ordinal)
+            && string.Equals(AttributeValue(element, "AutomationProperties.Name"), "Open a Kubernetes panel", StringComparison.Ordinal));
 
         var initialAction = FindNamedElement(catalogRoot, "NewTerminalButton");
         Assert.Equal(
@@ -428,7 +433,12 @@ public sealed class TransientOverlayViewContractTests
         var choices = root.Descendants()
             .Where(element => string.Equals(element.Name.LocalName, "ChooserTile", StringComparison.Ordinal))
             .ToArray();
-        Assert.Equal(8, choices.Length);
+        Assert.Equal(
+        [
+            "Terminal", "Browser", "Statistics", "Files", "Processes", "Database", "Docker", "Kubernetes", "Git",
+        ], choices.Select(element => AttributeValue(element, "Title")), StringComparer.Ordinal);
+        Assert.Contains(choices, element => string.Equals(AttributeValue(element, "Click"), "OnAddKubernetesPanelClick", StringComparison.Ordinal)
+            && string.Equals(AttributeValue(element, "AutomationProperties.Name"), "Add Kubernetes panel", StringComparison.Ordinal));
 
         var initialAction = FindNamedElement(root, "NewPanelTerminalButton");
         Assert.Equal(

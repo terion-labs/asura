@@ -35,6 +35,8 @@ public readonly record struct DefinitionKind
 
     public static DefinitionKind BrowserProfile { get; } = new("browser-profile");
 
+    public static DefinitionKind KubernetesConnection { get; } = new("kubernetes-connection");
+
     public static DefinitionKind DatabaseConnection { get; } = new("database-connection");
 
     public static DefinitionKind QuickTerminalSettings { get; } = new("quick-terminal-settings");

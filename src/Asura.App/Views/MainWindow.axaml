@@ -177,6 +177,7 @@
           AddConnectionPanelRequested="OnAddConnectionPanelClick"
           AddDatabasePanelRequested="OnAddDatabasePanelClick"
           AddDockerPanelRequested="OnAddDockerPanelClick"
+          AddKubernetesPanelRequested="OnAddKubernetesPanelClick"
           AddFilePanelRequested="OnAddFilePanelClick"
           AddGitPanelRequested="OnAddGitPanelClick"
           AddProcessMonitorPanelRequested="OnAddProcessMonitorPanelClick"
@@ -341,6 +342,12 @@
           PointerPressed="OnRuntimePanelPointerPressed" />
     </DataTemplate>
 
+    <DataTemplate DataType="vm:KubernetesRuntimePanelViewModel">
+      <panelViews:KubernetesRuntimePanelView FilesRequested="OnKubernetesFilesRequested" ShellRequested="OnKubernetesShellRequested" ForwardDatabaseRequested="OnKubernetesForwardDatabaseRequested" ForwardBrowserRequested="OnKubernetesForwardBrowserRequested" CloseRequested="OnCloseRuntimePanelClick"
+          ConnectionSelected="OnPanelConnectionSelected" NewConnectionRequested="OnPanelNewConnectionRequested"
+          SplitRequested="OnSplitRuntimePanelRequested" GotFocus="OnRuntimePanelGotFocus" PointerPressed="OnRuntimePanelPointerPressed" />
+    </DataTemplate>
+
     <DataTemplate DataType="vm:DockerRuntimePanelViewModel">
       <panelViews:DockerRuntimePanelView
           CloseRequested="OnCloseRuntimePanelClick"
@@ -379,6 +386,7 @@
           CloseRequested="OnCloseRuntimePanelClick"
           DatabaseRequested="OnPlaceholderDatabaseClick"
           DockerRequested="OnPlaceholderDockerClick"
+          KubernetesRequested="OnPlaceholderKubernetesClick"
           FileViewerRequested="OnPlaceholderFileViewerClick"
           GitRequested="OnPlaceholderGitClick"
           GotFocus="OnRuntimePanelGotFocus"

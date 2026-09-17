@@ -36,7 +36,7 @@ internal sealed class HostConnectionBackend : IAsyncDisposable
     {
         using var startup = CancellationTokenSource.CreateLinkedTokenSource(token, Lifetime);
         startup.Token.ThrowIfCancellationRequested();
-        if (capability is not ("database" or "files" or "redis" or "http"))
+        if (capability is not ("database" or "files" or "redis" or "http" or "kubernetes"))
         {
             throw new InvalidOperationException("The host backend capability is not supported.");
         }

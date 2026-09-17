@@ -19,6 +19,7 @@ public sealed partial class InMemorySessionHostClient :
     IAgentStatisticsSessionHost,
     IAgentDatabaseSessionHost,
     IAgentDockerSessionHost,
+    IAgentKubernetesSessionHost,
     IAgentGitSessionHost,
     IAgentWebToolSessionHost,
     IAsyncDisposable
@@ -36,12 +37,14 @@ public sealed partial class InMemorySessionHostClient :
     private readonly Dictionary<(ActorId ActorId, string Key), IdempotencyRecord> _idempotency = [];
     private readonly WorkspaceGraphRegistry _workspaceGraphs;
     private readonly ITerminalSessionFactory _terminalFactory;
+    private readonly IKubernetesTerminalSessionFactory? _kubernetesTerminalFactory;
     private readonly IFilePanelSessionFactory? _filePanelFactory;
     private readonly IBrowserPanelSessionFactory? _browserPanelFactory;
     private readonly CapabilitySet _browserPanelCapabilities;
     private readonly ISystemMonitorPanelSessionFactory? _systemMonitorFactory;
     private readonly IDatabasePanelSessionFactory? _databasePanelFactory;
     private readonly IDockerPanelSessionFactory? _dockerPanelFactory;
+    private readonly IKubernetesHostedPanelSessionFactory? _kubernetesPanelFactory;
     private readonly IGitPanelSessionFactory? _gitPanelFactory;
     private readonly ISessionLifecyclePolicy _lifecyclePolicy;
     private readonly TimeProvider _timeProvider;
@@ -61,6 +64,7 @@ public sealed partial class InMemorySessionHostClient :
         _agentDatabaseReadActionComposer;
     private readonly AgentDockerReadActionComposer?
         _agentDockerReadActionComposer;
+    private readonly AgentKubernetesReadActionComposer? _agentKubernetesReadActionComposer;
     private readonly AgentGitActionComposer? _agentGitActionComposer;
     private readonly AgentWebToolActionComposer? _agentWebToolActionComposer;
     private readonly IAgentWebToolExecutor? _agentWebToolExecutor;
@@ -99,7 +103,10 @@ public sealed partial class InMemorySessionHostClient :
         AgentWebToolActionComposer? agentWebToolActionComposer = null,
         IAgentWebToolExecutor? agentWebToolExecutor = null,
         IGitPanelSessionFactory? gitPanelFactory = null,
-        AgentGitActionComposer? agentGitActionComposer = null)
+        AgentGitActionComposer? agentGitActionComposer = null,
+        IKubernetesHostedPanelSessionFactory? kubernetesPanelFactory = null,
+        AgentKubernetesReadActionComposer? agentKubernetesReadActionComposer = null,
+        IKubernetesTerminalSessionFactory? kubernetesTerminalFactory = null)
     {
         ArgumentNullException.ThrowIfNull(terminalFactory);
         ArgumentNullException.ThrowIfNull(lifecyclePolicy);
@@ -109,6 +116,7 @@ public sealed partial class InMemorySessionHostClient :
         }
 
         _terminalFactory = terminalFactory;
+        _kubernetesTerminalFactory = kubernetesTerminalFactory;
         _filePanelFactory = filePanelFactory;
         _browserPanelFactory = browserPanelFactory;
         _browserPanelCapabilities = browserPanelFactory is null
@@ -117,6 +125,7 @@ public sealed partial class InMemorySessionHostClient :
         _systemMonitorFactory = systemMonitorFactory;
         _databasePanelFactory = databasePanelFactory;
         _dockerPanelFactory = dockerPanelFactory;
+        _kubernetesPanelFactory = kubernetesPanelFactory;
         _gitPanelFactory = gitPanelFactory;
         _lifecyclePolicy = lifecyclePolicy;
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -133,6 +142,7 @@ public sealed partial class InMemorySessionHostClient :
             agentStatisticsReadActionComposer;
         _agentDatabaseReadActionComposer = agentDatabaseReadActionComposer;
         _agentDockerReadActionComposer = agentDockerReadActionComposer;
+        _agentKubernetesReadActionComposer = agentKubernetesReadActionComposer;
         _agentGitActionComposer = agentGitActionComposer;
         _agentWebToolActionComposer = agentWebToolActionComposer;
         _agentWebToolExecutor = agentWebToolExecutor;
@@ -153,6 +163,7 @@ public sealed partial class InMemorySessionHostClient :
             .. (databasePanelFactory?.RelationalCapabilities.Values ?? []),
             .. (databasePanelFactory?.RedisCapabilities.Values ?? []),
             .. (dockerPanelFactory?.Capabilities.Values ?? []),
+            .. (kubernetesPanelFactory?.Capabilities.Values ?? []),
             .. (gitPanelFactory?.Capabilities.Values ?? []),
         ]);
     }
@@ -205,6 +216,7 @@ public sealed partial class InMemorySessionHostClient :
             request.Launch.ConnectionId?.Value ?? string.Empty,
             request.Launch.ConnectionMetadata?.ConnectionBoundary ?? string.Empty,
             request.Launch.ConnectionMetadata?.InitialWorkingDirectory ?? string.Empty,
+            request.Launch.KubernetesTarget?.BindingFingerprint ?? string.Empty,
             request.Role.ToString());
         if (TryReplay(context, fingerprint, 0, out HostResult<SessionSnapshot>? replay))
         {
@@ -215,6 +227,11 @@ public sealed partial class InMemorySessionHostClient :
         if (invalid is not null)
         {
             return invalid;
+        }
+
+        if (request.Launch.KubernetesTarget is not null && _kubernetesTerminalFactory is null)
+        {
+            return Unsupported<SessionSnapshot>("Kubernetes terminal transport is unavailable.", 0);
         }
 
         try
@@ -262,7 +279,9 @@ public sealed partial class InMemorySessionHostClient :
             {
                 var existingSnapshot = existing.Snapshot();
                 if (existingSnapshot.Descriptor.Owner != request.Owner
-                    || existing.Engine.Kind != PanelKind.Terminal)
+                    || existing.Engine.Kind != PanelKind.Terminal
+                    || !string.Equals(existingSnapshot.Descriptor.TerminalMetadata?.KubernetesBindingFingerprint,
+                        request.Launch.KubernetesTarget?.BindingFingerprint, StringComparison.Ordinal))
                 {
                     return HostResult<SessionSnapshot>.Fail(
                         HostError.Create(
@@ -322,8 +341,11 @@ public sealed partial class InMemorySessionHostClient :
             HostedSession hosted;
             try
             {
-                createdEngine = await _terminalFactory
-                    .CreateAsync(
+                createdEngine = request.Launch.KubernetesTarget is { } kubernetes
+                    ? await _kubernetesTerminalFactory!.CreateAsync(request.Owner.WorkspaceId, request.SessionId,
+                        kubernetes.Profile, kubernetes.Request, request.Launch.RenderProfile, request.Launch.Keymap,
+                        operationCancellation.Token).ConfigureAwait(false)
+                    : await _terminalFactory.CreateAsync(
                         request.SessionId,
                         request.Launch,
                         operationCancellation.Token)

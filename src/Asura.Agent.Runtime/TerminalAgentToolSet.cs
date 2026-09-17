@@ -619,7 +619,7 @@ internal static class TerminalAgentToolSet
             tools.Add(Resize);
         }
 
-        return tools.ToImmutable();
+        return [.. tools.Select(tool => panel.KubernetesBindingFingerprint is null ? tool : PodTool(tool))];
     }
 
     /// <summary>
@@ -661,7 +661,9 @@ internal static class TerminalAgentToolSet
         return tools.ToImmutable();
     }
 
-    public static ImmutableArray<AgentToolDefinition> ForWorkspace() =>
+    public static ImmutableArray<AgentToolDefinition> ForWorkspace()
+    {
+        AgentToolDefinition[] tools =
     [
         AgentToolScopeSchema.WithRequiredPanelId(ReadScreen),
         AgentToolScopeSchema.WithRequiredPanelId(ReadScreenDiff),
@@ -681,6 +683,8 @@ internal static class TerminalAgentToolSet
         AgentToolScopeSchema.WithRequiredPanelId(Interrupt),
         AgentToolScopeSchema.WithRequiredPanelId(Resize),
     ];
+        return [.. tools, .. tools.Where(tool => KubernetesTerminalTools.IsInputTool(tool.Name)).Select(PodTool)];
+    }
 
     public static bool SupportsMutations(
         AgentContextPanel panel,
@@ -746,7 +750,9 @@ internal static class TerminalAgentToolSet
         string toolName,
         IReadOnlySet<PanelInstanceId>? resizeEligiblePanelIds = null) =>
         IsActiveTerminal(panel)
-        && toolName switch
+        && (!KubernetesTerminalTools.IsInputTool(KubernetesTerminalTools.BaseToolName(toolName))
+            || (panel.KubernetesBindingFingerprint is not null) == KubernetesTerminalTools.IsPodTool(toolName))
+        && KubernetesTerminalTools.BaseToolName(toolName) switch
         {
             BuiltInAgentTools.TerminalReadScreen =>
                 Has(panel, SessionCapabilities.TerminalReadScreen),
@@ -798,7 +804,7 @@ internal static class TerminalAgentToolSet
         };
 
     internal static bool IsToolName(string toolName) =>
-        toolName is
+        KubernetesTerminalTools.BaseToolName(toolName) is
             BuiltInAgentTools.TerminalReadScreen
             or BuiltInAgentTools.TerminalReadScreenDiff
             or BuiltInAgentTools.TerminalReadScrollback
@@ -828,6 +834,10 @@ internal static class TerminalAgentToolSet
         ImmutableArray<AgentContextPanel> activeTerminals,
         IReadOnlySet<PanelInstanceId>? resizeEligiblePanelIds = null)
     {
+        if (KubernetesTerminalTools.IsInputTool(tool.Name))
+        {
+            AddSelectedTool(tools, PodTool(tool), activeTerminals, resizeEligiblePanelIds);
+        }
         var eligiblePanels = activeTerminals
             .Where(
                 panel => Supports(
@@ -840,6 +850,13 @@ internal static class TerminalAgentToolSet
             tools.Add(WithPanelSelection(tool, eligiblePanels));
         }
     }
+
+    private static AgentToolDefinition PodTool(AgentToolDefinition tool) =>
+        KubernetesTerminalTools.IsInputTool(tool.Name)
+            ? new AgentToolDefinition(KubernetesTerminalTools.ForPod(tool.Name),
+                "Kubernetes pod terminal: " + tool.Description,
+                System.Text.Encoding.UTF8.GetBytes(tool.InputSchema.GetRawText()))
+            : tool;
 
     private static AgentToolDefinition WithPanelSelection(
         AgentToolDefinition tool,

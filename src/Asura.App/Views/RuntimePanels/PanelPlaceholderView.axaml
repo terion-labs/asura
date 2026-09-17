@@ -40,6 +40,7 @@
             NewBrowserRequested="OnChooseBrowserClick"
             NewDatabaseRequested="OnChooseDatabaseClick"
             NewDockerRequested="OnChooseDockerClick"
+            NewKubernetesRequested="OnChooseKubernetesClick"
             NewFileViewerRequested="OnChooseFileViewerClick"
             NewGitRequested="OnChooseGitClick"
             NewLocalTerminalRequested="OnChooseTerminalClick"

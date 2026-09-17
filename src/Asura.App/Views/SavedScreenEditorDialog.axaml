@@ -280,6 +280,15 @@
                   </controls:LabeledField>
                 </Grid>
 
+                <controls:LabeledField Label="Kubernetes connection" IsVisible="{Binding IsKubernetes}">
+                  <ComboBox ItemsSource="{Binding KubernetesOptions}" SelectedItem="{Binding SelectedKubernetes}" AutomationProperties.Name="Kubernetes connection">
+                    <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
+                </controls:LabeledField>
+                <controls:LabeledField Label="Namespace" IsVisible="{Binding IsKubernetes}">
+                  <TextBox Text="{Binding KubernetesNamespace}" PlaceholderText="All permitted namespaces" AutomationProperties.Name="Kubernetes namespace" />
+                </controls:LabeledField>
+
                 <controls:LabeledField Label="Startup location" IsVisible="{Binding SupportsLocation}">
                   <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                     <TextBox

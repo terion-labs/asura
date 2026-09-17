@@ -76,7 +76,7 @@ internal sealed class WorkspaceDatabaseBackend(IConnectionCommandRuntime command
 
     internal async Task<DatabaseWorkspaceOperationLaunch> PlanAsync(string capability, CancellationToken cancellationToken)
     {
-        if (capability is not ("database" or "redis" or "files" or "http"))
+        if (capability is not ("database" or "redis" or "files" or "http" or "kubernetes"))
         {
             throw new ArgumentException("The workspace backend capability is not supported.", nameof(capability));
         }

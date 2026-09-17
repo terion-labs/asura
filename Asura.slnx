@@ -16,6 +16,7 @@
     <Project Path="src/Asura.Files/Asura.Files.csproj" />
     <Project Path="src/Asura.Git/Asura.Git.csproj" />
     <Project Path="src/Asura.Infrastructure/Asura.Infrastructure.csproj" />
+    <Project Path="src/Asura.Kubernetes/Asura.Kubernetes.csproj" />
     <Project Path="src/Asura.Mcp/Asura.Mcp.csproj" />
     <Project Path="src/Asura.Mcp.Server/Asura.Mcp.Server.csproj" />
     <Project Path="src/Asura.Monitoring/Asura.Monitoring.csproj" />
@@ -44,6 +45,7 @@
     <Project Path="tests/Asura.SshNet.Tests/Asura.SshNet.Tests.csproj" />
     <Project Path="tests/Asura.Git.Tests/Asura.Git.Tests.csproj" />
     <Project Path="tests/Asura.Infrastructure.Tests/Asura.Infrastructure.Tests.csproj" />
+    <Project Path="tests/Asura.Kubernetes.Tests/Asura.Kubernetes.Tests.csproj" />
     <Project Path="tests/Asura.Mcp.Tests/Asura.Mcp.Tests.csproj" />
     <Project Path="tests/Asura.Monitoring.Tests/Asura.Monitoring.Tests.csproj" />
     <Project Path="tests/Asura.Previews.Tests/Asura.Previews.Tests.csproj" />

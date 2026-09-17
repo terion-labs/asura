@@ -34,6 +34,7 @@ public sealed partial class GovernedAgentRuntimeTests
             "StatisticsToolContribution",
             "DatabaseToolContribution",
             "DockerToolContribution",
+            "KubernetesToolContribution",
             "GitToolContribution",
             "FileToolContribution",
             "McpToolContribution",

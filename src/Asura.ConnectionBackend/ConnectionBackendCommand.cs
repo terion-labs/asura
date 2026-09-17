@@ -35,6 +35,12 @@ internal static class ConnectionBackendCommand
                         await FileWorkspaceChild.RunAsync(Console.OpenStandardInput(), Console.OpenStandardOutput(), CancellationToken.None).ConfigureAwait(false);
                         return 0;
                     }
+                case "kubernetes":
+                    using (DatabaseWorkspaceScratch.Acquire(operationId))
+                    {
+                        await KubernetesWorkspaceChild.RunAsync(Console.OpenStandardInput(), Console.OpenStandardOutput(), CancellationToken.None).ConfigureAwait(false);
+                        return 0;
+                    }
                 default: return 64;
             }
         }

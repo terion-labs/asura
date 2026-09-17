@@ -12,6 +12,7 @@ public sealed class WorkspaceTabEditorViewModel : ObservableObject, IDisposable
 {
     private readonly IReadOnlyList<ScreenConnectionOption> _connectionOptions;
     private readonly IReadOnlyList<ScreenFileProviderOption> _fileProviderOptions;
+    private readonly IReadOnlyList<ScreenKubernetesOption> _kubernetesOptions;
     private readonly ObservableCollection<WorkspaceTabPanelEditorViewModel> _panels = [];
     private readonly ReadOnlyObservableCollection<WorkspaceTabPanelEditorViewModel> _readOnlyPanels;
     private string _name;
@@ -22,13 +23,15 @@ public sealed class WorkspaceTabEditorViewModel : ObservableObject, IDisposable
         WorkspaceEntry.Tab tab,
         IReadOnlyList<WorkspaceLayoutOption> layoutOptions,
         IReadOnlyList<ScreenConnectionOption> connectionOptions,
-        IReadOnlyList<ScreenFileProviderOption> fileProviderOptions)
+        IReadOnlyList<ScreenFileProviderOption> fileProviderOptions,
+        IReadOnlyList<ScreenKubernetesOption>? kubernetesOptions = null)
     {
         ArgumentNullException.ThrowIfNull(tab);
         LayoutOptions = layoutOptions ?? throw new ArgumentNullException(nameof(layoutOptions));
         _connectionOptions = connectionOptions ?? throw new ArgumentNullException(nameof(connectionOptions));
         _fileProviderOptions = fileProviderOptions
             ?? throw new ArgumentNullException(nameof(fileProviderOptions));
+        _kubernetesOptions = kubernetesOptions ?? [];
         Id = tab.Id;
         _name = tab.Name;
         _selectedLayout = LayoutOptions.Single(option => option.Id == tab.LayoutId);
@@ -39,7 +42,7 @@ public sealed class WorkspaceTabEditorViewModel : ObservableObject, IDisposable
                 panel,
                 _selectedLayout,
                 _connectionOptions,
-                _fileProviderOptions));
+                _fileProviderOptions, _kubernetesOptions));
         }
     }
 
@@ -119,12 +122,14 @@ public sealed class WorkspaceTabEditorViewModel : ObservableObject, IDisposable
             kind.ToString(),
             connectionId,
             PanelStartupBehavior.None,
-            fileProviderId);
+            fileProviderId,
+            kind == ScreenPanelKind.Kubernetes && _kubernetesOptions.FirstOrDefault(option => option.IsAvailable) is { } kubernetes
+                ? new KubernetesPanelTarget(kubernetes.Id) : null);
         AddPanelEditor(new WorkspaceTabPanelEditorViewModel(
             panel,
             SelectedLayout,
             _connectionOptions,
-            _fileProviderOptions));
+            _fileProviderOptions, _kubernetesOptions));
         PublishState();
         return true;
     }

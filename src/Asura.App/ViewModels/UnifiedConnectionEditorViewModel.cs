@@ -11,6 +11,7 @@ public enum SavedConnectionFamily
     Terminal,
     Files,
     Database,
+    Kubernetes,
 }
 
 /// <summary>
@@ -54,6 +55,8 @@ public abstract record UnifiedConnectionEditorResult
     /// A database profile. <paramref name="SaveConnection"/> mirrors the
     /// terminal purpose: false connects once without persisting.
     /// </summary>
+    public sealed record Kubernetes(KubernetesConnectionProfile Profile, KubernetesConnectionProfileId? ExistingId) : UnifiedConnectionEditorResult;
+
     public sealed record Database(
         DatabaseConnectionSaveRequest Request,
         bool SaveConnection = true) : UnifiedConnectionEditorResult;
@@ -74,11 +77,13 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
         FileProviderProfileEditorViewModel? files,
         DatabaseConnectionEditorViewModel? database,
         SavedConnectionFamily? lockedFamily = null,
-        SavedConnectionFamily initialFamily = SavedConnectionFamily.Terminal)
+        SavedConnectionFamily initialFamily = SavedConnectionFamily.Terminal,
+        KubernetesConnectionEditorViewModel? kubernetes = null)
     {
         Terminal = terminal ?? throw new ArgumentNullException(nameof(terminal));
         Files = files;
         Database = database;
+        Kubernetes = kubernetes;
         LockedFamily = lockedFamily;
         TypeOptions = BuildTypeOptions(lockedFamily);
         if (TypeOptions.Count == 0)
@@ -100,6 +105,8 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
 
     public DatabaseConnectionEditorViewModel? Database { get; }
 
+    public KubernetesConnectionEditorViewModel? Kubernetes { get; }
+
     /// <summary>Editing an existing definition pins the editor to its family.</summary>
     public SavedConnectionFamily? LockedFamily { get; }
 
@@ -119,6 +126,7 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
             OnPropertyChanged(nameof(IsTerminal));
             OnPropertyChanged(nameof(IsFiles));
             OnPropertyChanged(nameof(IsDatabase));
+            OnPropertyChanged(nameof(IsKubernetes));
             OnPropertyChanged(nameof(CanTest));
             OnPropertyChanged(nameof(TestLabel));
             _hasTestFeedback = false;
@@ -139,7 +147,9 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
 
     public bool IsDatabase => Family == SavedConnectionFamily.Database;
 
-    public bool CanTest => true;
+    public bool IsKubernetes => Family == SavedConnectionFamily.Kubernetes;
+
+    public bool CanTest => !IsKubernetes;
 
     public bool IsTesting => Family switch
     {
@@ -186,6 +196,7 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
         SavedConnectionFamily.Terminal => Terminal.IsEditing,
         SavedConnectionFamily.Files => Files?.IsEditing == true,
         SavedConnectionFamily.Database => Database?.IsEditing == true,
+        SavedConnectionFamily.Kubernetes => Kubernetes?.IsEditing == true,
         _ => false,
     };
 
@@ -202,6 +213,7 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
         {
             SavedConnectionFamily.Files => Files?.Name ?? string.Empty,
             SavedConnectionFamily.Database => Database?.Name ?? string.Empty,
+            SavedConnectionFamily.Kubernetes => Kubernetes?.Name ?? string.Empty,
             _ => Terminal.Name,
         };
         set
@@ -210,6 +222,7 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
             Files?.Name = value;
 
             Database?.Name = value;
+            Kubernetes?.Name = value;
 
             OnPropertyChanged();
         }
@@ -226,6 +239,7 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
             SavedConnectionFamily.Database => new UnifiedConnectionEditorResult.Database(
                 Database!.CreateSaveRequest(),
                 saveConnection),
+            SavedConnectionFamily.Kubernetes => new UnifiedConnectionEditorResult.Kubernetes(Kubernetes!.CreateProfile(), Kubernetes.ExistingId),
             _ => throw new ArgumentOutOfRangeException(nameof(Family), Family, null),
         };
 
@@ -364,6 +378,11 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
                     "Database",
                     driver.DisplayName,
                     DatabaseDriverId: driver.Id)));
+        }
+
+        if (Kubernetes is not null && lockedFamily is null or SavedConnectionFamily.Kubernetes)
+        {
+            options.Add(new(SavedConnectionFamily.Kubernetes, "Kubernetes", "Kubeconfig context"));
         }
 
         return options.AsReadOnly();

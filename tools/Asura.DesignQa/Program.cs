@@ -456,6 +456,16 @@ internal sealed class QaApplication : Avalonia.Application
             vm.ShowWorkspace();
             AddSampleBrowserPanel(vm);
         }),
+        new("workspace-kubernetes", vm =>
+        {
+            vm.ShowWorkspace();
+            AddSampleKubernetesPanel(vm, narrow: false);
+        }),
+        new("workspace-kubernetes-narrow", vm =>
+        {
+            vm.ShowWorkspace();
+            AddSampleKubernetesPanel(vm, narrow: true);
+        }, Width: 1080, Height: 680),
         // The Docker browser with realistic engine data: navigation, selected
         // container, lifecycle affordances, inspection rows, and live metrics.
         new("workspace-docker", vm =>
@@ -2659,6 +2669,33 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             .GetProperty(nameof(RuntimeWorkspaceViewModel.ActiveTab))!
             .GetSetMethod(nonPublic: true)!
             .Invoke(workspace, [tab]);
+    }
+
+    private static void AddSampleKubernetesPanel(MainWindowViewModel viewModel, bool narrow)
+    {
+        var workspace = viewModel.RuntimeWorkspace ?? throw new InvalidOperationException("Kubernetes capture needs a workspace.");
+        foreach (var stale in workspace.Tabs.Where(tab => tab.Panels.Any(panel => panel is KubernetesRuntimePanelViewModel)).ToArray())
+        { workspace.Tabs.Remove(stale); stale.DisposePanels(); }
+        var tab = new RuntimeTabViewModel(new("qa-tab-kubernetes"), "Production cluster", "Kubernetes");
+        var profile = new KubernetesConnectionProfile(new("qa-kubernetes-profile"), 1, "Production · EU", "/qa/kubeconfig", "production-eu-west", "production");
+        var panel = new KubernetesRuntimePanelViewModel(new("qa-panel-kubernetes"), "Kubernetes", profile,
+            _ => ValueTask.FromResult<IKubernetesClientSession>(new QaKubernetesSession()));
+        panel.Initialization.GetAwaiter().GetResult();
+        panel.SelectedResource = panel.Resources[0];
+        panel.SelectionLoading.GetAwaiter().GetResult();
+        tab.AddPanel(panel);
+        if (narrow)
+        {
+            var second = new KubernetesRuntimePanelViewModel(new("qa-panel-kubernetes-list"), "Workloads", profile,
+                _ => ValueTask.FromResult<IKubernetesClientSession>(new QaKubernetesSession()));
+            _ = tab.SplitWithPanel(panel.Id, PanelSplitOrientation.LeftRight, second);
+        }
+        _ = tab.ActivatePanel(panel.Id);
+        tab.NotifyPanelLayoutChanged();
+        workspace.Tabs.Add(tab);
+        foreach (var candidate in workspace.Tabs) { candidate.IsActive = ReferenceEquals(candidate, tab); }
+        typeof(RuntimeWorkspaceViewModel).GetProperty(nameof(RuntimeWorkspaceViewModel.ActiveTab))!
+            .GetSetMethod(nonPublic: true)!.Invoke(workspace, [tab]);
     }
 
     private static DockerRuntimePanelViewModel AddSampleDockerPanel(

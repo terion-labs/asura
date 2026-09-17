@@ -57,6 +57,14 @@ internal static class DefinitionExecutionReview
                         }
                     }
                     break;
+                case KubernetesConnectionProfile kubernetes:
+                    result.Add(new($"Kubernetes connection - {kubernetes.Name}",
+                        $"Context: {kubernetes.ContextName}\nConfiguration: {kubernetes.KubeconfigPath ?? "managed configuration must be supplied"}\nImported profiles remain disabled. Review credential executables and local file access before connecting."));
+                    if (kubernetes.TunnelConnectionId is { } kubernetesTunnel)
+                    {
+                        Reference(new(ConnectionProfile.Kind, kubernetesTunnel.Value));
+                    }
+                    break;
                 case ScreenDefinition screen:
                     Panels(screen.Name, screen.Panels);
                     break;
@@ -122,6 +130,10 @@ internal static class DefinitionExecutionReview
                 {
                     result.Add(new($"Panel startup — {owner} / {panel.Title}",
                         $"Panel: {panel.Id.Value}; connection: {panel.ConnectionId?.Value ?? "local"}\nAutomatically runs:\n{string.Join('\n', panel.Startup.Commands)}"));
+                }
+                if (panel.KubernetesTarget is { } kubernetes)
+                {
+                    Reference(new(KubernetesConnectionProfile.Kind, kubernetes.ProfileId.Value));
                 }
                 if (panel.ConnectionId is { } connection)
                 {

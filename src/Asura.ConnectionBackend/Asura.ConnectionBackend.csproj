@@ -10,6 +10,7 @@
     <ProjectReference Include="..\Asura.Databases\Asura.Databases.csproj" />
     <ProjectReference Include="..\Asura.Files\Asura.Files.csproj" />
     <ProjectReference Include="..\Asura.Infrastructure\Asura.Infrastructure.csproj" />
+    <ProjectReference Include="..\Asura.Kubernetes\Asura.Kubernetes.csproj" />
     <ProjectReference Include="..\Asura.Redis\Asura.Redis.csproj" />
   </ItemGroup>
 

@@ -13,8 +13,10 @@ namespace Asura.Desktop;
 internal sealed class WorkspaceIsolationSocksProxy :
     IAsyncDisposable,
     IWorkspaceNetworkEgressSink,
+    IWorkspacePrivateEndpointRegistrar,
     IWorkspaceNetworkConnector
 {
+    private readonly WorkspacePrivateEndpoints _privateEndpoints = new();
     private readonly CancellationTokenSource _lifetime = new();
     private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
     private readonly IConnectionCommandRuntime _commandRuntime;
@@ -66,6 +68,20 @@ internal sealed class WorkspaceIsolationSocksProxy :
             ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
             return new WorkspaceNetworkRouteSnapshot(
                 LocalProxyEndpoint, _egress, _routeCredentials, _routeLifetime.Token);
+        }
+    }
+
+    public IWorkspacePrivateEndpointLease RegisterLoopbackEndpoint(int localPort, CancellationToken expectedRouteLifetime)
+    {
+        lock (_egressGate)
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+            if (_egress == WorkspaceNetworkEgress.Blocked) { throw new WorkspaceNetworkBlockedException(); }
+            if (expectedRouteLifetime != _routeLifetime.Token || expectedRouteLifetime.IsCancellationRequested)
+            {
+                throw new InvalidOperationException("The workspace route changed while opening the private endpoint.");
+            }
+            return _privateEndpoints.Register(localPort, expectedRouteLifetime, _lifetime.Token);
         }
     }
 
@@ -281,6 +297,11 @@ internal sealed class WorkspaceIsolationSocksProxy :
                         2,
                         cancellationToken)
                     .ConfigureAwait(false);
+                return;
+            }
+
+            if (await _privateEndpoints.TryServeAsync(stream, request.Value, route.CancellationToken, cancellationToken).ConfigureAwait(false))
+            {
                 return;
             }
 

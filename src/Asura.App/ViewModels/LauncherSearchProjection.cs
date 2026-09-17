@@ -120,6 +120,7 @@ internal static class LauncherSearchProjection
             $"file-connection:{fileConnection.Id.Value}",
         LauncherSearchTarget.DatabaseConnection databaseConnection =>
             $"database-connection:{databaseConnection.Id.Value}",
+        LauncherSearchTarget.KubernetesConnection kubernetes => $"kubernetes-connection:{kubernetes.Id.Value}",
         LauncherSearchTarget.Screen screen => $"screen:{screen.Id.Value}",
         LauncherSearchTarget.Workspace workspace => $"workspace:{workspace.Id.Value}",
         LauncherSearchTarget.RecentSession recent => $"recent:{recent.Id.Value}",

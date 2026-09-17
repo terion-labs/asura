@@ -36,6 +36,10 @@ public sealed class AgentTerminalActionComposer
             prepared.SessionId,
             prepared.Capability);
         RequireRequestSpecificCapabilities(request, resolved.Panel);
+        if (resolved.Panel.KubernetesBindingFingerprint is not null)
+        {
+            prepared = prepared with { ToolName = KubernetesTerminalTools.ForPod(prepared.ToolName) };
+        }
         var presentation = CreatePresentation(
             resolved.Context.Target,
             resolved.Panel,
@@ -70,6 +74,10 @@ public sealed class AgentTerminalActionComposer
             prepared.SessionId,
             prepared.Capability);
         RequireRequestSpecificCapabilities(action.Request, resolved.Panel);
+        if (resolved.Panel.KubernetesBindingFingerprint is not null)
+        {
+            prepared = prepared with { ToolName = KubernetesTerminalTools.ForPod(prepared.ToolName) };
+        }
         var proposal = action.Proposal;
         var argumentDigest = CreateArgumentDigest(
             proposal.Id,

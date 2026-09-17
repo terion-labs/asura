@@ -150,7 +150,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         bool deferStoredCredentialAccess = false,
         string? sessionPassword = null,
         DatabaseRecoveryState? recovery = null,
-        bool persistedConnection = true)
+        bool persistedConnection = true,
+        bool transientConnection = false)
         : base(id, PanelKind.DatabaseViewer, title, "Database")
     {
         _pendingInitialObject = initialObject;
@@ -161,7 +162,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         _sqlLanguageService = sqlLanguageService;
         _passwordResolver = passwordResolver;
         _sessionPassword = sessionPassword;
-        _recovery = recovery;
+        IsTransientConnection = transientConnection;
+        _recovery = transientConnection ? null : recovery;
         _savedTunnel = tunnelConnection;
         _isPersistedConnection = persistedConnection;
         _deferStoredCredentialAccess = deferStoredCredentialAccess;
@@ -1087,7 +1089,9 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         && _tunnelConnection == _savedTunnel
         && _sessionPassword is null;
 
-    public string? RecoveryTarget => UsesUnmodifiedSavedTarget && _savedConnection is { } saved
+    public bool IsTransientConnection { get; }
+
+    public string? RecoveryTarget => IsTransientConnection ? null : UsesUnmodifiedSavedTarget && _savedConnection is { } saved
         ? $"saved:{saved.Id.Value}"
         : _importedConnectionRequired && !HasConnectionTarget
             ? DatabaseRecoveryToken.ReconnectTarget

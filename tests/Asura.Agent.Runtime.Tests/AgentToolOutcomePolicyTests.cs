@@ -8,6 +8,7 @@ public sealed class AgentToolOutcomePolicyTests
         new()
         {
             { "terminal_read_failed", nameof(AgentToolOutcomeDisposition.Continue) },
+            { "kubernetes_mutation_outcome_unknown", nameof(AgentToolOutcomeDisposition.Reconcile) },
             {
                 BrowserAgentToolResultJson.InteractionOutcomeUnknownStableCode,
                 nameof(AgentToolOutcomeDisposition.Reconcile)

@@ -28,6 +28,7 @@ internal static class KnownDefinitionRegistry
         || kind == DefinitionKind.AiProviderProfile
         || kind == DefinitionKind.McpServerProfile
         || kind == DefinitionKind.BrowserProfile
+        || kind == DefinitionKind.KubernetesConnection
         || kind == DefinitionKind.DatabaseConnection
         || kind == DefinitionKind.QuickTerminalSettings
         || kind == DefinitionKind.NetworkConnection
@@ -206,6 +207,7 @@ internal static class KnownDefinitionRegistry
         {
             var validation = definition switch
             {
+                KubernetesConnectionProfile kubernetes => kubernetes.Validate(),
                 LayoutDefinition layout => LayoutValidator.Validate(layout),
                 WorkspaceDefinition workspace => WorkspaceValidator.Validate(workspace),
                 _ => DefinitionValidationResult.Valid,
@@ -371,6 +373,8 @@ internal static class KnownDefinitionRegistry
                 McpServerProfile.CurrentSchemaVersion,
             var value when value == DefinitionKind.BrowserProfile =>
                 BrowserProfileDefinition.CurrentSchemaVersion,
+            var value when value == DefinitionKind.KubernetesConnection =>
+                KubernetesConnectionProfile.CurrentSchemaVersion,
             var value when value == DefinitionKind.DatabaseConnection =>
                 DatabaseConnectionProfile.CurrentSchemaVersion,
             var value when value == DefinitionKind.QuickTerminalSettings =>
@@ -400,6 +404,8 @@ internal static class KnownDefinitionRegistry
                 type == typeof(McpServerProfile),
             var value when value == DefinitionKind.BrowserProfile =>
                 type == typeof(BrowserProfileDefinition),
+            var value when value == DefinitionKind.KubernetesConnection =>
+                type == typeof(KubernetesConnectionProfile),
             var value when value == DefinitionKind.DatabaseConnection =>
                 type == typeof(DatabaseConnectionProfile),
             var value when value == DefinitionKind.QuickTerminalSettings =>

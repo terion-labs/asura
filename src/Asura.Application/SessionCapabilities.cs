@@ -57,6 +57,13 @@ public static class SessionCapabilities
     public const string RedisListIndexes = "redis.indexes.list";
     public const string RedisSearch = "redis.search";
     public const string DockerReadState = "docker.state.read";
+    public const string KubernetesPreview = "kubernetes.mutations.preview";
+    public const string KubernetesCommit = "kubernetes.mutations.commit";
+    public const string KubernetesDiscover = "kubernetes.discover";
+    public const string KubernetesList = "kubernetes.resources.list";
+    public const string KubernetesInspect = "kubernetes.resources.inspect";
+    public const string KubernetesLogs = "kubernetes.logs.read";
+    public const string KubernetesWatch = "kubernetes.resources.watch";
     public const string DockerInspect = "docker.inspect";
     public const string DockerReadLogs = "docker.logs.read";
     public const string DockerFilesList = "docker.files.list";

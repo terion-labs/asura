@@ -14,6 +14,8 @@ public sealed class WorkspaceTabPanelEditorViewModel : ObservableObject
     private WorkspaceLayoutSlotOption? _selectedSlot;
     private ScreenConnectionOption? _selectedConnection;
     private ScreenFileProviderOption? _selectedFileProvider;
+    private ScreenKubernetesOption? _selectedKubernetes;
+    private string _kubernetesNamespace;
     private string _title;
     private string _startupLocation;
     private string _startupCommands;
@@ -23,12 +25,16 @@ public sealed class WorkspaceTabPanelEditorViewModel : ObservableObject
         ScreenPanelDefinition panel,
         WorkspaceLayoutOption layout,
         IReadOnlyList<ScreenConnectionOption> connectionOptions,
-        IReadOnlyList<ScreenFileProviderOption> fileProviderOptions)
+        IReadOnlyList<ScreenFileProviderOption> fileProviderOptions,
+        IReadOnlyList<ScreenKubernetesOption>? kubernetesOptions = null)
     {
         _original = panel ?? throw new ArgumentNullException(nameof(panel));
         ConnectionOptions = connectionOptions ?? throw new ArgumentNullException(nameof(connectionOptions));
         FileProviderOptions = fileProviderOptions
             ?? throw new ArgumentNullException(nameof(fileProviderOptions));
+        KubernetesOptions = kubernetesOptions ?? [];
+        _selectedKubernetes = KubernetesOptions.SingleOrDefault(option => option.Id == panel.KubernetesTarget?.ProfileId);
+        _kubernetesNamespace = panel.KubernetesTarget?.NamespaceName ?? string.Empty;
         _title = panel.Title ?? string.Empty;
         _selectedConnection = panel.ConnectionId is { } connectionId
             ? ConnectionOptions.SingleOrDefault(option => option.Id == connectionId)
@@ -52,6 +58,26 @@ public sealed class WorkspaceTabPanelEditorViewModel : ObservableObject
                 ? startup.DeliveryFailurePolicy
                 : StartupCommandDeliveryFailurePolicy.RetryWhileLive);
         UpdateLayout(layout, panel.SlotId);
+    }
+
+    public IReadOnlyList<ScreenKubernetesOption> KubernetesOptions { get; }
+    public bool IsKubernetes => Kind == ScreenPanelKind.Kubernetes;
+    public bool HasMissingKubernetes => IsKubernetes && SelectedKubernetes?.IsAvailable != true;
+    public ScreenKubernetesOption? SelectedKubernetes
+    {
+        get => _selectedKubernetes;
+        set
+        {
+            if (SetProperty(ref _selectedKubernetes, value))
+            {
+                PublishReferenceState();
+            }
+        }
+    }
+    public string KubernetesNamespace
+    {
+        get => _kubernetesNamespace;
+        set => SetProperty(ref _kubernetesNamespace, value);
     }
 
     public ScreenPanelId Id => _original.Id;
@@ -176,7 +202,7 @@ public sealed class WorkspaceTabPanelEditorViewModel : ObservableObject
     public bool HasMissingFileProvider => IsFileViewer && SelectedFileProvider?.IsAvailable != true;
 
     public bool HasMissingDefinition =>
-        HasMissingSlot || HasMissingConnection || HasMissingFileProvider;
+        HasMissingSlot || HasMissingConnection || HasMissingFileProvider || HasMissingKubernetes;
 
     internal void UpdateLayout(
         WorkspaceLayoutOption layout,
@@ -224,7 +250,11 @@ public sealed class WorkspaceTabPanelEditorViewModel : ObservableObject
                 IsTerminal
                     ? SelectedDeliveryFailurePolicy.Policy
                     : StartupCommandDeliveryFailurePolicy.RetryWhileLive),
-            IsFileViewer ? SelectedFileProvider?.Id : _original.FileProviderProfileId);
+            IsFileViewer ? SelectedFileProvider?.Id : _original.FileProviderProfileId,
+            IsKubernetes && SelectedKubernetes is { } kubernetes
+                ? (_original.KubernetesTarget ?? new KubernetesPanelTarget(kubernetes.Id)) with
+                { ProfileId = kubernetes.Id, NamespaceName = string.IsNullOrWhiteSpace(KubernetesNamespace) ? null : KubernetesNamespace.Trim() }
+                : null);
     }
 
     private void PublishReferenceState()
@@ -232,6 +262,7 @@ public sealed class WorkspaceTabPanelEditorViewModel : ObservableObject
         OnPropertyChanged(nameof(HasMissingSlot));
         OnPropertyChanged(nameof(HasMissingConnection));
         OnPropertyChanged(nameof(HasMissingFileProvider));
+        OnPropertyChanged(nameof(HasMissingKubernetes));
         OnPropertyChanged(nameof(HasMissingDefinition));
     }
 }

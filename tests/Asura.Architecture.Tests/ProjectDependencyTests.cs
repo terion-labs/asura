@@ -262,6 +262,7 @@ public sealed class ProjectDependencyTests
                 "Asura.Core.csproj",
                 "Asura.Databases.csproj",
                 "Asura.Redis.csproj",
+                "Asura.Kubernetes.csproj",
                 "Asura.Files.csproj",
                 "Asura.Infrastructure.csproj",
             ], StringComparer.Ordinal));

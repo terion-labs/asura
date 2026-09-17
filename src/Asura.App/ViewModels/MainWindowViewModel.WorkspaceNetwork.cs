@@ -164,6 +164,9 @@ public sealed partial class MainWindowViewModel
 
     private void ScheduleWorkspaceNetworkCleanup(WorkspaceInstanceId workspaceId)
     {
+        var forwardsCleanup = CleanupKubernetesForwardsAsync(workspaceId);
+        lock (_workspaceNetworkCleanupGate) { _workspaceNetworkCleanupTasks.Add(forwardsCleanup); }
+        _ = RemoveCompletedWorkspaceNetworkCleanupAsync(forwardsCleanup);
         if (!_workspaceNetworkControls.Remove(workspaceId, out var control))
         {
             return;
@@ -204,7 +207,7 @@ public sealed partial class MainWindowViewModel
 
     private async Task FinalizeWorkspaceNetworkShutdownAsync()
     {
-        foreach (var workspaceId in _workspaceNetworkControls.Keys.ToArray())
+        foreach (var workspaceId in _workspaceNetworkControls.Keys.Concat(_kubernetesForwards.Keys).Distinct().ToArray())
         {
             ScheduleWorkspaceNetworkCleanup(workspaceId);
         }

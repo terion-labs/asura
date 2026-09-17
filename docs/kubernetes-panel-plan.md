@@ -1,6 +1,8 @@
 # Kubernetes panel research and implementation plan
 
-Status: proposed, implementation not started. Research date: 2026-09-17.
+Implementation update: the core native panel and its workspace integrations are implemented on `codex/kubernetes-panel`. See [ADR 0058](adr/0058-owned-kubernetes-panel.md) and [testing, supported limits and remaining scope](kubernetes-panel-testing.md) for current behavior and acceptance evidence. The research below remains the original planning baseline; its full feature inventory is not yet complete.
+
+Status at research time: proposed. Research date: 2026-09-17.
 Repository baseline: `17c56b67e7526fceed0cc58467b19415542fd876`.
 Research issue: `asura-alv9`. Implementation epic: `asura-dp53`.
 

@@ -209,6 +209,9 @@ its own .NET runtime and dependency notices beside its verified Linux payload.
 | `Vanara.PInvoke.Shared` | `4.2.1` | MIT |
 | `Velopack` | `1.2.0` | MIT |
 | `bblanchon.PDFium.macOS` | `152.0.7961` | Apache-2.0 |
+| `Fractions` | `7.3.0` | NOASSERTION (nuspec file: `license.txt`) |
+| `KubernetesClient.Aot` | `19.0.2` | Apache-2.0 |
+| `YamlDotNet` | `16.3.0` | MIT |
 ## Lucide icon geometry
 
 The Dock drop-target vectors are adapted from Lucide Icons.
@@ -231,3 +234,8 @@ PERFORMANCE OF THIS SOFTWARE.
 
 This notice is informational and is not legal advice. It must not be used as
 evidence that the M4 release license gate is complete.
+
+Kubernetes API access uses the unmodified official `KubernetesClient.Aot` package.
+Its static-generator dependency is build-only and is absent from the published
+managed dependency closure. Helm is supplied by the selected execution environment;
+Asura does not bundle a Helm executable in this change.

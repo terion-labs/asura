@@ -111,6 +111,7 @@ internal static class WorkspaceIcons
         PanelKind.DatabaseViewer => "database",
         PanelKind.Docker => "box",
         PanelKind.Git => "branch",
+        PanelKind.Kubernetes => "cloud",
         PanelKind.Placeholder => WorkspaceDefinition.DefaultIcon,
         _ => WorkspaceDefinition.DefaultIcon,
     };

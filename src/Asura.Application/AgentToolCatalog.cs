@@ -189,6 +189,22 @@ public static class BuiltInAgentTools
     public const string RedisRead = "redis.read";
     public const string RedisListIndexes = "redis.list_indexes";
     public const string RedisSearch = "redis.search";
+    public const string KubernetesTerminalSendText = "kubernetes.terminal.send_text";
+    public const string KubernetesTerminalPaste = "kubernetes.terminal.paste";
+    public const string KubernetesTerminalSubmitText = "kubernetes.terminal.submit_text";
+    public const string KubernetesTerminalSendKeys = "kubernetes.terminal.send_keys";
+    public const string KubernetesTerminalSendChord = "kubernetes.terminal.send_chord";
+    public const string KubernetesTerminalSendMouse = "kubernetes.terminal.send_mouse";
+    public const string KubernetesTerminalInterrupt = "kubernetes.terminal.interrupt";
+    public const string KubernetesTerminalResize = "kubernetes.terminal.resize";
+    public const string KubernetesTerminalScrollViewport = "kubernetes.terminal.scroll_viewport";
+    public const string KubernetesTerminalJumpToRenderedHistory = "kubernetes.terminal.jump_to_rendered_history";
+    public const string KubernetesPreview = "kubernetes.preview";
+    public const string KubernetesCommit = "kubernetes.commit";
+    public const string KubernetesDiscover = "kubernetes.discover";
+    public const string KubernetesList = "kubernetes.list";
+    public const string KubernetesInspect = "kubernetes.inspect";
+    public const string KubernetesLogs = "kubernetes.logs";
     public const string DockerReadState = "docker.read_state";
     public const string DockerInspect = "docker.inspect";
     public const string DockerLogs = "docker.logs";
@@ -518,6 +534,22 @@ public static class BuiltInAgentTools
             "Search Redis index",
             AgentCapability.DatabaseRead,
             AgentActionRisk.Observation),
+        Tool(KubernetesTerminalSendText, "Send text to pod terminal", AgentCapability.KubernetesExec, AgentActionRisk.Mutation),
+        Tool(KubernetesTerminalPaste, "Paste into pod terminal", AgentCapability.KubernetesExec, AgentActionRisk.Mutation),
+        Tool(KubernetesTerminalSubmitText, "Submit text to pod terminal", AgentCapability.KubernetesExec, AgentActionRisk.Mutation),
+        Tool(KubernetesTerminalSendKeys, "Send keys to pod terminal", AgentCapability.KubernetesExec, AgentActionRisk.Mutation),
+        Tool(KubernetesTerminalSendChord, "Send character chord to pod terminal", AgentCapability.KubernetesExec, AgentActionRisk.Destructive),
+        Tool(KubernetesTerminalSendMouse, "Send mouse input to pod terminal", AgentCapability.KubernetesExec, AgentActionRisk.Mutation),
+        Tool(KubernetesTerminalInterrupt, "Interrupt pod process", AgentCapability.KubernetesExec, AgentActionRisk.Destructive),
+        Tool(KubernetesTerminalResize, "Resize pod terminal", AgentCapability.KubernetesExec, AgentActionRisk.Mutation),
+        Tool(KubernetesTerminalScrollViewport, "Scroll pod terminal viewport", AgentCapability.KubernetesExec, AgentActionRisk.Mutation),
+        Tool(KubernetesTerminalJumpToRenderedHistory, "Navigate pod terminal history", AgentCapability.KubernetesExec, AgentActionRisk.Mutation),
+        Tool(KubernetesPreview, "Preview Kubernetes mutation", AgentCapability.KubernetesControl, AgentActionRisk.Routine),
+        Tool(KubernetesCommit, "Commit reviewed Kubernetes mutation", AgentCapability.KubernetesControl, AgentActionRisk.Destructive),
+        Tool(KubernetesDiscover, "Discover Kubernetes resources", AgentCapability.KubernetesData, AgentActionRisk.Observation),
+        Tool(KubernetesList, "List Kubernetes resources", AgentCapability.KubernetesData, AgentActionRisk.Observation),
+        Tool(KubernetesInspect, "Inspect Kubernetes resource", AgentCapability.KubernetesData, AgentActionRisk.Observation),
+        Tool(KubernetesLogs, "Read Kubernetes logs", AgentCapability.KubernetesData, AgentActionRisk.Observation),
         Tool(
             DockerReadState,
             "Read Docker engine state",

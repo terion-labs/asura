@@ -23,4 +23,7 @@ public enum PanelKind
 
     /// <summary>Appended so persisted session history keeps every existing numeric value.</summary>
     Git,
+
+    /// <summary>Appended to preserve persisted numeric values.</summary>
+    Kubernetes,
 }

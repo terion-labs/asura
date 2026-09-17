@@ -516,20 +516,23 @@ public sealed class WorkspaceAutoSaveCoordinator : IDisposable
     /// definition for the configuration they cannot express.
     /// </summary>
     private static ScreenPanelKind? PanelKindForAutoSave(RuntimePanelViewModel panel) =>
-        panel is PanelPlaceholderViewModel
+        panel is PanelPlaceholderViewModel or KubernetesRuntimePanelViewModel { Target: null }
             ? null
-            : panel.Kind switch
-            {
-                PanelKind.Terminal => ScreenPanelKind.Terminal,
-                PanelKind.Browser => ScreenPanelKind.Browser,
-                PanelKind.FileViewer => ScreenPanelKind.FileViewer,
-                PanelKind.Statistics => ScreenPanelKind.Statistics,
-                PanelKind.ProcessMonitor => ScreenPanelKind.ProcessMonitor,
-                PanelKind.DatabaseViewer => ScreenPanelKind.DatabaseViewer,
-                PanelKind.Docker => ScreenPanelKind.Docker,
-                PanelKind.Git => ScreenPanelKind.Git,
-                _ => null,
-            };
+            : panel is TerminalRuntimePanelViewModel { KubernetesTarget: not null } or FileRuntimePanelViewModel { KubernetesTarget: not null }
+                ? ScreenPanelKind.Kubernetes
+                : panel.Kind switch
+                {
+                    PanelKind.Terminal => ScreenPanelKind.Terminal,
+                    PanelKind.Browser => ScreenPanelKind.Browser,
+                    PanelKind.FileViewer => ScreenPanelKind.FileViewer,
+                    PanelKind.Statistics => ScreenPanelKind.Statistics,
+                    PanelKind.ProcessMonitor => ScreenPanelKind.ProcessMonitor,
+                    PanelKind.DatabaseViewer => ScreenPanelKind.DatabaseViewer,
+                    PanelKind.Docker => ScreenPanelKind.Docker,
+                    PanelKind.Git => ScreenPanelKind.Git,
+                    PanelKind.Kubernetes => ScreenPanelKind.Kubernetes,
+                    _ => null,
+                };
 
     private static ScreenPanelDefinition CaptureAutoSavePanel(
         RuntimePanelViewModel panel,
@@ -540,10 +543,19 @@ public sealed class WorkspaceAutoSaveCoordinator : IDisposable
         string? protectedUnavailableTarget = null)
     {
         var kind = PanelKindForAutoSave(panel)!.Value;
+        KubernetesPanelTarget? kubernetesTarget = panel switch
+        {
+            KubernetesRuntimePanelViewModel kubernetes => kubernetes.Target,
+            FileRuntimePanelViewModel { KubernetesTarget: { } target } => new(target.Profile.Id, target.Pod.Namespace),
+            TerminalRuntimePanelViewModel { KubernetesTarget: { } target } => new(target.Profile.Id, target.Request.Pod.Namespace),
+            _ => null,
+        };
         ConnectionId? connectionId = panel switch
         {
+            TerminalRuntimePanelViewModel { KubernetesTarget: not null } => null,
             TerminalRuntimePanelViewModel terminal => terminal.ConnectionId,
             BrowserRuntimePanelViewModel browser => browser.ConnectionId,
+            FileRuntimePanelViewModel { KubernetesTarget: not null } => null,
             FileRuntimePanelViewModel file => file.ConnectionId,
             StatisticsRuntimePanelViewModel statistics => statistics.ConnectionId,
             ProcessMonitorRuntimePanelViewModel processes => processes.ConnectionId,
@@ -555,6 +567,7 @@ public sealed class WorkspaceAutoSaveCoordinator : IDisposable
         };
         var preservesInitialDatabaseBinding = panel switch
         {
+            DatabaseRuntimePanelViewModel { IsTransientConnection: true } => false,
             DatabaseRuntimePanelViewModel database => database.CanPreserveInitialSourceConnection,
             RedisRuntimePanelViewModel redis => redis.CanPreserveInitialSourceConnection,
             _ => false,
@@ -568,7 +581,9 @@ public sealed class WorkspaceAutoSaveCoordinator : IDisposable
                 && (string.Equals(candidate.Startup.Location, panel.SourceDefinition?.Startup.Location, StringComparison.Ordinal)
                     || string.Equals(candidate.Startup.Location, panel is DatabaseRuntimePanelViewModel database
                         ? database.RecoveryTarget : ((RedisRuntimePanelViewModel)panel).RecoveryTarget, StringComparison.Ordinal))
-            : candidate.ConnectionId == connectionId);
+            : kubernetesTarget is not null
+                ? candidate.KubernetesTarget?.ProfileId == kubernetesTarget.ProfileId
+                : candidate.ConnectionId == connectionId);
         var stored = storedTab?.Panels.FirstOrDefault(candidate =>
             !usedStoredPanels.Contains(candidate.Id)
             && (candidate.SlotId == slotId || candidate.SlotId == panel.SourceDefinition?.SlotId)
@@ -605,8 +620,10 @@ public sealed class WorkspaceAutoSaveCoordinator : IDisposable
         {
             location = panel switch
             {
+                TerminalRuntimePanelViewModel { KubernetesTarget: not null } or FileRuntimePanelViewModel { KubernetesTarget: not null } => null,
+                DatabaseRuntimePanelViewModel { IsTransientConnection: true } => null,
                 TerminalRuntimePanelViewModel terminal => terminal.RecoveryStartupLocation,
-                BrowserRuntimePanelViewModel browser => browser.CurrentAddress.ToString(),
+                BrowserRuntimePanelViewModel browser => WorkspacePrivateEndpointAddress.ForPersistence(browser.CurrentAddress).ToString(),
                 DatabaseRuntimePanelViewModel database =>
                     database.RecoveryTarget ?? SafeDatabaseTarget(stored?.Startup.Location),
                 RedisRuntimePanelViewModel redis =>
@@ -636,7 +653,8 @@ public sealed class WorkspaceAutoSaveCoordinator : IDisposable
                 stored?.Startup.Commands,
                 stored?.Startup.DeliveryFailurePolicy
                     ?? StartupCommandDeliveryFailurePolicy.RetryWhileLive),
-            fileProvider);
+            fileProvider,
+            kubernetesTarget ?? stored?.KubernetesTarget);
     }
 
     /// <summary>

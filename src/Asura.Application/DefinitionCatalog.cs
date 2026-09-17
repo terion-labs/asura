@@ -40,6 +40,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
     private readonly IDefinitionRepository<FileProviderProfile> _fileProviderProfiles;
     private readonly IDefinitionRepository<AiProviderProfile> _aiProviderProfiles;
     private readonly IDefinitionRepository<McpServerProfile> _mcpServerProfiles;
+    private readonly IDefinitionRepository<KubernetesConnectionProfile> _kubernetesConnections;
     private readonly IDefinitionRepository<DatabaseConnectionProfile> _databaseConnections;
     private readonly IDefinitionRepository<QuickTerminalSettings> _quickTerminalSettings;
     private readonly IDefinitionRepository<BrowserProfileDefinition> _browserProfiles;
@@ -68,7 +69,8 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
         ThemePreference? defaultTheme = null,
         IDefinitionRepository<BrowserProfileDefinition>? browserProfiles = null,
         IDefinitionRepository<NetworkConnectionProfile>? networkConnections = null,
-        IDefinitionRepository<ApplicationNetworkSettings>? applicationNetworkSettings = null)
+        IDefinitionRepository<ApplicationNetworkSettings>? applicationNetworkSettings = null,
+        IDefinitionRepository<KubernetesConnectionProfile>? kubernetesConnections = null)
     {
         _layoutGraph = layoutGraph;
         _connections = connections ?? throw new ArgumentNullException(nameof(connections));
@@ -87,6 +89,8 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
             ?? throw new ArgumentNullException(nameof(mcpServerProfiles));
         _quickTerminalSettings = quickTerminalSettings
             ?? throw new ArgumentNullException(nameof(quickTerminalSettings));
+        _kubernetesConnections = kubernetesConnections
+            ?? new EphemeralRepository<KubernetesConnectionProfile>();
         _databaseConnections = databaseConnections
             ?? new EphemeralRepository<DatabaseConnectionProfile>();
         _browserProfiles = browserProfiles
@@ -627,6 +631,14 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
             ValidateQuickTerminalSettings,
             cancellationToken);
 
+    public ValueTask<DefinitionStoreResult<StoredDefinition<KubernetesConnectionProfile>>>
+        SaveKubernetesConnectionAsync(
+            KubernetesConnectionProfile definition,
+            long? expectedRevision,
+            CancellationToken cancellationToken) =>
+        SaveValidatedAsync(definition, expectedRevision, _kubernetesConnections,
+            ValidateKubernetesConnection, cancellationToken);
+
     public ValueTask<DefinitionStoreResult<StoredDefinition<DatabaseConnectionProfile>>>
         SaveDatabaseConnectionAsync(
             DatabaseConnectionProfile definition,
@@ -735,6 +747,9 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                         .ConfigureAwait(false),
                 var kind when kind == QuickTerminalSettings.Kind =>
                     await _quickTerminalSettings.DeleteAsync(key, expectedRevision, cancellationToken)
+                        .ConfigureAwait(false),
+                var kind when kind == KubernetesConnectionProfile.Kind =>
+                    await _kubernetesConnections.DeleteAsync(key, expectedRevision, cancellationToken)
                         .ConfigureAwait(false),
                 var kind when kind == DatabaseConnectionProfile.Kind =>
                     await _databaseConnections.DeleteAsync(key, expectedRevision, cancellationToken)
@@ -895,6 +910,11 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                 "At least one panel references a connection that no longer exists.");
         }
 
+        if (ValidateKubernetesTargets(definition.Panels) is { } kubernetesProblem)
+        {
+            return kubernetesProblem;
+        }
+
         var fileProviderIds = Snapshot.FileProviderProfiles
             .Select(item => item.Value.Id)
             .ToHashSet();
@@ -965,6 +985,10 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                 case WorkspaceEntry.Tab tab when !layouts.TryGetValue(tab.LayoutId, out _):
                     return MissingWorkspaceDependency("layout", tab.LayoutId.Value);
                 case WorkspaceEntry.Tab tab:
+                    if (ValidateKubernetesTargets(tab.Panels) is { } kubernetesProblem)
+                    {
+                        return kubernetesProblem;
+                    }
                     var resolvedLayout = layouts[tab.LayoutId];
                     var screenShape = new ScreenDefinition(
                         new ScreenId($"workspace-tab-{tab.Id.Value}"),
@@ -1143,6 +1167,31 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
             : null;
     }
 
+    private DefinitionStoreError? ValidateKubernetesConnection(KubernetesConnectionProfile definition)
+    {
+        var duplicate = ValidateName(Snapshot.KubernetesConnections, definition);
+        if (duplicate is not null)
+        {
+            return duplicate;
+        }
+        var validation = definition.Validate();
+        if (!validation.IsValid)
+        {
+            return Invalid(validation);
+        }
+        return definition.TunnelConnectionId is { } tunnelId
+            && !Snapshot.Connections.Any(item => item.Value.Id == tunnelId
+                && item.Value.Endpoint is ConnectionEndpoint.Ssh && item.Value.HostConnectionId is null)
+            ? new(DefinitionStoreErrorCode.DependencyConflict, "The Kubernetes hop must reference a standalone SSH connection.")
+            : null;
+    }
+
+    private DefinitionStoreError? ValidateKubernetesTargets(IReadOnlyList<ScreenPanelDefinition> panels) =>
+        panels.Any(panel => panel.KubernetesTarget is { } target
+            && Snapshot.KubernetesConnections.All(item => item.Value.Id != target.ProfileId))
+            ? new(DefinitionStoreErrorCode.DependencyConflict, "A panel references a Kubernetes profile that no longer exists.")
+            : null;
+
     private DefinitionStoreError? ValidateDatabaseConnection(
         DatabaseConnectionProfile definition)
     {
@@ -1229,6 +1278,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
         var aiProvidersTask = _aiProviderProfiles.ListAsync(cancellationToken).AsTask();
         var mcpServersTask = _mcpServerProfiles.ListAsync(cancellationToken).AsTask();
         var quickTerminalTask = _quickTerminalSettings.ListAsync(cancellationToken).AsTask();
+        var kubernetesConnectionsTask = _kubernetesConnections.ListAsync(cancellationToken).AsTask();
         var databaseConnectionsTask = _databaseConnections.ListAsync(cancellationToken).AsTask();
         var browserProfilesTask = _browserProfiles.ListAsync(cancellationToken).AsTask();
         var networkConnectionsTask = _networkConnections.ListAsync(cancellationToken).AsTask();
@@ -1247,6 +1297,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                 aiProvidersTask,
                 mcpServersTask,
                 quickTerminalTask,
+                kubernetesConnectionsTask,
                 databaseConnectionsTask,
                 browserProfilesTask,
                 networkConnectionsTask,
@@ -1264,6 +1315,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
         var aiProviders = await aiProvidersTask.ConfigureAwait(false);
         var mcpServers = await mcpServersTask.ConfigureAwait(false);
         var quickTerminal = await quickTerminalTask.ConfigureAwait(false);
+        var kubernetesConnections = await kubernetesConnectionsTask.ConfigureAwait(false);
         var databaseConnections = await databaseConnectionsTask.ConfigureAwait(false);
         var browserProfiles = await browserProfilesTask.ConfigureAwait(false);
         var networkConnections = await networkConnectionsTask.ConfigureAwait(false);
@@ -1282,6 +1334,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
             aiProviders.Error,
             mcpServers.Error,
             quickTerminal.Error,
+            kubernetesConnections.Error,
             databaseConnections.Error,
             browserProfiles.Error,
             networkConnections.Error,
@@ -1306,6 +1359,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
         {
             AiProviderProfiles = aiProviders.Value!,
             McpServerProfiles = mcpServers.Value!,
+            KubernetesConnections = kubernetesConnections.Value!,
             DatabaseConnections = databaseConnections.Value!,
             BrowserProfiles = browserProfiles.Value!,
             NetworkConnections = networkConnections.Value!,

@@ -14,4 +14,5 @@ public enum SecretUseKind
     DatabaseConnectionAuthentication,
     NetworkConnectionAuthentication,
     DatabaseRecovery,
+    KubernetesConnectionAuthentication,
 }

@@ -41,6 +41,10 @@ public sealed class GhosttyVtTerminalSessionFactory : ITerminalSessionFactory
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(launch);
+        if (launch.KubernetesTarget is not null)
+        {
+            throw new InvalidOperationException("A Kubernetes terminal requires its workspace-owned transport factory.");
+        }
         var availability = GhosttyVt.GhosttyVtRuntimeProbe.Detect();
         if (!availability.IsAvailable)
         {
