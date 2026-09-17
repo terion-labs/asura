@@ -45,7 +45,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
     {
         try
         {
-            await foreach (var change in _session!.WatchAsync(new(request.ApiResource, request.Namespace, _resourceVersion), cancellation.Token))
+            await foreach (var change in _session!.WatchAsync(new(request.ApiResource, request.Namespace, _resourceVersion, request.LabelSelector, request.FieldSelector), cancellation.Token))
             {
                 if (_disposed || generation != _generation || cancellation.IsCancellationRequested) { return; }
                 if (change.Kind == KubernetesWatchEventKind.ResyncRequired)
@@ -97,7 +97,6 @@ public sealed partial class KubernetesRuntimePanelViewModel
         }
         else
         {
-            _selectionCancellation?.Cancel();
             SetProperty(ref _selectedResource, resource, nameof(SelectedResource));
             if (dirty)
             {

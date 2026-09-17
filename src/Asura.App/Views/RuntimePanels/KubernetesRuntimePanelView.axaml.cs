@@ -35,9 +35,19 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
 
     private void UpdateLayoutMode() => _observed?.SetViewportWidth(Bounds.Width);
 
+    private void OnToggleNavigatorClick(object? sender, RoutedEventArgs e) => _observed?.ToggleNavigator();
+
+    private void OnNavigationClick(object? sender, RoutedEventArgs e)
+    {
+        ResourcesTab.IsSelected = true;
+        OverviewTab.IsSelected = true;
+        _observed?.CompleteNavigation();
+    }
+
     private void OnShowForwardsClick(object? sender, RoutedEventArgs e)
     {
         if (_observed is { } model) { model.ShowForwardManager = true; }
+        ResourcesTab.IsSelected = true;
         ForwardTab.IsSelected = true;
         UpdateLayoutMode();
     }
@@ -48,9 +58,21 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
         UpdateLayoutMode();
     }
 
-    private async void OnNamespaceKeyDown(object? sender, KeyEventArgs e)
+    private void OnNamespaceSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (e.Key == Key.Enter && _observed is { } model) { e.Handled = true; await model.RefreshAsync(); }
+        if (sender is AutoCompleteBox { SelectedItem: string selected } && _observed is { } model)
+        {
+            model.NamespaceSelection = selected;
+        }
+    }
+
+    private void OnNamespaceKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && sender is AutoCompleteBox picker && _observed is { } model)
+        {
+            e.Handled = true;
+            model.NamespaceSelection = picker.Text ?? string.Empty;
+        }
     }
 
     private async void OnFollowLogsClick(object? sender, RoutedEventArgs e)

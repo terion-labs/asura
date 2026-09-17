@@ -76,7 +76,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
     public bool HasIssue => Issue is not null;
     public bool HasSelection => SelectedResource is not null;
     public bool IsEmpty => HasConnection && !IsBusy && Resources.Count == 0 && !HasIssue;
-    public bool CanReadLogs => SelectedResource is { Kind: "Pod", Reference.Resource: "pods" };
+    public bool CanReadLogs => SelectedResource is { Reference.Group: "", Reference.Resource: "pods" };
     public string Manifest => _inspection?.Json ?? SelectedResource?.Json ?? string.Empty;
     public string Summary => _inspection?.Summary ?? SelectedResource?.Summary ?? "Select a resource to inspect it.";
     public string SelectionTitle => SelectedResource?.Reference.Name ?? "Resource details";
@@ -93,6 +93,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
             if (SetProperty(ref _selectedKind, value))
             {
                 OnPropertyChanged(nameof(Target));
+                PublishNavigation();
                 if (!IsBusy) { ClearScope(); SelectionLoading = RefreshAsync(); }
             }
         }
@@ -121,11 +122,11 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
     public IReadOnlyList<KubernetesResourceDocument> Resources
     {
         get => _resources;
-        private set { SetProperty(ref _resources, value); OnPropertyChanged(nameof(IsEmpty)); }
+        private set { SetProperty(ref _resources, value); OnPropertyChanged(nameof(IsEmpty)); PublishResourceRows(); }
     }
 
     /// <summary>Empty means all namespaces. Manual entry works without namespace-list permission.</summary>
-    public string Namespace { get => _namespace; set { if (HasUnsavedChanges) { Issue = "Discard or apply manifest edits before changing namespace."; OnPropertyChanged(); return; } if (SetProperty(ref _namespace, value)) { ClearScope(); OnPropertyChanged(nameof(Target)); } } }
+    public string Namespace { get => _namespace; set { if (HasUnsavedChanges) { Issue = "Discard or apply manifest edits before changing namespace."; OnPropertyChanged(); return; } if (SetProperty(ref _namespace, value)) { ClearScope(); OnPropertyChanged(nameof(Target)); OnPropertyChanged(nameof(NamespaceSelection)); } } }
     public string Filter { get => _filter; set { if (SetProperty(ref _filter, value)) { ApplyFilter(); } } }
     public string Container { get => _container; set { if (SetProperty(ref _container, value)) { OnPropertyChanged(nameof(CanLaunchShell)); } } }
     public bool PreviousLogs { get => _previousLogs; set => SetProperty(ref _previousLogs, value); }
@@ -178,6 +179,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
                 {
                     Kinds.Add(kind);
                 }
+                BuildNavigation();
                 SelectedKind = Kinds.FirstOrDefault(item => string.Equals(item.Resource, InitialTarget?.Resource ?? "pods", StringComparison.Ordinal)
                     && string.Equals(item.Group, InitialTarget?.ApiGroup ?? "", StringComparison.Ordinal) && string.Equals(item.Version, InitialTarget?.ApiVersion ?? "v1", StringComparison.Ordinal))
                     ?? Kinds.FirstOrDefault();
@@ -189,7 +191,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
             if (SelectedKind is not { } kindToLoad) { Status = "No listable resource types were discovered."; return; }
             var scope = kindToLoad.Namespaced ? EffectiveNamespace : null;
             Status = $"Loading {kindToLoad.Kind}…";
-            var request = new KubernetesListRequest(kindToLoad, scope);
+            var request = new KubernetesListRequest(kindToLoad, scope, LabelSelector: string.IsNullOrWhiteSpace(LabelSelector) ? null : LabelSelector.Trim());
             var page = await _session.ListAsync(request, _lifetime.Token);
             if (_disposed || generation != _generation) { return; }
             var selectedUid = SelectedResource?.Reference.Uid;
@@ -204,7 +206,15 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (KubernetesRequestException exception) { PresentError(exception); }
-        finally { if (!_disposed) { IsBusy = false; if (generation == _generation) { StartWatching(); } } }
+        finally
+        {
+            if (!_disposed)
+            {
+                IsBusy = false;
+                if (generation == _generation) { StartWatching(); await RefreshResourceUsageAsync(); }
+            }
+        }
+        if (!_disposed && NamespaceChoices.Count == 1) { await LoadNamespaceChoicesAsync(); }
     }
 
     private async Task InspectAsync(KubernetesResourceDocument? resource)
@@ -216,10 +226,13 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
         try
         {
             var inspection = await _session.InspectAsync(resource.Reference, cancellation.Token);
-            if (!_disposed && !cancellation.IsCancellationRequested && SelectedResource?.Reference == resource.Reference)
+            if (!_disposed && !cancellation.IsCancellationRequested && SameResourceIdentity(SelectedResource?.Reference, resource.Reference))
             {
-                _inspection = inspection;
+                // A watch event may have delivered a newer version while this read was pending.
+                if (SelectedResource?.Reference == resource.Reference) { _inspection = inspection; }
                 PublishSelection();
+                await LoadRelatedEventsAsync(_inspection ?? inspection, cancellation.Token);
+                if (!cancellation.IsCancellationRequested) { await LoadSelectedHistoryAsync(); }
             }
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
@@ -273,7 +286,9 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
         {
             Resources = string.IsNullOrWhiteSpace(Filter) ? _allResources
                 : [.. _allResources.Where(item => item.Reference.Name.Contains(Filter.Trim(), StringComparison.OrdinalIgnoreCase)
-                    || item.Summary.Contains(Filter.Trim(), StringComparison.OrdinalIgnoreCase))];
+                    || item.Summary.Contains(Filter.Trim(), StringComparison.OrdinalIgnoreCase)
+                    || (item.Reference.Namespace?.Contains(Filter.Trim(), StringComparison.OrdinalIgnoreCase) ?? false)
+                    || item.Json.Contains(Filter.Trim(), StringComparison.OrdinalIgnoreCase))];
         }
         finally { _updatingResourceRows = false; }
     }
@@ -281,6 +296,9 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
     private void PublishSelection()
     {
         PublishLayout();
+        PublishDetails();
+        OnPropertyChanged(nameof(SelectedRow));
+        OnPropertyChanged(nameof(SelectedCpuUsage)); OnPropertyChanged(nameof(SelectedMemoryUsage)); OnPropertyChanged(nameof(HasResourceMetrics));
         OnPropertyChanged(nameof(HasSelection)); OnPropertyChanged(nameof(HasInspectorContent)); OnPropertyChanged(nameof(CanReadLogs)); OnPropertyChanged(nameof(HasMetricHistory));
         OnPropertyChanged(nameof(Manifest)); OnPropertyChanged(nameof(Summary)); OnPropertyChanged(nameof(SelectionTitle));
         _logsCommand.RaiseCanExecuteChanged();

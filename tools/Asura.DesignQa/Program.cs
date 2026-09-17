@@ -460,7 +460,17 @@ internal sealed class QaApplication : Avalonia.Application
         {
             vm.ShowWorkspace();
             AddSampleKubernetesPanel(vm, narrow: false);
-        }),
+        }, Width: 1840, Height: 1196),
+        new("workspace-kubernetes-detail", vm =>
+        {
+            vm.ShowWorkspace();
+            AddSampleKubernetesPanel(vm, narrow: false, selected: true);
+        }, Width: 1840, Height: 1196),
+        new("workspace-kubernetes-nodes", vm =>
+        {
+            vm.ShowWorkspace();
+            AddSampleKubernetesPanel(vm, narrow: false, nodes: true);
+        }, Width: 1840, Height: 1196),
         new("workspace-kubernetes-narrow", vm =>
         {
             vm.ShowWorkspace();
@@ -2671,18 +2681,30 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             .Invoke(workspace, [tab]);
     }
 
-    private static void AddSampleKubernetesPanel(MainWindowViewModel viewModel, bool narrow)
+    private static void AddSampleKubernetesPanel(MainWindowViewModel viewModel, bool narrow, bool selected = false, bool nodes = false)
     {
         var workspace = viewModel.RuntimeWorkspace ?? throw new InvalidOperationException("Kubernetes capture needs a workspace.");
         foreach (var stale in workspace.Tabs.Where(tab => tab.Panels.Any(panel => panel is KubernetesRuntimePanelViewModel)).ToArray())
         { workspace.Tabs.Remove(stale); stale.DisposePanels(); }
-        var tab = new RuntimeTabViewModel(new("qa-tab-kubernetes"), "Production cluster", "Kubernetes");
-        var profile = new KubernetesConnectionProfile(new("qa-kubernetes-profile"), 1, "Production · EU", "/qa/kubeconfig", "production-eu-west", "production");
+        var tab = new RuntimeTabViewModel(new("qa-tab-kubernetes"), "Demo cluster", "Kubernetes");
+        var profile = new KubernetesConnectionProfile(new("qa-kubernetes-profile"), 1, "Demo · EU", "/qa/kubeconfig", "demo-eu-west", "production");
         var panel = new KubernetesRuntimePanelViewModel(new("qa-panel-kubernetes"), "Kubernetes", profile,
             _ => ValueTask.FromResult<IKubernetesClientSession>(new QaKubernetesSession()));
         panel.Initialization.GetAwaiter().GetResult();
-        panel.SelectedResource = panel.Resources[0];
-        panel.SelectionLoading.GetAwaiter().GetResult();
+        panel.Namespace = string.Empty;
+        panel.RefreshAsync().GetAwaiter().GetResult();
+        if (nodes)
+        {
+            panel.SelectedKind = panel.Kinds.Single(item => string.Equals(item.Resource, "nodes", StringComparison.Ordinal));
+            panel.SelectionLoading.GetAwaiter().GetResult();
+        }
+        panel.RefreshResourceUsageAsync().GetAwaiter().GetResult();
+        if (selected || narrow)
+        {
+            panel.SelectedResource = panel.Resources[0];
+            panel.SelectionLoading.GetAwaiter().GetResult();
+            panel.LoadSelectedHistoryAsync().GetAwaiter().GetResult();
+        }
         tab.AddPanel(panel);
         if (narrow)
         {

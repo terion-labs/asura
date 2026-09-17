@@ -82,3 +82,9 @@ for the later cross-platform milestone; a cross-RID build is not that evidence.
 
 An intentional design deviation must be added here with its route and rationale
 before its reference is approved.
+
+## Kubernetes task layout review
+
+See the current [Kubernetes visual QA report](../design-qa.md) for the supplied
+Lens references, normalized comparisons, fixture disclosures, responsive checks,
+and explicit platform adaptations.

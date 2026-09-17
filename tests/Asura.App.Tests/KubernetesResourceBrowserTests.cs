@@ -1,0 +1,95 @@
+using Asura.App.ViewModels;
+using Asura.Application;
+using Asura.Core;
+
+namespace Asura.App.Tests;
+
+public sealed class KubernetesResourceBrowserTests
+{
+    [Theory]
+    [InlineData(true, true, "")]
+    [InlineData(true, false, "")]
+    [InlineData(false, true, "events.k8s.io")]
+    public async Task NavigationShowsOneLogicalEventsResource(bool core, bool modern, string preferredGroup)
+    {
+        var resources = new List<KubernetesApiResource> { KubernetesUiSession.Pods };
+        if (modern) { resources.Add(new("events.k8s.io", "v1", "events", "Event", true, ["list", "get"])); }
+        if (core) { resources.Add(new("", "v1", "events", "Event", true, ["list", "get"])); }
+        var client = new KubernetesUiSession { DiscoveryResources = resources };
+        using var panel = new KubernetesRuntimePanelViewModel(PanelInstanceId.New(), "Cluster",
+            new(KubernetesConnectionProfileId.New(), 1, "Cluster", "/config", "context"),
+            _ => ValueTask.FromResult<IKubernetesClientSession>(client));
+        await panel.Initialization;
+        var events = Assert.Single(panel.NavigationGroups.SelectMany(group => group.Items), item => item.Title == "Events");
+        Assert.Equal(preferredGroup, events.ApiResource.Group);
+        await panel.SelectNavigationAsync(events);
+        Assert.Equal(preferredGroup, panel.SelectedKind!.Group);
+        Assert.Equal("events", panel.SelectedKind.Resource);
+    }
+
+    [Fact]
+    public void PodRowShowsOperationalColumnsAndAggregatesContainerUsage()
+    {
+        var pod = Document("pods", "Pod", """{"metadata":{"creationTimestamp":"2026-01-01T00:00:00Z","ownerReferences":[{"kind":"ReplicaSet","name":"api-5d","controller":true}]},"spec":{"nodeName":"node-a","containers":[{"name":"api"},{"name":"proxy"}]},"status":{"phase":"Running","qosClass":"Burstable","containerStatuses":[{"name":"api","ready":true,"restartCount":3},{"name":"proxy","ready":true,"restartCount":1}]}}""");
+        var row = KubernetesResourceRow.Create(pod,
+        [new("api", "team", "api", null, "30s", 0.125m, 128 * 1024 * 1024), new("api", "team", "proxy", null, "30s", 0.01m, 32 * 1024 * 1024)]);
+        Assert.Equal("2/2", row.Ready);
+        Assert.Equal("4", row.Restarts);
+        Assert.Equal("0.135", row.Cpu);
+        Assert.Equal("160 MiB", row.Memory);
+        Assert.Equal("ReplicaSet", row.Owner);
+        Assert.Equal("node-a", row.Node);
+        Assert.Equal("Burstable", row.Qos);
+        Assert.True(row.IsHealthy);
+        Assert.True(row.AgeSeconds > 0);
+    }
+
+    [Fact]
+    public void PodWaitingReasonOverridesRunningPhaseAndMissingMeasurementsStayUnknown()
+    {
+        var row = KubernetesResourceRow.Create(Document("pods", "Pod", """{"spec":{"containers":[{}]},"status":{"phase":"Running","containerStatuses":[{"ready":false,"state":{"waiting":{"reason":"CrashLoopBackOff"}}}]}}"""), []);
+        Assert.Equal("CrashLoopBackOff", row.Status);
+        Assert.True(row.IsError);
+        Assert.Equal("0/1", row.Ready);
+        Assert.Equal("N/A", row.Cpu);
+        Assert.Null(row.MemoryValue);
+    }
+
+    [Fact]
+    public void NodeRowDisplaysSchedulingRolesVersionAndTaintsWithoutInventingDiskUsage()
+    {
+        var row = KubernetesResourceRow.Create(Document("nodes", "Node", """{"metadata":{"labels":{"node-role.kubernetes.io/control-plane":""}},"spec":{"unschedulable":true,"taints":[{}]},"status":{"nodeInfo":{"kubeletVersion":"v1.36.1"},"conditions":[{"type":"Ready","status":"True"}]}}""") with
+        { Reference = new("", "v1", "nodes", null, "node-a", "node-uid", "1") }, []);
+        Assert.Equal("Ready / Cordoned", row.Status);
+        Assert.True(row.IsWarning);
+        Assert.Equal("control-plane", row.Roles);
+        Assert.Equal("v1.36.1", row.Version);
+        Assert.Equal("1", row.Taints);
+        Assert.Equal("N/A", row.Disk);
+    }
+
+    [Fact]
+    public async Task BrowserStartsWithoutInspectorAndMapsTableSelectionToOwnedDocument()
+    {
+        var client = new KubernetesUiSession();
+        using var panel = new KubernetesRuntimePanelViewModel(PanelInstanceId.New(), "Cluster",
+            new(KubernetesConnectionProfileId.New(), 1, "Cluster", "/config", "context"),
+            _ => ValueTask.FromResult<IKubernetesClientSession>(client));
+        await panel.Initialization;
+        Assert.False(panel.HasSelection);
+        Assert.False(panel.IsInspectorVisible);
+        Assert.NotEmpty(panel.Rows);
+        Assert.Contains(panel.NavigationGroups, group => group.Title == "Workloads" && group.Items.Any(item => item.Title == "Pods"));
+        panel.SelectedRow = panel.Rows[0];
+        await panel.SelectionLoading;
+        Assert.Equal(panel.Rows[0].Document.Reference.Uid, panel.SelectedResource?.Reference.Uid);
+        Assert.NotEmpty(panel.DetailProperties);
+        Assert.True(panel.IsInspectorVisible);
+        panel.Filter = "does-not-exist";
+        Assert.Empty(panel.Rows);
+        Assert.Equal("0 of 1 items", panel.ResourceCountLabel);
+    }
+
+    private static KubernetesResourceDocument Document(string resource, string kind, string json) =>
+        new(new("", "v1", resource, "team", "api", "uid", "1"), kind, "summary", json);
+}

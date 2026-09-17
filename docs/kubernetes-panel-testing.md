@@ -6,17 +6,17 @@ The core panel is implemented on `codex/kubernetes-panel`. The design rationale 
 
 1. Add a Kubernetes connection in the unified connection editor. Enter the kubeconfig path as seen by the selected workspace backend, review it, choose an explicit context and namespace, and approve the displayed credential helper when required.
 2. Open the connection from the launcher, a new panel, a saved screen or a workspace template. Each panel keeps its own context, resource kind and namespace. A namespace can be typed even when namespace listing is forbidden.
-3. Select a resource to inspect its manifest. Pod views expose container selection, previous/current logs, follow, a terminal, read-only files and port forwarding. Service forwarding resolves ready matching pods and requires an explicit pod/port choice.
+3. Browse grouped resource families using the navigator. Pods and Nodes have dedicated sortable tables; namespace suggestions also accept typed names on Enter. Selecting a row opens the right-hand properties drawer with related-resource links, labels, conditions, containers and events. YAML editing has its own tab. Pod views expose container selection, previous/current logs, follow, a terminal, read-only files and port forwarding. Service forwarding resolves ready matching pods and requires an explicit pod/port choice.
 4. Edit a manifest and run server dry-run before applying. Scale, rollout restart, delete and node scheduling also have separate review and confirmation. Drain displays skipped/blocked pods and per-pod outcomes. Never retry an unknown outcome without inspecting current cluster state.
 5. Workspace-owned forwards remain available after closing the original inspector. Open their browser or database action to use the workspace's private endpoint. Stop the forward explicitly or close the workspace. Live forwards are not recreated on recovery: their browser panels reopen at `about:blank` and database panels reopen as unconfigured pickers. Forwarded database passwords are not restored.
-6. Metrics and Helm are optional tabs. Historical charts require a Prometheus service reachable through the Kubernetes API proxy. Helm must be installed in the backend execution environment. Helm changes review an exact release revision; upgrade additionally requires an OCI chart digest and version.
+6. Current Pod and Node metrics populate the table and properties drawer automatically. The Metrics API is preferred; when unavailable, eligible in-cluster Prometheus services are discovered through the Kubernetes API. A unique provider is selected automatically; multiple providers require a choice. Pod history loads in the drawer through the service API proxy. Helm has its own tab. Helm must be installed in the backend execution environment. Helm changes review an exact release revision; upgrade additionally requires an OCI chart digest and version.
 7. Agent settings have separate Kubernetes Data, Control and Exec grants, all Off by default. Read tools return bounded resource references. Preview and commit are separate operations. Pod input uses Kubernetes Exec, not host command authority. Agent writes target existing resources; node and Helm administration remain native UI operations. Pod File Viewer panels do not expose agent file authority.
 
 ## Automated coverage
 
 Fixture suites cover parse-only trust review, credential refresh, unknown resources, pagination, expired watches, bounded streaming, UID/resourceVersion conflicts, server dry-run, unknown write outcomes, exec channels/resize/exit, route cancellation, forwarded endpoint revocation and replay prevention. App tests cover review invalidation, Service candidate selection, split layouts and typed target persistence. New policy defaults and imported definitions are tested alongside existing session/agent contracts.
 
-Native DesignQa routes: `workspace-kubernetes` and `workspace-kubernetes-narrow`. Captures use the real MainWindow, panel controls and theme. Final screenshots were regenerated and inspected at 1440×900 and 1080×680 with two narrow panels, in `artifacts/design-qa/kubernetes-final/`.
+Native DesignQa routes: `workspace-kubernetes`, `workspace-kubernetes-detail`, `workspace-kubernetes-nodes` and `workspace-kubernetes-narrow`. Captures use the real MainWindow, panel controls and theme with explicitly labelled synthetic data. The Lens comparison set uses 1840×1196 for Pods, the Pod drawer and Nodes, and 1080×680 for two narrow panels. The inspected captures and three normalized side-by-side comparisons are in `artifacts/design-qa/kubernetes-lens/`; the local review report is `design-qa.md`.
 
 A Native AOT spike exercises the selected SDK's unknown-resource JSON, watch and YAML path. It does not substitute for publishing and exercising every packaged desktop/guest target.
 
@@ -31,6 +31,16 @@ python3 scripts/test-kubernetes-live.py orbstack browsercity-core browsercity-ra
 
 The opt-in flag permits the exact credential helper found by parse-only review; it does not persist trust. The script launches the real private worker and checks discovery, list, inspect, bounded logs and manifest conversion. Optional checks read Metrics API and Helm release/history metadata. Output includes only counts and error categories, not endpoints, credentials, manifests or log contents.
 
+To check a specific in-cluster Prometheus provider through the same private worker and Kubernetes API service proxy:
+
+```sh
+python3 scripts/test-kubernetes-live.py browsercity-rancher \
+  --trust-existing-exec --namespace kube-system \
+  --prometheus monitoring/prometheus-operated:9090
+```
+
+This reads current Pod and Node usage with fixed bulk queries and one hour of CPU and memory history for the first listed pod. It rejects cross-namespace Pod samples and reports only availability and sample counts.
+
 Direct read-only checks on 2026-09-17 reached:
 
 | Context | Kubernetes version | Authentication | Discovery |
@@ -39,7 +49,9 @@ Direct read-only checks on 2026-09-17 reached:
 | browsercity-core | v1.36.1 | Existing OCI exec helper | 180 served resources |
 | browsercity-rancher | v1.36.1 | Existing OCI exec helper | 228 served resources |
 
-Each passed list/inspect, bounded logs, manifest conversion and Helm 4 release-list reads. Metrics requests returned unavailable on these clusters. The command-line harness did not exercise live charts or the desktop panel UI. No Helm releases were present in the selected kube-system namespaces, so live release history was not exercised. Initial Helm reads found a Helm 4 command-flag incompatibility; the corrected command passed the rerun on all three contexts. Discovery includes every served version, and counts can change with cluster availability.
+Each passed list/inspect, bounded logs, manifest conversion and Helm 4 release-list reads. The Metrics API returned unavailable on these clusters. A subsequent private-worker IPC check on browsercity-rancher successfully used the specified Prometheus service: 25 container CPU and memory samples in kube-system, three Node CPU and memory samples, and one selected-pod history series with 61 samples for each metric. This verifies the optional provider's serialized request, service-proxy queries and response projection. The harness does not exercise desktop chart rendering. No Helm releases were present in the selected kube-system namespaces, so live release history was not exercised. Initial Helm reads found a Helm 4 command-flag incompatibility; the corrected command passed the rerun on all three contexts. Discovery includes every served version, and counts can change with cluster availability.
+
+The rebuilt macOS development app was also exercised against the existing browsercity-core connection: 130 Pods, three Nodes, typed namespace selection, sorting, text filtering, Pod properties, Pod-to-Node navigation and closing the drawer. The final drawer remained opaque under the user's translucent MacOsLiquidGlass theme; the navigator displayed one Events entry and the inspector displayed one metrics-unavailable explanation. Desktop chart rendering was checked with the labelled DesignQa fixture, not a live Rancher profile. No new connection or persistent credential-helper grant was saved for this check.
 
 ## Acceptance boundaries
 
@@ -51,7 +63,7 @@ Packaged Linux guest, service-VM, SSH/proxy/VPN WebSocket interoperability, othe
 
 ## Repository gate
 
-The warning-free Release solution build, dependency audit, formatting and architecture checks passed. All 28 test projects were run, including projects after the failing full-gate project: 8,501 passed, one failed and 18 were skipped by their existing environment requirements (8,520 total). App tests passed 2,117/2,117; architecture tests passed 857 with five environment skips. The sole failure is the repository's owner-approved release-evidence check because new dependency hashes require a renewed decision. No test or hook was disabled. See [the exact dependency change](kubernetes-dependency-review.md).
+For the Lens UI revision, the warning-free Release solution build, dependency audit and formatting passed. `./scripts/check.sh --full` ran the first test project: 294 passed and one failed at the owner-approved release-evidence check, which stops that script. The affected projects were then run independently: App 2,153 passed; architecture 857 passed with five existing environment skips; Kubernetes engine 70 passed. The earlier implementation baseline ran all 28 projects (8,501 passed, one approval failure, 18 existing environment skips). New dependency hashes require a renewed owner decision; no test or hook was disabled. See [the exact dependency change](kubernetes-dependency-review.md).
 
 ## Remaining product scope
 
@@ -60,7 +72,7 @@ The implementation epic `asura-dp53` remains open. The following original-plan i
 | Tracking | Current behavior | Remaining work |
 | --- | --- | --- |
 | `asura-dp53.2` | Linked-file review and explicit context; backend contracts for managed credentials and SSH hops | Kubeconfig discovery, paste/managed provisioning, merged files, new SSH-hop selection and connection-test UI |
-| `asura-dp53.3` | Discovered kinds, fixed resource rows, text filter, single namespace or all, manifest inspector | Resource-family navigation, sortable/configurable/CRD columns, labels, multiple namespaces, related-resource/events inspector and navigation history |
+| `asura-dp53.3` | Grouped navigator, sortable Pod/Node tables, generic resource table, text search, namespace choice/manual entry, structured inspector, labels, related-resource links/events, manifest editor | Configurable/CRD-specific columns, multiple namespace selection and navigation history |
 | `asura-dp53.3` | Expired-watch relist; manual reconnect after normal termination | Retry/backoff, visibility-aware suspension and coalesced UI updates |
 | `asura-dp53.4` | Launcher, chooser, screens, workspace recovery, agent capabilities and shared panel chrome | Kubernetes-specific command/keymap preferences and operational notifications; persisted filter/selection/column preferences |
 | `asura-dp53.5` | Bounded current/previous logs and follow; read-only container files; private forwards | Tail/since/search/export controls, workload aggregation, uploads/transfers and forwarded HTTPS original-host configuration |

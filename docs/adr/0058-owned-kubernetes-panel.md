@@ -23,7 +23,7 @@ Reuse Asura's native panel layout, unified connection editor, terminal renderer,
 
 ## Optional dependencies and limits
 
-The core browser requires no kubectl or Helm installation. Helm features use a worker-local Helm binary, isolated temporary credentials and bounded output. Missing Helm is an actionable unavailable state. Metrics API data is optional. Historical charts require an explicitly selected Prometheus service and use the Kubernetes service proxy with fixed query templates; missing data is rendered as gaps.
+The core browser requires no kubectl or Helm installation. Helm features use a worker-local Helm binary, isolated temporary credentials and bounded output. Missing Helm is an actionable unavailable state. Current Pod and Node usage prefers the Metrics API. When it is unavailable, a bounded service discovery offers eligible in-cluster Prometheus endpoints; a unique complete result is selected automatically, while ambiguous providers require a choice. Current usage and Pod historical charts use the Kubernetes service proxy with fixed query templates; missing data stays unavailable or appears as gaps. Node-exporter data must have an explicit node label or a kube_node_info internal-IP join. No guessed instance-to-node mapping is used.
 
 Exec currently requires the Kubernetes `v5.channel.k8s.io` WebSocket protocol. There is no SPDY compatibility fallback. Forwarding uses the SDK's Kubernetes WebSocket transport with bounded application relays. Live API success is not evidence that every proxy supports WebSocket upgrades.
 

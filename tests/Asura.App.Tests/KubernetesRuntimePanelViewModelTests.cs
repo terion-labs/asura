@@ -229,7 +229,12 @@ public sealed class KubernetesRuntimePanelViewModelTests
 
 internal sealed class KubernetesUiSession : IKubernetesClientSession
 {
+    internal Func<KubernetesMetricsRequest, ValueTask<KubernetesMetricsSnapshot>>? Metrics { get; init; }
+    internal Func<KubernetesMetricHistoryRequest, ValueTask<KubernetesMetricHistory>>? History { get; init; }
+    public ValueTask<KubernetesMetricsSnapshot> ReadMetricsAsync(KubernetesMetricsRequest request, CancellationToken cancellationToken) => Metrics!(request);
+    public ValueTask<KubernetesMetricHistory> ReadMetricHistoryAsync(KubernetesMetricHistoryRequest request, CancellationToken cancellationToken) => History!(request);
     public KubernetesSessionFeatures Features => ExtraFeatures | (AllowPatching ? KubernetesSessionFeatures.Mutations | KubernetesSessionFeatures.ManifestConversion : ExpireFirstWatch ? KubernetesSessionFeatures.Watch : KubernetesSessionFeatures.None);
+    internal IReadOnlyList<KubernetesApiResource>? DiscoveryResources { get; init; }
     internal static KubernetesApiResource Pods { get; } = new("", "v1", "pods", "Pod", true, ["list", "get"]);
     internal static KubernetesResourceDocument Pod { get; } = new(new("", "v1", "pods", "restricted", "app-123", "uid-1", "10"), "Pod", "Running", "{\"kind\":\"Pod\"}");
     internal List<KubernetesListRequest> Requests { get; } = [];
@@ -248,7 +253,7 @@ internal sealed class KubernetesUiSession : IKubernetesClientSession
     internal List<KubernetesMutationRequest> Mutations { get; } = [];
     internal Task<KubernetesResourceDocument>? Inspection { get; init; }
     internal KubernetesLogRequest? LastLog { get; private set; }
-    public ValueTask<KubernetesDiscovery> DiscoverAsync(CancellationToken cancellationToken) => ValueTask.FromResult(new KubernetesDiscovery([new(ListedResource.Reference.Group, ListedResource.Reference.Version, ListedResource.Reference.Resource, ListedResource.Kind, ListedResource.Reference.Namespace is not null, AllowPatching ? ["list", "get", "patch", "delete"] : ["list", "get"])], []));
+    public ValueTask<KubernetesDiscovery> DiscoverAsync(CancellationToken cancellationToken) => ValueTask.FromResult(new KubernetesDiscovery(DiscoveryResources ?? [new(ListedResource.Reference.Group, ListedResource.Reference.Version, ListedResource.Reference.Resource, ListedResource.Kind, ListedResource.Reference.Namespace is not null, AllowPatching ? ["list", "get", "patch", "delete"] : ["list", "get"])], []));
     public ValueTask<KubernetesResourcePage> ListAsync(KubernetesListRequest request, CancellationToken cancellationToken)
     {
         Requests.Add(request);

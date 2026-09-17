@@ -16,6 +16,8 @@ public sealed partial class KubernetesClientSession
             throw new KubernetesRequestException(KubernetesErrorCode.InvalidConfiguration, "Node metrics do not have a namespace.");
         }
 
+        if (request.Provider is not null) { return await ReadPrometheusUsageAsync(request, cancellationToken).ConfigureAwait(false); }
+
         using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
         try
         {
@@ -70,8 +72,8 @@ public sealed partial class KubernetesClientSession
 
         string selector = $"namespace=\"{request.Namespace}\",pod=\"{request.Pod}\",container!=\"\",container!=\"POD\"";
         string query = request.Metric == KubernetesHistoryMetric.CpuCores
-            ? $"sum by (container) (rate(container_cpu_usage_seconds_total{{{selector}}}[5m]))"
-            : $"sum by (container) (container_memory_working_set_bytes{{{selector}}})";
+            ? $"max by (container) (rate(container_cpu_usage_seconds_total{{{selector}}}[5m]))"
+            : $"max by (container) (container_memory_working_set_bytes{{{selector}}})";
         string service = $"{(request.Service.Https ? "https" : "http")}:{request.Service.Service}:{request.Service.Port.ToString(CultureInfo.InvariantCulture)}";
         string path = $"api/v1/namespaces/{request.Service.Namespace}/services/{Uri.EscapeDataString(service)}/proxy/api/v1/query_range";
         var parameters = new List<KeyValuePair<string, string>>
@@ -101,7 +103,7 @@ public sealed partial class KubernetesClientSession
                 {
                     if (++count > 16000) { throw MetricsLimit(); }
                     if (value.ValueKind != JsonValueKind.Array || value.GetArrayLength() != 2
-                        || !value[0].TryGetDouble(out double seconds) || !double.IsFinite(seconds)
+                        || value[0].ValueKind != JsonValueKind.Number || !value[0].TryGetDouble(out double seconds) || !double.IsFinite(seconds)
                         || seconds < -62135596800 || seconds > 253402300799 || value[1].ValueKind != JsonValueKind.String) { throw InvalidMetrics(); }
                     double? usage = double.TryParse(value[1].GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double number)
                         && double.IsFinite(number) && number >= 0 ? number : null;

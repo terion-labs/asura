@@ -27,6 +27,14 @@ public sealed class KubernetesObservabilityTests
     public void InvalidQuantitiesRemainUnknown(string quantity) => Assert.Null(KubernetesClientSession.ParseQuantity(quantity));
 
     [Fact]
+    public async Task ListItemsWithoutKindUseTheDiscoveredResourceKind()
+    {
+        await using var session = Create(_ => Json("""{"kind":"PodList","metadata":{"resourceVersion":"1"},"items":[{"metadata":{"name":"one","namespace":"demo","uid":"one","resourceVersion":"1"}}]}"""));
+        var page = await session.ListAsync(new(new("", "v1", "pods", "Pod", true, ["list"]), "demo"), CancellationToken.None);
+        Assert.Equal("Pod", Assert.Single(page.Items).Kind);
+    }
+
+    [Fact]
     public async Task MetricsRetainMissingMemoryInsteadOfZero()
     {
         await using var session = Create(request =>
@@ -50,6 +58,87 @@ public sealed class KubernetesObservabilityTests
         KubernetesMetricsSnapshot result = await session.ReadMetricsAsync(new(KubernetesMetricsKind.Nodes), CancellationToken.None);
         Assert.Equal(availability, result.Availability);
         Assert.Empty(result.Entries);
+    }
+
+    [Fact]
+    public async Task PrometheusUsageUsesTwoBulkProxyQueriesAndKeepsMissingValuesUnknown()
+    {
+        int requests = 0;
+        await using var session = Create(request =>
+        {
+            requests++;
+            Assert.Equal("/api/v1/namespaces/monitoring/services/http:prometheus-operated:9090/proxy/api/v1/query", Uri.UnescapeDataString(request.RequestUri!.AbsolutePath));
+            string query = Uri.UnescapeDataString(request.RequestUri.Query);
+            Assert.Contains("namespace=\"demo\"", query, StringComparison.Ordinal);
+            Assert.DoesNotContain("pod=\"", query, StringComparison.Ordinal);
+            return Json(query.Contains("cpu_usage", StringComparison.Ordinal)
+                ? """{"status":"success","data":{"resultType":"vector","result":[{"metric":{"namespace":"demo","pod":"one","container":"app"},"value":[1700000000,"0.25"]},{"metric":{"namespace":"demo","pod":"two","container":"app"},"value":[1700000000,"NaN"]}]}}"""
+                : """{"status":"success","data":{"resultType":"vector","result":[{"metric":{"namespace":"demo","pod":"one","container":"app"},"value":[1700000000,"1048576"]}]}}""");
+        });
+        var snapshot = await session.ReadMetricsAsync(new(KubernetesMetricsKind.Pods, "demo", new("monitoring", "prometheus-operated", 9090)), CancellationToken.None);
+        Assert.Equal(2, requests);
+        Assert.Equal(0.25m, snapshot.Entries[0].CpuCores);
+        Assert.Equal(1048576m, snapshot.Entries[0].MemoryBytes);
+        Assert.Null(snapshot.Entries[1].CpuCores);
+        Assert.Null(snapshot.Entries[1].MemoryBytes);
+    }
+
+    [Fact]
+    public async Task MalformedPrometheusTimestampReturnsAControlledError()
+    {
+        await using var session = Create(_ => Json("""{"status":"success","data":{"resultType":"vector","result":[{"metric":{"namespace":"demo","pod":"one","container":"app"},"value":["not-a-number","1"]}]}}"""));
+        var error = await Assert.ThrowsAsync<KubernetesRequestException>(() => session.ReadMetricsAsync(
+            new(KubernetesMetricsKind.Pods, "demo", new("monitoring", "prometheus", 9090)), CancellationToken.None).AsTask());
+        Assert.Equal(KubernetesErrorCode.InvalidResponse, error.Code);
+    }
+
+    [Fact]
+    public async Task PrometheusDoesNotAcceptSamplesFromAnotherNamespace()
+    {
+        await using var session = Create(_ => Json("""{"status":"success","data":{"resultType":"vector","result":[{"metric":{"namespace":"other","pod":"one","container":"app"},"value":[1700000000,"1"]}]}}"""));
+        var snapshot = await session.ReadMetricsAsync(new(KubernetesMetricsKind.Pods, "demo", new("monitoring", "prometheus", 9090)), CancellationToken.None);
+        Assert.Empty(snapshot.Entries);
+        Assert.Equal(KubernetesDataAvailability.Unavailable, snapshot.Availability);
+    }
+
+    [Fact]
+    public async Task FailedMemoryQueryDoesNotPublishPartialCpuAsCompleteSnapshot()
+    {
+        int requests = 0;
+        await using var session = Create(_ => ++requests == 1
+            ? Json("""{"status":"success","data":{"resultType":"vector","result":[{"metric":{"namespace":"demo","pod":"one","container":"app"},"value":[1700000000,"1"]}]}}""")
+            : new(HttpStatusCode.Forbidden));
+        var snapshot = await session.ReadMetricsAsync(new(KubernetesMetricsKind.Pods, "demo", new("monitoring", "prometheus", 9090)), CancellationToken.None);
+        Assert.Empty(snapshot.Entries);
+        Assert.Equal(KubernetesDataAvailability.Forbidden, snapshot.Availability);
+    }
+
+    [Fact]
+    public async Task NodeUsageMapsExporterTargetsThroughKubernetesNodeIdentity()
+    {
+        await using var session = Create(request =>
+        {
+            string query = Uri.UnescapeDataString(request.RequestUri!.Query);
+            Assert.Contains("kube_node_info", query, StringComparison.Ordinal);
+            Assert.Contains("group_left (node)", query, StringComparison.Ordinal);
+            Assert.Contains("internal_ip", query, StringComparison.Ordinal);
+            return Json("""{"status":"success","data":{"resultType":"vector","result":[{"metric":{"node":"worker-one"},"value":[1700000000,"10"]}]}}""");
+        });
+        var snapshot = await session.ReadMetricsAsync(new(KubernetesMetricsKind.Nodes, Provider: new("monitoring", "prometheus", 9090)), CancellationToken.None);
+        var node = Assert.Single(snapshot.Entries);
+        Assert.Equal("worker-one", node.Name);
+        Assert.Null(node.Namespace);
+        Assert.Equal(10m, node.CpuCores);
+        Assert.Equal(10m, node.MemoryBytes);
+    }
+
+    [Fact]
+    public async Task PrometheusMissingNodeLabelsNeverBecomeZeroOrInventNodeIdentity()
+    {
+        await using var session = Create(_ => Json("""{"status":"success","data":{"resultType":"vector","result":[{"metric":{"instance":"10.0.0.1:9100"},"value":[1700000000,"10"]}]}}"""));
+        var snapshot = await session.ReadMetricsAsync(new(KubernetesMetricsKind.Nodes, Provider: new("monitoring", "prometheus", 9090)), CancellationToken.None);
+        Assert.Equal(KubernetesDataAvailability.Unavailable, snapshot.Availability);
+        Assert.Empty(snapshot.Entries);
     }
 
     [Fact]

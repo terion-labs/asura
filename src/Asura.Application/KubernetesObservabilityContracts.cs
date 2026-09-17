@@ -4,7 +4,8 @@ public enum KubernetesDataAvailability { Available, Unavailable, Forbidden }
 
 public enum KubernetesMetricsKind { Pods, Nodes }
 
-public sealed record KubernetesMetricsRequest(KubernetesMetricsKind Kind, string? Namespace = null);
+public sealed record KubernetesMetricsRequest(KubernetesMetricsKind Kind, string? Namespace = null,
+    KubernetesPrometheusService? Provider = null);
 
 /// <summary>Null usage means missing or unparseable data. CPU is cores; memory is bytes.</summary>
 public sealed record KubernetesUsageEntry(string Name, string? Namespace, string? Container,

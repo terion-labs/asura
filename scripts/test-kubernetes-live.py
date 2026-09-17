@@ -7,8 +7,10 @@ credentials, resource bodies, cluster endpoints or log text are printed.
 """
 
 import argparse
+import datetime
 import json
 import pathlib
+import re
 import select
 import struct
 import subprocess
@@ -65,6 +67,41 @@ class Worker:
         subprocess.run(self.command + ["cleanup", self.operation], check=True, capture_output=True, timeout=20)
 
 
+def prometheus_service(value):
+    match = re.fullmatch(r"([a-z0-9][a-z0-9.-]*)/([a-z0-9][a-z0-9.-]*):([0-9]{1,5})", value)
+    if match is None or not 1 <= int(match[3]) <= 65535:
+        raise argparse.ArgumentTypeError("Use an in-cluster namespace/service:port")
+    return dict(namespace=match[1], service=match[2], port=int(match[3]))
+
+
+def read_prometheus(worker, provider, namespace, pod_reference):
+    result = {}
+    for kind, name in [(0, "pods"), (1, "nodes")]:
+        request = dict(kind=kind, provider=provider)
+        if kind == 0:
+            request["namespace"] = namespace
+        snapshot = worker.invoke(16, metrics=request)["metrics"]
+        entries = snapshot["entries"]
+        if snapshot["availability"] != 0 or not entries:
+            raise RuntimeError("prometheus_" + name + "_unavailable")
+        if kind == 0 and any(entry.get("namespace") != namespace for entry in entries):
+            raise RuntimeError("prometheus_scope_mismatch")
+        result["prometheus_" + name] = dict(
+            entries=len(entries), cpu_samples=sum(entry.get("cpuCores") is not None for entry in entries),
+            memory_samples=sum(entry.get("memoryBytes") is not None for entry in entries))
+    if pod_reference is not None:
+        end = datetime.datetime.now(datetime.timezone.utc).replace(second=0, microsecond=0)
+        for metric, name in [(0, "cpu"), (1, "memory")]:
+            request = dict(service=provider, namespace=namespace, pod=pod_reference["name"], metric=metric,
+                           start=(end - datetime.timedelta(hours=1)).isoformat(), end=end.isoformat(), stepSeconds=60)
+            history = worker.invoke(17, metricHistory=request)["metricHistory"]
+            if history["availability"] != 0:
+                raise RuntimeError("prometheus_history_" + name + "_unavailable")
+            result["prometheus_history_" + name] = dict(series=len(history["series"]),
+                samples=sum(sample.get("value") is not None for series in history["series"] for sample in series["samples"]))
+    return result
+
+
 def main():
     root = pathlib.Path(__file__).resolve().parent.parent
     parser = argparse.ArgumentParser(description=__doc__)
@@ -75,6 +112,8 @@ def main():
     parser.add_argument("--read-logs", action="store_true")
     parser.add_argument("--read-observability", action="store_true",
                         help="Read optional pod metrics and Helm release metadata in the selected namespace")
+    parser.add_argument("--prometheus", type=prometheus_service,
+                        help="Read bulk pod/node usage and first-pod history through namespace/service:port API proxy")
     args = parser.parse_args()
     dotnet = root / ".dotnet/dotnet"
     assembly = root / "src/Asura.Backend/bin/Release/net10.0/Asura.Backend.dll"
@@ -102,6 +141,7 @@ def main():
             result = dict(context=context, result="passed", served_resources=len(kinds),
                           unavailable_groups=len(discovery["unavailableGroups"]), pods=len(page["items"]),
                           has_next_page=page.get("continueToken") is not None)
+            reference = None
             if page["items"]:
                 reference = page["items"][0]["reference"]
                 inspected = worker.invoke(3, resource=reference)["resource"]
@@ -123,6 +163,8 @@ def main():
                     release = releases["releases"][0]
                     history = worker.invoke(19, helmHistory=dict(namespace=args.namespace, release=release["name"], maximumRevisions=5))["helmHistory"]
                     result["helm_history_revisions"] = len(history["revisions"])
+            if args.prometheus is not None:
+                result.update(read_prometheus(worker, args.prometheus, args.namespace, reference))
             print(json.dumps(result), flush=True)
         except Exception as error:
             failed = True
