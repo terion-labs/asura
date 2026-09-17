@@ -470,7 +470,7 @@ internal sealed class QaApplication : Avalonia.Application
         {
             vm.ShowWorkspace();
             AddSampleKubernetesPanel(vm, narrow: false, selected: true);
-        }, Width: 1840, Height: 1196, PrepareCapture: SelectKubernetesManifest),
+        }, Width: 1840, Height: 1196, PrepareCapture: window => SelectKubernetesInspectorTab(window, "YAML / JSON")),
         new("workspace-kubernetes-namespaces", vm =>
         {
             vm.ShowWorkspace();
@@ -481,6 +481,51 @@ internal sealed class QaApplication : Avalonia.Application
             vm.ShowWorkspace();
             AddSampleKubernetesPanel(vm, narrow: false, nodes: true);
         }, Width: 1840, Height: 1196),
+        new("workspace-kubernetes-node-maintenance", vm =>
+        {
+            vm.ShowWorkspace();
+            var panel = AddSampleKubernetesPanel(vm, narrow: false, selected: true, nodes: true);
+            panel.ReviewNodeDrainAsync().GetAwaiter().GetResult();
+        }, Width: 1840, Height: 1196, PrepareCapture: window => SelectKubernetesInspectorTab(window, "Node")),
+        new("workspace-kubernetes-actions", vm =>
+        {
+            vm.ShowWorkspace();
+            var panel = AddSampleKubernetesPanel(vm, narrow: false, selected: true, resource: "deployments");
+            panel.Replicas = "5";
+            panel.ReviewScaleAsync().GetAwaiter().GetResult();
+        }, Width: 1840, Height: 1196, PrepareCapture: window => SelectKubernetesInspectorTab(window, "Actions")),
+        new("workspace-kubernetes-ports", vm =>
+        {
+            vm.ShowWorkspace();
+            var panel = AddSampleKubernetesPanel(vm, narrow: false, selected: true);
+            panel.ForwardPort = "8080";
+            panel.StartForwardAsync().GetAwaiter().GetResult();
+        }, Width: 1840, Height: 1196, PrepareCapture: window => SelectKubernetesInspectorTab(window, "Ports")),
+        new("workspace-kubernetes-shell", vm =>
+        {
+            vm.ShowWorkspace();
+            AddSampleKubernetesPanel(vm, narrow: false, selected: true);
+        }, Width: 1840, Height: 1196, PrepareCapture: window => SelectKubernetesInspectorTab(window, "Shell")),
+        new("workspace-kubernetes-logs", vm =>
+        {
+            vm.ShowWorkspace();
+            var panel = AddSampleKubernetesPanel(vm, narrow: false, selected: true);
+            panel.LoadLogsAsync().GetAwaiter().GetResult();
+        }, Width: 1840, Height: 1196, PrepareCapture: window => SelectKubernetesInspectorTab(window, "Logs")),
+        new("workspace-kubernetes-helm", vm =>
+        {
+            vm.ShowWorkspace();
+            var panel = AddSampleKubernetesPanel(vm, narrow: false);
+            panel.LoadHelmAsync().GetAwaiter().GetResult();
+            panel.SelectedRelease = panel.Releases[3];
+        }, Width: 1840, Height: 1196, PrepareCapture: ShowKubernetesHelm),
+        new("workspace-kubernetes-helm-change", vm =>
+        {
+            vm.ShowWorkspace();
+            var panel = AddSampleKubernetesPanel(vm, narrow: false);
+            panel.LoadHelmAsync().GetAwaiter().GetResult();
+            panel.SelectedRelease = panel.Releases[3];
+        }, Width: 1840, Height: 1196, PrepareCapture: ShowKubernetesHelmChange),
         new("workspace-kubernetes-narrow", vm =>
         {
             vm.ShowWorkspace();
@@ -2699,8 +2744,9 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             .Invoke(workspace, [tab]);
     }
 
-    private static void AddSampleKubernetesPanel(MainWindowViewModel viewModel, bool narrow, bool selected = false, bool nodes = false)
+    private static KubernetesRuntimePanelViewModel AddSampleKubernetesPanel(MainWindowViewModel viewModel, bool narrow, bool selected = false, bool nodes = false, string? resource = null)
     {
+        resource ??= nodes ? "nodes" : null;
         var workspace = viewModel.RuntimeWorkspace ?? throw new InvalidOperationException("Kubernetes capture needs a workspace.");
         foreach (var background in workspace.Tabs.Where(tab => tab.Panels.Count == 0))
         {
@@ -2712,13 +2758,14 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         var tab = new RuntimeTabViewModel(new("qa-tab-kubernetes"), "Demo cluster", "Kubernetes");
         var profile = new KubernetesConnectionProfile(new("qa-kubernetes-profile"), 1, "Demo · EU", "/qa/kubeconfig", "demo-eu-west", "production");
         var panel = new KubernetesRuntimePanelViewModel(new("qa-panel-kubernetes"), "Kubernetes", profile,
-            _ => ValueTask.FromResult<IKubernetesClientSession>(new QaKubernetesSession()));
+            _ => ValueTask.FromResult<IKubernetesClientSession>(new QaKubernetesSession()))
+        { ForwardState = new(new QaKubernetesSessionFactory()) };
         panel.Initialization.GetAwaiter().GetResult();
         panel.Namespace = string.Empty;
         panel.RefreshAsync().GetAwaiter().GetResult();
-        if (nodes)
+        if (resource is not null)
         {
-            panel.SelectedKind = panel.Kinds.Single(item => string.Equals(item.Resource, "nodes", StringComparison.Ordinal));
+            panel.SelectedKind = panel.Kinds.Single(item => string.Equals(item.Resource, resource, StringComparison.Ordinal));
             panel.SelectionLoading.GetAwaiter().GetResult();
         }
         panel.RefreshResourceUsageAsync().GetAwaiter().GetResult();
@@ -2741,6 +2788,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         foreach (var candidate in workspace.Tabs) { candidate.IsActive = ReferenceEquals(candidate, tab); }
         typeof(RuntimeWorkspaceViewModel).GetProperty(nameof(RuntimeWorkspaceViewModel.ActiveTab))!
             .GetSetMethod(nonPublic: true)!.Invoke(workspace, [tab]);
+        return panel;
     }
 
     private static DockerRuntimePanelViewModel AddSampleDockerPanel(
@@ -2852,24 +2900,38 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         }
     }
 
-    private static void SelectKubernetesManifest(MainWindow window)
+    private static void SelectKubernetesInspectorTab(MainWindow window, string header)
     {
         var inspector = window.GetVisualDescendants().OfType<TabControl>()
             .Single(control => string.Equals(control.Name, "InspectorTabs", StringComparison.Ordinal));
         inspector.SelectedItem = inspector.Items.OfType<TabItem>()
-            .Single(tab => string.Equals(tab.Header as string, "YAML / JSON", StringComparison.Ordinal));
+            .Single(tab => string.Equals(tab.Header as string, header, StringComparison.Ordinal));
+    }
+
+    private static void ShowKubernetesHelm(MainWindow window) =>
+        window.GetVisualDescendants().OfType<Button>()
+            .Single(button => string.Equals(AutomationProperties.GetName(button), "Helm releases", StringComparison.Ordinal))
+            .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+    private static void ShowKubernetesHelmChange(MainWindow window)
+    {
+        ShowKubernetesHelm(window);
+        Dispatcher.UIThread.RunJobs();
+        var change = window.GetVisualDescendants().OfType<TabItem>()
+            .Single(tab => string.Equals(tab.Header as string, "Change release", StringComparison.Ordinal));
+        change.IsSelected = true;
     }
 
     private static void OpenKubernetesNamespaceSelector(MainWindow window)
     {
-        var selector = window.GetVisualDescendants().OfType<ComboBox>()
+        var selector = window.GetVisualDescendants().OfType<Button>()
             .Single(control => string.Equals(control.Name, "NamespacePicker", StringComparison.Ordinal));
-        if (selector.Items.Count < 2)
+        if (selector.DataContext is not KubernetesRuntimePanelViewModel { NamespaceChoices.Count: >= 2 })
         {
             throw new InvalidOperationException("The Kubernetes namespace capture requires discovered fixture namespaces.");
         }
 
-        selector.IsDropDownOpen = true;
+        selector.Flyout!.ShowAt(selector);
     }
 
     private static void SelectDockerReadmePreview(MainWindow window)

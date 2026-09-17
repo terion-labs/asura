@@ -1267,6 +1267,155 @@
     <Setter Property="BorderThickness" Value="2" />
   </Style>
 
+  <!--
+    Tabs that read as the segmented picker. A panel's perspectives are the same
+    choice whether a view drives them by hand or a TabControl owns the content,
+    so the strip is the segmented track inside a toolbar band rather than the
+    Fluent underline, which nothing else in the shell draws. Template children
+    are out of reach of class selectors, so the band and track are spelled out.
+  -->
+  <Style Selector="TabControl.Segmented">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <DockPanel>
+          <Border
+              DockPanel.Dock="Top"
+              BorderBrush="{DynamicResource ShellBorderBrush}"
+              BorderThickness="0,0,0,1">
+            <ScrollViewer
+                HorizontalScrollBarVisibility="Hidden"
+                VerticalScrollBarVisibility="Disabled">
+              <Border
+                  Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}"
+                  HorizontalAlignment="Left"
+                  Background="{DynamicResource ShellSurfaceHoverBrush}"
+                  BorderBrush="{DynamicResource ShellBorderBrush}"
+                  BorderThickness="1"
+                  ClipToBounds="True"
+                  CornerRadius="{DynamicResource ShellControlCornerRadius}"
+                  Padding="{DynamicResource ShellPreviewTileInset}">
+                <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
+              </Border>
+            </ScrollViewer>
+          </Border>
+          <ContentPresenter
+              Name="PART_SelectedContentHost"
+              Margin="{TemplateBinding Padding}"
+              Content="{TemplateBinding SelectedContent}"
+              ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
+        </DockPanel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <Style Selector="TabControl.Segmented > TabItem">
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="Padding" Value="{controls:Inset Horizontal=Md, Vertical=Xs}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+    <Setter Property="FontWeight" Value="Normal" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border
+            Name="SegmentRoot"
+            Background="Transparent"
+            CornerRadius="{DynamicResource ShellInnerCornerRadius}"
+            Padding="{TemplateBinding Padding}">
+          <ContentPresenter
+              Content="{TemplateBinding Header}"
+              ContentTemplate="{TemplateBinding HeaderTemplate}"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <Style Selector="TabControl.Segmented > TabItem:pointerover /template/ Border#SegmentRoot">
+    <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
+  </Style>
+
+  <Style Selector="TabControl.Segmented > TabItem:selected">
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="TabControl.Segmented > TabItem:selected /template/ Border#SegmentRoot">
+    <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+  </Style>
+
+  <Style Selector="TabControl.Segmented > TabItem:focus-visible /template/ Border#SegmentRoot">
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
+
+  <!-- Tabs whose picker lives elsewhere — a segmented toggle in the panel's
+       toolbar — keep only the content host. The strip stays in the template,
+       unseen, because TabControl requires the part. -->
+  <Style Selector="TabControl.Headless">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <ItemsPresenter Name="PART_ItemsPresenter" IsVisible="False" ItemsPanel="{TemplateBinding ItemsPanel}" />
+          <ContentPresenter
+              Name="PART_SelectedContentHost"
+              Content="{TemplateBinding SelectedContent}"
+              ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <!-- A section that folds: chevron and eyebrow, the Git sidebar's idiom, as a
+       toggle so a view can bind the section's visibility to it directly. -->
+  <Style Selector="ToggleButton.SectionDisclosure">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border
+            Name="DisclosureRoot"
+            Background="Transparent"
+            CornerRadius="{DynamicResource ShellControlCornerRadius}"
+            Padding="{TemplateBinding Padding}">
+          <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+            <Panel VerticalAlignment="Center">
+              <icons:SymbolIcon Name="Collapsed" Symbol="ChevronRight" FontSize="9" />
+              <icons:SymbolIcon Name="Expanded" Symbol="ChevronDown" FontSize="9" IsVisible="False" />
+            </Panel>
+            <ContentPresenter VerticalAlignment="Center" Content="{TemplateBinding Content}" />
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <Style Selector="ToggleButton.SectionDisclosure:pointerover /template/ Border#DisclosureRoot">
+    <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
+  </Style>
+
+  <Style Selector="ToggleButton.SectionDisclosure:checked /template/ icons|SymbolIcon#Collapsed">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+
+  <Style Selector="ToggleButton.SectionDisclosure:checked /template/ icons|SymbolIcon#Expanded">
+    <Setter Property="IsVisible" Value="True" />
+  </Style>
+
+  <Style Selector="ToggleButton.SectionDisclosure:focus-visible /template/ Border#DisclosureRoot">
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
   <!-- Sliders track the accent so a value reads at a glance. -->
   <Style Selector="Slider">
     <Setter Property="MinHeight" Value="0" />

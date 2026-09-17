@@ -27,6 +27,85 @@ public sealed class KubernetesResourceBrowserTests
         Assert.Equal("events", panel.SelectedKind.Resource);
     }
 
+    [Fact]
+    public async Task CustomResourceReusingABuiltInPluralIsNotPresentedAsTheBuiltIn()
+    {
+        var client = new KubernetesUiSession
+        {
+            DiscoveryResources = [KubernetesUiSession.Pods, new("", "v1", "nodes", "Node", false, ["list"]),
+                new("management.cattle.io", "v3", "nodes", "Node", true, ["list"]),
+                new("metrics.k8s.io", "v1beta1", "pods", "PodMetrics", true, ["list"])],
+        };
+        using var panel = new KubernetesRuntimePanelViewModel(PanelInstanceId.New(), "Cluster",
+            new(KubernetesConnectionProfileId.New(), 1, "Cluster", "/config", "context"),
+            _ => ValueTask.FromResult<IKubernetesClientSession>(client));
+        await panel.Initialization;
+        var cluster = Assert.Single(panel.NavigationGroups, group => group.Title == "Cluster");
+        Assert.Equal("", Assert.Single(cluster.Items, item => item.Title == "Nodes").ApiResource.Group);
+        var custom = Assert.Single(panel.NavigationGroups, group => group.Title == "Custom Resources");
+        Assert.Contains(custom.Items, item => item.Title == "Nodes · management.cattle.io");
+        Assert.Contains(custom.Items, item => item.Title == "PodMetrics · metrics.k8s.io");
+    }
+
+    [Fact]
+    public async Task NavigationFilterOpensMatchingFamiliesAndRestoresFoldingWhenCleared()
+    {
+        var client = new KubernetesUiSession
+        {
+            DiscoveryResources = [KubernetesUiSession.Pods, new("", "v1", "nodes", "Node", false, ["list"]),
+                new("", "v1", "configmaps", "ConfigMap", true, ["list"])],
+        };
+        using var panel = new KubernetesRuntimePanelViewModel(PanelInstanceId.New(), "Cluster",
+            new(KubernetesConnectionProfileId.New(), 1, "Cluster", "/config", "context"),
+            _ => ValueTask.FromResult<IKubernetesClientSession>(client));
+        await panel.Initialization;
+        var config = Assert.Single(panel.NavigationGroups, group => group.Title == "Config");
+        Assert.False(config.IsOpen);
+        panel.NavigationFilter = "config";
+        Assert.True(config.IsOpen);
+        Assert.False(config.IsExpanded);
+        Assert.Same(config, Assert.Single(panel.NavigationGroups, group => group.HasVisibleItems));
+        Assert.True(panel.HasNavigationMatches);
+        panel.NavigationFilter = "no such kind";
+        Assert.False(panel.HasNavigationMatches);
+        panel.NavigationFilter = "";
+        Assert.False(config.IsOpen);
+        Assert.All(panel.NavigationGroups, group => Assert.True(group.HasVisibleItems));
+    }
+
+    [Fact]
+    public void NavigatorResizeIsClampedAndSurvivesCollapse()
+    {
+        using var panel = new KubernetesRuntimePanelViewModel(PanelInstanceId.New(), "Cluster", null,
+            _ => ValueTask.FromException<IKubernetesClientSession>(new InvalidOperationException()));
+        panel.SetViewportWidth(1200);
+        panel.ResizeNavigator(260);
+        Assert.Equal(260, panel.NavigatorWidth);
+        Assert.Equal(259, panel.NavigatorContentWidth);
+        panel.ResizeNavigator(20);
+        Assert.Equal(140, panel.NavigatorWidth);
+        panel.ResizeNavigator(5000);
+        Assert.Equal(420, panel.NavigatorWidth);
+        panel.ToggleNavigator();
+        Assert.Equal(0, panel.NavigatorWidth);
+        panel.ToggleNavigator();
+        Assert.Equal(420, panel.NavigatorWidth);
+    }
+
+    [Fact]
+    public async Task NamespaceFilterNarrowsChoicesWithoutChangingTheScope()
+    {
+        var client = new KubernetesUiSession { DiscoveryResources = [KubernetesUiSession.Pods] };
+        using var panel = new KubernetesRuntimePanelViewModel(PanelInstanceId.New(), "Cluster",
+            new(KubernetesConnectionProfileId.New(), 1, "Cluster", "/config", "context", "configured"),
+            _ => ValueTask.FromResult<IKubernetesClientSession>(client));
+        await panel.Initialization;
+        Assert.Same(panel.NamespaceChoices, panel.FilteredNamespaceChoices);
+        panel.NamespaceFilter = "CONFIG";
+        Assert.Equal("configured", Assert.Single(panel.FilteredNamespaceChoices));
+        Assert.Equal("configured", panel.Namespace);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

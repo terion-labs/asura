@@ -6,6 +6,8 @@ using Asura.Application;
 using Asura.Core;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -43,27 +45,35 @@ public sealed class KubernetesRuntimePanelHeadlessTests
             var window = new Window { Content = view, Width = 1100, Height = 700 };
             window.Show();
             Dispatcher.UIThread.RunJobs();
-            var picker = view.FindControl<ComboBox>("NamespacePicker")!;
+            var picker = view.FindControl<Button>("NamespacePicker")!;
+            var choices = view.FindControl<ListBox>("NamespaceList")!;
             Assert.Equal("configured", model.Namespace);
-            Assert.Equal("configured", picker.SelectedItem);
+            Assert.Equal("configured", model.NamespaceSelection);
             resources.SetResult(new([], "1", null, false));
             namespaces.SetResult(new([
                 new(new("", "v1", "namespaces", null, "another", "namespace-uid", "1"), "Namespace", "", "{}")], "1", null, false));
             await model.Initialization;
             Dispatcher.UIThread.RunJobs();
-            Assert.Contains("another", picker.Items.Cast<string>(), StringComparer.Ordinal);
+            Assert.Contains("another", model.FilteredNamespaceChoices, StringComparer.Ordinal);
             Assert.Equal("configured", model.Namespace);
-            Assert.Equal("configured", picker.SelectedItem);
+            Assert.Equal("configured", model.NamespaceSelection);
             model.SelectedKind = model.Kinds.Single(kind => kind.Resource == "pods");
             await model.SelectionLoading;
             Dispatcher.UIThread.RunJobs();
             Assert.True(picker.IsVisible);
-            Assert.Equal("configured", picker.SelectedItem);
-            picker.SelectedItem = "All namespaces";
+            picker.Flyout!.ShowAt(picker);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("configured", choices.SelectedItem);
+            model.NamespaceFilter = "all";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("All namespaces", Assert.Single(choices.Items.Cast<string>()));
+            choices.SelectedItem = "All namespaces";
+            choices.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
             await model.SelectionLoading;
             Dispatcher.UIThread.RunJobs();
+            Assert.False(picker.Flyout.IsOpen);
             Assert.Equal(string.Empty, model.Namespace);
-            Assert.Equal("All namespaces", picker.SelectedItem);
+            Assert.Equal("All namespaces", model.NamespaceSelection);
             window.Close();
             return true;
         }, timeout.Token));
@@ -127,6 +137,71 @@ public sealed class KubernetesRuntimePanelHeadlessTests
     }
 
     [Fact]
+    public async Task DetailsDrawerSlidesOpenAndShut()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            var client = new KubernetesUiSession { DiscoveryResources = [KubernetesUiSession.Pods] };
+            var profile = new KubernetesConnectionProfile(KubernetesConnectionProfileId.New(), 1, "Cluster", "/config", "context");
+            using var model = new KubernetesRuntimePanelViewModel(PanelInstanceId.New(), "Kubernetes", profile,
+                _ => ValueTask.FromResult<IKubernetesClientSession>(client));
+            await model.Initialization;
+            var view = new KubernetesRuntimePanelView { DataContext = model };
+            var window = new Window { Content = view, Width = 1100, Height = 700 };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var drawer = view.FindControl<Border>("Inspector")!;
+            Assert.Equal(0, drawer.Bounds.Width);
+            model.SelectedResource = model.Resources[0];
+            await model.SelectionLoading;
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(drawer.IsAnimating(Layoutable.WidthProperty));
+            Assert.Equal(480, model.InspectorWidth);
+            model.SelectedResource = null;
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(drawer.IsAnimating(Layoutable.WidthProperty));
+            Assert.Equal(0, model.InspectorWidth);
+            Assert.Equal(479, model.InspectorContentWidth);
+            window.Close();
+            return true;
+        }, timeout.Token));
+    }
+
+    [Fact]
+    public async Task NavigatorSlidesRatherThanSnaps()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            var client = new KubernetesUiSession { DiscoveryResources = [KubernetesUiSession.Pods] };
+            var profile = new KubernetesConnectionProfile(KubernetesConnectionProfileId.New(), 1, "Cluster", "/config", "context");
+            using var model = new KubernetesRuntimePanelViewModel(PanelInstanceId.New(), "Kubernetes", profile,
+                _ => ValueTask.FromResult<IKubernetesClientSession>(client));
+            await model.Initialization;
+            var view = new KubernetesRuntimePanelView { DataContext = model };
+            var window = new Window { Content = view, Width = 1100, Height = 700 };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var navigator = view.FindControl<Border>("Navigator")!;
+            Assert.Equal(190, navigator.Bounds.Width);
+            model.ToggleNavigator();
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(navigator.IsAnimating(Layoutable.WidthProperty));
+            window.Close();
+            return true;
+        }, timeout.Token));
+    }
+
+    [Fact]
     public async Task ResourceInspectorBecomesASinglePaneInNarrowSplits()
     {
         await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
@@ -149,33 +224,37 @@ public sealed class KubernetesRuntimePanelHeadlessTests
             window.Resources["ShellSurfaceBrush"] = new SolidColorBrush(Color.FromArgb(64, 24, 24, 24));
             var opaqueDrawerSurface = new SolidColorBrush(Color.FromRgb(30, 30, 30));
             window.Resources["ShellPopupSurfaceBrush"] = opaqueDrawerSurface;
+            // Layout assertions read settled widths; the slide itself has its own test.
+            window.Classes.Add("motion-disabled");
             window.Show();
             Dispatcher.UIThread.RunJobs();
             var browser = view.FindControl<Grid>("ResourceBrowser")!;
             var inspector = view.FindControl<Border>("Inspector")!;
             Assert.True(browser.IsVisible);
-            Assert.False(inspector.IsVisible);
+            Assert.False(inspector.IsEnabled);
             Assert.Null(view.FindControl<DataGrid>("ResourceList")!.SelectedItem);
             Assert.True(model.IsNavigatorVisible);
             Assert.Equal(0, model.InspectorColumnWidth.Value);
-            var namespacePicker = view.FindControl<ComboBox>("NamespacePicker")!;
-            Assert.Equal("restricted", namespacePicker.SelectedItem);
-            Assert.Contains("All namespaces", namespacePicker.Items.Cast<string>(), StringComparer.Ordinal);
-            Assert.Contains("restricted", namespacePicker.Items.Cast<string>(), StringComparer.Ordinal);
-            namespacePicker.IsDropDownOpen = true;
+            var namespacePicker = view.FindControl<Button>("NamespacePicker")!;
+            var namespaceList = view.FindControl<ListBox>("NamespaceList")!;
+            Assert.Equal("restricted", model.NamespaceSelection);
+            namespacePicker.Flyout!.ShowAt(namespacePicker);
             Dispatcher.UIThread.RunJobs();
-            Assert.True(namespacePicker.IsDropDownOpen);
-            namespacePicker.SelectedItem = "All namespaces";
+            Assert.True(namespacePicker.Flyout.IsOpen);
+            Assert.Contains("All namespaces", namespaceList.Items.Cast<string>(), StringComparer.Ordinal);
+            Assert.Contains("restricted", namespaceList.Items.Cast<string>(), StringComparer.Ordinal);
+            namespaceList.SelectedItem = "All namespaces";
+            namespaceList.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
             await model.SelectionLoading;
             Dispatcher.UIThread.RunJobs();
+            Assert.False(namespacePicker.Flyout.IsOpen);
             Assert.Equal(string.Empty, model.Namespace);
-            Assert.Equal("All namespaces", namespacePicker.SelectedItem);
-            namespacePicker.IsDropDownOpen = false;
+            Assert.Equal("All namespaces", model.NamespaceSelection);
             model.SelectedResource = model.Resources[0];
             await model.SelectionLoading;
             Dispatcher.UIThread.RunJobs();
             Assert.True(browser.IsVisible);
-            Assert.True(inspector.IsVisible);
+            Assert.True(inspector.IsEnabled);
             Assert.Equal(480, model.InspectorColumnWidth.Value);
             Assert.Same(opaqueDrawerSurface, inspector.Background);
             var drawerBrush = Assert.IsAssignableFrom<ISolidColorBrush>(inspector.Background);
@@ -188,12 +267,12 @@ public sealed class KubernetesRuntimePanelHeadlessTests
             window.Width = 420;
             Dispatcher.UIThread.RunJobs();
             Assert.True(browser.IsVisible);
-            Assert.False(inspector.IsVisible);
+            Assert.False(inspector.IsEnabled);
             model.SelectedResource = model.Resources[0];
             await model.SelectionLoading;
             Dispatcher.UIThread.RunJobs();
             Assert.False(browser.IsVisible);
-            Assert.True(inspector.IsVisible);
+            Assert.True(inspector.IsEnabled);
             Assert.True(view.FindControl<Button>("BackButton")!.IsVisible);
             Assert.InRange(inspector.Bounds.Width, 1, 420);
             view = new KubernetesRuntimePanelView { DataContext = model };
@@ -202,12 +281,12 @@ public sealed class KubernetesRuntimePanelHeadlessTests
             browser = view.FindControl<Grid>("ResourceBrowser")!;
             inspector = view.FindControl<Border>("Inspector")!;
             Assert.False(browser.IsVisible);
-            Assert.True(inspector.IsVisible);
+            Assert.True(inspector.IsEnabled);
             Assert.InRange(inspector.Bounds.Width, 1, 420);
             model.SelectedResource = null;
             Dispatcher.UIThread.RunJobs();
             Assert.True(browser.IsVisible);
-            Assert.False(inspector.IsVisible);
+            Assert.False(inspector.IsEnabled);
             window.Close();
             return true;
         }, timeout.Token));

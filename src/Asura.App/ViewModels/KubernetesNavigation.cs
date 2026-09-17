@@ -6,6 +6,7 @@ namespace Asura.App.ViewModels;
 public sealed class KubernetesNavigationItem : ObservableObject
 {
     private bool _isSelected;
+    private bool _isVisible = true;
     public KubernetesNavigationItem(string title, KubernetesApiResource resource, Func<KubernetesNavigationItem, Task> select)
     {
         Title = title;
@@ -16,6 +17,7 @@ public sealed class KubernetesNavigationItem : ObservableObject
     public KubernetesApiResource ApiResource { get; }
     public ICommand SelectCommand { get; }
     public bool IsSelected { get => _isSelected; internal set => SetProperty(ref _isSelected, value); }
+    public bool IsVisible { get => _isVisible; internal set => SetProperty(ref _isVisible, value); }
 }
 
 public sealed class KubernetesNavigationGroup(string title, IReadOnlyList<KubernetesNavigationItem> items) : ObservableObject
@@ -23,12 +25,31 @@ public sealed class KubernetesNavigationGroup(string title, IReadOnlyList<Kubern
     private bool _isExpanded = title is "Cluster" or "Workloads";
     public string Title { get; } = title;
     public IReadOnlyList<KubernetesNavigationItem> Items { get; } = items;
-    public bool IsExpanded { get => _isExpanded; set => SetProperty(ref _isExpanded, value); }
+    private bool _isFiltering;
+    public bool IsExpanded { get => _isExpanded; set { if (SetProperty(ref _isExpanded, value)) { OnPropertyChanged(nameof(IsOpen)); } } }
+    // A filter looks inside every family; folding is remembered for when it clears.
+    public bool IsOpen => IsExpanded || _isFiltering;
+    public bool HasVisibleItems => Items.Any(item => item.IsVisible);
+
+    internal void ApplyFilter(string filter)
+    {
+        _isFiltering = filter.Length > 0;
+        foreach (var item in Items) { item.IsVisible = !_isFiltering || item.Title.Contains(filter, StringComparison.OrdinalIgnoreCase); }
+        OnPropertyChanged(nameof(IsOpen));
+        OnPropertyChanged(nameof(HasVisibleItems));
+    }
 }
 
 internal static class KubernetesResourceNames
 {
-    internal static string Title(KubernetesApiResource resource) => resource.Resource switch
+    // A CRD may reuse a built-in plural — Rancher serves its own "nodes" — so a
+    // built-in name and family only apply inside the API groups Kubernetes ships.
+    private static bool IsBuiltIn(KubernetesApiResource resource) => resource.Group is "" or "apps" or "batch" or "autoscaling"
+        or "policy" or "networking.k8s.io" or "discovery.k8s.io" or "storage.k8s.io" or "rbac.authorization.k8s.io" or "events.k8s.io";
+
+    private static string KindTitle(KubernetesApiResource resource) => resource.Kind + (resource.Kind.EndsWith('s') ? "" : "s");
+
+    internal static string Title(KubernetesApiResource resource) => !IsBuiltIn(resource) ? KindTitle(resource) : resource.Resource switch
     {
         "nodes" => "Nodes",
         "namespaces" => "Namespaces",
@@ -64,10 +85,10 @@ internal static class KubernetesResourceNames
         "clusterroles" => "Cluster Roles",
         "clusterrolebindings" => "Cluster Role Bindings",
         "serviceaccounts" => "Service Accounts",
-        _ => resource.Kind + (resource.Kind.EndsWith('s') ? "" : "s"),
+        _ => KindTitle(resource),
     };
 
-    internal static (string Group, int Order) Category(KubernetesApiResource resource) => resource.Resource switch
+    internal static (string Group, int Order) Category(KubernetesApiResource resource) => !IsBuiltIn(resource) ? ("Custom Resources", 0) : resource.Resource switch
     {
         "nodes" => ("Cluster", 0),
         "namespaces" => ("Cluster", 1),
