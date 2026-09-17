@@ -27,6 +27,40 @@ public sealed class KubernetesResourceBrowserTests
         Assert.Equal("events", panel.SelectedKind.Resource);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NamespaceSelectorKeepsConfiguredAndObservedValuesWhenDiscoveryIsDenied(bool denied)
+    {
+        var namespaces = new KubernetesApiResource("", "v1", "namespaces", "Namespace", false, ["list"]);
+        var client = new KubernetesUiSession
+        {
+            DiscoveryResources = [KubernetesUiSession.Pods, namespaces],
+            ListItems = request => request.ApiResource.Resource is "namespaces"
+                ? denied ? throw new KubernetesRequestException(KubernetesErrorCode.Forbidden, "denied")
+                    : [new(new("", "v1", "namespaces", null, "discovered", "namespace-uid", "1"), "Namespace", "", "{}")]
+                : [KubernetesUiSession.Pod],
+        };
+        using var panel = new KubernetesRuntimePanelViewModel(PanelInstanceId.New(), "Cluster",
+            new(KubernetesConnectionProfileId.New(), 1, "Cluster", "/config", "context", "configured"),
+            _ => ValueTask.FromResult<IKubernetesClientSession>(client));
+        await panel.Initialization;
+        Assert.Equal("configured", panel.NamespaceSelection);
+        Assert.Contains("All namespaces", panel.NamespaceChoices, StringComparer.Ordinal);
+        Assert.Contains("configured", panel.NamespaceChoices, StringComparer.Ordinal);
+        Assert.Contains("restricted", panel.NamespaceChoices, StringComparer.Ordinal);
+        Assert.Equal(!denied, panel.NamespaceChoices.Contains("discovered", StringComparer.Ordinal));
+        Assert.Null(panel.Issue);
+        panel.NamespaceSelection = "All namespaces";
+        await panel.SelectionLoading;
+        Assert.Equal(string.Empty, panel.Namespace);
+        Assert.Contains("configured", panel.NamespaceChoices, StringComparer.Ordinal);
+        panel.NamespaceSelection = "configured";
+        await panel.SelectionLoading;
+        Assert.Equal("configured", panel.Namespace);
+        Assert.Single(client.Requests, request => request.ApiResource.Resource == "namespaces");
+    }
+
     [Fact]
     public void PodRowShowsOperationalColumnsAndAggregatesContainerUsage()
     {

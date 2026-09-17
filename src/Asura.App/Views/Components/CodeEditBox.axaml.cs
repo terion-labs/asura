@@ -30,6 +30,15 @@ public sealed partial class CodeEditBox : UserControl
     public static readonly StyledProperty<string?> WatermarkProperty =
         AvaloniaProperty.Register<CodeEditBox, string?>(nameof(Watermark));
 
+    public static readonly StyledProperty<bool> IsReadOnlyProperty =
+        AvaloniaProperty.Register<CodeEditBox, bool>(nameof(IsReadOnly));
+
+    public static readonly StyledProperty<bool> ShowLineNumbersProperty =
+        AvaloniaProperty.Register<CodeEditBox, bool>(nameof(ShowLineNumbers));
+
+    public static readonly StyledProperty<bool> WordWrapProperty =
+        AvaloniaProperty.Register<CodeEditBox, bool>(nameof(WordWrap), defaultValue: true);
+
     private RegistryOptions? _registryOptions;
     private TextMate.Installation? _textMate;
     private bool _syncingText;
@@ -96,6 +105,24 @@ public sealed partial class CodeEditBox : UserControl
         set => SetValue(WatermarkProperty, value);
     }
 
+    public bool IsReadOnly
+    {
+        get => GetValue(IsReadOnlyProperty);
+        set => SetValue(IsReadOnlyProperty, value);
+    }
+
+    public bool ShowLineNumbers
+    {
+        get => GetValue(ShowLineNumbersProperty);
+        set => SetValue(ShowLineNumbersProperty, value);
+    }
+
+    public bool WordWrap
+    {
+        get => GetValue(WordWrapProperty);
+        set => SetValue(WordWrapProperty, value);
+    }
+
     public void FocusEditor(bool caretToEnd = false)
     {
         // The text area is what actually takes keystrokes; focusing the outer
@@ -139,6 +166,21 @@ public sealed partial class CodeEditBox : UserControl
         {
             WatermarkText.Text = Watermark;
             SyncWatermark();
+        }
+        else if (change.Property == IsReadOnlyProperty)
+        {
+            Editor.IsReadOnly = IsReadOnly;
+        }
+        else if (change.Property == ShowLineNumbersProperty)
+        {
+            Editor.ShowLineNumbers = ShowLineNumbers;
+        }
+        else if (change.Property == WordWrapProperty)
+        {
+            Editor.WordWrap = WordWrap;
+            Editor.HorizontalScrollBarVisibility = WordWrap
+                ? Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
+                : Avalonia.Controls.Primitives.ScrollBarVisibility.Auto;
         }
         else if (change.Property == SqlLanguageSessionProperty)
         {

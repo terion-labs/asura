@@ -6,7 +6,6 @@ using Asura.Application;
 using Asura.Core;
 using Avalonia.Controls;
 using Avalonia.Headless;
-using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -16,6 +15,60 @@ namespace Asura.App.Tests;
 [Collection(AvaloniaUiCollection.Name)]
 public sealed class KubernetesRuntimePanelHeadlessTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NamespaceSelectionRemainsVisibleWhenDiscoveryCompletesAfterViewAttachment(bool startWithNodes)
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            var resources = new TaskCompletionSource<KubernetesResourcePage>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var namespaces = new TaskCompletionSource<KubernetesResourcePage>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var client = new KubernetesUiSession
+            {
+                DiscoveryResources = [KubernetesUiSession.Pods, new("", "v1", "nodes", "Node", false, ["list"]),
+                    new("", "v1", "namespaces", "Namespace", false, ["list"])],
+                NamespacePage = namespaces.Task,
+                ResourcePage = resources.Task,
+            };
+            var profile = new KubernetesConnectionProfile(KubernetesConnectionProfileId.New(), 1,
+                "Cluster", "/config", "context", "configured");
+            using var model = new KubernetesRuntimePanelViewModel(PanelInstanceId.New(), "Kubernetes", profile,
+                _ => ValueTask.FromResult<IKubernetesClientSession>(client),
+                startWithNodes ? new(profile.Id, "configured", "nodes") : null);
+            Assert.False(model.Initialization.IsCompleted);
+            var view = new KubernetesRuntimePanelView { DataContext = model };
+            var window = new Window { Content = view, Width = 1100, Height = 700 };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var picker = view.FindControl<ComboBox>("NamespacePicker")!;
+            Assert.Equal("configured", model.Namespace);
+            Assert.Equal("configured", picker.SelectedItem);
+            resources.SetResult(new([], "1", null, false));
+            namespaces.SetResult(new([
+                new(new("", "v1", "namespaces", null, "another", "namespace-uid", "1"), "Namespace", "", "{}")], "1", null, false));
+            await model.Initialization;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains("another", picker.Items.Cast<string>(), StringComparer.Ordinal);
+            Assert.Equal("configured", model.Namespace);
+            Assert.Equal("configured", picker.SelectedItem);
+            model.SelectedKind = model.Kinds.Single(kind => kind.Resource == "pods");
+            await model.SelectionLoading;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(picker.IsVisible);
+            Assert.Equal("configured", picker.SelectedItem);
+            picker.SelectedItem = "All namespaces";
+            await model.SelectionLoading;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(string.Empty, model.Namespace);
+            Assert.Equal("All namespaces", picker.SelectedItem);
+            window.Close();
+            return true;
+        }, timeout.Token));
+    }
+
     [Fact]
     public async Task TableSortSurvivesRowsReplacedByFilteringAndWatch()
     {
@@ -105,13 +158,19 @@ public sealed class KubernetesRuntimePanelHeadlessTests
             Assert.Null(view.FindControl<DataGrid>("ResourceList")!.SelectedItem);
             Assert.True(model.IsNavigatorVisible);
             Assert.Equal(0, model.InspectorColumnWidth.Value);
-            var namespacePicker = view.FindControl<AutoCompleteBox>("NamespacePicker")!;
-            namespacePicker.Text = "unlisted-namespace";
+            var namespacePicker = view.FindControl<ComboBox>("NamespacePicker")!;
+            Assert.Equal("restricted", namespacePicker.SelectedItem);
+            Assert.Contains("All namespaces", namespacePicker.Items.Cast<string>(), StringComparer.Ordinal);
+            Assert.Contains("restricted", namespacePicker.Items.Cast<string>(), StringComparer.Ordinal);
+            namespacePicker.IsDropDownOpen = true;
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal("restricted", model.Namespace);
-            namespacePicker.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+            Assert.True(namespacePicker.IsDropDownOpen);
+            namespacePicker.SelectedItem = "All namespaces";
             await model.SelectionLoading;
-            Assert.Equal("unlisted-namespace", model.Namespace);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(string.Empty, model.Namespace);
+            Assert.Equal("All namespaces", namespacePicker.SelectedItem);
+            namespacePicker.IsDropDownOpen = false;
             model.SelectedResource = model.Resources[0];
             await model.SelectionLoading;
             Dispatcher.UIThread.RunJobs();

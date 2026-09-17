@@ -12,9 +12,20 @@ public sealed partial class KubernetesRuntimePanelViewModel
     private IReadOnlyList<string> _namespaceChoices = ["All namespaces"];
     private string _labelSelector = string.Empty;
     private bool _publishingRows;
+    private bool _namespaceDiscoveryAttempted;
     public IReadOnlyList<KubernetesResourceRow> Rows => _rows;
     public IReadOnlyList<KubernetesNavigationGroup> NavigationGroups { get => _navigationGroups; private set => SetProperty(ref _navigationGroups, value); }
-    public IReadOnlyList<string> NamespaceChoices { get => _namespaceChoices; private set => SetProperty(ref _namespaceChoices, value); }
+    public IReadOnlyList<string> NamespaceChoices
+    {
+        get => _namespaceChoices;
+        private set
+        {
+            // Replacing unchanged items during a selection change can make ComboBox
+            // restore its previous item before the new scope finishes publishing.
+            if (!_namespaceChoices.SequenceEqual(value, StringComparer.Ordinal))
+            { SetProperty(ref _namespaceChoices, value); }
+        }
+    }
     public bool IsPodTable => SelectedKind is { Group: "", Resource: "pods" };
     public bool IsNodeTable => SelectedKind is { Group: "", Resource: "nodes" };
     public bool IsGenericTable => !IsPodTable && !IsNodeTable;
@@ -27,7 +38,8 @@ public sealed partial class KubernetesRuntimePanelViewModel
         get => EffectiveNamespace ?? "All namespaces";
         set
         {
-            var next = value is null or "All namespaces" ? string.Empty : value.Trim();
+            if (value is null) { return; }
+            var next = value is "All namespaces" ? string.Empty : value.Trim();
             if (string.Equals(next, Namespace, StringComparison.Ordinal) || IsBusy) { return; }
             Namespace = next;
             if (string.Equals(Namespace, next, StringComparison.Ordinal)) { SelectionLoading = RefreshAsync(); }
@@ -134,8 +146,10 @@ public sealed partial class KubernetesRuntimePanelViewModel
 
     private async Task LoadNamespaceChoicesAsync()
     {
+        if (_namespaceDiscoveryAttempted) { return; }
         var kind = Kinds.FirstOrDefault(item => item is { Group: "", Resource: "namespaces" });
         if (_session is null || kind is null) { return; }
+        _namespaceDiscoveryAttempted = true;
         try
         {
             var page = await _session.ListAsync(new(kind, Limit: 1000), _lifetime.Token);
@@ -145,7 +159,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
                     .Concat(NamespaceChoices.Where(value => value is not "All namespaces")).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
             }
         }
-        catch (KubernetesRequestException) { /* Manual namespace entry remains available without namespace-list access. */ }
+        catch (KubernetesRequestException) { /* Keep configured and observed namespaces when namespace-list access is unavailable. */ }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
     }
 

@@ -592,8 +592,25 @@ internal sealed class UnusedConnectionRuntime : IConnectionRuntime
 
 public class UnusedProxy : DispatchProxy
 {
-    protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) =>
+    public Func<WorkspaceGraphSnapshot>? WorkspaceSnapshot { get; set; }
+
+    protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+    {
+        // Opening a real popup focuses its already-active fixture panel. Return
+        // that same in-memory graph; other host operations remain unsupported.
+        if (targetMethod?.Name is nameof(ISessionHostClient.ActivateWorkspacePanelAsync)
+            && args?[0] is ActivateWorkspacePanelRequest request
+            && WorkspaceSnapshot?.Invoke() is { } snapshot
+            && snapshot.Workspace.Id == request.WorkspaceId
+            && snapshot.Workspace.ActiveTabId == request.TabId
+            && snapshot.Workspace.Tabs.Single(tab => tab.Id == request.TabId).ActivePanelId == request.PanelId)
+        {
+            return new ValueTask<HostResult<WorkspaceGraphSnapshot>>(
+                HostResult<WorkspaceGraphSnapshot>.Succeed(snapshot, snapshot.Revision));
+        }
+
         throw new NotSupportedException(targetMethod?.Name ?? "unknown method");
+    }
 }
 
 /// <summary>

@@ -229,6 +229,7 @@ public sealed class KubernetesRuntimePanelViewModelTests
 
 internal sealed class KubernetesUiSession : IKubernetesClientSession
 {
+    internal Func<string, string>? ConvertManifest { get; init; }
     internal Func<KubernetesMetricsRequest, ValueTask<KubernetesMetricsSnapshot>>? Metrics { get; init; }
     internal Func<KubernetesMetricHistoryRequest, ValueTask<KubernetesMetricHistory>>? History { get; init; }
     public ValueTask<KubernetesMetricsSnapshot> ReadMetricsAsync(KubernetesMetricsRequest request, CancellationToken cancellationToken) => Metrics!(request);
@@ -252,11 +253,15 @@ internal sealed class KubernetesUiSession : IKubernetesClientSession
     internal bool AllowPatching { get; init; }
     internal List<KubernetesMutationRequest> Mutations { get; } = [];
     internal Task<KubernetesResourceDocument>? Inspection { get; init; }
+    internal Task<KubernetesResourcePage>? NamespacePage { get; init; }
+    internal Task<KubernetesResourcePage>? ResourcePage { get; init; }
     internal KubernetesLogRequest? LastLog { get; private set; }
     public ValueTask<KubernetesDiscovery> DiscoverAsync(CancellationToken cancellationToken) => ValueTask.FromResult(new KubernetesDiscovery(DiscoveryResources ?? [new(ListedResource.Reference.Group, ListedResource.Reference.Version, ListedResource.Reference.Resource, ListedResource.Kind, ListedResource.Reference.Namespace is not null, AllowPatching ? ["list", "get", "patch", "delete"] : ["list", "get"])], []));
     public ValueTask<KubernetesResourcePage> ListAsync(KubernetesListRequest request, CancellationToken cancellationToken)
     {
         Requests.Add(request);
+        if (request.ApiResource.Resource is "namespaces" && NamespacePage is { } page) { return new(page); }
+        if (ResourcePage is { } resourcePage) { return new(resourcePage); }
         return RejectAllNamespaces && request.Namespace is null
             ? ValueTask.FromException<KubernetesResourcePage>(new KubernetesRequestException(KubernetesErrorCode.Forbidden, "Forbidden", 403))
             : ValueTask.FromResult(new KubernetesResourcePage(ListItems?.Invoke(request) ?? [ListedResource], "10", null, false));
@@ -284,7 +289,7 @@ internal sealed class KubernetesUiSession : IKubernetesClientSession
             await foreach (var text in LogChanges.Reader.ReadAllAsync(cancellationToken)) { yield return text; }
         }
     }
-    public ValueTask<string> ConvertManifestToJsonAsync(string manifest, CancellationToken cancellationToken) => ValueTask.FromResult(manifest);
+    public ValueTask<string> ConvertManifestToJsonAsync(string manifest, CancellationToken cancellationToken) => ValueTask.FromResult(ConvertManifest?.Invoke(manifest) ?? manifest);
     public ValueTask<KubernetesMutationResult> MutateAsync(KubernetesMutationRequest request, CancellationToken cancellationToken)
     {
         if (!AllowPatching) { throw new InvalidOperationException("This read-only test must not dispatch a mutation."); }

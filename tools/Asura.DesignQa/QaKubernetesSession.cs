@@ -13,6 +13,10 @@ internal sealed class QaKubernetesSession : IKubernetesClientSession
     private static readonly KubernetesApiResource Nodes = Kind("nodes", "Node", namespaced: false);
     private static readonly IReadOnlyList<KubernetesResourceDocument> PodResources = [.. Enumerable.Range(0, 40).Select(Pod)];
     private static readonly IReadOnlyList<KubernetesResourceDocument> NodeResources = [.. Enumerable.Range(0, 3).Select(Node)];
+    private static readonly IReadOnlyList<KubernetesResourceDocument> NamespaceResources = [.. PodResources
+        .Select(item => item.Reference.Namespace!).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)
+        .Select(name => new KubernetesResourceDocument(new("", "v1", "namespaces", null, name, $"demo-namespace-{name}", "125840"),
+            "Namespace", "Active", $$$$"""{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"{{{{name}}}}","uid":"demo-namespace-{{{{name}}}}","resourceVersion":"125840"},"status":{"phase":"Active"}}"""))];
     private static readonly KubernetesResourceDocument Prometheus = new(new("", "v1", "services", "monitoring", "prometheus", "service-metrics", "125840"), "Service", "ClusterIP · 9090/TCP",
         """{"metadata":{"name":"prometheus","namespace":"monitoring","labels":{"app.kubernetes.io/name":"prometheus"}},"spec":{"ports":[{"name":"http-web","port":9090,"targetPort":9090}]}}""");
     private static KubernetesApiResource Kind(string resource, string kind, string group = "", bool namespaced = true) =>
@@ -56,13 +60,14 @@ internal sealed class QaKubernetesSession : IKubernetesClientSession
         {
             "pods" => [.. PodResources.Where(item => request.Namespace is null || string.Equals(item.Reference.Namespace, request.Namespace, StringComparison.Ordinal))],
             "nodes" => NodeResources,
+            "namespaces" => NamespaceResources,
             "services" => [Prometheus],
             _ => [],
         };
         return ValueTask.FromResult(new KubernetesResourcePage(items, "125840", null, false));
     }
     public ValueTask<KubernetesResourceDocument> InspectAsync(KubernetesResourceReference resource, CancellationToken cancellationToken) =>
-        ValueTask.FromResult(PodResources.Concat(NodeResources).Append(Prometheus).Single(item => item.Reference == resource));
+        ValueTask.FromResult(PodResources.Concat(NodeResources).Concat(NamespaceResources).Append(Prometheus).Single(item => item.Reference == resource));
     public ValueTask<KubernetesMetricsSnapshot> ReadMetricsAsync(KubernetesMetricsRequest request, CancellationToken cancellationToken)
     {
         var source = request.Kind == KubernetesMetricsKind.Nodes ? NodeResources : PodResources;
