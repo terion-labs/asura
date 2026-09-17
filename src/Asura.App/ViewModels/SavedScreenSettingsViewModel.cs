@@ -37,7 +37,8 @@ public sealed class SavedScreenSettingsViewModel : IDisposable
             [.. snapshot.Connections.Select(item => item.Value)],
             [.. snapshot.FileProviderProfiles.Select(item => item.Value)],
             SelectableLayouts(snapshot),
-            _aiProviders());
+            _aiProviders(),
+            [.. snapshot.KubernetesConnections.Select(item => item.Value)]);
     }
 
     public SavedScreenEditorViewModel CreateNewEditor(string name)
@@ -49,7 +50,8 @@ public sealed class SavedScreenSettingsViewModel : IDisposable
             SelectableLayouts(snapshot),
             [.. snapshot.Connections.Select(item => item.Value)],
             [.. snapshot.FileProviderProfiles.Select(item => item.Value)],
-            _aiProviders());
+            _aiProviders(),
+            [.. snapshot.KubernetesConnections.Select(item => item.Value)]);
     }
 
     public ValueTask<DefinitionStoreResult<StoredDefinition<ScreenDefinition>>> SaveAsync(

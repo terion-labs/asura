@@ -28,6 +28,9 @@ internal static class AgentPolicyPresentation
             AgentCapability.DatabaseRead => "Database read",
             AgentCapability.DatabaseWrite => "Database write",
             AgentCapability.DockerData => "Docker data",
+            AgentCapability.KubernetesData => "Kubernetes data",
+            AgentCapability.KubernetesExec => "Kubernetes pod commands",
+            AgentCapability.KubernetesControl => "Kubernetes changes",
             AgentCapability.SystemData => "System data",
             AgentCapability.ProcessData => "Process data",
             AgentCapability.ArtifactTransfer => "Artifact transfer",
@@ -69,6 +72,9 @@ internal static class AgentPolicyPresentation
                 "Read bounded relational database and Redis data.",
             AgentCapability.DatabaseWrite =>
                 "Modify relational database and Redis data.",
+            AgentCapability.KubernetesControl => "Dry run and commit reviewed resource changes.",
+            AgentCapability.KubernetesExec => "Send input to explicitly opened pod terminals.",
+            AgentCapability.KubernetesData => "Read Kubernetes resources and bounded logs without changing the cluster.",
             AgentCapability.DockerData =>
                 "Inspect Docker workloads without lifecycle control.",
             AgentCapability.SystemData =>

@@ -30,6 +30,10 @@ internal static class DefinitionReferenceExtractor
                     new DefinitionKey(DefinitionKind.Connection, sftp.ConnectionId.Value),
                     "sftp-connection"),
             ],
+            KubernetesConnectionProfile { TunnelConnectionId: { } kubernetesTunnelId } =>
+            [
+                new(new DefinitionKey(DefinitionKind.Connection, kubernetesTunnelId.Value), "kubernetes-tunnel"),
+            ],
             DatabaseConnectionProfile { TunnelConnectionId: { } tunnelId } =>
             [
                 new(
@@ -67,6 +71,11 @@ internal static class DefinitionReferenceExtractor
                 "agent-policy-provider"));
         }
 
+        references.AddRange(screen.Panels
+            .Where(panel => panel.KubernetesTarget is not null)
+            .Select(panel => new DefinitionReference(
+                new DefinitionKey(DefinitionKind.KubernetesConnection, panel.KubernetesTarget!.ProfileId.Value),
+                $"panel:{panel.Id.Value}:kubernetes")));
         references.AddRange(screen.Panels
             .Where(panel => panel.ConnectionId is not null)
             .Select(panel => new DefinitionReference(
@@ -115,6 +124,11 @@ internal static class DefinitionReferenceExtractor
                     references.Add(new DefinitionReference(
                         new DefinitionKey(DefinitionKind.Layout, tab.LayoutId.Value),
                         $"entry:{entry.Id.Value}:layout"));
+                    references.AddRange(tab.Panels
+                        .Where(panel => panel.KubernetesTarget is not null)
+                        .Select(panel => new DefinitionReference(
+                            new DefinitionKey(DefinitionKind.KubernetesConnection, panel.KubernetesTarget!.ProfileId.Value),
+                            $"entry:{entry.Id.Value}:panel:{panel.Id.Value}:kubernetes")));
                     references.AddRange(tab.Panels
                         .Where(panel => panel.ConnectionId is not null)
                         .Select(panel => new DefinitionReference(

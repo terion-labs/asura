@@ -268,6 +268,7 @@ public sealed partial class MainWindow
             or PanelKind.ProcessMonitor
             or PanelKind.DatabaseViewer
             or PanelKind.Docker
+            or PanelKind.Kubernetes
             or PanelKind.Git))
         {
             throw new ArgumentOutOfRangeException(nameof(kind), kind, null);
@@ -300,6 +301,7 @@ public sealed partial class MainWindow
                 await ViewModel.AddProcessMonitorTabAsync(_lifetime.Token),
             PanelKind.DatabaseViewer =>
                 await ViewModel.AddDatabaseTabAsync(_lifetime.Token),
+            PanelKind.Kubernetes => await ViewModel.AddKubernetesTabAsync(_lifetime.Token),
             PanelKind.Docker =>
                 await ViewModel.AddDockerTabAsync(_lifetime.Token),
             PanelKind.Git =>
@@ -320,6 +322,7 @@ public sealed partial class MainWindow
         PanelKind.ProcessMonitor => RequestNewProcessMonitorAsync(),
         PanelKind.DatabaseViewer => RequestNewDatabaseAsync(),
         PanelKind.Docker => RequestNewDockerAsync(),
+        PanelKind.Kubernetes => RequestNewKubernetesAsync(),
         PanelKind.Git => RequestNewGitAsync(),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
@@ -936,6 +939,15 @@ public sealed partial class MainWindow
             return;
         }
 
+        if (panel is KubernetesRuntimePanelViewModel && e.Selection is PanelConnectionOptionViewModel.Target.Kubernetes kubernetesTarget)
+        {
+            if (await ConfirmDiscardDatabaseChangesAsync([panel]))
+            {
+                _ = ViewModel.ReplaceKubernetesPanelConnection(panel, kubernetesTarget.Id);
+            }
+            return;
+        }
+
         if (panel is FileRuntimePanelViewModel files
             && e.Selection is PanelConnectionOptionViewModel.Target.FileProvider fileTarget)
         {
@@ -965,6 +977,12 @@ public sealed partial class MainWindow
         _ = e;
         if (sender is not Control { DataContext: RuntimePanelViewModel panel })
         {
+            return;
+        }
+
+        if (panel is KubernetesRuntimePanelViewModel)
+        {
+            await CreateAndBindKubernetesConnectionAsync(panel);
             return;
         }
 

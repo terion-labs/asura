@@ -285,6 +285,7 @@ public abstract record LauncherSearchTarget
     public sealed record FileConnection(FileProviderProfileId Id) : LauncherSearchTarget;
 
     public sealed record DatabaseConnection(DatabaseConnectionProfileId Id) : LauncherSearchTarget;
+    public sealed record KubernetesConnection(KubernetesConnectionProfileId Id) : LauncherSearchTarget;
 
     public sealed record Screen(ScreenId Id) : LauncherSearchTarget;
 
@@ -331,6 +332,7 @@ public sealed record LauncherSearchResultViewModel(
         LauncherSearchTarget.Connection => LauncherSearchResultKind.Connection,
         LauncherSearchTarget.FileConnection => LauncherSearchResultKind.Connection,
         LauncherSearchTarget.DatabaseConnection => LauncherSearchResultKind.Connection,
+        LauncherSearchTarget.KubernetesConnection => LauncherSearchResultKind.Connection,
         LauncherSearchTarget.Screen => LauncherSearchResultKind.Screen,
         LauncherSearchTarget.Workspace => LauncherSearchResultKind.Workspace,
         LauncherSearchTarget.RecentSession => LauncherSearchResultKind.RecentSession,

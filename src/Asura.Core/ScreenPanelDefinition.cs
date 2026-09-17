@@ -7,4 +7,5 @@ public sealed record ScreenPanelDefinition(
     string? Title,
     ConnectionId? ConnectionId,
     PanelStartupBehavior Startup,
-    FileProviderProfileId? FileProviderProfileId = null);
+    FileProviderProfileId? FileProviderProfileId = null,
+    KubernetesPanelTarget? KubernetesTarget = null);

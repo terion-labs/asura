@@ -33,6 +33,9 @@ public static class AgentCapabilityProtocol
     public const string ArtifactTransfer = "artifact_transfer";
     public const string WorkspaceLayout = "workspace_layout";
     public const string GitData = "git_data";
+    public const string KubernetesData = "kubernetes_data";
+    public const string KubernetesControl = "kubernetes_control";
+    public const string KubernetesExec = "kubernetes_exec";
 
     public static string GetToken(AgentCapability capability) =>
         capability switch
@@ -63,6 +66,9 @@ public static class AgentCapabilityProtocol
             AgentCapability.ArtifactTransfer => ArtifactTransfer,
             AgentCapability.WorkspaceLayout => WorkspaceLayout,
             AgentCapability.GitData => GitData,
+            AgentCapability.KubernetesData => KubernetesData,
+            AgentCapability.KubernetesExec => KubernetesExec,
+            AgentCapability.KubernetesControl => KubernetesControl,
             _ => throw new ArgumentOutOfRangeException(nameof(capability)),
         };
 
@@ -146,6 +152,15 @@ public static class AgentCapabilityProtocol
                 return true;
             case GitData:
                 capability = AgentCapability.GitData;
+                return true;
+            case KubernetesControl:
+                capability = AgentCapability.KubernetesControl;
+                return true;
+            case KubernetesExec:
+                capability = AgentCapability.KubernetesExec;
+                return true;
+            case KubernetesData:
+                capability = AgentCapability.KubernetesData;
                 return true;
             default:
                 capability = default;

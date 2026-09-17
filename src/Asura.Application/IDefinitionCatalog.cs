@@ -44,6 +44,16 @@ public interface IDefinitionCatalog
                 DefinitionStoreErrorCode.UnsupportedKind,
                 "This catalog cannot store database connections.")));
 
+    ValueTask<DefinitionStoreResult<StoredDefinition<KubernetesConnectionProfile>>>
+        SaveKubernetesConnectionAsync(
+            KubernetesConnectionProfile definition,
+            long? expectedRevision,
+            CancellationToken cancellationToken) =>
+        ValueTask.FromResult(
+            DefinitionStoreResult<StoredDefinition<KubernetesConnectionProfile>>.Failure(new(
+                DefinitionStoreErrorCode.UnsupportedKind,
+                "This catalog cannot store Kubernetes connections.")));
+
     ValueTask<DefinitionStoreResult<StoredDefinition<WorkspaceDefinition>>> SaveWorkspaceAsync(
         WorkspaceDefinition definition,
         long? expectedRevision,

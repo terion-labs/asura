@@ -12,6 +12,42 @@ namespace Asura.App.Tests;
 public sealed class FileRuntimePanelViewModelTests
 {
     [Fact]
+    public void PodFilesRecoverAsResourceBrowserWithoutLocalAuthority()
+    {
+        var target = new KubernetesFileTarget(new(new("cluster"), 1, "Cluster", "/private/config", "private-context"),
+            new("", "v1", "pods", "team", "pod", "uid", "1"), "app");
+        using var panel = new FileRuntimePanelViewModel(PanelInstanceId.New(), "Pod files", new StubFilePanelClient(),
+            deferInitialization: true, kubernetesTarget: target);
+        var tab = new RuntimeTabViewModel(TabInstanceId.New(), "Tab", "test");
+        tab.AddPanel(panel);
+        var workspace = new RuntimeWorkspaceViewModel(WorkspaceInstanceId.New(), "Workspace", "#123456", []);
+        workspace.Tabs.Add(tab);
+        workspace.ActiveTab = tab;
+        var json = RuntimeWorkspaceRecoveryCodec.Serialize(workspace);
+        Assert.True(RuntimeWorkspaceRecoveryCodec.TryDeserialize(new("run", RuntimeWorkspaceRecoveryCodec.SnapshotKey,
+            RuntimeWorkspaceRecoveryCodec.SchemaVersion, json, DateTimeOffset.UnixEpoch), out var recovered, out var error), error);
+        var persisted = Assert.Single(Assert.Single(recovered!.Workspace!.Tabs).Panels);
+        Assert.Equal(RuntimePanelRecoveryKind.Kubernetes, persisted.Kind);
+        Assert.Equal(new KubernetesPanelTarget(target.Profile.Id, "team"), persisted.KubernetesTarget);
+        Assert.Null(persisted.ConnectionId);
+        Assert.Null(persisted.StartupLocation);
+        Assert.Null(persisted.FileProviderProfileId);
+        Assert.Null(persisted.FileLocation);
+        Assert.DoesNotContain("/private/config", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("private-context", json, StringComparison.Ordinal);
+        var source = new ScreenPanelDefinition(ScreenPanelId.New(), new LayoutSlotId("files"), ScreenPanelKind.FileViewer,
+            "Files", BuiltInConnections.Local.Id, new PanelStartupBehavior("/private/local", ["sensitive-startup"]));
+        panel.SourceDefinition = source;
+        var captured = WorkspaceAutoSaveCoordinatorTests.CaptureDatabasePanel(panel, source);
+        Assert.Equal(ScreenPanelKind.Kubernetes, captured.Kind);
+        Assert.Equal(new KubernetesPanelTarget(target.Profile.Id, "team"), captured.KubernetesTarget);
+        Assert.Null(captured.ConnectionId);
+        Assert.Null(captured.Startup.Location);
+        Assert.Empty(captured.Startup.Commands);
+        Assert.Null(captured.FileProviderProfileId);
+    }
+
+    [Fact]
     public void DetailsDefaultToNewestModifiedAndExposeHeaderSortState()
     {
         using var panel = new FileRuntimePanelViewModel(

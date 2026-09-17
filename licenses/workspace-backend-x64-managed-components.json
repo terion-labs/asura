@@ -852,6 +852,54 @@
       "nupkgSha512": "ef6XpQH4KI7lukxMuXnh0iDM7a60cR0tFiynPPmRK7TnOHZXKpwIlPd341kInZJvMw+u2B3qaHb3rVEMIxLWlQ==",
       "nuspecLicenseType": "expression",
       "nuspecLicense": "MIT"
+    },
+    {
+      "identity": "Fractions/7.3.0",
+      "kind": "nuget",
+      "depsType": "package",
+      "licenseDeclared": "NOASSERTION",
+      "nuGetId": "Fractions",
+      "contentHash": "2bETFWLBc8b7Ut2SVi+bxhGVwiSpknHYGBh2PADyGWONLkTxT7bKyDRhF8ao+XUv90tq8Fl7GTPxSI5bacIRJw==",
+      "nupkgSha512": "PrOsAxljOVWXR2oiXLiQrBqzDoKc9TJdtcOWugeyAvnXL/hmHn13SRptnDdpHkCPK1l7ZZ3yxtoIuren8pj2gQ==",
+      "nuspecLicenseType": "file",
+      "nuspecLicense": "license.txt",
+      "notices": [
+        {
+          "archivePath": "license.txt",
+          "outputPath": "Fractions-7.3.0/license.txt",
+          "sha256": "2c02c9f02a8ba27ea7bcd5f75aad45bea7dccd0f55024c663d6e769800c0c841",
+          "minimumBytes": 1356
+        }
+      ]
+    },
+    {
+      "identity": "KubernetesClient.Aot/19.0.2",
+      "kind": "nuget",
+      "depsType": "package",
+      "licenseDeclared": "Apache-2.0",
+      "nuGetId": "KubernetesClient.Aot",
+      "contentHash": "4kJQTGsZyVGdDf3YNFPJl/MWkD4dQzVPM8oKxHX3Q94fBvQLjdu1r3PfmCE3S1QY/jX3g5NE5cHEXJa+En0jQw==",
+      "nupkgSha512": "IvMh58L8rja0thiUAnC5AQyeejfT184QggtfNKK6+SveOmFbNL2JV0ee59RIRltSco+BF1tRQO9XF4l/p8q3yA==",
+      "nuspecLicenseType": "expression",
+      "nuspecLicense": "Apache-2.0"
+    },
+    {
+      "identity": "YamlDotNet/16.3.0",
+      "kind": "nuget",
+      "depsType": "package",
+      "licenseDeclared": "MIT",
+      "nuGetId": "YamlDotNet",
+      "contentHash": "SgMOdxbz8X65z8hraIs6hOEdnkH6hESTAIUa7viEngHOYaH+6q5XJmwr1+yb9vJpNQ19hCQY69xbFsLtXpobQA==",
+      "nupkgSha512": "8QL7QYw6/l7AzF0DNrmsZRevbzBgOrX5JaezYiVExBm7k10eVZARR//1oROHTlVJFTTVVTQR+06hmOZVDAQh3w==",
+      "nuspecLicenseType": "expression",
+      "nuspecLicense": "MIT"
+    },
+    {
+      "identity": "Asura.Kubernetes/${productVersion}",
+      "kind": "project",
+      "depsType": "project",
+      "licenseDeclared": "NOASSERTION",
+      "file": "Asura.Kubernetes.dll"
     }
   ],
   "additionalComponents": []

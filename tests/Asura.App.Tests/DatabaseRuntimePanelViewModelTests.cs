@@ -6,6 +6,30 @@ namespace Asura.App.Tests;
 
 public sealed class DatabaseRuntimePanelViewModelTests
 {
+    [Fact]
+    public void ForwardedDatabasePersistsOnlyUnconfiguredPicker()
+    {
+        using var panel = new DatabaseRuntimePanelViewModel(PanelInstanceId.New(), "Forwarded database", new FakeDatabasePanelClient(),
+            "postgres", "Host=lease.asura-forward.invalid;Password=private", sessionPassword: "private", transientConnection: true);
+        var source = new ScreenPanelDefinition(ScreenPanelId.New(), new LayoutSlotId("database"), ScreenPanelKind.DatabaseViewer,
+            "Database", new("old-route"), new PanelStartupBehavior("postgres:Host=stale.invalid", ["select 1"]));
+        panel.SourceDefinition = source;
+        Assert.Null(panel.RecoveryTarget);
+        var captured = WorkspaceAutoSaveCoordinatorTests.CaptureDatabasePanel(panel, source);
+        Assert.Null(captured.ConnectionId);
+        Assert.Null(captured.Startup.Location);
+        Assert.Empty(captured.Startup.Commands);
+        var tab = new RuntimeTabViewModel(TabInstanceId.New(), "Tab", "test");
+        tab.AddPanel(panel);
+        var workspace = new RuntimeWorkspaceViewModel(WorkspaceInstanceId.New(), "Workspace", "#123456", []);
+        workspace.Tabs.Add(tab);
+        workspace.ActiveTab = tab;
+        var json = RuntimeWorkspaceRecoveryCodec.Serialize(workspace);
+        Assert.DoesNotContain("asura-forward.invalid", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("private", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("stale.invalid", json, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("unchanged", true)]
     [InlineData("target", false)]

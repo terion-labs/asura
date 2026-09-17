@@ -848,6 +848,7 @@ first_party_assemblies=(
     "Asura.Files.dll"
     "Asura.Git.dll"
     "Asura.Infrastructure.dll"
+    "Asura.Kubernetes.dll"
     "Asura.Mcp.dll"
     "Asura.Mcp.Server.dll"
     "Asura.Monitoring.dll"

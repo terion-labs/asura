@@ -29,7 +29,8 @@ internal static class TerminalAgentToolParser
             return Invalid("Tool arguments cannot contain duplicate fields.");
         }
 
-        if (string.Equals(proposal.ToolName, BuiltInAgentTools.TerminalResize, StringComparison.Ordinal))
+        if (KubernetesTerminalTools.IsPodTool(proposal.ToolName)
+            || string.Equals(proposal.ToolName, BuiltInAgentTools.TerminalResize, StringComparison.Ordinal))
         {
             return UnavailableTool();
         }
@@ -145,7 +146,7 @@ internal static class TerminalAgentToolParser
         string toolName,
         IReadOnlyDictionary<string, JsonElement> properties,
         PanelInstanceId? panelId) =>
-        toolName switch
+        KubernetesTerminalTools.BaseToolName(toolName) switch
         {
             BuiltInAgentTools.TerminalReadScreen =>
                 ParseEmpty(

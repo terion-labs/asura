@@ -22,6 +22,7 @@ public sealed partial class NewPanelChooserView : UserControl
     public event EventHandler<RoutedEventArgs>? AddDatabasePanelRequested;
 
     public event EventHandler<RoutedEventArgs>? AddDockerPanelRequested;
+    public event EventHandler<RoutedEventArgs>? AddKubernetesPanelRequested;
 
     public event EventHandler<RoutedEventArgs>? AddGitPanelRequested;
 
@@ -58,6 +59,9 @@ public sealed partial class NewPanelChooserView : UserControl
 
     private void OnAddDockerPanelClick(object? sender, RoutedEventArgs e) =>
         AddDockerPanelRequested?.Invoke(sender, e);
+
+    private void OnAddKubernetesPanelClick(object? sender, RoutedEventArgs e) =>
+        AddKubernetesPanelRequested?.Invoke(sender, e);
 
     private void OnAddGitPanelClick(object? sender, RoutedEventArgs e) =>
         AddGitPanelRequested?.Invoke(sender, e);

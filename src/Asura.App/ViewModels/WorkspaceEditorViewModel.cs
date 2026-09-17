@@ -94,7 +94,8 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
         string? effectiveIsolationImageReference = null,
         string defaultIsolationImageReference = WorkspaceIsolationImages.Default,
         IReadOnlyList<NetworkConnectionProfile>? networkConnections = null,
-        ApplicationNetworkSettings? applicationNetworkSettings = null)
+        ApplicationNetworkSettings? applicationNetworkSettings = null,
+        IReadOnlyList<KubernetesConnectionProfile>? kubernetesConnections = null)
     {
         _original = workspace ?? throw new ArgumentNullException(nameof(workspace));
         _isIsolationAvailable = isIsolationAvailable;
@@ -164,6 +165,8 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
         LayoutOptions = BuildLayoutOptions(workspace, layouts, screens);
         ScreenOptions = BuildScreenOptions(workspace, screens, LayoutOptions);
         FileProviderOptions = BuildFileProviderOptions(workspace, screens, fileProviders);
+        KubernetesOptions = ScreenKubernetesOption.Build(kubernetesConnections ?? [],
+            workspace.Entries.OfType<WorkspaceEntry.Tab>().SelectMany(tab => tab.Panels));
         RestoreEntries();
         RestoreIsolationMounts();
         RefreshIconChoices();
@@ -417,6 +420,8 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
     public IReadOnlyList<WorkspaceLayoutOption> LayoutOptions { get; }
 
     public IReadOnlyList<ScreenFileProviderOption> FileProviderOptions { get; }
+
+    public IReadOnlyList<ScreenKubernetesOption> KubernetesOptions { get; }
 
     /// <summary>The durable launcher and keyboard traversal order.</summary>
     public ReadOnlyObservableCollection<WorkspaceEntryEditorViewModel> Entries => _readOnlyEntries;
@@ -1077,7 +1082,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
             ConnectionOptions,
             ScreenOptions,
             LayoutOptions,
-            FileProviderOptions);
+            FileProviderOptions, KubernetesOptions);
 
     private void RestoreEntries()
     {

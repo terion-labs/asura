@@ -105,6 +105,7 @@ public static class DesktopComposition
         services.AddSingleton<AgentStatisticsReadActionComposer>();
         services.AddSingleton<AgentDatabaseReadActionComposer>();
         services.AddSingleton<AgentDockerReadActionComposer>();
+        services.AddSingleton<AgentKubernetesReadActionComposer>();
         services.AddSingleton<AgentGitActionComposer>();
         services.AddSingleton<AgentMcpToolCallActionComposer>();
         services.AddSingleton<AgentWebToolActionComposer>();
@@ -279,6 +280,12 @@ public static class DesktopComposition
         services.AddSingleton<IDatabasePanelSessionFactory>(provider =>
             provider.GetRequiredService<WorkspaceDatabasePanelSessionFactory>());
         services.AddSingleton<DockerPanelSessionFactory>();
+        services.AddSingleton<WorkspaceKubernetesPanelSessionFactory>();
+        services.AddSingleton<IKubernetesPanelSessionFactory, HostKubernetesConfigurationReview>();
+        services.AddSingleton<KubernetesTerminalSessionFactory>();
+        services.AddSingleton<IKubernetesTerminalSessionFactory, DesktopKubernetesTerminalSessionFactory>();
+        services.AddSingleton<IKubernetesHostedPanelSessionFactory>(provider =>
+            provider.GetRequiredService<WorkspaceKubernetesPanelSessionFactory>());
         services.AddSingleton<WorkspaceDockerPanelSessionFactory>();
         services.AddSingleton<IDockerPanelSessionFactory>(provider =>
             provider.GetRequiredService<WorkspaceDockerPanelSessionFactory>());
@@ -391,6 +398,8 @@ public static class DesktopComposition
         services.AddSingleton<IAgentDatabaseSessionHost>(provider =>
             provider.GetRequiredService<InMemorySessionHostClient>());
         services.AddSingleton<IAgentDockerSessionHost>(provider =>
+            provider.GetRequiredService<InMemorySessionHostClient>());
+        services.AddSingleton<IAgentKubernetesSessionHost>(provider =>
             provider.GetRequiredService<InMemorySessionHostClient>());
         services.AddSingleton<IAgentGitSessionHost>(provider =>
             provider.GetRequiredService<InMemorySessionHostClient>());

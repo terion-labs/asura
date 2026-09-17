@@ -228,6 +228,8 @@ internal sealed class SqliteDefinitionGraphValidator
                 await ValidateKeymapAsync(keymap, cancellationToken).ConfigureAwait(false),
             FileProviderProfile fileProvider =>
                 await ValidateFileProviderAsync(fileProvider, cancellationToken).ConfigureAwait(false),
+            KubernetesConnectionProfile kubernetes =>
+                await ValidateKubernetesConnectionAsync(kubernetes, cancellationToken).ConfigureAwait(false),
             ConnectionProfile connection =>
                 await ValidateConnectionAsync(connection, cancellationToken).ConfigureAwait(false),
             _ => null,
@@ -267,6 +269,26 @@ internal sealed class SqliteDefinitionGraphValidator
                 DefinitionProblemKind.DependencyConflict,
                 $"Connection '{connection.Key}' requires a standalone SSH connection as its host connection.",
                 connection.Key);
+    }
+
+    private async Task<DefinitionProblem?> ValidateKubernetesConnectionAsync(
+        KubernetesConnectionProfile profile,
+        CancellationToken cancellationToken)
+    {
+        if (profile.TunnelConnectionId is not { } tunnelId)
+        {
+            return null;
+        }
+        var resolved = await ResolveAsync(new(DefinitionKind.Connection, tunnelId.Value), cancellationToken)
+            .ConfigureAwait(false);
+        if (resolved.Problem is not null)
+        {
+            return resolved.Problem;
+        }
+        return resolved.Definition is ConnectionProfile { Endpoint: ConnectionEndpoint.Ssh, HostConnectionId: null }
+            ? null
+            : new(DefinitionProblemKind.DependencyConflict,
+                "A Kubernetes connection requires a standalone SSH connection as its hop.", profile.Key);
     }
 
     private async Task<DefinitionProblem?> ValidateFileProviderAsync(

@@ -84,6 +84,8 @@ public sealed partial class GovernedAgentRuntime :
     private readonly IAgentStatisticsSessionHost? _agentStatisticsHost;
     private readonly IAgentDatabaseSessionHost? _agentDatabaseHost;
     private readonly IAgentDockerSessionHost? _agentDockerHost;
+    private readonly IAgentKubernetesSessionHost? _agentKubernetesHost;
+    private readonly AgentKubernetesReadActionComposer? _kubernetesComposer;
     private readonly IAgentGitSessionHost? _agentGitHost;
     private readonly IAgentMcpSessionHost? _agentMcpHost;
     private readonly IAgentWebToolSessionHost? _agentWebToolHost;
@@ -195,7 +197,9 @@ public sealed partial class GovernedAgentRuntime :
         IAgentWebToolSessionHost? agentWebToolHost = null,
         AgentWebToolActionComposer? webToolComposer = null,
         IAgentGitSessionHost? agentGitHost = null,
-        AgentGitActionComposer? gitComposer = null)
+        AgentGitActionComposer? gitComposer = null,
+        IAgentKubernetesSessionHost? agentKubernetesHost = null,
+        AgentKubernetesReadActionComposer? kubernetesComposer = null)
         : this(
             sessionHost,
             broker,
@@ -232,7 +236,9 @@ public sealed partial class GovernedAgentRuntime :
             agentWebToolHost,
             webToolComposer,
             agentGitHost,
-            gitComposer)
+            gitComposer,
+            agentKubernetesHost,
+            kubernetesComposer)
     {
     }
 
@@ -287,7 +293,9 @@ public sealed partial class GovernedAgentRuntime :
         IAgentWebToolSessionHost? agentWebToolHost = null,
         AgentWebToolActionComposer? webToolComposer = null,
         IAgentGitSessionHost? agentGitHost = null,
-        AgentGitActionComposer? gitComposer = null)
+        AgentGitActionComposer? gitComposer = null,
+        IAgentKubernetesSessionHost? agentKubernetesHost = null,
+        AgentKubernetesReadActionComposer? kubernetesComposer = null)
         : this(
             sessionHost,
             broker,
@@ -312,7 +320,9 @@ public sealed partial class GovernedAgentRuntime :
             agentWebToolHost: agentWebToolHost,
             webToolComposer: webToolComposer,
             agentGitHost: agentGitHost,
-            gitComposer: gitComposer)
+            gitComposer: gitComposer,
+            agentKubernetesHost: agentKubernetesHost,
+            kubernetesComposer: kubernetesComposer)
     {
     }
 
@@ -352,7 +362,9 @@ public sealed partial class GovernedAgentRuntime :
         IAgentWebToolSessionHost? agentWebToolHost = null,
         AgentWebToolActionComposer? webToolComposer = null,
         IAgentGitSessionHost? agentGitHost = null,
-        AgentGitActionComposer? gitComposer = null)
+        AgentGitActionComposer? gitComposer = null,
+        IAgentKubernetesSessionHost? agentKubernetesHost = null,
+        AgentKubernetesReadActionComposer? kubernetesComposer = null)
     {
         _sessionHost = sessionHost ?? throw new ArgumentNullException(nameof(sessionHost));
         _broker = broker ?? throw new ArgumentNullException(nameof(broker));
@@ -367,6 +379,8 @@ public sealed partial class GovernedAgentRuntime :
         _agentStatisticsHost = agentStatisticsHost;
         _agentDatabaseHost = agentDatabaseHost;
         _agentDockerHost = agentDockerHost;
+        _agentKubernetesHost = agentKubernetesHost;
+        _kubernetesComposer = kubernetesComposer;
         _agentGitHost = agentGitHost;
         _agentMcpHost = agentMcpHost;
         _agentWebToolHost = agentWebToolHost;
@@ -422,6 +436,10 @@ public sealed partial class GovernedAgentRuntime :
         {
             throw new ArgumentException(
                 "The governed Database host and composer must be supplied together.");
+        }
+        if ((_agentKubernetesHost is null) != (_kubernetesComposer is null))
+        {
+            throw new ArgumentException("The governed Kubernetes host and composer must be supplied together.");
         }
         if ((_agentDockerHost is null) != (_dockerComposer is null))
         {
@@ -3581,7 +3599,8 @@ public sealed partial class GovernedAgentRuntime :
                 or PanelKind.Statistics
                 or PanelKind.DatabaseViewer
                 or PanelKind.Docker
-                or PanelKind.Git)
+                or PanelKind.Git
+                or PanelKind.Kubernetes)
             || panel.SessionId is null
             || panel.Lifecycle != SessionLifecycle.Active)
         {
@@ -3608,6 +3627,12 @@ public sealed partial class GovernedAgentRuntime :
 
         if (panel.Kind == PanelKind.Docker
             && (_agentDockerHost is null || _dockerComposer is null))
+        {
+            return false;
+        }
+
+        if (panel.Kind == PanelKind.Kubernetes
+            && (_agentKubernetesHost is null || _kubernetesComposer is null))
         {
             return false;
         }
@@ -3776,6 +3801,8 @@ public sealed partial class GovernedAgentRuntime :
         builder.Append(" docker_count=");
         builder.Append(context.Panels.Count(
             panel => panel.Kind == PanelKind.Docker));
+        builder.Append(" kubernetes_count=");
+        builder.Append(context.Panels.Count(panel => panel.Kind == PanelKind.Kubernetes));
         builder.Append(" git_count=");
         builder.Append(context.Panels.Count(
             panel => panel.Kind == PanelKind.Git));
@@ -4005,6 +4032,8 @@ public sealed partial class GovernedAgentRuntime :
             PanelKind.Docker =>
                 DockerAgentToolSet.For(panel)
                     .Select(tool => tool.Name),
+            PanelKind.Kubernetes =>
+                KubernetesAgentToolSet.For(panel).Select(tool => tool.Name),
             PanelKind.Git =>
                 GitAgentToolSet.For(panel)
                     .Select(tool => tool.Name),
@@ -4037,6 +4066,7 @@ public sealed partial class GovernedAgentRuntime :
             PanelKind.DatabaseViewer => "database_viewer",
             PanelKind.Docker => "docker",
             PanelKind.Git => "git",
+            PanelKind.Kubernetes => "kubernetes",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(kind),
                 kind,
@@ -4074,6 +4104,12 @@ public sealed partial class GovernedAgentRuntime :
             return databaseOperations.Length == 0
                 ? "none"
                 : string.Join(',', databaseOperations);
+        }
+
+        if (panel.Kind == PanelKind.Kubernetes)
+        {
+            var kubernetesOperations = KubernetesAgentToolSet.For(panel).Select(tool => ToolOperationName(tool.Name, ("kubernetes.", string.Empty))).ToArray();
+            return kubernetesOperations.Length == 0 ? "none" : string.Join(',', kubernetesOperations);
         }
 
         if (panel.Kind == PanelKind.Docker)

@@ -30,6 +30,7 @@ public sealed class LauncherViewModel : ObservableObject, IDisposable
     public ObservableCollection<LauncherConnectionViewModel> FileConnections { get; } = [];
 
     public ObservableCollection<LauncherConnectionViewModel> DatabaseConnections { get; } = [];
+    public ObservableCollection<LauncherConnectionViewModel> KubernetesConnections { get; } = [];
 
     public ObservableCollection<LauncherScreenViewModel> Screens { get; } = [];
 
@@ -54,7 +55,7 @@ public sealed class LauncherViewModel : ObservableObject, IDisposable
     public bool HasDatabaseConnections => DatabaseConnections.Count > 0;
 
     public int TotalConnectionCount =>
-        Connections.Count + FileConnections.Count + DatabaseConnections.Count;
+        Connections.Count + FileConnections.Count + DatabaseConnections.Count + KubernetesConnections.Count;
 
     public bool HasScreens => Screens.Count > 0;
 
@@ -101,7 +102,8 @@ public sealed class LauncherViewModel : ObservableObject, IDisposable
         IReadOnlyList<LauncherConnectionViewModel> connections,
         IReadOnlyList<LauncherConnectionViewModel> fileConnections,
         IReadOnlyList<LauncherConnectionViewModel> databaseConnections,
-        IReadOnlyList<LauncherScreenViewModel> screens)
+        IReadOnlyList<LauncherScreenViewModel> screens,
+        IReadOnlyList<LauncherConnectionViewModel>? kubernetesConnections = null)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(workspaces);
@@ -117,12 +119,14 @@ public sealed class LauncherViewModel : ObservableObject, IDisposable
             DatabaseConnections,
             databaseConnections,
             static (a, b) => a.PresentsSameAs(b));
+        ReplaceIfChanged(KubernetesConnections, kubernetesConnections ?? [], static (a, b) => a.PresentsSameAs(b));
         ReplaceIfChanged(Screens, screens, static (a, b) => a.PresentsSameAs(b));
         ReplaceIfChanged(
             ConnectionsPreview,
             [.. Connections
                 .Concat(FileConnections)
                 .Concat(DatabaseConnections)
+                .Concat(KubernetesConnections)
                 .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
                 .Take(HomePreviewConnectionCount)],
             static (a, b) => a.PresentsSameAs(b));

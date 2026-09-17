@@ -45,6 +45,7 @@ public static class AgentContextBindingFingerprint
             Append(builder, panel.HasActiveWork);
             Append(builder, panel.ConnectionId?.Value);
             Append(builder, panel.ConnectionBoundary);
+            Append(builder, panel.KubernetesBindingFingerprint);
             Append(builder, panel.InitialWorkingDirectory);
             Append(builder, panel.CurrentWorkingDirectory);
             AppendFileMetadata(builder, panel.FileMetadata);

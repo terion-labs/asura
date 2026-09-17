@@ -804,7 +804,8 @@
           "Asura.Databases": "[1.0.0, )",
           "Asura.Files": "[1.0.0, )",
           "Asura.Infrastructure": "[1.0.0, )",
-          "Asura.Redis": "[1.0.0, )"
+          "Asura.Redis": "[1.0.0, )",
+          "Asura.Kubernetes": "[1.0.0, )"
         }
       },
       "asura.core": {
@@ -1417,6 +1418,41 @@
         "requested": "[1.2.0, )",
         "resolved": "1.2.0",
         "contentHash": "Rz67gJL619fSBS6omaSINUxyDuwhIxkm5mmubf7uLd5Qgi6LLKaKCha+QFP6n+Bw/UjA0vutnH4JQfYzn6ANtw=="
+      },
+      "Fractions": {
+        "type": "Transitive",
+        "resolved": "7.3.0",
+        "contentHash": "2bETFWLBc8b7Ut2SVi+bxhGVwiSpknHYGBh2PADyGWONLkTxT7bKyDRhF8ao+XUv90tq8Fl7GTPxSI5bacIRJw=="
+      },
+      "Vecc.YamlDotNet.Analyzers.StaticGenerator": {
+        "type": "Transitive",
+        "resolved": "16.3.0",
+        "contentHash": "sqG0i1keWeTVJIwFe2H5T4CdUa4E8dzw7PQ1QdYWMuGOWwFggb56UoexYpTDoc3zAVkZiBf5oCRETy+qP/wy+A=="
+      },
+      "asura.kubernetes": {
+        "type": "Project",
+        "dependencies": {
+          "Asura.Application": "[1.0.0, )",
+          "KubernetesClient.Aot": "[19.0.2, )",
+          "YamlDotNet": "[16.3.0, )"
+        }
+      },
+      "KubernetesClient.Aot": {
+        "type": "CentralTransitive",
+        "requested": "[19.0.2, )",
+        "resolved": "19.0.2",
+        "contentHash": "4kJQTGsZyVGdDf3YNFPJl/MWkD4dQzVPM8oKxHX3Q94fBvQLjdu1r3PfmCE3S1QY/jX3g5NE5cHEXJa+En0jQw==",
+        "dependencies": {
+          "Fractions": "7.3.0",
+          "Vecc.YamlDotNet.Analyzers.StaticGenerator": "16.3.0",
+          "YamlDotNet": "16.3.0"
+        }
+      },
+      "YamlDotNet": {
+        "type": "CentralTransitive",
+        "requested": "[16.3.0, )",
+        "resolved": "16.3.0",
+        "contentHash": "SgMOdxbz8X65z8hraIs6hOEdnkH6hESTAIUa7viEngHOYaH+6q5XJmwr1+yb9vJpNQ19hCQY69xbFsLtXpobQA=="
       }
     },
     "net10.0/osx-x64": {

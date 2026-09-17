@@ -44,6 +44,12 @@ public interface ISessionHostClient
         CancellationToken cancellationToken) =>
         Unsupported<SessionSnapshot>("Database sessions are not implemented by this client.");
 
+    ValueTask<HostResult<SessionSnapshot>> EnsureKubernetesSessionAsync(
+        EnsureKubernetesSessionRequest request,
+        OperationContext context,
+        CancellationToken cancellationToken) =>
+        Unsupported<SessionSnapshot>("Kubernetes sessions are not implemented by this client.");
+
     ValueTask<HostResult<SessionSnapshot>> EnsureDockerSessionAsync(
         EnsureDockerSessionRequest request,
         OperationContext context,

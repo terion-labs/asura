@@ -34,6 +34,10 @@ public sealed partial class MainWindowViewModel
             kinds.Add(PanelKind.Docker);
         }
 
+        if (_hostWorkspaceRuntimeServices.Backends.KubernetesPanelSessionFactory is not null)
+        {
+            kinds.Add(PanelKind.Kubernetes);
+        }
         return kinds.ToImmutable();
     }
 
@@ -383,6 +387,7 @@ public sealed partial class MainWindowViewModel
             RedisRuntimePanelViewModel redis => !redis.HasHostedSession,
             DockerRuntimePanelViewModel docker => !docker.HasHostedSession,
             GitRuntimePanelViewModel git => !git.HasHostedSession,
+            KubernetesRuntimePanelViewModel kubernetes => !kubernetes.HasHostedSession,
             _ => true,
         };
 
@@ -412,6 +417,9 @@ public sealed partial class MainWindowViewModel
             FindAcceptedPanelOwner(docker)
                 ?? throw new InvalidOperationException(
                     "The accepted Docker panel has no workspace owner.")),
+        KubernetesRuntimePanelViewModel kubernetes => kubernetes.StartHostingAsync(
+            SessionClient, ClientId, FindAcceptedPanelOwner(kubernetes)
+                ?? throw new InvalidOperationException("The accepted Kubernetes panel has no workspace owner.")),
         GitRuntimePanelViewModel git => git.StartHostingAsync(
             SessionClient,
             ClientId,
@@ -463,6 +471,7 @@ public sealed partial class MainWindowViewModel
             DatabaseRuntimePanelViewModel database => database.HasHostedSession,
             RedisRuntimePanelViewModel redis => redis.HasHostedSession,
             DockerRuntimePanelViewModel docker => docker.HasHostedSession,
+            KubernetesRuntimePanelViewModel kubernetes => kubernetes.HasHostedSession,
             _ => false,
         };
         return panelReady
@@ -844,6 +853,14 @@ public sealed partial class MainWindowViewModel
                 : null;
         }
 
+        if (target?.Selection is PanelConnectionOptionViewModel.Target.Kubernetes kubernetes)
+        {
+            var profile = FindKubernetesConnection(kubernetes.Id);
+            return kind == PanelKind.Kubernetes && profile is not null
+                ? CreateKubernetesPanel(id, profile.Name, new(profile.Id, profile.DefaultNamespace), workspace.Id)
+                : null;
+        }
+
         if (target?.Selection is
             PanelConnectionOptionViewModel.Target.Database database)
         {
@@ -860,6 +877,7 @@ public sealed partial class MainWindowViewModel
 
         return kind switch
         {
+            PanelKind.Kubernetes => CreateKubernetesPanel(id, "Kubernetes", workspaceId: workspace.Id),
             PanelKind.Placeholder => RuntimeTabViewModel.NewPlaceholder(),
             PanelKind.Terminal => null,
             PanelKind.Browser => CreateBrowserPanel(
@@ -955,6 +973,8 @@ public sealed partial class MainWindowViewModel
             PanelConnectionOptionViewModel.Target.FileProvider file
                 when panel is FileRuntimePanelViewModel filePanel =>
                 ReplaceFilePanelProfile(filePanel, file.Id),
+            PanelConnectionOptionViewModel.Target.Kubernetes kubernetes
+                when panel.Kind == PanelKind.Kubernetes => ReplaceKubernetesPanelConnection(panel, kubernetes.Id),
             PanelConnectionOptionViewModel.Target.Database database
                 when panel.Kind == PanelKind.DatabaseViewer =>
                 ReplaceDatabasePanelConnection(panel, database.Id),
@@ -1260,9 +1280,14 @@ public sealed partial class MainWindowViewModel
                     option.Name,
                     option.Kind,
                     [PanelKind.DatabaseViewer]));
+            var kubernetes = owner.KubernetesPanelConnectionOptions
+                .Where(option => option.CanOpen)
+                .Select(option => new AgentConnectionTarget(Identity(option.Selection), option.Selection,
+                    option.Name, option.Kind, [PanelKind.Kubernetes]));
             return [.. execution
                 .Concat(files)
                 .Concat(databases)
+                .Concat(kubernetes)
                 .GroupBy(candidate => candidate.Identity, StringComparer.Ordinal)
                 .Select(group => group.First())
                 .OrderBy(candidate => candidate.Name, StringComparer.OrdinalIgnoreCase)
@@ -1311,6 +1336,8 @@ public sealed partial class MainWindowViewModel
                 PanelConnectionOptionViewModel.Target.FileProvider file =>
                     $"file:{file.Id.Value}:{owner._catalog.Snapshot.FileProviderProfiles
                         .SingleOrDefault(item => item.Value.Id == file.Id)?.Revision ?? 0}",
+                PanelConnectionOptionViewModel.Target.Kubernetes kubernetes =>
+                    $"kubernetes:{kubernetes.Id.Value}:{owner._catalog.Snapshot.KubernetesConnections.Single(item => item.Value.Id == kubernetes.Id).Revision}",
                 PanelConnectionOptionViewModel.Target.Database database =>
                     $"database:{database.Id.Value}:{owner._catalog.Snapshot.DatabaseConnections
                         .Single(item => item.Value.Id == database.Id).Revision}",

@@ -322,7 +322,8 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
 
     private async Task RememberAddressAsync(BrowserSessionState state)
     {
-        if (_history is null || _profile.Definition.Persistence == BrowserProfilePersistence.PrivateSession
+        if (WorkspacePrivateEndpointAddress.IsReservedHost(state.Address.Value.Host)
+            || _history is null || _profile.Definition.Persistence == BrowserProfilePersistence.PrivateSession
             || _profile.Definition.Privacy.History == BrowserActivityRetention.DoNotRecord)
         {
             return;

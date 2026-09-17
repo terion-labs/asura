@@ -417,6 +417,73 @@ public sealed class BrowserRuntimePanelViewModelTests
     }
 
     [Fact]
+    public async Task PrivateForwardAddressRecoversAsBlankWithoutPersistingItsLease()
+    {
+        var lifetime = new RecordingLifetime();
+        var renderer = new RecordingBrowserRenderer();
+        var rendererView = new BrowserRendererView(new Border(), renderer, lifetime);
+        var panel = new BrowserRuntimePanelViewModel(
+            new PanelInstanceId("browser-panel"),
+            "Documentation",
+            new SessionOwner(
+                HostMode.Desktop,
+                new WindowInstanceId("window"),
+                new WorkspaceInstanceId("workspace"),
+                new TabInstanceId("tab"),
+                new PanelInstanceId("browser-panel")),
+            BrowserAddress.Blank,
+            DispatchProxy.Create<ISessionHostClient, NoopSessionClient>(),
+            new ClientId("client"),
+            BuiltInConnections.Local,
+            new RecordingBrowserRendererViewFactory(rendererView));
+        await panel.StartInitialization();
+        var address = Address("http://opaque.asura-forward.invalid:32123/secret-path");
+        panel.ApplyBrowserState(new BrowserSessionState(
+            address,
+            "Guide",
+            BrowserLoadState.Ready,
+            canGoBack: true,
+            canGoForward: false,
+            documentRevision: 7));
+        var tab = new RuntimeTabViewModel(
+            new TabInstanceId("tab"),
+            "Docs",
+            "TEST");
+        tab.AddPanel(panel);
+        var workspace = new RuntimeWorkspaceViewModel(
+            new WorkspaceInstanceId("workspace"),
+            "Workspace",
+            "#123456",
+            []);
+        workspace.Tabs.Add(tab);
+        workspace.ActiveTab = tab;
+
+        var json = RuntimeWorkspaceRecoveryCodec.Serialize(workspace);
+        var deserialized = RuntimeWorkspaceRecoveryCodec.TryDeserialize(
+            new RuntimeRecoverySnapshot(
+                "run",
+                RuntimeWorkspaceRecoveryCodec.SnapshotKey,
+                RuntimeWorkspaceRecoveryCodec.SchemaVersion,
+                json,
+                DateTimeOffset.UnixEpoch),
+            out var recovery,
+            out var error);
+
+        Assert.True(deserialized, error);
+        var recoveredPanel = Assert.Single(
+            Assert.Single(recovery!.Workspace!.Tabs).Panels);
+        Assert.Equal(RuntimePanelRecoveryKind.Browser, recoveredPanel.Kind);
+        Assert.Equal("about:blank", recoveredPanel.StartupLocation);
+        Assert.DoesNotContain("asura-forward.invalid", json, StringComparison.Ordinal);
+        Assert.Equal(BuiltInConnections.Local.Id.Value, recoveredPanel.ConnectionId);
+        Assert.Null(recoveredPanel.FileLocation);
+
+        panel.Dispose();
+        panel.Dispose();
+        Assert.Equal(1, lifetime.DisposeCount);
+    }
+
+    [Fact]
     public async Task ProfileAndPopupRequestsFlowAcrossThePanelBoundary()
     {
         var renderer = new RecordingBrowserRenderer();
@@ -511,6 +578,9 @@ public sealed class BrowserRuntimePanelViewModelTests
         panel.ApplyBrowserState(loaded);
         panel.ApplyBrowserState(loaded);
         panel.ApplyBrowserState(new BrowserSessionState(address, "Updated title", BrowserLoadState.Ready, false, false, 1));
+        Assert.Equal(expectedRecords, history.Titles.Count);
+        panel.ApplyBrowserState(new BrowserSessionState(Address("http://private.asura-forward.invalid:32123/"),
+            "Private forwarded app", BrowserLoadState.Ready, false, false, 2));
         Assert.Equal(expectedRecords, history.Titles.Count);
     }
 

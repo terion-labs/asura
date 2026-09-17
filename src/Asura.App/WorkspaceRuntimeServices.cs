@@ -21,7 +21,8 @@ public sealed record WorkspaceRuntimeBackends
         IDatabasePanelClient? databasePanelClient,
         IRedisPanelSessionFactory? redisPanelSessionFactory,
         IBrowserRendererViewFactory? browserRendererViewFactory,
-        IConnectionSecurityRuntime? connectionSecurityRuntime = null)
+        IConnectionSecurityRuntime? connectionSecurityRuntime = null,
+        IKubernetesPanelSessionFactory? kubernetesPanelSessionFactory = null)
     {
         DockerEngineClient = dockerEngineClient;
         GitRepositoryClient = gitRepositoryClient;
@@ -32,6 +33,7 @@ public sealed record WorkspaceRuntimeBackends
         RedisPanelSessionFactory = redisPanelSessionFactory;
         BrowserRendererViewFactory = browserRendererViewFactory;
         ConnectionSecurityRuntime = connectionSecurityRuntime;
+        KubernetesPanelSessionFactory = kubernetesPanelSessionFactory;
     }
 
     public IDockerEngineClient? DockerEngineClient { get; }
@@ -49,6 +51,8 @@ public sealed record WorkspaceRuntimeBackends
     public IBrowserRendererViewFactory? BrowserRendererViewFactory { get; }
 
     public IConnectionSecurityRuntime? ConnectionSecurityRuntime { get; }
+
+    public IKubernetesPanelSessionFactory? KubernetesPanelSessionFactory { get; }
 }
 
 public abstract record WorkspaceNetworkRoute

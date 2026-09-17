@@ -2003,13 +2003,15 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
         PanelSessionRole sessionRole = PanelSessionRole.Primary,
         TerminalMultiplexerCoordinator? multiplexerCoordinator = null,
         TerminalMultiplexerSession? multiplexerSession = null,
-        string? connectionDisplayName = null)
+        string? connectionDisplayName = null,
+        KubernetesTerminalTarget? kubernetesTarget = null)
         : base(
             id,
             PanelKind.Terminal,
             title,
-            KindBadges.Connection(connection.ConnectionKind))
+            kubernetesTarget is null ? KindBadges.Connection(connection.ConnectionKind) : "Kubernetes")
     {
+        KubernetesTarget = kubernetesTarget;
         _connectionRuntime = connectionRuntime ?? throw new ArgumentNullException(nameof(connectionRuntime));
         _connectionSecurityRuntime = connectionSecurityRuntime;
         _connection = WithPanelStartup(
@@ -2067,6 +2069,8 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
             OnPropertyChanged();
         }
     }
+
+    public KubernetesTerminalTarget? KubernetesTarget { get; }
 
     public EnsureTerminalSessionRequest? SessionRequest
     {

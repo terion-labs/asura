@@ -11,6 +11,24 @@ namespace Asura.Agent.Runtime.Tests;
 public sealed class MultiPanelTerminalAgentToolContractTests
 {
     [Fact]
+    public async Task PodTerminalToolsUseSeparateAuthorityAndCannotSelectHostTerminals()
+    {
+        var host = ContextPanel("host", "panel-host", SessionCapabilities.TerminalAgentInputBarrier, SessionCapabilities.TerminalWrite);
+        var pod = ContextPanel("pod", "panel-pod", true, SessionCapabilities.TerminalAgentInputBarrier, SessionCapabilities.TerminalWrite);
+        var exact = Assert.Single(TerminalAgentToolSet.For(pod));
+        Assert.Equal(BuiltInAgentTools.KubernetesTerminalSendText, exact.Name);
+        var broad = TerminalAgentToolSet.For([host, pod]);
+        Assert.Equal(["panel-host"], PanelIds(broad, BuiltInAgentTools.TerminalSendText));
+        Assert.Equal(["panel-pod"], PanelIds(broad, BuiltInAgentTools.KubernetesTerminalSendText));
+        var podProposal = await ProposalAsync(BuiltInAgentTools.KubernetesTerminalSendText, """{"text":"status"}""");
+        Assert.IsType<TerminalAgentIntentResult.Parsed>(TerminalAgentToolParser.Parse(podProposal, pod));
+        Assert.IsType<TerminalAgentIntentResult.Rejected>(TerminalAgentToolParser.Parse(podProposal, host));
+        var ordinary = await ProposalAsync(BuiltInAgentTools.TerminalSendText, """{"text":"status"}""");
+        Assert.IsType<TerminalAgentIntentResult.Rejected>(TerminalAgentToolParser.Parse(ordinary, pod));
+        Assert.Contains(TerminalAgentToolSet.ForWorkspace(), tool => string.Equals(tool.Name, BuiltInAgentTools.KubernetesTerminalSendText, StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void OneActiveTerminalBroadScopeStillRequiresEnumeratedPanelSelection()
     {
         var panel = ContextPanel(
@@ -376,9 +394,13 @@ public sealed class MultiPanelTerminalAgentToolContractTests
             }
             """u8.ToArray());
 
+    private static AgentContextPanel ContextPanel(string suffix, string panelIdValue, params string[] capabilities) =>
+        ContextPanel(suffix, panelIdValue, false, capabilities);
+
     private static AgentContextPanel ContextPanel(
         string suffix,
         string panelIdValue,
+        bool isPod,
         params string[] capabilities)
     {
         var sessionId = new SessionId($"session-{suffix}");
@@ -420,7 +442,8 @@ public sealed class MultiPanelTerminalAgentToolContractTests
             new CapabilitySet(capabilities),
             Revision: 5,
             HasActiveWork: false,
-            StatusDetail: "Ready");
+            StatusDetail: "Ready",
+            TerminalMetadata: isPod ? new(null, "Pod", null, null, kubernetesBindingFingerprint: new string('a', 64)) : null);
         return AgentContextPanel.ForGraphPanel(
             graph,
             tabId,

@@ -30,7 +30,8 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
     IDatabaseDiagramWorkerFactory diagramWorkers,
     Func<DatabaseValueContentStore> databaseContentStores,
     IDatabaseOperationExecutor databaseOperations,
-    WorkspaceConnectionBackendFactory connectionBackends) : IWorkspaceRuntimeServicesFactory
+    WorkspaceConnectionBackendFactory connectionBackends,
+    WorkspaceKubernetesPanelSessionFactory kubernetesPanelFactory) : IWorkspaceRuntimeServicesFactory
 {
     public WorkspaceRuntimeServices Create(WorkspaceRuntimeServicesRequest request)
     {
@@ -63,6 +64,8 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
             var hostDocker = new DockerEngineClient(hostExecutor, timeProvider);
             var hostGit = new GitRepositoryClient(hostExecutor, timeProvider, gateway);
             var hostRedis = new RedisWorkspaceSessionFactory((hop, token) => connections.PlanAsync("redis", hop, token));
+            var hostKubernetes = new KubernetesWorkspaceSessionFactory(
+                (hop, token) => connections.PlanAsync("kubernetes", hop, token), definitionCatalog, secretVault);
             var hostMonitors = new SystemMonitorPanelSessionFactory(hostExecutor, timeProvider);
             var hostMonitorRegistration = systemMonitorFactory.Register(
                 request.WorkspaceId,
@@ -77,6 +80,7 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
                 new FilePanelSessionFactory(files, files),
                 new DatabasePanelSessionFactory(hostDatabases, timeProvider, hostRedis),
                 new DockerPanelSessionFactory(hostDocker, timeProvider),
+                hostKubernetes,
                 new GitPanelSessionFactory(hostGit, gitMutationCoordinator, timeProvider),
                 gateway,
                 isolatedCommandRuntime: null,
@@ -98,7 +102,8 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
                     hostDatabases,
                     hostRedis,
                     routedBrowserFactory,
-                    hostSecurity),
+                    hostSecurity,
+                    hostKubernetes),
                 request.HostServices.NetworkRoute,
                 hostLifetime,
                 new WorkspaceNetworkEgressFanout(
@@ -133,6 +138,8 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
         var docker = new DockerEngineClient(executor, timeProvider);
         var git = new GitRepositoryClient(executor, timeProvider);
         var redis = new RedisWorkspaceSessionFactory((hop, token) => workspaceConnections.PlanAsync("redis", hop, token));
+        var kubernetes = new KubernetesWorkspaceSessionFactory(
+            (hop, token) => workspaceConnections.PlanAsync("kubernetes", hop, token), definitionCatalog, secretVault);
         var workspaceFileProviders = new WorkspaceFileProviderFactory(secretVault, knownHosts,
             request.ConnectionRuntime, token => workspaceConnections.PlanAsync("files", null, token), localInWorkspace: true);
         var routedFiles = new CatalogFileProviderRuntime(definitionCatalog, workspaceFileProviders.CreateAsync,
@@ -152,6 +159,7 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
             new FilePanelSessionFactory(workspaceFiles, routedFiles),
             new DatabasePanelSessionFactory(databases, timeProvider, redis),
             new DockerPanelSessionFactory(docker, timeProvider),
+            kubernetes,
             new GitPanelSessionFactory(git, gitMutationCoordinator, timeProvider),
             socksProxy,
             commandRuntime,
@@ -173,7 +181,8 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
                 databases,
                 redis,
                 browserFactory,
-                workspaceSecurity),
+                workspaceSecurity,
+                kubernetes),
             WorkspaceNetworkRoute.ViaProxy(new Uri(
                 $"socks5://127.0.0.1:{socksProxy.LocalPort}",
                 UriKind.Absolute)),
@@ -189,6 +198,7 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
         IFilePanelSessionFactory files,
         IDatabasePanelSessionFactory databases,
         IDockerPanelSessionFactory docker,
+        IKubernetesPanelSessionFactory kubernetes,
         IGitPanelSessionFactory git,
         IWorkspaceNetworkConnector connector,
         IConnectionCommandRuntime? isolatedCommandRuntime,
@@ -200,6 +210,7 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
             registrations.Add(filePanelFactory.Register(workspaceId, files));
             registrations.Add(databasePanelFactory.Register(workspaceId, databases));
             registrations.Add(dockerPanelFactory.Register(workspaceId, docker));
+            registrations.Add(kubernetesPanelFactory.Register(workspaceId, kubernetes));
             registrations.Add(gitPanelFactory.Register(workspaceId, git));
             registrations.Add(networkRouteRegistry.Register(
                 workspaceId,

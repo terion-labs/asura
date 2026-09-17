@@ -99,6 +99,7 @@ public sealed partial record AgentContextPanel
         HasActiveWork = session?.HasActiveWork ?? false;
         Capabilities = CopyCapabilities(session?.Capabilities);
         ConnectionId = session?.TerminalMetadata?.ConnectionId;
+        KubernetesBindingFingerprint = session?.TerminalMetadata?.KubernetesBindingFingerprint;
         ConnectionBoundary = CopyConnectionBoundary(session?.TerminalMetadata);
         InitialWorkingDirectory = CopyWorkingDirectory(
             session?.TerminalMetadata?.InitialWorkingDirectory,
@@ -165,6 +166,8 @@ public sealed partial record AgentContextPanel
     public ConnectionId? ConnectionId { get; }
 
     public string? ConnectionBoundary { get; }
+
+    public string? KubernetesBindingFingerprint { get; }
 
     public string? InitialWorkingDirectory { get; }
 

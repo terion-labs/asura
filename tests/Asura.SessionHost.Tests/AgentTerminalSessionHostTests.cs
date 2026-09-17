@@ -2218,13 +2218,65 @@ public sealed class AgentTerminalSessionHostTests
         Assert.Single(fixture.Authorization.Completions);
     }
 
+    internal async Task SecurityCampaignPodActionAsync(string toolName)
+    {
+        await using var fixture = await AgentTerminalHostFixture.CreateAsync(kubernetes: true);
+        var terminal = fixture.Factory[fixture.SessionId];
+        AgentTerminalRequest request = toolName switch
+        {
+            BuiltInAgentTools.KubernetesTerminalSendText => new AgentTerminalRequest.SendText(fixture.SessionId, "echo fixture"),
+            BuiltInAgentTools.KubernetesTerminalPaste => new AgentTerminalRequest.Paste(fixture.SessionId, "echo fixture"),
+            BuiltInAgentTools.KubernetesTerminalSubmitText => new AgentTerminalRequest.SubmitText(fixture.SessionId, "echo fixture"),
+            BuiltInAgentTools.KubernetesTerminalSendKeys => new AgentTerminalRequest.SendKey(fixture.SessionId, new(TerminalKey.Enter)),
+            BuiltInAgentTools.KubernetesTerminalSendChord => new AgentTerminalRequest.SendChord(fixture.SessionId, new('c', TerminalCharacterChordModifier.Control)),
+            BuiltInAgentTools.KubernetesTerminalSendMouse => new AgentTerminalRequest.SendMouse(fixture.SessionId, new(TerminalMouseButton.Left, TerminalMouseEventKind.Down, 1, 1), terminal.ScreenContentRevision),
+            BuiltInAgentTools.KubernetesTerminalInterrupt => new AgentTerminalRequest.Interrupt(fixture.SessionId),
+            BuiltInAgentTools.KubernetesTerminalResize => new AgentTerminalRequest.Resize(new(fixture.SessionId, fixture.Attachment.Id, new(800, 600, 2, 100, 30))),
+            BuiltInAgentTools.KubernetesTerminalScrollViewport => new AgentTerminalRequest.ScrollViewport(fixture.SessionId, new(TerminalViewportScrollDirection.Up, TerminalViewportScrollUnit.Page, 1)),
+            BuiltInAgentTools.KubernetesTerminalJumpToRenderedHistory => new AgentTerminalRequest.JumpToRenderedHistory(fixture.SessionId, new(terminal.ScreenContentRevision, 0)),
+            _ => throw new ArgumentException("Unknown pod terminal operation.", nameof(toolName)),
+        };
+        var action = await fixture.PrepareAsync(request);
+        Assert.Equal(toolName, action.Proposal.ToolName);
+        var forged = await fixture.Client.RunAgentTerminalActionAsync(AgentAuthorizationId.New(), action, default);
+        Assert.IsType<HostResult<AgentTerminalActionResult>.Failure>(forged);
+        Assert.Empty(fixture.Authorization.Completions);
+        var receipt = fixture.Authorization.Arm(action, AgentAuthorizationSource.HumanApproval, fixture.ClientId);
+        _ = (await fixture.Client.RunAgentTerminalActionAsync(receipt, action, default)).Value();
+        Assert.Equal(AgentActionOutcome.Succeeded, Assert.Single(fixture.Authorization.Completions).Outcome);
+        Assert.IsType<HostResult<AgentTerminalActionResult>.Failure>(await fixture.Client.RunAgentTerminalActionAsync(receipt, action, default));
+        switch (request)
+        {
+            case AgentTerminalRequest.SendText: Assert.Equal(1, terminal.WriteCount); break;
+            case AgentTerminalRequest.Paste: Assert.Equal(1, terminal.PasteCount); break;
+            case AgentTerminalRequest.SubmitText: Assert.Equal(1, terminal.SubmitTextCount); break;
+            case AgentTerminalRequest.SendKey: Assert.NotNull(terminal.LastKeyStroke); break;
+            case AgentTerminalRequest.SendChord: Assert.Equal(1, terminal.ChordCount); break;
+            case AgentTerminalRequest.SendMouse: Assert.Equal(1, terminal.MouseCount); break;
+            case AgentTerminalRequest.Interrupt: Assert.Equal(1, terminal.InterruptCount); break;
+            case AgentTerminalRequest.Resize: Assert.Equal(1, terminal.ResizeCount); break;
+            case AgentTerminalRequest.ScrollViewport: Assert.NotNull(terminal.LastScrollInput); break;
+            case AgentTerminalRequest.JumpToRenderedHistory: Assert.NotNull(terminal.LastRenderedHistoryJump); break;
+        }
+    }
+
+    private sealed class PodCampaignFactory(FakeTerminalSessionFactory factory) : IKubernetesTerminalSessionFactory
+    {
+        public ValueTask<ITerminalPanelSession> CreateAsync(WorkspaceInstanceId workspaceInstanceId, SessionId sessionId,
+            KubernetesConnectionProfile profile, KubernetesExecRequest request, TerminalRenderProfileSnapshot? renderProfile,
+            TerminalKeymapSnapshot? keymap, CancellationToken cancellationToken) =>
+            factory.CreateAsync(sessionId, new(null, kubernetesTarget: new(profile, request)), cancellationToken);
+    }
+
     private sealed class AgentTerminalHostFixture : IAsyncDisposable
     {
         private AgentTerminalHostFixture(
             ManualTimeProvider? clock = null,
             IAgentAuthorizationConsumer? authorizationConsumer = null,
-            string? excludedCapability = null)
+            string? excludedCapability = null,
+            bool kubernetes = false)
         {
+            _kubernetes = kubernetes;
             Clock = clock ?? new ManualTimeProvider(DateTimeOffset.UnixEpoch);
             Factory = new FakeTerminalSessionFactory
             {
@@ -2238,8 +2290,11 @@ public sealed class AgentTerminalSessionHostTests
                 Clock,
                 agentActionComposer: Composer,
                 agentAuthorizationConsumer:
-                    authorizationConsumer ?? Authorization);
+                    authorizationConsumer ?? Authorization,
+                kubernetesTerminalFactory: new PodCampaignFactory(Factory));
         }
+
+        private readonly bool _kubernetes;
 
         public ManualTimeProvider Clock { get; }
 
@@ -2275,12 +2330,14 @@ public sealed class AgentTerminalSessionHostTests
         public static async ValueTask<AgentTerminalHostFixture> CreateAsync(
             ManualTimeProvider? clock = null,
             IAgentAuthorizationConsumer? authorizationConsumer = null,
-            string? excludedCapability = null)
+            string? excludedCapability = null,
+            bool kubernetes = false)
         {
             var fixture = new AgentTerminalHostFixture(
                 clock,
                 authorizationConsumer,
-                excludedCapability);
+                excludedCapability,
+                kubernetes);
             var panel = new PanelInstance(
                 fixture.PanelId,
                 PanelKind.Terminal,
@@ -2319,7 +2376,10 @@ public sealed class AgentTerminalSessionHostTests
                         TabId,
                         PanelId),
                     "test terminal",
-                    new TerminalLaunchRequest("/tmp")),
+                    _kubernetes ? new TerminalLaunchRequest(null, kubernetesTarget: new(
+                        new(new("campaign-cluster"), 1, "Fixture", "/unused/config", "fixture"),
+                        new(new("", "v1", "pods", "fixture", "pod", "uid", "1"), "app", ["/bin/sh"])))
+                        : new TerminalLaunchRequest("/tmp")),
                 HumanContext(),
                 default)).Value();
             var attachment = (await Client.AttachAsync(

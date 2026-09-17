@@ -66,6 +66,10 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
                 {
                     document = document with { PayloadJson = DefinitionJson.Serialize(sanitized) };
                 }
+                if (definition is KubernetesConnectionProfile kubernetes)
+                {
+                    document = document with { PayloadJson = DefinitionJson.Serialize(DetachKubernetesAuthority(kubernetes)) };
+                }
                 documents.Add(definition is BrowserProfileDefinition profile
                     ? SanitizeExportedBrowserProfile(document, profile)
                     : document);
@@ -497,6 +501,16 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
                     "The imported browser profile was disabled and its machine-local credential binding was detached. Web content is never included in a definition bundle.",
                     false));
             }
+            else if (definition is KubernetesConnectionProfile kubernetes)
+            {
+                var detached = DetachKubernetesAuthority(kubernetes);
+                definition = detached;
+                importedDocument = document with { PayloadJson = DefinitionJson.Serialize(detached) };
+                parsed.Issues.Add(new(DefinitionImportIssueCode.ImportedKubernetesProfileDisabled,
+                    detached.Key,
+                    "The imported Kubernetes profile was disabled; managed credentials and executable trust were detached. Review the linked file, explicit context and credential helper before connecting.",
+                    false));
+            }
             else if (definition is NetworkConnectionProfile networkConnection)
             {
                 var detached = DetachImportedNetworkCredentials(networkConnection);
@@ -590,6 +604,11 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
                 authentication,
                 "The imported AI-provider authentication method is not supported."),
         };
+
+    private static KubernetesConnectionProfile DetachKubernetesAuthority(KubernetesConnectionProfile profile) =>
+        new(profile.Id, profile.SchemaVersion, profile.Name, profile.KubeconfigPath, profile.ContextName,
+            profile.DefaultNamespace, profile.TunnelConnectionId, managedKubeconfigSecret: null,
+            isEnabled: false, trustedExecFingerprint: null);
 
     private static NetworkConnectionProfile DetachImportedNetworkCredentials(
         NetworkConnectionProfile profile)

@@ -810,6 +810,9 @@ public sealed partial class SqliteAgentSessionCheckpointStore
             }
         }
 
+        values.TryAdd(AgentCapability.KubernetesData, AgentPermission.Off);
+        values.TryAdd(AgentCapability.KubernetesExec, AgentPermission.Off);
+        values.TryAdd(AgentCapability.KubernetesControl, AgentPermission.Off);
         if (values.Count != AgentPolicy.Capabilities.Length
             || AgentPolicy.Capabilities.Any(capability => !values.ContainsKey(capability)))
         {

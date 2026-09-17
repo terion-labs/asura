@@ -31,6 +31,7 @@ public sealed partial class PanelPlaceholderView : UserControl
     public event EventHandler<RoutedEventArgs>? DatabaseRequested;
 
     public event EventHandler<RoutedEventArgs>? DockerRequested;
+    public event EventHandler<RoutedEventArgs>? KubernetesRequested;
 
     public event EventHandler<RoutedEventArgs>? GitRequested;
 
@@ -80,6 +81,9 @@ public sealed partial class PanelPlaceholderView : UserControl
 
     private void OnChooseDockerClick(object? sender, RoutedEventArgs e) =>
         DockerRequested?.Invoke(sender, e);
+
+    private void OnChooseKubernetesClick(object? sender, RoutedEventArgs e) =>
+        KubernetesRequested?.Invoke(sender, e);
 
     private void OnChooseGitClick(object? sender, RoutedEventArgs e) =>
         GitRequested?.Invoke(sender, e);

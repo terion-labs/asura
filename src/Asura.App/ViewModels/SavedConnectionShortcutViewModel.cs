@@ -27,7 +27,7 @@ public sealed record SavedConnectionShortcutViewModel(
     /// a file provider profile is configured on its own settings page, and
     /// offering to edit it here would open something else entirely.
     /// </summary>
-    public bool CanEdit => Target is PanelConnectionOptionViewModel.Target.Connection;
+    public bool CanEdit => Target is PanelConnectionOptionViewModel.Target.Connection or PanelConnectionOptionViewModel.Target.Kubernetes;
 }
 
 public sealed record SavedConnectionLaunchViewModel(

@@ -386,7 +386,8 @@ public sealed class WorkspaceSettingsViewModel : ObservableObject, IDisposable
             applicationNetworkSettings: snapshot.ApplicationNetworkSettings
                 .SingleOrDefault(item =>
                     item.Value.Id == ApplicationNetworkSettings.DefaultId)?.Value
-                ?? ApplicationNetworkSettings.Default);
+                ?? ApplicationNetworkSettings.Default,
+            kubernetesConnections: [.. snapshot.KubernetesConnections.Select(item => item.Value)]);
         editor.SetPeers([.. snapshot.Workspaces.Select(item => item.Value)]);
         return editor;
     }

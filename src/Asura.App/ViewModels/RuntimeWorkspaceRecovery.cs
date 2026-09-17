@@ -122,8 +122,10 @@ internal static class RuntimeWorkspaceRecoveryCodec
     {
         var kind = panel switch
         {
+            TerminalRuntimePanelViewModel { KubernetesTarget: not null } => RuntimePanelRecoveryKind.Kubernetes,
             TerminalRuntimePanelViewModel => RuntimePanelRecoveryKind.Terminal,
             BrowserRuntimePanelViewModel => RuntimePanelRecoveryKind.Browser,
+            FileRuntimePanelViewModel { KubernetesTarget: not null } => RuntimePanelRecoveryKind.Kubernetes,
             FileRuntimePanelViewModel => RuntimePanelRecoveryKind.FileViewer,
             StatisticsRuntimePanelViewModel => RuntimePanelRecoveryKind.Statistics,
             ProcessMonitorRuntimePanelViewModel => RuntimePanelRecoveryKind.ProcessMonitor,
@@ -131,15 +133,16 @@ internal static class RuntimeWorkspaceRecoveryCodec
                 RuntimePanelRecoveryKind.DatabaseViewer,
             DockerRuntimePanelViewModel => RuntimePanelRecoveryKind.Docker,
             GitRuntimePanelViewModel => RuntimePanelRecoveryKind.Git,
+            KubernetesRuntimePanelViewModel => RuntimePanelRecoveryKind.Kubernetes,
             PanelPlaceholderViewModel => RuntimePanelRecoveryKind.Placeholder,
             _ => RuntimePanelRecoveryKind.Unavailable,
         };
-        var terminal = panel as TerminalRuntimePanelViewModel;
+        var terminal = kind == RuntimePanelRecoveryKind.Terminal ? panel as TerminalRuntimePanelViewModel : null;
         var browser = panel as BrowserRuntimePanelViewModel;
         var database = panel as DatabaseRuntimePanelViewModel;
         var redis = panel as RedisRuntimePanelViewModel;
         var pendingDatabase = panel as PendingDatabaseRecoveryPanelViewModel;
-        var file = panel as FileRuntimePanelViewModel;
+        var file = kind == RuntimePanelRecoveryKind.FileViewer ? panel as FileRuntimePanelViewModel : null;
         var statistics = panel as StatisticsRuntimePanelViewModel;
         var processes = panel as ProcessMonitorRuntimePanelViewModel;
         var docker = panel as DockerRuntimePanelViewModel;
@@ -157,7 +160,7 @@ internal static class RuntimeWorkspaceRecoveryCodec
                 ?? docker?.ConnectionId.Value
                 ?? git?.ConnectionId.Value,
             terminal?.RecoveryStartupLocation
-                ?? browser?.CurrentAddress.ToString()
+                ?? (browser is null ? null : WorkspacePrivateEndpointAddress.ForPersistence(browser.CurrentAddress).ToString())
                 ?? database?.RecoveryTarget
                 ?? redis?.RecoveryTarget
                 ?? pendingDatabase?.Target
@@ -182,7 +185,14 @@ internal static class RuntimeWorkspaceRecoveryCodec
                 : null,
             browser?.ProfileBinding.Definition.Id.Value,
             browser?.ProfileBinding.Selection.Partition.Kind,
-            browser?.ProfileBinding.Selection.Partition.Identity);
+            browser?.ProfileBinding.Selection.Partition.Identity,
+            panel switch
+            {
+                KubernetesRuntimePanelViewModel kubernetes => kubernetes.Target,
+                FileRuntimePanelViewModel { KubernetesTarget: { } target } => new(target.Profile.Id, target.Pod.Namespace),
+                TerminalRuntimePanelViewModel { KubernetesTarget: { } target } => new(target.Profile.Id, target.Request.Pod.Namespace),
+                _ => null,
+            });
     }
 
     private static bool TryValidate(
@@ -463,6 +473,16 @@ internal static class RuntimeWorkspaceRecoveryCodec
                 && panel.FileLocation is null
                 && !panel.ShowHidden
                 && panel.Filter is null,
+            RuntimePanelRecoveryKind.Kubernetes =>
+                panel.KubernetesTarget is null or { IsValid: true }
+                && panel.Multiplexer is null
+                && panel.KindLabel is null
+                && panel.ConnectionId is null
+                && panel.StartupLocation is null
+                && panel.FileProviderProfileId is null
+                && panel.FileLocation is null
+                && !panel.ShowHidden
+                && panel.Filter is null,
             RuntimePanelRecoveryKind.Git =>
                 panel.Multiplexer is null
                 && panel.KindLabel is null
@@ -477,6 +497,7 @@ internal static class RuntimeWorkspaceRecoveryCodec
         if (!IsIdentifier(panel.Key)
             || !IsDisplayText(panel.Title, 256)
             || !validKindData
+            || panel.Kind != RuntimePanelRecoveryKind.Kubernetes && panel.KubernetesTarget is not null
             || panel.Kind != RuntimePanelRecoveryKind.Browser
                 && (panel.BrowserProfileId is not null
                     || panel.BrowserProfileKind is not null
@@ -642,7 +663,10 @@ internal sealed record RuntimeAgentPolicyRecoveryPayload(
         var policy = new AgentPolicy(
             Provider,
             Model,
-            Permissions.ToImmutableDictionary())
+            Permissions.ToImmutableDictionary().SetItem(AgentCapability.KubernetesData,
+                Permissions.GetValueOrDefault(AgentCapability.KubernetesData, AgentPermission.Off))
+                .SetItem(AgentCapability.KubernetesExec, Permissions.GetValueOrDefault(AgentCapability.KubernetesExec, AgentPermission.Off))
+                .SetItem(AgentCapability.KubernetesControl, Permissions.GetValueOrDefault(AgentCapability.KubernetesControl, AgentPermission.Off)))
         {
             CompactionModel = CompactionModel,
             TitleModel = TitleModel,
@@ -650,7 +674,7 @@ internal sealed record RuntimeAgentPolicyRecoveryPayload(
         };
         return policy.IsValidForDurableStorage()
             && (!HasPolicyOverride || Sources.Length > 0)
-            && Permissions.Keys.ToHashSet().SetEquals(AgentPolicy.Capabilities);
+            && policy.Permissions.Keys.ToHashSet().SetEquals(AgentPolicy.Capabilities);
     }
 
     public RuntimeAgentPolicyProvenance ToProvenance()
@@ -665,7 +689,10 @@ internal sealed record RuntimeAgentPolicyRecoveryPayload(
             new AgentPolicy(
                 Provider,
                 Model,
-                Permissions.ToImmutableDictionary())
+                Permissions.ToImmutableDictionary().SetItem(AgentCapability.KubernetesData,
+                Permissions.GetValueOrDefault(AgentCapability.KubernetesData, AgentPermission.Off))
+                .SetItem(AgentCapability.KubernetesExec, Permissions.GetValueOrDefault(AgentCapability.KubernetesExec, AgentPermission.Off))
+                .SetItem(AgentCapability.KubernetesControl, Permissions.GetValueOrDefault(AgentCapability.KubernetesControl, AgentPermission.Off)))
             {
                 CompactionModel = CompactionModel,
                 TitleModel = TitleModel,
@@ -749,6 +776,7 @@ internal enum RuntimePanelRecoveryKind
     DatabaseViewer = 7,
     Docker = 8,
     Git = 9,
+    Kubernetes = 10,
 }
 
 internal sealed record RuntimePanelRecoveryPayload(
@@ -771,7 +799,8 @@ internal sealed record RuntimePanelRecoveryPayload(
     RuntimeTerminalMultiplexerRecoveryPayload? Multiplexer = null,
     string? BrowserProfileId = null,
     BrowserProfileKind? BrowserProfileKind = null,
-    string? BrowserProfileIdentity = null);
+    string? BrowserProfileIdentity = null,
+    KubernetesPanelTarget? KubernetesTarget = null);
 
 internal sealed record RuntimeTerminalMultiplexerRecoveryPayload(
     TerminalMultiplexingMode Mode,

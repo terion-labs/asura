@@ -637,7 +637,13 @@ public sealed class WorkspaceViewContractTests
                 StringComparison.Ordinal) == true)
             .ToArray();
 
-        Assert.Equal(10, runtimeTemplateTypes.Length);
+        Assert.Equal(new[]
+        {
+            "vm:TerminalRuntimePanelViewModel", "vm:BrowserRuntimePanelViewModel", "vm:FileRuntimePanelViewModel",
+            "vm:StatisticsRuntimePanelViewModel", "vm:ProcessMonitorRuntimePanelViewModel", "vm:DatabaseRuntimePanelViewModel",
+            "vm:RedisRuntimePanelViewModel", "vm:KubernetesRuntimePanelViewModel", "vm:DockerRuntimePanelViewModel",
+            "vm:GitRuntimePanelViewModel", "vm:UnavailableRuntimePanelViewModel",
+        }, runtimeTemplateTypes);
 
         var mainWindowCode = ApplicationViews.FindPartialClassSources("MainWindow");
         var focusNavigator = File.ReadAllText(Path.Combine(

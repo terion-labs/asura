@@ -10,6 +10,34 @@ namespace Asura.App.Tests;
 public sealed class TerminalRuntimePanelViewModelTests
 {
     [Fact]
+    public async Task PodTerminalRecoversAsResourceBrowserEvenWhenLaunchNeverCompletes()
+    {
+        var target = new KubernetesTerminalTarget(new(new("cluster"), 1, "Cluster", "/private/config", "private-context"),
+            new(new("", "v1", "pods", "team", "pod", "uid", "1"), "app", ["/bin/sh", "sensitive-command"]));
+        var runtime = new QueueConnectionRuntime(ConnectionRuntimeResult<ConnectionOpenPlan>.Fail(
+            ConnectionRuntimeError.Create(ConnectionRuntimeErrorCode.Cancelled)));
+        using var panel = CreatePanel(runtime, LocalConnection(), PanelStartupBehavior.None, kubernetesTarget: target);
+        await panel.Initialization;
+        Assert.Null(panel.SessionRequest);
+        var tab = new RuntimeTabViewModel(TabInstanceId.New(), "Tab", "test");
+        tab.AddPanel(panel);
+        var workspace = new RuntimeWorkspaceViewModel(WorkspaceInstanceId.New(), "Workspace", "#123456", []);
+        workspace.Tabs.Add(tab);
+        workspace.ActiveTab = tab;
+        var json = RuntimeWorkspaceRecoveryCodec.Serialize(workspace);
+        Assert.True(RuntimeWorkspaceRecoveryCodec.TryDeserialize(new("run", RuntimeWorkspaceRecoveryCodec.SnapshotKey,
+            RuntimeWorkspaceRecoveryCodec.SchemaVersion, json, DateTimeOffset.UnixEpoch), out var recovered, out var error), error);
+        var persisted = Assert.Single(Assert.Single(recovered!.Workspace!.Tabs).Panels);
+        Assert.Equal(RuntimePanelRecoveryKind.Kubernetes, persisted.Kind);
+        Assert.Equal(new KubernetesPanelTarget(target.Profile.Id, "team"), persisted.KubernetesTarget);
+        Assert.Null(persisted.ConnectionId);
+        Assert.Null(persisted.StartupLocation);
+        Assert.DoesNotContain("sensitive-command", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("/private/config", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("private-context", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task SecretBrokerPlanNeverBecomesAnExecutableSessionRequest()
     {
         var connection = SshPasswordConnection();
@@ -1015,7 +1043,8 @@ public sealed class TerminalRuntimePanelViewModelTests
         Func<TimeSpan, CancellationToken, Task>? reconnectDelay = null,
         TerminalKeymapSnapshot? keymap = null,
         TerminalMultiplexerSession? multiplexerSession = null,
-        ISessionHostClient? sessionClient = null)
+        ISessionHostClient? sessionClient = null,
+        KubernetesTerminalTarget? kubernetesTarget = null)
     {
         var panelId = PanelInstanceId.New();
         return new TerminalRuntimePanelViewModel(
@@ -1038,7 +1067,8 @@ public sealed class TerminalRuntimePanelViewModelTests
             security,
             reconnectDelay: reconnectDelay,
             keymap: keymap,
-            multiplexerSession: multiplexerSession);
+            multiplexerSession: multiplexerSession,
+            kubernetesTarget: kubernetesTarget);
     }
 
     private static ConnectionProfile LocalConnection() => new(

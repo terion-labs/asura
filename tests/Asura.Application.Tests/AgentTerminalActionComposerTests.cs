@@ -10,6 +10,36 @@ public sealed class AgentTerminalActionComposerTests
         new(2026, 7, 24, 12, 0, 0, TimeSpan.Zero);
 
     [Theory]
+    [InlineData("")]
+    [InlineData("command-with-secret")]
+    [InlineData("000000000000000000000000000000000000000000000000000000000000000g")]
+    public void PodBindingMetadataAcceptsOnlyBoundedDigest(string fingerprint)
+    {
+        Assert.Throws<ArgumentException>(() => new TerminalSessionMetadata(null, "Pod", null, null,
+            kubernetesBindingFingerprint: fingerprint));
+    }
+
+    [Fact]
+    public void PodTerminalInputUsesSeparateExecAuthorityAndCannotBorrowHostAuthorization()
+    {
+        var composer = new AgentTerminalActionComposer();
+        var hostContext = TerminalContext();
+        var podContext = TerminalContext(terminalMetadata: new(null, "Pod", null, null,
+            kubernetesBindingFingerprint: new string('a', 64)));
+        var request = new AgentTerminalRequest.SendText(Session(), "touch /tmp/marker");
+        var host = composer.Prepare(Envelope(), hostContext, request);
+        var pod = composer.Prepare(Envelope(), podContext, request);
+        Assert.Equal(BuiltInAgentTools.KubernetesTerminalSendText, pod.Proposal.ToolName);
+        Assert.True(BuiltInAgentTools.Catalog.TryGet(pod.Proposal.ToolName, out var tool));
+        Assert.Equal(AgentCapability.KubernetesExec, tool!.Capability);
+        Assert.NotEqual(host.Proposal.ArgumentDigest, pod.Proposal.ArgumentDigest);
+        Assert.NotEqual(hostContext.BindingFingerprint, podContext.BindingFingerprint);
+        Assert.Throws<InvalidOperationException>(() => composer.BindForExecution(host, podContext));
+        Assert.Equal(BuiltInAgentTools.TerminalReadScreen,
+            composer.Prepare(Envelope(), podContext, new AgentTerminalRequest.ReadScreen(Session())).Proposal.ToolName);
+    }
+
+    [Theory]
     [InlineData(TerminalOperation.ReadScreen, BuiltInAgentTools.TerminalReadScreen)]
     [InlineData(TerminalOperation.ReadScreenDiff, BuiltInAgentTools.TerminalReadScreenDiff)]
     [InlineData(TerminalOperation.FindOnScreen, BuiltInAgentTools.TerminalFindOnScreen)]

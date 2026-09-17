@@ -11,4 +11,5 @@ public enum SecretScopeKind
     DatabaseConnection,
     NetworkConnection,
     DatabaseRecovery,
+    KubernetesConnection,
 }

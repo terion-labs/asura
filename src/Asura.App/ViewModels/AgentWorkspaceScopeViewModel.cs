@@ -472,9 +472,10 @@ public sealed class AgentWorkspaceScopeViewModel : ObservableObject, IDisposable
     private static bool IsAgentCapablePanel(RuntimePanelViewModel panel) =>
         panel is TerminalRuntimePanelViewModel
             or BrowserRuntimePanelViewModel
-            or FileRuntimePanelViewModel
+            or FileRuntimePanelViewModel { KubernetesTarget: null }
             or StatisticsRuntimePanelViewModel
-            or ProcessMonitorRuntimePanelViewModel { HasHostedSession: true };
+            or ProcessMonitorRuntimePanelViewModel { HasHostedSession: true }
+            or KubernetesRuntimePanelViewModel { HasHostedSession: true };
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 }

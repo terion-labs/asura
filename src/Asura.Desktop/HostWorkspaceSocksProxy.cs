@@ -10,11 +10,13 @@ namespace Asura.Desktop;
 
 internal sealed class HostWorkspaceSocksProxy :
     IWorkspaceNetworkEgressSink,
+    IWorkspacePrivateEndpointRegistrar,
     IWorkspaceNetworkConnector,
     IAsyncDisposable
 {
     private readonly ConcurrentDictionary<long, Task> _connections = new();
     private readonly object _egressGate = new();
+    private readonly WorkspacePrivateEndpoints _privateEndpoints = new();
     private readonly CancellationTokenSource _lifetime = new();
     private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
     private readonly Task _acceptLoop;
@@ -59,6 +61,20 @@ internal sealed class HostWorkspaceSocksProxy :
             ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
             return new WorkspaceNetworkRouteSnapshot(
                 LocalProxyEndpoint, _egress, _routeCredentials, _routeLifetime.Token);
+        }
+    }
+
+    public IWorkspacePrivateEndpointLease RegisterLoopbackEndpoint(int localPort, CancellationToken expectedRouteLifetime)
+    {
+        lock (_egressGate)
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+            if (_egress == WorkspaceNetworkEgress.Blocked) { throw new WorkspaceNetworkBlockedException(); }
+            if (expectedRouteLifetime != _routeLifetime.Token || expectedRouteLifetime.IsCancellationRequested)
+            {
+                throw new InvalidOperationException("The workspace route changed while opening the private endpoint.");
+            }
+            return _privateEndpoints.Register(localPort, expectedRouteLifetime, _lifetime.Token);
         }
     }
 
@@ -272,6 +288,11 @@ internal sealed class HostWorkspaceSocksProxy :
                         2,
                         cancellationToken)
                     .ConfigureAwait(false);
+                return;
+            }
+
+            if (await _privateEndpoints.TryServeAsync(downstream, request.Value, route.CancellationToken, cancellationToken).ConfigureAwait(false))
+            {
                 return;
             }
 

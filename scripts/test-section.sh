@@ -44,6 +44,7 @@ services_projects=(
     "tests/Asura.Files.Tests/Asura.Files.Tests.csproj"
     "tests/Asura.Git.Tests/Asura.Git.Tests.csproj"
     "tests/Asura.Infrastructure.Tests/Asura.Infrastructure.Tests.csproj"
+    "tests/Asura.Kubernetes.Tests/Asura.Kubernetes.Tests.csproj"
     "tests/Asura.Monitoring.Tests/Asura.Monitoring.Tests.csproj"
     "tests/Asura.Previews.Tests/Asura.Previews.Tests.csproj"
     "tests/Asura.SshNet.Tests/Asura.SshNet.Tests.csproj"

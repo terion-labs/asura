@@ -10,4 +10,5 @@ public enum ScreenPanelKind
     DatabaseViewer = 6,
     Docker = 7,
     Git = 8,
+    Kubernetes = 9,
 }

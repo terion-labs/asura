@@ -56,6 +56,7 @@ public sealed class SecretScopeAccessPolicy : ISecretAccessPolicy
         SecretUseKind.FileProviderAuthentication => SecretScopeKind.FileProvider,
         SecretUseKind.DatabaseConnectionAuthentication => SecretScopeKind.DatabaseConnection,
         SecretUseKind.NetworkConnectionAuthentication => SecretScopeKind.NetworkConnection,
+        SecretUseKind.KubernetesConnectionAuthentication => SecretScopeKind.KubernetesConnection,
         SecretUseKind.DatabaseRecovery => SecretScopeKind.DatabaseRecovery,
         _ => null,
     };

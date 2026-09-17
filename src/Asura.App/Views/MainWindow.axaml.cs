@@ -915,6 +915,7 @@ public sealed partial class MainWindow : Window
                 ViewModel.LaunchFileProviderAsync(
                     new FileProviderProfileId(connection.TargetId),
                     token)),
+            SavedConnectionFamily.Kubernetes => LaunchTargetAsync(token => ViewModel.LaunchSavedKubernetesAsync(new KubernetesConnectionProfileId(connection.TargetId), token)),
             SavedConnectionFamily.Database => LaunchTargetAsync(token =>
                 ViewModel.LaunchSavedDatabaseAsync(
                     new DatabaseConnectionProfileId(connection.TargetId),
@@ -1022,7 +1023,9 @@ public sealed partial class MainWindow : Window
         SavedConnectionShortcutViewModel shortcut) =>
         shortcut.Target is PanelConnectionOptionViewModel.Target.Connection target
             ? ViewModel.Connections.FirstOrDefault(item => item.Id == target.Id)
-            : null;
+            : shortcut.Target is PanelConnectionOptionViewModel.Target.Kubernetes kubernetes
+                ? ViewModel.Launcher.KubernetesConnections.FirstOrDefault(item => string.Equals(item.TargetId, kubernetes.Id.Value, StringComparison.Ordinal))
+                : null;
 
     private async void OnEditSavedConnectionRequested(
         object? sender,
@@ -1060,6 +1063,7 @@ public sealed partial class MainWindow : Window
         {
             SavedConnectionFamily.Files => "file connection",
             SavedConnectionFamily.Database => "database connection",
+            SavedConnectionFamily.Kubernetes => "Kubernetes connection",
             _ => "connection",
         };
         var confirmed = await Confirmations.DefinitionDelete(noun, connection.Name)
@@ -1073,6 +1077,7 @@ public sealed partial class MainWindow : Window
         {
             SavedConnectionFamily.Files => FileProviderProfile.Kind,
             SavedConnectionFamily.Database => DatabaseConnectionProfile.Kind,
+            SavedConnectionFamily.Kubernetes => KubernetesConnectionProfile.Kind,
             _ => ConnectionProfile.Kind,
         };
         _ = await ViewModel.DeleteAsync(
@@ -1098,6 +1103,8 @@ public sealed partial class MainWindow : Window
                     SavedConnectionFamily.Files,
                     fileProfileId: new FileProviderProfileId(existing.TargetId),
                     initialFamily: SavedConnectionFamily.Files),
+                SavedConnectionFamily.Kubernetes => ViewModel.CreateUnifiedConnectionEditor(SavedConnectionFamily.Kubernetes,
+                    kubernetesProfileId: new KubernetesConnectionProfileId(existing.TargetId), initialFamily: SavedConnectionFamily.Kubernetes),
                 SavedConnectionFamily.Database => ViewModel.CreateUnifiedConnectionEditor(
                     SavedConnectionFamily.Database,
                     databaseProfileId: new DatabaseConnectionProfileId(existing.TargetId),
@@ -1153,6 +1160,9 @@ public sealed partial class MainWindow : Window
                 break;
             case UnifiedConnectionEditorResult.Files files:
                 _ = await ViewModel.SaveFileProviderProfileAsync(files.Request, _lifetime.Token);
+                break;
+            case UnifiedConnectionEditorResult.Kubernetes kubernetes:
+                _ = await ViewModel.SaveKubernetesConnectionAsync(kubernetes.Profile, kubernetes.ExistingId, _lifetime.Token);
                 break;
             case UnifiedConnectionEditorResult.Database database:
                 _ = await ViewModel.SaveDatabaseConnectionAsync(
@@ -1754,6 +1764,9 @@ public sealed partial class MainWindow : Window
             case LauncherSearchTarget.Connection connection:
                 await LaunchConnectionTargetAsync(connection.Id);
                 break;
+            case LauncherSearchTarget.KubernetesConnection kubernetes:
+                await LaunchTargetAsync(token => ViewModel.LaunchSavedKubernetesAsync(kubernetes.Id, token));
+                break;
             case LauncherSearchTarget.FileConnection fileConnection:
                 await LaunchTargetAsync(token =>
                     ViewModel.LaunchFileProviderAsync(fileConnection.Id, token));
@@ -1807,6 +1820,9 @@ public sealed partial class MainWindow : Window
                 break;
             case PanelKind.DatabaseViewer:
                 await RequestNewDatabaseAsync();
+                break;
+            case PanelKind.Kubernetes:
+                await RequestNewKubernetesAsync();
                 break;
             case PanelKind.Docker:
                 await RequestNewDockerAsync();

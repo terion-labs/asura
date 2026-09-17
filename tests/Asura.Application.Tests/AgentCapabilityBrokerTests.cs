@@ -7,6 +7,36 @@ public sealed class AgentCapabilityBrokerTests
     private static readonly DateTimeOffset Now =
         new(2026, 7, 23, 12, 0, 0, TimeSpan.Zero);
 
+    [Fact]
+    public async Task KubernetesReadAndExecPermissionsDoNotAuthorizeMutations()
+    {
+        var policy = AgentPolicy.Default with
+        {
+            Permissions = AgentPolicy.InitialPermissions
+                .SetItem(AgentCapability.KubernetesData, AgentPermission.Auto)
+                .SetItem(AgentCapability.KubernetesExec, AgentPermission.Auto),
+        };
+        await using var broker = await CreateRegisteredBrokerAsync(new RecordingAuditStore(), policy);
+        Assert.IsType<AgentAuthorizationResult.Denied>(await broker.RequestAsync(
+            Proposal(BuiltInAgentTools.KubernetesPreview), CancellationToken.None));
+        Assert.IsType<AgentAuthorizationResult.Denied>(await broker.RequestAsync(
+            Proposal(BuiltInAgentTools.KubernetesCommit), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task HostCommandPermissionDoesNotAuthorizePodTerminalInput()
+    {
+        var policy = AgentPolicy.Default with
+        {
+            Permissions = AgentPolicy.InitialPermissions.SetItem(AgentCapability.RunCommands, AgentPermission.Auto),
+        };
+        await using var broker = await CreateRegisteredBrokerAsync(new RecordingAuditStore(), policy);
+        Assert.IsType<AgentAuthorizationResult.ApprovalRequired>(await broker.RequestAsync(
+            Proposal(BuiltInAgentTools.TerminalSendText), CancellationToken.None));
+        Assert.IsType<AgentAuthorizationResult.Denied>(await broker.RequestAsync(
+            Proposal(BuiltInAgentTools.KubernetesTerminalSendText), CancellationToken.None));
+    }
+
     [Theory]
     [InlineData(AgentPermission.Ask)]
     [InlineData(AgentPermission.Auto)]

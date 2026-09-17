@@ -14,7 +14,8 @@ public sealed record TerminalSessionMetadata
         string connectionBoundary,
         string? initialWorkingDirectory,
         string? currentWorkingDirectory,
-        TerminalMultiplexerSession? multiplexerSession = null)
+        TerminalMultiplexerSession? multiplexerSession = null,
+        string? kubernetesBindingFingerprint = null)
     {
         TerminalConnectionMetadata.ValidateConnectionId(
             connectionId,
@@ -29,6 +30,12 @@ public sealed record TerminalSessionMetadata
             currentWorkingDirectory,
             nameof(currentWorkingDirectory));
         MultiplexerSession = multiplexerSession;
+        if (kubernetesBindingFingerprint is not null
+            && (kubernetesBindingFingerprint.Length != 64 || !kubernetesBindingFingerprint.All(char.IsAsciiHexDigit)))
+        {
+            throw new ArgumentException("A Kubernetes terminal binding fingerprint must be a SHA-256 hex digest.", nameof(kubernetesBindingFingerprint));
+        }
+        KubernetesBindingFingerprint = kubernetesBindingFingerprint;
     }
 
     public ConnectionId? ConnectionId { get; }
@@ -41,13 +48,16 @@ public sealed record TerminalSessionMetadata
 
     public TerminalMultiplexerSession? MultiplexerSession { get; }
 
+    public string? KubernetesBindingFingerprint { get; }
+
     public TerminalSessionMetadata WithCurrentWorkingDirectory(string workingDirectory) =>
         new(
             ConnectionId,
             ConnectionBoundary,
             InitialWorkingDirectory,
             workingDirectory,
-            MultiplexerSession);
+            MultiplexerSession,
+            KubernetesBindingFingerprint);
 
     public static TerminalSessionMetadata FromLaunch(TerminalLaunchRequest launch)
     {
@@ -66,7 +76,8 @@ public sealed record TerminalSessionMetadata
                 boundary,
                 initialWorkingDirectory,
                 initialWorkingDirectory,
-                launch.MultiplexerSession);
+                launch.MultiplexerSession,
+                launch.KubernetesTarget?.BindingFingerprint);
         }
         catch (ArgumentException) when (connection is null)
         {
@@ -77,7 +88,8 @@ public sealed record TerminalSessionMetadata
                 boundary,
                 initialWorkingDirectory: null,
                 currentWorkingDirectory: null,
-                launch.MultiplexerSession);
+                launch.MultiplexerSession,
+                launch.KubernetesTarget?.BindingFingerprint);
         }
     }
 }

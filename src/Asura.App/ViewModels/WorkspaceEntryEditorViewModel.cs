@@ -190,7 +190,8 @@ public sealed class WorkspaceEntryEditorViewModel : ObservableObject, IDisposabl
         IReadOnlyList<ScreenConnectionOption> connectionOptions,
         IReadOnlyList<WorkspaceScreenOption> screenOptions,
         IReadOnlyList<WorkspaceLayoutOption> layoutOptions,
-        IReadOnlyList<ScreenFileProviderOption> fileProviderOptions)
+        IReadOnlyList<ScreenFileProviderOption> fileProviderOptions,
+        IReadOnlyList<ScreenKubernetesOption>? kubernetesOptions = null)
     {
         ArgumentNullException.ThrowIfNull(entry);
         return entry switch
@@ -216,7 +217,7 @@ public sealed class WorkspaceEntryEditorViewModel : ObservableObject, IDisposabl
                     tab,
                     layoutOptions,
                     connectionOptions,
-                    fileProviderOptions)),
+                    fileProviderOptions, kubernetesOptions)),
             _ => throw new ArgumentOutOfRangeException(nameof(entry), entry, "Unknown workspace entry type."),
         };
     }

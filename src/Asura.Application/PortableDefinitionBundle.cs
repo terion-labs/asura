@@ -43,6 +43,7 @@ public enum DefinitionImportIssueCode
     ImportedNetworkCredentialsDetached,
     ImportedNetworkPolicyDisabled,
     ImportedDatabaseRecoveryDetached,
+    ImportedKubernetesProfileDisabled,
 }
 
 public sealed record DefinitionImportIssue(

@@ -27,5 +27,7 @@ public sealed record PanelConnectionOptionViewModel(
         public sealed record FileProvider(FileProviderProfileId Id) : Target;
 
         public sealed record Database(DatabaseConnectionProfileId Id) : Target;
+
+        public sealed record Kubernetes(KubernetesConnectionProfileId Id) : Target;
     }
 }

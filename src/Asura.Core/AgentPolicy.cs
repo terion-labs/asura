@@ -96,6 +96,15 @@ public enum AgentCapability
     /// mutation authority.
     /// </summary>
     GitData,
+
+    /// <summary>Bounded Kubernetes discovery, resource and log observations.</summary>
+    KubernetesData,
+
+    /// <summary>Input and control of explicitly opened Kubernetes pod terminals.</summary>
+    KubernetesExec,
+
+    /// <summary>Preview and explicitly commit exact Kubernetes resource changes.</summary>
+    KubernetesControl,
 }
 
 public enum AgentPermission
@@ -118,6 +127,18 @@ public sealed record AgentPolicy(
     string Model,
     ImmutableDictionary<AgentCapability, AgentPermission> Permissions)
 {
+    /// <summary>Upgrades pre-Kubernetes policy records without granting new authority.</summary>
+    public AgentPolicy WithMissingKubernetesPermissionsOff()
+    {
+        if (Permissions is null) { return this; }
+        var permissions = Permissions;
+        foreach (var capability in new[] { AgentCapability.KubernetesData, AgentCapability.KubernetesExec, AgentCapability.KubernetesControl })
+        {
+            if (!permissions.ContainsKey(capability)) { permissions = permissions.Add(capability, AgentPermission.Off); }
+        }
+        return this with { Permissions = permissions };
+    }
+
     public const int MaximumSystemPromptLength = 8_000;
     public const int MaximumProviderLength = 256;
     public const int MaximumModelLength = 256;
@@ -154,6 +175,9 @@ public sealed record AgentPolicy(
             [AgentCapability.ArtifactTransfer] = AgentPermission.Off,
             [AgentCapability.WorkspaceLayout] = AgentPermission.Ask,
             [AgentCapability.GitData] = AgentPermission.Off,
+            [AgentCapability.KubernetesData] = AgentPermission.Off,
+            [AgentCapability.KubernetesExec] = AgentPermission.Off,
+            [AgentCapability.KubernetesControl] = AgentPermission.Off,
         }.ToImmutableDictionary();
 
     public static AgentPolicy Default { get; } = new(

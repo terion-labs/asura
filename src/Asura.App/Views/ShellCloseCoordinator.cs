@@ -82,7 +82,14 @@ internal sealed class ShellCloseCoordinator(
     public async Task<bool> ConfirmDiscardDatabaseChangesAsync(
         IEnumerable<RuntimePanelViewModel> panels)
     {
-        var dirtyPanels = panels
+        var candidates = panels.ToArray();
+        var kubernetes = candidates.OfType<KubernetesRuntimePanelViewModel>().Where(panel => panel.HasUnsavedChanges).ToArray();
+        if (kubernetes.Length > 0 && !await _presentation.ConfirmDiscardAsync("Discard Kubernetes manifest edits?",
+                $"Unsaved manifest edits in {kubernetes.Length} Kubernetes panels will be lost."))
+        {
+            return false;
+        }
+        var dirtyPanels = candidates
             .OfType<DatabaseRuntimePanelViewModel>()
             .Where(panel => panel.HasPendingChanges)
             .ToArray();

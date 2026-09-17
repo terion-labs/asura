@@ -109,6 +109,15 @@ public static class ScreenValidator
                 panel.Id.Value));
         }
 
+        if (panel.Kind == ScreenPanelKind.Kubernetes
+            ? panel.KubernetesTarget is not { IsValid: true } || panel.ConnectionId is not null
+            : panel.KubernetesTarget is not null)
+        {
+            issues.Add(new(DefinitionValidationCode.InvalidPanel,
+                "Only Kubernetes panels can bind a Kubernetes target, and they require a valid target without a shell connection.",
+                panel.Id.Value));
+        }
+
         if (panel.Startup is null)
         {
             issues.Add(new(

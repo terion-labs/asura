@@ -362,9 +362,12 @@ public sealed partial class RepositoryConventionTests
             expectedRows,
             noticeLines[(tableStart + 2)..tableEnd],
             StringComparer.Ordinal);
-        Assert.Equal(116, expectedRows.Length);
-        Assert.Equal(114, catalog.RootElement.GetProperty("dependencies").EnumerateArray()
+        Assert.Equal(119, expectedRows.Length);
+        Assert.Equal(117, catalog.RootElement.GetProperty("dependencies").EnumerateArray()
             .Count(component => string.Equals(component.GetProperty("kind").GetString(), "nuget", StringComparison.Ordinal)));
+        Assert.Contains("| `Fractions` | `7.3.0` | NOASSERTION (nuspec file: `license.txt`) |", expectedRows, StringComparer.Ordinal);
+        Assert.Contains("| `KubernetesClient.Aot` | `19.0.2` | Apache-2.0 |", expectedRows, StringComparer.Ordinal);
+        Assert.Contains("| `YamlDotNet` | `16.3.0` | MIT |", expectedRows, StringComparer.Ordinal);
         Assert.Equal(0, catalog.RootElement.GetProperty("dependencies").EnumerateArray()
             .Count(component => component.TryGetProperty("vendorSource", out _)));
         Assert.Contains(expectedRows, row => row.Contains("DuckDB.NET.Bindings.Full` | `1.5.5` | MIT", StringComparison.Ordinal));
