@@ -1,6 +1,6 @@
 # Kubernetes dependency approval change
 
-The Kubernetes panel adds the following managed runtime dependencies. Existing licensing exceptions and native dependencies remain as previously recorded. The current owner approval records bind the previous file hashes; the proposed refresh covers only the dependency additions and first-party Kubernetes module below. No publication is performed by updating these records.
+The Kubernetes panel adds the following managed runtime dependencies. Existing licensing exceptions and native dependencies remain as previously recorded. The owner approval refresh covers only the dependency additions and first-party Kubernetes module below. No publication is performed by updating these records.
 
 | Component | Version | License |
 | --- | --- | --- |
@@ -11,7 +11,7 @@ The Kubernetes panel adds the following managed runtime dependencies. Existing l
 
 The new SDK analyzer/source generator is a build dependency and is absent from the runtime catalogs. NuGet lock files also record build-time packages. Package archive hashes, license documents and provenance are in the three managed component catalogs.
 
-The approval refresh would update `reviewedAtUtc` and the changed evidence hashes in `licenses/macos-release-legal.json`, `licenses/workspace-backend-release-legal.json`, and `licenses/workspace-backend-x64-release-legal.json`, retaining the recorded engineering-evidence basis and previous unrelated dispositions.
+The approval refresh updates `reviewedAtUtc` and the changed evidence hashes in `licenses/macos-release-legal.json`, `licenses/workspace-backend-release-legal.json`, and `licenses/workspace-backend-x64-release-legal.json`, retaining the recorded engineering-evidence basis and previous unrelated dispositions.
 
 | Changed approval input | Current SHA-256 |
 | --- | --- |
@@ -22,4 +22,4 @@ The approval refresh would update `reviewedAtUtc` and the changed evidence hashe
 | [src/Asura.Backend/packages.linux-arm64.lock.json](../src/Asura.Backend/packages.linux-arm64.lock.json) | `22176a0c2a485881283726a60ab189a4b0853c2faf0aa88bf2f92f6b81d1101f` |
 | [src/Asura.Backend/packages.linux-x64.lock.json](../src/Asura.Backend/packages.linux-x64.lock.json) | `93ad831e20f53ffe4df69e413766e98f5113584ab3ed1db7c41f70c50ec6b48e` |
 
-Approval has not yet been recorded for these changed inputs. The implementation and test results are in [Kubernetes panel testing](kubernetes-panel-testing.md).
+The macOS evidence was re-accepted in commit `8e314c51`. On 2026-09-18 the owner requested publication; the Linux ARM64 and x64 records now bind that release authorization to the changed inputs above, retaining the existing engineering-evidence basis. The implementation and test results are in [Kubernetes panel testing](kubernetes-panel-testing.md).
