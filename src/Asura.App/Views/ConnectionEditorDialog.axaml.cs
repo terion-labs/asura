@@ -1,5 +1,6 @@
 using Asura.App.Controls;
 using Asura.App.ViewModels;
+using Asura.Application;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
@@ -151,6 +152,58 @@ public sealed partial class ConnectionEditorDialog : Window
         if (confirmed)
         {
             await files.TrustHostKeyAsync(review.Id, _lifetime.Token);
+        }
+    }
+
+    private async void OnAddCredentialClick(object? sender, RoutedEventArgs e)
+    {
+        var kind = ViewModel.Terminal.Authentication == ConnectionAuthenticationChoice.PrivateKey
+            ? SecretKind.PrivateKey : SecretKind.Password;
+        var credential = await CreateSecretAsync(kind,
+            new SecretScope(SecretScopeKind.Connection, ViewModel.Terminal.Id.Value));
+        if (credential is not null)
+        {
+            ViewModel.Terminal.SecretReference = credential.Reference.Value;
+        }
+    }
+
+    private async void OnAddPassphraseClick(object? sender, RoutedEventArgs e)
+    {
+        var credential = await CreateSecretAsync(SecretKind.Passphrase,
+            new SecretScope(SecretScopeKind.Connection, ViewModel.Terminal.Id.Value));
+        if (credential is not null)
+        {
+            ViewModel.Terminal.PassphraseSecretReference = credential.Reference.Value;
+        }
+    }
+
+    private async void OnAddFileCredentialClick(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel.Files is not { } files)
+        {
+            return;
+        }
+
+        var credential = await CreateSecretAsync(files.IsS3 ? SecretKind.Other : SecretKind.Password,
+            new SecretScope(SecretScopeKind.FileProvider, files.ProfileId));
+        if (credential is not null)
+        {
+            files.SelectCreatedCredential(credential);
+        }
+    }
+
+    private async Task<SecretMetadata?> CreateSecretAsync(SecretKind kind, SecretScope scope)
+    {
+        HideValidationError();
+        try
+        {
+            return await new ConnectionSecretEditorDialog(ViewModel.CreateSecretEditor(kind, scope))
+                .ShowDialog<SecretMetadata?>(this);
+        }
+        catch (InvalidOperationException exception)
+        {
+            ShowValidationError(exception.Message);
+            return null;
         }
     }
 

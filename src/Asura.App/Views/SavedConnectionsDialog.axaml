@@ -1,0 +1,33 @@
+<Window
+    x:Class="Asura.App.Views.SavedConnectionsDialog"
+    x:DataType="vm:LauncherViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:controls="using:Asura.App.Controls"
+    Width="760" Height="650" MinWidth="600" MinHeight="400"
+    ShowInTaskbar="False" WindowStartupLocation="CenterOwner" Title="Saved connections">
+  <controls:DialogShell Title="Saved connections" Subtitle="Browse and edit your terminal, file, database, and Kubernetes connections."
+      ShowsClose="True" CloseRequested="OnCloseClick">
+    <controls:DialogShell.Footer>
+      <Button Classes="PrimaryButton" Click="OnAddClick" Content="Add connection" />
+    </controls:DialogShell.Footer>
+    <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
+      <TextBox Text="{Binding ConnectionSearchQuery}" PlaceholderText="Search connections…" AutomationProperties.Name="Search saved connections" />
+      <TextBlock Classes="Muted" Text="{Binding TotalConnectionCount, StringFormat={}{0} saved connections}" />
+      <TextBlock Classes="Muted" Text="No connections match your search." IsVisible="{Binding HasNoFilteredConnections}" />
+      <ItemsControl ItemsSource="{Binding FilteredConnections}" Classes="StretchItems">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}" Margin="{controls:Inset Vertical=Sm}">
+              <controls:ListItem Title="{Binding Name}" Detail="{Binding Detail}">
+                <controls:ListItem.Trailing><TextBlock Text="{Binding Kind}" /></controls:ListItem.Trailing>
+              </controls:ListItem>
+              <Button Grid.Column="1" Classes="SecondaryButton" Click="OnEditClick" Content="Edit…" AutomationProperties.Name="{Binding Name, StringFormat=Edit {0}}" />
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </controls:DialogShell>
+</Window>

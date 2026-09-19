@@ -22,6 +22,7 @@ public sealed partial class LauncherView : UserControl
     }
 
     public event EventHandler<RoutedEventArgs>? AddConnectionRequested;
+    public event EventHandler<RoutedEventArgs>? ManageConnectionsRequested;
     public event EventHandler<RoutedEventArgs>? CloseRequested;
     public event EventHandler<RoutedEventArgs>? NewBrowserRequested;
     public event EventHandler<RoutedEventArgs>? NewDatabaseRequested;
@@ -58,6 +59,9 @@ public sealed partial class LauncherView : UserControl
 
     internal void FocusInitialAction() =>
         NewTerminalButton.Focus(NavigationMethod.Tab);
+
+    private void OnManageConnectionsClick(object? sender, RoutedEventArgs e) =>
+        ManageConnectionsRequested?.Invoke(sender, e);
 
     private void OnAddConnectionClick(object? sender, RoutedEventArgs e) =>
         AddConnectionRequested?.Invoke(sender, e);

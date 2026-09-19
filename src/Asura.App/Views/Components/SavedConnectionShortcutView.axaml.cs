@@ -34,6 +34,7 @@ public sealed partial class SavedConnectionShortcutView : UserControl
         _ = e;
         if (DataContext is SavedConnectionShortcutViewModel shortcut)
         {
+            ShortcutMenuButton.Flyout?.IsOpen = false;
             EditRequested?.Invoke(this, shortcut);
         }
     }
@@ -44,6 +45,7 @@ public sealed partial class SavedConnectionShortcutView : UserControl
         _ = e;
         if (DataContext is SavedConnectionShortcutViewModel shortcut)
         {
+            ShortcutMenuButton.Flyout?.IsOpen = false;
             DeleteRequested?.Invoke(this, shortcut);
         }
     }

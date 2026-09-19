@@ -139,6 +139,8 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         LoadAuthentication(existing.Authentication);
     }
 
+    public ConnectionId Id => _id;
+
     public long? ExpectedRevision { get; }
 
     public bool IsEditing => ExpectedRevision is not null;

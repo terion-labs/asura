@@ -15,7 +15,7 @@
     WindowStartupLocation="CenterOwner">
   <controls:DialogShell
       Title="{Binding EditorTitle}"
-      Subtitle="Profiles store secret references, never secret values."
+      Subtitle="Configure the connection and its credentials."
       Chrome="Editor"
       ShowsClose="True"
       CloseRequested="OnCancelClick"
@@ -94,12 +94,18 @@
                 </Grid>
                 <controls:LabeledField
                     Label="Credential secret reference"
-                    Hint="Diagnostics authenticate inside the secure adapter boundary. A terminal claims the stored credential through a one-use, lifetime-bound helper when it starts."
+                    Hint="Use a saved credential ID or add a new credential to the vault."
                     IsVisible="{Binding UsesSecretReference}">
-                  <TextBox Text="{Binding SecretReference}" PlaceholderText="Saved credential ID" />
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                    <TextBox Text="{Binding SecretReference}" PlaceholderText="Saved credential ID" />
+                    <Button Grid.Column="1" Classes="SecondaryButton" Click="OnAddCredentialClick" Content="Add new…" AutomationProperties.Name="Add connection credential" />
+                  </Grid>
                 </controls:LabeledField>
                 <controls:LabeledField Label="Passphrase secret reference (optional)" IsVisible="{Binding UsesPassphraseReference}">
-                  <TextBox Text="{Binding PassphraseSecretReference}" />
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                    <TextBox Text="{Binding PassphraseSecretReference}" PlaceholderText="Saved passphrase ID" />
+                    <Button Grid.Column="1" Classes="SecondaryButton" Click="OnAddPassphraseClick" Content="Add new…" AutomationProperties.Name="Add private key passphrase" />
+                  </Grid>
                 </controls:LabeledField>
               </StackPanel>
             </StackPanel>
@@ -316,7 +322,10 @@
           <controls:SurfaceCard IsVisible="{Binding UsesProviderCredential}">
             <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
               <TextBlock Classes="SectionHeading" Text="OS-vault credential" />
-              <ComboBox ItemsSource="{Binding SecretOptions}" SelectedItem="{Binding SelectedCredential}"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding SecretOptions}" SelectedItem="{Binding SelectedCredential}"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+                <Button Grid.Column="1" Classes="SecondaryButton" Click="OnAddFileCredentialClick" Content="Add new…" AutomationProperties.Name="Add file connection credential" />
+              </Grid>
               <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="Choose a credential saved for this connection. S3 credentials use JSON fields accessKeyId, secretAccessKey, and optional sessionToken." TextWrapping="Wrap" />
             </StackPanel>
           </controls:SurfaceCard>

@@ -8,6 +8,29 @@ namespace Asura.App.Tests;
 public sealed class LauncherViewModelTests
 {
     [Fact]
+    public void Connection_manager_lists_every_family_and_searches_unavailable_connections()
+    {
+        using var launcher = new LauncherViewModel(() => []);
+        var terminals = Enumerable.Range(0, 12)
+            .Select(index => Connection($"Terminal {index}", SavedConnectionFamily.Terminal)).ToArray();
+        var files = Connection("Unavailable files", SavedConnectionFamily.Files) with { CanOpen = false, Detail = "storage.example" };
+        var database = Connection("Database", SavedConnectionFamily.Database);
+        var kubernetes = Connection("Cluster", SavedConnectionFamily.Kubernetes);
+        launcher.ApplyCatalog([], terminals, [files], [database], [], [kubernetes]);
+        Assert.Equal(15, launcher.FilteredConnections.Count);
+        Assert.Equal(8, launcher.ConnectionsPreview.Count);
+        launcher.ConnectionSearchQuery = " STORAGE.example ";
+        Assert.Same(files, Assert.Single(launcher.FilteredConnections));
+        launcher.ConnectionSearchQuery = "Database";
+        Assert.Same(database, Assert.Single(launcher.FilteredConnections));
+        launcher.ConnectionSearchQuery = "missing";
+        Assert.Empty(launcher.FilteredConnections);
+        launcher.ConnectionSearchQuery = string.Empty;
+        launcher.ApplyCatalog([], terminals, [], [], [], []);
+        Assert.Equal(12, launcher.FilteredConnections.Count);
+    }
+
+    [Fact]
     public void Catalog_projection_owns_sorted_bounded_previews_and_derived_state()
     {
         using var launcher = new LauncherViewModel(() => []);

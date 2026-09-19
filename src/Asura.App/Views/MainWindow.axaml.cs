@@ -1005,6 +1005,14 @@ public sealed partial class MainWindow : Window
         await ShowConnectionEditorAsync(null);
     }
 
+    private async void OnManageConnectionsClick(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new SavedConnectionsDialog { DataContext = ViewModel.Launcher };
+        dialog.EditRequested += async (_, connection) => await ShowConnectionEditorAsync(connection, dialog);
+        dialog.AddRequested += async (_, _) => await ShowConnectionEditorAsync(null, dialog);
+        await dialog.ShowDialog(this);
+    }
+
     private async void OnEditConnectionClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
@@ -1021,11 +1029,18 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private LauncherConnectionViewModel? FindSavedConnection(
         SavedConnectionShortcutViewModel shortcut) =>
-        shortcut.Target is PanelConnectionOptionViewModel.Target.Connection target
-            ? ViewModel.Connections.FirstOrDefault(item => item.Id == target.Id)
-            : shortcut.Target is PanelConnectionOptionViewModel.Target.Kubernetes kubernetes
-                ? ViewModel.Launcher.KubernetesConnections.FirstOrDefault(item => string.Equals(item.TargetId, kubernetes.Id.Value, StringComparison.Ordinal))
-                : null;
+        shortcut.Target switch
+        {
+            PanelConnectionOptionViewModel.Target.Connection target =>
+                ViewModel.Connections.FirstOrDefault(item => item.Id == target.Id),
+            PanelConnectionOptionViewModel.Target.FileProvider target =>
+                ViewModel.FileConnections.FirstOrDefault(item => string.Equals(item.TargetId, target.Id.Value, StringComparison.Ordinal)),
+            PanelConnectionOptionViewModel.Target.Database target =>
+                ViewModel.DatabaseConnections.FirstOrDefault(item => string.Equals(item.TargetId, target.Id.Value, StringComparison.Ordinal)),
+            PanelConnectionOptionViewModel.Target.Kubernetes target =>
+                ViewModel.Launcher.KubernetesConnections.FirstOrDefault(item => string.Equals(item.TargetId, target.Id.Value, StringComparison.Ordinal)),
+            _ => null,
+        };
 
     private async void OnEditSavedConnectionRequested(
         object? sender,
@@ -1086,13 +1101,12 @@ public sealed partial class MainWindow : Window
             _lifetime.Token);
     }
 
-    private async Task ShowConnectionEditorAsync(LauncherConnectionViewModel? existing)
+    private async Task ShowConnectionEditorAsync(LauncherConnectionViewModel? existing, Window? owner = null)
     {
         try
         {
             ViewModel.CloseOverlay();
-            // The files form offers only secrets already in the vault, so the
-            // vault listing must be current before the editor is built.
+            // Load existing credentials before constructing the file-provider picker.
             await ViewModel.RefreshSecretsAsync(_lifetime.Token);
             var editor = existing?.Family switch
             {
@@ -1112,7 +1126,7 @@ public sealed partial class MainWindow : Window
                 _ => ViewModel.CreateUnifiedConnectionEditor(),
             };
             var result = await new ConnectionEditorDialog(editor)
-                .ShowDialog<UnifiedConnectionEditorResult?>(this);
+                .ShowDialog<UnifiedConnectionEditorResult?>(owner ?? this);
             if (result is not null)
             {
                 await ApplyConnectionEditorResultAsync(result);
