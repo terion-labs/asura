@@ -4,7 +4,7 @@ namespace Asura.Updates;
 
 public static class InstalledApplicationUpdates
 {
-    public static IApplicationUpdateService Create(Action requestShutdown)
+    public static IApplicationUpdateService Create(Func<Action, Task> requestShutdown)
     {
         ArgumentNullException.ThrowIfNull(requestShutdown);
         var distribution = DistributionIdentityReader.ReadInstalled();

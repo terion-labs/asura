@@ -11,4 +11,5 @@ public enum ApplicationUpdateStage
     Downloading,
     ReadyToRestart,
     Failed,
+    PreparingToRestart,
 }

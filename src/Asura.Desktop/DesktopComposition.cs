@@ -37,7 +37,7 @@ public static class DesktopComposition
         services.AddSingleton<DesktopUpdateShutdown>();
         services.AddSingleton<IApplicationUpdateService>(provider =>
             InstalledApplicationUpdates.Create(
-                provider.GetRequiredService<DesktopUpdateShutdown>().Request));
+                provider.GetRequiredService<DesktopUpdateShutdown>().RequestAsync));
         services.AddSingleton(_ => ThemePreference.DefaultFor(CurrentOperatingSystem()));
         services.AddSingleton<INativeNotificationService>(_ =>
             NativeNotificationServiceSelector.CreateForCurrentPlatform());

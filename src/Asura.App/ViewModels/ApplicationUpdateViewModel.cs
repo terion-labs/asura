@@ -49,6 +49,8 @@ public sealed class ApplicationUpdateViewModel : ObservableObject, IDisposable
             $"Downloading version {_snapshot.AvailableVersion} · {_snapshot.DownloadProgress ?? 0}%",
         ApplicationUpdateStage.ReadyToRestart =>
             $"Version {_snapshot.AvailableVersion} is ready. Restart to apply it.",
+        ApplicationUpdateStage.PreparingToRestart =>
+            "Closing sessions and saving workspace state before restarting…",
         ApplicationUpdateStage.Failed => FailureStatus(_snapshot.Error),
         _ => "Updates are unavailable for this build.",
     };
@@ -58,6 +60,9 @@ public sealed class ApplicationUpdateViewModel : ObservableObject, IDisposable
     public bool CanDownload => _snapshot.CanDownload;
 
     public bool CanRestartToApply => _snapshot.CanRestartToApply;
+
+    public bool IsPreparingToRestart =>
+        _snapshot.Stage == ApplicationUpdateStage.PreparingToRestart;
 
     public bool IsDownloading =>
         _snapshot.Stage == ApplicationUpdateStage.Downloading;
@@ -76,10 +81,10 @@ public sealed class ApplicationUpdateViewModel : ObservableObject, IDisposable
         await _updates.DownloadAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public void RestartToApply()
+    public Task RestartToApplyAsync()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _updates.RestartToApply();
+        return _updates.RestartToApplyAsync();
     }
 
     public void Dispose()
@@ -120,6 +125,7 @@ public sealed class ApplicationUpdateViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CanDownload));
         OnPropertyChanged(nameof(CanRestartToApply));
         OnPropertyChanged(nameof(IsDownloading));
+        OnPropertyChanged(nameof(IsPreparingToRestart));
         OnPropertyChanged(nameof(DownloadProgress));
     }
 
@@ -130,7 +136,7 @@ public sealed class ApplicationUpdateViewModel : ObservableObject, IDisposable
         ApplicationUpdateError.DownloadFailed =>
             "The update download failed. Try the download again.",
         ApplicationUpdateError.ApplyFailed =>
-            "Asura could not start the updater. The downloaded update was not applied.",
+            "Asura could not complete the update restart. The downloaded update was not applied.",
         _ => "The update operation failed.",
     };
 }

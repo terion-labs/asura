@@ -44,7 +44,15 @@ internal sealed class DesktopUpdateShutdown
         }
     }
 
-    public void Request()
+    public void Request() => _ = BeginRequest(beforeShutdown: null);
+
+    public Task RequestAsync(Action beforeShutdown)
+    {
+        ArgumentNullException.ThrowIfNull(beforeShutdown);
+        return BeginRequest(beforeShutdown);
+    }
+
+    private Task BeginRequest(Action? beforeShutdown)
     {
         IClassicDesktopStyleApplicationLifetime lifetime;
         Func<CancellationToken, Task> quiesce;
@@ -58,15 +66,31 @@ internal sealed class DesktopUpdateShutdown
                     "The desktop shutdown preflight is not ready for an update restart.");
             if (_requestActive)
             {
-                return;
+                return beforeShutdown is null
+                    ? Task.CompletedTask
+                    : Task.FromException(new InvalidOperationException(
+                        "A desktop restart is already in progress."));
             }
 
             _requestActive = true;
         }
 
+        var completion = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         try
         {
-            _schedule(() => QuiesceAndShutdownAsync(lifetime, quiesce));
+            _schedule(async () =>
+            {
+                try
+                {
+                    await QuiesceAndShutdownAsync(lifetime, quiesce, beforeShutdown);
+                    completion.SetResult();
+                }
+                catch (Exception exception)
+                {
+                    completion.SetException(exception);
+                }
+            });
         }
         catch
         {
@@ -77,36 +101,50 @@ internal sealed class DesktopUpdateShutdown
 
             throw;
         }
+
+        return completion.Task;
     }
 
     private async Task QuiesceAndShutdownAsync(
         IClassicDesktopStyleApplicationLifetime lifetime,
-        Func<CancellationToken, Task> quiesce)
+        Func<CancellationToken, Task> quiesce,
+        Action? beforeShutdown)
     {
         try
         {
-            await quiesce(CancellationToken.None);
-        }
-        catch (Exception exception) when (exception is not OutOfMemoryException)
-        {
-            SecretSafeDiagnosticProjection.WriteStandardError(
-                "desktop.update-restart-quiesce.failed",
-                exception);
-        }
+            try
+            {
+                await quiesce(CancellationToken.None);
+            }
+            catch (Exception exception) when (beforeShutdown is null
+                && exception is not OutOfMemoryException)
+            {
+                SecretSafeDiagnosticProjection.WriteStandardError(
+                    "desktop.update-restart-quiesce.failed",
+                    exception);
+            }
 
-        try
-        {
             lock (_gate)
             {
                 if (!ReferenceEquals(_lifetime, lifetime))
                 {
+                    if (beforeShutdown is not null)
+                    {
+                        throw new InvalidOperationException(
+                            "The desktop lifetime ended before the update restart.");
+                    }
+
                     return;
                 }
             }
 
+            // Failed preparation or updater launch must not silently close the
+            // app. The update service owns reporting those failures to the user.
+            beforeShutdown?.Invoke();
             lifetime.Shutdown();
         }
-        catch (Exception exception) when (exception is not OutOfMemoryException)
+        catch (Exception exception) when (beforeShutdown is null
+            && exception is not OutOfMemoryException)
         {
             SecretSafeDiagnosticProjection.WriteStandardError(
                 "desktop.update-restart-shutdown.failed",

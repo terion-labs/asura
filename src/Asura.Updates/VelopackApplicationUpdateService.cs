@@ -1,6 +1,7 @@
 using Asura.Application.ApplicationUpdates;
 using Velopack;
 using Velopack.Locators;
+using Velopack.Logging;
 using Velopack.Sources;
 
 namespace Asura.Updates;
@@ -10,14 +11,15 @@ internal sealed class VelopackApplicationUpdateService : IApplicationUpdateServi
     private const string RepositoryUrl =
         "https://github.com/terion-labs/asura";
 
-    private readonly Action _requestShutdown;
+    private readonly Func<Action, Task> _requestShutdown;
     private readonly UpdateManager _updates;
+    private readonly IVelopackLogger _log;
     private UpdateInfo? _availableUpdate;
     private int _operationInProgress;
 
     public VelopackApplicationUpdateService(
         DistributionIdentity distribution,
-        Action requestShutdown,
+        Func<Action, Task> requestShutdown,
         IVelopackLocator? locator = null)
     {
         ArgumentNullException.ThrowIfNull(distribution);
@@ -30,6 +32,8 @@ internal sealed class VelopackApplicationUpdateService : IApplicationUpdateServi
         }
 
         _requestShutdown = requestShutdown;
+        locator ??= VelopackLocator.Current;
+        _log = locator.Log;
         _updates = new UpdateManager(
             new GithubSource(RepositoryUrl, accessToken: null, prerelease: false),
             new UpdateOptions
@@ -168,32 +172,46 @@ internal sealed class VelopackApplicationUpdateService : IApplicationUpdateServi
         }
     }
 
-    public void RestartToApply()
+    public async Task RestartToApplyAsync()
     {
         var release = _availableUpdate?.TargetFullRelease
             ?? _updates.UpdatePendingRestart;
-        if (release is null || !Snapshot.CanRestartToApply)
+        if (release is null || !Snapshot.CanRestartToApply
+            || Interlocked.CompareExchange(ref _operationInProgress, 1, 0) != 0)
         {
             return;
         }
 
         try
         {
-            // The external updater waits while Asura follows its normal
-            // shutdown path and flushes recovery state, browser profiles, and
-            // session history. It gives up after Velopack's 60-second limit.
-            _updates.WaitExitThenApplyUpdates(
-                release,
-                // Let Velopack request macOS authorization when replacing a
-                // protected bundle. Silent mode prevents that update path.
-                silent: false,
-                restart: true,
-                restartArgs: null);
-            _requestShutdown();
+            SetSnapshot(Snapshot with
+            {
+                Stage = ApplicationUpdateStage.PreparingToRestart,
+                Error = ApplicationUpdateError.None,
+            });
+            _log.LogInformation("Asura update restart: preparing desktop shutdown.");
+            await _requestShutdown(() =>
+            {
+                // Start Velopack's 60-second exit timer only after workspace
+                // cleanup finishes, while launch failures can still reach the UI.
+                _log.LogInformation("Asura update restart: preparation complete; launching updater.");
+                _updates.WaitExitThenApplyUpdates(
+                    release,
+                    silent: false,
+                    restart: true,
+                    restartArgs: null);
+            }).ConfigureAwait(false);
+            _log.LogInformation("Asura update restart: desktop shutdown requested.");
         }
         catch (Exception)
         {
+            // Exception messages can contain workspace paths or credentials.
+            _log.LogError("Asura update restart failed before desktop shutdown completed.");
             SetFailure(ApplicationUpdateError.ApplyFailed);
+        }
+        finally
+        {
+            Volatile.Write(ref _operationInProgress, 0);
         }
     }
 
