@@ -288,8 +288,10 @@ public static class MarkdownPreviewDocument
     private static string Lines(LeafBlock block)
     {
         var builder = new StringBuilder();
-        foreach (var line in block.Lines.Lines)
+        // Empty or unfinished fences have no backing array; only read populated lines.
+        for (var index = 0; index < block.Lines.Count; index++)
         {
+            var line = block.Lines.Lines[index];
             if (line.Slice.Text is null)
             {
                 continue;

@@ -1175,6 +1175,89 @@ public sealed class GhosttyVtTerminalSessionTests
     }
 
     [Fact]
+    public async Task Hidden_input_and_enter_remain_usable_during_concurrent_agent_observation()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        _ = GhosttyVtTestRuntime.RequireStagedRuntime();
+        const string script = """
+            stty -echo
+            round=0
+            while [ "$round" -lt 20 ]; do
+                printf 'PASSWORD_%s:' "$round"
+                IFS= read -r response || exit 2
+                [ "$response" = 'dummy-input' ] || exit 3
+                printf '\r\n\033[32mCOMPLETE_%s\033[0m\r\n' "$round"
+                round=$((round + 1))
+            done
+            stty echo
+            IFS= read -r response
+            """;
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        var factory = new GhosttyVtTerminalSessionFactory();
+        await using var session = await factory.CreateAsync(
+            SessionId.New(),
+            new TerminalLaunchRequest(Environment.CurrentDirectory, "/bin/sh", ["-c", script]),
+            deadline.Token);
+        using var observationLifetime = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token);
+        var observationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var observation = Task.Run(async () =>
+        {
+            try
+            {
+                while (true)
+                {
+                    await session.ObserveScreenAsync(observationLifetime.Token);
+                    await session.ReadRenderFrameAsync(observationLifetime.Token);
+                    observationStarted.TrySetResult();
+                    await Task.Delay(1, observationLifetime.Token);
+                }
+            }
+            catch (OperationCanceledException) when (observationLifetime.IsCancellationRequested)
+            {
+            }
+        }, deadline.Token);
+
+        try
+        {
+            await observationStarted.Task.WaitAsync(deadline.Token);
+            for (var round = 0; round < 20; round++)
+            {
+                var prompt = await session.WaitForTextAsync(
+                    new TerminalWaitForTextInput($"PASSWORD_{round}:", TimeSpan.FromSeconds(3)),
+                    deadline.Token);
+                Assert.Equal(TerminalWaitOutcomeKind.Matched, prompt.Kind);
+                await session.WriteAsync("dummy-input", deadline.Token);
+                var agentWait = session.WaitForTextAsync(
+                    new TerminalWaitForTextInput($"COMPLETE_{round}", TimeSpan.FromSeconds(3)),
+                    deadline.Token).AsTask();
+                await session.SendPhysicalKeyAsync(
+                    new TerminalPhysicalKeyEvent(
+                        TerminalPhysicalKey.Enter,
+                        "Enter",
+                        string.Empty,
+                        TerminalKeyModifiers.None,
+                        TerminalKeyModifiers.None,
+                        TerminalKeyAction.Press),
+                    deadline.Token);
+                Assert.Equal(TerminalWaitOutcomeKind.Matched, (await agentWait).Kind);
+                var screen = await session.ObserveScreenAsync(deadline.Token);
+                Assert.DoesNotContain("dummy-input", screen.PlainText, StringComparison.Ordinal);
+            }
+
+            Assert.Equal(SessionHealth.Healthy, (await session.SnapshotAsync(deadline.Token)).Health);
+        }
+        finally
+        {
+            await observationLifetime.CancelAsync();
+            await observation;
+        }
+    }
+
+    [Fact]
     public async Task Remote_screen_can_suggest_idle_but_cannot_close_or_spoof_local_exit_status()
     {
         var harness = await CreateAsync(new TerminalLaunchRequest(
