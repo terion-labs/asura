@@ -4,6 +4,39 @@ namespace Asura.App.Tests;
 
 public sealed class MarkdownPreviewDocumentTests
 {
+    [Theory]
+    [InlineData("```")]
+    [InlineData("```sh\n")]
+    [InlineData("```sh\n```")]
+    [InlineData("~~~\n~~~")]
+    public void Empty_or_streaming_code_fences_have_an_empty_body(string markdown)
+    {
+        var block = Assert.Single(MarkdownPreviewDocument.Parse(markdown));
+        Assert.Equal(MarkdownBlockKind.Code, block.Kind);
+        Assert.Equal(string.Empty, block.Text);
+    }
+
+    [Theory]
+    [InlineData("```sh\nprintf 'done'\n```", MarkdownBlockKind.Code, "printf 'done'")]
+    [InlineData("~~~sh\nprintf 'done'\n~~~", MarkdownBlockKind.Code, "printf 'done'")]
+    [InlineData("    printf 'done'\n", MarkdownBlockKind.Code, "printf 'done'")]
+    [InlineData("$$\nx^2\n$$", MarkdownBlockKind.Math, "x^2")]
+    [InlineData("\\[\nx^2\n\\]", MarkdownBlockKind.Math, "x^2")]
+    public void Streamed_block_prefixes_parse_until_the_body_is_complete(
+        string markdown,
+        MarkdownBlockKind expectedKind,
+        string expectedText)
+    {
+        for (var length = 0; length <= markdown.Length; length++)
+        {
+            MarkdownPreviewDocument.Parse(markdown[..length]);
+        }
+
+        var block = Assert.Single(MarkdownPreviewDocument.Parse(markdown));
+        Assert.Equal(expectedKind, block.Kind);
+        Assert.Equal(expectedText, block.Text);
+    }
+
     [Fact]
     public void ManyAdjacentEscapedLiteralsRetainAllTextWithoutGrowingRunConcatenation()
     {
