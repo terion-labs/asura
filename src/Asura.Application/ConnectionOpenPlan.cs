@@ -16,9 +16,13 @@ public sealed record ConnectionOpenPlan
         ConnectionReconnectMode reconnectMode,
         IReadOnlyList<ConnectionSecretRequirement>? secretRequirements = null,
         IReadOnlyList<ConnectionPlanWarning>? warnings = null,
-        bool isSecretBrokerPrepared = false)
+        bool isSecretBrokerPrepared = false,
+        int commandArgumentOffset = 0)
     {
         ArgumentNullException.ThrowIfNull(launch);
+        ArgumentOutOfRangeException.ThrowIfNegative(commandArgumentOffset);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(commandArgumentOffset, launch.Arguments.Count);
+        CommandArgumentOffset = commandArgumentOffset;
         ConnectionId = connectionId;
         Kind = kind;
         Launch = launch;
@@ -53,6 +57,13 @@ public sealed record ConnectionOpenPlan
 
     public IReadOnlyList<ConnectionPlanWarning> Warnings { get; }
 
+    /// <summary>
+    /// The first argument belonging to the connection executable. A prepared
+    /// credential launch puts its own entry-point arguments before this position.
+    /// Routing options must be inserted here, never before that entry point.
+    /// </summary>
+    public int CommandArgumentOffset { get; }
+
     public bool IsSecretBrokerPrepared { get; }
 
     public bool RequiresSecretBroker => SecretRequirements.Count > 0 && !IsSecretBrokerPrepared;
@@ -74,6 +85,7 @@ public sealed record ConnectionOpenPlan
             ReconnectMode,
             SecretRequirements,
             [.. Warnings.Where(warning => warning != ConnectionPlanWarning.SecretBrokerRequired)],
-            isSecretBrokerPrepared: true);
+            isSecretBrokerPrepared: true,
+            commandArgumentOffset: launch.Arguments.Count - Launch.Arguments.Count + CommandArgumentOffset);
     }
 }

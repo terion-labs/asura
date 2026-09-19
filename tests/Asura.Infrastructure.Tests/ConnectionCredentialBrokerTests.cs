@@ -11,6 +11,34 @@ public sealed class ConnectionCredentialBrokerTests
 {
     private static readonly TimeSpan TestConnectTimeout = TimeSpan.FromMilliseconds(500);
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Prepared_plan_keeps_the_connection_command_boundary_after_self_reentry(bool managedHost)
+    {
+        using var vault = new BrokerSecretVault();
+        var selfReentry = new SelfReentryLaunch(managedHost ? "/dotnet" : "/Asura",
+            managedHost ? ["/app/Asura.dll"] : [], "/app/Asura");
+        await using var broker = new ConnectionCredentialBroker(vault, TimeProvider.System,
+            new ConnectionCredentialBrokerOptions { SelfReentry = selfReentry });
+        var request = Request("ssh-boundary", ConnectionKind.Ssh, ConnectionAuthenticationMode.Password,
+            [new(ConnectionSecretRole.Password, new SecretRef("password"))]);
+        var original = new ConnectionOpenPlan(request.ConnectionId, request.Kind, request.Launch,
+            request.Authentication, SshHostKeyPolicy.Strict, ConnectionReconnectMode.BoundedBackoff,
+            request.Requirements);
+        var launch = Success(await broker.PrepareLaunchAsync(request, CancellationToken.None));
+        var plan = original.WithPreparedSecretBroker(launch);
+        var routedArguments = launch.Arguments.ToList();
+        routedArguments.InsertRange(plan.CommandArgumentOffset, ["-o", "ProxyCommand=workspace-proxy"]);
+        var invocation = ConnectionCredentialSessionInvocation.Parse([.. routedArguments.Skip(selfReentry.PrefixArguments.Count)]);
+
+        Assert.NotNull(invocation);
+        Assert.Equal(request.Launch.Executable, invocation.Executable);
+        Assert.Equal(["-o", "ProxyCommand=workspace-proxy", .. request.Launch.Arguments], invocation.Arguments, StringComparer.Ordinal);
+        Assert.Equal(request.ConnectionId, invocation.Access.ConnectionId);
+        Assert.Equal(request.Authentication, invocation.Authentication);
+    }
+
     [Fact]
     public void Private_helper_classifier_requires_the_credential_marker_first()
     {
