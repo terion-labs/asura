@@ -6,6 +6,49 @@ namespace Asura.App.Tests;
 
 public sealed class WorkspaceNetworkConnectionRuntimeTests
 {
+    [Theory]
+    [InlineData(ConnectionAuthenticationMode.Password, false)]
+    [InlineData(ConnectionAuthenticationMode.PrivateKey, false)]
+    [InlineData(ConnectionAuthenticationMode.PrivateKeyWithPassphrase, false)]
+    [InlineData(ConnectionAuthenticationMode.Password, true)]
+    public async Task Proxy_options_belong_to_ssh_inside_the_credential_launch(
+        ConnectionAuthenticationMode authentication, bool managedHost)
+    {
+        var state = new WorkspaceNetworkEgressState();
+        state.SetLocalProxyEndpoint(new Uri("socks5://127.0.0.1:45124"),
+            new WorkspaceNetworkProxyCredentials("workspace", "proxy-secret"));
+        var profile = SshProfile();
+        string[] sshArguments = ["-tt", "-l", "tester", "--", "server.example.test"];
+        string[] managedPrefix = managedHost ? ["/app/Asura.dll"] : [];
+        string[] helperArguments =
+        [
+            .. managedPrefix,
+            "--asura-connection-credential-session-v1", "pipe", "ticket", "claim-token",
+            profile.Id.Value, "1", "2", "1000", "/usr/bin/ssh",
+        ];
+        var original = new ConnectionOpenPlan(profile.Id, ConnectionKind.Ssh,
+            new TerminalLaunchRequest(null, "/usr/bin/ssh", sshArguments), authentication,
+            profile.HostKeyPolicy, ConnectionReconnectMode.BoundedBackoff,
+            [new(ConnectionSecretRole.Password, new SecretRef("credential"))]);
+        var prepared = original.WithPreparedSecretBroker(new TerminalLaunchRequest(null,
+            managedHost ? "/usr/bin/dotnet" : "/app/Asura", [.. helperArguments, .. sshArguments]));
+        var runtime = new WorkspaceNetworkConnectionRuntime(new StubRuntime { Plan = prepared }, state,
+            injectProxyEnvironment: true);
+
+        var result = await runtime.PlanOpenAsync(profile, progress: null, CancellationToken.None);
+        var routed = Assert.IsType<ConnectionRuntimeResult<ConnectionOpenPlan>.Success>(result).Value;
+
+        Assert.Equal(helperArguments, routed.Launch.Arguments.Take(helperArguments.Length), StringComparer.Ordinal);
+        Assert.Equal("-o", routed.Launch.Arguments[helperArguments.Length]);
+        Assert.Contains("--asura-workspace-socks-connect 45124",
+            routed.Launch.Arguments[helperArguments.Length + 1], StringComparison.Ordinal);
+        Assert.Equal(sshArguments, routed.Launch.Arguments.Skip(helperArguments.Length + 2), StringComparer.Ordinal);
+        Assert.Equal(prepared.Launch.Executable, routed.Launch.Executable);
+        Assert.Equal(authentication, routed.Authentication);
+        Assert.True(routed.IsSecretBrokerPrepared);
+        Assert.Equal(helperArguments.Length, routed.CommandArgumentOffset);
+    }
+
     [Fact]
     public async Task Host_launch_receives_standard_proxy_environment_variables()
     {
@@ -203,6 +246,8 @@ public sealed class WorkspaceNetworkConnectionRuntimeTests
     {
         public int TestCount { get; private set; }
 
+        public ConnectionOpenPlan? Plan { get; init; }
+
         public ValueTask<ConnectionRuntimeResult<ConnectionOpenPlan>> PlanOpenAsync(
             ConnectionProfile profile,
             IProgress<ConnectionProgress>? progress,
@@ -210,6 +255,10 @@ public sealed class WorkspaceNetworkConnectionRuntimeTests
         {
             _ = progress;
             cancellationToken.ThrowIfCancellationRequested();
+            if (Plan is { } plan)
+            {
+                return ValueTask.FromResult(ConnectionRuntimeResult<ConnectionOpenPlan>.Succeed(plan));
+            }
             return ValueTask.FromResult(ConnectionRuntimeResult<ConnectionOpenPlan>.Succeed(
                 new ConnectionOpenPlan(
                     profile.Id,

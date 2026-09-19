@@ -110,7 +110,14 @@ internal sealed class WorkspaceNetworkConnectionRuntime(
         if (profile.Endpoint is ConnectionEndpoint.Ssh ssh
             && WorkspaceSshProxyCommand.TryCreate(proxy, ssh, out var proxyCommand))
         {
-            arguments = ["-o", $"ProxyCommand={proxyCommand}", .. arguments];
+            // A credential-backed launch starts Asura's private helper. Its
+            // marker and claim arguments must stay before the enclosed SSH argv.
+            arguments =
+            [
+                .. arguments.Take(plan.CommandArgumentOffset),
+                "-o", $"ProxyCommand={proxyCommand}",
+                .. arguments.Skip(plan.CommandArgumentOffset),
+            ];
         }
         var routedLaunch = new TerminalLaunchRequest(
             launch.WorkingDirectory,
@@ -135,7 +142,8 @@ internal sealed class WorkspaceNetworkConnectionRuntime(
                 plan.ReconnectMode,
                 plan.SecretRequirements,
                 plan.Warnings,
-                plan.IsSecretBrokerPrepared));
+                plan.IsSecretBrokerPrepared,
+                plan.CommandArgumentOffset));
     }
 
     private static string QuoteShellWord(string value) =>
