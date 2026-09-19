@@ -166,7 +166,10 @@
             <TextBlock VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize14}" FontWeight="SemiBold" Text="Saved connections" />
             <components:CountPill Value="{Binding SavedConnectionShortcutCount}" />
           </StackPanel>
-          <Button Grid.Column="1" VerticalAlignment="Center" MinHeight="0" Padding="0" Classes="TextButton" Click="OnAddConnectionClick" Content="Add" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceMd}">
+            <Button Classes="TextButton" Click="OnManageConnectionsClick" Content="Manage all" />
+            <Button Classes="TextButton" Click="OnAddConnectionClick" Content="Add" />
+          </StackPanel>
         </Grid>
         <controls:SurfaceCard Tone="Sunken" ClipsContent="True" Padding="0" Grid.Row="1" VerticalAlignment="Top" MaxHeight="420">
           <ScrollViewer HorizontalScrollBarVisibility="Disabled">

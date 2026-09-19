@@ -382,6 +382,7 @@
     <DataTemplate DataType="vm:PanelPlaceholderViewModel">
       <panelViews:PanelPlaceholderView
           AddConnectionRequested="OnAddConnectionClick"
+          ManageConnectionsRequested="OnManageConnectionsClick"
           BrowserRequested="OnPlaceholderBrowserClick"
           CloseRequested="OnCloseRuntimePanelClick"
           DatabaseRequested="OnPlaceholderDatabaseClick"

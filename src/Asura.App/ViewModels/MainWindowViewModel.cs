@@ -4301,7 +4301,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             lockedFamily,
             initialFamily,
             new KubernetesConnectionEditorViewModel(kubernetesProfileId is { } kubernetesId ? FindKubernetesConnection(kubernetesId) : null,
-                ReviewKubernetesConfigurationAsync));
+                ReviewKubernetesConfigurationAsync),
+            _secretVault);
     }
 
     public async ValueTask<DefinitionStoreResult<StoredDefinition<FileProviderProfile>>>

@@ -40,6 +40,7 @@ public sealed partial class PanelPlaceholderView : UserControl
     public event EventHandler<RoutedEventArgs>? ProcessMonitorRequested;
 
     public event EventHandler<RoutedEventArgs>? AddConnectionRequested;
+    public event EventHandler<RoutedEventArgs>? ManageConnectionsRequested;
 
     public event EventHandler<SavedConnectionLaunchViewModel>? ConnectionLaunchRequested;
 
@@ -93,6 +94,9 @@ public sealed partial class PanelPlaceholderView : UserControl
 
     private void OnChooseProcessMonitorClick(object? sender, RoutedEventArgs e) =>
         ProcessMonitorRequested?.Invoke(sender, e);
+
+    private void OnManageConnectionsClick(object? sender, RoutedEventArgs e) =>
+        ManageConnectionsRequested?.Invoke(sender, e);
 
     private void OnAddConnectionClick(object? sender, RoutedEventArgs e) =>
         AddConnectionRequested?.Invoke(sender, e);

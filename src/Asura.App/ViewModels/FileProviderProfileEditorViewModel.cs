@@ -112,7 +112,21 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
 
     public IReadOnlyList<FileProviderConnectionOption> SshConnections { get; }
 
-    public IReadOnlyList<FileProviderSecretOption> SecretOptions { get; }
+    public IReadOnlyList<FileProviderSecretOption> SecretOptions { get; private set; }
+
+    public void SelectCreatedCredential(SecretMetadata credential)
+    {
+        ArgumentNullException.ThrowIfNull(credential);
+        if (credential.Scope != new SecretScope(SecretScopeKind.FileProvider, ProfileId))
+        {
+            throw new ArgumentException("The credential belongs to another connection.", nameof(credential));
+        }
+
+        var option = new FileProviderSecretOption(credential.Reference, credential.Label, credential.Kind.ToString(), true);
+        SecretOptions = [.. SecretOptions, option];
+        OnPropertyChanged(nameof(SecretOptions));
+        SelectedCredential = option;
+    }
 
     public string Name
     {

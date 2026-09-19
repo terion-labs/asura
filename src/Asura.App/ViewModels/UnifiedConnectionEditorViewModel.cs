@@ -1,3 +1,4 @@
+using Asura.Application;
 using Asura.Core;
 
 namespace Asura.App.ViewModels;
@@ -71,6 +72,7 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
 {
     private UnifiedConnectionTypeOption _selectedType;
     private bool _hasTestFeedback;
+    private readonly ISecretVault? _secretVault;
 
     public UnifiedConnectionEditorViewModel(
         ConnectionEditorViewModel terminal,
@@ -78,12 +80,14 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
         DatabaseConnectionEditorViewModel? database,
         SavedConnectionFamily? lockedFamily = null,
         SavedConnectionFamily initialFamily = SavedConnectionFamily.Terminal,
-        KubernetesConnectionEditorViewModel? kubernetes = null)
+        KubernetesConnectionEditorViewModel? kubernetes = null,
+        ISecretVault? secretVault = null)
     {
         Terminal = terminal ?? throw new ArgumentNullException(nameof(terminal));
         Files = files;
         Database = database;
         Kubernetes = kubernetes;
+        _secretVault = secretVault;
         LockedFamily = lockedFamily;
         TypeOptions = BuildTypeOptions(lockedFamily);
         if (TypeOptions.Count == 0)
@@ -98,6 +102,10 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
 
         Database?.PropertyChanged += OnFamilyEditorPropertyChanged;
     }
+
+    public ConnectionSecretEditorViewModel CreateSecretEditor(SecretKind kind, SecretScope scope) =>
+        new(_secretVault ?? throw new InvalidOperationException("The credential vault is unavailable."),
+            scope, kind, $"{Name} {kind}");
 
     public ConnectionEditorViewModel Terminal { get; }
 

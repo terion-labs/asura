@@ -37,6 +37,7 @@
             DataContext="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext)}"
             ShowCloseAction="False"
             AddConnectionRequested="OnAddConnectionClick"
+          ManageConnectionsRequested="OnManageConnectionsClick"
             NewBrowserRequested="OnChooseBrowserClick"
             NewDatabaseRequested="OnChooseDatabaseClick"
             NewDockerRequested="OnChooseDockerClick"

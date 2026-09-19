@@ -9,13 +9,8 @@
     xmlns:icons="using:FluentIcons.Avalonia"
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Center">
-  <!--
-    One saved target, one row. The row opens it the usual way; the chevron
-    appears only where the target supports more than one adapter, and offers
-    the rest. Listing a host once per adapter instead said the same thing four
-    times and buried the ordinary case.
-  -->
-  <Grid ColumnDefinitions="*,Auto">
+  <!-- Opening and editing are independent: an unavailable target must remain editable. -->
+  <Grid ColumnDefinitions="*,Auto,Auto">
     <Button
         Classes="ListRow LauncherListRow"
         Click="OnPrimaryClick"
@@ -23,11 +18,8 @@
         IsEnabled="{Binding CanOpen}"
         ToolTip.Tip="{Binding DefaultLaunch.Label}"
         AutomationProperties.Name="{Binding Name}">
-      <!-- Managed where it is used. A saved connection had to be edited from a
-           screen of its own, which meant leaving the place you were opening it
-           from to change the thing you were opening. -->
       <Button.ContextMenu>
-        <ContextMenu IsVisible="{Binding CanEdit}">
+        <ContextMenu>
           <MenuItem Header="Edit connection…" Click="OnEditClick" />
           <MenuItem Header="Delete connection" Click="OnDeleteClick" />
         </ContextMenu>
@@ -44,32 +36,39 @@
         </controls:ListItem.Trailing>
       </controls:ListItem>
     </Button>
+    <Button Grid.Column="1" Classes="IconButton" Click="OnEditClick"
+        ToolTip.Tip="Edit connection" AutomationProperties.Name="{Binding Name, StringFormat=Edit {0}}">
+      <icons:SymbolIcon Symbol="Edit" FontSize="14" />
+    </Button>
     <Button
         x:Name="ShortcutMenuButton"
-        Grid.Column="1"
-        Classes="IconButton"
-        IsEnabled="{Binding CanOpen}"
+        Grid.Column="2"
         IsVisible="{Binding HasAlternatives}"
-        ToolTip.Tip="Open with"
-        AutomationProperties.Name="{Binding Name, StringFormat={}More ways to open {0}}">
+        Classes="IconButton"
+        ToolTip.Tip="Connection actions"
+        AutomationProperties.Name="{Binding Name, StringFormat={}Actions for {0}}">
       <icons:SymbolIcon Symbol="ChevronDown" FontSize="12" />
       <Button.Flyout>
         <Flyout Placement="Bottom" FlyoutPresenterClasses="SavedConnectionMenu">
-          <ItemsControl ItemsSource="{Binding AlternativeLaunches}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <Button
-                    Classes="FlyoutMenuItem"
-                    Click="OnAlternativeClick"
-                    AutomationProperties.Name="{Binding Label}">
-                  <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="{Binding Icon}" FontSize="14" />
-                    <TextBlock VerticalAlignment="Center" Text="{Binding Label}" />
-                  </StackPanel>
-                </Button>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
+          <StackPanel>
+            <ItemsControl ItemsSource="{Binding AlternativeLaunches}" IsEnabled="{Binding CanOpen}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button
+                      Classes="FlyoutMenuItem"
+                      Click="OnAlternativeClick"
+                      AutomationProperties.Name="{Binding Label}">
+                    <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+                      <icons:SymbolIcon VerticalAlignment="Center" Symbol="{Binding Icon}" FontSize="14" />
+                      <TextBlock VerticalAlignment="Center" Text="{Binding Label}" />
+                    </StackPanel>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button Classes="FlyoutMenuItem" Click="OnEditClick" Content="Edit connection…" />
+            <Button Classes="FlyoutMenuItem" Click="OnDeleteClick" Content="Delete connection" />
+          </StackPanel>
         </Flyout>
       </Button.Flyout>
     </Button>

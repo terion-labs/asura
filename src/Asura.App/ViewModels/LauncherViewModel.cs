@@ -12,6 +12,7 @@ public sealed class LauncherViewModel : ObservableObject, IDisposable
     private const int HomePreviewConnectionCount = 8;
     private const int HomePreviewScreenCount = 4;
     private Func<IReadOnlyList<LauncherSearchResultViewModel>>? _candidateSource;
+    private string _connectionSearchQuery = string.Empty;
     private string _searchQuery = string.Empty;
     private LauncherSearchResultViewModel? _selectedSearchResult;
     private bool _disposed;
@@ -39,6 +40,29 @@ public sealed class LauncherViewModel : ObservableObject, IDisposable
     public ObservableCollection<LauncherScreenViewModel> ScreensPreview { get; } = [];
 
     public ObservableCollection<LauncherSearchResultViewModel> SearchResults { get; } = [];
+
+    public string ConnectionSearchQuery
+    {
+        get => _connectionSearchQuery;
+        set
+        {
+            if (SetProperty(ref _connectionSearchQuery, value))
+            {
+                OnPropertyChanged(nameof(FilteredConnections));
+                OnPropertyChanged(nameof(HasNoFilteredConnections));
+            }
+        }
+    }
+
+    public bool HasNoFilteredConnections => FilteredConnections.Count == 0;
+
+    public IReadOnlyList<LauncherConnectionViewModel> FilteredConnections =>
+        [.. Connections.Concat(FileConnections).Concat(DatabaseConnections).Concat(KubernetesConnections)
+            .Where(item => string.IsNullOrWhiteSpace(ConnectionSearchQuery)
+                || item.Name.Contains(ConnectionSearchQuery.Trim(), StringComparison.OrdinalIgnoreCase)
+                || item.Kind.Contains(ConnectionSearchQuery.Trim(), StringComparison.OrdinalIgnoreCase)
+                || item.Detail.Contains(ConnectionSearchQuery.Trim(), StringComparison.OrdinalIgnoreCase))
+            .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase)];
 
     public bool HasWorkspaces => Workspaces.Count > 0;
 
@@ -202,6 +226,8 @@ public sealed class LauncherViewModel : ObservableObject, IDisposable
 
     private void NotifyCatalogStateChanged()
     {
+        OnPropertyChanged(nameof(FilteredConnections));
+        OnPropertyChanged(nameof(HasNoFilteredConnections));
         OnPropertyChanged(nameof(HasWorkspaces));
         OnPropertyChanged(nameof(HasNoWorkspaces));
         OnPropertyChanged(nameof(HasConnections));

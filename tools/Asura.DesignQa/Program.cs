@@ -2137,6 +2137,23 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 },
             },
         }, null),
+        ("dialog-saved-connections", () => new SavedConnectionsDialog
+        {
+            DataContext = CreateViewModel().Launcher,
+        }, null),
+        ("dialog-connection-secret", () => new ConnectionSecretEditorDialog(
+            new ConnectionSecretEditorViewModel(new MemoryOnlySecretVault(),
+                new SecretScope(SecretScopeKind.Connection, "qa-connection"),
+                SecretKind.Password, "Production SSH password")), null),
+        ("dialog-connection-password", () =>
+        {
+            var editor = CreateQaConnectionEditor();
+            editor.SelectedType = editor.TypeOptions.Single(option =>
+                option.TerminalKind == ConnectionKind.Ssh && !option.GitRepository);
+            editor.Name = "Production SSH";
+            editor.Terminal.Authentication = ConnectionAuthenticationChoice.Password;
+            return new ConnectionEditorDialog(editor);
+        }, null),
         ("dialog-connection-editor", () => new ConnectionEditorDialog(
             CreateQaConnectionEditor()), null),
         ("dialog-connection-editor-existing", () => new ConnectionEditorDialog(
