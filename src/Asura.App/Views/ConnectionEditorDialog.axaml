@@ -93,17 +93,31 @@
                   <controls:LabeledField Grid.Column="1" Label="Host-key policy"><ComboBox ItemsSource="{Binding HostKeyPolicies}" SelectedItem="{Binding HostKeyPolicy}" /></controls:LabeledField>
                 </Grid>
                 <controls:LabeledField
-                    Label="Credential secret reference"
-                    Hint="Use a saved credential ID or add a new credential to the vault."
+                    Label="Credential"
+                    Hint="Choose a saved credential for this connection or add a new one."
                     IsVisible="{Binding UsesSecretReference}">
                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <TextBox Text="{Binding SecretReference}" PlaceholderText="Saved credential ID" />
+                    <ComboBox ItemsSource="{Binding CredentialOptions}" SelectedItem="{Binding SelectedCredential}"
+                              HorizontalAlignment="Stretch" AutomationProperties.Name="Connection credential">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ConnectionCredentialOption">
+                          <TextBlock Text="{Binding DisplayName}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
                     <Button Grid.Column="1" Classes="SecondaryButton" Click="OnAddCredentialClick" Content="Add new…" AutomationProperties.Name="Add connection credential" />
                   </Grid>
                 </controls:LabeledField>
-                <controls:LabeledField Label="Passphrase secret reference (optional)" IsVisible="{Binding UsesPassphraseReference}">
+                <controls:LabeledField Label="Passphrase (optional)" IsVisible="{Binding UsesPassphraseReference}">
                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <TextBox Text="{Binding PassphraseSecretReference}" PlaceholderText="Saved passphrase ID" />
+                    <ComboBox ItemsSource="{Binding PassphraseOptions}" SelectedItem="{Binding SelectedPassphrase}"
+                              HorizontalAlignment="Stretch" AutomationProperties.Name="Private key passphrase">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ConnectionCredentialOption">
+                          <TextBlock Text="{Binding DisplayName}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
                     <Button Grid.Column="1" Classes="SecondaryButton" Click="OnAddPassphraseClick" Content="Add new…" AutomationProperties.Name="Add private key passphrase" />
                   </Grid>
                 </controls:LabeledField>

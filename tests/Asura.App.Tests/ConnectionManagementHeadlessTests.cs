@@ -88,12 +88,66 @@ public sealed class ConnectionManagementHeadlessTests
                 {
                     Assert.Equal(request.Reference.Value, kind == SecretKind.Passphrase
                         ? terminal.PassphraseSecretReference : terminal.SecretReference);
+                    var picker = dialog.GetVisualDescendants().OfType<ComboBox>()
+                        .Single(control => string.Equals(AutomationProperties.GetName(control),
+                            kind == SecretKind.Passphrase ? "Private key passphrase" : "Connection credential", StringComparison.Ordinal));
+                    var selected = Assert.IsType<ConnectionCredentialOption>(picker.SelectedItem);
+                    Assert.Equal(request.Reference, selected.Reference);
+                    Assert.Equal(request.Label, selected.DisplayName);
                     if (kind == SecretKind.Passphrase)
                     {
                         terminal.SecretReference = "existing-private-key";
                     }
                     Assert.Equal(request.Scope.OwnerId, terminal.CreateSaveRequest().Profile.Id.Value);
                 }
+            }
+            finally
+            {
+                dialog.Close();
+            }
+            return true;
+        }, timeout.Token);
+    }
+
+    [Fact]
+    public async Task Credential_selector_loads_saved_names_and_updates_the_saved_reference()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await session.Dispatch(async () =>
+        {
+            var runtime = DispatchProxy.Create<IConnectionRuntime, UnusedRuntimeProxy>();
+            var original = new ConnectionEditorViewModel(runtime)
+            {
+                Name = "SSH",
+                Kind = ConnectionKind.Ssh,
+                Host = "example.test",
+                Authentication = ConnectionAuthenticationChoice.Password,
+                SecretReference = "first",
+            }.CreateSaveRequest().Profile;
+            var scope = new SecretScope(SecretScopeKind.Connection, original.Id.Value);
+            var terminal = new ConnectionEditorViewModel(runtime, original, secrets:
+            [
+                new(new SecretRef("first"), "First password", "Password", "", "", "", scope, "", 0),
+                new(new SecretRef("second"), "Second password", "Password", "", "", "", scope, "", 0),
+            ]);
+            var dialog = new ConnectionEditorDialog(new UnifiedConnectionEditorViewModel(terminal, null, null));
+            try
+            {
+                dialog.Show();
+                await Idle();
+                var picker = dialog.GetVisualDescendants().OfType<ComboBox>()
+                    .Single(control => string.Equals(AutomationProperties.GetName(control), "Connection credential", StringComparison.Ordinal));
+                Assert.True(picker.IsEffectivelyVisible);
+                Assert.Equal("First password", Assert.IsType<ConnectionCredentialOption>(picker.SelectedItem).DisplayName);
+                picker.SelectedItem = terminal.CredentialOptions.Single(option => string.Equals(option.DisplayName, "Second password", StringComparison.Ordinal));
+                await Idle();
+                Assert.Equal(new SecretRef("second"),
+                    Assert.IsType<ConnectionAuthentication.Password>(terminal.CreateSaveRequest().Profile.Authentication).PasswordSecret);
+                terminal.Authentication = ConnectionAuthenticationChoice.PrivateKey;
+                await Idle();
+                Assert.Null(Assert.IsType<ConnectionCredentialOption>(picker.SelectedItem).Reference);
+                Assert.DoesNotContain(terminal.CredentialOptions, option => string.Equals(option.DisplayName, "Second password", StringComparison.Ordinal));
             }
             finally
             {

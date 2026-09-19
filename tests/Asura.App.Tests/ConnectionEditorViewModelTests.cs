@@ -7,6 +7,60 @@ namespace Asura.App.Tests;
 public sealed class ConnectionEditorViewModelTests
 {
     [Fact]
+    public void Credential_options_filter_scope_and_kind_and_preserve_existing_selection()
+    {
+        var profile = new ConnectionEditorViewModel(new StubConnectionRuntime())
+        {
+            Name = "SSH",
+            Kind = ConnectionKind.Ssh,
+            Host = "example.test",
+            Authentication = ConnectionAuthenticationChoice.PrivateKey,
+            SecretReference = "key",
+            PassphraseSecretReference = "phrase",
+        }.CreateSaveRequest().Profile;
+        var scope = new SecretScope(SecretScopeKind.Connection, profile.Id.Value);
+        var editor = new ConnectionEditorViewModel(new StubConnectionRuntime(), profile, secrets:
+        [
+            Credential("password", "Password", SecretKind.Password, scope),
+            Credential("key", "Deploy key", SecretKind.PrivateKey, scope),
+            Credential("phrase", "Key passphrase", SecretKind.Passphrase, scope),
+            Credential("other", "Other connection", SecretKind.PrivateKey, new SecretScope(SecretScopeKind.Connection, "other")),
+            Credential("global", "Global", SecretKind.PrivateKey, SecretScope.Global),
+        ]);
+
+        Assert.Equal("Deploy key", editor.SelectedCredential?.DisplayName);
+        Assert.Equal("Key passphrase", editor.SelectedPassphrase?.DisplayName);
+        Assert.Equal(2, editor.CredentialOptions.Count);
+        Assert.Equal(2, editor.PassphraseOptions.Count);
+        editor.SelectedPassphrase = editor.PassphraseOptions[0];
+        Assert.Null(Assert.IsType<ConnectionAuthentication.PrivateKey>(editor.CreateSaveRequest().Profile.Authentication).PassphraseSecret);
+        editor.Authentication = ConnectionAuthenticationChoice.Password;
+        Assert.Null(editor.SelectedCredential?.Reference);
+        editor.SelectedCredential = editor.CredentialOptions.Single(option => string.Equals(option.Reference?.Value, "password", StringComparison.Ordinal));
+        Assert.Equal(new SecretRef("password"), Assert.IsType<ConnectionAuthentication.Password>(editor.CreateSaveRequest().Profile.Authentication).PasswordSecret);
+    }
+
+    [Fact]
+    public void Missing_saved_credential_remains_selected_without_losing_its_reference()
+    {
+        var profile = new ConnectionEditorViewModel(new StubConnectionRuntime())
+        {
+            Name = "SSH",
+            Kind = ConnectionKind.Ssh,
+            Host = "example.test",
+            Authentication = ConnectionAuthenticationChoice.Password,
+            SecretReference = "missing",
+        }.CreateSaveRequest().Profile;
+        var editor = new ConnectionEditorViewModel(new StubConnectionRuntime(), profile);
+
+        Assert.Equal("Saved credential unavailable", editor.SelectedCredential?.DisplayName);
+        Assert.Equal(profile.Authentication, editor.CreateSaveRequest().Profile.Authentication);
+    }
+
+    private static SecretMetadataViewModel Credential(string id, string label, SecretKind kind, SecretScope scope) =>
+        new(new SecretRef(id), label, kind.ToString(), "", "", "", scope, "", 0);
+
+    [Fact]
     public void SystemConfigurationIsTheExplicitUnmanagedSshAuthenticationChoice()
     {
         var editor = new ConnectionEditorViewModel(new StubConnectionRuntime())

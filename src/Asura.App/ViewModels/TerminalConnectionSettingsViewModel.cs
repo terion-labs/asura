@@ -14,19 +14,22 @@ public sealed class TerminalConnectionSettingsViewModel : IDisposable
     private readonly IConnectionRuntime _connectionRuntime;
     private readonly IConnectionSecurityRuntime? _connectionSecurityRuntime;
     private readonly IGitRepositoryClient? _gitRepositoryClient;
+    private readonly Func<IReadOnlyList<SecretMetadataViewModel>> _secretMetadata;
     private bool _disposed;
 
     public TerminalConnectionSettingsViewModel(
         IDefinitionCatalog catalog,
         IConnectionRuntime connectionRuntime,
         IConnectionSecurityRuntime? connectionSecurityRuntime = null,
-        IGitRepositoryClient? gitRepositoryClient = null)
+        IGitRepositoryClient? gitRepositoryClient = null,
+        Func<IReadOnlyList<SecretMetadataViewModel>>? secretMetadata = null)
     {
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
         _connectionRuntime = connectionRuntime
             ?? throw new ArgumentNullException(nameof(connectionRuntime));
         _connectionSecurityRuntime = connectionSecurityRuntime;
         _gitRepositoryClient = gitRepositoryClient;
+        _secretMetadata = secretMetadata ?? (() => []);
     }
 
     public ConnectionEditorViewModel CreateEditor(ConnectionId? connectionId = null)
@@ -41,7 +44,8 @@ public sealed class TerminalConnectionSettingsViewModel : IDisposable
                 _connectionRuntime,
                 securityRuntime: _connectionSecurityRuntime,
                 gitClient: _gitRepositoryClient,
-                savedConnections: savedConnections);
+                savedConnections: savedConnections,
+                secrets: _secretMetadata());
         }
 
         var stored = _catalog.Snapshot.Connections
@@ -53,7 +57,8 @@ public sealed class TerminalConnectionSettingsViewModel : IDisposable
             stored.Revision,
             _connectionSecurityRuntime,
             _gitRepositoryClient,
-            savedConnections);
+            savedConnections,
+            _secretMetadata());
     }
 
     public ValueTask<DefinitionStoreResult<StoredDefinition<ConnectionProfile>>> SaveAsync(
