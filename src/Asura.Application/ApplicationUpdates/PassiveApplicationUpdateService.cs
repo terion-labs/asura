@@ -36,7 +36,5 @@ public sealed class PassiveApplicationUpdateService : IApplicationUpdateService
         return Task.CompletedTask;
     }
 
-    public void RestartToApply()
-    {
-    }
+    public Task RestartToApplyAsync() => Task.CompletedTask;
 }

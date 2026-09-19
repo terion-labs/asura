@@ -10,5 +10,5 @@ public interface IApplicationUpdateService
 
     Task DownloadAsync(CancellationToken cancellationToken);
 
-    void RestartToApply();
+    Task RestartToApplyAsync();
 }

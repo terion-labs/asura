@@ -279,11 +279,11 @@ public sealed partial class MainWindow
         }
     }
 
-    private void OnRestartToApplyUpdateClick(object? sender, RoutedEventArgs e)
+    private async void OnRestartToApplyUpdateClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        ViewModel.ApplicationUpdates.RestartToApply();
+        await ViewModel.ApplicationUpdates.RestartToApplyAsync();
     }
 
     private void OnEnableStartupProtectionClick(object? sender, RoutedEventArgs e)

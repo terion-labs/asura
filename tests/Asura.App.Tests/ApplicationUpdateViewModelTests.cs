@@ -27,6 +27,16 @@ public sealed class ApplicationUpdateViewModelTests
         Assert.True(viewModel.CanRestartToApply);
         Assert.False(viewModel.CanDownload);
         Assert.Contains("Restart", viewModel.Status, StringComparison.Ordinal);
+
+        service.Set(ApplicationUpdateStage.PreparingToRestart, "1.4.0");
+
+        Assert.True(viewModel.IsPreparingToRestart);
+        Assert.False(viewModel.CanRestartToApply);
+        Assert.False(viewModel.CanCheck);
+        Assert.Contains("Closing sessions", viewModel.Status, StringComparison.Ordinal);
+
+        service.Set(ApplicationUpdateStage.Failed, "1.4.0");
+        Assert.False(viewModel.IsPreparingToRestart);
     }
 
     [Theory]
@@ -79,9 +89,7 @@ public sealed class ApplicationUpdateViewModelTests
         public Task DownloadAsync(CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
-        public void RestartToApply()
-        {
-        }
+        public Task RestartToApplyAsync() => Task.CompletedTask;
 
         public void Set(
             ApplicationUpdateStage stage,

@@ -30,8 +30,14 @@ architectures. Update checks run only after the user selects "Check for
 updates" in Settings > About or "Check for Updates…" in the native application
 menu. The menu opens the About page so the result and next action are visible.
 A second action downloads the selected package. "Restart to update"
-arms Velopack's external updater and then requests Asura's normal shutdown,
-which preserves the existing session, recovery, database, and browser cleanup.
+first awaits desktop preparation while the UI dispatcher is still running.
+The About page shows restart progress and prevents duplicate requests. Only
+successful preparation arms Velopack's external updater and requests desktop
+shutdown, so workspace cleanup does not consume the updater's 60-second exit
+wait. Preparation and launch failures return to the update UI. The existing
+recovery, database, and browser finalization still runs before process exit.
+The Velopack log records preparation, updater launch, and shutdown handoff
+without writing workspace names, credentials, or exception messages.
 Automatic startup checks and automatic startup application are disabled.
 
 Store and package-manager builds use `platform-managed`. They display their

@@ -1618,6 +1618,7 @@
                     <TextBlock Text="{Binding ApplicationUpdates.Channel}" />
                     <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding ApplicationUpdates.Status}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Application update status" />
                     <ProgressBar Minimum="0" Maximum="100" Value="{Binding ApplicationUpdates.DownloadProgress}" IsVisible="{Binding ApplicationUpdates.IsDownloading}" AutomationProperties.Name="Update download progress" />
+                    <ProgressBar IsIndeterminate="True" IsVisible="{Binding ApplicationUpdates.IsPreparingToRestart}" AutomationProperties.Name="Preparing update restart" />
                     <WrapPanel Orientation="Horizontal">
                       <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Classes="SecondaryButton" Click="OnCheckForUpdatesClick" Content="Check for updates" IsEnabled="{Binding ApplicationUpdates.CanCheck}" IsVisible="{Binding ApplicationUpdates.CanCheck}" AutomationProperties.Name="Check for application updates" />
                       <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Classes="PrimaryButton" Click="OnDownloadUpdateClick" Content="Download update" IsEnabled="{Binding ApplicationUpdates.CanDownload}" IsVisible="{Binding ApplicationUpdates.CanDownload}" AutomationProperties.Name="Download application update" />
