@@ -363,7 +363,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             _catalog,
             _connectionRuntime,
             _connectionSecurityRuntime,
-            _gitRepositoryClient);
+            _gitRepositoryClient,
+            () => [.. SecretSettings.Secrets]);
         _sessionRestoreCoordinator = sessionRestoreCoordinator;
         _terminalMultiplexerCoordinator = terminalMultiplexerCoordinator;
         TerminalContinuity = new TerminalContinuitySettingsViewModel(

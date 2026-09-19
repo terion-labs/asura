@@ -163,7 +163,7 @@ public sealed partial class ConnectionEditorDialog : Window
             new SecretScope(SecretScopeKind.Connection, ViewModel.Terminal.Id.Value));
         if (credential is not null)
         {
-            ViewModel.Terminal.SecretReference = credential.Reference.Value;
+            ViewModel.Terminal.SelectCreatedCredential(credential);
         }
     }
 
@@ -173,7 +173,7 @@ public sealed partial class ConnectionEditorDialog : Window
             new SecretScope(SecretScopeKind.Connection, ViewModel.Terminal.Id.Value));
         if (credential is not null)
         {
-            ViewModel.Terminal.PassphraseSecretReference = credential.Reference.Value;
+            ViewModel.Terminal.SelectCreatedCredential(credential);
         }
     }
 

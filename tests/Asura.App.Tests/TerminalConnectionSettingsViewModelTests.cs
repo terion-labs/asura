@@ -8,6 +8,29 @@ namespace Asura.App.Tests;
 public sealed class TerminalConnectionSettingsViewModelTests
 {
     [Fact]
+    public void Editor_uses_current_secret_metadata_when_reopened()
+    {
+        var profile = new ConnectionEditorViewModel(new StubConnectionRuntime())
+        {
+            Name = "SSH",
+            Kind = ConnectionKind.Ssh,
+            Host = "example.test",
+            Authentication = ConnectionAuthenticationChoice.Password,
+            SecretReference = "password",
+        }.CreateSaveRequest().Profile;
+        var fixture = CreateCatalog(new DefinitionCatalogSnapshot(
+            [Store(profile, 17)], [], [], [], [], [], [], [], []));
+        var secret = new SecretMetadataViewModel(new SecretRef("password"), "Deploy password", "Password",
+            "", "", "", new SecretScope(SecretScopeKind.Connection, profile.Id.Value), "", 0);
+        using var viewModel = new TerminalConnectionSettingsViewModel(
+            fixture.Catalog, new StubConnectionRuntime(), secretMetadata: () => [secret]);
+
+        Assert.Equal("Deploy password", viewModel.CreateEditor(profile.Id).SelectedCredential?.DisplayName);
+        secret = secret with { Label = "Renamed password" };
+        Assert.Equal("Renamed password", viewModel.CreateEditor(profile.Id).SelectedCredential?.DisplayName);
+    }
+
+    [Fact]
     public void Existing_connection_editor_uses_the_catalog_value_and_revision()
     {
         var profile = Profile("connection.settings-owner", "Operations");

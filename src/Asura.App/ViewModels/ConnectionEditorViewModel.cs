@@ -28,6 +28,8 @@ public sealed record SavedSshSourceOption(string DisplayName, ConnectionProfile?
     public static SavedSshSourceOption Manual { get; } = new("Enter manually", null);
 }
 
+public sealed record ConnectionCredentialOption(SecretRef? Reference, string DisplayName);
+
 public sealed class ConnectionEditorViewModel : ObservableObject
 {
     private readonly IConnectionRuntime _runtime;
@@ -35,6 +37,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     private readonly IGitRepositoryClient? _gitClient;
     private readonly ConnectionId _id;
     private readonly IReadOnlyList<ConnectionProfile> _savedConnections;
+    private readonly List<(SecretRef Reference, string Label, string Kind)> _credentials;
     private readonly int _schemaVersion;
     private readonly IReadOnlyList<ConnectionEnvironmentVariable> _environment;
     private readonly IReadOnlyList<string> _tags;
@@ -50,6 +53,9 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     private string _startupDirectory = string.Empty;
     private string _startupCommand = string.Empty;
     private ConnectionAuthenticationChoice _authentication;
+    private bool _refreshingCredentials;
+    private ConnectionCredentialOption? _selectedCredential;
+    private ConnectionCredentialOption? _selectedPassphrase;
     private string _secretReference = string.Empty;
     private string _passphraseSecretReference = string.Empty;
     private SshHostKeyPolicy _hostKeyPolicy = SshHostKeyPolicy.Strict;
@@ -69,7 +75,8 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         long? expectedRevision = null,
         IConnectionSecurityRuntime? securityRuntime = null,
         IGitRepositoryClient? gitClient = null,
-        IReadOnlyList<ConnectionProfile>? savedConnections = null)
+        IReadOnlyList<ConnectionProfile>? savedConnections = null,
+        IReadOnlyList<SecretMetadataViewModel>? secrets = null)
     {
         _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
         _securityRuntime = securityRuntime;
@@ -85,9 +92,13 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         ];
 
         _savedConnections = savedConnections ?? [];
+        _id = existing?.Id ?? ConnectionId.New();
+        _credentials = [.. (secrets ?? [])
+            .Where(secret => secret.SecretScope == new SecretScope(SecretScopeKind.Connection, _id.Value))
+            .Select(secret => (secret.Reference, secret.Label, secret.Kind))];
+        RefreshCredentialOptions();
         if (existing is null)
         {
-            _id = ConnectionId.New();
             _schemaVersion = ConnectionProfile.CurrentSchemaVersion;
             _environment = [];
             _tags = [];
@@ -95,7 +106,6 @@ public sealed class ConnectionEditorViewModel : ObservableObject
             return;
         }
 
-        _id = existing.Id;
         SavedSshSources = BuildSavedSshSources(savedConnections);
         _schemaVersion = existing.SchemaVersion;
         _environment = existing.Startup.Environment;
@@ -137,6 +147,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
 
         LoadEndpoint(existing.Endpoint);
         LoadAuthentication(existing.Authentication);
+        RefreshCredentialOptions();
     }
 
     public ConnectionId Id => _id;
@@ -333,6 +344,8 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         {
             if (SetProperty(ref _authentication, value))
             {
+                SecretReference = string.Empty;
+                RefreshCredentialOptions();
                 OnPropertyChanged(nameof(UsesSecretReference));
                 OnPropertyChanged(nameof(UsesPassphraseReference));
             }
@@ -342,13 +355,114 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     public string SecretReference
     {
         get => _secretReference;
-        set => SetProperty(ref _secretReference, value);
+        set
+        {
+            if (SetProperty(ref _secretReference, value))
+            {
+                RefreshCredentialOptions();
+            }
+        }
     }
 
     public string PassphraseSecretReference
     {
         get => _passphraseSecretReference;
-        set => SetProperty(ref _passphraseSecretReference, value);
+        set
+        {
+            if (SetProperty(ref _passphraseSecretReference, value))
+            {
+                RefreshCredentialOptions();
+            }
+        }
+    }
+
+    public IReadOnlyList<ConnectionCredentialOption> CredentialOptions { get; private set; } = [];
+
+    public IReadOnlyList<ConnectionCredentialOption> PassphraseOptions { get; private set; } = [];
+
+    public ConnectionCredentialOption? SelectedCredential
+    {
+        get => _selectedCredential;
+        set
+        {
+            if (value is not null && !_refreshingCredentials)
+            {
+                SecretReference = value.Reference?.Value ?? string.Empty;
+            }
+        }
+    }
+
+    public ConnectionCredentialOption? SelectedPassphrase
+    {
+        get => _selectedPassphrase;
+        set
+        {
+            if (value is not null && !_refreshingCredentials)
+            {
+                PassphraseSecretReference = value.Reference?.Value ?? string.Empty;
+            }
+        }
+    }
+
+    public void SelectCreatedCredential(SecretMetadata credential)
+    {
+        ArgumentNullException.ThrowIfNull(credential);
+        if (credential.Scope != new SecretScope(SecretScopeKind.Connection, Id.Value)
+            || credential.Kind is not (SecretKind.Password or SecretKind.PrivateKey or SecretKind.Passphrase))
+        {
+            throw new ArgumentException("The credential must belong to this connection and match SSH authentication.", nameof(credential));
+        }
+
+        _credentials.RemoveAll(item => item.Reference == credential.Reference);
+        _credentials.Add((credential.Reference, credential.Label, credential.Kind.ToString()));
+        if (credential.Kind == SecretKind.Passphrase)
+        {
+            PassphraseSecretReference = credential.Reference.Value;
+        }
+        else
+        {
+            SecretReference = credential.Reference.Value;
+        }
+    }
+
+    private void RefreshCredentialOptions()
+    {
+        CredentialOptions = BuildCredentialOptions(
+            Authentication == ConnectionAuthenticationChoice.PrivateKey ? SecretKind.PrivateKey : SecretKind.Password,
+            SecretReference, "Choose a credential");
+        PassphraseOptions = BuildCredentialOptions(SecretKind.Passphrase, PassphraseSecretReference, "No passphrase");
+        // Replacing a ComboBox source can temporarily clear its selection.
+        _refreshingCredentials = true;
+        try
+        {
+            OnPropertyChanged(nameof(CredentialOptions));
+            OnPropertyChanged(nameof(PassphraseOptions));
+            _selectedCredential = CredentialOptions.First(option => string.Equals(option.Reference?.Value, Optional(SecretReference), StringComparison.Ordinal));
+            _selectedPassphrase = PassphraseOptions.First(option => string.Equals(option.Reference?.Value, Optional(PassphraseSecretReference), StringComparison.Ordinal));
+            OnPropertyChanged(nameof(SelectedCredential));
+            OnPropertyChanged(nameof(SelectedPassphrase));
+        }
+        finally
+        {
+            _refreshingCredentials = false;
+        }
+    }
+
+    private IReadOnlyList<ConnectionCredentialOption> BuildCredentialOptions(
+        SecretKind kind, string reference, string placeholder)
+    {
+        List<ConnectionCredentialOption> options = [new(null, placeholder)];
+        options.AddRange(_credentials
+            .Where(credential => string.Equals(credential.Kind, kind.ToString(), StringComparison.Ordinal))
+            .OrderBy(credential => credential.Label, StringComparer.OrdinalIgnoreCase)
+            .Select(credential => new ConnectionCredentialOption(credential.Reference, credential.Label)));
+        if (Optional(reference) is { } savedReference
+            && options.All(option => !string.Equals(option.Reference?.Value, savedReference, StringComparison.Ordinal)))
+        {
+            options.Add(new ConnectionCredentialOption(new SecretRef(savedReference), "Saved credential unavailable"));
+        }
+
+        return options;
     }
 
     public SshHostKeyPolicy HostKeyPolicy
