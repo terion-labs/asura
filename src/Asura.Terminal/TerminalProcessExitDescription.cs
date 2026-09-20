@@ -7,6 +7,11 @@ namespace Asura.Terminal;
 /// </summary>
 internal static class TerminalProcessExitDescription
 {
+    public static ConnectionRuntimeError? ClassifyStartupFailure(
+        TerminalLaunchRequest launch,
+        int? exitCode) =>
+        IsSsh(launch) ? launch.MultiplexerSession?.ClassifyStartupExit(exitCode) : null;
+
     public static string Describe(
         TerminalLaunchRequest launch,
         int? exitCode)

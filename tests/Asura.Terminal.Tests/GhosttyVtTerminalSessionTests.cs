@@ -1281,6 +1281,33 @@ public sealed class GhosttyVtTerminalSessionTests
         Assert.Contains("HOST IDENTIFICATION HAS CHANGED", screenAfterExit.PlainText, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(240, "connection_terminal_multiplexer_missing")]
+    [InlineData(241, "connection_terminal_multiplexer_session_missing")]
+    public async Task Multiplexer_startup_exit_exposes_actionable_nonretryable_failure(
+        int exitCode,
+        string stableCode)
+    {
+        var harness = await CreateAsync(new TerminalLaunchRequest(
+            Environment.CurrentDirectory,
+            connectionMetadata: new TerminalConnectionMetadata("SSH: user@private.example:22", null),
+            multiplexerSession: new TerminalMultiplexerSession(
+                TerminalMultiplexingMode.Automatic, "asura-exit-test", isEstablished: true)));
+        await using var session = harness.Session;
+        await harness.Pty.WriteOutputAsync("Asura could not find the managed tmux or Screen session.\r\n");
+        _ = await WaitForScreenAsync(session, screen => screen.PlainText.Contains("managed tmux", StringComparison.Ordinal));
+        Assert.Equal(SessionLifecycle.Active, (await session.SnapshotAsync(default)).Lifecycle);
+
+        harness.Pty.Exit(exitCode);
+        var snapshot = await session.SnapshotAsync(default);
+
+        Assert.Equal(SessionLifecycle.Failed, snapshot.Lifecycle);
+        Assert.Equal(stableCode, snapshot.Failure?.StableCode);
+        Assert.False(snapshot.Failure?.Retryable);
+        Assert.Contains("SSH connected", snapshot.StatusDetail, StringComparison.Ordinal);
+        Assert.DoesNotContain("private.example", snapshot.StatusDetail, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Output_eof_before_process_exit_keeps_session_active_until_exit_code_is_known()
     {

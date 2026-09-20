@@ -453,7 +453,7 @@ public sealed class SshConnectionRuntimeAdapterTests
         Assert.Contains("new-session -d -s \"$1\" -c \"$2\"", command, StringComparison.Ordinal);
         Assert.Contains("set-option -t \"$1\" status off", command, StringComparison.Ordinal);
         Assert.Contains("set-option -t \"$1\" mouse on", command, StringComparison.Ordinal);
-        Assert.Contains("exec screen -A -U -D -RR -S \"$1\"", command, StringComparison.Ordinal);
+        Assert.Contains("asura_attach screen -A -U -D -RR -S \"$1\"", command, StringComparison.Ordinal);
         Assert.True(
             command.IndexOf("command -v tmux", StringComparison.Ordinal)
             < command.IndexOf("command -v screen", StringComparison.Ordinal));
@@ -489,14 +489,14 @@ public sealed class SshConnectionRuntimeAdapterTests
         var command = plan.Launch.Arguments[^1];
         Assert.Contains("tmux -L asura has-session", command, StringComparison.Ordinal);
         Assert.Contains(
-            "exec tmux -L asura -u -2 attach-session -d",
+            "asura_attach tmux -L asura -u -2 attach-session -d",
             command,
             StringComparison.Ordinal);
         Assert.Contains(
             "set-option -t \"$1\" mouse on",
             command,
             StringComparison.Ordinal);
-        Assert.Contains("exec screen -A -U -D -r \"$1\"", command, StringComparison.Ordinal);
+        Assert.Contains("asura_attach screen -A -U -D -r \"$1\"", command, StringComparison.Ordinal);
         Assert.DoesNotContain("new-session", command, StringComparison.Ordinal);
         Assert.DoesNotContain("-RR", command, StringComparison.Ordinal);
         Assert.EndsWith(

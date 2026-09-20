@@ -1014,6 +1014,53 @@ public sealed class TerminalRuntimePanelViewModelTests
         Assert.Equal(plannedSession.SessionName, panel.MultiplexerSession?.SessionName);
     }
 
+    [Theory]
+    [InlineData(ConnectionRuntimeErrorCode.TerminalMultiplexerMissing, "Terminal continuity unavailable", "Install tmux or GNU Screen")]
+    [InlineData(ConnectionRuntimeErrorCode.TerminalMultiplexerSessionMissing, "Saved terminal session unavailable", "close this failed tab")]
+    public async Task Continuity_failure_explains_workspace_setting_without_retrying(
+        ConnectionRuntimeErrorCode code,
+        string title,
+        string instruction)
+    {
+        var connection = SshAgentConnection();
+        var identity = TerminalMultiplexerSession.CreateAutomatic();
+        var runtime = new QueueConnectionRuntime(
+            ConnectionRuntimeResult<ConnectionOpenPlan>.Succeed(new ConnectionOpenPlan(
+                connection.Id,
+                ConnectionKind.Ssh,
+                new TerminalLaunchRequest(null, "/usr/bin/ssh", multiplexerSession: identity),
+                ConnectionAuthenticationMode.SshAgent,
+                SshHostKeyPolicy.Strict,
+                ConnectionReconnectMode.BoundedBackoff)));
+        using var panel = CreatePanel(runtime, connection, PanelStartupBehavior.None,
+            reconnectDelay: (_, _) => throw new InvalidOperationException("Continuity failures must not reconnect."),
+            multiplexerSession: identity);
+        await panel.Initialization;
+        var request = panel.SessionRequest!;
+        panel.ObserveSessionSnapshot(Snapshot(request, SessionLifecycle.Active, SessionHealth.Healthy));
+        var error = ConnectionRuntimeError.Create(code);
+        var failed = Snapshot(request, SessionLifecycle.Failed, SessionHealth.Failed);
+
+        panel.ObserveSessionSnapshot(failed with
+        {
+            Descriptor = failed.Descriptor with
+            {
+                Failure = new SessionFailure(error.StableCode, error.Message, error.Retryable),
+            },
+        });
+
+        Assert.True(panel.HasConnectionOverlay);
+        Assert.False(panel.CanRetry);
+        Assert.False(panel.IsContinuityActive);
+        Assert.Equal(ConnectionReconnectState.Idle, panel.ReconnectState);
+        Assert.Equal(title, panel.ConnectionStatus);
+        Assert.Equal(error.Message, panel.ConnectionDetail);
+        Assert.Contains(instruction, panel.RecoveryLabel, StringComparison.Ordinal);
+        Assert.Contains("Details > Terminal continuity", panel.RecoveryLabel, StringComparison.Ordinal);
+        Assert.Contains("Off for this workspace", panel.RecoveryLabel, StringComparison.Ordinal);
+        Assert.Null(panel.SessionRequest);
+    }
+
     private static SessionSnapshot Snapshot(
         EnsureTerminalSessionRequest request,
         SessionLifecycle lifecycle,

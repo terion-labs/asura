@@ -7,6 +7,8 @@ public sealed class TerminalProcessExitDescriptionTests
     [Theory]
     [InlineData(255, "The OpenSSH process exited with code 255.")]
     [InlineData(42, "The OpenSSH process exited with code 42.")]
+    [InlineData(240, "The OpenSSH process exited with code 240.")]
+    [InlineData(241, "The OpenSSH process exited with code 241.")]
     [InlineData(0, "The SSH session ended normally.")]
     [InlineData(null, "The SSH session ended.")]
     public void SshExitUsesOnlyLocalExitCode(
@@ -18,6 +20,7 @@ public sealed class TerminalProcessExitDescriptionTests
             exitCode);
 
         Assert.Equal(expected, description);
+        Assert.Null(TerminalProcessExitDescription.ClassifyStartupFailure(SshLaunch(), exitCode));
         Assert.DoesNotContain("private.example", description, StringComparison.Ordinal);
     }
 

@@ -56,6 +56,10 @@ public sealed record ConnectionRuntimeError(
             New(code, "connection_cancelled", "The connection operation was cancelled.", false, ConnectionRecoveryAction.None),
         ConnectionRuntimeErrorCode.ProcessFailed =>
             New(code, "connection_process_failed", "The connection runtime failed.", true, ConnectionRecoveryAction.Retry),
+        ConnectionRuntimeErrorCode.TerminalMultiplexerMissing =>
+            New(code, "connection_terminal_multiplexer_missing", "SSH connected, but terminal continuity requires tmux or GNU Screen on the remote host.", false, ConnectionRecoveryAction.ConfigureTerminalContinuity),
+        ConnectionRuntimeErrorCode.TerminalMultiplexerSessionMissing =>
+            New(code, "connection_terminal_multiplexer_session_missing", "SSH connected, but the saved tmux or GNU Screen session could not be found. It may have ended or the server may have restarted.", false, ConnectionRecoveryAction.ConfigureTerminalContinuity),
         _ => throw new ArgumentOutOfRangeException(nameof(code), code, null),
     };
 

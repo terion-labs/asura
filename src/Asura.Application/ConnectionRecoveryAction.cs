@@ -13,4 +13,5 @@ public enum ConnectionRecoveryAction
     Reconnect,
     SelectContainer,
     SelectDistribution,
+    ConfigureTerminalContinuity,
 }

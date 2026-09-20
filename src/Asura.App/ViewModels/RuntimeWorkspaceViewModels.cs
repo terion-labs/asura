@@ -2570,6 +2570,12 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
 
     public string RecoveryLabel => ConnectionError?.RecoveryAction switch
     {
+        ConnectionRecoveryAction.ConfigureTerminalContinuity =>
+            (ConnectionError.Code == ConnectionRuntimeErrorCode.TerminalMultiplexerMissing
+                ? "Install tmux or GNU Screen on the remote host and make it available on PATH, then open a new terminal. "
+                : "To start a fresh session, close this failed tab and reopen the connection. ")
+            + "To connect without continuity, edit this workspace, go to Details > Terminal continuity, "
+            + "choose Off for this workspace, save, and open a new terminal.",
         ConnectionRecoveryAction.InstallRuntime => "Install the required runtime, then retry.",
         ConnectionRecoveryAction.UnlockSecretVault => "Unlock the credential vault, then retry.",
         ConnectionRecoveryAction.ProvideAuthentication => "Update authentication in the connection profile.",
@@ -2720,6 +2726,27 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
 
         if (snapshot.Descriptor.Lifecycle == SessionLifecycle.Failed)
         {
+            // These codes come from the local process-exit classifier, never
+            // from terminal text. A retry cannot install a runtime or restore
+            // a missing remote session, so present the required action instead.
+            var continuityError = isExactSession && SessionRequest.Launch.MultiplexerSession is not null
+                ? snapshot.Descriptor.Failure?.StableCode switch
+                {
+                    "connection_terminal_multiplexer_missing" => ConnectionRuntimeErrorCode.TerminalMultiplexerMissing,
+                    "connection_terminal_multiplexer_session_missing" => ConnectionRuntimeErrorCode.TerminalMultiplexerSessionMissing,
+                    _ => (ConnectionRuntimeErrorCode?)null,
+                }
+                : null;
+            if (continuityError is { } code)
+            {
+                BeginAutomaticReconnect(ConnectionRuntimeError.Create(code));
+                ReconnectState = ConnectionReconnectState.Idle;
+                ConnectionStatus = code == ConnectionRuntimeErrorCode.TerminalMultiplexerMissing
+                    ? "Terminal continuity unavailable"
+                    : "Saved terminal session unavailable";
+                return;
+            }
+
             var error = ConnectionRuntimeError.Create(ConnectionRuntimeErrorCode.ProcessFailed) with
             {
                 Retryable = snapshot.Descriptor.Failure?.Retryable ?? true,

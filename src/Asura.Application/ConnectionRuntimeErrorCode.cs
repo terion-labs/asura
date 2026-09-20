@@ -23,4 +23,6 @@ public enum ConnectionRuntimeErrorCode
     DistributionNotFound,
     Cancelled,
     ProcessFailed,
+    TerminalMultiplexerMissing,
+    TerminalMultiplexerSessionMissing,
 }
