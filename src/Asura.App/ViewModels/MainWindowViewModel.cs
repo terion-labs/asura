@@ -12653,6 +12653,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             RuntimeRecovery.Seal();
 
             History.SealOperations();
+            // History operations can have captured Avalonia's synchronization
+            // context. Drain them before the close coordinator stops its pump;
+            // the desktop finalizer still owns reporting any persistence error
+            // and leaves the run marker dirty when the flush failed.
+            _ = await History.DrainAsync(CancellationToken.None).ConfigureAwait(false);
 
             await RuntimeGraph.QuiesceAsync().ConfigureAwait(false);
         }

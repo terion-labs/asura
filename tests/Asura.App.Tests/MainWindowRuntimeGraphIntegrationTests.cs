@@ -1487,6 +1487,73 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(binding.LeaseId, stopped.LeaseId);
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task WindowShutdownDrainsHistoryBeforeStoppingTheDispatcher(
+        bool updateRestart,
+        bool failWrite)
+    {
+        var store = new BlockingShutdownHistoryStore { FailWrite = failWrite };
+        var (client, _) = CreateSessionClient();
+        using var viewModel = CreateViewModel(
+            client,
+            CreateCatalogSnapshot(),
+            recentSessionHistory: new RecentSessionHistory(store, TimeProvider.System));
+        Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+        var sessionId = new SessionId("shutdown-history");
+        await viewModel.History.RecordStartedAsync(
+            sessionId,
+            new DefinitionKey(DefinitionKind.Connection, "shutdown-source"),
+            PanelKind.Terminal,
+            "Shutdown history");
+        _ = viewModel.History.RecordCompletionsAsync(
+            [(sessionId, RecentSessionOutcome.GracefullyClosed)]);
+        await store.WriteEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var nativeClosed = false;
+        Task shutdown;
+        if (updateRestart)
+        {
+            var application = new App();
+            typeof(App).GetField("_mainWindowViewModel", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(application, viewModel);
+            shutdown = application.PrepareForUpdateRestartAsync(CancellationToken.None);
+        }
+        else
+        {
+            var presentation = new ShellClosePresentation(
+                () => Task.FromResult(true),
+                (_, _) => Task.FromResult(true),
+                _ => Task.FromResult(true),
+                _ => Task.CompletedTask,
+                () => { },
+                () => { },
+                () => nativeClosed = true);
+            shutdown = new ShellCloseCoordinator(viewModel, presentation, CancellationToken.None)
+                .RequestWindowCloseAsync();
+        }
+
+        try
+        {
+            await Task.WhenAny(shutdown, Task.Delay(TimeSpan.FromMilliseconds(100)));
+            Assert.False(shutdown.IsCompleted);
+            Assert.False(nativeClosed);
+        }
+        finally
+        {
+            store.ReleaseWrite.TrySetResult();
+            await shutdown.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
+        Assert.Equal(!updateRestart, nativeClosed);
+        var flushed = await viewModel.FlushRecentSessionHistoryAsync(CancellationToken.None);
+        Assert.Equal(!failWrite, flushed.IsSuccess);
+        Assert.True(store.WriteCompleted);
+    }
+
     [Fact]
     public async Task ApplicationExitQuiescesEveryAdditionalWindowBeforeDisposal()
     {
@@ -8423,7 +8490,8 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
         WorkspaceDefinitionOccupancy? workspaceDefinitionOccupancy = null,
         TerminalMultiplexerCoordinator? terminalMultiplexerCoordinator = null,
         IWorkspaceRuntimeServicesFactory? workspaceRuntimeServicesFactory = null,
-        IWorkspaceNetworkRuntime? workspaceNetworkRuntime = null) =>
+        IWorkspaceNetworkRuntime? workspaceNetworkRuntime = null,
+        RecentSessionHistory? recentSessionHistory = null) =>
         CreateViewModel(
             sessionClient,
             CreateFixedCatalog(snapshot),
@@ -8450,7 +8518,8 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
             workspaceDefinitionOccupancy,
             terminalMultiplexerCoordinator,
             workspaceRuntimeServicesFactory,
-            workspaceNetworkRuntime);
+            workspaceNetworkRuntime,
+            recentSessionHistory);
 
     private static MainWindowViewModel CreateViewModel(
         ISessionHostClient sessionClient,
@@ -8478,7 +8547,8 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
         WorkspaceDefinitionOccupancy? workspaceDefinitionOccupancy = null,
         TerminalMultiplexerCoordinator? terminalMultiplexerCoordinator = null,
         IWorkspaceRuntimeServicesFactory? workspaceRuntimeServicesFactory = null,
-        IWorkspaceNetworkRuntime? workspaceNetworkRuntime = null)
+        IWorkspaceNetworkRuntime? workspaceNetworkRuntime = null,
+        RecentSessionHistory? recentSessionHistory = null)
     {
         var files = new EmptyFileClients();
         agentPolicyCoordinator ??= CreateConfiguredPolicyCoordinator(aiProfiles);
@@ -8509,7 +8579,45 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
             workspaceDefinitionOccupancy: workspaceDefinitionOccupancy,
             terminalMultiplexerCoordinator: terminalMultiplexerCoordinator,
             workspaceRuntimeServicesFactory: workspaceRuntimeServicesFactory,
-            workspaceNetworkRuntime: workspaceNetworkRuntime);
+            workspaceNetworkRuntime: workspaceNetworkRuntime,
+            recentSessionHistory: recentSessionHistory);
+    }
+
+    private sealed class BlockingShutdownHistoryStore : IRecentSessionStore
+    {
+        public bool FailWrite { get; init; }
+        public bool WriteCompleted { get; private set; }
+        public TaskCompletionSource WriteEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource ReleaseWrite { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public ValueTask<RecentSessionStoreResult<Unit>> RecordStartedAsync(
+            RecentSessionRecord recentSession, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(RecentSessionStoreResult<Unit>.Success(Unit.Value));
+
+        public async ValueTask<RecentSessionStoreResult<Unit>> RecordCompletedAsync(
+            RecentSessionCompletion completion, CancellationToken cancellationToken)
+        {
+            WriteEntered.TrySetResult();
+            await ReleaseWrite.Task.WaitAsync(cancellationToken);
+            WriteCompleted = true;
+            return FailWrite
+                ? RecentSessionStoreResult<Unit>.Failure(new RecentSessionStoreError(
+                    RecentSessionStoreErrorCode.StorageFailure, "History write failed."))
+                : RecentSessionStoreResult<Unit>.Success(Unit.Value);
+        }
+
+        public ValueTask<RecentSessionStoreResult<IReadOnlyList<RecentSessionRecord>>> ListRecentAsync(
+            RecentSessionQuery query, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(RecentSessionStoreResult<IReadOnlyList<RecentSessionRecord>>.Success([]));
+
+        public ValueTask<RecentSessionStoreResult<int>> MarkActiveSessionsInterruptedAsync(
+            CancellationToken cancellationToken) => ValueTask.FromResult(RecentSessionStoreResult<int>.Success(0));
+
+        public ValueTask<RecentSessionStoreResult<int>> ClearThroughAsync(
+            DateTimeOffset through, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public ValueTask<RecentSessionStoreResult<int>> ClearAllAsync(
+            CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class MemoryTerminalMultiplexerStore :
