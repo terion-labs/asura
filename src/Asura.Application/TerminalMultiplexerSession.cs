@@ -12,6 +12,21 @@ public sealed record TerminalMultiplexerSession
     public const int MaximumSessionNameLength = 64;
     public const string NamePrefix = "asura-";
 
+    // Reserved by Asura's remote startup script. The attached command's exits
+    // are normalized away from these values so shell exits cannot impersonate
+    // a startup failure. No terminal-output parsing is involved.
+    public const int RuntimeMissingExitCode = 240;
+    public const int SessionMissingExitCode = 241;
+
+    public ConnectionRuntimeError? ClassifyStartupExit(int? exitCode) => exitCode switch
+    {
+        RuntimeMissingExitCode => ConnectionRuntimeError.Create(
+            ConnectionRuntimeErrorCode.TerminalMultiplexerMissing),
+        SessionMissingExitCode when IsEstablished => ConnectionRuntimeError.Create(
+            ConnectionRuntimeErrorCode.TerminalMultiplexerSessionMissing),
+        _ => null,
+    };
+
     public TerminalMultiplexerSession(
         TerminalMultiplexingMode mode,
         string sessionName,

@@ -787,6 +787,13 @@ internal sealed partial class GhosttyVtTerminalSession : ITerminalPanelSession
                 _writes.Writer.TryComplete();
             }
 
+            if (TerminalProcessExitDescription.ClassifyStartupFailure(_launch, exitCode) is { } error)
+            {
+                _failure = new SessionFailure(error.StableCode, error.Message, error.Retryable);
+                PublishUnsafe(SessionLifecycle.Failed, SessionHealth.Failed, error.Message);
+                return;
+            }
+
             PublishUnsafe(
                 SessionLifecycle.Closed,
                 SessionHealth.Ended,

@@ -219,6 +219,15 @@ internal static class SshConnectionArguments
         var multiplexerScript = session.IsEstablished
             ? EstablishedMultiplexerScript()
             : NewMultiplexerScript(directory is not null);
+        // Only startup may return the reserved statuses. An attached shell can
+        // exit with any value, so translate collisions before OpenSSH relays it.
+        multiplexerScript = "asura_attach() { \"$@\"; result=$?; case \"$result\" in "
+            + $"{TerminalMultiplexerSession.RuntimeMissingExitCode}|{TerminalMultiplexerSession.SessionMissingExitCode}) exit 1;; "
+            + "*) exit \"$result\";; esac; }; "
+            + "if ! command -v tmux >/dev/null 2>&1 && ! command -v screen >/dev/null 2>&1; then "
+            + MissingMultiplexerScript()
+            + "; fi; "
+            + multiplexerScript;
         var sessionName = QuotePosixShellWord(session.SessionName);
         if (directory is null)
         {
@@ -245,11 +254,12 @@ internal static class SshConnectionArguments
         + "&& tmux -L asura has-session -t \"$1\" 2>/dev/null; then "
         + "tmux -L asura set-option -t \"$1\" status off >/dev/null 2>&1; "
         + "tmux -L asura set-option -t \"$1\" mouse on >/dev/null 2>&1; "
-        + "exec tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
-        + "if command -v screen >/dev/null 2>&1; then "
-        + "exec screen -A -U -D -r \"$1\"; fi; "
+        + "asura_attach tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
+        + "if command -v screen >/dev/null 2>&1 "
+        + "&& screen -S \"$1\" -X select . >/dev/null 2>&1; then "
+        + "asura_attach screen -A -U -D -r \"$1\"; fi; "
         + "printf \"%s\\n\" \"Asura could not find the managed tmux or Screen session.\" >&2; "
-        + "exit 1";
+        + $"exit {TerminalMultiplexerSession.SessionMissingExitCode}";
 
     private static string NewMultiplexerScript(bool hasDirectory)
     {
@@ -259,20 +269,23 @@ internal static class SshConnectionArguments
             + "if tmux -L asura has-session -t \"$1\" 2>/dev/null; then "
             + "tmux -L asura set-option -t \"$1\" status off >/dev/null 2>&1; "
             + "tmux -L asura set-option -t \"$1\" mouse on >/dev/null 2>&1; "
-            + "exec tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
+            + "asura_attach tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
             + "tmux -L asura -u -2 start-server \\; "
             + "set-option -s default-terminal tmux-256color \\; "
             + "set-option -s terminal-features \"xterm*:RGB\" \\; "
             + $"new-session -d -s \"$1\"{tmuxDirectory} \\; "
-            + "set-option -t \"$1\" status off || exit $?; "
+            + "set-option -t \"$1\" status off || exit 1; "
             + "tmux -L asura set-option -t \"$1\" mouse on >/dev/null 2>&1; "
-            + "exec tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
+            + "asura_attach tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
             + "if command -v screen >/dev/null 2>&1; then "
             + screenDirectory
-            + "exec screen -A -U -D -RR -S \"$1\"; fi; "
-            + "printf \"%s\\n\" \"Asura terminal continuity requires tmux or GNU Screen.\" >&2; "
-            + "exit 127";
+            + "asura_attach screen -A -U -D -RR -S \"$1\"; fi; "
+            + MissingMultiplexerScript();
     }
+
+    private static string MissingMultiplexerScript() =>
+        "printf \"%s\\n\" \"Asura terminal continuity requires tmux or GNU Screen.\" >&2; "
+        + $"exit {TerminalMultiplexerSession.RuntimeMissingExitCode}";
 
     private static string QuotePosixShellWord(string value) =>
         $"'{value.Replace("'", "'\"'\"'", StringComparison.Ordinal)}'";
