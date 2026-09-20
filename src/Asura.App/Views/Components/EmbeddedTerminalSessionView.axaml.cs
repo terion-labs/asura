@@ -31,6 +31,16 @@ public sealed partial class EmbeddedTerminalSessionView : UserControl
         }
     }
 
+    private async void OnProceedWithoutContinuityClick(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (ViewModel is { } panel)
+        {
+            await panel.ProceedWithoutContinuityAsync();
+        }
+    }
+
     private void OnSessionInitializationFailed(
         object? sender,
         TerminalSessionFailureEventArgs e)

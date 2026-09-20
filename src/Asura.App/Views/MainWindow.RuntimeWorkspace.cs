@@ -1285,6 +1285,15 @@ public sealed partial class MainWindow
         }
     }
 
+    private async void OnProceedWithoutContinuityClick(object? sender, RoutedEventArgs e)
+    {
+        _ = e;
+        if (sender is Control { DataContext: TerminalRuntimePanelViewModel panel })
+        {
+            await panel.ProceedWithoutContinuityAsync();
+        }
+    }
+
     private void OnCancelConnectionReconnectClick(object? sender, RoutedEventArgs e)
     {
         _ = e;

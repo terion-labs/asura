@@ -253,6 +253,7 @@
           PointerPressed="OnRuntimePanelPointerPressed"
           SplitRequested="OnSplitRuntimePanelRequested"
           RetryConnectionRequested="OnRetryConnectionPanelClick"
+          ProceedWithoutContinuityRequested="OnProceedWithoutContinuityClick"
           SessionInitializationFailed="OnTerminalSessionInitializationFailed"
           SessionSnapshotChanged="OnTerminalSessionSnapshotChanged"
           TrustHostKeyRequested="OnTrustConnectionHostKeyClick" />

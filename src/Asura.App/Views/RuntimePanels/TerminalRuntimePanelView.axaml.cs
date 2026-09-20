@@ -29,6 +29,8 @@ public sealed partial class TerminalRuntimePanelView : UserControl
 
     public event EventHandler<RoutedEventArgs>? RetryConnectionRequested;
 
+    public event EventHandler<RoutedEventArgs>? ProceedWithoutContinuityRequested;
+
     public event EventHandler<TerminalSessionFailureEventArgs>? SessionInitializationFailed;
 
     public event EventHandler<TerminalSessionSnapshotEventArgs>? SessionSnapshotChanged;
@@ -60,6 +62,9 @@ public sealed partial class TerminalRuntimePanelView : UserControl
 
     private void OnRetryConnectionClick(object? sender, RoutedEventArgs e) =>
         RetryConnectionRequested?.Invoke(sender, e);
+
+    private void OnProceedWithoutContinuityClick(object? sender, RoutedEventArgs e) =>
+        ProceedWithoutContinuityRequested?.Invoke(sender, e);
 
     private void OnSessionInitializationFailed(
         object? sender,

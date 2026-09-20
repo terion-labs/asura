@@ -2265,7 +2265,13 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
     public TerminalMultiplexerSession? MultiplexerSession
     {
         get => _multiplexerSession;
-        private set => SetProperty(ref _multiplexerSession, value);
+        private set
+        {
+            if (SetProperty(ref _multiplexerSession, value))
+            {
+                OnPropertyChanged(nameof(CanProceedWithoutContinuity));
+            }
+        }
     }
 
     /// <summary>
@@ -2406,6 +2412,7 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
                 OnPropertyChanged(nameof(HasConnectionOverlay));
                 OnPropertyChanged(nameof(CanCancelConnection));
                 OnPropertyChanged(nameof(CanRetry));
+                OnPropertyChanged(nameof(CanProceedWithoutContinuity));
             }
         }
     }
@@ -2421,6 +2428,7 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(CanRetry));
                 OnPropertyChanged(nameof(RecoveryLabel));
+                OnPropertyChanged(nameof(CanProceedWithoutContinuity));
             }
         }
     }
@@ -2526,6 +2534,13 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
 
     public bool HasWarning => !string.IsNullOrWhiteSpace(WarningMessage);
 
+    public bool CanProceedWithoutContinuity => !_disposed
+        && ConnectionState == ConnectionPanelState.Failed
+        && _connection.ConnectionKind == ConnectionKind.Ssh
+        && MultiplexerSession is not null
+        && ConnectionError?.Code is ConnectionRuntimeErrorCode.TerminalMultiplexerMissing
+            or ConnectionRuntimeErrorCode.TerminalMultiplexerSessionMissing;
+
     public bool HasHostKeyReview => HostKeyReview is not null;
 
     public string HostKeyReviewTitle => HostKeyReview?.Disposition switch
@@ -2572,10 +2587,9 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
     {
         ConnectionRecoveryAction.ConfigureTerminalContinuity =>
             (ConnectionError.Code == ConnectionRuntimeErrorCode.TerminalMultiplexerMissing
-                ? "Install tmux or GNU Screen on the remote host and make it available on PATH, then open a new terminal. "
+                ? "Proceed without continuity to open a plain terminal and install tmux or GNU Screen on the remote host. Then open a new terminal to use continuity. "
                 : "To start a fresh session, close this failed tab and reopen the connection. ")
-            + "To connect without continuity, edit this workspace, go to Details > Terminal continuity, "
-            + "choose Off for this workspace, save, and open a new terminal.",
+            + "Proceed without continuity applies only to this tab. Your workspace setting stays unchanged.",
         ConnectionRecoveryAction.InstallRuntime => "Install the required runtime, then retry.",
         ConnectionRecoveryAction.UnlockSecretVault => "Unlock the credential vault, then retry.",
         ConnectionRecoveryAction.ProvideAuthentication => "Update authentication in the connection profile.",
@@ -2587,6 +2601,20 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
         ConnectionRecoveryAction.Retry or ConnectionRecoveryAction.Reconnect => "Retry the connection.",
         _ => string.Empty,
     };
+
+    public Task ProceedWithoutContinuityAsync()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!CanProceedWithoutContinuity)
+        {
+            return Task.CompletedTask;
+        }
+
+        // Replan through the same authentication and host-key checks. Clearing
+        // only this panel's identity also keeps later retries on plain SSH.
+        MultiplexerSession = null;
+        return RetryAsync();
+    }
 
     public Task RetryAsync()
     {

@@ -2,11 +2,19 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Asura.App.ViewModels;
+using Asura.App.Views.Components;
+using Asura.App.Views.RuntimePanels;
 using Asura.Application;
 using Asura.Core;
+using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace Asura.App.Tests;
 
+[Collection(AvaloniaUiCollection.Name)]
 public sealed class TerminalRuntimePanelViewModelTests
 {
     [Fact]
@@ -1015,14 +1023,15 @@ public sealed class TerminalRuntimePanelViewModelTests
     }
 
     [Theory]
-    [InlineData(ConnectionRuntimeErrorCode.TerminalMultiplexerMissing, "Terminal continuity unavailable", "Install tmux or GNU Screen")]
+    [InlineData(ConnectionRuntimeErrorCode.TerminalMultiplexerMissing, "Terminal continuity unavailable", "install tmux or GNU Screen")]
     [InlineData(ConnectionRuntimeErrorCode.TerminalMultiplexerSessionMissing, "Saved terminal session unavailable", "close this failed tab")]
-    public async Task Continuity_failure_explains_workspace_setting_without_retrying(
+    public async Task Continuity_failure_offers_explicit_plain_session_without_automatic_retry(
         ConnectionRuntimeErrorCode code,
         string title,
         string instruction)
     {
         var connection = SshAgentConnection();
+        var security = new FixedConnectionSecurityRuntime(connection, SshHostKeyDisposition.Trusted);
         var identity = TerminalMultiplexerSession.CreateAutomatic();
         var runtime = new QueueConnectionRuntime(
             ConnectionRuntimeResult<ConnectionOpenPlan>.Succeed(new ConnectionOpenPlan(
@@ -1031,8 +1040,11 @@ public sealed class TerminalRuntimePanelViewModelTests
                 new TerminalLaunchRequest(null, "/usr/bin/ssh", multiplexerSession: identity),
                 ConnectionAuthenticationMode.SshAgent,
                 SshHostKeyPolicy.Strict,
-                ConnectionReconnectMode.BoundedBackoff)));
+                ConnectionReconnectMode.BoundedBackoff)),
+            SuccessfulSshPlan(connection),
+            SuccessfulSshPlan(connection));
         using var panel = CreatePanel(runtime, connection, PanelStartupBehavior.None,
+            security: security,
             reconnectDelay: (_, _) => throw new InvalidOperationException("Continuity failures must not reconnect."),
             multiplexerSession: identity);
         await panel.Initialization;
@@ -1050,15 +1062,118 @@ public sealed class TerminalRuntimePanelViewModelTests
         });
 
         Assert.True(panel.HasConnectionOverlay);
+        Assert.True(panel.CanProceedWithoutContinuity);
         Assert.False(panel.CanRetry);
         Assert.False(panel.IsContinuityActive);
         Assert.Equal(ConnectionReconnectState.Idle, panel.ReconnectState);
         Assert.Equal(title, panel.ConnectionStatus);
         Assert.Equal(error.Message, panel.ConnectionDetail);
         Assert.Contains(instruction, panel.RecoveryLabel, StringComparison.Ordinal);
-        Assert.Contains("Details > Terminal continuity", panel.RecoveryLabel, StringComparison.Ordinal);
-        Assert.Contains("Off for this workspace", panel.RecoveryLabel, StringComparison.Ordinal);
+        Assert.Contains("only to this tab", panel.RecoveryLabel, StringComparison.Ordinal);
+        Assert.Contains("workspace setting stays unchanged", panel.RecoveryLabel, StringComparison.Ordinal);
         Assert.Null(panel.SessionRequest);
+
+        await panel.ProceedWithoutContinuityAsync();
+
+        var plainRequest = Assert.IsType<EnsureTerminalSessionRequest>(panel.SessionRequest);
+        Assert.NotEqual(request.SessionId, plainRequest.SessionId);
+        Assert.Equal(request.Owner, plainRequest.Owner);
+        Assert.Null(panel.MultiplexerSession);
+        Assert.Null(runtime.RequestedMultiplexers[1]);
+        Assert.Null(plainRequest.Launch.MultiplexerSession);
+        Assert.False(panel.CanProceedWithoutContinuity);
+        Assert.Null(panel.ConnectionError);
+        Assert.False(panel.HasConnectionOverlay);
+        Assert.Equal(2, security.PrepareCount);
+        Assert.Equal(connection.Authentication, panel.Connection.Authentication);
+        Assert.Equal(connection.HostKeyPolicy, panel.Connection.HostKeyPolicy);
+
+        // A repeated click and late snapshot from the failed session cannot
+        // replace the plain session or put its continuity identity back.
+        await panel.ProceedWithoutContinuityAsync();
+        panel.ObserveSessionSnapshot(failed);
+        Assert.Same(plainRequest, panel.SessionRequest);
+        Assert.Equal(2, runtime.PlanCount);
+        panel.ObserveSessionSnapshot(Snapshot(plainRequest, SessionLifecycle.Active, SessionHealth.Healthy));
+        Assert.False(panel.IsContinuityActive);
+        await panel.RetryAsync();
+        Assert.Null(runtime.RequestedMultiplexers[2]);
+        Assert.Null(panel.SessionRequest!.Launch.MultiplexerSession);
+    }
+
+    [Theory]
+    [InlineData(ConnectionRuntimeErrorCode.AuthenticationFailed)]
+    [InlineData(ConnectionRuntimeErrorCode.HostKeyChanged)]
+    public async Task Unrelated_failure_cannot_bypass_continuity(ConnectionRuntimeErrorCode code)
+    {
+        var identity = TerminalMultiplexerSession.CreateAutomatic();
+        var runtime = new QueueConnectionRuntime(ConnectionRuntimeResult<ConnectionOpenPlan>.Fail(
+            ConnectionRuntimeError.Create(code)));
+        using var panel = CreatePanel(runtime, SshAgentConnection(), PanelStartupBehavior.None,
+            multiplexerSession: identity);
+        await panel.Initialization;
+
+        Assert.False(panel.CanProceedWithoutContinuity);
+        await panel.ProceedWithoutContinuityAsync();
+
+        Assert.Equal(1, runtime.PlanCount);
+        Assert.Same(identity, panel.MultiplexerSession);
+        Assert.Equal(code, panel.ConnectionError!.Code);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Continuity_fallback_button_starts_plain_session(bool embedded)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await session.Dispatch(async () =>
+        {
+            var connection = SshAgentConnection();
+            var runtime = new QueueConnectionRuntime(
+                ConnectionRuntimeResult<ConnectionOpenPlan>.Fail(
+                    ConnectionRuntimeError.Create(ConnectionRuntimeErrorCode.TerminalMultiplexerMissing)),
+                SuccessfulSshPlan(connection));
+            using var panel = CreatePanel(runtime, connection, PanelStartupBehavior.None,
+                multiplexerSession: TerminalMultiplexerSession.CreateAutomatic());
+            await panel.Initialization;
+            UserControl view;
+            if (embedded)
+            {
+                view = new EmbeddedTerminalSessionView();
+            }
+            else
+            {
+                var terminalView = new TerminalRuntimePanelView();
+                terminalView.ProceedWithoutContinuityRequested += async (_, _) =>
+                    await panel.ProceedWithoutContinuityAsync();
+                view = terminalView;
+            }
+            view.DataContext = panel;
+            var window = new Window { Width = 800, Height = 600, Content = view };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                var button = Assert.Single(view.GetVisualDescendants().OfType<Button>(),
+                    button => Equals(button.Content, "Proceed without continuity"));
+                Assert.True(button.IsEffectivelyVisible);
+
+                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await panel.Initialization;
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Equal(2, runtime.PlanCount);
+                Assert.Null(runtime.RequestedMultiplexers[1]);
+                Assert.False(button.IsEffectivelyVisible);
+                Assert.NotNull(panel.SessionRequest);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }, timeout.Token);
     }
 
     private static SessionSnapshot Snapshot(
@@ -1339,6 +1454,18 @@ public sealed class TerminalRuntimePanelViewModelTests
         }
 
         public int PlanCount { get; private set; }
+
+        public List<TerminalMultiplexerSession?> RequestedMultiplexers { get; } = [];
+
+        public ValueTask<ConnectionRuntimeResult<ConnectionOpenPlan>> PlanOpenAsync(
+            ConnectionProfile profile,
+            TerminalMultiplexerSession? multiplexerSession,
+            IProgress<ConnectionProgress>? progress,
+            CancellationToken cancellationToken)
+        {
+            RequestedMultiplexers.Add(multiplexerSession);
+            return PlanOpenAsync(profile, progress, cancellationToken);
+        }
 
         public ValueTask<ConnectionRuntimeResult<ConnectionOpenPlan>> PlanOpenAsync(
             ConnectionProfile profile,
