@@ -16,6 +16,72 @@ public sealed class WorkspaceMcpServerTests
         """;
 
     [Fact]
+    public async Task StopDoesNotNeedTheCallersDispatcherAfterItsLoopHasStopped()
+    {
+        await using var server = new WorkspaceMcpServer();
+        await server.StartAsync(UnusedPort(), Token, CancellationToken.None);
+        var stoppedDispatcher = new StoppedDispatcherContext();
+        var previousContext = SynchronizationContext.Current;
+        Task shutdown;
+        SynchronizationContext.SetSynchronizationContext(stoppedDispatcher);
+        try
+        {
+            shutdown = server.StopAsync().AsTask();
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+        }
+
+        try
+        {
+            await shutdown.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            // Let the broken implementation finish after the assertion times out,
+            // so a regression does not leave a server or a blocked test thread.
+            stoppedDispatcher.Release();
+            await shutdown.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
+    private sealed class StoppedDispatcherContext : SynchronizationContext
+    {
+        private readonly Lock _gate = new();
+        private readonly List<(SendOrPostCallback Callback, object? State)> _callbacks = [];
+        private bool _released;
+
+        public override void Post(SendOrPostCallback callback, object? state)
+        {
+            lock (_gate)
+            {
+                if (!_released)
+                {
+                    _callbacks.Add((callback, state));
+                    return;
+                }
+            }
+
+            ThreadPool.QueueUserWorkItem(_ => callback(state));
+        }
+
+        public void Release()
+        {
+            lock (_gate)
+            {
+                _released = true;
+                foreach (var (callback, state) in _callbacks)
+                {
+                    ThreadPool.QueueUserWorkItem(_ => callback(state));
+                }
+
+                _callbacks.Clear();
+            }
+        }
+    }
+
+    [Fact]
     public async Task ModernToolsCanBeListedAndCalledWithoutInitialize()
     {
         var port = UnusedPort();
