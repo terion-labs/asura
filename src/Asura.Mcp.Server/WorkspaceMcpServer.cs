@@ -104,8 +104,15 @@ public sealed partial class WorkspaceMcpServer : IAsyncDisposable
     {
         if (Interlocked.Exchange(ref _application, null) is { } app)
         {
-            await app.StopAsync(CancellationToken.None).ConfigureAwait(false);
-            await app.DisposeAsync().ConfigureAwait(false);
+            // GenericWebHostService.StopAsync captures its caller's context inside
+            // ASP.NET Core. The desktop can reach this boundary after Avalonia's
+            // event loop has stopped, so ConfigureAwait(false) here alone cannot
+            // prevent a deadlock. Keep the complete HTTP-host teardown off the UI.
+            await Task.Run(async () =>
+            {
+                await app.StopAsync(CancellationToken.None).ConfigureAwait(false);
+                await app.DisposeAsync().ConfigureAwait(false);
+            }).ConfigureAwait(false);
         }
     }
 
