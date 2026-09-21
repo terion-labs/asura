@@ -17,14 +17,16 @@ public sealed class IsolatedVpnConnectionProvider : INetworkConnectionProvider
         ISecretVault secretVault,
         IWorkspaceIsolationProvider? isolationProvider,
         IConnectionExecutableLocator executableLocator,
-        string? persistentStateRoot = null)
+        string? persistentStateRoot = null,
+        Func<Uri, CancellationToken, ValueTask<bool>>? openAuthenticationBrowser = null)
         : this(
             kind,
             new HostUserspaceVpnTransport(
                 kind,
                 secretVault,
                 executableLocator,
-                persistentStateRoot))
+                persistentStateRoot,
+                openAuthenticationBrowser))
     {
         // Kept until desktop registration is renamed with the provider. Isolation must not flow
         // into the host transport or tempt another guest-execution fallback.

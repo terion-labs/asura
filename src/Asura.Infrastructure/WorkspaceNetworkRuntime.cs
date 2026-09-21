@@ -366,14 +366,15 @@ public sealed partial class WorkspaceNetworkRuntime : IWorkspaceNetworkRuntime
         {
             ArgumentNullException.ThrowIfNull(update);
             cancellationToken.ThrowIfCancellationRequested();
+            using var operation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
             await CancelAutomaticReconnectAsync().ConfigureAwait(false);
-            await _changeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            await _changeGate.WaitAsync(operation.Token).ConfigureAwait(false);
             try
             {
                 ObjectDisposedException.ThrowIf(_disposed, this);
                 _policy = update.Policy;
                 _appliedUpdate = update;
-                return await ApplyWithPasswordRecoveryAsync(update, progress, cancellationToken).ConfigureAwait(false);
+                return await ApplyWithPasswordRecoveryAsync(update, progress, operation.Token).ConfigureAwait(false);
             }
             finally
             {

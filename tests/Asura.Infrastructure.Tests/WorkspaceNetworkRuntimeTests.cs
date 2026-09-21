@@ -33,6 +33,53 @@ public sealed partial class WorkspaceNetworkRuntimeTests
     }
 
     [Fact]
+    public async Task Disposing_workspace_cancels_pending_interactive_login_before_waiting_for_connection_gate()
+    {
+        var provider = new PendingLoginProvider();
+        var runtime = new WorkspaceNetworkRuntime([provider]);
+        var session = await runtime.OpenAsync(HostRequest(NetworkPolicy.Direct, []), null, CancellationToken.None);
+        using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var applying = session.ApplyAsync(new WorkspaceNetworkPolicyUpdate(
+            new NetworkPolicy([ConnectionId], ConnectionId, true, true), [ProxyProfile()]), null, cleanup.Token).AsTask();
+        await provider.Started.Task.WaitAsync(cleanup.Token);
+        try
+        {
+            await session.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(2));
+            Assert.True(provider.Cancelled);
+        }
+        finally
+        {
+            await cleanup.CancelAsync();
+            _ = await applying;
+        }
+    }
+
+    private sealed class PendingLoginProvider : INetworkConnectionProvider
+    {
+        public NetworkConnectionKind Kind => NetworkConnectionKind.Proxy;
+
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool Cancelled { get; private set; }
+
+        public async ValueTask<NetworkConnectionResult<INetworkConnectionSession>> ConnectAsync(
+            NetworkConnectionStartRequest request, IProgress<NetworkConnectionProgress>? progress,
+            CancellationToken cancellationToken)
+        {
+            Started.SetResult();
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                throw new InvalidOperationException("The pending login must be cancelled.");
+            }
+            finally
+            {
+                Cancelled = cancellationToken.IsCancellationRequested;
+            }
+        }
+    }
+
+    [Fact]
     public async Task Disabled_host_policy_stays_direct_without_starting_a_provider()
     {
         var provider = new RecordingProvider();

@@ -450,7 +450,8 @@ public static class DesktopComposition
                 provider.GetRequiredService<ISecretVault>(),
                 provider.GetService<IWorkspaceIsolationProvider>(),
                 provider.GetRequiredService<IConnectionExecutableLocator>(),
-                Path.Combine(provider.GetRequiredService<AsuraDataPaths>().DataDirectory, "vpn-state")));
+                Path.Combine(provider.GetRequiredService<AsuraDataPaths>().DataDirectory, "vpn-state"),
+                Asura.App.NetworkAuthenticationBrowser.OpenAsync));
     }
 
     private static HostOperatingSystem CurrentOperatingSystem() =>
