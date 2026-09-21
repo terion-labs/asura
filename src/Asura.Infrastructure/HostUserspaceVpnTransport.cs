@@ -21,7 +21,7 @@ internal interface IHostUserspaceVpnTransport
 /// Starts only userspace VPN engines that expose a loopback SOCKS5 listener. It never
 /// asks an engine to create a TUN device and never changes host routes.
 /// </summary>
-internal sealed class HostUserspaceVpnTransport : IHostUserspaceVpnTransport
+internal sealed partial class HostUserspaceVpnTransport : IHostUserspaceVpnTransport
 {
     private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan ConnectTimeout = TimeSpan.FromMinutes(2);
@@ -31,18 +31,21 @@ internal sealed class HostUserspaceVpnTransport : IHostUserspaceVpnTransport
     private readonly IConnectionExecutableLocator _executableLocator;
     private readonly IHostVpnProcessRunner _processRunner;
     private readonly string _persistentStateRoot;
+    private readonly Func<Uri, CancellationToken, ValueTask<bool>>? _openAuthenticationBrowser;
 
     public HostUserspaceVpnTransport(
         NetworkConnectionKind kind,
         ISecretVault secretVault,
         IConnectionExecutableLocator executableLocator,
-        string? persistentStateRoot = null)
+        string? persistentStateRoot = null,
+        Func<Uri, CancellationToken, ValueTask<bool>>? openAuthenticationBrowser = null)
         : this(
             kind,
             secretVault,
             executableLocator,
             new HostUserspaceVpnProcessRunner(),
-            persistentStateRoot ?? Path.Combine(AsuraDataPaths.CreateDefault().DataDirectory, "vpn-state"))
+            persistentStateRoot ?? Path.Combine(AsuraDataPaths.CreateDefault().DataDirectory, "vpn-state"),
+            openAuthenticationBrowser)
     {
     }
 
@@ -51,7 +54,8 @@ internal sealed class HostUserspaceVpnTransport : IHostUserspaceVpnTransport
         ISecretVault secretVault,
         IConnectionExecutableLocator executableLocator,
         IHostVpnProcessRunner processRunner,
-        string persistentStateRoot)
+        string persistentStateRoot,
+        Func<Uri, CancellationToken, ValueTask<bool>>? openAuthenticationBrowser = null)
     {
         if (kind is not (
                 NetworkConnectionKind.WireGuard
@@ -70,6 +74,7 @@ internal sealed class HostUserspaceVpnTransport : IHostUserspaceVpnTransport
 
         ArgumentException.ThrowIfNullOrWhiteSpace(persistentStateRoot);
         _persistentStateRoot = Path.GetFullPath(persistentStateRoot);
+        _openAuthenticationBrowser = openAuthenticationBrowser;
     }
 
     public ValueTask<NetworkConnectionResult<INetworkConnectionSession>> ConnectAsync(
@@ -473,16 +478,6 @@ internal sealed class HostUserspaceVpnTransport : IHostUserspaceVpnTransport
         var statePath = PersistentTailscaleStatePath(
             request.WorkspaceId,
             request.Connection.Id);
-        var hasPersistentIdentity = File.Exists(statePath);
-        if (configuration.AuthKeySecret is not { } && !hasPersistentIdentity)
-        {
-            return Fail(
-                NetworkConnectionErrorCode.AuthenticationRequired,
-                "tailscale_host_auth_key_required",
-                "The first app-scoped Tailscale connection needs a stored reusable auth key because it does not reuse the host Tailscale login.",
-                retryable: false);
-        }
-
         byte[]? authKey = null;
         if (configuration.AuthKeySecret is { } authReference)
         {
@@ -577,13 +572,25 @@ internal sealed class HostUserspaceVpnTransport : IHostUserspaceVpnTransport
 
             progress?.Report(new NetworkConnectionProgress(
                 "Authenticating the private Tailscale network…"));
-            var up = await RunCommandAsync(
-                    new HostVpnProcessRequest(
-                        tailscale,
-                        upArguments,
-                        ReadOnlyMemory<byte>.Empty),
-                    cancellationToken)
-                .ConfigureAwait(false);
+            var login = new HostVpnProcessRequest(tailscale, upArguments, ReadOnlyMemory<byte>.Empty);
+            HostVpnCommandResult? up;
+            if (authPath is null)
+            {
+                upArguments.Add("--json");
+                var interactive = await RunTailscaleInteractiveLoginAsync(
+                    login, configuration, progress, cancellationToken).ConfigureAwait(false);
+                if (interactive is NetworkConnectionResult<HostVpnCommandResult>.Failure loginFailure)
+                {
+                    return NetworkConnectionResult<INetworkConnectionSession>.Fail(loginFailure.Error);
+                }
+
+                up = ((NetworkConnectionResult<HostVpnCommandResult>.Success)interactive).Value;
+            }
+            else
+            {
+                up = await RunCommandAsync(login, cancellationToken).ConfigureAwait(false);
+            }
+
             if (up is null)
             {
                 return CommandTimedOut("Tailscale");

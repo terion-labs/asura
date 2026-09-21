@@ -213,7 +213,7 @@
             </Grid>
             <components:NetworkCredentialPicker
                 Label="Auth key"
-                Hint="Optional. Without a stored key, the first connection signs in interactively."
+                Hint="Optional. Without a stored key, sign in using your default browser when connecting."
                 ItemsSource="{Binding AuthKeyCredentialOptions}"
                 SelectedItem="{Binding SelectedAuthKeyCredential, Mode=TwoWay}"
                 Target="TailscaleAuthKey"

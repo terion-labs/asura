@@ -339,6 +339,123 @@ public sealed class HostUserspaceVpnTransportTests
         Assert.Contains("--exit-node=exit-node", secondProcesses.Commands[1].Arguments, StringComparer.Ordinal);
     }
 
+    [Theory]
+    [InlineData(false, null)]
+    [InlineData(true, null)]
+    [InlineData(false, "https://headscale.example:8443")]
+    public async Task Tailscale_interactive_login_opens_browser_and_waits_before_selecting_exit_node(
+        bool expiredIdentity, string? controlServer)
+    {
+        if (OperatingSystem.IsWindows()) { return; }
+        using var state = new TemporaryDirectory();
+        using var vault = new InMemorySecretVault();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        RecordingHostVpnProcess? login = null;
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var opened = new TaskCompletionSource<Uri>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var processes = new RecordingHostVpnProcessRunner
+        {
+            OnLoginStarted = process => { login = process; started.SetResult(); },
+        };
+        processes.CommandResults.Enqueue(new HostVpnCommandResult(0, string.Empty));
+        processes.CommandResults.Enqueue(new HostVpnCommandResult(0, "{\"BackendState\":\"Running\"}"));
+        var browserCalls = 0;
+        var transport = new HostUserspaceVpnTransport(NetworkConnectionKind.Tailscale, vault,
+            new DictionaryExecutableLocator([("tailscaled", "/tools/tailscaled"), ("tailscale", "/tools/tailscale")]),
+            processes, state.Path, (uri, _) =>
+            {
+                Interlocked.Increment(ref browserCalls);
+                opened.TrySetResult(uri);
+                return ValueTask.FromResult(true);
+            });
+        var authUrl = (controlServer ?? "https://login.tailscale.com") + "/a/test";
+        var request = Request(new NetworkConnectionConfiguration.Tailscale("exit-node",
+            controlServer: controlServer is null ? null : new Uri(controlServer)));
+        if (expiredIdentity)
+        {
+            // A previous attempt left identity state, but the daemon still needs login.
+            var old = new RecordingHostVpnProcessRunner();
+            old.CommandResults.Enqueue(new HostVpnCommandResult(0, string.Empty));
+            old.CommandResults.Enqueue(new HostVpnCommandResult(0, string.Empty));
+            old.CommandResults.Enqueue(new HostVpnCommandResult(0, "{\"BackendState\":\"Running\"}"));
+            await using var previous = Success(await Create(NetworkConnectionKind.Tailscale, vault, old, state.Path,
+                ("tailscaled", "/tools/tailscaled"), ("tailscale", "/tools/tailscale"))
+                .ConnectAsync(request, null, deadline.Token));
+        }
+
+        var connecting = transport.ConnectAsync(request, null, deadline.Token).AsTask();
+        await started.Task.WaitAsync(deadline.Token);
+        Assert.NotNull(login);
+        login.Output = "{\n\t\"AuthURL\": \"" + authUrl + "\"";
+        await Task.Delay(250, deadline.Token);
+        Assert.False(opened.Task.IsCompleted);
+        login.Output += ",\n\t\"BackendState\": \"NeedsLogin\"\n}\n{\"BackendState\":";
+        Assert.Equal(authUrl, (await opened.Task.WaitAsync(deadline.Token)).AbsoluteUri);
+        await Task.Delay(250, deadline.Token);
+        Assert.Equal(1, browserCalls);
+        Assert.False(connecting.IsCompleted);
+        Assert.Single(processes.Commands);
+        Assert.Equal(0, processes.ListenerChecks);
+        Assert.Contains("--json", processes.Commands[0].Arguments, StringComparer.Ordinal);
+        Assert.DoesNotContain(processes.Commands[0].Arguments, argument => argument.StartsWith("--auth-key=", StringComparison.Ordinal));
+        login.Exit(0);
+        await using var session = Success(await connecting);
+        Assert.Contains("set", processes.Commands[1].Arguments, StringComparer.Ordinal);
+        Assert.True(login.IsDisposed);
+        Assert.False(processes.Processes[0].IsDisposed);
+    }
+
+    [Theory]
+    [InlineData("file:///tmp/untrusted", true, "tailscale_login_url_invalid")]
+    [InlineData("https://untrusted.example/a/test", true, "tailscale_login_url_invalid")]
+    [InlineData("https://user:password@login.tailscale.com/a/test", true, "tailscale_login_url_invalid")]
+    [InlineData("https://login.tailscale.com/a/test", false, "tailscale_login_browser_unavailable")]
+    public async Task Tailscale_interactive_login_failure_cleans_up_without_publishing_a_route(
+        string authUrl, bool canOpenBrowser, string expectedCode)
+    {
+        if (OperatingSystem.IsWindows()) { return; }
+        using var state = new TemporaryDirectory();
+        using var vault = new InMemorySecretVault();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var processes = new RecordingHostVpnProcessRunner
+        {
+            OnLoginStarted = process => process.Output = System.Text.Json.JsonSerializer.Serialize(new { AuthURL = authUrl }),
+        };
+        var browserCalls = 0;
+        var transport = new HostUserspaceVpnTransport(NetworkConnectionKind.Tailscale, vault,
+            new DictionaryExecutableLocator([("tailscaled", "/tools/tailscaled"), ("tailscale", "/tools/tailscale")]),
+            processes, state.Path, (_, _) => { browserCalls++; return ValueTask.FromResult(canOpenBrowser); });
+        var result = await transport.ConnectAsync(Request(new NetworkConnectionConfiguration.Tailscale("exit-node")), null, deadline.Token);
+        var failure = Assert.IsType<NetworkConnectionResult<INetworkConnectionSession>.Failure>(result);
+        Assert.Equal(expectedCode, failure.Error.StableCode);
+        Assert.Equal(string.Equals(expectedCode, "tailscale_login_url_invalid", StringComparison.Ordinal) ? 0 : 1, browserCalls);
+        Assert.DoesNotContain(authUrl, failure.Error.Message, StringComparison.Ordinal);
+        Assert.All(processes.Processes, process => Assert.True(process.IsDisposed));
+        Assert.Single(processes.Commands);
+        Assert.Equal(0, processes.ListenerChecks);
+    }
+
+    [Fact]
+    public async Task Tailscale_interactive_login_cancellation_stops_login_and_daemon()
+    {
+        if (OperatingSystem.IsWindows()) { return; }
+        using var state = new TemporaryDirectory();
+        using var vault = new InMemorySecretVault();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var processes = new RecordingHostVpnProcessRunner
+        {
+            OnLoginStarted = process => process.Output = "{\"AuthURL\":\"https://login.tailscale.com/a/test\"}",
+        };
+        var transport = new HostUserspaceVpnTransport(NetworkConnectionKind.Tailscale, vault,
+            new DictionaryExecutableLocator([("tailscaled", "/tools/tailscaled"), ("tailscale", "/tools/tailscale")]),
+            processes, state.Path, (_, _) => { cancellation.Cancel(); return ValueTask.FromResult(true); });
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await transport.ConnectAsync(Request(new NetworkConnectionConfiguration.Tailscale("exit-node")), null, cancellation.Token));
+        Assert.All(processes.Processes, process => Assert.True(process.IsDisposed));
+        Assert.Single(processes.Commands);
+        Assert.Equal(0, processes.ListenerChecks);
+    }
+
     [Fact]
     public async Task OpenVpn_fails_explicitly_without_invoking_the_system_client()
     {
@@ -717,10 +834,31 @@ public sealed class HostUserspaceVpnTransportTests
 
         public Action<HostVpnProcessRequest>? OnStart { get; init; }
 
+        public Action<RecordingHostVpnProcess>? OnLoginStarted { get; init; }
+
         public ValueTask<IHostVpnProcess> StartAsync(
             HostVpnProcessRequest request,
             CancellationToken cancellationToken)
         {
+            if (request.Arguments.Contains("up", StringComparer.Ordinal))
+            {
+                Commands.Add(request);
+                var login = new RecordingHostVpnProcess(true, string.Empty);
+                Processes.Add(login);
+                if (OnLoginStarted is { } onLogin)
+                {
+                    onLogin(login);
+                }
+                else
+                {
+                    var result = CommandResults.Dequeue();
+                    login.Output = result.StandardOutput;
+                    login.Exit(result.ExitCode);
+                }
+
+                return ValueTask.FromResult<IHostVpnProcess>(login);
+            }
+
             Starts.Add(request with { StandardInput = request.StandardInput.ToArray() });
             OnStart?.Invoke(request);
             var process = new RecordingHostVpnProcess(AnnounceRouteReady, ExitDiagnostic);
@@ -779,7 +917,11 @@ public sealed class HostUserspaceVpnTransportTests
 
         public bool HasExited { get; private set; }
 
-        public int? ExitCode => HasExited ? 1 : null;
+        public int? ExitCode { get; private set; }
+
+        public string Output { get; set; } = string.Empty;
+
+        public bool IsDisposed { get; private set; }
 
         public RecordingHostVpnProcess(bool announceRouteReady, string diagnostic)
         {
@@ -795,21 +937,23 @@ public sealed class HostUserspaceVpnTransportTests
 
         public string Diagnostic => HasExited ? _diagnostic : string.Empty;
 
-        public string StandardOutput => Diagnostic;
+        public string StandardOutput => Output;
 
         public string StandardError => string.Empty;
 
         public Task WaitForExitAsync(CancellationToken cancellationToken) =>
             _exit.Task.WaitAsync(cancellationToken);
 
-        public void Exit()
+        public void Exit(int exitCode = 1)
         {
+            ExitCode = exitCode;
             HasExited = true;
             _exit.TrySetResult();
         }
 
         public ValueTask DisposeAsync()
         {
+            IsDisposed = true;
             Exit();
             return ValueTask.CompletedTask;
         }
