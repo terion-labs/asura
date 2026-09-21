@@ -4,9 +4,9 @@
     "net10.0": {
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.163, )",
-        "resolved": "3.0.163",
-        "contentHash": "l9iZ+OXBGlAFEKH1y4BSKPXHcmpJmikysSm0brjTau8fR7Qm7IVGLVig+dh0RH9mq4s3neZayuPQrHRweOpxxw=="
+        "requested": "[3.0.266, )",
+        "resolved": "3.0.266",
+        "contentHash": "IA1m/Dvud0eJNMcC+pTDNVdaLPs4QMhRBMAVjQZnTdWwTDUDIJO/JvfAZpRULgi0hoAHlXQVkPRtLokNvRcaiQ=="
       },
       "Microsoft.CodeAnalysis.BannedApiAnalyzers": {
         "type": "Direct",
@@ -58,6 +58,11 @@
         "type": "Transitive",
         "resolved": "1.5.5",
         "contentHash": "QIyg93jXN+ebHtsl3UhNmoKV+UoBlHxicycGUVY8cw/kwTGB8CrrULcLr7ngUkk5pftaPoyIHycxTgshBOalaA=="
+      },
+      "Fractions": {
+        "type": "Transitive",
+        "resolved": "7.3.0",
+        "contentHash": "2bETFWLBc8b7Ut2SVi+bxhGVwiSpknHYGBh2PADyGWONLkTxT7bKyDRhF8ao+XUv90tq8Fl7GTPxSI5bacIRJw=="
       },
       "Microsoft.Bcl.AsyncInterfaces": {
         "type": "Transitive",
@@ -294,6 +299,11 @@
         "resolved": "1.0.2",
         "contentHash": "JGkzeqgBsiZwKJZ1IxPNsDFZDhUvuEdX8L8BDC8N3KOj+6zMcNU28CNN59TpZE/VJYy9cP+5M+sbxtWJx3/xtw=="
       },
+      "Vecc.YamlDotNet.Analyzers.StaticGenerator": {
+        "type": "Transitive",
+        "resolved": "16.3.0",
+        "contentHash": "sqG0i1keWeTVJIwFe2H5T4CdUa4E8dzw7PQ1QdYWMuGOWwFggb56UoexYpTDoc3zAVkZiBf5oCRETy+qP/wy+A=="
+      },
       "asura.application": {
         "type": "Project",
         "dependencies": {
@@ -308,8 +318,8 @@
           "Asura.Databases": "[1.0.0, )",
           "Asura.Files": "[1.0.0, )",
           "Asura.Infrastructure": "[1.0.0, )",
-          "Asura.Redis": "[1.0.0, )",
-          "Asura.Kubernetes": "[1.0.0, )"
+          "Asura.Kubernetes": "[1.0.0, )",
+          "Asura.Redis": "[1.0.0, )"
         }
       },
       "asura.core": {
@@ -318,11 +328,11 @@
       "asura.databases": {
         "type": "Project",
         "dependencies": {
+          "Asura.Application": "[1.0.0, )",
+          "Asura.Core": "[1.0.0, )",
           "ClickHouse.Client": "[7.14.0, )",
           "DuckDB.NET.Data.Full": "[1.5.5, )",
           "FirebirdSql.Data.FirebirdClient": "[10.3.1, )",
-          "Asura.Application": "[1.0.0, )",
-          "Asura.Core": "[1.0.0, )",
           "Microsoft.Data.SqlClient": "[6.0.2, )",
           "Microsoft.Data.Sqlite.Core": "[10.0.10, )",
           "MySqlConnector": "[2.4.0, )",
@@ -335,9 +345,9 @@
         "type": "Project",
         "dependencies": {
           "AWSSDK.S3": "[4.0.102.4, )",
-          "FluentFTP": "[54.2.0, )",
           "Asura.Application": "[1.0.0, )",
           "Asura.Core": "[1.0.0, )",
+          "FluentFTP": "[54.2.0, )",
           "LiteDB": "[5.0.21, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.10, )",
           "SMBLibrary": "[1.5.7.1, )",
@@ -355,6 +365,14 @@
           "SQLite3MC.PCLRaw.bundle": "[2.4.0, )",
           "SSH.NET": "[2026.0.0, )",
           "System.Security.Cryptography.ProtectedData": "[10.0.10, )"
+        }
+      },
+      "asura.kubernetes": {
+        "type": "Project",
+        "dependencies": {
+          "Asura.Application": "[1.0.0, )",
+          "KubernetesClient.Aot": "[19.0.2, )",
+          "YamlDotNet": "[16.3.0, )"
         }
       },
       "asura.redis": {
@@ -424,6 +442,17 @@
         "requested": "[54.2.0, )",
         "resolved": "54.2.0",
         "contentHash": "n+OyaqU80gnOltXo2xBPZklAqbtxJAfl2GfblOIe5OCAk4jr/3zYW9Jf1fG6eR/USZq4AKWQcUMmKE9neSk8og=="
+      },
+      "KubernetesClient.Aot": {
+        "type": "CentralTransitive",
+        "requested": "[19.0.2, )",
+        "resolved": "19.0.2",
+        "contentHash": "4kJQTGsZyVGdDf3YNFPJl/MWkD4dQzVPM8oKxHX3Q94fBvQLjdu1r3PfmCE3S1QY/jX3g5NE5cHEXJa+En0jQw==",
+        "dependencies": {
+          "Fractions": "7.3.0",
+          "Vecc.YamlDotNet.Analyzers.StaticGenerator": "16.3.0",
+          "YamlDotNet": "16.3.0"
+        }
       },
       "LiteDB": {
         "type": "CentralTransitive",
@@ -622,35 +651,6 @@
         "requested": "[10.0.10, )",
         "resolved": "10.0.10",
         "contentHash": "BKt0SQgq2lq3ESE68jkeLwv95ypANrPDtkTOIFGcnhg2aRUeUUBDrQlkVDZctrg1WenVcvn5P5XZnuYI7q6rFQ=="
-      },
-      "Fractions": {
-        "type": "Transitive",
-        "resolved": "7.3.0",
-        "contentHash": "2bETFWLBc8b7Ut2SVi+bxhGVwiSpknHYGBh2PADyGWONLkTxT7bKyDRhF8ao+XUv90tq8Fl7GTPxSI5bacIRJw=="
-      },
-      "Vecc.YamlDotNet.Analyzers.StaticGenerator": {
-        "type": "Transitive",
-        "resolved": "16.3.0",
-        "contentHash": "sqG0i1keWeTVJIwFe2H5T4CdUa4E8dzw7PQ1QdYWMuGOWwFggb56UoexYpTDoc3zAVkZiBf5oCRETy+qP/wy+A=="
-      },
-      "asura.kubernetes": {
-        "type": "Project",
-        "dependencies": {
-          "Asura.Application": "[1.0.0, )",
-          "KubernetesClient.Aot": "[19.0.2, )",
-          "YamlDotNet": "[16.3.0, )"
-        }
-      },
-      "KubernetesClient.Aot": {
-        "type": "CentralTransitive",
-        "requested": "[19.0.2, )",
-        "resolved": "19.0.2",
-        "contentHash": "4kJQTGsZyVGdDf3YNFPJl/MWkD4dQzVPM8oKxHX3Q94fBvQLjdu1r3PfmCE3S1QY/jX3g5NE5cHEXJa+En0jQw==",
-        "dependencies": {
-          "Fractions": "7.3.0",
-          "Vecc.YamlDotNet.Analyzers.StaticGenerator": "16.3.0",
-          "YamlDotNet": "16.3.0"
-        }
       },
       "YamlDotNet": {
         "type": "CentralTransitive",
