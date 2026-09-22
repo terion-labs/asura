@@ -486,6 +486,12 @@ public sealed record WorkspaceNetworkOpenRequest
 /// </summary>
 public interface IWorkspaceNetworkRuntime
 {
+    /// <summary>
+    /// Reads a live connection with the same profile and authentication route. This does not
+    /// acquire ownership, reconnect, or authenticate; the workspace keeps its route.
+    /// </summary>
+    WorkspaceNetworkSnapshot? FindConnected(NetworkConnectionProfile profile);
+
     ValueTask<IWorkspaceNetworkSession> OpenAsync(
         WorkspaceNetworkOpenRequest request,
         IProgress<NetworkConnectionProgress>? progress,

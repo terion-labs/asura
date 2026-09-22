@@ -8,6 +8,27 @@ public sealed class WorkspaceNetworkPacketGatewayIntegrationTests
     private static readonly NetworkConnectionId ConnectionId = new("selected-proxy");
 
     [Fact]
+    public async Task Active_Tailscale_lookup_keeps_shared_isolate_alive_until_last_workspace_closes()
+    {
+        var gateway = new RecordingGatewayRuntime();
+        var runtime = new WorkspaceNetworkRuntime([], packetGatewayRuntime: gateway);
+        var profile = new NetworkConnectionProfile(ConnectionId, 1, "Tailnet",
+            new NetworkConnectionConfiguration.Tailscale("exit-node"));
+        var request = Request(new NetworkPolicy([ConnectionId], ConnectionId, true, true), [profile]);
+        var first = await runtime.OpenAsync(request, null, CancellationToken.None);
+        var second = await runtime.OpenAsync(new WorkspaceNetworkOpenRequest(
+            WorkspaceInstanceId.New(), request.InitialPolicy, request.Placement), null, CancellationToken.None);
+        Assert.Same(first.Snapshot, runtime.FindConnected(profile));
+        Assert.Single(gateway.Requests);
+        await first.DisposeAsync();
+        Assert.NotNull(runtime.FindConnected(profile));
+        Assert.False(gateway.Sessions[0].Disposed);
+        await second.DisposeAsync();
+        Assert.Null(runtime.FindConnected(profile));
+        Assert.True(gateway.Sessions[0].Disposed);
+    }
+
+    [Fact]
     public async Task Disabled_isolated_policy_still_opens_attached_direct_gateway()
     {
         var gateway = new RecordingGatewayRuntime();

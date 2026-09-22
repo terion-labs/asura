@@ -13,6 +13,7 @@ public sealed partial class WorkspaceNetworkRuntime : IWorkspaceNetworkRuntime
 {
     private readonly object _sharedSessionsGate = new();
     private readonly Dictionary<IsolatedWorkspaceKey, SharedSessionEntry> _sharedSessions = [];
+    private readonly HashSet<WorkspaceSession> _hostSessions = [];
     private readonly IReadOnlyDictionary<NetworkConnectionKind, INetworkConnectionProvider>
         _providers;
     private readonly IWorkspaceIsolationEgressGuard? _isolationEgressGuard;
@@ -67,6 +68,22 @@ public sealed partial class WorkspaceNetworkRuntime : IWorkspaceNetworkRuntime
             ?? throw new ArgumentNullException(nameof(reconnectDelay));
     }
 
+    public WorkspaceNetworkSnapshot? FindConnected(NetworkConnectionProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        var identity = BrowserHttpAuthentication.NetworkRouteIdentity(profile);
+        lock (_sharedSessionsGate)
+        {
+            return _hostSessions.Concat(_sharedSessions.Values
+                    .Where(entry => !entry.IsClosing)
+                    .Select(entry => entry.Session))
+                .Select(session => session.Snapshot)
+                .FirstOrDefault(snapshot => snapshot.State == WorkspaceNetworkState.Connected
+                    && snapshot.SelectedConnectionId == profile.Id
+                    && string.Equals(snapshot.AuthenticationRouteIdentity, identity, StringComparison.Ordinal));
+        }
+    }
+
     public async ValueTask<IWorkspaceNetworkSession> OpenAsync(
         WorkspaceNetworkOpenRequest request,
         IProgress<NetworkConnectionProgress>? progress,
@@ -91,12 +108,35 @@ public sealed partial class WorkspaceNetworkRuntime : IWorkspaceNetworkRuntime
             _passwordPrompt,
             reconnectDelay: _reconnectDelay,
             secretVault: _secretVault);
-        _ = await session.ApplyAsync(
-                request.InitialPolicy,
-                progress,
-                cancellationToken)
-            .ConfigureAwait(false);
-        return session;
+        try
+        {
+            _ = await session.ApplyAsync(
+                    request.InitialPolicy,
+                    progress,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+            await session.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+
+        lock (_sharedSessionsGate)
+        {
+            _hostSessions.Add(session);
+        }
+
+        return new SessionLease(session, async () =>
+        {
+            // Remove before teardown: a closing route must not satisfy a settings test.
+            lock (_sharedSessionsGate)
+            {
+                _hostSessions.Remove(session);
+            }
+
+            await session.DisposeAsync().ConfigureAwait(false);
+        });
     }
 
     private async ValueTask<IWorkspaceNetworkSession> OpenSharedIsolatedAsync(
@@ -176,7 +216,7 @@ public sealed partial class WorkspaceNetworkRuntime : IWorkspaceNetworkRuntime
                     await entry!.Initialized.WaitAsync(cancellationToken).ConfigureAwait(false);
                 }
 
-                return new SharedSessionLease(entry.Session, () => ReleaseSharedAsync(entry));
+                return new SessionLease(entry.Session, () => ReleaseSharedAsync(entry));
             }
             catch
             {
@@ -254,13 +294,13 @@ public sealed partial class WorkspaceNetworkRuntime : IWorkspaceNetworkRuntime
             _initialized.TrySetException(exception);
     }
 
-    private sealed class SharedSessionLease : IWorkspaceNetworkSession
+    private sealed class SessionLease : IWorkspaceNetworkSession
     {
         private readonly WorkspaceSession _session;
         private readonly Func<ValueTask> _release;
         private int _disposed;
 
-        public SharedSessionLease(WorkspaceSession session, Func<ValueTask> release)
+        public SessionLease(WorkspaceSession session, Func<ValueTask> release)
         {
             _session = session;
             _release = release;

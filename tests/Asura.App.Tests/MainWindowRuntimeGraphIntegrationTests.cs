@@ -11661,6 +11661,8 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
 
     private sealed class RecordingWorkspaceNetworkRuntime : IWorkspaceNetworkRuntime
     {
+        public WorkspaceNetworkSnapshot? FindConnected(NetworkConnectionProfile profile) => null;
+
         public List<WorkspaceNetworkOpenRequest> Requests { get; } = [];
 
         public List<RecordingWorkspaceNetworkSession> Sessions { get; } = [];

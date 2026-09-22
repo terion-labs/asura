@@ -8,6 +8,57 @@ public sealed partial class WorkspaceNetworkRuntimeTests
 {
     private static readonly NetworkConnectionId ConnectionId = new("test-proxy");
 
+    [Fact]
+    public async Task Finding_active_Tailscale_requires_matching_settings_and_preserves_workspace_ownership()
+    {
+        var provider = new RecordingProvider(NetworkConnectionKind.Tailscale);
+        IWorkspaceNetworkRuntime runtime = new WorkspaceNetworkRuntime([provider]);
+        var configuration = new NetworkConnectionConfiguration.Tailscale("exit-node");
+        var profile = new NetworkConnectionProfile(ConnectionId, 1, "Tailnet", configuration);
+        var session = await runtime.OpenAsync(
+            HostRequest(new NetworkPolicy([ConnectionId], ConnectionId, true, false), [profile]),
+            null, CancellationToken.None);
+        await using (session)
+        {
+            Assert.Same(session.Snapshot, runtime.FindConnected(profile));
+            Assert.Same(session.Snapshot, runtime.FindConnected(new NetworkConnectionProfile(
+                ConnectionId, 1, "Renamed", configuration)));
+            NetworkConnectionConfiguration.Tailscale[] differentSettings =
+            [
+                new("another-exit-node"),
+                new("exit-node", new Uri("https://control.example.test")),
+                new("exit-node", authKeySecret: new SecretRef("another-key")),
+            ];
+            foreach (var changed in differentSettings)
+            {
+                Assert.Null(runtime.FindConnected(new NetworkConnectionProfile(ConnectionId, 1, "Tailnet", changed)));
+            }
+
+            Assert.Null(runtime.FindConnected(new NetworkConnectionProfile(
+                NetworkConnectionId.New(), 1, "Other profile", configuration)));
+            Assert.Equal(1, provider.ConnectCount);
+            Assert.False(provider.Session.IsDisposed);
+            provider.Session.Publish(NetworkConnectionState.Failed, "Connection lost");
+            Assert.Null(runtime.FindConnected(profile));
+        }
+
+        Assert.True(provider.Session.IsDisposed);
+        Assert.Null(runtime.FindConnected(profile));
+    }
+
+    [Fact]
+    public async Task Closing_a_connected_host_workspace_removes_it_from_live_connection_lookup()
+    {
+        var runtime = new WorkspaceNetworkRuntime([new RecordingProvider()]);
+        var profile = ProxyProfile();
+        var session = await runtime.OpenAsync(
+            HostRequest(new NetworkPolicy([ConnectionId], ConnectionId, true, false), [profile]),
+            null, CancellationToken.None);
+        Assert.NotNull(runtime.FindConnected(profile));
+        await session.DisposeAsync();
+        Assert.Null(runtime.FindConnected(profile));
+    }
+
     [Theory]
     [InlineData(false, 2)]
     [InlineData(true, 0)]

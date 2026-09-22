@@ -434,6 +434,60 @@ public sealed class NetworkSettingsViewModelTests
         Assert.Contains("not found", selected.Detail, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public async Task Testing_keyless_Tailscale_uses_matching_live_authentication_without_opening_a_new_session(
+        bool connected, bool changeExitNode)
+    {
+        var profile = Profile(new NetworkConnectionConfiguration.Tailscale("exit-node"));
+        var fixture = Catalog(DefinitionCatalogSnapshot.Empty with
+        {
+            NetworkConnections = [Store(profile, 1)],
+        });
+        var vault = Vault();
+        var runtime = new RecordingNetworkRuntime(new WorkspaceNetworkSnapshot(
+            WorkspaceNetworkState.Connected,
+            WorkspaceNetworkEgress.ViaProxy(new Uri("socks5://127.0.0.1:49152")),
+            profile.Id))
+        { ActiveProfile = connected ? profile : null };
+        using var viewModel = new NetworkSettingsViewModel(fixture.Catalog, vault.Vault, runtime);
+        await viewModel.BeginEditProfileAsync(Assert.Single(viewModel.Profiles), CancellationToken.None);
+        if (changeExitNode)
+        {
+            viewModel.ProfileEditor!.ExitNode = "another-exit-node";
+        }
+
+        var expectedSuccess = connected && !changeExitNode;
+        Assert.Equal(expectedSuccess, await viewModel.TestProfileAsync(CancellationToken.None));
+        Assert.Empty(runtime.Requests);
+        Assert.Null(runtime.LastSession);
+        Assert.Empty(vault.Proxy.CreateRequests);
+        Assert.Equal(expectedSuccess ? "Connection already active" : "Connect in a workspace first",
+            viewModel.ProfileTestStatus);
+    }
+
+    [Fact]
+    public async Task Testing_Tailscale_with_a_stored_key_can_still_open_a_temporary_session()
+    {
+        var profile = Profile(new NetworkConnectionConfiguration.Tailscale(
+            "exit-node", authKeySecret: new SecretRef("auth-key")));
+        var fixture = Catalog(DefinitionCatalogSnapshot.Empty with
+        {
+            NetworkConnections = [Store(profile, 1)],
+        });
+        var runtime = new RecordingNetworkRuntime(new WorkspaceNetworkSnapshot(
+            WorkspaceNetworkState.Connected,
+            WorkspaceNetworkEgress.ViaProxy(new Uri("socks5://127.0.0.1:49152")), profile.Id));
+        using var viewModel = new NetworkSettingsViewModel(fixture.Catalog, Vault().Vault, runtime);
+        await viewModel.BeginEditProfileAsync(Assert.Single(viewModel.Profiles), CancellationToken.None);
+
+        Assert.True(await viewModel.TestProfileAsync(CancellationToken.None));
+        Assert.Single(runtime.Requests);
+        Assert.True(runtime.LastSession?.IsDisposed);
+    }
+
     [Fact]
     public async Task Testing_a_draft_uses_a_temporary_host_route_and_cleans_pending_credentials()
     {
@@ -747,6 +801,13 @@ public sealed class NetworkSettingsViewModelTests
     private sealed class RecordingNetworkRuntime(
         WorkspaceNetworkSnapshot snapshot) : IWorkspaceNetworkRuntime
     {
+        public NetworkConnectionProfile? ActiveProfile { get; init; }
+
+        public WorkspaceNetworkSnapshot? FindConnected(NetworkConnectionProfile profile) =>
+            ActiveProfile?.Id == profile.Id && ActiveProfile.Configuration == profile.Configuration
+                ? snapshot
+                : null;
+
         public List<WorkspaceNetworkOpenRequest> Requests { get; } = [];
 
         public RecordingNetworkSession? LastSession { get; private set; }

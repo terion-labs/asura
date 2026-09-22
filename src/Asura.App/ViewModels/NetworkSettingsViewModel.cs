@@ -645,6 +645,21 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
         var acceptsProgress = true;
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            // A fresh test workspace would register another Tailscale device. Inspect
+            // the matching live route instead, without owning or disposing its session.
+            var activeSnapshot = profile.ConnectionKind == NetworkConnectionKind.Tailscale
+                ? _workspaceNetworkRuntime!.FindConnected(profile)
+                : null;
+            if (activeSnapshot is null
+                && profile.Configuration is NetworkConnectionConfiguration.Tailscale { AuthKeySecret: null })
+            {
+                SetProfileTestFailure(
+                    "Connect in a workspace first",
+                    "No active workspace connection matches these settings. Save the connection and connect from a workspace to sign in, then test here. Testing will not create another Tailscale device.");
+                return false;
+            }
+
             var credentialError = await StorePendingCredentialsAsync(
                 profile,
                 cancellationToken);
@@ -673,7 +688,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
                     }
                 }
             });
-            session = await _workspaceNetworkRuntime!.OpenAsync(
+            session = activeSnapshot is not null ? null : await _workspaceNetworkRuntime!.OpenAsync(
                 new WorkspaceNetworkOpenRequest(
                     WorkspaceInstanceId.New(),
                     update,
@@ -683,13 +698,17 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
             lock (progressGate)
             {
                 acceptsProgress = false;
-                var snapshot = session.Snapshot;
+                var snapshot = activeSnapshot ?? session!.Snapshot;
                 if (snapshot.State == WorkspaceNetworkState.Connected)
                 {
                     ProfileTestHasError = false;
                     _profileTestHasResult = true;
-                    ProfileTestStatus = "Host provider ready";
-                    ProfileTestDetail = profile.ConnectionKind == NetworkConnectionKind.Proxy
+                    ProfileTestStatus = activeSnapshot is not null
+                        ? "Connection already active"
+                        : "Host provider ready";
+                    ProfileTestDetail = activeSnapshot is not null
+                        ? "A workspace is connected with these Tailscale settings. Its authenticated session is active; no additional sign-in is needed."
+                        : profile.ConnectionKind == NetworkConnectionKind.Proxy
                         ? "The host proxy route passed its provider check. Isolated workspace attachment is verified when the connection is selected in a workspace."
                         : "The host VPN session and local route are ready. Isolated workspace attachment is verified when the connection is selected in a workspace.";
                     succeeded = true;
