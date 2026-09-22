@@ -72,11 +72,16 @@ public sealed class BundledWorkspacePacketGatewayBackendTests
             "/bundle/helper",
             new StaticDnsSource());
 
+        var original = Request(Profile());
+        var recovered = new WorkspacePacketGatewayOpenRequest(WorkspaceInstanceId.New(), original.Isolation,
+            original.Connection, networkIdentity: original.WorkspaceId.Value);
         await using var session = Success(await backend.OpenAsync(
-            Request(Profile()),
+            recovered,
             progress: null,
             CancellationToken.None));
 
+        Assert.Equal(recovered.WorkspaceId, provider.Request?.WorkspaceId);
+        Assert.Equal(original.WorkspaceId.Value, provider.Request?.NetworkIdentity);
         Assert.IsType<WorkspaceNetworkPlacement.HostPlacement>(provider.Request?.Placement);
         Assert.True(provider.Request?.KillSwitchEnabled);
         AssertArguments(processes.Request!.Arguments, "--mode", "socks5");

@@ -219,13 +219,16 @@ public sealed record NetworkConnectionStartRequest
         NetworkConnectionProfile connection,
         WorkspaceNetworkPlacement placement,
         bool killSwitchEnabled,
-        SecretMaterial? transientPassword = null)
+        SecretMaterial? transientPassword = null,
+        string? networkIdentity = null)
     {
         if (string.IsNullOrWhiteSpace(workspaceId.Value))
         {
             throw new ArgumentException("A workspace instance ID is required.", nameof(workspaceId));
         }
 
+        NetworkIdentity = networkIdentity ?? workspaceId.Value;
+        ArgumentException.ThrowIfNullOrWhiteSpace(NetworkIdentity);
         WorkspaceId = workspaceId;
         Connection = connection ?? throw new ArgumentNullException(nameof(connection));
         Placement = placement ?? throw new ArgumentNullException(nameof(placement));
@@ -234,6 +237,9 @@ public sealed record NetworkConnectionStartRequest
     }
 
     public WorkspaceInstanceId WorkspaceId { get; }
+
+    /// <summary>Persistent private network identity retained across workspace recovery.</summary>
+    public string NetworkIdentity { get; }
 
     public NetworkConnectionProfile Connection { get; }
 
@@ -461,19 +467,25 @@ public sealed record WorkspaceNetworkOpenRequest
     public WorkspaceNetworkOpenRequest(
         WorkspaceInstanceId workspaceId,
         WorkspaceNetworkPolicyUpdate initialPolicy,
-        WorkspaceNetworkPlacement placement)
+        WorkspaceNetworkPlacement placement,
+        string? networkIdentity = null)
     {
         if (string.IsNullOrWhiteSpace(workspaceId.Value))
         {
             throw new ArgumentException("A workspace instance ID is required.", nameof(workspaceId));
         }
 
+        NetworkIdentity = networkIdentity ?? workspaceId.Value;
+        ArgumentException.ThrowIfNullOrWhiteSpace(NetworkIdentity);
         WorkspaceId = workspaceId;
         InitialPolicy = initialPolicy ?? throw new ArgumentNullException(nameof(initialPolicy));
         Placement = placement ?? throw new ArgumentNullException(nameof(placement));
     }
 
     public WorkspaceInstanceId WorkspaceId { get; }
+
+    /// <summary>Persistent private network identity retained across workspace recovery.</summary>
+    public string NetworkIdentity { get; }
 
     public WorkspaceNetworkPolicyUpdate InitialPolicy { get; }
 

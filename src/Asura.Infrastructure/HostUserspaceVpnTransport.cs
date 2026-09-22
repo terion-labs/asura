@@ -476,7 +476,7 @@ internal sealed partial class HostUserspaceVpnTransport : IHostUserspaceVpnTrans
         }
 
         var statePath = PersistentTailscaleStatePath(
-            request.WorkspaceId,
+            request.NetworkIdentity,
             request.Connection.Id);
         byte[]? authKey = null;
         if (configuration.AuthKeySecret is { } authReference)
@@ -558,7 +558,7 @@ internal sealed partial class HostUserspaceVpnTransport : IHostUserspaceVpnTrans
                 "--exit-node-allow-lan-access=false",
                 "--accept-routes=true",
                 "--shields-up=true",
-                $"--hostname=asura-{TokenFor(request.WorkspaceId.Value)}",
+                $"--hostname=asura-{TokenFor(request.NetworkIdentity)}",
             };
             if (authPath is not null)
             {
@@ -1130,12 +1130,12 @@ internal sealed partial class HostUserspaceVpnTransport : IHostUserspaceVpnTrans
     }
 
     private string PersistentTailscaleStatePath(
-        WorkspaceInstanceId workspaceId,
+        string networkIdentity,
         NetworkConnectionId connectionId)
     {
         var directory = Directory.CreateDirectory(Path.Combine(
             _persistentStateRoot,
-            TokenFor(workspaceId.Value)));
+            TokenFor(networkIdentity)));
         if (!OperatingSystem.IsWindows())
         {
             directory.UnixFileMode = UnixFileMode.UserRead

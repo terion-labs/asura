@@ -692,7 +692,8 @@ internal sealed class BundledWorkspacePacketGatewayBackend : IHostWorkspacePacke
                     connection,
                     WorkspaceNetworkPlacement.Host,
                     killSwitchEnabled: true,
-                    request.TransientPassword),
+                    request.TransientPassword,
+                    request.NetworkIdentity),
                 progress,
                 cancellationToken)
             .ConfigureAwait(false);

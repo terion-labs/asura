@@ -328,10 +328,16 @@ public sealed class HostUserspaceVpnTransportTests
             ("tailscale", "/tools/tailscale"));
 
         await using var secondSession = Success(await secondTransport.ConnectAsync(
-            Request(new NetworkConnectionConfiguration.Tailscale("exit-node")),
+            Request(new NetworkConnectionConfiguration.Tailscale("exit-node"),
+                workspaceId: WorkspaceInstanceId.New(),
+                networkIdentity: WorkspaceId.Value),
             progress: null,
             CancellationToken.None));
 
+        Assert.Contains(stateArgument, Assert.Single(secondProcesses.Starts).Arguments, StringComparer.Ordinal);
+        Assert.Equal(
+            Assert.Single(login.Arguments, argument => argument.StartsWith("--hostname=", StringComparison.Ordinal)),
+            Assert.Single(secondProcesses.Commands[0].Arguments, argument => argument.StartsWith("--hostname=", StringComparison.Ordinal)));
         Assert.DoesNotContain(
             secondProcesses.Commands.SelectMany(request => request.Arguments),
             argument => argument.StartsWith("--auth-key=", StringComparison.Ordinal));
@@ -773,8 +779,10 @@ public sealed class HostUserspaceVpnTransportTests
 
     private static NetworkConnectionStartRequest Request(
         NetworkConnectionConfiguration configuration,
-        SecretMaterial? transientPassword = null) => new(
-        WorkspaceId,
+        SecretMaterial? transientPassword = null,
+        WorkspaceInstanceId? workspaceId = null,
+        string? networkIdentity = null) => new(
+        workspaceId ?? WorkspaceId,
         new NetworkConnectionProfile(
             ConnectionId,
             NetworkConnectionProfile.CurrentSchemaVersion,
@@ -782,7 +790,8 @@ public sealed class HostUserspaceVpnTransportTests
             configuration),
         WorkspaceNetworkPlacement.Host,
         killSwitchEnabled: false,
-        transientPassword);
+        transientPassword,
+        networkIdentity);
 
     private static async Task StoreSecretAsync(
         InMemorySecretVault vault,

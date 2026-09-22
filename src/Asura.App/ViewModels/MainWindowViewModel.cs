@@ -9952,7 +9952,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             isolationBinding is null
                 ? ResolveRecoveredTerminalMultiplexingOverride(recovered)
                 : TerminalMultiplexingMode.Disabled,
-            isolationBinding);
+            isolationBinding,
+            recovered.NetworkIdentity);
         if (recovered.HistorySource?.ToHistorySource() is { } recoveredSource)
         {
             _runtimeSources[runtime.Id] = recoveredSource;

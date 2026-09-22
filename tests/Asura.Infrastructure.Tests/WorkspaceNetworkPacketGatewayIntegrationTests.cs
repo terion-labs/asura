@@ -55,14 +55,18 @@ public sealed class WorkspaceNetworkPacketGatewayIntegrationTests
             [provider],
             packetGatewayRuntime: gateway);
 
+        var original = Request(
+            new NetworkPolicy([ConnectionId], ConnectionId, isEnabled: true, killSwitchEnabled: true), [profile]);
+        var recovered = new WorkspaceNetworkOpenRequest(WorkspaceInstanceId.New(), original.InitialPolicy,
+            original.Placement, networkIdentity: original.WorkspaceId.Value);
         await using var session = await runtime.OpenAsync(
-            Request(
-                new NetworkPolicy([ConnectionId], ConnectionId, isEnabled: true, killSwitchEnabled: true),
-                [profile]),
+            recovered,
             progress: null,
             CancellationToken.None);
 
         Assert.Same(profile, Assert.Single(gateway.Requests).Connection);
+        Assert.Equal(recovered.WorkspaceId, Assert.Single(gateway.Requests).WorkspaceId);
+        Assert.Equal(original.WorkspaceId.Value, Assert.Single(gateway.Requests).NetworkIdentity);
         Assert.Equal(0, provider.ConnectCount);
         Assert.Equal(WorkspaceNetworkState.Connected, session.Snapshot.State);
         Assert.Equal(WorkspaceNetworkEgress.Attached, session.Snapshot.Egress);

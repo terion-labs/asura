@@ -96,7 +96,8 @@ internal static class RuntimeWorkspaceRecoveryCodec
                 ? [.. binding.Mounts.Select(
                     RuntimeWorkspaceIsolationMountRecoveryPayload.Capture)]
                 : [],
-            workspace.IsolationBinding?.ImageReference);
+            workspace.IsolationBinding?.ImageReference,
+            workspace.NetworkIdentity);
 
     private static RuntimeTabRecoveryPayload CaptureTab(RuntimeTabViewModel tab) =>
         new(
@@ -207,6 +208,7 @@ internal static class RuntimeWorkspaceRecoveryCodec
 
         if (!IsDisplayText(workspace.Name, 256)
             || !IsDisplayText(workspace.Accent, 64)
+            || !IsOptionalIdentifier(workspace.NetworkIdentity)
             || workspace.ConnectionIds is null
             || workspace.ConnectionIds.Length > 512
             || workspace.ConnectionIds.Any(id => !IsIdentifier(id))
@@ -583,7 +585,8 @@ internal sealed record RuntimeWorkspaceRecoveryPayload(
     // host workspaces, while current isolated snapshots cannot silently do so.
     bool IsIsolated = false,
     RuntimeWorkspaceIsolationMountRecoveryPayload[]? IsolationMounts = null,
-    string? IsolationImageReference = null);
+    string? IsolationImageReference = null,
+    string? NetworkIdentity = null);
 
 internal sealed record RuntimeWorkspaceIsolationMountRecoveryPayload(
     string HostSource,

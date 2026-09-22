@@ -47,6 +47,19 @@ public sealed partial class WorkspaceNetworkRuntimeTests
     }
 
     [Fact]
+    public async Task Recovered_host_workspace_passes_persistent_identity_to_provider()
+    {
+        var provider = new RecordingProvider();
+        var runtime = new WorkspaceNetworkRuntime([provider]);
+        var original = HostRequest(new NetworkPolicy([ConnectionId], ConnectionId, true, false), [ProxyProfile()]);
+        var recovered = new WorkspaceNetworkOpenRequest(WorkspaceInstanceId.New(), original.InitialPolicy,
+            original.Placement, networkIdentity: original.WorkspaceId.Value);
+        await using var session = await runtime.OpenAsync(recovered, null, CancellationToken.None);
+        Assert.Equal(recovered.WorkspaceId, provider.LastRequest!.WorkspaceId);
+        Assert.Equal(original.WorkspaceId.Value, provider.LastRequest.NetworkIdentity);
+    }
+
+    [Fact]
     public async Task Closing_a_connected_host_workspace_removes_it_from_live_connection_lookup()
     {
         var runtime = new WorkspaceNetworkRuntime([new RecordingProvider()]);
