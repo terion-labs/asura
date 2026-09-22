@@ -73,6 +73,47 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
         await WaitForAsync(() => Assert.Single(networkRuntime.Sessions).DisposeCount == 1);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Automatic_recovery_preserves_network_identity_across_fresh_runtime_instances(bool isolated)
+    {
+        var snapshot = WithWorkspaceIsolation(CreateCatalogSnapshot(), WorkspaceId, isIsolated: isolated);
+        var workspace = snapshot.Workspaces.Single(item => item.Value.Id == WorkspaceId).Value;
+        var (client, _) = CreateSessionClient();
+        var initialNetwork = new RecordingWorkspaceNetworkRuntime();
+        string payload;
+        WorkspaceInstanceId originalId;
+        using (var source = CreateViewModel(client, snapshot,
+                   workspaceIsolationProvider: new RecordingWorkspaceIsolationProvider(),
+                   workspaceNetworkRuntime: initialNetwork))
+        {
+            Assert.True(await source.OpenWorkspaceAsync(WorkspaceId));
+            originalId = source.RuntimeWorkspace!.Id;
+            Assert.Equal(originalId.Value, Assert.Single(initialNetwork.Requests).NetworkIdentity);
+            payload = RuntimeWorkspaceRecoveryCodec.Serialize(source.RuntimeWorkspace,
+                new RuntimeHistorySource(workspace.Key, workspace.Name));
+        }
+
+        for (var restart = 0; restart < 2; restart++)
+        {
+            var network = new RecordingWorkspaceNetworkRuntime();
+            var (recoveryClient, _) = CreateSessionClient();
+            using var recovered = CreateViewModel(recoveryClient, snapshot,
+                workspaceIsolationProvider: new RecordingWorkspaceIsolationProvider(),
+                workspaceNetworkRuntime: network);
+            var recovery = new RuntimeRecoverySnapshot("network-restart", RuntimeWorkspaceRecoveryCodec.SnapshotKey,
+                RuntimeWorkspaceRecoveryCodec.SchemaVersion, payload, DateTimeOffset.UtcNow);
+            Assert.True(await recovered.RestoreRuntimeSnapshotsAsync([recovery]));
+            var request = Assert.Single(network.Requests);
+            Assert.NotEqual(originalId, request.WorkspaceId);
+            Assert.Equal(originalId.Value, request.NetworkIdentity);
+            Assert.Equal(originalId.Value, recovered.RuntimeWorkspace!.NetworkIdentity);
+            payload = RuntimeWorkspaceRecoveryCodec.Serialize(recovered.RuntimeWorkspace,
+                new RuntimeHistorySource(workspace.Key, workspace.Name));
+        }
+    }
+
     [Fact]
     public async Task Inherited_workspace_network_control_includes_every_global_connection()
     {

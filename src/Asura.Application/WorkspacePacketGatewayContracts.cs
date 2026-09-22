@@ -222,13 +222,16 @@ public sealed record WorkspacePacketGatewayOpenRequest
         WorkspaceIsolationBinding isolation,
         NetworkConnectionProfile? connection = null,
         SecretMaterial? transientPassword = null,
-        WorkspacePacketGatewayServiceProxy? serviceProxy = null)
+        WorkspacePacketGatewayServiceProxy? serviceProxy = null,
+        string? networkIdentity = null)
     {
         if (string.IsNullOrWhiteSpace(workspaceId.Value))
         {
             throw new ArgumentException("A workspace instance ID is required.", nameof(workspaceId));
         }
 
+        NetworkIdentity = networkIdentity ?? workspaceId.Value;
+        ArgumentException.ThrowIfNullOrWhiteSpace(NetworkIdentity);
         WorkspaceId = workspaceId;
         Isolation = isolation ?? throw new ArgumentNullException(nameof(isolation));
         if (connection is null && transientPassword is not null)
@@ -249,6 +252,9 @@ public sealed record WorkspacePacketGatewayOpenRequest
     }
 
     public WorkspaceInstanceId WorkspaceId { get; }
+
+    /// <summary>Persistent private network identity retained across workspace recovery.</summary>
+    public string NetworkIdentity { get; }
 
     public WorkspaceIsolationBinding Isolation { get; }
 

@@ -26,9 +26,12 @@ public sealed class RuntimeWorkspaceViewModel : ObservableObject
         IReadOnlyList<LauncherConnectionViewModel> connections,
         RuntimeAgentPolicyProvenance? agentPolicy = null,
         TerminalMultiplexingMode? terminalMultiplexingMode = null,
-        WorkspaceIsolationBinding? isolationBinding = null)
+        WorkspaceIsolationBinding? isolationBinding = null,
+        string? networkIdentity = null)
     {
         Id = id;
+        NetworkIdentity = networkIdentity ?? id.Value;
+        ArgumentException.ThrowIfNullOrWhiteSpace(NetworkIdentity);
         Name = name;
         Accent = accent;
         Connections = new ObservableCollection<LauncherConnectionViewModel>(connections);
@@ -72,6 +75,8 @@ public sealed class RuntimeWorkspaceViewModel : ObservableObject
     }
 
     public WorkspaceInstanceId Id { get; }
+
+    public string NetworkIdentity { get; }
 
     /// <summary>
     /// The agent panel's last placement while this workspace remains open.

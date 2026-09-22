@@ -107,7 +107,8 @@ public sealed partial class WorkspaceNetworkRuntime : IWorkspaceNetworkRuntime
             _isolationEgressGuard,
             _passwordPrompt,
             reconnectDelay: _reconnectDelay,
-            secretVault: _secretVault);
+            secretVault: _secretVault,
+            networkIdentity: request.NetworkIdentity);
         try
         {
             _ = await session.ApplyAsync(
@@ -178,7 +179,8 @@ public sealed partial class WorkspaceNetworkRuntime : IWorkspaceNetworkRuntime
                             _passwordPrompt,
                             _packetGatewayRuntime,
                             _reconnectDelay,
-                            _secretVault));
+                            _secretVault,
+                            request.NetworkIdentity));
                     _sharedSessions.Add(key, entry);
                     initialize = true;
                 }
@@ -351,6 +353,7 @@ public sealed partial class WorkspaceNetworkRuntime : IWorkspaceNetworkRuntime
         private readonly INetworkPasswordPrompt? _passwordPrompt;
         private readonly ISecretVault? _secretVault;
         private readonly IWorkspacePacketGatewayRuntime? _packetGatewayRuntime;
+        private readonly string _networkIdentity;
         private readonly Func<TimeSpan, CancellationToken, Task> _reconnectDelay;
         private INetworkConnectionSession? _connection;
         private string? _connectionAuthenticationRouteIdentity;
@@ -373,9 +376,11 @@ public sealed partial class WorkspaceNetworkRuntime : IWorkspaceNetworkRuntime
             INetworkPasswordPrompt? passwordPrompt,
             IWorkspacePacketGatewayRuntime? packetGatewayRuntime = null,
             Func<TimeSpan, CancellationToken, Task>? reconnectDelay = null,
-            ISecretVault? secretVault = null)
+            ISecretVault? secretVault = null,
+            string? networkIdentity = null)
         {
             _workspaceId = workspaceId;
+            _networkIdentity = networkIdentity ?? workspaceId.Value;
             _placement = placement;
             _providers = providers;
             _isolationEgressGuard = isolationEgressGuard;
@@ -547,7 +552,8 @@ public sealed partial class WorkspaceNetworkRuntime : IWorkspaceNetworkRuntime
                                 selected,
                                 _placement,
                                 update.Policy.KillSwitchEnabled,
-                                transientPassword.Material),
+                                transientPassword.Material,
+                                _networkIdentity),
                             progress,
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -660,7 +666,8 @@ public sealed partial class WorkspaceNetworkRuntime : IWorkspaceNetworkRuntime
                         _workspaceId,
                         binding,
                         selected,
-                        transientPassword.Material),
+                        transientPassword.Material,
+                        networkIdentity: _networkIdentity),
                     progress,
                     cancellationToken)
                 .ConfigureAwait(false);

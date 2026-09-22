@@ -43,7 +43,8 @@ public sealed partial class MainWindowViewModel
                         update,
                         workspace.IsolationBinding is { } binding
                             ? WorkspaceNetworkPlacement.Isolated(binding)
-                            : WorkspaceNetworkPlacement.Host),
+                            : WorkspaceNetworkPlacement.Host,
+                        workspace.NetworkIdentity),
                     progress: null,
                     cancellationToken)
                 .ConfigureAwait(false);
