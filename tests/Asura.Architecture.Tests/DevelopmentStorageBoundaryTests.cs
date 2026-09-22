@@ -104,6 +104,67 @@ public sealed class DevelopmentStorageBoundaryTests
         Assert.DoesNotContain("synthetic-release-credential", output, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Rehearsal_loads_local_toolchain_without_exporting_signing_credentials(bool hasLocalEnvironment)
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            return;
+        }
+
+        var rehearsal = Read("scripts/rehearse-macos-release.sh");
+        var startIndex = rehearsal.IndexOf("# GUI Git clients", StringComparison.Ordinal);
+        var endIndex = rehearsal.IndexOf("\nxcode_application=", startIndex, StringComparison.Ordinal);
+        var directory = Directory.CreateTempSubdirectory("asura-release-environment-");
+        try
+        {
+            if (hasLocalEnvironment)
+            {
+                File.WriteAllText(Path.Combine(directory.FullName, ".env"), """
+                    GRAALVM_HOME="$PWD/local-toolchain"
+                    APPLE_CERTIFICATE_PASSWORD='synthetic-local-secret'
+                    """);
+            }
+
+            var start = new ProcessStartInfo("/bin/bash")
+            {
+                WorkingDirectory = directory.FullName,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            start.Environment.Clear();
+            start.Environment["GRAALVM_HOME"] = "inherited-toolchain";
+            start.Environment["APPLE_CERTIFICATE_PASSWORD"] = "synthetic-inherited-secret";
+            start.ArgumentList.Add("-c");
+            start.ArgumentList.Add("set -eu\nrepository_dir=\"$PWD\"\n" + rehearsal[startIndex..endIndex] + """
+
+                if [[ -f .env ]]; then
+                    [[ "$GRAALVM_HOME" == "$PWD/local-toolchain" ]]
+                    [[ "$APPLE_CERTIFICATE_PASSWORD" == 'synthetic-local-secret' ]]
+                else
+                    [[ "$GRAALVM_HOME" == 'inherited-toolchain' ]]
+                    [[ "$APPLE_CERTIFICATE_PASSWORD" == 'synthetic-inherited-secret' ]]
+                fi
+                /usr/bin/env
+                """);
+            using var process = Process.Start(start)!;
+            var output = process.StandardOutput.ReadToEnd();
+            var error = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+            Assert.True(process.ExitCode == 0, error);
+            Assert.Contains("GRAALVM_HOME=", output, StringComparison.Ordinal);
+            Assert.DoesNotContain("APPLE_", output, StringComparison.Ordinal);
+            Assert.DoesNotContain("secret", output + error, StringComparison.Ordinal);
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
+    }
+
     [Fact]
     public void Rehearsal_hands_local_credentials_to_signing_commands_explicitly()
     {
