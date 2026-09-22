@@ -1,4 +1,4 @@
-# ▵ Asura
+# ▵sura
 
 Asura is a native terminal workspace with an in-process AI agent that operates local and remote sessions. One window holds terminals, an embedded Chromium browser, files, databases, Redis, Docker, Git, and system monitors. The agent is plain .NET running inside the desktop process. There is no Node.js sidecar on your machine and nothing to install on remote hosts.
 
