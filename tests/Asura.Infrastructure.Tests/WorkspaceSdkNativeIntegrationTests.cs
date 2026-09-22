@@ -9,11 +9,14 @@ public sealed class WorkspaceSdkNativeIntegrationTests
     [SdkRuntimeFact]
     public Task Fresh_sdk_workspace_bootstraps_routes_DNS_HTTPS_and_restarts_persistently() => VerifyAsync(null);
 
+    [SdkRuntimeFact]
+    public Task SDK_readonly_home_mount_preserves_DNS_and_restarts_persistently() => VerifyAsync(null, withMount: true);
+
     [SdkRuntimeFact("ASURA_TEST_WIREGUARD_CONFIG")]
     public Task SDK_WireGuard_routes_packets_DNS_HTTPS_and_blocks_after_disconnect() =>
         VerifyAsync(Environment.GetEnvironmentVariable("ASURA_TEST_WIREGUARD_CONFIG"));
 
-    private static async Task VerifyAsync(string? wireGuardConfiguration)
+    private static async Task VerifyAsync(string? wireGuardConfiguration, bool withMount = false)
     {
         var assets = Environment.GetEnvironmentVariable("ASURA_TEST_SDK_RUNTIME_ROOT")!;
         var gateway = Path.Combine(Path.GetDirectoryName(assets)!, "asura-workspace-gateway-darwin-arm64");
@@ -21,6 +24,9 @@ public sealed class WorkspaceSdkNativeIntegrationTests
         var executable = Path.Combine(assets, "workspace-runtime");
         var directory = Path.Combine(Path.GetTempPath(), $"gs-sdk-e2e-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
+        var share = Directory.CreateDirectory(Path.Combine(directory, "host-kube"));
+        await File.WriteAllTextAsync(Path.Combine(share.FullName, "fixture"), "shared");
+        WorkspaceIsolationMount[] mounts = withMount ? [new(share.FullName, "/home/asura/.kube", true)] : [];
         var workspace = new WorkspaceId($"sdk-test-{Guid.NewGuid():N}");
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(25));
         var processes = new WorkspaceGatewayProcessRunner();
@@ -31,7 +37,12 @@ public sealed class WorkspaceSdkNativeIntegrationTests
         IWorkspacePacketGatewaySession? session = null;
         try
         {
-            binding = Prepared(await provider.PrepareAsync(new WorkspaceIsolationPrepareRequest(workspace), deadline.Token));
+            binding = Prepared(await provider.PrepareAsync(new WorkspaceIsolationPrepareRequest(workspace, mounts), deadline.Token));
+            if (withMount)
+            {
+                Assert.Equal("shared", await ExecuteAsync(provider, binding,
+                    "cat /home/asura/.kube/fixture; test ! -w /home/asura/.kube/fixture", deadline.Token));
+            }
             Assert.NotNull(binding.Network!.HostAttachment);
             Assert.Null(binding.Network.GuestHelperPath);
             Assert.Equal("blocked", await ExecuteAsync(provider, binding,
@@ -88,7 +99,7 @@ public sealed class WorkspaceSdkNativeIntegrationTests
             provider = new WorkspaceSdkIsolationProvider(executable, Path.Combine(directory, "state"),
                 gateway, processes, 1000, 1000,
                 (_, _) => throw new InvalidOperationException("A persistent workspace must not select new boot images."));
-            binding = Prepared(await provider.PrepareAsync(new WorkspaceIsolationPrepareRequest(workspace), deadline.Token));
+            binding = Prepared(await provider.PrepareAsync(new WorkspaceIsolationPrepareRequest(workspace, mounts), deadline.Token));
             Assert.Equal("persistent", await ExecuteAsync(provider, binding,
                 "set -eu; dpkg-query -W -f='${Status}' jq | grep -q 'install ok installed'; "
                 + "test \"$(printf '{\"value\":42}' | jq -r .value)\" = 42; cat /home/asura/sdk-persistence-test", deadline.Token));

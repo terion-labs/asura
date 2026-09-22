@@ -9,6 +9,26 @@ namespace Asura.App.Tests;
 public sealed class KubernetesRuntimePanelViewModelTests
 {
     [Fact]
+    public async Task FailedBackendStartupKeepsPanelUsableAndRetryReconnects()
+    {
+        var attempts = 0;
+        var session = new KubernetesUiSession();
+        using var panel = new KubernetesRuntimePanelViewModel(PanelInstanceId.New(), "Kubernetes",
+            new(KubernetesConnectionProfileId.New(), 1, "Cluster", "/test/config", "production", "restricted"),
+            _ => ++attempts == 1
+                ? ValueTask.FromException<IKubernetesClientSession>(new KubernetesRequestException(
+                    KubernetesErrorCode.ConnectionFailed, "The Kubernetes backend timed out while starting. Check the workspace network connection, then retry.", retryable: true))
+                : ValueTask.FromResult<IKubernetesClientSession>(session));
+        await panel.Initialization;
+        Assert.False(panel.IsBusy);
+        Assert.Contains("timed out", panel.Issue, StringComparison.Ordinal);
+        await panel.RefreshAsync();
+        Assert.False(panel.HasIssue);
+        Assert.Single(panel.Resources);
+        Assert.Equal(2, attempts);
+    }
+
+    [Fact]
     public async Task NamespaceRestrictedConnectionUsesExplicitNamespaceWithoutListingNamespaces()
     {
         var session = new KubernetesUiSession();

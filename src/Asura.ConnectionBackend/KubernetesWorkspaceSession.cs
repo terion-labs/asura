@@ -152,7 +152,9 @@ internal sealed partial class KubernetesWorkspaceSession : IKubernetesClientSess
         if (response.Error is { } error)
         {
             if (!Enum.IsDefined(error)) { throw InvalidResponse(); }
-            throw new KubernetesRequestException(error, $"Kubernetes request failed: {error}.", response.StatusCode, response.Retryable);
+            var message = response.ErrorMessage is { Length: > 0 and <= 2048 } detail
+                ? detail : $"Kubernetes request failed: {error}.";
+            throw new KubernetesRequestException(error, message, response.StatusCode, response.Retryable);
         }
         return response;
     }

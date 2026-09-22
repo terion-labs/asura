@@ -101,6 +101,55 @@ public sealed class KubernetesWorkspaceSessionTests
         Assert.Equal(KubernetesErrorCode.InvalidConfiguration, response.Error);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task WorkerPreservesSafeTypedFailuresButNeverRawExceptionMessages(bool safe)
+    {
+        const string detail = "Install the approved credential helper in this workspace.";
+        using var input = new MemoryStream();
+        using var output = new MemoryStream();
+        await BackendJsonFrames.WriteAsync(input, new KubernetesWorkspaceRequest(1, KubernetesWorkspaceOperation.Open,
+            Open: new("context", "default", null, null, null)),
+            KubernetesWorkspaceJsonContext.Default.KubernetesWorkspaceRequest, CancellationToken.None);
+        input.Position = 0;
+        await KubernetesWorkspaceChild.RunAsync(input, output, (_, _) =>
+            Task.FromException<IKubernetesClientSession>(safe
+                ? new KubernetesRequestException(KubernetesErrorCode.InvalidConfiguration, detail)
+                : new IOException("private-credential-content")), CancellationToken.None);
+        Assert.DoesNotContain("private-credential-content", Encoding.UTF8.GetString(output.ToArray()), StringComparison.Ordinal);
+        output.Position = 0;
+        var response = await BackendJsonFrames.ReadAsync(output,
+            KubernetesWorkspaceJsonContext.Default.KubernetesWorkspaceResponse, CancellationToken.None);
+        Assert.Equal(safe ? detail : null, response.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task ParentDisplaysTheWorkersSafeErrorDetail()
+    {
+        if (OperatingSystem.IsWindows()) { return; }
+        const string detail = "Install the approved credential helper in this workspace.";
+        var directory = Directory.CreateTempSubdirectory("asura-kube-error-");
+        try
+        {
+            var path = Path.Combine(directory.FullName, "response");
+            await using (var output = File.Create(path))
+            {
+                await BackendJsonFrames.WriteAsync(output, new KubernetesWorkspaceResponse(1,
+                    KubernetesErrorCode.InvalidConfiguration, IsResponse: true, ErrorMessage: detail),
+                    KubernetesWorkspaceJsonContext.Default.KubernetesWorkspaceResponse, CancellationToken.None);
+            }
+            var start = new ProcessStartInfo("/bin/sh");
+            foreach (var argument in new[] { "-c", "cat -- \"$1\"; cat >/dev/null", "kube-error", path }) { start.ArgumentList.Add(argument); }
+            await using var session = new KubernetesWorkspaceSession(new(start, () => Task.CompletedTask),
+                _ => throw new InvalidOperationException("No watch expected."));
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            var error = await Assert.ThrowsAsync<KubernetesRequestException>(() => session.DiscoverAsync(timeout.Token).AsTask());
+            Assert.Equal(detail, error.Message);
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
     private static KubernetesWorkspaceSession CreateEchoSession(Func<Task> cleanup, CancellationToken lifetime = default) =>
         new(new(new ProcessStartInfo("/bin/cat"), cleanup, lifetime),
             _ => throw new InvalidOperationException("This test does not open a watch."));

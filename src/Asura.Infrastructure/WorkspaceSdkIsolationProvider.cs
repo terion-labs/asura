@@ -207,8 +207,27 @@ public sealed partial class WorkspaceSdkIsolationProvider : IWorkspaceConnection
         {
             if (state.Process is not null)
             {
-                await state.Process.DisposeAsync().ConfigureAwait(false);
-                state.Process = null;
+                try
+                {
+                    // Provisioning may fail after the persistent disk is already mounted.
+                    // Ask the guest to unmount and flush before disposing the VM process,
+                    // even when the original startup request was cancelled.
+                    if (!state.Process.HasExited && state.Network?.HostAttachment is { } attachment)
+                    {
+                        _ = await _processes.RunAsync(new WorkspaceGatewayProcessRequest(_executable,
+                            ["stop", "--socket", attachment.ControlSocketPath], ReadOnlyMemory<byte>.Empty),
+                            TimeSpan.FromSeconds(30), CancellationToken.None).ConfigureAwait(false);
+                    }
+                }
+                catch (Exception cleanupFailure) when (cleanupFailure is IOException or OperationCanceledException)
+                {
+                    SecretSafeDiagnosticProjection.WriteTrace("workspace.sdk.failed-start-stop.failed", cleanupFailure);
+                }
+                finally
+                {
+                    await state.Process.DisposeAsync().ConfigureAwait(false);
+                    state.Process = null;
+                }
             }
 
             if (_serviceIsolate)

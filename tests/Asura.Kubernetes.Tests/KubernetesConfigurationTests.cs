@@ -93,6 +93,63 @@ public sealed class KubernetesConfigurationTests
     }
 
     [Fact]
+    public async Task TrustedCredentialCommandUsesOwningEnvironmentsExecutableLookup()
+    {
+        if (OperatingSystem.IsWindows()) { return; }
+        var directory = Directory.CreateTempSubdirectory("asura-kube-exec-");
+        try
+        {
+            var executable = Path.Combine(directory.FullName, "credential-helper");
+            await File.WriteAllTextAsync(executable, """
+                #!/bin/sh
+                test "$1" = 'argument with spaces' || exit 1
+                printf '%s' '{"apiVersion":"client.authentication.k8s.io/v1","kind":"ExecCredential","status":{"token":"fixture-token"}}'
+                """);
+            File.SetUnixFileMode(executable, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            var plan = Assert.Single(KubernetesKubeconfigReader.Read(Config("""
+                exec:
+                  apiVersion: client.authentication.k8s.io/v1
+                  command: fixture-credential-helper-not-on-path
+                  interactiveMode: Never
+                  args: ["argument with spaces"]
+                """)));
+            var lookups = 0;
+            string? Find(string command)
+            {
+                Assert.Equal(plan.Exec!.Command, command);
+                lookups++;
+                return executable;
+            }
+            await Assert.ThrowsAsync<KubernetesRequestException>(() =>
+                new KubernetesCredentialResolver(plan, findExecutable: Find).ResolveAsync(CancellationToken.None).AsTask());
+            Assert.Equal(0, lookups);
+            var resolver = new KubernetesCredentialResolver(plan, plan.Exec!.Fingerprint, Find);
+            var connection = await resolver.ResolveAsync(CancellationToken.None);
+            Assert.Equal("fixture-token", connection.BearerToken);
+            Assert.Equal(1, lookups);
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
+    [Fact]
+    public async Task MissingTrustedHelperExplainsTheExecutionEnvironmentWithoutExposingConfiguration()
+    {
+        var plan = Assert.Single(KubernetesKubeconfigReader.Read(Config("""
+            exec:
+              apiVersion: client.authentication.k8s.io/v1
+              command: private-helper-path
+              interactiveMode: Never
+              args: [private-argument]
+            """)));
+        var resolver = new KubernetesCredentialResolver(plan, plan.Exec!.Fingerprint, _ => null);
+        var error = await Assert.ThrowsAsync<KubernetesRequestException>(() => resolver.ResolveAsync(CancellationToken.None).AsTask());
+        Assert.Equal(KubernetesErrorCode.InvalidConfiguration, error.Code);
+        Assert.Contains("install its CLI", error.Message, StringComparison.Ordinal);
+        Assert.Contains("Isolated workspaces", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("private-", error.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ExecFingerprintChangesWithArgumentsAndEndpoint()
     {
         const string user = """

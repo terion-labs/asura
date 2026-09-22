@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Security.Cryptography;
 using System.Text;
 using Asura.Application;
@@ -14,6 +15,13 @@ internal sealed class KubernetesWorkspaceSessionFactory(
         await OpenWorkerAsync(profile, cancellationToken).ConfigureAwait(false);
 
     public async ValueTask<KubernetesConfigurationReview> ReviewAsync(KubernetesConnectionProfile profile, CancellationToken cancellationToken)
+    {
+        try { return await ReviewWorkerAsync(profile, cancellationToken).ConfigureAwait(false); }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception exception) when (IsStartupFailure(exception)) { throw StartupFailure(exception); }
+    }
+
+    private async Task<KubernetesConfigurationReview> ReviewWorkerAsync(KubernetesConnectionProfile profile, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(profile);
         var managed = await ResolveManagedAsync(profile, cancellationToken).ConfigureAwait(false);
@@ -39,6 +47,22 @@ internal sealed class KubernetesWorkspaceSessionFactory(
     }
 
     private async Task<KubernetesWorkspaceSession> OpenWorkerAsync(KubernetesConnectionProfile profile, CancellationToken token)
+    {
+        try { return await StartWorkerAsync(profile, token).ConfigureAwait(false); }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+        catch (Exception exception) when (IsStartupFailure(exception)) { throw StartupFailure(exception); }
+    }
+
+    private static bool IsStartupFailure(Exception exception) => exception is
+        IOException or HttpRequestException or Win32Exception or TimeoutException or OperationCanceledException or NotSupportedException;
+
+    private static KubernetesRequestException StartupFailure(Exception exception) =>
+        new(KubernetesErrorCode.ConnectionFailed, exception is TimeoutException or OperationCanceledException
+            ? "The Kubernetes backend timed out while starting. Check the workspace network connection, then retry."
+            : "The Kubernetes backend could not start in this workspace. Check the workspace network connection and runtime, then retry.",
+            retryable: true);
+
+    private async Task<KubernetesWorkspaceSession> StartWorkerAsync(KubernetesConnectionProfile profile, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(profile);
         if (!profile.IsEnabled || !profile.Validate().IsValid)

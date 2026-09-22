@@ -73,7 +73,8 @@ internal sealed record KubernetesWorkspaceResponse(
     KubernetesDrainReview? NodeDrainReview = null,
     KubernetesDrainResult? NodeDrainResult = null,
     KubernetesHelmChangeReview? HelmChangeReview = null,
-    KubernetesHelmChangeResult? HelmChangeResult = null);
+    KubernetesHelmChangeResult? HelmChangeResult = null,
+    string? ErrorMessage = null);
 
 [JsonSerializable(typeof(KubernetesWorkspaceRequest))]
 [JsonSerializable(typeof(KubernetesWorkspaceResponse))]

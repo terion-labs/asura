@@ -1,4 +1,5 @@
 using Asura.Application;
+using Asura.Infrastructure;
 using Asura.Kubernetes;
 
 namespace Asura.ConnectionBackend;
@@ -145,7 +146,7 @@ internal static partial class KubernetesWorkspaceChild
         var plans = await ReadPlansAsync(configuration, token).ConfigureAwait(false);
         var plan = plans.SingleOrDefault(item => string.Equals(item.ContextName, configuration.ContextName, StringComparison.Ordinal))
             ?? throw InvalidRequest();
-        var resolver = new KubernetesCredentialResolver(plan, configuration.TrustedExecFingerprint);
+        var resolver = new KubernetesCredentialResolver(plan, configuration.TrustedExecFingerprint, new PathConnectionExecutableLocator().Find);
         var connection = await resolver.ResolveAsync(token).ConfigureAwait(false);
         return new KubernetesClientSession(connection with { Namespace = configuration.Namespace }, resolver.ResolveAsync);
     }
@@ -202,7 +203,8 @@ internal static partial class KubernetesWorkspaceChild
         BackendJsonFrames.WriteAsync(output, response with { IsResponse = true }, KubernetesWorkspaceJsonContext.Default.KubernetesWorkspaceResponse, token);
 
     private static KubernetesWorkspaceResponse Failure(long id, Exception exception) => exception is KubernetesRequestException failure
-        ? new(id, failure.Code, failure.StatusCode, failure.Retryable)
+        ? new(id, failure.Code, failure.StatusCode, failure.Retryable,
+            ErrorMessage: failure.Message.Length <= 2048 ? failure.Message : null)
         : new(id, KubernetesErrorCode.InvalidConfiguration);
 
     private static KubernetesRequestException InvalidRequest() => new(KubernetesErrorCode.InvalidConfiguration,
