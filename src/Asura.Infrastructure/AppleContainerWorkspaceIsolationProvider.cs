@@ -106,7 +106,9 @@ public sealed partial class AppleContainerWorkspaceIsolationProvider : IWorkspac
         + "mkdir -p \"$user_home\"; "
         + "if [ ! -e \"$user_home/.asura-initialized\" ]; then "
         + "if [ -d /etc/skel ]; then cp -a /etc/skel/. \"$user_home/\"; fi; touch \"$user_home/.asura-initialized\"; fi; "
-        + "chown -R \"$uid:$gid\" \"$user_home\"; "
+        // Host directory shares are virtiofs. Prune them, including their roots,
+        // and batch guest ownership changes without following symlinks.
+        + "find \"$user_home\" -xdev -fstype virtiofs -prune -o -exec chown -h \"$uid:$gid\" {} +; "
         + "if ! awk -F: '$1 == \"docker\" { found=1 } END { exit !found }' /etc/group; then "
         + "if command -v groupadd >/dev/null 2>&1; then groupadd --system docker; fi; fi; "
         + "if awk -F: '$1 == \"docker\" { found=1 } END { exit !found }' /etc/group; then "

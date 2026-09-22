@@ -103,3 +103,11 @@ The implementation epic `asura-dp53` remains open. The following original-plan i
 | `asura-dp53.7` | Helm release/history, reviewed upgrade/rollback/uninstall and optional metrics | Helm install and retained-resource presentation; full release/platform acceptance |
 
 Owner dependency approval is tracked by `asura-dp53.8`; disposable live operations and routed/platform acceptance by `asura-dp53.9`.
+
+## Credential helper and workspace startup regression (2026-09-22)
+
+An approved exec credential helper worked from a shell but failed in a Finder-launched app whose PATH contained only the system directories. Kubernetes workers now use the shared executable locator in their own execution environment after checking the exact-command fingerprint. A read-only live probe using that minimal GUI PATH authenticated and discovered 228 resource types, with no unavailable groups. This adds no provider-specific credential implementation and does not run a guest's helper on the host.
+
+Typed, safe Kubernetes error details now survive worker IPC. Untyped exceptions and helper output remain excluded. Startup I/O failures, process-launch failures and internal timeouts become retryable panel errors; caller cancellation remains cancellation. Regression tests cover lookup after approval, missing helpers, both sides of error IPC, failed startup/review and successful panel retry.
+
+A separate read-only mount under the guest home exposed recursive ownership changes crossing into host shares. The native fixture failed during user provisioning before the fix, then passed boot, DNS/HTTPS, mounted-file reads and persistent restart with the fix. Startup failure cleanup now requests guest stop/flush before disposing the VM process, including after cancellation. A copy of an affected saved disk had ext4 allocation bitmap inconsistencies causing `configureDns` I/O errors. Offline repair of that copy, mounted startup with corrected provisioning, graceful stop and a subsequent read-only filesystem check all succeeded. This verifies recovery on a copy; it is not an automatic disk-repair feature.

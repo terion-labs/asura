@@ -43,6 +43,33 @@ public sealed partial class WorkspaceSdkIsolationProviderTests : IDisposable
         _ = Success(await provider.StopAsync(restarted, CancellationToken.None));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Failed_user_provisioning_flushes_the_persistent_disk_before_disposing_the_VM(bool cancelled)
+    {
+        var disk = await SeedDiskAsync();
+        using var cancellation = new CancellationTokenSource();
+        _runner.CommandStarted = (request, token) =>
+        {
+            if (request.Arguments[0] == "exec")
+            {
+                if (cancelled) { cancellation.Cancel(); token.ThrowIfCancellationRequested(); }
+                throw new IOException("Provisioning failed.");
+            }
+            if (request.Arguments[0] == "stop")
+            {
+                Assert.False(token.IsCancellationRequested);
+                Assert.False(Assert.Single(_runner.Processes).Disposed);
+            }
+        };
+        var result = await Provider().PrepareAsync(new WorkspaceIsolationPrepareRequest(_workspace), cancellation.Token);
+        Assert.IsType<WorkspaceIsolationResult<WorkspaceIsolationBinding>.Failure>(result);
+        Assert.Single(_runner.Commands, request => request.Arguments[0] == "stop");
+        Assert.True(Assert.Single(_runner.Processes).Disposed);
+        Assert.Equal("persistent disk", await File.ReadAllTextAsync(disk, CancellationToken.None));
+    }
+
     [Fact]
     public async Task Signed_bundle_loads_provisioned_guest_boot_images_from_cache()
     {

@@ -17,12 +17,15 @@ public sealed class KubernetesCredentialResolver
     private const int MaximumCredentialBytes = 4 * 1024 * 1024;
     private readonly KubernetesKubeconfigPlan _plan;
     private readonly string? _trustedExecFingerprint;
+    private readonly Func<string, string?>? _findExecutable;
 
-    public KubernetesCredentialResolver(KubernetesKubeconfigPlan plan, string? trustedExecFingerprint = null)
+    public KubernetesCredentialResolver(KubernetesKubeconfigPlan plan, string? trustedExecFingerprint = null,
+        Func<string, string?>? findExecutable = null)
     {
         ArgumentNullException.ThrowIfNull(plan);
         _plan = plan;
         _trustedExecFingerprint = trustedExecFingerprint;
+        _findExecutable = findExecutable;
     }
 
     public async ValueTask<KubernetesResolvedConnection> ResolveAsync(CancellationToken cancellationToken)
@@ -80,11 +83,15 @@ public sealed class KubernetesCredentialResolver
         }
     }
 
-    private static async ValueTask<KubernetesResolvedConnection> ExecuteAsync(KubernetesExecPlan exec, KubernetesResolvedConnection connection, CancellationToken cancellationToken)
+    private async ValueTask<KubernetesResolvedConnection> ExecuteAsync(KubernetesExecPlan exec, KubernetesResolvedConnection connection, CancellationToken cancellationToken)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(60));
-        var start = new ProcessStartInfo(exec.Command)
+        // Resolve only after verifying the exact reviewed command. The backend supplies
+        // its own environment's lookup; an isolated worker never searches the host.
+        var executable = _findExecutable is null ? exec.Command : _findExecutable(exec.Command)
+            ?? throw MissingExecutable();
+        var start = new ProcessStartInfo(executable)
         {
             UseShellExecute = false,
             RedirectStandardOutput = true,
@@ -122,7 +129,11 @@ public sealed class KubernetesCredentialResolver
 
             return ParseCredential(await output.ConfigureAwait(false), exec.ApiVersion, connection);
         }
-        catch (Exception exception) when (exception is Win32Exception or IOException or InvalidOperationException)
+        catch (Win32Exception)
+        {
+            throw MissingExecutable();
+        }
+        catch (Exception exception) when (exception is IOException or InvalidOperationException)
         {
             throw CredentialFailure();
         }
@@ -228,6 +239,12 @@ public sealed class KubernetesCredentialResolver
         value.ValueKind == JsonValueKind.Object && value.TryGetProperty(name, out JsonElement result) && result.ValueKind == JsonValueKind.String
             ? result.GetString() : null;
 
+    private static KubernetesRequestException MissingExecutable() =>
+        new(KubernetesErrorCode.InvalidConfiguration,
+            "The approved Kubernetes credential command could not be started in this execution environment. "
+            + "Review the connection to see the command, then install its CLI here or correct its executable path. "
+            + "Isolated workspaces do not use CLI tools or login files installed on the host.");
+
     private static KubernetesRequestException CredentialFailure() =>
-        new(KubernetesErrorCode.Unauthorized, "The Kubernetes credential executable failed or returned invalid credentials.");
+        new(KubernetesErrorCode.Unauthorized, "The Kubernetes credential executable failed or returned invalid credentials. Sign in with its CLI in this execution environment, then retry.");
 }
