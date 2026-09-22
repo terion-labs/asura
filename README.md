@@ -105,17 +105,13 @@ The two Apple keys are not interchangeable. `APPLE_CERTIFICATE_P12_BASE64` must 
 
 Do not regenerate, unpack, print, or repack an existing signing identity just to run the build. Do not enable shell tracing with `set -x` while loading `.env`. If the current `.p12` imports with its existing password, keep it. The rehearsal imports it into a temporary keychain, confirms that `APPLE_DEVELOPER_ID_APPLICATION` is present, and removes the keychain on exit.
 
-Commit the exact release source, create an annotated tag at `HEAD`, load the environment without echoing it, and run the rehearsal:
+Commit the exact release source, create an annotated tag at `HEAD`, and run the rehearsal. When a new build is needed, the script loads the repository's ignored `.env` automatically, including when invoked by a Git GUI's push hook. Local assignments override inherited settings; without `.env`, it uses the supplied environment. Signing credentials remain private to the coordinating shell until signing.
 
 ```bash
 release_tag='v<major>.<minor>.<patch>' # Replace this with the next unused version.
 
 git status --short # This must print nothing.
 git tag -a "$release_tag" -m "Asura ${release_tag#v}"
-
-set -a
-source ./.env
-set +a
 
 ./scripts/rehearse-macos-release.sh --tag "$release_tag"
 ```

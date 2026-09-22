@@ -119,6 +119,21 @@ tree=${tree}"
     fi
 fi
 
+# GUI Git clients do not inherit the shell that sourced the local release
+# configuration. Load it only when a new rehearsal is needed, from the same
+# repository root used by the documented Bash assignments.
+if [[ -f "${repository_dir}/.env" ]]; then
+    set +x
+    set -a
+    source "${repository_dir}/.env"
+    set +a
+fi
+# Loading .env exports toolchain settings, but signing material must stay in
+# this shell until the explicit signing commands below.
+export -n APPLE_CERTIFICATE_P12_BASE64 APPLE_CERTIFICATE_PASSWORD \
+    APPLE_DEVELOPER_ID_APPLICATION APPLE_NOTARY_ISSUER_ID \
+    APPLE_NOTARY_KEY_ID APPLE_NOTARY_PRIVATE_KEY_BASE64
+
 xcode_application="${ASURA_XCODE_APP:-/Applications/Xcode.app}"
 if [[ ! -d "${xcode_application}/Contents/Developer" ]] \
     || ! DEVELOPER_DIR="${xcode_application}/Contents/Developer" \
@@ -138,6 +153,11 @@ if ! grep -Eq 'short-bundle-version: (2[6-9]|[3-9][0-9]|[1-9][0-9]{2,})(\.|$)' \
     echo "The selected Xcode does not provide actool 26 or newer." >&2
     exit 1
 fi
+# Keep compiler and SDK selection aligned with the validated Xcode even when
+# a GUI client inherits a different Command Line Tools installation.
+export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+export CC="$(xcrun --find clang)"
+export CXX="$(xcrun --find clang++)"
 
 if [[ -z "${GRAALVM_HOME:-}" || ! -x "${GRAALVM_HOME}/bin/native-image" ]]; then
     echo "GRAALVM_HOME must identify GraalVM 25.0.4 with native-image." >&2
