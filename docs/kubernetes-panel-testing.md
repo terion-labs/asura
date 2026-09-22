@@ -4,7 +4,7 @@ The core panel is implemented on `codex/kubernetes-panel`. The design rationale 
 
 ## Using the panel
 
-1. Add a Kubernetes connection in the unified connection editor. Enter the kubeconfig path as seen by the selected workspace backend, review it, choose an explicit context and namespace, and approve the displayed credential helper when required.
+1. Add a Kubernetes connection in the unified connection editor. Enter the kubeconfig path on the host for a non-isolated workspace, or inside the workspace for an isolated one, review it, choose an explicit context and namespace, and approve the displayed credential helper when required.
 2. Open the connection from the launcher, a new panel, a saved screen or a workspace template. Each panel keeps its own context, resource kind and namespace. The namespace dropdown includes All namespaces, discovered namespaces and the configured namespace. Configured and observed values remain selectable when namespace listing is forbidden.
 3. Browse grouped resource families using the navigator. Pods and Nodes have dedicated sortable tables. Selecting a row opens the right-hand properties drawer with related-resource links, labels, conditions, containers and events. The YAML / JSON tab opens indented JSON in the shared syntax-highlighted editor with line numbers; pasted YAML uses YAML highlighting. User drafts remain exactly as typed. Dry-run review shows formatted, highlighted JSON for the current and proposed resource. Pod views expose container selection, previous/current logs, follow, a terminal, read-only files and port forwarding. Service forwarding resolves ready matching pods and requires an explicit pod/port choice.
 4. Edit a manifest and run server dry-run before applying. Scale, rollout restart, delete and node scheduling also have separate review and confirmation. Drain displays skipped/blocked pods and per-pod outcomes. Never retry an unknown outcome without inspecting current cluster state.
@@ -111,3 +111,20 @@ An approved exec credential helper worked from a shell but failed in a Finder-la
 Typed, safe Kubernetes error details now survive worker IPC. Untyped exceptions and helper output remain excluded. Startup I/O failures, process-launch failures and internal timeouts become retryable panel errors; caller cancellation remains cancellation. Regression tests cover lookup after approval, missing helpers, both sides of error IPC, failed startup/review and successful panel retry.
 
 A separate read-only mount under the guest home exposed recursive ownership changes crossing into host shares. The native fixture failed during user provisioning before the fix, then passed boot, DNS/HTTPS, mounted-file reads and persistent restart with the fix. Startup failure cleanup now requests guest stop/flush before disposing the VM process, including after cancellation. A copy of an affected saved disk had ext4 allocation bitmap inconsistencies causing `configureDns` I/O errors. Offline repair of that copy, mounted startup with corrected provisioning, graceful stop and a subsequent read-only filesystem check all succeeded. This verifies recovery on a copy; it is not an automatic disk-repair feature.
+
+
+## Host authentication with private networking
+
+Non-isolated workspaces resolve Kubernetes credentials on the host even when the
+API backend uses the workspace's private Tailscale/VPN route. Host authentication
+uses host networking; Kubernetes API traffic keeps the selected workspace route.
+The approved standard exec command supplies tokens or client certificates over
+private IPC, including renewal after expiry or a read request's 401 response.
+No cloud CLI is bundled or selected by provider name. Isolated workspaces retain
+backend-local authentication and never silently execute a host helper.
+
+`KubernetesHostAuthenticationTests` exercises real backend processes, host-only
+helper execution, refresh, cancellation, failure redaction, trust invalidation,
+and concurrent terminal input versus credential reply dispatch. These fixtures
+verify the authentication protocol, not a live cloud account or VPN provider.
+See ADR 0059 for execution and network boundaries.

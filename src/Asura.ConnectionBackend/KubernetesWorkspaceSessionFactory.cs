@@ -3,13 +3,17 @@ using System.Security.Cryptography;
 using System.Text;
 using Asura.Application;
 using Asura.Core;
+using Asura.Infrastructure;
+using Asura.Kubernetes;
 
 namespace Asura.ConnectionBackend;
 
+/// <summary>Authentication placement follows workspace isolation; transport placement follows the route. See ADR 0059.</summary>
 internal sealed class KubernetesWorkspaceSessionFactory(
     Func<ConnectionProfile?, CancellationToken, Task<DatabaseWorkspaceOperationLaunch>> launch,
     IDefinitionCatalog catalog,
-    ISecretVault vault) : IKubernetesPanelSessionFactory
+    ISecretVault vault,
+    bool useHostCredentials = false) : IKubernetesPanelSessionFactory
 {
     public async ValueTask<IKubernetesClientSession> OpenAsync(KubernetesConnectionProfile profile, CancellationToken cancellationToken) =>
         await OpenWorkerAsync(profile, cancellationToken).ConfigureAwait(false);
@@ -25,6 +29,11 @@ internal sealed class KubernetesWorkspaceSessionFactory(
     {
         ArgumentNullException.ThrowIfNull(profile);
         var managed = await ResolveManagedAsync(profile, cancellationToken).ConfigureAwait(false);
+        if (useHostCredentials)
+        {
+            return await KubernetesWorkspaceConfiguration.ReviewAsync(new(profile.ContextName, profile.DefaultNamespace,
+                profile.KubeconfigPath, managed, profile.TrustedExecFingerprint), cancellationToken).ConfigureAwait(false);
+        }
         ConnectionProfile? hop = null;
         if (profile.TunnelConnectionId is { } hopId)
         {
@@ -78,13 +87,31 @@ internal sealed class KubernetesWorkspaceSessionFactory(
                     "The Kubernetes profile's SSH connection is unavailable.");
         }
         var managed = await ResolveManagedAsync(profile, token).ConfigureAwait(false);
+        var configuration = new KubernetesWorkspaceOpen(profile.ContextName, profile.DefaultNamespace,
+            profile.KubeconfigPath, managed, profile.TrustedExecFingerprint);
+        KubernetesCredentialRefresh? hostCredentials = null;
+        if (useHostCredentials)
+        {
+            var plans = await KubernetesWorkspaceConfiguration.ReadAsync(configuration, token).ConfigureAwait(false);
+            var plan = plans.SingleOrDefault(item => string.Equals(item.ContextName, profile.ContextName, StringComparison.Ordinal))
+                ?? throw new KubernetesRequestException(KubernetesErrorCode.InvalidConfiguration, "The selected Kubernetes context is unavailable.");
+            var resolver = new KubernetesCredentialResolver(plan with { Connection = plan.Connection with { Namespace = profile.DefaultNamespace } },
+                profile.TrustedExecFingerprint, new PathConnectionExecutableLocator().Find);
+            hostCredentials = resolver.ResolveAsync;
+        }
         var owned = await launch(hop, token).ConfigureAwait(false);
         KubernetesWorkspaceSession? session = null;
         try
         {
-            session = new(owned, watchToken => OpenWorkerAsync(profile, watchToken));
-            await session.OpenAsync(new(profile.ContextName, profile.DefaultNamespace, profile.KubeconfigPath,
-                managed, profile.TrustedExecFingerprint), token).ConfigureAwait(false);
+            using var startup = CancellationTokenSource.CreateLinkedTokenSource(token, owned.Lifetime);
+            if (hostCredentials is not null)
+            {
+                var connection = await hostCredentials(startup.Token).ConfigureAwait(false);
+                // Keep host paths and executable authority out of the routed worker.
+                configuration = new(profile.ContextName, profile.DefaultNamespace, null, null, null, connection);
+            }
+            session = new(owned, watchToken => OpenWorkerAsync(profile, watchToken), hostCredentials);
+            await session.OpenAsync(configuration, startup.Token).ConfigureAwait(false);
             return session;
         }
         catch

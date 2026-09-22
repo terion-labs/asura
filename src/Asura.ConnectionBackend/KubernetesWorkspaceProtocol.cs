@@ -8,7 +8,7 @@ internal enum KubernetesWorkspaceOperation
     Open, Discover, List, Inspect, Logs, Watch, Mutate, Review, ConvertManifest,
     FollowLogs, ExecStart, ExecInput, ExecResize, ExecEndInput, ForwardStart, ForwardConnect,
     Metrics, MetricHistory, HelmList, HelmHistory,
-    NodeScheduling, NodeDrainReview, NodeDrainExecute, HelmChangeReview, HelmChangeExecute,
+    NodeScheduling, NodeDrainReview, NodeDrainExecute, HelmChangeReview, HelmChangeExecute, Credentials,
 }
 
 internal sealed record KubernetesWorkspaceOpen(
@@ -16,7 +16,8 @@ internal sealed record KubernetesWorkspaceOpen(
     string Namespace,
     string? KubeconfigPath,
     string? ManagedKubeconfig,
-    string? TrustedExecFingerprint)
+    string? TrustedExecFingerprint,
+    KubernetesResolvedConnection? HostConnection = null)
 {
     public override string ToString() => "Kubernetes backend configuration [redacted]";
 }
@@ -43,7 +44,8 @@ internal sealed record KubernetesWorkspaceRequest(
     KubernetesNodeSchedulingRequest? NodeScheduling = null,
     KubernetesNodeDrainRequest? NodeDrain = null,
     KubernetesHelmChangeRequest? HelmChange = null,
-    string? ReviewToken = null);
+    string? ReviewToken = null,
+    KubernetesWorkspaceCredentialReply? Credentials = null);
 
 internal sealed record KubernetesWorkspaceResponse(
     long Id,
@@ -74,7 +76,16 @@ internal sealed record KubernetesWorkspaceResponse(
     KubernetesDrainResult? NodeDrainResult = null,
     KubernetesHelmChangeReview? HelmChangeReview = null,
     KubernetesHelmChangeResult? HelmChangeResult = null,
-    string? ErrorMessage = null);
+    string? ErrorMessage = null,
+    bool CredentialsRequested = false);
+
+internal sealed record KubernetesWorkspaceCredentialReply(
+    KubernetesResolvedConnection? Connection = null,
+    KubernetesErrorCode? Error = null,
+    string? ErrorMessage = null)
+{
+    public override string ToString() => "Kubernetes credentials [redacted]";
+}
 
 [JsonSerializable(typeof(KubernetesWorkspaceRequest))]
 [JsonSerializable(typeof(KubernetesWorkspaceResponse))]

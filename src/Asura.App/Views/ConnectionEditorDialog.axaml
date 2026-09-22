@@ -360,6 +360,7 @@
           <StackPanel IsVisible="{Binding HasCredentialCommand}" Spacing="{DynamicResource ShellSpaceSm}">
             <TextBlock Text="{Binding CredentialCommandDescription}" TextWrapping="Wrap" />
             <CheckBox Content="Trust this exact credential command when connecting" IsChecked="{Binding TrustCredentialCommand}" />
+            <TextBlock Classes="Muted" Text="Without workspace isolation, authentication runs on this computer using its installed tools, login files, and network. Kubernetes traffic uses the workspace network connection. In isolated workspaces, authentication runs inside the workspace." TextWrapping="Wrap" />
           </StackPanel>
           <controls:LabeledField Label="Context"><TextBox Text="{Binding ContextName}" PlaceholderText="Exact kubeconfig context name" AutomationProperties.Name="Kubernetes context" /></controls:LabeledField>
           <controls:LabeledField Label="Default namespace"><TextBox Text="{Binding Namespace}" AutomationProperties.Name="Default Kubernetes namespace" /></controls:LabeledField>
