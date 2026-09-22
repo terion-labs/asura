@@ -15,9 +15,12 @@ internal sealed partial class KubernetesWorkspaceSession : IKubernetesClientSess
     private readonly CancellationTokenRegistration _termination;
     private readonly Task _errors;
     private readonly SemaphoreSlim _requests = new(1, 1);
+    private readonly SemaphoreSlim _writes = new(1, 1);
+    private readonly KubernetesCredentialRefresh? _hostCredentials;
     private readonly object _disposeGate = new();
     private Task? _dispose;
     private long _nextId;
+    private long _credentialRequestId;
 
     public KubernetesSessionFeatures Features => KubernetesSessionFeatures.Watch | KubernetesSessionFeatures.FollowLogs
         | KubernetesSessionFeatures.Exec | KubernetesSessionFeatures.PortForward | KubernetesSessionFeatures.Mutations
@@ -26,10 +29,12 @@ internal sealed partial class KubernetesWorkspaceSession : IKubernetesClientSess
         | KubernetesSessionFeatures.NodeMaintenance | KubernetesSessionFeatures.HelmChanges;
 
     internal KubernetesWorkspaceSession(DatabaseWorkspaceOperationLaunch owned,
-        Func<CancellationToken, Task<KubernetesWorkspaceSession>> openWatch)
+        Func<CancellationToken, Task<KubernetesWorkspaceSession>> openWatch,
+        KubernetesCredentialRefresh? hostCredentials = null)
     {
         _owned = owned;
         _openWatch = openWatch;
+        _hostCredentials = hostCredentials;
         owned.Lifetime.ThrowIfCancellationRequested();
         owned.StartInfo.UseShellExecute = false;
         owned.StartInfo.RedirectStandardInput = true;
@@ -83,9 +88,7 @@ internal sealed partial class KubernetesWorkspaceSession : IKubernetesClientSess
         try
         {
             var id = checked(++watcher._nextId);
-            await BackendJsonFrames.WriteAsync(watcher._process.StandardInput.BaseStream,
-                new KubernetesWorkspaceRequest(id, KubernetesWorkspaceOperation.Watch, Watch: request),
-                KubernetesWorkspaceJsonContext.Default.KubernetesWorkspaceRequest, linked.Token).ConfigureAwait(false);
+            await watcher.WriteAsync(new KubernetesWorkspaceRequest(id, KubernetesWorkspaceOperation.Watch, Watch: request), linked.Token).ConfigureAwait(false);
             while (true)
             {
                 var response = await watcher.ReadAsync(id, linked.Token).ConfigureAwait(false);
@@ -112,7 +115,9 @@ internal sealed partial class KubernetesWorkspaceSession : IKubernetesClientSess
             linked.Token.ThrowIfCancellationRequested();
             // A pipe failure can occur after the worker received a complete write request.
             dispatched = true;
-            await DatabaseOperationProtocol.WriteFrameAsync(_process.StandardInput.BaseStream, serialized, linked.Token).ConfigureAwait(false);
+            await _writes.WaitAsync(linked.Token).ConfigureAwait(false);
+            try { await DatabaseOperationProtocol.WriteFrameAsync(_process.StandardInput.BaseStream, serialized, linked.Token).ConfigureAwait(false); }
+            finally { _writes.Release(); }
             var response = await ReadAsync(request.Id, linked.Token).ConfigureAwait(false);
             ValidateResponse(request.Operation, response);
             confirmed = true;
@@ -121,6 +126,13 @@ internal sealed partial class KubernetesWorkspaceSession : IKubernetesClientSess
         catch (KubernetesRequestException)
         {
             confirmed = true;
+            throw;
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested
+            && request.Operation is not (KubernetesWorkspaceOperation.Mutate or KubernetesWorkspaceOperation.NodeScheduling
+                or KubernetesWorkspaceOperation.NodeDrainExecute or KubernetesWorkspaceOperation.HelmChangeExecute))
+        {
+            await DisposeAsync().ConfigureAwait(false);
             throw;
         }
         catch when (dispatched && !confirmed)
@@ -146,8 +158,7 @@ internal sealed partial class KubernetesWorkspaceSession : IKubernetesClientSess
 
     private async Task<KubernetesWorkspaceResponse> ReadAsync(long id, CancellationToken token)
     {
-        var response = await BackendJsonFrames.ReadAsync(_process.StandardOutput.BaseStream,
-            KubernetesWorkspaceJsonContext.Default.KubernetesWorkspaceResponse, token).ConfigureAwait(false);
+        var response = await ReadResponseAsync(token).ConfigureAwait(false);
         if (!response.IsResponse || response.Id != id) { throw InvalidResponse(); }
         if (response.Error is { } error)
         {
@@ -157,6 +168,46 @@ internal sealed partial class KubernetesWorkspaceSession : IKubernetesClientSess
             throw new KubernetesRequestException(error, message, response.StatusCode, response.Retryable);
         }
         return response;
+    }
+
+    private async Task WriteAsync(KubernetesWorkspaceRequest request, CancellationToken token)
+    {
+        await _writes.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            await BackendJsonFrames.WriteAsync(_process.StandardInput.BaseStream, request,
+            KubernetesWorkspaceJsonContext.Default.KubernetesWorkspaceRequest, token).ConfigureAwait(false);
+        }
+        finally { _writes.Release(); }
+    }
+
+    // A worker may ask only for renewal of the host-owned, approved plan. No command,
+    // path, endpoint, or environment is accepted from the worker as execution authority.
+    private async Task<KubernetesWorkspaceResponse> ReadResponseAsync(CancellationToken token)
+    {
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, _lifetime.Token);
+        token = linked.Token;
+        while (true)
+        {
+            var response = await BackendJsonFrames.ReadAsync(_process.StandardOutput.BaseStream,
+                KubernetesWorkspaceJsonContext.Default.KubernetesWorkspaceResponse, token).ConfigureAwait(false);
+            if (!response.CredentialsRequested) { return response; }
+            if (_hostCredentials is null || response.Id != checked(--_credentialRequestId)
+                || response != new KubernetesWorkspaceResponse(response.Id, IsResponse: true, CredentialsRequested: true))
+            { throw InvalidResponse(); }
+            KubernetesWorkspaceCredentialReply reply;
+            try { reply = new(Connection: await _hostCredentials(token).ConfigureAwait(false)); }
+            catch (KubernetesRequestException exception)
+            {
+                reply = new(Error: exception.Code, ErrorMessage: exception.Message.Length <= 2048 ? exception.Message : null);
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+            catch (Exception)
+            {
+                reply = new(Error: KubernetesErrorCode.Unauthorized, ErrorMessage: "Host authentication failed. Sign in on the host and retry.");
+            }
+            await WriteAsync(new(response.Id, KubernetesWorkspaceOperation.Credentials, Credentials: reply), token).ConfigureAwait(false);
+        }
     }
 
     private static InvalidDataException InvalidResponse() => new("The Kubernetes backend returned an invalid response.");

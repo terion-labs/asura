@@ -14,9 +14,7 @@ internal sealed partial class KubernetesWorkspaceSession
         try
         {
             var id = checked(++worker._nextId);
-            await BackendJsonFrames.WriteAsync(worker._process.StandardInput.BaseStream,
-                new KubernetesWorkspaceRequest(id, KubernetesWorkspaceOperation.FollowLogs, Logs: request),
-                KubernetesWorkspaceJsonContext.Default.KubernetesWorkspaceRequest, linked.Token).ConfigureAwait(false);
+            await worker.WriteAsync(new KubernetesWorkspaceRequest(id, KubernetesWorkspaceOperation.FollowLogs, Logs: request), linked.Token).ConfigureAwait(false);
             while (true)
             {
                 var response = await worker.ReadAsync(id, linked.Token).ConfigureAwait(false);
@@ -50,11 +48,16 @@ internal sealed partial class KubernetesWorkspaceSession
         try
         {
             var id = checked(++_nextId);
-            await BackendJsonFrames.WriteAsync(_process.StandardInput.BaseStream, request with { Id = id },
-                KubernetesWorkspaceJsonContext.Default.KubernetesWorkspaceRequest, token).ConfigureAwait(false);
+            await WriteAsync(request with { Id = id }, token).ConfigureAwait(false);
             var reply = await ReadAsync(id, token).ConfigureAwait(false);
             if (!reply.StreamReady) { throw InvalidResponse(); }
             return id;
+        }
+        catch (OperationCanceledException) when (!token.IsCancellationRequested && _lifetime.IsCancellationRequested)
+        {
+            _requests.Release();
+            throw new KubernetesRequestException(KubernetesErrorCode.ConnectionFailed,
+                "The Kubernetes backend stopped. Reconnect before retrying.", retryable: true);
         }
         catch { _requests.Release(); throw; }
     }
@@ -115,9 +118,7 @@ internal sealed partial class KubernetesWorkspaceSession
             await _inputGate.WaitAsync(linked.Token).ConfigureAwait(false);
             try
             {
-                await BackendJsonFrames.WriteAsync(_worker._process.StandardInput.BaseStream,
-                    request with { Id = checked(++_worker._nextId) },
-                    KubernetesWorkspaceJsonContext.Default.KubernetesWorkspaceRequest, linked.Token).ConfigureAwait(false);
+                await _worker.WriteAsync(request with { Id = checked(++_worker._nextId) }, linked.Token).ConfigureAwait(false);
             }
             finally { _inputGate.Release(); }
         }

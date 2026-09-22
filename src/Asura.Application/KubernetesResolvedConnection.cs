@@ -18,7 +18,7 @@ public sealed record KubernetesResolvedConnection(
     public override string ToString() => "Kubernetes connection [credentials redacted]";
 }
 
-/// <summary>Credential refresh is owned by the selected backend, including exec plugins.</summary>
+/// <summary>Credential refresh is owned by the authentication environment, independently of the API network route.</summary>
 public delegate ValueTask<KubernetesResolvedConnection> KubernetesCredentialRefresh(
     CancellationToken cancellationToken);
 

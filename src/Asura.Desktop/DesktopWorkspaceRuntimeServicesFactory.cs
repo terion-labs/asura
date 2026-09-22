@@ -65,7 +65,7 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
             var hostGit = new GitRepositoryClient(hostExecutor, timeProvider, gateway);
             var hostRedis = new RedisWorkspaceSessionFactory((hop, token) => connections.PlanAsync("redis", hop, token));
             var hostKubernetes = new KubernetesWorkspaceSessionFactory(
-                (hop, token) => connections.PlanAsync("kubernetes", hop, token), definitionCatalog, secretVault);
+                (hop, token) => connections.PlanAsync("kubernetes", hop, token), definitionCatalog, secretVault, useHostCredentials: true);
             var hostMonitors = new SystemMonitorPanelSessionFactory(hostExecutor, timeProvider);
             var hostMonitorRegistration = systemMonitorFactory.Register(
                 request.WorkspaceId,

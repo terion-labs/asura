@@ -1,6 +1,6 @@
 namespace Asura.Application;
 
-/// <summary>Parse-only context plan. File and process authority is resolved later by the owned backend.</summary>
+/// <summary>Parse-only context plan. File and process authority is resolved later in the owning authentication environment.</summary>
 public sealed record KubernetesKubeconfigPlan(
     string ContextName,
     KubernetesResolvedConnection Connection,
