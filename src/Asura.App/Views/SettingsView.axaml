@@ -1334,6 +1334,41 @@
                 </StackPanel>
               </controls:SettingsGroup>
 
+              <controls:SettingsGroup
+                  Heading="Agent history"
+                  Description="Choose how much agent-run history to keep, or export saved run metadata."
+                  IsVisible="{Binding AgentChat, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <controls:SettingRow Label="Keep history">
+                  <ComboBox
+                      HorizontalAlignment="Stretch"
+                      ItemsSource="{Binding AgentChat.HistoryRetentionOptions}"
+                      SelectedItem="{Binding AgentChat.SelectedHistoryRetentionOption, Mode=TwoWay}"
+                      IsEnabled="{Binding !AgentChat.IsHistoryRetentionLoading}"
+                      AutomationProperties.Name="Agent history retention">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:AgentHistoryRetentionOption">
+                        <TextBlock Text="{Binding Description}" TextWrapping="Wrap" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </controls:SettingRow>
+                <controls:SettingsGroup.Footer>
+                  <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+                    <TextBlock Classes="Muted" Text="{Binding AgentChat.HistoryRetentionEffect}" TextWrapping="Wrap" />
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceSm}" LineSpacing="{DynamicResource ShellSpaceXs}">
+                      <Button Classes="SecondaryButton" Click="OnApplyAgentHistoryRetentionClick" Content="Apply"
+                          IsEnabled="{Binding AgentChat.CanApplyHistoryRetention}"
+                          AutomationProperties.Name="Apply agent history retention" />
+                      <Button Classes="SecondaryButton" Click="OnExportAgentHistoryClick" Content="Export…"
+                          IsEnabled="{Binding AgentChat.CanExportHistory}"
+                          AutomationProperties.Name="Export metadata-only agent history" />
+                    </WrapPanel>
+                    <controls:LiveRegionTextBlock Classes="Muted" Text="{Binding AgentChat.AgentHistoryStatus}" TextWrapping="Wrap"
+                        AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Agent history status" />
+                  </StackPanel>
+                </controls:SettingsGroup.Footer>
+              </controls:SettingsGroup>
+
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
                 <components:SectionHeader
                     Heading="Providers"

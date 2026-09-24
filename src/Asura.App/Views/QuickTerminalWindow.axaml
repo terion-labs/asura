@@ -181,8 +181,6 @@
               LoadOlderAgentAuditRequested="OnLoadOlderAgentAuditClick"
               MoveQueuedFollowUpRequested="OnMoveAgentQueuedFollowUpRequested"
               RefreshAgentAuditRequested="OnRefreshAgentAuditClick"
-              ApplyAgentHistoryRetentionRequested="OnApplyAgentHistoryRetentionClick"
-              ExportAgentHistoryRequested="OnExportAgentHistoryClick"
               StartNewAgentConversationRequested="OnStartNewAgentConversationClick"
               OpenAgentConversationRequested="OnOpenAgentConversationClick"
               DeleteAgentConversationRequested="OnDeleteAgentConversationClick"
