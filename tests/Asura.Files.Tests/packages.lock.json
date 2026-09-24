@@ -10,9 +10,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.163, )",
-        "resolved": "3.0.163",
-        "contentHash": "l9iZ+OXBGlAFEKH1y4BSKPXHcmpJmikysSm0brjTau8fR7Qm7IVGLVig+dh0RH9mq4s3neZayuPQrHRweOpxxw=="
+        "requested": "[3.0.266, )",
+        "resolved": "3.0.266",
+        "contentHash": "IA1m/Dvud0eJNMcC+pTDNVdaLPs4QMhRBMAVjQZnTdWwTDUDIJO/JvfAZpRULgi0hoAHlXQVkPRtLokNvRcaiQ=="
       },
       "Microsoft.CodeAnalysis.BannedApiAnalyzers": {
         "type": "Direct",
@@ -141,9 +141,9 @@
         "type": "Project",
         "dependencies": {
           "AWSSDK.S3": "[4.0.102.4, )",
-          "FluentFTP": "[54.2.0, )",
           "Asura.Application": "[1.0.0, )",
           "Asura.Core": "[1.0.0, )",
+          "FluentFTP": "[54.2.0, )",
           "LiteDB": "[5.0.21, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.10, )",
           "SMBLibrary": "[1.5.7.1, )",

@@ -10,9 +10,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.163, )",
-        "resolved": "3.0.163",
-        "contentHash": "l9iZ+OXBGlAFEKH1y4BSKPXHcmpJmikysSm0brjTau8fR7Qm7IVGLVig+dh0RH9mq4s3neZayuPQrHRweOpxxw=="
+        "requested": "[3.0.266, )",
+        "resolved": "3.0.266",
+        "contentHash": "IA1m/Dvud0eJNMcC+pTDNVdaLPs4QMhRBMAVjQZnTdWwTDUDIJO/JvfAZpRULgi0hoAHlXQVkPRtLokNvRcaiQ=="
       },
       "Microsoft.CodeAnalysis.BannedApiAnalyzers": {
         "type": "Direct",
@@ -152,16 +152,6 @@
           "xunit.extensibility.core": "[2.9.3]"
         }
       },
-      "exclr8cef": {
-        "type": "Project"
-      },
-      "exclr8cef.webview": {
-        "type": "Project",
-        "dependencies": {
-          "Avalonia": "[12.0.3, )",
-          "Exclr8Cef": "[0.8.0, )"
-        }
-      },
       "asura.application": {
         "type": "Project",
         "dependencies": {
@@ -171,14 +161,24 @@
       "asura.browser": {
         "type": "Project",
         "dependencies": {
+          "Asura.Application": "[1.0.0, )",
           "Exclr8Cef.WebView": "[0.8.0, )",
           "FluentIcons.Avalonia": "[2.1.333, )",
-          "Asura.Application": "[1.0.0, )",
           "ReverseMarkdown": "[6.2.1, )"
         }
       },
       "asura.core": {
         "type": "Project"
+      },
+      "exclr8cef": {
+        "type": "Project"
+      },
+      "exclr8cef.webview": {
+        "type": "Project",
+        "dependencies": {
+          "Avalonia": "[12.0.3, )",
+          "Exclr8Cef": "[0.8.0, )"
+        }
       },
       "Avalonia": {
         "type": "CentralTransitive",
