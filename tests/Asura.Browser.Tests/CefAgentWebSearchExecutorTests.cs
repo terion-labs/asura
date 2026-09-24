@@ -5,14 +5,14 @@ namespace Asura.Browser.Tests;
 public sealed class CefAgentWebSearchExecutorTests
 {
     [Fact]
-    public async Task GovernedCefSearchFailsBeforeNativeDispatchWithoutPeerBinding()
+    public async Task GovernedCefSearchReportsUnavailableWithoutWorkspaceRoute()
     {
         var result = await new CefAgentWebSearchExecutor().SearchAsync(
             new AgentWebSearchRequest("bounded query", 3),
             CancellationToken.None);
 
         var failure = Assert.IsType<AgentWebSearchExecutionResult.Failed>(result);
-        Assert.Equal(AgentWebSearchErrorCode.NavigationDenied, failure.Code);
+        Assert.Equal(AgentWebSearchErrorCode.Unavailable, failure.Code);
     }
 
     [Fact]

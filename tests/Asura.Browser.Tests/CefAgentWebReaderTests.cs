@@ -5,7 +5,7 @@ namespace Asura.Browser.Tests;
 public sealed class CefAgentWebReaderTests
 {
     [Fact]
-    public async Task GovernedCefReaderFailsBeforeNativeDispatchWithoutPeerBinding()
+    public async Task GovernedCefReaderReportsUnavailableWithoutWorkspaceRoute()
     {
         var result = await new CefAgentWebReader().ReadAsync(
             new AgentWebReadRequest(
@@ -14,7 +14,7 @@ public sealed class CefAgentWebReaderTests
             CancellationToken.None);
 
         var failure = Assert.IsType<AgentWebToolExecutionResult.Failed>(result);
-        Assert.Equal(AgentWebToolErrorCode.DestinationDenied, failure.Code);
+        Assert.Equal(AgentWebToolErrorCode.Unavailable, failure.Code);
     }
 
     [Fact]

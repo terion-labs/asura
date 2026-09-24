@@ -14,16 +14,8 @@ public sealed class CefAgentWebSearchExecutor : IAgentWebSearchExecutor
     private static readonly SemaphoreSlim SearchGate = new(1, 1);
     private readonly IWorkspaceNetworkConnector? _networkConnector;
 
-    public CefAgentWebSearchExecutor(int? socksProxyPort = null)
+    public CefAgentWebSearchExecutor()
     {
-        if (socksProxyPort is < 1 or > 65_535)
-        {
-            throw new ArgumentOutOfRangeException(nameof(socksProxyPort));
-        }
-
-        _networkConnector = socksProxyPort is { } port
-            ? new LegacySocksConnector(port)
-            : null;
     }
 
     public CefAgentWebSearchExecutor(IWorkspaceNetworkConnector networkConnector)
@@ -42,9 +34,9 @@ public sealed class CefAgentWebSearchExecutor : IAgentWebSearchExecutor
             return Failed(AgentWebSearchErrorCode.Cancelled);
         }
 
-        if (!CefBrowserView.HasPeerBoundTransport)
+        if (_networkConnector is null)
         {
-            return Failed(AgentWebSearchErrorCode.NavigationDenied);
+            return Failed(AgentWebSearchErrorCode.Unavailable);
         }
 
         try
@@ -221,6 +213,7 @@ public sealed class CefAgentWebSearchExecutor : IAgentWebSearchExecutor
         AgentWebSearchRequest request,
         CancellationToken cancellationToken)
     {
+        await using var proxy = AgentWebProxy.Create(_networkConnector!, cancellationToken);
         CefBrowserNetworkContext? network = null;
         CefBrowserView? browser = null;
         try
@@ -228,20 +221,11 @@ public sealed class CefAgentWebSearchExecutor : IAgentWebSearchExecutor
             (network, browser) = await AvaloniaBrowserUiDispatcher.Instance
                 .InvokeAsync(() =>
                 {
-                    var createdNetwork =
-                        _networkConnector is { } connector
-                            ? CefBrowserNetworkContext.CreateIsolatedAgentWeb(
-                                connector.BrowserProxyEndpoint)
-                            : CefBrowserNetworkContext.CreateIsolatedAgentWeb();
-                    var proxyResolver = _networkConnector?.LocalProxyCredentials is { } credentials
-                        ? new WorkspaceProxyAuthenticationResolver(
-                            _networkConnector.BrowserProxyEndpoint,
-                            credentials)
-                        : null;
+                    var createdNetwork = CefBrowserNetworkContext.CreateIsolatedAgentWeb(proxy.Endpoint);
+                    var proxyResolver = new WorkspaceProxyAuthenticationResolver(proxy.Endpoint, proxy.Credentials);
                     var createdBrowser = createdNetwork.CreateView(proxyResolver);
                     createdBrowser.SetResourceRequestPolicy(
-                        (candidate, token) => BrowserDestinationPolicy.LocalSystem
-                            .AllowsCefTransportAsync(candidate, token));
+                        AgentWebProxy.AllowsRequestAsync);
                     return (createdNetwork, createdBrowser);
                 });
             if (!await browser.BeginDomObservationWhenReadyAsync()
@@ -264,7 +248,8 @@ public sealed class CefAgentWebSearchExecutor : IAgentWebSearchExecutor
                 .ConfigureAwait(false);
             if (!outcome.IsSuccess || outcome.Address is null)
             {
-                return Failed(outcome.ErrorCode);
+                return Failed(proxy.Failure == AgentWebToolErrorCode.DestinationDenied
+                    ? AgentWebSearchErrorCode.NavigationDenied : outcome.ErrorCode);
             }
 
             browser.MarkDomActivity();
@@ -316,20 +301,6 @@ public sealed class CefAgentWebSearchExecutor : IAgentWebSearchExecutor
         }
     }
 
-    private sealed class LegacySocksConnector(int port) : IWorkspaceNetworkConnector
-    {
-        public WorkspaceNetworkEgress Egress => WorkspaceNetworkEgress.Direct;
-
-        public Uri LocalProxyEndpoint { get; } =
-            new($"socks5://127.0.0.1:{port}", UriKind.Absolute);
-
-        public ValueTask<Stream> ConnectTcpAsync(
-            string host,
-            int targetPort,
-            CancellationToken cancellationToken) =>
-            ValueTask.FromException<Stream>(new NotSupportedException());
-    }
-
     private static bool IsEmptyExtraction(string json)
     {
         try
@@ -365,8 +336,7 @@ public sealed class CefAgentWebSearchExecutor : IAgentWebSearchExecutor
                 {
                     browser.SetActiveNavigationRequestPolicy(
                         (candidate, token) => IsGoogleAddress(candidate.Value)
-                            ? BrowserDestinationPolicy.LocalSystem
-                                .AllowsCefTransportAsync(candidate, token)
+                            ? AgentWebProxy.AllowsRequestAsync(candidate, token)
                             : ValueTask.FromResult(false));
                 }
                 catch (InvalidOperationException)
