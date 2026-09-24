@@ -133,7 +133,6 @@ public sealed partial class McpServerProfileEditorDialog : Window
         _ = e;
         try
         {
-            HideValidationError();
             var request = ViewModel.CreateSaveRequest();
             if (request.RequiresTrustConfirmation)
             {
@@ -160,7 +159,6 @@ public sealed partial class McpServerProfileEditorDialog : Window
     {
         try
         {
-            HideValidationError();
             mutation();
         }
         catch (InvalidOperationException exception)
@@ -171,20 +169,10 @@ public sealed partial class McpServerProfileEditorDialog : Window
 
     private void ShowValidationError(string message)
     {
-        var error = this.FindControl<TextBlock>("ValidationError");
-        if (error is not null)
-        {
-            error.Text = message;
-            error.IsVisible = true;
-            error.BringIntoView();
-            error.Focus();
-        }
-    }
-
-    private void HideValidationError()
-    {
-        var error = this.FindControl<TextBlock>("ValidationError");
-        error?.IsVisible = false;
+        ViewModel.ErrorNotices.Report(message);
+        var errors = this.FindControl<Control>("ValidationError");
+        errors?.BringIntoView();
+        errors?.Focus();
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);

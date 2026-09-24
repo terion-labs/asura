@@ -884,19 +884,8 @@
             </controls:SettingRow>
           </controls:SettingsGroup>
 
-          <controls:Callout
-              Tone="Notice"
-              ShowsGlyph="False"
-              Text="{CompiledBinding LastOperationError}"
-              IsVisible="{CompiledBinding HasOperationError}">
-            <controls:Callout.Action>
-              <Button Classes="IconButton" Click="OnClearOperationErrorClick" AutomationProperties.Name="Dismiss workspace editor error"><icons:SymbolIcon Symbol="Dismiss" FontSize="11" /></Button>
-            </controls:Callout.Action>
-          </controls:Callout>
+          <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
 
-          <controls:Callout x:Name="InteractionErrorCard" Tone="Notice" ShowsGlyph="False" IsVisible="False">
-            <TextBlock x:Name="InteractionErrorText" Foreground="{DynamicResource ShellDangerBrush}" FontSize="{DynamicResource ShellFontSize10}" TextWrapping="Wrap" />
-          </controls:Callout>
         </StackPanel>
       </ScrollViewer>
 

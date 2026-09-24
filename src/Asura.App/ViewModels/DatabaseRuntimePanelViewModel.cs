@@ -965,6 +965,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (SetProperty(ref _errorMessage, value))
             {
+                ReportError(value, "Database error");
                 OnPropertyChanged(nameof(HasError));
             }
         }

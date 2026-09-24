@@ -191,14 +191,6 @@
         </Grid>
       </Border>
 
-      <controls:Callout
-          Grid.Row="1"
-          Margin="{controls:Inset Sm}"
-          Tone="Danger"
-          Glyph="ErrorCircle"
-          Text="{Binding ErrorMessage}"
-          IsVisible="{Binding HasError}" />
-
       <Grid Grid.Row="2">
         <!-- Browser: SCAN navigation at left, bounded type-aware value inspection at right. -->
         <Grid IsVisible="{Binding ShowBrowser}" ColumnDefinitions="320,5,*">

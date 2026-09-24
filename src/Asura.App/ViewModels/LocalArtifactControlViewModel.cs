@@ -156,6 +156,10 @@ public sealed class LocalArtifactControlViewModel : ObservableObject, IDisposabl
         get => _statusMessage;
         private set
         {
+            if (HasError)
+            {
+                ReportError(value);
+            }
             if (SetProperty(ref _statusMessage, value))
             {
                 OnPropertyChanged(nameof(StatusAutomationName));

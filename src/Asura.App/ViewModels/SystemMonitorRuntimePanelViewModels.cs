@@ -196,7 +196,13 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
     public string? IssueMessage
     {
         get => _issueMessage;
-        private set => SetProperty(ref _issueMessage, value);
+        private set
+        {
+            if (SetProperty(ref _issueMessage, value))
+            {
+                ReportError(value, IssueTitle);
+            }
+        }
     }
 
     public bool IsRefreshing
@@ -815,7 +821,13 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
     public string? IssueMessage
     {
         get => _issueMessage;
-        private set => SetProperty(ref _issueMessage, value);
+        private set
+        {
+            if (SetProperty(ref _issueMessage, value))
+            {
+                ReportError(value, IssueTitle);
+            }
+        }
     }
 
     public bool IsRefreshing

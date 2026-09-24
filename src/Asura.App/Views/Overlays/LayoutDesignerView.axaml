@@ -83,7 +83,7 @@
           <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
             <TextBlock
                 HorizontalAlignment="Center"
-                
+
                 FontSize="{DynamicResource ShellFontSize16}"
                 FontWeight="Bold"
                 Text="{Binding SizeLabel}" />
@@ -209,9 +209,7 @@
                 <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="Panels are generic regions — assign connections later when you open the screen." TextWrapping="Wrap" />
               </controls:SurfaceCard>
 
-              <controls:SurfaceCard Tone="Notice" Padding="{DynamicResource ShellCardPaddingCompact}" IsVisible="{Binding LayoutDesignerEditor.HasOperationError}">
-                <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding LayoutDesignerEditor.LastOperationIssue.Message}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Layout designer status" />
-              </controls:SurfaceCard>
+              <components:ErrorNoticesView DataContext="{Binding LayoutDesignerEditor.ErrorNotices}" />
               <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding LayoutDesignerEditor.ValidationSummary}" TextWrapping="Wrap" />
 
               <TextBlock Classes="SectionHeading" Text="Saved layouts" />

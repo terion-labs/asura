@@ -235,11 +235,6 @@
     </controls:PanelChrome.Footer>
 
     <Grid RowDefinitions="Auto,*">
-      <controls:Callout
-          Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}"
-          IsVisible="{Binding HasIssue}"
-          Title="Kubernetes request failed"
-          Text="{Binding Issue}" />
 
       <Grid Grid.Row="1" IsVisible="{Binding HasConnection}">
         <Grid.ColumnDefinitions>

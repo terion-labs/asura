@@ -421,6 +421,7 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         {
             TestStatus = "Validation failed";
             TestDetail = exception.Message;
+            ReportError(TestDetail, TestStatus);
             return;
         }
 
@@ -433,6 +434,7 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         {
             TestStatus = "Test unavailable";
             TestDetail = exception.Message;
+            ReportError(TestDetail, TestStatus);
             return;
         }
 
@@ -444,6 +446,7 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
             {
                 TestStatus = "Host key unavailable";
                 TestDetail = failure.Error.Message;
+                ReportError(TestDetail, TestStatus);
                 return;
             }
             _hostKeyReview = ((ConnectionRuntimeResult<SshHostKeyReview>.Success)prepared).Value;
@@ -496,6 +499,7 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         {
             TestStatus = "Test failed";
             TestDetail = exception.Message;
+            ReportError(TestDetail, TestStatus);
         }
     }
 
@@ -534,6 +538,7 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         {
             TestStatus = "Host key not trusted";
             TestDetail = failure.Error.Message;
+            ReportError(TestDetail, TestStatus);
             return;
         }
         _hostKeyReview = null;

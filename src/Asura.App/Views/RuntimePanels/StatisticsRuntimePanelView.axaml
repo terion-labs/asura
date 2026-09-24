@@ -161,17 +161,6 @@
               </controls:SurfaceCard>
             </controls:CardGridPanel>
 
-            <controls:Callout
-                Glyph="Warning"
-                Title="{Binding IssueTitle}"
-                Text="{Binding IssueMessage}"
-                IsVisible="{Binding HasIssue}"
-                AutomationProperties.LiveSetting="Polite"
-                AutomationProperties.Name="Statistics refresh status">
-              <controls:Callout.Action>
-                <Button Classes="SecondaryButton" Command="{Binding RefreshCommand}" Content="Retry" AutomationProperties.Name="Retry statistics capture" />
-              </controls:Callout.Action>
-            </controls:Callout>
           </StackPanel>
         </ScrollViewer>
 
@@ -186,8 +175,8 @@
         <controls:StateOverlay
             Kind="TerminalError"
             Glyph="ErrorCircle"
-            Heading="{Binding IssueTitle}"
-            Body="{Binding IssueMessage}"
+            Heading="Statistics unavailable"
+            Body="Use Retry to request the current state."
             ActionLabel="Retry"
             ActionCommand="{Binding RefreshCommand}"
             IsVisible="{Binding ShowTerminalError}"

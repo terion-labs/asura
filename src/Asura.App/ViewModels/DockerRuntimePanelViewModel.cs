@@ -349,6 +349,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (SetProperty(ref _logIssueMessage, value))
             {
+                ReportError(value, "Docker logs");
                 OnPropertyChanged(nameof(HasLogIssue));
             }
         }
@@ -422,7 +423,13 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     public string? IssueMessage
     {
         get => _issueMessage;
-        private set => SetProperty(ref _issueMessage, value);
+        private set
+        {
+            if (SetProperty(ref _issueMessage, value))
+            {
+                ReportError(value, IssueTitle);
+            }
+        }
     }
 
     public bool ShowsDockerInstallHelp

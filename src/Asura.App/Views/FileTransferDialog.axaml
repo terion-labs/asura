@@ -3,6 +3,7 @@
     x:DataType="vm:FileTransferEditorViewModel"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:components="using:Asura.App.Views.Components"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
     Width="620"
@@ -22,9 +23,7 @@
     </controls:DialogShell.Footer>
 
     <StackPanel Spacing="{DynamicResource ShellSpaceLg}">
-      <controls:Callout x:Name="ValidationCard" Tone="Danger" Glyph="ErrorCircle" IsVisible="False">
-        <TextBlock x:Name="ValidationMessage" Foreground="{DynamicResource ShellDangerBrush}" TextWrapping="Wrap" />
-      </controls:Callout>
+      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
       <controls:SurfaceCard Tone="Notice" Padding="{DynamicResource ShellCardPaddingCompact}">
         <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
           <TextBlock Classes="Eyebrow" Text="Source" />

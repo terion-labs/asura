@@ -399,20 +399,9 @@
         </Border>
 
         <StackPanel Grid.Row="3">
-        <controls:SurfaceCard
-            Tone="Notice"
-            Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}"
-            Padding="{controls:Inset Sm}"
-            IsVisible="{Binding HasError}"
-            AutomationProperties.LiveSetting="Polite"
-            AutomationProperties.Name="Database error">
-          <TextBlock
-              Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
-              Foreground="{DynamicResource ShellDangerBrush}"
-              Text="{Binding ErrorMessage}"
-              TextWrapping="Wrap" />
-        </controls:SurfaceCard>
+        <Border IsVisible="{Binding IsEmbedded, RelativeSource={RelativeSource AncestorType=local:DatabaseWorkspaceView}}">
+          <local:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
+        </Border>
 
         <controls:SurfaceCard
             Tone="Notice"

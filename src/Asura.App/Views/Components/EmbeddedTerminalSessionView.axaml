@@ -3,6 +3,7 @@
     x:DataType="vm:TerminalRuntimePanelViewModel"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:components="using:Asura.App.Views.Components"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia"
@@ -43,23 +44,7 @@
       </StackPanel>
     </Border>
 
-    <Border
-        Margin="{controls:Inset Md}"
-        Padding="{controls:Inset Horizontal=Md, Vertical=Sm}"
-        HorizontalAlignment="Right"
-        VerticalAlignment="Top"
-        MaxWidth="420"
-        Background="{DynamicResource ShellWarningOverlayBrush}"
-        BorderBrush="{DynamicResource ShellWarningBorderBrush}"
-        BorderThickness="1"
-        CornerRadius="{DynamicResource ShellControlCornerRadius}"
-        IsHitTestVisible="False"
-        IsVisible="{Binding HasStartupCommandError}">
-      <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-        <TextBlock FontWeight="SemiBold" Foreground="{DynamicResource ShellWarningBrush}" Text="{Binding StartupCommandErrorTitle}" />
-        <TextBlock Classes="Muted" Text="{Binding StartupCommandErrorDetail}" TextWrapping="Wrap" />
-      </StackPanel>
-    </Border>
+    <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" VerticalAlignment="Top" HorizontalAlignment="Right" MaxWidth="420" />
 
     <Border
         Margin="{controls:Inset Md}"

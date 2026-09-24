@@ -242,7 +242,7 @@
             Kind="TerminalError"
             Glyph="ErrorCircle"
             Heading="Browser unavailable"
-            Body="{Binding RouteErrorMessage}" />
+            Body="Check the connection settings and reload to try again." />
       </Border>
 
       <Border

@@ -3,6 +3,7 @@
     x:DataType="vm:AiProviderProfileEditorViewModel"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:components="using:Asura.App.Views.Components"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
     Title="AI provider"
@@ -202,7 +203,7 @@
         </StackPanel>
       </controls:SurfaceCard>
 
-      <controls:LiveRegionTextBlock x:Name="ValidationError" Foreground="{DynamicResource ShellDangerBrush}" IsVisible="False" TextWrapping="Wrap" AutomationProperties.LiveSetting="Assertive" />
+      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
     </StackPanel>
   </controls:DialogShell>
 </Window>

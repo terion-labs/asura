@@ -3,6 +3,7 @@
     x:DataType="vm:LocalMcpServerSettingsViewModel"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:components="using:Asura.App.Views.Components"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia">
@@ -13,6 +14,7 @@
     of the thing it acts on, so nothing has to be read twice to be understood.
   -->
   <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
+      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
     <controls:SettingsGroup
         Heading="Use Asura from another agent"
         Description="Let an agent on this computer call Asura's tools over MCP. Workspace permissions and approval prompts still apply."

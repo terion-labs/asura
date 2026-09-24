@@ -1024,7 +1024,13 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
     public string? IssueMessage
     {
         get => _issueMessage;
-        private set => SetProperty(ref _issueMessage, value);
+        private set
+        {
+            if (SetProperty(ref _issueMessage, value))
+            {
+                ReportError(value, IssueTitle);
+            }
+        }
     }
 
     public bool HasIssue => IssueTitle is not null;

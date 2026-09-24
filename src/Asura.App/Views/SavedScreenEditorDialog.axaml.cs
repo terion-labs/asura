@@ -111,9 +111,6 @@ public sealed partial class SavedScreenEditorDialog : Window
         ArgumentNullException.ThrowIfNull(persistDraft);
         try
         {
-            var error = this.FindControl<TextBlock>("ValidationError");
-            error?.IsVisible = false;
-
             var persist = _persist
                 ?? throw new InvalidOperationException(
                     "Saved-screen persistence is unavailable.");
@@ -129,15 +126,7 @@ public sealed partial class SavedScreenEditorDialog : Window
         catch (Exception exception) when (
             exception is ArgumentException or InvalidOperationException)
         {
-            var error = this.FindControl<TextBlock>("ValidationError");
-            if (error is not null)
-            {
-                AutomationProperties.SetName(
-                    error,
-                    $"Saved screen validation error: {exception.Message}");
-                error.Text = exception.Message;
-                error.IsVisible = true;
-            }
+            ViewModel.ErrorNotices.Report(exception.Message);
         }
     }
 

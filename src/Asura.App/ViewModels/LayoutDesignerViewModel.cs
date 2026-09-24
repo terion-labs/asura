@@ -893,6 +893,7 @@ public sealed class LayoutDesignerViewModel : ObservableObject
         string? target)
     {
         var issue = new DefinitionValidationIssue(code, message, target);
+        ReportError(issue.Message);
         _lastOperationIssue = issue;
         OnPropertyChanged(nameof(LastOperationIssue));
         OnPropertyChanged(nameof(HasOperationError));

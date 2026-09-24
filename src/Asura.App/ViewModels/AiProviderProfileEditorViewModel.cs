@@ -440,6 +440,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
             if (result is not SecretVaultResult<SecretMetadata>.Success success)
             {
                 CredentialStatus = "The API key could not be stored. Check that the system keychain is available and try again.";
+                ReportError(CredentialStatus);
                 return false;
             }
 
@@ -462,6 +463,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
             CredentialStatus = "The API key could not be stored. Enter a provider name and key, then try again.";
+            ReportError(CredentialStatus);
             return false;
         }
         finally
@@ -604,6 +606,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
             CompleteAuthenticationAttempt(
                 attempt,
                 "Authentication could not be started.");
+            ReportError(AuthenticationStatus);
             return null;
         }
     }
@@ -638,6 +641,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
         {
             TestStatus = "Validation failed";
             TestDetail = exception.Message;
+            ReportError(TestDetail, TestStatus);
             return;
         }
 
@@ -674,6 +678,10 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
 , StringComparison.Ordinal) ? "Configuration valid"
                     : "Provider connected";
             TestDetail = result.Message;
+            if (!result.IsSuccess)
+            {
+                ReportError(TestDetail, TestStatus);
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -684,6 +692,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
         {
             TestStatus = "Test failed";
             TestDetail = "The provider test could not be completed.";
+            ReportError(TestDetail, TestStatus);
         }
         finally
         {
@@ -768,6 +777,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
             else
             {
                 AuthenticationStatus = SafeAuthenticationMessage(result);
+                ReportError(AuthenticationStatus);
             }
         }
         catch (OperationCanceledException)
@@ -782,6 +792,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
             if (ReferenceEquals(_authenticationAttempt, attempt))
             {
                 AuthenticationStatus = "Authentication failed.";
+                ReportError(AuthenticationStatus);
             }
         }
         finally

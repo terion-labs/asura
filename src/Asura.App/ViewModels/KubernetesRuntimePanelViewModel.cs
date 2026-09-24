@@ -138,7 +138,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
     public string? Issue
     {
         get => _issue;
-        private set { SetProperty(ref _issue, value); OnPropertyChanged(nameof(HasIssue)); OnPropertyChanged(nameof(IsEmpty)); }
+        private set { ReportError(value, "Kubernetes error"); SetProperty(ref _issue, value); OnPropertyChanged(nameof(HasIssue)); OnPropertyChanged(nameof(IsEmpty)); }
     }
     public bool IsBusy
     {

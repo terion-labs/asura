@@ -14,6 +14,7 @@
     stays a page.
   -->
   <StackPanel Spacing="{DynamicResource ShellSpaceXl}">
+      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
     <components:SettingsPageHeader
         Heading="Networking"
         Description="Route application and workspace traffic through reusable proxy or VPN connections." />
@@ -94,12 +95,14 @@
             AutomationProperties.Name="Create a network connection" />
       </Grid>
 
+      <Border IsVisible="{Binding !HasError}">
       <controls:Callout
           Tone="Notice"
           ShowsGlyph="False"
           Text="{Binding OperationStatus}"
           Classes.Warning="{Binding HasError}"
           IsVisible="{Binding HasOperationStatus}" />
+      </Border>
 
       <controls:Callout
           Tone="Notice"

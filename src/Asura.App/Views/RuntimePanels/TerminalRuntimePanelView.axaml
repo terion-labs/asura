@@ -188,33 +188,7 @@
               Kind="Loading"
               Body="{Binding StatusMessage, ElementName=RuntimeTerminal}" />
         </Border>
-        <Border
-            Margin="{controls:Inset Md}"
-            Padding="{controls:Inset Horizontal=Md, Vertical=Sm}"
-            HorizontalAlignment="Right"
-            VerticalAlignment="Top"
-            MaxWidth="420"
-            Background="{DynamicResource ShellWarningOverlayBrush}"
-            BorderBrush="{DynamicResource ShellWarningBorderBrush}"
-            BorderThickness="1"
-            CornerRadius="{DynamicResource ShellControlCornerRadius}"
-            AutomationProperties.LiveSetting="Polite"
-            AutomationProperties.Name="Startup command delivery status"
-            IsHitTestVisible="False"
-            IsVisible="{Binding HasStartupCommandError}">
-          <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-            <TextBlock
-                FontSize="{DynamicResource ShellFontSize10}"
-                FontWeight="SemiBold"
-                Foreground="{DynamicResource ShellWarningBrush}"
-                Text="{Binding StartupCommandErrorTitle}" />
-            <TextBlock
-                Classes="Muted"
-                FontSize="{DynamicResource ShellFontSize10}"
-                Text="{Binding StartupCommandErrorDetail}"
-                TextWrapping="Wrap" />
-            </StackPanel>
-        </Border>
+
         <Border
             Margin="{controls:Inset Md}"
             Padding="{controls:Inset Sm}"

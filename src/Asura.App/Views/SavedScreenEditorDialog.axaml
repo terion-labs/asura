@@ -3,6 +3,7 @@
     x:DataType="vm:SavedScreenEditorViewModel"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:components="using:Asura.App.Views.Components"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
     Title="{Binding EditorTitle}"
@@ -342,27 +343,7 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
-      <controls:Callout
-          Tone="Danger"
-          Glyph="Warning"
-          IsVisible="{Binding #ValidationError.IsVisible}">
-        <controls:LiveRegionTextBlock
-            x:Name="ValidationError"
-            IsVisible="False"
-            TextWrapping="Wrap"
-            AutomationProperties.LiveSetting="Assertive"
-            AutomationProperties.Name="Saved screen validation error" />
-      </controls:Callout>
-
-      <controls:Callout
-          Tone="Danger"
-          Glyph="Warning"
-          IsVisible="{Binding HasPersistenceError}"
-          Title="{Binding PersistenceErrorLabel}"
-          Text="{Binding PersistenceError.Message}"
-          Footnote="Your draft is still open. Resolve the issue and retry."
-          AutomationProperties.LiveSetting="Assertive"
-          AutomationProperties.Name="{Binding PersistenceError.Message, StringFormat=Saved screen persistence error: {0}}" />
+      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
     </StackPanel>
 
     <controls:DialogShell.Footer>

@@ -110,6 +110,7 @@ public sealed class GitRepositoryPickerViewModel : ObservableObject
         {
             if (SetProperty(ref _issueMessage, value))
             {
+                ReportError(value, "Could not browse repositories");
                 OnPropertyChanged(nameof(HasIssue));
             }
         }

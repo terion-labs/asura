@@ -2370,6 +2370,7 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
         {
             if (SetProperty(ref _startupCommandError, value))
             {
+                ReportError(value?.Message, StartupCommandErrorTitle);
                 OnPropertyChanged(nameof(HasStartupCommandError));
                 OnPropertyChanged(nameof(StartupCommandErrorTitle));
                 OnPropertyChanged(nameof(StartupCommandErrorDetail));
@@ -2429,6 +2430,7 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
         {
             if (!Equals(_connectionError, value))
             {
+                ReportError(value?.Message, "Terminal connection failed");
                 _connectionError = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(CanRetry));

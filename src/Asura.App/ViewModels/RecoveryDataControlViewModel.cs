@@ -141,6 +141,10 @@ public sealed class RecoveryDataControlViewModel : ObservableObject, IDisposable
         get => _statusMessage;
         private set
         {
+            if (HasError)
+            {
+                ReportError(value);
+            }
             if (SetProperty(ref _statusMessage, value))
             {
                 OnPropertyChanged(nameof(StatusAutomationName));

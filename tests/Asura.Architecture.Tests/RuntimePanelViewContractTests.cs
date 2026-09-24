@@ -1008,11 +1008,19 @@ public sealed class RuntimePanelViewContractTests
             Assert.True(HasClass(button, "SecondaryButton"));
         }
 
-        var error = Assert.Single(
-            root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "Callout"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Text"), "{Binding ErrorMessage}", StringComparison.Ordinal));
+        // Runtime errors live in the shared panel chrome, independently of refreshed content.
+        Assert.Single(root.Descendants(), element => element.Name.LocalName == "PanelChrome");
+        var notices = Assert.Single(DesignSystem().Descendants(),
+            element => element.Name.LocalName == "ErrorNoticesView");
+        Assert.Equal(
+            "{CompiledBinding $parent[controls:PanelChrome].((vm:ObservableObject)DataContext).ErrorNotices}",
+            AttributeValue(notices, "DataContext"));
+        var error = Assert.Single(LoadView("Components/ErrorNoticesView").Descendants(),
+            element => element.Name.LocalName == "Callout");
         Assert.Equal("Danger", AttributeValue(error, "Tone"));
+        Assert.Equal("{Binding Message}", AttributeValue(error, "Text"));
+        Assert.Contains(error.Descendants(), element => element.Name.LocalName == "Button"
+            && AttributeValue(element, "Click") == "OnDismissClick");
 
         var browser = Assert.Single(
             root.Descendants(),
@@ -1804,11 +1812,10 @@ public sealed class RuntimePanelViewContractTests
             AttributeValue(
                 FindUniqueAccessibleElement(root, "File Viewer loading"),
                 "AutomationProperties.LiveSetting"));
-        Assert.Equal(
-            "Assertive",
-            AttributeValue(
-                FindUniqueAccessibleElement(root, "File Viewer operation status"),
-                "AutomationProperties.LiveSetting"));
+        var retainedError = Assert.Single(LoadView("Components/ErrorNoticesView").Descendants(),
+            element => element.Name.LocalName == "Callout");
+        Assert.Equal("Assertive", AttributeValue(retainedError, "AutomationProperties.LiveSetting"));
+        Assert.Equal("{Binding Message}", AttributeValue(retainedError, "AutomationProperties.Name"));
         Assert.Contains(
             root.Descendants(),
             element => string.Equals(

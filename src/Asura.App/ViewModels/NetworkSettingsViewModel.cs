@@ -808,6 +808,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
 
     private void SetProfileTestFailure(string status, string detail)
     {
+        ReportError(detail, status);
         ProfileTestHasError = true;
         ProfileTestStatus = status;
         ProfileTestDetail = detail;
@@ -850,6 +851,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
 
     private bool Fail(string message)
     {
+        ReportError(message);
         HasError = true;
         OperationStatus = message;
         return false;
@@ -863,6 +865,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
 
     private void Warn(string message)
     {
+        ReportError(message);
         HasError = true;
         OperationStatus = message;
     }

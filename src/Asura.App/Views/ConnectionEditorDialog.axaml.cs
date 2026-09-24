@@ -71,7 +71,6 @@ public sealed partial class ConnectionEditorDialog : Window
     {
         _ = sender;
         _ = e;
-        HideValidationError();
         try
         {
             await ViewModel.TestAsync(_lifetime.Token);
@@ -86,7 +85,6 @@ public sealed partial class ConnectionEditorDialog : Window
     {
         _ = sender;
         _ = e;
-        HideValidationError();
         GitRepositoryPickerViewModel picker;
         try
         {
@@ -142,7 +140,6 @@ public sealed partial class ConnectionEditorDialog : Window
     {
         _ = sender;
         _ = e;
-        HideValidationError();
         if (ViewModel.Files is not { HostKeyReview: { } review } files)
         {
             return;
@@ -194,7 +191,6 @@ public sealed partial class ConnectionEditorDialog : Window
 
     private async Task<SecretMetadata?> CreateSecretAsync(SecretKind kind, SecretScope scope)
     {
-        HideValidationError();
         try
         {
             return await new ConnectionSecretEditorDialog(ViewModel.CreateSecretEditor(kind, scope))
@@ -213,10 +209,9 @@ public sealed partial class ConnectionEditorDialog : Window
         _ = e;
         try
         {
-            HideValidationError();
             var saveConnection = _purpose != ConnectionEditorDialogPurpose.Connect
-                || !ViewModel.SupportsUnsavedConnect
-                || this.FindControl<CheckBox>("SaveConnectionCheckBox")?.IsChecked == true;
+            || !ViewModel.SupportsUnsavedConnect
+            || this.FindControl<CheckBox>("SaveConnectionCheckBox")?.IsChecked == true;
             Close(ViewModel.CreateSaveResult(saveConnection));
         }
         catch (Exception exception) when (exception
@@ -226,21 +221,7 @@ public sealed partial class ConnectionEditorDialog : Window
         }
     }
 
-    private void ShowValidationError(string message)
-    {
-        var error = this.FindControl<Callout>("ValidationError");
-        if (error is not null)
-        {
-            error.Text = message;
-            error.IsVisible = true;
-        }
-    }
-
-    private void HideValidationError()
-    {
-        var error = this.FindControl<Callout>("ValidationError");
-        error?.IsVisible = false;
-    }
+    private void ShowValidationError(string message) => ViewModel.ErrorNotices.Report(message);
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 }

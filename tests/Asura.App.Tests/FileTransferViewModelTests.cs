@@ -7,6 +7,31 @@ namespace Asura.App.Tests;
 public sealed class FileTransferViewModelTests
 {
     [Fact]
+    public void TransferErrorsRemainAfterRecoveryAndStayDismissedDuringUnchangedRefreshes()
+    {
+        var queue = new QueueStub();
+        using var viewModel = new FileTransferViewModel(
+            queue, _ => queue, _ => Task.CompletedTask, _ => { }, new ImmediateDispatcher());
+        var failed = Snapshot(FilePanelTransferState.Failed) with
+        {
+            Error = new FilePanelError(FilePanelErrorCode.Conflict,
+                "test.transfer.conflict", "Destination exists", Retryable: false),
+        };
+        queue.Publish(failed);
+        var row = Assert.Single(viewModel.Transfers);
+        Assert.Single(row.ErrorNotices.Items).Dismiss();
+        queue.Publish(failed);
+        Assert.Empty(row.ErrorNotices.Items);
+
+        var recovered = failed with { State = FilePanelTransferState.Completed, Error = null };
+        queue.Publish(recovered);
+        queue.Publish(failed);
+        var notice = Assert.Single(row.ErrorNotices.Items);
+        queue.Publish(recovered);
+        Assert.Same(notice, Assert.Single(row.ErrorNotices.Items));
+    }
+
+    [Fact]
     public async Task Completed_transfer_is_projected_and_notified_once()
     {
         var queue = new QueueStub();

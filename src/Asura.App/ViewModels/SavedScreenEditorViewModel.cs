@@ -328,6 +328,7 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
         {
             if (SetProperty(ref _persistenceError, value))
             {
+                ReportError(value?.Message);
                 OnPropertyChanged(nameof(HasPersistenceError));
                 OnPropertyChanged(nameof(PersistenceErrorLabel));
             }

@@ -18,6 +18,7 @@ public sealed class LocalMcpServerSettingsViewModel : ObservableObject, IDisposa
         _control = control;
         _dispatcher = dispatcher;
         _state = control?.State ?? new();
+        ReportError(_state.Error, "MCP server error");
         _port = _state.Port.ToString(CultureInfo.InvariantCulture);
         control?.Changed += OnChanged;
     }
@@ -129,6 +130,7 @@ public sealed class LocalMcpServerSettingsViewModel : ObservableObject, IDisposa
             || port is < 1024 or > 65535))
         {
             Message = "Enter a port from 1024 to 65535.";
+            ReportError(Message);
             OnPropertyChanged(nameof(Enabled));
             return;
         }
@@ -164,6 +166,7 @@ public sealed class LocalMcpServerSettingsViewModel : ObservableObject, IDisposa
             or InvalidOperationException)
         {
             Message = "The operation could not be completed. Try again.";
+            ReportError(Message);
         }
         finally
         {
@@ -188,6 +191,7 @@ public sealed class LocalMcpServerSettingsViewModel : ObservableObject, IDisposa
     private void ApplyState()
     {
         _state = _control!.State;
+        ReportError(_state.Error, "MCP server error");
         Port = _state.Port.ToString(CultureInfo.InvariantCulture);
         Publish();
     }

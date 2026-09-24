@@ -60,12 +60,7 @@ public sealed partial class SecretEditorDialog : Window
         }
         catch (ArgumentException exception)
         {
-            if (this.FindControl<Callout>("ValidationCard") is { } card
-                && this.FindControl<TextBlock>("ValidationMessage") is { } message)
-            {
-                message.Text = exception.Message;
-                card.IsVisible = true;
-            }
+            ViewModel.ErrorNotices.Report(exception.Message);
         }
     }
 }
