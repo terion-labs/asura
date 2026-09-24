@@ -206,6 +206,7 @@ public static class DesktopComposition
         services.AddSingleton<IWorkspaceRuntimeServicesFactory,
             DesktopWorkspaceRuntimeServicesFactory>();
         services.AddSingleton<IDockerEngineClient, DockerEngineClient>();
+        services.AddSingleton<IGitCredentialPrompt, AvaloniaGitCredentialPrompt>();
         services.AddSingleton<IGitRepositoryClient, GitRepositoryClient>();
         services.AddSingleton<IGitRepositoryMutationCoordinator,
             GitRepositoryMutationCoordinator>();

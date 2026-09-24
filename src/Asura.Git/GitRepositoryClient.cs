@@ -12,7 +12,10 @@ namespace Asura.Git;
 public sealed partial class GitRepositoryClient(
     IConnectionCommandExecutor executor,
     TimeProvider timeProvider,
-    IWorkspaceNetworkConnector? networkConnector = null)
+    IWorkspaceNetworkConnector? networkConnector = null,
+    IGitCredentialPrompt? credentialPrompt = null,
+    ISecretVault? secretVault = null,
+    WorkspaceId? credentialWorkspaceId = null)
     : IGitRepositoryClient
 {
     private const string GitExecutable = "git";
@@ -1034,9 +1037,17 @@ public sealed partial class GitRepositoryClient(
             timeout ?? MutationTimeout,
             ReadOutputLimit,
             cancellationToken).ConfigureAwait(false);
+        if (timeout == NetworkTimeout
+            && result is GitResult<CommandOutput>.Failure failure
+            && credentialPrompt is not null
+            && AuthenticationRemote(failure.Error) is { } remote)
+        {
+            return await AuthenticateAsync(repository, arguments, remote, cancellationToken).ConfigureAwait(false);
+        }
+
         return result switch
         {
-            GitResult<CommandOutput>.Failure failure => new GitResult<GitUnit>.Failure(failure.Error),
+            GitResult<CommandOutput>.Failure failed => new GitResult<GitUnit>.Failure(failed.Error),
             _ => new GitResult<GitUnit>.Success(GitUnit.Value),
         };
     }

@@ -35,7 +35,8 @@ public sealed class ConnectionCommandExecutor(
                 request.Connection,
                 request.Executable,
                 request.Arguments,
-                cancellationToken)
+                cancellationToken,
+                preserveInput: request.StandardInput is not null)
             .ConfigureAwait(false);
         if (commandPlan is null)
         {
@@ -89,6 +90,7 @@ public sealed class ConnectionCommandExecutor(
         {
             await Task.WhenAll(
                     process.WaitForExitAsync(linked.Token),
+                    WriteInputAsync(process, request.StandardInput, linked.Token),
                     stdout,
                     stderr)
                 .ConfigureAwait(false);
@@ -238,7 +240,7 @@ public sealed class ConnectionCommandExecutor(
                     ?? throw new InvalidOperationException("The connection plan has no executable."),
             UseShellExecute = false,
             CreateNoWindow = true,
-            RedirectStandardInput = false,
+            RedirectStandardInput = request.StandardInput is not null,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
@@ -295,16 +297,14 @@ public sealed class ConnectionCommandExecutor(
         ConnectionProfile connection,
         string executable,
         IReadOnlyList<string> arguments,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool preserveInput = false)
     {
         if (connectionRuntime is IConnectionCommandRuntime commandRuntime)
         {
-            var command = await commandRuntime.PlanCommandAsync(
-                    connection,
-                    executable,
-                    arguments,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            var command = preserveInput
+                ? await commandRuntime.PlanDuplexCommandAsync(connection, executable, arguments, cancellationToken).ConfigureAwait(false)
+                : await commandRuntime.PlanCommandAsync(connection, executable, arguments, cancellationToken).ConfigureAwait(false);
             return command is ConnectionRuntimeResult<TerminalLaunchRequest>.Success success
                 ? new CommandLaunch(success.Value, UsesRuntimeExecutable: true)
                 : null;
@@ -507,6 +507,31 @@ public sealed class ConnectionCommandExecutor(
 
     private static string QuotePosixShellWord(string value) =>
         $"'{value.Replace("'", "'\"'\"'", StringComparison.Ordinal)}'";
+
+    private static async Task WriteInputAsync(Process process, SecretMaterial? material, CancellationToken token)
+    {
+        if (material is null)
+        {
+            return;
+        }
+
+        var bytes = new byte[material.Length];
+        try
+        {
+            material.CopyTo(bytes);
+            await process.StandardInput.BaseStream.WriteAsync(bytes, token).ConfigureAwait(false);
+            await process.StandardInput.BaseStream.FlushAsync(token).ConfigureAwait(false);
+        }
+        catch (IOException)
+        {
+            // A command can exit before reading stdin. Its exit status remains authoritative.
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(bytes);
+            process.StandardInput.Close();
+        }
+    }
 
     private static async Task<BoundedText> ReadBoundedAsync(
         StreamReader reader,
