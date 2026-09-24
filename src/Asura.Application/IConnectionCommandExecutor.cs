@@ -102,6 +102,9 @@ public sealed record ConnectionCommand
     public TimeSpan Timeout { get; }
 
     public int MaximumOutputCharacters { get; }
+
+    /// <summary>Optional sensitive stdin. The caller owns it through completion; never put it in argv.</summary>
+    public SecretMaterial? StandardInput { get; init; }
 }
 
 public enum ConnectionCommandOutcome

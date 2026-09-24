@@ -24,6 +24,7 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
     IGitRepositoryMutationCoordinator gitMutationCoordinator,
     IDefinitionCatalog definitionCatalog,
     ISecretVault secretVault,
+    IGitCredentialPrompt gitCredentialPrompt,
     ISshHostKeyTrustStore knownHosts,
     SshKnownHostStore hostKeyStore,
     PreviewContentCache previewContentCache,
@@ -62,7 +63,7 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
                 databaseOperations,
                 operationExecutorSelector: connections.SelectDatabaseAsync);
             var hostDocker = new DockerEngineClient(hostExecutor, timeProvider);
-            var hostGit = new GitRepositoryClient(hostExecutor, timeProvider, gateway);
+            var hostGit = new GitRepositoryClient(hostExecutor, timeProvider, gateway, gitCredentialPrompt, secretVault);
             var hostRedis = new RedisWorkspaceSessionFactory((hop, token) => connections.PlanAsync("redis", hop, token));
             var hostKubernetes = new KubernetesWorkspaceSessionFactory(
                 (hop, token) => connections.PlanAsync("kubernetes", hop, token), definitionCatalog, secretVault, useHostCredentials: true);
@@ -136,7 +137,8 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
             databaseOperations,
             operationExecutorSelector: workspaceConnections.SelectDatabaseAsync);
         var docker = new DockerEngineClient(executor, timeProvider);
-        var git = new GitRepositoryClient(executor, timeProvider);
+        var git = new GitRepositoryClient(executor, timeProvider, credentialPrompt: gitCredentialPrompt,
+            secretVault: secretVault, credentialWorkspaceId: binding.WorkspaceId);
         var redis = new RedisWorkspaceSessionFactory((hop, token) => workspaceConnections.PlanAsync("redis", hop, token));
         var kubernetes = new KubernetesWorkspaceSessionFactory(
             (hop, token) => workspaceConnections.PlanAsync("kubernetes", hop, token), definitionCatalog, secretVault);

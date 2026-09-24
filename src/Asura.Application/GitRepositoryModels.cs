@@ -31,6 +31,12 @@ public enum GitErrorCode
     /// repository applies Git's own remedy and makes the path openable.
     /// </summary>
     OwnershipUntrusted,
+
+    /// <summary>The operation succeeded, but opt-in credential persistence failed.</summary>
+    CredentialStorageFailed,
+
+    /// <summary>The remote rejected the supplied username and password or token.</summary>
+    AuthenticationRequired,
 }
 
 public sealed record GitError(
