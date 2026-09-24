@@ -3299,12 +3299,13 @@ public sealed class DatabaseRuntimePanelViewModelTests
 
             if (IncludeUnsupportedRequiredColumn)
             {
+                // JSON has a validated editor; an collection still cannot be assigned.
                 columns.Add(new DatabaseColumnSchema(
                     "payload",
                     2,
-                    "JSON",
-                    DatabaseValueKind.Json,
-                    typeof(string).FullName,
+                    "ARRAY",
+                    DatabaseValueKind.Collection,
+                    typeof(int[]).FullName,
                     IsNullable: UnsupportedRequiredColumnNullability));
             }
 
@@ -3509,21 +3510,21 @@ public sealed class DatabaseRuntimePanelViewModelTests
             {
                 columns.Add(new DatabaseColumnDescriptor(
                     "payload",
-                    "JSON",
-                    DatabaseValueKind.Json,
-                    typeof(string).FullName,
+                    "ARRAY",
+                    DatabaseValueKind.Collection,
+                    typeof(int[]).FullName,
                     IsNullable: UnsupportedRequiredColumnNullability));
-                rows[0] = [.. rows[0], "{}"];
-                rows[1] = [.. rows[1], "{}"];
+                rows[0] = [.. rows[0], "[1]"];
+                rows[1] = [.. rows[1], "[1]"];
                 typedRows[0] =
                 [
                     .. typedRows[0],
-                    new DatabaseValue("{}", DatabaseValueKind.Json, "{}"),
+                    new DatabaseValue(new[] { 1 }, DatabaseValueKind.Collection, "[1]"),
                 ];
                 typedRows[1] =
                 [
                     .. typedRows[1],
-                    new DatabaseValue("{}", DatabaseValueKind.Json, "{}"),
+                    new DatabaseValue(new[] { 1 }, DatabaseValueKind.Collection, "[1]"),
                 ];
             }
 

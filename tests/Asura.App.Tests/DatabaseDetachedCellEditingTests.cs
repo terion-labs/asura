@@ -57,11 +57,14 @@ public sealed class DatabaseDetachedCellEditingTests
         public override Stream OpenRead() => new MemoryStream("123"u8.ToArray(), writable: false);
     }
 
-    [Fact]
-    public async Task CompleteTextLoadsOnlyOnExplicitEditorActionAndDoesNotBecomeDirty()
+    [Theory]
+    [InlineData(DatabaseValueKind.Text)]
+    [InlineData(DatabaseValueKind.Json)]
+    public async Task CompleteTextLoadsOnlyOnExplicitEditorActionAndDoesNotBecomeDirty(DatabaseValueKind kind)
     {
-        var original = new string('x', 30_000) + "🌐 complete tail";
-        var content = new Content(Encoding.UTF8.GetBytes(original));
+        var text = new string('x', 30_000) + "🌐 complete tail";
+        var original = kind == DatabaseValueKind.Json ? System.Text.Json.JsonSerializer.Serialize(text) : text;
+        var content = new Content(Encoding.UTF8.GetBytes(original), kind);
         var cell = Create(content);
         Assert.True(cell.NeedsFullTextForEditing);
         Assert.False(cell.IsDirty);
@@ -119,14 +122,14 @@ public sealed class DatabaseDetachedCellEditingTests
     }
 
     private static DatabaseResultCellViewModel Create(Content content) => new(
-        new DatabaseValue(content, DatabaseValueKind.Text, "display preview", true),
-        new DatabaseColumnDescriptor("value", "TEXT", DatabaseValueKind.Text), 200, canEdit: true);
+        new DatabaseValue(content, content.Kind, "display preview", true),
+        new DatabaseColumnDescriptor("value", content.Kind == DatabaseValueKind.Json ? "jsonb" : "TEXT", content.Kind), 200, canEdit: true);
 
-    private sealed class Content(byte[] bytes) : DatabaseValueContent
+    private sealed class Content(byte[] bytes, DatabaseValueKind kind = DatabaseValueKind.Text) : DatabaseValueContent
     {
         public int Reads { get; private set; }
         public override long Length => bytes.Length;
-        public override DatabaseValueKind Kind => DatabaseValueKind.Text;
+        public override DatabaseValueKind Kind => kind;
         public override Stream OpenRead()
         {
             Reads++;

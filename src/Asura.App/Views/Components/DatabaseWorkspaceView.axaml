@@ -1014,7 +1014,7 @@
                                     BorderThickness="1"
                                     CornerRadius="{DynamicResource ShellControlCornerRadius}"
                                     Padding="{controls:Inset Xs}"
-                                    IsVisible="{Binding IsEditing}">
+                                    IsVisible="{Binding ShowsTextEditor}">
                                   <local:CodeEditBox
                                       MinHeight="24"
                                       MaxHeight="200"
@@ -1023,6 +1023,12 @@
                                       EditorKeyDown="OnFieldDraftKeyDown"
                                       AutomationProperties.Name="{Binding Name, StringFormat=Draft value for {0}}" />
                                 </Border>
+                                <ComboBox
+                                    IsVisible="{Binding ShowsBooleanEditor}"
+                                    ItemsSource="{Binding BooleanValues}"
+                                    SelectedItem="{Binding Draft, Mode=TwoWay}"
+                                    KeyDown="OnFieldDraftKeyDown"
+                                    AutomationProperties.Name="{Binding Name, StringFormat=Draft value for {0}}" />
                                 <TextBlock
                                     Classes="Muted"
                                     FontSize="{DynamicResource ShellFontSize9}"

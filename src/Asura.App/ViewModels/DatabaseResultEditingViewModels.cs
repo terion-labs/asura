@@ -96,7 +96,12 @@ public sealed class DatabaseResultCellViewModel : ObservableObject
         _state = _originalState;
         _originalValue = value.RawValue;
         _currentValue = value.RawValue;
-        _editText = value.IsNull || value.RawValue is DatabaseValueContent ? string.Empty : value.ToInvariantText();
+        _editText = value.RawValue switch
+        {
+            null or DatabaseValueContent => string.Empty,
+            JsonElement json => json.GetRawText(),
+            _ => value.ToInvariantText(),
+        };
         _originalEditText = _editText;
         _displayText = BoundDisplay(_state == DatabaseEditValueState.Value && value.RawValue is null
             ? _editText
@@ -108,7 +113,6 @@ public sealed class DatabaseResultCellViewModel : ObservableObject
             && column.ValueKind is not (DatabaseValueKind.Other
                 or DatabaseValueKind.Binary
                 or DatabaseValueKind.Collection
-                or DatabaseValueKind.Json
                 or DatabaseValueKind.Network);
         // Values loaded from the provider are already typed. Re-parsing their
         // display text here changes Int32 to Int64 (and similar provider CLR
@@ -972,6 +976,7 @@ public sealed class DatabaseRowFieldViewModel : ObservableObject, IDisposable
         _cell = cell ?? throw new ArgumentNullException(nameof(cell));
         Name = column.Name;
         DataTypeName = column.DataTypeName;
+        BooleanValues = cell.CanSetNull ? ["true", "false", "NULL"] : ["true", "false"];
         _cell.PropertyChanged += OnCellChanged;
     }
 
@@ -983,8 +988,13 @@ public sealed class DatabaseRowFieldViewModel : ObservableObject, IDisposable
 
     public bool IsNull => _cell.IsNull;
 
-    /// <summary>Booleans and read-only cells stay display-only; the grid owns them.</summary>
-    public bool CanEdit => _cell.UsesTextEditor;
+    public bool CanEdit => _cell.IsEditable;
+
+    public bool ShowsTextEditor => IsEditing && _cell.UsesTextEditor;
+
+    public bool ShowsBooleanEditor => IsEditing && _cell.UsesBooleanEditor;
+
+    public IReadOnlyList<string> BooleanValues { get; }
 
     public bool ShowsEditAction => CanEdit && !IsEditing;
 
@@ -996,6 +1006,8 @@ public sealed class DatabaseRowFieldViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _isEditing, value))
             {
                 OnPropertyChanged(nameof(ShowsEditAction));
+                OnPropertyChanged(nameof(ShowsTextEditor));
+                OnPropertyChanged(nameof(ShowsBooleanEditor));
             }
         }
     }
@@ -1048,7 +1060,9 @@ public sealed class DatabaseRowFieldViewModel : ObservableObject, IDisposable
             return;
         }
 
-        Draft = _cell.IsNull ? string.Empty : _cell.EditText;
+        Draft = _cell.IsNull
+            ? _cell.UsesBooleanEditor ? "NULL" : string.Empty
+            : _cell.EditText;
         IsEditing = true;
     }
 
@@ -1060,7 +1074,14 @@ public sealed class DatabaseRowFieldViewModel : ObservableObject, IDisposable
             return;
         }
 
-        _cell.EditText = Draft;
+        if (_cell.UsesBooleanEditor && _cell.CanSetNull && string.Equals(Draft, "NULL", StringComparison.Ordinal))
+        {
+            _cell.SetNull();
+        }
+        else
+        {
+            _cell.SetText(Draft);
+        }
         IsEditing = false;
     }
 
@@ -1109,7 +1130,6 @@ public sealed class DatabaseResultColumnViewModel(
         && column.ValueKind is not (DatabaseValueKind.Other
             or DatabaseValueKind.Binary
             or DatabaseValueKind.Collection
-            or DatabaseValueKind.Json
             or DatabaseValueKind.Network);
 
     public bool? SortDescending { get; } = sortDescending;
