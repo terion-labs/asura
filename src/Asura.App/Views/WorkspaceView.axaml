@@ -723,9 +723,8 @@
           LoadOlderAgentAuditRequested="OnLoadOlderAgentAuditClick"
           MoveQueuedFollowUpRequested="OnMoveAgentQueuedFollowUpRequested"
           RefreshAgentAuditRequested="OnRefreshAgentAuditClick"
-          ApplyAgentHistoryRetentionRequested="OnApplyAgentHistoryRetentionClick"
           AuthorizeAgentSavedScreenTargetRequested="OnAuthorizeAgentSavedScreenTargetClick"
-          ExportAgentHistoryRequested="OnExportAgentHistoryClick"
+
           StartNewAgentConversationRequested="OnStartNewAgentConversationClick"
           OpenAgentConversationRequested="OnOpenAgentConversationClick"
           DeleteAgentConversationRequested="OnDeleteAgentConversationClick"

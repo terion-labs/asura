@@ -286,40 +286,6 @@
                         <TextBlock Text="New conversation" />
                       </StackPanel>
                     </Button>
-                    <TextBlock Classes="Eyebrow" Text="Retention and export" />
-                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
-                      <ComboBox
-                          ItemsSource="{Binding AgentChat.HistoryRetentionOptions}"
-                          SelectedItem="{Binding AgentChat.SelectedHistoryRetentionOption, Mode=TwoWay}"
-                          IsEnabled="{Binding !AgentChat.IsHistoryRetentionLoading}"
-                          AutomationProperties.Name="Agent history retention">
-                        <ComboBox.ItemTemplate>
-                          <DataTemplate x:DataType="vm:AgentHistoryRetentionOption">
-                            <TextBlock Text="{Binding Description}" />
-                          </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                      </ComboBox>
-                      <Button
-                          Grid.Column="1"
-                          Classes="SecondaryButton"
-                          Click="OnApplyAgentHistoryRetentionClick"
-                          Content="Apply"
-                          IsEnabled="{Binding AgentChat.CanApplyHistoryRetention}"
-                          AutomationProperties.Name="Apply agent history retention" />
-                      <Button
-                          Grid.Column="2"
-                          Classes="SecondaryButton"
-                          Click="OnExportAgentHistoryClick"
-                          Content="Export…"
-                          IsEnabled="{Binding AgentChat.CanExportHistory}"
-                          AutomationProperties.Name="Export metadata-only agent history" />
-                    </Grid>
-                    <TextBlock
-                        Classes="Muted"
-                        FontSize="{DynamicResource ShellFontSize9}"
-                        Text="{Binding AgentChat.AgentHistoryStatus}"
-                        TextWrapping="Wrap"
-                        AutomationProperties.Name="Agent history status" />
                   </StackPanel>
                 </Border>
               </Grid>

@@ -53,6 +53,10 @@ public sealed partial class SettingsView : UserControl
 
     public event EventHandler<RoutedEventArgs>? AgentSettingsRequested;
 
+    public event EventHandler<RoutedEventArgs>? ApplyAgentHistoryRetentionRequested;
+
+    public event EventHandler<RoutedEventArgs>? ExportAgentHistoryRequested;
+
     public event EventHandler<RoutedEventArgs>? AppearanceSettingsRequested;
 
     public event EventHandler<RoutedEventArgs>? ClearKeybindingPrefixRequested;
@@ -383,6 +387,12 @@ public sealed partial class SettingsView : UserControl
 
     private void OnAddMcpServerClick(object? sender, RoutedEventArgs e) =>
         AddMcpServerRequested?.Invoke(sender, e);
+
+    private void OnApplyAgentHistoryRetentionClick(object? sender, RoutedEventArgs e) =>
+        ApplyAgentHistoryRetentionRequested?.Invoke(sender, e);
+
+    private void OnExportAgentHistoryClick(object? sender, RoutedEventArgs e) =>
+        ExportAgentHistoryRequested?.Invoke(sender, e);
 
     private void OnAgentSettingsClick(object? sender, RoutedEventArgs e) =>
         AgentSettingsRequested?.Invoke(sender, e);

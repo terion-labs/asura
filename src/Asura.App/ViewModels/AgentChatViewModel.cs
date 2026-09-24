@@ -162,7 +162,7 @@ public sealed record AgentHistoryRetentionOption(
     TimeSpan MaximumAge)
 {
     public string Description =>
-        $"Keep up to {MaximumRuns} runs for {MaximumAge.TotalDays:N0} days";
+        $"{MaximumRuns} runs · {MaximumAge.TotalDays:N0} days";
 }
 
 public sealed record AgentApprovalArgumentViewModel(
@@ -2184,7 +2184,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                     retention.MaximumAge);
             AgentHistoryStatus =
                 $"Keeping up to {retention.MaximumRuns} runs for "
-                + $"{retention.MaximumAge.TotalDays:N0} days · revision {retention.Revision}.";
+                + $"{retention.MaximumAge.TotalDays:N0} days.";
         }
         finally
         {
@@ -2223,7 +2223,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
             _historyRetention = updated;
             AgentHistoryStatus =
-                $"Retention applied and older runs pruned · revision {updated.Revision}.";
+                "Retention applied and older runs removed.";
         }
         finally
         {
