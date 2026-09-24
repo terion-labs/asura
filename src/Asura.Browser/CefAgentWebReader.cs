@@ -11,16 +11,8 @@ internal sealed class CefAgentWebReader
     private readonly WebContentMarkdownConverter _converter = new();
     private readonly IWorkspaceNetworkConnector? _networkConnector;
 
-    public CefAgentWebReader(int? socksProxyPort = null)
+    public CefAgentWebReader()
     {
-        if (socksProxyPort is < 1 or > 65_535)
-        {
-            throw new ArgumentOutOfRangeException(nameof(socksProxyPort));
-        }
-
-        _networkConnector = socksProxyPort is { } port
-            ? new LegacySocksConnector(port)
-            : null;
     }
 
     public CefAgentWebReader(IWorkspaceNetworkConnector networkConnector)
@@ -39,9 +31,9 @@ internal sealed class CefAgentWebReader
             return Failed(AgentWebToolErrorCode.Cancelled);
         }
 
-        if (!CefBrowserView.HasPeerBoundTransport)
+        if (_networkConnector is null)
         {
-            return Failed(AgentWebToolErrorCode.DestinationDenied);
+            return Failed(AgentWebToolErrorCode.Unavailable);
         }
 
         try
@@ -152,6 +144,7 @@ internal sealed class CefAgentWebReader
         AgentWebReadRequest request,
         CancellationToken cancellationToken)
     {
+        await using var proxy = AgentWebProxy.Create(_networkConnector!, cancellationToken);
         CefBrowserNetworkContext? network = null;
         CefBrowserView? browser = null;
         try
@@ -159,19 +152,11 @@ internal sealed class CefAgentWebReader
             (network, browser) = await AvaloniaBrowserUiDispatcher.Instance
                 .InvokeAsync(() =>
                 {
-                    var createdNetwork = _networkConnector is { } connector
-                        ? CefBrowserNetworkContext.CreateIsolatedAgentWeb(
-                            connector.BrowserProxyEndpoint)
-                        : CefBrowserNetworkContext.CreateIsolatedAgentWeb();
-                    var proxyResolver = _networkConnector?.LocalProxyCredentials is { } credentials
-                        ? new WorkspaceProxyAuthenticationResolver(
-                            _networkConnector.BrowserProxyEndpoint,
-                            credentials)
-                        : null;
+                    var createdNetwork = CefBrowserNetworkContext.CreateIsolatedAgentWeb(proxy.Endpoint);
+                    var proxyResolver = new WorkspaceProxyAuthenticationResolver(proxy.Endpoint, proxy.Credentials);
                     var createdBrowser = createdNetwork.CreateView(proxyResolver);
                     createdBrowser.SetResourceRequestPolicy(
-                        (candidate, token) => BrowserDestinationPolicy.LocalSystem
-                            .AllowsCefTransportAsync(candidate, token));
+                        AgentWebProxy.AllowsRequestAsync);
                     return (createdNetwork, createdBrowser);
                 });
             if (!await browser.BeginDomObservationWhenReadyAsync()
@@ -193,7 +178,7 @@ internal sealed class CefAgentWebReader
                 .ConfigureAwait(false);
             if (!outcome.IsSuccess || outcome.Address is null)
             {
-                return Failed(outcome.ErrorCode);
+                return Failed(proxy.Failure ?? outcome.ErrorCode);
             }
 
             browser.MarkDomActivity();
@@ -234,20 +219,6 @@ internal sealed class CefAgentWebReader
         }
     }
 
-    private sealed class LegacySocksConnector(int port) : IWorkspaceNetworkConnector
-    {
-        public WorkspaceNetworkEgress Egress => WorkspaceNetworkEgress.Direct;
-
-        public Uri LocalProxyEndpoint { get; } =
-            new($"socks5://127.0.0.1:{port}", UriKind.Absolute);
-
-        public ValueTask<Stream> ConnectTcpAsync(
-            string host,
-            int targetPort,
-            CancellationToken cancellationToken) =>
-            ValueTask.FromException<Stream>(new NotSupportedException());
-    }
-
     private static async ValueTask BeginNavigationAsync(
         CefBrowserView browser,
         BrowserAddress address,
@@ -261,8 +232,7 @@ internal sealed class CefAgentWebReader
                 try
                 {
                     browser.SetActiveNavigationRequestPolicy(
-                        (candidate, token) => BrowserDestinationPolicy.LocalSystem
-                            .AllowsCefTransportAsync(candidate, token));
+                        AgentWebProxy.AllowsRequestAsync);
                 }
                 catch (InvalidOperationException)
                 {

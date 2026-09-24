@@ -9,6 +9,8 @@
     <InternalsVisibleTo Include="Asura.Infrastructure.Tests" />
     <InternalsVisibleTo Include="Asura.SessionHost.Tests" />
     <InternalsVisibleTo Include="Asura.Terminal" />
+    <InternalsVisibleTo Include="Asura" />
+    <InternalsVisibleTo Include="Asura.Browser" />
   </ItemGroup>
 
   <PropertyGroup>
