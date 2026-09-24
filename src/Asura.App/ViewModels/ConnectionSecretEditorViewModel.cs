@@ -32,7 +32,13 @@ public sealed class ConnectionSecretEditorViewModel(
     public string Error
     {
         get => _error;
-        private set => SetProperty(ref _error, value);
+        private set
+        {
+            if (SetProperty(ref _error, value))
+            {
+                ReportError(value);
+            }
+        }
     }
 
     public bool IsSaving

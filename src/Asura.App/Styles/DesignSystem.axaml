@@ -2,6 +2,7 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:components="using:Asura.App.Views.Components"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia">
   <!--
@@ -139,7 +140,7 @@
               ClipsContent="True"
               Padding="0"
               Classes.active="{TemplateBinding IsActive}">
-            <Grid RowDefinitions="Auto,*,Auto">
+            <Grid RowDefinitions="Auto,Auto,*,Auto">
               <Border
                   Grid.Row="0"
                   Classes="PanelHeader"
@@ -262,8 +263,9 @@
                   </Grid>
                 </DockPanel>
               </Border>
+              <components:ErrorNoticesView Grid.Row="1" DataContext="{CompiledBinding $parent[controls:PanelChrome].((vm:ObservableObject)DataContext).ErrorNotices}" />
               <ContentPresenter
-                  Grid.Row="1"
+                  Grid.Row="2"
                   Content="{TemplateBinding Content}"
                   ContentTemplate="{TemplateBinding ContentTemplate}"
                   HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
@@ -276,7 +278,7 @@
                 has to be reachable, both belong here.
               -->
               <Border
-                  Grid.Row="2"
+                  Grid.Row="3"
                   Classes="PanelFooter"
                   IsVisible="{TemplateBinding IsFooterVisible}">
                 <ContentPresenter

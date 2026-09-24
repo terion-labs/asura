@@ -3,6 +3,7 @@
     x:DataType="vm:UnifiedConnectionEditorViewModel"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:components="using:Asura.App.Views.Components"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
     Title="Connection"
@@ -495,11 +496,10 @@
         </StackPanel>
       </StackPanel>
 
-      <controls:Callout
-          x:Name="ValidationError"
-          Tone="Danger"
-          Glyph="ErrorCircle"
-          IsVisible="False" />
+      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
+      <components:ErrorNoticesView DataContext="{Binding Terminal.ErrorNotices}" />
+      <components:ErrorNoticesView DataContext="{Binding Files.ErrorNotices}" />
+      <components:ErrorNoticesView DataContext="{Binding Database.ErrorNotices}" />
     </StackPanel>
 
     <controls:DialogShell.Footer>

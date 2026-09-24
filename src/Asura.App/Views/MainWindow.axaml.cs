@@ -1746,13 +1746,6 @@ public sealed partial class MainWindow : Window
         FocusNavigator.FocusCurrentRoute();
     }
 
-    private void OnClearErrorClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        ViewModel.ClearError();
-    }
-
     private async void OnLauncherSearchResultClick(object? sender, RoutedEventArgs e)
     {
         _ = e;

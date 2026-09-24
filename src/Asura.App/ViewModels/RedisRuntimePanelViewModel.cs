@@ -502,6 +502,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (SetProperty(ref _errorMessage, value))
             {
+                ReportError(value, "Redis error");
                 OnPropertyChanged(nameof(HasError));
             }
         }

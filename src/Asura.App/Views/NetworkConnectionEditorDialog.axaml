@@ -45,12 +45,15 @@
     </controls:DialogShell.Footer>
 
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
+      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
+      <Border IsVisible="{Binding !HasError}">
       <controls:Callout
           Tone="Notice"
           ShowsGlyph="False"
           Text="{Binding OperationStatus}"
           Classes.Warning="{Binding HasError}"
           IsVisible="{Binding HasOperationStatus}" />
+      </Border>
 
       <StackPanel
           x:DataType="vm:NetworkConnectionProfileEditorViewModel"
@@ -274,6 +277,7 @@
         </controls:SurfaceCard>
       </StackPanel>
 
+      <Border IsVisible="{Binding !ProfileTestHasError}">
       <controls:Callout
           Classes.Warning="{Binding ProfileTestHasError}"
           Classes.Success="{Binding ProfileTestSucceeded}"
@@ -281,6 +285,7 @@
           Text="{Binding ProfileTestDetail}"
           IsVisible="{Binding HasProfileTestResult}"
           AutomationProperties.Name="Network connection test result" />
+      </Border>
     </StackPanel>
   </controls:DialogShell>
 </Window>

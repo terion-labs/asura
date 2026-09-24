@@ -820,15 +820,7 @@
                         Value="{Binding ProgressPercent}"
                         IsIndeterminate="{Binding !HasKnownProgress}"
                         IsVisible="{Binding IsActive}" />
-                    <TextBlock
-                        Grid.Row="2"
-                        Grid.ColumnSpan="2"
-                        Margin="{controls:Inset Top=Xs}"
-                        Foreground="{DynamicResource ShellDangerBrush}"
-                        FontSize="{DynamicResource ShellFontSize9}"
-                        Text="{Binding Error}"
-                        TextWrapping="Wrap"
-                        IsVisible="{Binding HasError}" />
+                    <components:ErrorNoticesView Grid.Row="2" Grid.ColumnSpan="2" DataContext="{Binding ErrorNotices}" />
                   </Grid>
                 </Border>
               </DataTemplate>

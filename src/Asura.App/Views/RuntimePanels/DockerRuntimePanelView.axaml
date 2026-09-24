@@ -619,7 +619,7 @@
             </Grid>
 
             <Grid Grid.Row="2" MinHeight="28" Margin="{controls:Inset Horizontal=Md}" ColumnDefinitions="*,Auto">
-              <TextBlock Classes="Muted" VerticalAlignment="Center" Text="{Binding LogIssueMessage}" IsVisible="{Binding HasLogIssue}" TextTrimming="CharacterEllipsis" />
+
               <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}" VerticalAlignment="Center">
                 <TextBlock Classes="Muted" Text="Loading…" IsVisible="{Binding IsLoadingLogs}" />
                 <TextBlock Classes="Muted" Text="{Binding LogResultSummary}" />
@@ -714,8 +714,8 @@
           <controls:StateOverlay
               Kind="TerminalError"
               Glyph="ErrorCircle"
-              Heading="{Binding IssueTitle}"
-              Body="{Binding IssueMessage}"
+              Heading="Docker resources unavailable"
+              Body="Use Retry to request the current state."
               ActionLabel="Retry"
               ActionCommand="{Binding RefreshCommand}"
               IsVisible="{Binding HasIssue}"

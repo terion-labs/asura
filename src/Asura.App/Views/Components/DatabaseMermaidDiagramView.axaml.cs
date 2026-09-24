@@ -1,3 +1,4 @@
+using Asura.App.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -36,6 +37,7 @@ public sealed partial class DatabaseMermaidDiagramView : UserControl
     private const double MaximumZoom = 8;
     private const double ZoomStep = 1.25;
 
+    private readonly ErrorNoticeCollection _errorNotices = new();
     private Point _dragOrigin;
     private Vector _dragPan;
     private bool _dragging;
@@ -48,6 +50,7 @@ public sealed partial class DatabaseMermaidDiagramView : UserControl
     public DatabaseMermaidDiagramView()
     {
         InitializeComponent();
+        ErrorNotices.DataContext = _errorNotices;
         ActualThemeVariantChanged += (_, _) => RequestRender();
         Viewport.PointerWheelChanged += OnPointerWheelChanged;
         Viewport.PointerPressed += OnPointerPressed;
@@ -85,8 +88,7 @@ public sealed partial class DatabaseMermaidDiagramView : UserControl
     public string RenderedSvg { get; private set; } = string.Empty;
 
     public bool HasRenderedDiagram => RenderedSvg.Length > 0
-        && _svgSource?.Picture is not null
-        && !ErrorCard.IsVisible;
+        && _svgSource?.Picture is not null;
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -113,7 +115,6 @@ public sealed partial class DatabaseMermaidDiagramView : UserControl
         {
             RenderedSvg = string.Empty;
             ReplaceSvgSource(null);
-            ErrorCard.IsVisible = false;
             return;
         }
 
@@ -148,7 +149,6 @@ public sealed partial class DatabaseMermaidDiagramView : UserControl
 
             RenderedSvg = renderedSvg;
             ReplaceSvgSource(svgSource);
-            ErrorCard.IsVisible = false;
             FitDiagram();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -164,8 +164,7 @@ public sealed partial class DatabaseMermaidDiagramView : UserControl
 
             RenderedSvg = string.Empty;
             ReplaceSvgSource(null);
-            ErrorText.Text = $"The Mermaid diagram could not be rendered: {exception.Message}";
-            ErrorCard.IsVisible = true;
+            _errorNotices.Report($"The Mermaid diagram could not be rendered: {exception.Message}");
         }
     }
 

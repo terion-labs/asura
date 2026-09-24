@@ -49,6 +49,8 @@ internal sealed class FakeGitRepositoryClient : IGitRepositoryClient
     /// <summary>When set, the next open fails as a plain command failure.</summary>
     public bool FailNextOpen { get; set; }
 
+    public GitError? NextMutationError { get; set; }
+
     /// <summary>When set, opened handles carry this impersonated user.</summary>
     public string? OpenRunAsUser { get; init; }
 
@@ -389,6 +391,12 @@ internal sealed class FakeGitRepositoryClient : IGitRepositoryClient
     private ValueTask<GitResult<GitUnit>> Record(string operation)
     {
         RefOperations.Add(operation);
+        if (NextMutationError is { } error)
+        {
+            NextMutationError = null;
+            return ValueTask.FromResult<GitResult<GitUnit>>(new GitResult<GitUnit>.Failure(error));
+        }
+
         return Success();
     }
 

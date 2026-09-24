@@ -405,6 +405,7 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
         {
             if (SetProperty(ref _metadataIssue, value))
             {
+                ReportError(value is null ? null : $"{value.Message} {value.SuggestedAction}".Trim(), value?.Title);
                 OnPropertyChanged(nameof(HasMetadataIssue));
             }
         }
@@ -730,6 +731,7 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
         {
             if (SetProperty(ref _contentIssue, value))
             {
+                ReportError(value is null ? null : $"{value.Message} {value.SuggestedAction}".Trim(), value?.Title);
                 PublishIssueState();
                 OnContentPresentationChanged();
             }
@@ -743,6 +745,7 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
         {
             if (SetProperty(ref _operationIssue, value))
             {
+                ReportError(value is null ? null : $"{value.Message} {value.SuggestedAction}".Trim(), value?.Title);
                 OnPropertyChanged(nameof(HasOperationIssue));
                 PublishIssueState();
             }
@@ -768,6 +771,7 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
         {
             if (SetProperty(ref _previewIssue, value))
             {
+                ReportError(value is null ? null : $"{value.Message} {value.SuggestedAction}".Trim(), value?.Title);
                 OnPropertyChanged(nameof(HasPreviewIssue));
             }
         }

@@ -319,6 +319,7 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         {
             TestStatus = "Validation failed";
             TestDetail = exception.Message;
+            ReportError(TestDetail, TestStatus);
             return;
         }
 
@@ -331,6 +332,10 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
             var result = await _runtime.TestAsync(profile, cancellationToken);
             TestStatus = result.IsSuccess ? "Provider connected" : "Test failed";
             TestDetail = result.Message;
+            if (!result.IsSuccess)
+            {
+                ReportError(TestDetail, TestStatus);
+            }
             if (!result.IsSuccess
                 && result.ErrorCode is FilePanelErrorCode.HostKeyUnknown
                     or FilePanelErrorCode.HostKeyChanged)
@@ -347,6 +352,7 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         {
             TestStatus = "Test failed";
             TestDetail = "The provider runtime could not complete the test.";
+            ReportError(TestDetail, TestStatus);
         }
         finally
         {

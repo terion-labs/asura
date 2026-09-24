@@ -3,6 +3,7 @@
     x:DataType="vm:McpServerProfileEditorViewModel"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:components="using:Asura.App.Views.Components"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia"
@@ -297,14 +298,7 @@
         </StackPanel>
       </controls:SurfaceCard>
 
-      <controls:LiveRegionTextBlock
-          x:Name="ValidationError"
-          Foreground="{DynamicResource ShellDangerBrush}"
-          Focusable="True"
-          IsVisible="False"
-          TextWrapping="Wrap"
-          AutomationProperties.LiveSetting="Assertive"
-          AutomationProperties.Name="MCP server validation error" />
+      <components:ErrorNoticesView x:Name="ValidationError" DataContext="{Binding ErrorNotices}" Focusable="True" AutomationProperties.Name="MCP server validation errors" />
     </StackPanel>
   </controls:DialogShell>
 </Window>

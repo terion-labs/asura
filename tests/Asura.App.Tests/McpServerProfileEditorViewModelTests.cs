@@ -700,11 +700,11 @@ public sealed class McpServerProfileEditorViewModelTests
             element => string.Equals(element.Attribute("ItemsSource")?.Value
 , "{Binding HttpHeaders}", StringComparison.Ordinal));
         var validationError = Assert.Single(
-            editor.Descendants(XName.Get("LiveRegionTextBlock", "using:Asura.App.Controls")),
+            editor.Descendants(XName.Get("ErrorNoticesView", "using:Asura.App.Views.Components")),
             element => string.Equals(element.Attribute(x + "Name")?.Value, "ValidationError", StringComparison.Ordinal));
         Assert.Equal("True", validationError.Attribute("Focusable")?.Value);
-        Assert.Equal("Assertive", validationError.Attribute("AutomationProperties.LiveSetting")?.Value);
-        Assert.Equal("MCP server validation error", validationError.Attribute("AutomationProperties.Name")?.Value);
+        Assert.Equal("{Binding ErrorNotices}", validationError.Attribute("DataContext")?.Value);
+        Assert.Equal("MCP server validation errors", validationError.Attribute("AutomationProperties.Name")?.Value);
         // The sentence lives on the executable field's Hint, which LabeledField
         // renders below the control; the guarantee is that it is stated, not
         // which element states it.

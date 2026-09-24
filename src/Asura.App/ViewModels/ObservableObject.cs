@@ -5,6 +5,19 @@ namespace Asura.App.ViewModels;
 
 public abstract class ObservableObject : INotifyPropertyChanged
 {
+    private ErrorNoticeCollection? _errorNotices;
+
+    /// <summary>Allocated only for owners that report or display errors.</summary>
+    public ErrorNoticeCollection ErrorNotices => _errorNotices ??= new();
+
+    protected void ReportError(string? message, string? title = null)
+    {
+        if (!string.IsNullOrWhiteSpace(message))
+        {
+            ErrorNotices.Report(message, title);
+        }
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     protected bool SetProperty<T>(

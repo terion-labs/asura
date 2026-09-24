@@ -404,8 +404,6 @@ public sealed partial class WorkspaceEditorView : UserControl
             ShowInteractionError(result.Error ?? "The workspace item could not be added.");
             return;
         }
-
-        ClearInteractionError();
         EntryListControl.SelectedItem = editor.Entries.Single(entry => entry.Id == entryId);
         EntryListControl.ScrollIntoView(EntryListControl.SelectedItem!);
     }
@@ -426,8 +424,6 @@ public sealed partial class WorkspaceEditorView : UserControl
             ShowInteractionError(result.Error ?? "The workspace item could not be removed.");
             return;
         }
-
-        ClearInteractionError();
         EntryListControl.SelectedIndex = Math.Min(index, editor.Entries.Count - 1);
         EnsureEntrySelection();
     }
@@ -472,8 +468,6 @@ public sealed partial class WorkspaceEditorView : UserControl
             ShowInteractionError("The selected layout has no unused slot for another panel.");
             return;
         }
-
-        ClearInteractionError();
     }
 
     private void OnMovePanelEarlierClick(object? sender, RoutedEventArgs e) =>
@@ -499,8 +493,6 @@ public sealed partial class WorkspaceEditorView : UserControl
                 : "The panel is already last.");
             return;
         }
-
-        ClearInteractionError();
     }
 
     private void OnRemovePanelClick(object? sender, RoutedEventArgs e)
@@ -517,15 +509,6 @@ public sealed partial class WorkspaceEditorView : UserControl
             ShowInteractionError("The panel is no longer part of this tab.");
             return;
         }
-
-        ClearInteractionError();
-    }
-
-    private void OnClearOperationErrorClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        Editor?.ClearOperationError();
     }
 
     private void OnResetClick(object? sender, RoutedEventArgs e)
@@ -538,7 +521,6 @@ public sealed partial class WorkspaceEditorView : UserControl
         }
 
         editor.Reset();
-        ClearInteractionError();
         EnsureEntrySelection();
         ResetRequested?.Invoke(this, EventArgs.Empty);
     }
@@ -567,7 +549,6 @@ public sealed partial class WorkspaceEditorView : UserControl
         try
         {
             var request = editor.CreateSaveRequest();
-            ClearInteractionError();
             SaveRequested?.Invoke(this, new WorkspaceEditorSaveRequestedEventArgs(request));
         }
         catch (InvalidOperationException exception)
@@ -576,15 +557,5 @@ public sealed partial class WorkspaceEditorView : UserControl
         }
     }
 
-    private void ShowInteractionError(string message)
-    {
-        this.FindControl<TextBlock>("InteractionErrorText")!.Text = message;
-        this.FindControl<Callout>("InteractionErrorCard")!.IsVisible = true;
-    }
-
-    private void ClearInteractionError()
-    {
-        this.FindControl<TextBlock>("InteractionErrorText")!.Text = string.Empty;
-        this.FindControl<Callout>("InteractionErrorCard")!.IsVisible = false;
-    }
+    private void ShowInteractionError(string message) => Editor?.ErrorNotices.Report(message);
 }

@@ -39,8 +39,7 @@ public sealed partial class FileTransferDialog : Window
         }
         catch (ArgumentException exception)
         {
-            this.FindControl<TextBlock>("ValidationMessage")!.Text = exception.Message;
-            this.FindControl<Callout>("ValidationCard")!.IsVisible = true;
+            ViewModel.ErrorNotices.Report(exception.Message);
         }
     }
 }

@@ -48,7 +48,7 @@ public sealed partial class AiProviderProfileEditorDialog : Window
     {
         _ = sender;
         _ = e;
-        HideValidationError();
+
         await ViewModel.TestAsync(_lifetime.Token);
     }
 
@@ -58,7 +58,7 @@ public sealed partial class AiProviderProfileEditorDialog : Window
         _ = e;
         try
         {
-            HideValidationError();
+
             var launch = await ViewModel.BeginAuthenticationAsync(_lifetime.Token);
             if (launch is null)
             {
@@ -86,7 +86,7 @@ public sealed partial class AiProviderProfileEditorDialog : Window
     {
         _ = sender;
         _ = e;
-        HideValidationError();
+
         await ViewModel.StoreApiKeyAsync(_lifetime.Token);
     }
 
@@ -96,7 +96,7 @@ public sealed partial class AiProviderProfileEditorDialog : Window
         _ = e;
         try
         {
-            HideValidationError();
+
             if (await ViewModel.PrepareSaveAsync(_lifetime.Token) is { } request)
             {
                 Close(request);
@@ -108,21 +108,7 @@ public sealed partial class AiProviderProfileEditorDialog : Window
         }
     }
 
-    private void HideValidationError()
-    {
-        var error = this.FindControl<TextBlock>("ValidationError");
-        error?.IsVisible = false;
-    }
-
-    private void ShowValidationError(string message)
-    {
-        var error = this.FindControl<TextBlock>("ValidationError");
-        if (error is not null)
-        {
-            error.Text = message;
-            error.IsVisible = true;
-        }
-    }
+    private void ShowValidationError(string message) => ViewModel.ErrorNotices.Report(message);
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 }

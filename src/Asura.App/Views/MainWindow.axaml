@@ -430,17 +430,14 @@
     <Grid RowDefinitions="*,Auto" IsVisible="{CompiledBinding !ApplicationSecurityEditor.IsLocked}">
     <controls:SurfaceCard
         Grid.Row="1"
-        IsVisible="{CompiledBinding BrowserStartupRecovery.HasError}"
+        IsVisible="{CompiledBinding BrowserStartupRecovery.ErrorNotices.HasErrors}"
         Margin="{controls:Inset Left=Md, Right=Md, Bottom=Md}"
         Padding="{controls:Inset Horizontal=Md, Vertical=Sm}"
         Tone="Notice"
         AutomationProperties.LiveSetting="Polite"
         AutomationProperties.Name="Browser recovery">
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-        <TextBlock
-            Text="{CompiledBinding BrowserStartupRecovery.Message}"
-            TextWrapping="Wrap"
-            VerticalAlignment="Center" />
+        <components:ErrorNoticesView DataContext="{CompiledBinding BrowserStartupRecovery.ErrorNotices}" />
         <Button Grid.Column="1"
             IsVisible="{CompiledBinding BrowserStartupRecovery.CanRetry}"
             Content="{CompiledBinding BrowserStartupRecovery.RetryLabel}"
@@ -557,21 +554,11 @@
       <TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding ApplicationKeySequenceHint}" TextWrapping="Wrap" />
     </controls:SurfaceCard>
 
-    <controls:Callout
-        Margin="{controls:Inset Right=Lg, Bottom=Lg}"
-        HorizontalAlignment="Right"
-        VerticalAlignment="Bottom"
-        MaxWidth="520"
-        Tone="Danger"
-        Glyph="ErrorCircle"
-        Text="{CompiledBinding OperationError}"
-        IsVisible="{CompiledBinding HasOperationError}"
-        AutomationProperties.LiveSetting="Assertive"
-        AutomationProperties.Name="Operation error">
-      <controls:Callout.Action>
-        <Button Classes="IconButton" Click="OnClearErrorClick" AutomationProperties.Name="Dismiss error"><icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellFontSize12}" /></Button>
-      </controls:Callout.Action>
-    </controls:Callout>
+    <Border IsVisible="{CompiledBinding !ApplicationSecurityEditor.IsLocked}"
+            Margin="{controls:Inset Right=Lg, Bottom=Lg}"
+            HorizontalAlignment="Right" VerticalAlignment="Bottom" MaxWidth="520">
+      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
+    </Border>
 
     <Canvas
         x:Name="DragGhostLayer"

@@ -347,19 +347,11 @@
                     Content="Browse…" />
               </Grid>
             </controls:LabeledField>
-            <controls:Callout
-                Tone="Danger"
-                Title="{Binding IssueTitle}"
-                Text="{Binding IssueMessage}"
-                IsVisible="{Binding HasIssue}">
-              <controls:Callout.Action>
-                <Button
+            <Button
                     Classes="SecondaryButton"
                     Click="OnTrustRepositoryClick"
                     Content="Trust this repository"
                     IsVisible="{Binding CanTrustRepository}" />
-              </controls:Callout.Action>
-            </controls:Callout>
             <Button
                 Classes="PrimaryButton"
                 HorizontalAlignment="Left"
@@ -684,14 +676,6 @@
                 Click="OnAllCommitsClick"
                 Content="All Commits" />
           </StackPanel>
-
-          <controls:Callout
-              Grid.Row="1"
-              Margin="{controls:Inset Horizontal=Md, Vertical=Xs}"
-              Tone="Danger"
-              Title="{Binding IssueTitle}"
-              Text="{Binding IssueMessage}"
-              IsVisible="{Binding HasIssue}" />
 
           <!-- Local Changes: working set, composer, and diff. -->
           <Grid Grid.Row="2" IsVisible="{Binding IsLocalChangesSection}">

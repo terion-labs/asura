@@ -1,0 +1,25 @@
+<UserControl x:Class="Asura.App.Views.Components.ErrorNoticesView"
+             x:DataType="vm:ErrorNoticeCollection"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Asura.App.ViewModels"
+             xmlns:controls="using:Asura.App.Controls"
+             xmlns:icons="using:FluentIcons.Avalonia"
+             IsVisible="{Binding HasErrors}">
+  <ScrollViewer MaxHeight="200" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <ItemsControl ItemsSource="{Binding Items}" Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:ErrorNoticeViewModel">
+          <controls:Callout Tone="Danger" Glyph="ErrorCircle" Title="{Binding Title}" Text="{Binding Message}"
+                            Margin="{controls:Inset Bottom=Xs}" AutomationProperties.Name="{Binding Message}" AutomationProperties.LiveSetting="Assertive">
+            <controls:Callout.Action>
+              <Button Classes="IconButton" Click="OnDismissClick" ToolTip.Tip="Dismiss error" AutomationProperties.Name="Dismiss error">
+                <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellFontSize12}" />
+              </Button>
+            </controls:Callout.Action>
+          </controls:Callout>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </ScrollViewer>
+</UserControl>

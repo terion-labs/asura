@@ -59,6 +59,7 @@ public sealed class FileTransferItemViewModel : ObservableObject
         _stage = stage;
         _progress = progress;
         _error = error;
+        ReportError(error, "File transfer failed");
         _hasError = hasError;
         _canCancel = canCancel;
         _canRetry = canRetry;
@@ -109,7 +110,13 @@ public sealed class FileTransferItemViewModel : ObservableObject
     public string? Error
     {
         get => _error;
-        private set => SetProperty(ref _error, value);
+        private set
+        {
+            if (SetProperty(ref _error, value))
+            {
+                ReportError(value, "File transfer failed");
+            }
+        }
     }
 
     public bool HasError

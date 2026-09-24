@@ -707,6 +707,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
         {
             if (SetProperty(ref _lastOperationError, value))
             {
+                ReportError(value);
                 OnPropertyChanged(nameof(HasOperationError));
             }
         }

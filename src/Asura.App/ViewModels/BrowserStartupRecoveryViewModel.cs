@@ -16,6 +16,7 @@ public sealed class BrowserStartupRecoveryViewModel : ObservableObject, IDisposa
         _dispatcher = dispatcher;
         RetryCommand = new AsyncActionCommand(RetryAsync, () => CanRetry && !_isRetrying);
         recovery?.Changed += OnChanged;
+        ReportError(Message, "Browser startup failed");
     }
 
     public string? Message => _recovery?.Error;
@@ -55,6 +56,7 @@ public sealed class BrowserStartupRecoveryViewModel : ObservableObject, IDisposa
 
     private void Refresh()
     {
+        ReportError(Message, "Browser startup failed");
         OnPropertyChanged(nameof(Message));
         OnPropertyChanged(nameof(HasError));
         OnPropertyChanged(nameof(CanRetry));

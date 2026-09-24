@@ -591,6 +591,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         {
             TestStatus = "Validation failed";
             TestDetail = exception.Message;
+            ReportError(TestDetail, TestStatus);
             return;
         }
 
@@ -658,6 +659,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
                 case ConnectionRuntimeResult<ConnectionTestReport>.Failure failure:
                     TestStatus = "Test failed";
                     TestDetail = $"{failure.Error.Message} {RecoveryText(failure.Error.RecoveryAction)}".Trim();
+                    ReportError(TestDetail, TestStatus);
                     break;
                 default:
                     throw new InvalidOperationException("The connection test result is invalid.");
@@ -701,6 +703,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
             {
                 TestStatus = "Host key not trusted";
                 TestDetail = $"{failure.Error.Message} {RecoveryText(failure.Error.RecoveryAction)}".Trim();
+                ReportError(TestDetail, TestStatus);
                 return;
             }
 
@@ -735,6 +738,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         {
             TestStatus = "Diagnostics failed";
             TestDetail = $"{failure.Error.Message} {RecoveryText(failure.Error.RecoveryAction)}".Trim();
+            ReportError(TestDetail, TestStatus);
             return;
         }
 
@@ -895,6 +899,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         {
             TestStatus = "Repository not opened";
             TestDetail = failure.Error.Message;
+            ReportError(TestDetail, TestStatus);
             return;
         }
 

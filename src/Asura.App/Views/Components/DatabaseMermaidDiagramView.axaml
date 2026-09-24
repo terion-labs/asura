@@ -2,6 +2,7 @@
     x:Class="Asura.App.Views.Components.DatabaseMermaidDiagramView"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:components="using:Asura.App.Views.Components"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia"
     xmlns:svg="clr-namespace:Avalonia.Svg.Skia;assembly=Svg.Controls.Skia.Avalonia"
@@ -80,23 +81,6 @@
       </StackPanel>
     </Border>
 
-    <Border
-        x:Name="ErrorCard"
-        MaxWidth="620"
-        Margin="{controls:Inset Md}"
-        Padding="{controls:Inset Md}"
-        HorizontalAlignment="Center"
-        VerticalAlignment="Center"
-        Background="{DynamicResource ShellDangerSoftBrush}"
-        BorderBrush="{DynamicResource ShellDangerBorderBrush}"
-        BorderThickness="1"
-        CornerRadius="{DynamicResource ShellControlCornerRadius}"
-        IsVisible="False">
-      <controls:LiveRegionTextBlock
-          x:Name="ErrorText"
-          Foreground="{DynamicResource ShellDangerBrush}"
-          TextWrapping="Wrap"
-          AutomationProperties.LiveSetting="Assertive" />
-    </Border>
+    <components:ErrorNoticesView x:Name="ErrorNotices" MaxWidth="620" HorizontalAlignment="Center" VerticalAlignment="Top" />
   </Grid>
 </UserControl>

@@ -7,6 +7,30 @@ namespace Asura.App.Tests;
 public sealed class GitRuntimePanelViewModelTests
 {
     [Fact]
+    public async Task OperationErrorsSurviveRefreshAndSuccessfulRetryUntilDismissed()
+    {
+        var client = new FakeGitRepositoryClient();
+        using var panel = new GitRuntimePanelViewModel(
+            PanelInstanceId.New(), "Git", client, BuiltInConnections.Local);
+        await panel.OpenRepositoryAsync("/repo");
+        await panel.DiffLoading;
+        client.NextMutationError = new GitError(
+            GitErrorCode.GitUnavailable, "Push failed: credentials required", Retryable: true);
+
+        await panel.PushAsync();
+        var notice = Assert.Single(panel.ErrorNotices.Items);
+        Assert.Contains("credentials required", notice.Message, StringComparison.Ordinal);
+
+        await panel.RefreshAsync();
+        await panel.PushAsync();
+
+        Assert.False(panel.HasIssue);
+        Assert.Same(notice, Assert.Single(panel.ErrorNotices.Items));
+        notice.Dismiss();
+        Assert.False(panel.ErrorNotices.HasErrors);
+    }
+
+    [Fact]
     public async Task OpeningARepositoryLoadsSnapshotHistoryAndDiff()
     {
         var client = new FakeGitRepositoryClient();

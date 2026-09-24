@@ -513,8 +513,8 @@
           </Border>
           <controls:StateOverlay
               Kind="Retry"
-              Heading="{Binding ContentPresentation.Title}"
-              Body="{Binding ContentPresentation.Message}"
+              Heading="Location unavailable"
+              Body="Use Retry to read this location again."
               IsVisible="{Binding ShowErrorState}"
               AutomationProperties.LiveSetting="Assertive"
               AutomationProperties.Name="{Binding ContentPresentation.AccessibleName}">
@@ -541,21 +541,7 @@
               AutomationProperties.Name="File Viewer search has no results">
             <TextBlock MaxWidth="360" HorizontalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding ContentPresentation.SuggestedAction}" TextAlignment="Center" TextWrapping="Wrap" />
           </controls:StateOverlay>
-          <controls:Callout
-              Margin="{controls:Inset Md}"
-              VerticalAlignment="Bottom"
-              Tone="Danger"
-              Glyph="ErrorCircle"
-              Title="{Binding OperationIssue.Title}"
-              Text="{Binding OperationIssue.Message}"
-              Footnote="{Binding OperationIssue.SuggestedAction}"
-              IsVisible="{Binding HasOperationIssue}"
-              AutomationProperties.LiveSetting="Assertive"
-              AutomationProperties.Name="File Viewer operation status">
-            <controls:Callout.Action>
-              <Button Classes="IconButton" Click="OnDismissOperationIssueClick" AutomationProperties.Name="Dismiss File Viewer operation status"><icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellFontSize11}" /></Button>
-            </controls:Callout.Action>
-          </controls:Callout>
+
           <ProgressBar Classes="WorkingStripe" IsVisible="{Binding ShowNavigationProgress}" />
         </Grid>
 
@@ -825,15 +811,7 @@
                     FontSize="{DynamicResource ShellFontSize9}"
                     Text="Press Space to preview" />
               </StackPanel>
-              <controls:Callout
-                  Margin="{controls:Inset Md}"
-                  VerticalAlignment="Bottom"
-                  ShowsGlyph="False"
-                  Title="{Binding MetadataIssue.Title}"
-                  Text="{Binding MetadataIssue.Message}"
-                  IsVisible="{Binding HasMetadataIssue}"
-                  AutomationProperties.LiveSetting="Polite"
-                  AutomationProperties.Name="File metadata status" />
+
             </Grid>
           </Grid>
         </Border>

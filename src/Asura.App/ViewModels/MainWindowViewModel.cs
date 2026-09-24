@@ -2357,6 +2357,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             if (SetProperty(ref _operationError, value))
             {
+                ReportError(value);
                 OnPropertyChanged(nameof(HasOperationError));
             }
         }

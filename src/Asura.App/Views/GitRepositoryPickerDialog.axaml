@@ -3,6 +3,7 @@
     x:DataType="vm:GitRepositoryPickerViewModel"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:components="using:Asura.App.Views.Components"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia"
@@ -39,12 +40,7 @@
             AutomationProperties.Name="Directory path" />
       </Grid>
 
-      <controls:Callout
-          Grid.Row="1"
-          Tone="Danger"
-          Title="Cannot open folder"
-          Text="{Binding IssueMessage}"
-          IsVisible="{Binding HasIssue}" />
+      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
 
       <ListBox
           Grid.Row="2"

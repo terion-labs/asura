@@ -150,6 +150,7 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (SetProperty(ref _routeErrorMessage, value))
             {
+                ReportError(value, "Browser connection failed");
                 OnPropertyChanged(nameof(HasRouteError));
             }
         }
