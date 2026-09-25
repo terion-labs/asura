@@ -161,7 +161,8 @@ public sealed partial class GovernedAgentRuntimeTests
             _ => throw new InvalidOperationException(
                 "The ask-user provider received an unexpected round."),
         });
-        await using var fixture = new RuntimeFixture(provider);
+        var checkpoints = new InMemoryCheckpointStore();
+        await using var fixture = new RuntimeFixture(provider, checkpointStore: checkpoints);
         ConcurrentQueue<GovernedAgentState> observedStates = [];
         fixture.Runtime.Changed += (_, _) =>
             observedStates.Enqueue(fixture.Runtime.Snapshot.State);
@@ -250,6 +251,16 @@ public sealed partial class GovernedAgentRuntimeTests
         Assert.Empty(fixture.Terminal.Actions);
         Assert.Empty(fixture.Terminal.Permits);
         Assert.Empty(fixture.Audit.Events);
+
+        var messages = fixture.Runtime.Snapshot.Messages;
+        Assert.Equal(
+            [AgentChatMessageKind.Message, AgentChatMessageKind.Question,
+                AgentChatMessageKind.Answer, AgentChatMessageKind.Message],
+            messages.Select(message => message.Kind));
+        var runId = Assert.Single(fixture.Runtime.Snapshot.Conversations).RunId;
+        Assert.True(await fixture.Runtime.StartNewConversationAsync(CancellationToken.None));
+        Assert.True(await fixture.Runtime.OpenConversationAsync(runId, CancellationToken.None));
+        Assert.Equal(messages, fixture.Runtime.Snapshot.Messages);
     }
 
     [Fact]
