@@ -217,7 +217,7 @@ public sealed class AgentWorkspaceViewContractTests
             AttributeValue(contextDonut, "Percentage"));
         var composerToolbar = FindNamedElement(root, "AgentComposerToolbar");
         Assert.Equal(
-            "Auto,*,Auto,*,Auto",
+            "Auto,*,Auto,*,Auto,Auto",
             AttributeValue(composerToolbar, "ColumnDefinitions"));
         Assert.Equal("0", AttributeValue(composerToolbar, "ColumnSpacing"));
         var accessMode = Assert.Single(
@@ -249,6 +249,8 @@ public sealed class AgentWorkspaceViewContractTests
         Assert.Equal(
             "{Binding AgentChat.ShowStopAction, FallbackValue=False}",
             AttributeValue(stop, "IsVisible"));
+        Assert.Same(composerToolbar, stop.Parent);
+        Assert.Equal("5", AttributeValue(stop, "Grid.Column"));
 
         var committedReasoning = Assert.Single(
             root.Descendants(),

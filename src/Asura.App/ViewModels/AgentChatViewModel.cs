@@ -1480,7 +1480,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     public bool CanShowPrimaryAction => HasProvider;
 
-    public bool ShowPrimaryAction => CanShowPrimaryAction && !HasFailedTurn;
+    public bool ShowPrimaryAction =>
+        CanShowPrimaryAction && !HasFailedTurn && (!IsBusy || CanSubmitPrompt);
 
     public bool ShowStopAction => CanStop;
 
