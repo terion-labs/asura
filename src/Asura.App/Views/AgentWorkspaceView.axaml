@@ -292,21 +292,6 @@
             </Flyout>
           </Button.Flyout>
         </Button>
-        <Button
-            Grid.Column="4"
-            VerticalAlignment="Center"
-            Classes="IconButton"
-            Click="OnCancelAgentChatClick"
-            IsEnabled="{Binding AgentChat.CanRequestStop}"
-            IsVisible="{Binding AgentChat.ShowStopAction, FallbackValue=False}"
-            ToolTip.Tip="Stop agent"
-            AutomationProperties.Name="Stop AI agent run">
-          <Border
-              Width="9"
-              Height="9"
-              Background="{DynamicResource ShellTextBrush}"
-              CornerRadius="2" />
-        </Button>
         <!-- One button, two facts: pinned holds the panel in the layout,
              unpinned lets it float over the canvas. The workspace remembers
              which. -->
@@ -941,7 +926,7 @@
           <Grid
               x:Name="AgentComposerToolbar"
               Grid.Row="1"
-              ColumnDefinitions="Auto,*,Auto,*,Auto"
+              ColumnDefinitions="Auto,*,Auto,*,Auto,Auto"
               ColumnSpacing="0"
               IsVisible="{Binding !AgentChat.HasFailedTurn}">
             <Button
@@ -1181,6 +1166,7 @@
               </Button.Flyout>
             </Button>
             <Button
+                x:Name="AgentSendButton"
                 Grid.Column="4"
                 Width="38"
                 Height="38"
@@ -1191,6 +1177,24 @@
                 IsVisible="{Binding AgentChat.ShowPrimaryAction}"
                 AutomationProperties.Name="{Binding AgentChat.PrimaryActionAccessibleName}">
               <icons:SymbolIcon Symbol="ArrowUp" FontSize="15" />
+            </Button>
+            <Button
+                x:Name="AgentStopButton"
+                Grid.Column="5"
+                Height="38"
+                CornerRadius="{DynamicResource ShellPillCornerRadius}"
+                Classes="PrimaryButton"
+                Click="OnCancelAgentChatClick"
+                IsEnabled="{Binding AgentChat.CanRequestStop}"
+                IsVisible="{Binding AgentChat.ShowStopAction, FallbackValue=False}"
+                ToolTip.Tip="Stop this run to change the model or send a new message"
+                AutomationProperties.Name="Stop AI agent run">
+              <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+                <Border Width="9" Height="9" VerticalAlignment="Center"
+                    Background="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                    CornerRadius="2" />
+                <TextBlock Text="Stop" />
+              </StackPanel>
             </Button>
           </Grid>
         </Grid>
