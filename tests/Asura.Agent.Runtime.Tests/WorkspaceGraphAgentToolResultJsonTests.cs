@@ -14,6 +14,53 @@ public sealed class WorkspaceGraphAgentToolResultJsonTests
         new(2026, 7, 24, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public void InspectionAndPanelListingSupportEveryPanelKind()
+    {
+        var names = new Dictionary<PanelKind, string>
+        {
+            [PanelKind.Terminal] = "terminal",
+            [PanelKind.Browser] = "browser",
+            [PanelKind.FileViewer] = "file_viewer",
+            [PanelKind.Statistics] = "statistics",
+            [PanelKind.ProcessMonitor] = "process_monitor",
+            [PanelKind.Placeholder] = "placeholder",
+            [PanelKind.DatabaseViewer] = "database_viewer",
+            [PanelKind.Docker] = "docker",
+            [PanelKind.Git] = "git",
+            [PanelKind.Kubernetes] = "kubernetes",
+        };
+        Assert.Equal(Enum.GetValues<PanelKind>().Order(), names.Keys.Order());
+
+        foreach (var (kind, name) in names)
+        {
+            var fixture = GraphFixture.Create(statisticsKind: kind);
+            var target = new AgentTarget.Workspace(fixture.WindowId, fixture.WorkspaceId);
+            var inspection = WorkspaceGraphAgentToolResultJson.Project(fixture.Project(
+                target, fixture.AllPanels, new AgentWorkspaceGraphRequest.WorkspaceInspect()));
+            var listing = WorkspaceGraphAgentToolResultJson.Project(fixture.Project(
+                target, fixture.AllPanels, new AgentWorkspaceGraphRequest.PanelList()));
+
+            Assert.True(inspection.IsSuccess);
+            Assert.True(listing.IsSuccess);
+            using var inspected = JsonDocument.Parse(inspection.Json);
+            using var listed = JsonDocument.Parse(listing.Json);
+            var inspectedPanels = inspected.RootElement.GetProperty("workspace")
+                .GetProperty("tabs")[0].GetProperty("panels");
+            var listedPanels = listed.RootElement.GetProperty("page").GetProperty("items");
+            foreach (var panels in new[] { inspectedPanels, listedPanels })
+            {
+                var panel = Assert.Single(panels.EnumerateArray(), item =>
+                    string.Equals(item.GetProperty("panel_id").GetString(),
+                        fixture.StatisticsPanelId.Value, StringComparison.Ordinal));
+                Assert.Equal(name, panel.GetProperty("kind").GetString());
+                Assert.Contains(panels.EnumerateArray(), item =>
+                    string.Equals(item.GetProperty("panel_id").GetString(),
+                        fixture.TerminalPanelId.Value, StringComparison.Ordinal));
+            }
+        }
+    }
+
+    [Fact]
     public void WorkspaceInspectShapeNestsOnlyTabsAndPanelsInsideTheRunScope()
     {
         var fixture = GraphFixture.Create();
@@ -684,7 +731,8 @@ public sealed class WorkspaceGraphAgentToolResultJsonTests
         public static GraphFixture Create(
             int panelCount = 4,
             string workspaceTitle = "Workspace",
-            string statisticsTitle = "Statistics")
+            string statisticsTitle = "Statistics",
+            PanelKind statisticsKind = PanelKind.Statistics)
         {
             if (panelCount != 4 && panelCount != 17)
             {
@@ -743,7 +791,7 @@ public sealed class WorkspaceGraphAgentToolResultJsonTests
                 terminalSessionId);
             var statistics = new PanelInstance(
                 statisticsPanelId,
-                PanelKind.Statistics,
+                statisticsKind,
                 statisticsTitle);
             var browser = new PanelInstance(
                 browserPanelId,

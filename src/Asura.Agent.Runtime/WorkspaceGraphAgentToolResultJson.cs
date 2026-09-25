@@ -280,6 +280,8 @@ internal static class WorkspaceGraphAgentToolResultJson
             PanelKind.Placeholder => "placeholder",
             PanelKind.DatabaseViewer => "database_viewer",
             PanelKind.Docker => "docker",
+            PanelKind.Git => "git",
+            PanelKind.Kubernetes => "kubernetes",
             _ => throw new ArgumentOutOfRangeException(nameof(kind)),
         };
 
