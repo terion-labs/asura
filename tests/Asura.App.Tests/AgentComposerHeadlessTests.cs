@@ -2238,11 +2238,11 @@ public sealed partial class AgentChatViewModelTests
             return Task.CompletedTask;
         });
 
-    private static async Task RunAgentComposerHeadlessAsync(Func<Task> assertion)
+    private static async Task RunAgentComposerHeadlessAsync(Func<Task> assertion, Type? applicationType = null)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var session = HeadlessUnitTestSession.StartNew(
-            typeof(SqlEditorHeadlessApplication));
+            applicationType ?? typeof(SqlEditorHeadlessApplication));
         try
         {
             var completed = await session.Dispatch(

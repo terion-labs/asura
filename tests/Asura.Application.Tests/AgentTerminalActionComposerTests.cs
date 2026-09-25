@@ -792,12 +792,12 @@ public sealed class AgentTerminalActionComposerTests
     {
         var composer = new AgentTerminalActionComposer();
 
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<AgentTerminalInputRejectedException>(() =>
             composer.Prepare(
                 Envelope(),
                 TerminalContext(),
                 SendText(text)));
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<AgentTerminalInputRejectedException>(() =>
             composer.Prepare(
                 Envelope(),
                 TerminalContext(),

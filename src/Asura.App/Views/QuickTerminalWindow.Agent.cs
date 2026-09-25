@@ -91,45 +91,7 @@ public sealed partial class QuickTerminalWindow
             return;
         }
 
-        var files = await StorageProvider.OpenFilePickerAsync(
-            new FilePickerOpenOptions
-            {
-                Title = "Attach an image to the agent prompt",
-                AllowMultiple = false,
-                FileTypeFilter =
-                [
-                    new FilePickerFileType("Images")
-                    {
-                        Patterns = ["*.png", "*.jpg", "*.jpeg", "*.gif", "*.webp"],
-                        MimeTypes = ["image/png", "image/jpeg", "image/gif", "image/webp"],
-                    },
-                ],
-            });
-        if (files.Count != 1)
-        {
-            return;
-        }
-
-        try
-        {
-            await using var stream = await files[0].OpenReadAsync();
-            var bytes = await MainWindow.ReadBoundedImageAsync(stream, _lifetime.Token);
-            agentChat.AddPendingImage(
-                new AgentImageAttachment(
-                    files[0].Name,
-                    MainWindow.DetectImageMediaType(bytes),
-                    bytes));
-        }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
-        {
-        }
-        catch (Exception exception)
-            when (exception is ArgumentException
-                or InvalidOperationException
-                or IOException)
-        {
-            agentChat.ReportTargetUnavailable(exception.Message);
-        }
+        await AgentImageImport.PickAsync(StorageProvider, agentChat, _lifetime.Token);
     }
 
     private void OnClearAgentImagesClick(object? sender, RoutedEventArgs e)

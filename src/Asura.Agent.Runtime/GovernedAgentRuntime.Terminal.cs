@@ -78,6 +78,13 @@ public sealed partial class GovernedAgentRuntime
                     sessionId,
                     resizeAttachments.GetValueOrDefault(panel.PanelId)));
         }
+        catch (AgentTerminalInputRejectedException exception)
+        {
+            return CreateFailedResult(
+                proposal,
+                "terminal_input_contains_credentials",
+                TerminalAgentToolResultJson.InputRejected(panel.PanelId, exception.Message));
+        }
         catch (Exception exception)
             when (exception is ArgumentException or InvalidOperationException)
         {

@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:application="using:Asura.Application"
+    xmlns:core="using:Asura.Core"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:icons="using:FluentIcons.Avalonia"
@@ -971,9 +972,36 @@
           BorderThickness="1"
           CornerRadius="{DynamicResource ShellCardCornerRadius}"
           IsVisible="{Binding AgentChat.HasProvider, FallbackValue=False}">
-        <Grid RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource ShellSpaceXs}">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="{DynamicResource ShellSpaceXs}">
+          <ItemsControl
+              x:Name="AgentPendingImages"
+              ItemsSource="{Binding AgentChat.PendingImages}"
+              IsVisible="{Binding AgentChat.HasPendingImages}"
+              AutomationProperties.Name="Images attached to the next message">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="core:AgentImageAttachment">
+                <Border Margin="{controls:Inset Right=Xs, Bottom=Xs}" Padding="{controls:Inset Left=Sm}"
+                    Background="{DynamicResource ShellSurfaceRaisedBrush}"
+                    CornerRadius="{DynamicResource ShellControlCornerRadius}">
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                    <icons:SymbolIcon Symbol="Image" FontSize="14" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" MaxWidth="180" VerticalAlignment="Center"
+                        Text="{Binding FileName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FileName}" />
+                    <Button Grid.Column="2" Classes="IconButton" Click="OnRemoveAgentImageClick" Tag="{Binding}"
+                        ToolTip.Tip="Remove image" AutomationProperties.Name="{Binding FileName, StringFormat={}Remove attached image {0}}">
+                      <icons:SymbolIcon Symbol="Dismiss" FontSize="12" />
+                    </Button>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
           <TextBox
               x:Name="AgentChatPromptInput"
+              Grid.Row="1"
               MinHeight="56"
               MaxHeight="150"
               Padding="{controls:Inset Sm}"
@@ -983,13 +1011,14 @@
               TextWrapping="Wrap"
               MaxLength="65536"
               Text="{Binding AgentChat.Prompt, Mode=TwoWay}"
+              PastingFromClipboard="OnAgentPromptPasting"
               IsEnabled="{Binding AgentChat.CanEnterPrompt}"
               IsVisible="{Binding !AgentChat.HasFailedTurn}"
               PlaceholderText="{Binding AgentChat.PromptPlaceholder}"
               AutomationProperties.Name="AI agent prompt" />
           <Grid
               x:Name="AgentComposerToolbar"
-              Grid.Row="1"
+              Grid.Row="2"
               ColumnDefinitions="Auto,*,Auto,*,Auto,Auto"
               ColumnSpacing="0"
               IsVisible="{Binding !AgentChat.HasFailedTurn}">
@@ -1259,6 +1288,8 @@
                   CornerRadius="2" />
             </Button>
           </Grid>
+          <TextBlock Grid.Row="3" Text="{Binding AgentChat.AttachmentError}" TextWrapping="Wrap"
+              Foreground="{DynamicResource ShellDangerBrush}" IsVisible="{Binding AgentChat.HasAttachmentError}" />
         </Grid>
         </Border>
       </StackPanel>
