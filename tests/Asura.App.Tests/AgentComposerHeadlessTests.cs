@@ -964,6 +964,67 @@ public sealed partial class AgentChatViewModelTests
         });
 
     [Fact]
+    public Task Ask_widget_history_renders_labeled_cards_and_keeps_copy_actions() =>
+        RunAgentComposerHeadlessAsync(async () =>
+        {
+            var provider = Provider("provider", "Provider", order: 0);
+            using var runtime = new StubGovernedRuntime
+            {
+                Snapshot = Snapshot(
+                    state: GovernedAgentState.Ready,
+                    runId: new AgentRunId("run-question-history"),
+                    providerId: provider.Id,
+                    target: Target(),
+                    messages:
+                    [
+                        new AgentChatMessage(AgentChatMessageRole.User, "Inspect staging."),
+                        new AgentChatMessage(AgentChatMessageRole.Assistant, "Which **region**?",
+                            Kind: AgentChatMessageKind.Question),
+                        new AgentChatMessage(AgentChatMessageRole.User, "Europe",
+                            Kind: AgentChatMessageKind.Answer),
+                    ]),
+            };
+            using var profiles = new StubProfileRuntime { Profiles = [provider] };
+            using var viewModel = new AgentChatViewModel(runtime, profiles, ImmediateUiThreadDispatcher.Instance);
+            var view = new AgentWorkspaceView { DataContext = new AgentComposerHost(viewModel) };
+            var window = new Window { Width = 700, Height = 900, Content = view };
+            try
+            {
+                window.Show();
+                _ = await WaitForVisualAsync<SurfaceCard>(view, window,
+                    card => card.Name == "AgentQuestionAnswerBlock" && card.IsEffectivelyVisible,
+                    "the question/answer history cards");
+                window.UpdateLayout();
+
+                var cards = view.GetVisualDescendants().OfType<SurfaceCard>()
+                    .Where(card => card.Name == "AgentQuestionAnswerBlock" && card.IsEffectivelyVisible)
+                    .ToArray();
+                Assert.Equal(["Question", "Your answer"], cards.Select(AutomationProperties.GetName), StringComparer.Ordinal);
+                Assert.True(viewModel.Messages[0].IsUserMessage);
+                Assert.False(viewModel.Messages[1].IsAssistantMessage);
+                Assert.False(viewModel.Messages[2].IsUserMessage);
+
+                AgentChatMessageViewModel? copied = null;
+                view.CopyAgentMessageRequested += (sender, _) =>
+                    copied = Assert.IsType<AgentChatMessageViewModel>(Assert.IsType<Button>(sender).Tag);
+                foreach (var card in cards)
+                {
+                    var message = Assert.IsType<AgentChatMessageViewModel>(card.DataContext);
+                    var copy = Assert.Single(card.GetVisualDescendants().OfType<Button>());
+                    copy.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    Assert.Same(message, copied);
+                    Assert.Contains(card.GetVisualDescendants().OfType<MarkdownPreviewView>(),
+                        preview => preview.Text == message.Content && preview.ContinuousSelection);
+                    Assert.False(message.CanFork);
+                }
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+    [Fact]
     public Task Empty_assistant_turn_hides_copy_and_fork_actions() =>
         RunAgentComposerHeadlessAsync(async () =>
         {

@@ -342,7 +342,7 @@
                   <StackPanel
                       MaxWidth="286"
                       HorizontalAlignment="Right"
-                      IsVisible="{Binding IsUser}"
+                      IsVisible="{Binding IsUserMessage}"
                       AutomationProperties.Name="{Binding Author}">
                     <Border
                         Padding="{controls:Inset Sm}"
@@ -373,7 +373,7 @@
                   <StackPanel
                       HorizontalAlignment="Stretch"
                       Spacing="{DynamicResource ShellSpaceSm}"
-                      IsVisible="{Binding IsAssistant}"
+                      IsVisible="{Binding IsAssistantMessage}"
                       AutomationProperties.Name="{Binding Author}">
                     <StackPanel
                         IsVisible="{Binding HasReasoningSummary}"
@@ -455,6 +455,34 @@
                       </Button>
                     </StackPanel>
                   </StackPanel>
+                  <controls:SurfaceCard
+                      x:Name="AgentQuestionAnswerBlock"
+                      Tone="Notice"
+                      Padding="{DynamicResource ShellCardPaddingCompact}"
+                      IsVisible="{Binding IsQuestionOrAnswer}"
+                      AutomationProperties.Name="{Binding QuestionAnswerLabel}">
+                    <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+                      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Classes="Eyebrow"
+                            Text="{Binding QuestionAnswerLabel}" />
+                        <Button
+                            Grid.Column="1"
+                            Classes="IconButton"
+                            Click="OnCopyAgentMessageClick"
+                            Tag="{Binding}"
+                            IsVisible="{Binding HasMessageText}"
+                            ToolTip.Tip="Copy message"
+                            AutomationProperties.Name="{Binding QuestionAnswerLabel, StringFormat={}Copy {0}}">
+                          <icons:SymbolIcon Symbol="Copy" FontSize="12" />
+                        </Button>
+                      </Grid>
+                      <components:MarkdownPreviewView
+                          ContinuousSelection="True"
+                          Text="{Binding Content}" />
+                    </StackPanel>
+                  </controls:SurfaceCard>
                 </Grid>
               </DataTemplate>
             </ItemsControl.ItemTemplate>

@@ -5056,11 +5056,13 @@ public sealed partial class GovernedAgentRuntime :
             projected.Add(
                 new AgentChatMessage(
                     AgentChatMessageRole.Assistant,
-                    question));
+                    question,
+                    Kind: AgentChatMessageKind.Question));
             projected.Add(
                 new AgentChatMessage(
                     AgentChatMessageRole.User,
-                    answer));
+                    answer,
+                    Kind: AgentChatMessageKind.Answer));
         }
 
         return CopyMessages(projected);

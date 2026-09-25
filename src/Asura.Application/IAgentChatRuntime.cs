@@ -37,6 +37,14 @@ public enum AgentChatMessageRole
     Assistant,
 }
 
+/// <summary>Presentation origin derived from the durable transcript, independent of speaker role.</summary>
+public enum AgentChatMessageKind
+{
+    Message,
+    Question,
+    Answer,
+}
+
 public sealed record AgentChatUsage(
     long InputTokens,
     long OutputTokens,
@@ -56,7 +64,8 @@ public sealed record AgentChatMessage(
     AgentChatUsage? Usage = null,
     IReadOnlyList<AgentChatImage>? Images = null,
     AgentReasoningEffort? RequestedReasoningEffort = null,
-    AgentConversationForkPoint? ForkPoint = null);
+    AgentConversationForkPoint? ForkPoint = null,
+    AgentChatMessageKind Kind = AgentChatMessageKind.Message);
 
 public sealed record AgentChatSnapshot(
     AgentChatState State,

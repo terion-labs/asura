@@ -12,11 +12,20 @@ public sealed record AgentChatMessageViewModel(
     AgentChatUsage? Usage = null,
     IReadOnlyList<AgentChatImage>? Images = null,
     AgentReasoningEffort? RequestedReasoningEffort = null,
-    AgentConversationForkPoint? ForkPoint = null)
+    AgentConversationForkPoint? ForkPoint = null,
+    AgentChatMessageKind Kind = AgentChatMessageKind.Message)
 {
     public bool IsUser => Role == AgentChatMessageRole.User;
 
     public bool IsAssistant => Role == AgentChatMessageRole.Assistant;
+
+    public bool IsUserMessage => IsUser && Kind == AgentChatMessageKind.Message;
+
+    public bool IsAssistantMessage => IsAssistant && Kind == AgentChatMessageKind.Message;
+
+    public bool IsQuestionOrAnswer => Kind is AgentChatMessageKind.Question or AgentChatMessageKind.Answer;
+
+    public string QuestionAnswerLabel => Kind == AgentChatMessageKind.Question ? "Question" : "Your answer";
 
     public string Author => IsUser ? "You" : "Asura";
 
@@ -2568,7 +2577,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                     message.Usage,
                     message.Images,
                     message.RequestedReasoningEffort,
-                    message.ForkPoint)));
+                    message.ForkPoint,
+                    message.Kind)));
         NotifyContextWindowChanged();
         Replace(
             Conversations,
