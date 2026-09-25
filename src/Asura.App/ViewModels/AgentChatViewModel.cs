@@ -1128,10 +1128,16 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     }
 
     public bool CanShowAudit =>
-        _auditReader is not null
+        AuditEvidenceUiEnabled
+        && _auditReader is not null
         && _auditRunId is not null;
 
-    internal static bool AuditEvidenceUiEnabled => true;
+    internal static bool AuditEvidenceUiEnabled =>
+#if ASURA_PRODUCTION
+        false;
+#else
+        true;
+#endif
 
     public bool HasAuditActivity => CanShowAudit;
 
@@ -2751,7 +2757,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         bool replace,
         CancellationToken cancellationToken)
     {
-        if (_auditReader is null
+        if (!AuditEvidenceUiEnabled
+            || _auditReader is null
             || _auditRunId is not { } runId
             || IsAuditLoading
             || !IsAuditExpanded
