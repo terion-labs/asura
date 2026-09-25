@@ -3510,13 +3510,17 @@ public sealed partial class AgentChatViewModelTests
     }
 
     [Fact]
-    public void Audit_evidence_ui_is_available_in_every_build_configuration()
+    public void Audit_evidence_ui_is_available_only_in_development_builds()
     {
+#if ASURA_PRODUCTION
+        Assert.False(AgentChatViewModel.AuditEvidenceUiEnabled);
+#else
         Assert.True(AgentChatViewModel.AuditEvidenceUiEnabled);
+#endif
     }
 
     [Fact]
-    public async Task Restored_conversation_owns_production_audit_and_policy_comparison()
+    public async Task Restored_conversation_owns_audit_and_policy_comparison()
     {
         var provider = Provider("provider", "Provider", order: 0);
         var selectedRun = new AgentRunId("run-restored-history");
@@ -3559,11 +3563,18 @@ public sealed partial class AgentChatViewModelTests
             ImmediateUiThreadDispatcher.Instance,
             auditReader);
 
-        Assert.True(viewModel.CanShowAudit);
+        Assert.Equal(AgentChatViewModel.AuditEvidenceUiEnabled, viewModel.CanShowAudit);
         viewModel.IsAuditExpanded = true;
-        await WaitUntilAsync(() => auditReader.ReadCount == 1);
+        if (AgentChatViewModel.AuditEvidenceUiEnabled)
+        {
+            await WaitUntilAsync(() => auditReader.ReadCount == 1);
+            Assert.Equal(selectedRun, auditReader.Queries[0].RunId);
+        }
+        else
+        {
+            Assert.Equal(0, auditReader.ReadCount);
+        }
 
-        Assert.Equal(selectedRun, auditReader.Queries[0].RunId);
         Assert.Equal(7, viewModel.PolicyGeneration);
         var processControl = Assert.Single(
             viewModel.PolicyComparison,
@@ -3615,6 +3626,14 @@ public sealed partial class AgentChatViewModelTests
         if (!AgentChatViewModel.AuditEvidenceUiEnabled)
         {
             Assert.False(viewModel.CanShowAudit);
+            Assert.False(viewModel.HasAuditActivity);
+            viewModel.IsAuditExpanded = true;
+            await viewModel.RefreshAuditAsync(CancellationToken.None);
+            await viewModel.LoadOlderAuditAsync(CancellationToken.None);
+            Assert.False(viewModel.CanRefreshAudit);
+            Assert.False(viewModel.CanLoadOlderAudit);
+            Assert.Equal(0, auditReader.ReadCount);
+            Assert.Empty(viewModel.AuditEntries);
             return;
         }
 
