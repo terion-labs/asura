@@ -872,10 +872,7 @@ public sealed class AgentTerminalActionComposer
 
         if (AgentLiteralSecretValidator.ContainsLikelyLiteralSecret(value))
         {
-            throw new ArgumentException(
-                $"The {label} appears to contain literal secret material; "
-                + "terminal agent actions require a dedicated opaque secret reference path.",
-                label);
+            throw new AgentTerminalInputRejectedException();
         }
 
         return string.Concat(value);

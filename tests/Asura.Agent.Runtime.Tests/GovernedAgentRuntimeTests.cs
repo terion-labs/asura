@@ -3878,7 +3878,7 @@ public sealed partial class GovernedAgentRuntimeTests
                 4 when request.Messages.Any(
                     message => message.Role == AgentMessageRole.Tool
                         && string.Equals(message.ToolResult?.StableCode
-, "tool_request_rejected", StringComparison.Ordinal)) =>
+, "terminal_input_contains_credentials", StringComparison.Ordinal)) =>
                     Answer("The injected paste requests were rejected."),
                 _ => throw new InvalidOperationException(
                     "The paste-injection provider received an unexpected round."),
@@ -3935,7 +3935,7 @@ public sealed partial class GovernedAgentRuntimeTests
                         """),
                 4 when request.Messages.Any(
                     message => message.Role == AgentMessageRole.Tool
-                        && string.Equals(message.ToolResult?.StableCode, "tool_request_rejected", StringComparison.Ordinal)) =>
+                        && string.Equals(message.ToolResult?.StableCode, "terminal_input_contains_credentials", StringComparison.Ordinal)) =>
                     Answer("The injected requests were rejected."),
                 _ => throw new InvalidOperationException(
                     "The prompt-injection provider received an unexpected round."),

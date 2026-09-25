@@ -183,6 +183,22 @@ internal static class TerminalAgentToolResultJson
             retryable: false,
             panelId);
 
+    public static string InputRejected(PanelInstanceId panelId, string message)
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        using var writer = new Utf8JsonWriter(buffer);
+        writer.WriteStartObject();
+        writer.WriteBoolean("ok", false);
+        AgentToolResultJson.WritePanelId(writer, panelId);
+        AgentToolResultJson.WriteError(writer, "error", "terminal_input_contains_credentials", retryable: false);
+        writer.WriteString("message", message);
+        writer.WriteString("required_action", "revise_input");
+        writer.WriteBoolean("input_sent", false);
+        writer.WriteEndObject();
+        writer.Flush();
+        return Encoding.UTF8.GetString(buffer.WrittenSpan);
+    }
+
     private static void WriteScreen(
         Utf8JsonWriter writer,
         TerminalScreenSnapshot snapshot,

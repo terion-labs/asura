@@ -387,6 +387,28 @@ public sealed class AgentTerminalSessionHostTests
     }
 
     [Fact]
+    public async Task Agent_submit_text_resumes_after_manual_terminal_input()
+    {
+        await using var fixture = await AgentTerminalHostFixture.CreateAsync();
+        var first = await fixture.PrepareAsync(new AgentTerminalRequest.SubmitText(fixture.SessionId, "echo before"));
+        var firstResult = await fixture.Client.RunAgentTerminalActionAsync(
+            fixture.Authorization.Arm(first, AgentAuthorizationSource.YoloPolicy, fixture.ClientId), first, default);
+        Assert.IsType<AgentTerminalActionResult.Completed>(firstResult.Value());
+
+        var humanLease = await fixture.AcquireHumanLeaseAsync(fixture.ClientId);
+        var manual = await fixture.Client.WriteTerminalAsync(
+            new TerminalWriteRequest(fixture.SessionId, humanLease.Id, "echo manual\r"), fixture.HumanContext(), default);
+        Assert.IsType<HostResult<Unit>.Success>(manual);
+
+        var next = await fixture.PrepareAsync(new AgentTerminalRequest.SubmitText(fixture.SessionId, "echo after"));
+        var resumed = await fixture.Client.RunAgentTerminalActionAsync(
+            fixture.Authorization.Arm(next, AgentAuthorizationSource.YoloPolicy, fixture.ClientId), next, default);
+        Assert.IsType<AgentTerminalActionResult.Completed>(resumed.Value());
+        Assert.Equal(2, fixture.Factory[fixture.SessionId].SubmitTextCount);
+        Assert.Null((await fixture.SnapshotAsync()).InputLease);
+    }
+
+    [Fact]
     public async Task Repeated_key_is_dispatched_once_without_host_side_expansion()
     {
         await using var fixture = await AgentTerminalHostFixture.CreateAsync();

@@ -796,7 +796,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     public bool CanAttachImages =>
         SelectedProvider?.SupportsImageInput == true
-        && State == GovernedAgentState.Ready
+        && State is GovernedAgentState.Ready or GovernedAgentState.Cancelled
         && !_clearInFlight
         && PendingImages.Count < AgentImageAttachment.MaximumPerMessage;
 
@@ -807,22 +807,57 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public void AddPendingImage(AgentImageAttachment image)
     {
         ArgumentNullException.ThrowIfNull(image);
-        if (PendingImages.Count >= AgentImageAttachment.MaximumPerMessage)
+        AddPendingImages([image]);
+    }
+
+    public void AddPendingImages(IReadOnlyList<AgentImageAttachment> images)
+    {
+        ArgumentNullException.ThrowIfNull(images);
+        if (PendingImages.Count + images.Count > AgentImageAttachment.MaximumPerMessage)
         {
             throw new InvalidOperationException(
                 "At most four images can be attached to one prompt.");
         }
 
         var totalBytes = PendingImages.Sum(item => (long)item.Content.Length)
-            + image.Content.Length;
+            + images.Sum(image => (long)image.Content.Length);
         if (totalBytes > AgentImageAttachment.MaximumTotalBytesPerMessage)
         {
             throw new InvalidOperationException(
                 "The images attached to one prompt exceed the 8 MiB limit.");
         }
 
-        PendingImages.Add(image);
+        foreach (var image in images)
+        {
+            PendingImages.Add(image);
+        }
+        AttachmentError = string.Empty;
         NotifyPendingImagesChanged();
+    }
+
+    private string _attachmentError = string.Empty;
+
+    public string AttachmentError
+    {
+        get => _attachmentError;
+        set
+        {
+            if (SetProperty(ref _attachmentError, value))
+            {
+                OnPropertyChanged(nameof(HasAttachmentError));
+            }
+        }
+    }
+
+    public bool HasAttachmentError => AttachmentError.Length > 0;
+
+    public void RemovePendingImage(AgentImageAttachment image)
+    {
+        if (PendingImages.Remove(image))
+        {
+            AttachmentError = string.Empty;
+            NotifyPendingImagesChanged();
+        }
     }
 
     public void ClearPendingImages()

@@ -7,6 +7,34 @@ namespace Asura.Agent.Runtime.Tests;
 public sealed partial class GovernedAgentRuntimeTests
 {
     [Fact]
+    public async Task Terminal_credential_guard_explains_rejection_and_accepts_revised_input()
+    {
+        var provider = new ProviderRound((call, _) => call switch
+        {
+            1 => ProviderRound.ToolCall("credential-read", BuiltInAgentTools.TerminalSubmitText,
+                """{"text":"token = open('/root/cf.txt').read().strip()"}"""),
+            2 => ProviderRound.ToolCall("revised-input", BuiltInAgentTools.TerminalSubmitText,
+                """{"text":"authenticated-cli status"}"""),
+            _ => ProviderRound.Answer("Completed."),
+        });
+        await using var fixture = new RuntimeFixture(provider);
+        fixture.Terminal.Results.Enqueue(new AgentTerminalActionResult.Completed());
+        var sending = fixture.Runtime.SendAsync(fixture.Prompt("Check the authenticated CLI."), default).AsTask();
+        var approval = await WaitForNewApprovalAsync(fixture.Runtime, previousApproval: null);
+        Assert.Equal(BuiltInAgentTools.TerminalSubmitText, approval.ToolName);
+        var rejection = Assert.Single(provider.Requests.ToArray()[1].Messages,
+            message => message.ToolResult?.ProviderCallId == "credential-read").ToolResult!;
+        Assert.Equal("terminal_input_contains_credentials", rejection.StableCode);
+        Assert.Contains("not a terminal ownership or busy error", rejection.Value.Content, StringComparison.Ordinal);
+        Assert.Contains("revise_input", rejection.Value.Content, StringComparison.Ordinal);
+        Assert.DoesNotContain("/root/cf.txt", rejection.Value.Content, StringComparison.Ordinal);
+        Assert.Empty(fixture.Terminal.Actions);
+        await fixture.Runtime.DecideAsync(approval.Id, approved: true, default);
+        Assert.True((await sending.WaitAsync(TimeSpan.FromSeconds(5))).IsSuccess);
+        Assert.Equal("authenticated-cli status", Assert.IsType<AgentTerminalRequest.SubmitText>(Assert.Single(fixture.Terminal.Actions).Request).Text);
+    }
+
+    [Fact]
     public async Task MaliciousTerminalContentCannotHidePasteApprovalOrExecutionReceipt()
     {
         const string pasteText = "deploy staging\n\t--dry-run";
@@ -264,7 +292,7 @@ public sealed partial class GovernedAgentRuntimeTests
             requests[3].Messages,
             message => message.Role == AgentMessageRole.Tool
                 && string.Equals(message.ToolResult?.StableCode
-, "tool_request_rejected", StringComparison.Ordinal)).ToolResult;
+, "terminal_input_contains_credentials", StringComparison.Ordinal)).ToolResult;
         Assert.NotNull(rejectedSecret);
         Assert.DoesNotContain(
             secret,

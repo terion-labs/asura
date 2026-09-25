@@ -13,11 +13,6 @@ namespace Asura.App.Views;
 
 public sealed partial class MainWindow
 {
-    private static readonly FilePickerFileType AgentImageFileType = new("Images")
-    {
-        Patterns = ["*.png", "*.jpg", "*.jpeg", "*.gif", "*.webp"],
-        MimeTypes = ["image/png", "image/jpeg", "image/gif", "image/webp"],
-    };
     private static readonly FilePickerFileType AgentHistoryFileType = new(
         "Asura agent history")
     {
@@ -86,38 +81,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        var files = await StorageProvider.OpenFilePickerAsync(
-            new FilePickerOpenOptions
-            {
-                Title = "Attach an image to the agent prompt",
-                AllowMultiple = false,
-                FileTypeFilter = [AgentImageFileType],
-            });
-        if (files.Count != 1)
-        {
-            return;
-        }
-
-        try
-        {
-            await using var stream = await files[0].OpenReadAsync();
-            var bytes = await ReadBoundedImageAsync(stream, _lifetime.Token);
-            agentChat.AddPendingImage(
-                new AgentImageAttachment(
-                    files[0].Name,
-                    DetectImageMediaType(bytes),
-                    bytes));
-        }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
-        {
-        }
-        catch (Exception exception)
-            when (exception is ArgumentException
-                or InvalidOperationException
-                or IOException)
-        {
-            agentChat.ReportTargetUnavailable(exception.Message);
-        }
+        await AgentImageImport.PickAsync(StorageProvider, agentChat, _lifetime.Token);
     }
 
     private void OnClearAgentImagesClick(object? sender, RoutedEventArgs e)
@@ -125,62 +89,6 @@ public sealed partial class MainWindow
         _ = sender;
         _ = e;
         ViewModel.AgentChat?.ClearPendingImages();
-    }
-
-    internal static async Task<byte[]> ReadBoundedImageAsync(
-        Stream stream,
-        CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(stream);
-        using var buffer = new MemoryStream();
-        var chunk = new byte[64 * 1024];
-        while (true)
-        {
-            var read = await stream.ReadAsync(chunk, cancellationToken);
-            if (read == 0)
-            {
-                break;
-            }
-
-            if (buffer.Length + read > AgentImageAttachment.MaximumBytes)
-            {
-                throw new InvalidOperationException(
-                    "An attached image cannot exceed 4 MiB.");
-            }
-
-            buffer.Write(chunk, 0, read);
-        }
-
-        if (buffer.Length == 0)
-        {
-            throw new InvalidOperationException("The selected image is empty.");
-        }
-
-        return buffer.ToArray();
-    }
-
-    internal static string DetectImageMediaType(ReadOnlySpan<byte> content)
-    {
-        foreach (var mediaType in new[]
-                 {
-                     "image/png",
-                     "image/jpeg",
-                     "image/gif",
-                     "image/webp",
-                 })
-        {
-            try
-            {
-                _ = new AgentImageAttachment("image", mediaType, content);
-                return mediaType;
-            }
-            catch (ArgumentException)
-            {
-            }
-        }
-
-        throw new InvalidOperationException(
-            "The selected file is not a supported PNG, JPEG, GIF, or WebP image.");
     }
 
     private async void OnAgentQuestionResponseKeyDown(
