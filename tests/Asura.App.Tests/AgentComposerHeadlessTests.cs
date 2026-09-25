@@ -395,8 +395,11 @@ public sealed partial class AgentChatViewModelTests
             return Task.CompletedTask;
         });
 
-    [Fact]
-    public Task Busy_conversation_renders_ordered_queue_arrow_and_separate_stop() =>
+    [Theory]
+    [InlineData(360)]
+    [InlineData(420)]
+    [InlineData(700)]
+    public Task Busy_conversation_renders_ordered_queue_arrow_and_separate_stop(int width) =>
         RunAgentComposerHeadlessAsync(() =>
         {
             var provider = Provider("provider", "Provider", order: 0);
@@ -443,7 +446,7 @@ public sealed partial class AgentChatViewModelTests
             };
             var window = new Window
             {
-                Width = 700,
+                Width = width,
                 Height = 900,
                 Content = view,
             };
@@ -493,6 +496,15 @@ public sealed partial class AgentChatViewModelTests
                 Assert.True(send.IsEnabled);
                 Assert.True(stop.IsEffectivelyVisible);
                 Assert.True(stop.IsEnabled);
+                Assert.Equal(34, send.Bounds.Width);
+                Assert.Equal(send.Bounds.Size, stop.Bounds.Size);
+                Assert.True(send.Bounds.Right < stop.Bounds.Left);
+                var toolbar = Assert.IsType<Grid>(stop.Parent);
+                Assert.True(stop.Bounds.Right <= toolbar.Bounds.Width);
+                var stopClicks = 0;
+                view.CancelAgentChatRequested += (_, _) => stopClicks++;
+                stop.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal(1, stopClicks);
 
                 var normalSubmissions = 0;
                 var steeringSubmissions = 0;
@@ -701,8 +713,11 @@ public sealed partial class AgentChatViewModelTests
             }
         });
 
-    [Fact]
-    public Task Restored_chat_renders_context_usage_and_accepts_full_access_immediately() =>
+    [Theory]
+    [InlineData(360)]
+    [InlineData(420)]
+    [InlineData(700)]
+    public Task Restored_chat_renders_context_usage_and_accepts_full_access_immediately(int width) =>
         RunAgentComposerHeadlessAsync(async () =>
         {
             var model = new AiProviderModelDescriptor(
@@ -739,7 +754,7 @@ public sealed partial class AgentChatViewModelTests
             };
             var window = new Window
             {
-                Width = 420,
+                Width = width,
                 Height = 900,
                 Content = view,
             };

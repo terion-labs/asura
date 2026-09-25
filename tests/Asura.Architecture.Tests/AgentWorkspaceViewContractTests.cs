@@ -207,8 +207,8 @@ public sealed class AgentWorkspaceViewContractTests
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "AutomationProperties.Name")
 , "{Binding AgentChat.ContextWindowUsageLabel}", StringComparison.Ordinal));
         Assert.Null(AttributeValue(contextUsage, "Content"));
-        Assert.Equal("34", AttributeValue(contextUsage, "Width"));
-        Assert.Equal("34", AttributeValue(contextUsage, "Height"));
+        Assert.Equal("32", AttributeValue(contextUsage, "Width"));
+        Assert.Contains("ComposerControl", AttributeValue(contextUsage, "Classes"), StringComparison.Ordinal);
         var contextDonut = Assert.Single(
             contextUsage.Elements(),
             element => string.Equals(element.Name.LocalName, "ContextWindowDonut", StringComparison.Ordinal));
@@ -227,14 +227,14 @@ public sealed class AgentWorkspaceViewContractTests
 , "Choose how AI actions are approved", StringComparison.Ordinal));
         Assert.Equal("0", AttributeValue(accessMode, "MinWidth"));
         Assert.Contains(
-            accessMode.Elements(),
+            accessMode.Descendants(),
             element => string.Equals(element.Name.LocalName, "TextBlock"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "TextTrimming")
 , "CharacterEllipsis", StringComparison.Ordinal));
         var modelPicker = FindNamedElement(root, "AgentModelPickerButton");
         Assert.Equal("0", AttributeValue(modelPicker, "MinWidth"));
         Assert.Contains(
-            modelPicker.Elements(),
+            modelPicker.Descendants(),
             element => string.Equals(element.Name.LocalName, "TextBlock"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "TextTrimming")
 , "CharacterEllipsis", StringComparison.Ordinal));
