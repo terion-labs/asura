@@ -12,6 +12,42 @@
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch">
   <UserControl.Styles>
+    <Style Selector="Button.ComposerControl">
+      <Setter Property="Height" Value="32" />
+      <Setter Property="Margin" Value="{controls:Inset Right=Xs}" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+    </Style>
+    <Style Selector="Button.ComposerControl /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.ComposerControl:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
+    </Style>
+    <Style Selector="Button.ComposerControl:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
+    </Style>
+    <Style Selector="Button.ComposerControl:disabled /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.ComposerSelector">
+      <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs}" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.ComposerAction">
+      <Setter Property="Width" Value="34" />
+      <Setter Property="Margin" Value="{controls:Inset Left=Xs}" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="{DynamicResource ShellPillCornerRadius}" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
     <!-- A live run is visible from every surface hosting the shared agent
          panel. The ordinary icon remains beneath this accent copy, so the
          five-second opacity cycle reads as a slow colour pulse rather than a
@@ -169,7 +205,7 @@
           <icons:SymbolIcon
               Symbol="Bot"
               FontSize="16"
-              Foreground="{DynamicResource ShellForegroundBrush}" />
+              Foreground="{DynamicResource ShellTextBrush}" />
           <icons:SymbolIcon
               x:Name="AgentActivityPulseIcon"
               Classes="AgentActivityPulse"
@@ -933,12 +969,12 @@
           Background="{DynamicResource ShellSurfaceBrush}"
           BorderBrush="{DynamicResource ShellBorderBrush}"
           BorderThickness="1"
-          CornerRadius="18"
+          CornerRadius="{DynamicResource ShellCardCornerRadius}"
           IsVisible="{Binding AgentChat.HasProvider, FallbackValue=False}">
         <Grid RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource ShellSpaceXs}">
           <TextBox
               x:Name="AgentChatPromptInput"
-              MinHeight="72"
+              MinHeight="56"
               MaxHeight="150"
               Padding="{controls:Inset Sm}"
               Background="Transparent"
@@ -958,9 +994,8 @@
               ColumnSpacing="0"
               IsVisible="{Binding !AgentChat.HasFailedTurn}">
             <Button
-                Width="34"
-                Height="34"
-                Classes="IconButton"
+                Width="32"
+                Classes="IconButton ComposerControl"
                 Click="OnAttachAgentImageClick"
                 IsEnabled="{Binding AgentChat.CanAttachImages}"
                 ToolTip.Tip="Attach image"
@@ -973,12 +1008,16 @@
                 MinWidth="0"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
-                Classes="TextButton"
+                Classes="TextButton ComposerControl ComposerSelector"
                 ToolTip.Tip="{Binding AgentChat.AccessModeLabel}"
                 AutomationProperties.Name="Choose how AI actions are approved">
-              <TextBlock
-                  Text="{Binding AgentChat.AccessModeLabel}"
-                  TextTrimming="CharacterEllipsis" />
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="{Binding AgentChat.AccessModeLabel}"
+                    TextTrimming="CharacterEllipsis" />
+                <icons:SymbolIcon Grid.Column="1" Symbol="ChevronDown" FontSize="10" VerticalAlignment="Center" />
+              </Grid>
               <Button.Flyout>
                 <Flyout Placement="TopEdgeAlignedLeft">
                   <StackPanel Width="300" Spacing="{DynamicResource ShellSpaceSm}">
@@ -1001,10 +1040,9 @@
             </Button>
             <Button
                 Grid.Column="2"
-                Width="34"
-                Height="34"
+                Width="32"
                 HorizontalAlignment="Right"
-                Classes="IconButton"
+                Classes="IconButton ComposerControl"
                 IsVisible="{Binding AgentChat.HasContextWindow}"
                 ToolTip.Tip="{Binding AgentChat.ContextWindowUsageLabel}"
                 AutomationProperties.Name="{Binding AgentChat.ContextWindowUsageLabel}">
@@ -1036,14 +1074,17 @@
                 MinWidth="0"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
-                MaxWidth="190"
-                Classes="TextButton"
+                Classes="TextButton ComposerControl ComposerSelector"
                 IsEnabled="{Binding AgentChat.CanBrowseModels}"
                 ToolTip.Tip="{Binding AgentChat.SelectedModelName}"
                 AutomationProperties.Name="Choose AI provider and model">
-              <TextBlock
-                  Text="{Binding AgentChat.SelectedModelName}"
-                  TextTrimming="CharacterEllipsis" />
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="{Binding AgentChat.SelectedModelName}"
+                    TextTrimming="CharacterEllipsis" />
+                <icons:SymbolIcon Grid.Column="1" Symbol="ChevronDown" FontSize="10" VerticalAlignment="Center" />
+              </Grid>
               <Button.Flyout>
                 <Flyout Placement="TopEdgeAlignedRight" FlyoutPresenterClasses="AgentModelMenu">
                   <Grid Width="330" MaxHeight="460" RowDefinitions="Auto,*,Auto">
@@ -1196,33 +1237,26 @@
             <Button
                 x:Name="AgentSendButton"
                 Grid.Column="4"
-                Width="38"
-                Height="38"
-                CornerRadius="19"
-                Classes="PrimaryButton"
+                Classes="PrimaryButton ComposerAction"
                 Click="OnSendAgentChatClick"
                 IsEnabled="{Binding AgentChat.CanSubmitPrompt}"
                 IsVisible="{Binding AgentChat.ShowPrimaryAction}"
+                ToolTip.Tip="{Binding AgentChat.PrimaryActionAccessibleName}"
                 AutomationProperties.Name="{Binding AgentChat.PrimaryActionAccessibleName}">
               <icons:SymbolIcon Symbol="ArrowUp" FontSize="15" />
             </Button>
             <Button
                 x:Name="AgentStopButton"
                 Grid.Column="5"
-                Height="38"
-                CornerRadius="{DynamicResource ShellPillCornerRadius}"
-                Classes="PrimaryButton"
+                Classes="PrimaryButton ComposerAction"
                 Click="OnCancelAgentChatClick"
                 IsEnabled="{Binding AgentChat.CanRequestStop}"
                 IsVisible="{Binding AgentChat.ShowStopAction, FallbackValue=False}"
                 ToolTip.Tip="Stop this run to change the model or send a new message"
                 AutomationProperties.Name="Stop AI agent run">
-              <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                <Border Width="9" Height="9" VerticalAlignment="Center"
-                    Background="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                    CornerRadius="2" />
-                <TextBlock Text="Stop" />
-              </StackPanel>
+              <Border Width="10" Height="10"
+                  Background="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                  CornerRadius="2" />
             </Button>
           </Grid>
         </Grid>
