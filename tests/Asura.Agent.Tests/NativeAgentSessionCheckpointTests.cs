@@ -589,6 +589,32 @@ public sealed partial class NativeAgentSessionTests
             .GetString());
     }
 
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    public async Task CheckpointPreservesInteractiveLoginExampleAndLaterDialogue(string newline)
+    {
+        var example = string.Join(newline,
+            "Run these commands and enter the token privately at the prompt:",
+            "```sh", "multica login --token", "multica daemon start", "exit", "```");
+        var session = CreateSession();
+        Assert.True((await session.RunTurnAsync("Continue setup", [],
+            TextProvider(example), CancellationToken.None)).Succeeded);
+        var first = session.CaptureCheckpoint();
+        Assert.True(first.Succeeded, first.ErrorCode?.ToString());
+        var restored = Assert.IsType<NativeAgentSession>(
+            NativeAgentSession.RestoreCheckpoint(first.Checkpoint!).Session);
+        Assert.Equal(example, restored.Snapshot().Transcript[^1].Content);
+        Assert.True((await restored.RunTurnAsync("Login completed", [],
+            TextProvider("Setup complete."), CancellationToken.None)).Succeeded);
+        var second = restored.CaptureCheckpoint();
+        Assert.True(second.Succeeded, second.ErrorCode?.ToString());
+        var reopened = Assert.IsType<NativeAgentSession>(
+            NativeAgentSession.RestoreCheckpoint(second.Checkpoint!).Session);
+        Assert.Equal(["Continue setup", example, "Login completed", "Setup complete."],
+            reopened.Snapshot().Transcript.Select(message => message.Content), StringComparer.Ordinal);
+    }
+
     [Fact]
     public async Task CheckpointCaptureRejectsLikelyLiteralSecretMaterial()
     {

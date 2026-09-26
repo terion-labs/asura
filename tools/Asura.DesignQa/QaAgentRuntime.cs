@@ -154,6 +154,34 @@ internal sealed class QaOfflineAgentRuntime : IGovernedAgentRuntime
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
+    public void PublishSampleApproval()
+    {
+        var target = new AgentTarget.Panel(
+            new WindowInstanceId("01a0df93c28d7f37b282257dc68511d84"),
+            new WorkspaceInstanceId("01a0df93cae07372bf3c3f7e1de115cf"),
+            new TabInstanceId("01a0df93caed7642b128c7f1f894eb3ea"),
+            new PanelInstanceId("01a0df93caed736baaa598b6c213744d"));
+        _snapshot = Offline with
+        {
+            State = GovernedAgentState.AwaitingApproval,
+            Target = target,
+            TargetTitle = "Browser",
+            PendingApproval = new GovernedAgentApproval(
+                new AgentApprovalId("qa-action-approval"),
+                "browser.navigate", "Navigate browser", AgentActionRisk.Mutation, AgentPermission.Ask,
+                target,
+                new AgentApprovalPresentation(
+                    "Browser · panel 01a0df93caed736baaa598b6c213744d",
+                    "Embedded browser", null,
+                    [new("session_id", "01a0df93caed71e99e7d2b4623b40c49"),
+                     new("address", "https://fleet.example.dev/")]),
+                new DateTimeOffset(2026, 12, 31, 12, 0, 0, TimeSpan.Zero),
+                TemporarilyYieldsTerminalInput: false),
+            Status = "Waiting for your approval.",
+        };
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
     public void PublishSampleFailure()
     {
         _snapshot = Offline with
