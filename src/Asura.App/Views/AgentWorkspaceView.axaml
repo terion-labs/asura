@@ -850,6 +850,9 @@
       <StackPanel
           Grid.Row="3"
           Spacing="2">
+        <components:ErrorNoticesView
+            Margin="{controls:Inset Horizontal=Md}"
+            DataContext="{Binding AgentChat.ErrorNotices}" />
         <ItemsControl
             x:Name="AgentQueuedFollowUps"
             Margin="{controls:Inset Horizontal=Md}"

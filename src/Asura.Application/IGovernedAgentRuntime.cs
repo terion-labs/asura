@@ -547,7 +547,8 @@ public sealed record GovernedAgentSnapshot(
     AgentRunId? SelectedConversationRunId = null,
     AgentPolicy? BaselinePolicy = null,
     AgentPolicy? RunPolicy = null,
-    long PolicyGeneration = 1)
+    long PolicyGeneration = 1,
+    string? PersistenceError = null)
 {
     public bool IsBusy => State is
         GovernedAgentState.StreamingProvider

@@ -115,15 +115,8 @@ public sealed partial class GovernedAgentRuntime
             return true;
         }
 
-        var captured = session.CaptureCheckpoint();
-        if (!captured.Succeeded || captured.Checkpoint is null)
-        {
-            return false;
-        }
-
-        var saved = await SaveCheckpointAsync(captured.Checkpoint, cancellationToken)
-            .ConfigureAwait(false);
-        if (!saved.IsSuccess)
+        if (!await SaveCheckpointCaptureAsync(session.CaptureCheckpoint(), cancellationToken)
+                .ConfigureAwait(false))
         {
             return false;
         }
@@ -145,16 +138,17 @@ public sealed partial class GovernedAgentRuntime
         var captured = session.CaptureCheckpoint();
         if (!captured.Succeeded || captured.Checkpoint is null)
         {
+            ReportCheckpointSaveFailure();
             return false;
         }
 
         if (captured.Checkpoint.Revision != settledCheckpointRevision)
         {
-            var saved = await SaveCheckpointAsync(
-                    captured.Checkpoint,
+            var saved = await SaveCheckpointCaptureAsync(
+                    captured,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (!saved.IsSuccess)
+            if (!saved)
             {
                 return false;
             }
@@ -223,11 +217,23 @@ public sealed partial class GovernedAgentRuntime
 
         if (!captured.Succeeded || captured.Checkpoint is null)
         {
+            ReportCheckpointSaveFailure();
             return false;
         }
 
         var saved = await SaveCheckpointAsync(captured.Checkpoint, cancellationToken)
             .ConfigureAwait(false);
+        if (!saved.IsSuccess)
+        {
+            ReportCheckpointSaveFailure();
+        }
+        else
+        {
+            lock (_gate)
+            {
+                _snapshot = _snapshot with { PersistenceError = null };
+            }
+        }
         return saved.IsSuccess;
     }
 
@@ -788,14 +794,17 @@ public sealed partial class GovernedAgentRuntime
     {
         lock (_gate)
         {
-            if (_disposed || _snapshot.State != GovernedAgentState.Ready)
+            if (_disposed)
             {
                 return;
             }
 
             _snapshot = _snapshot with
             {
-                Status = "This conversation could not be saved locally.",
+                Status = _snapshot.State == GovernedAgentState.Ready
+                    ? "This conversation could not be saved locally."
+                    : _snapshot.Status,
+                PersistenceError = "Recent messages could not be saved. Keep this workspace open and copy any messages you need before restarting.",
             };
         }
 

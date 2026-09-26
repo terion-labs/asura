@@ -1329,6 +1329,56 @@ public sealed partial class GovernedAgentRuntimeTests
     }
 
     [Fact]
+    public async Task RejectedCredentialCommandDoesNotRollBackConversationOnRestart()
+    {
+        var checkpoints = new InMemoryCheckpointStore();
+        var provider = new ProviderRound((call, _) => call == 1
+            ? ProviderRound.ToolCall("credential-call", "terminal.submit_text",
+                "{\"text\":\"token = read_from_file()\"}")
+            : ProviderRound.Answer("Continued safely."));
+        await using (var original = new RuntimeFixture(provider, checkpointStore: checkpoints))
+        {
+            Assert.True((await original.Runtime.SendAsync(original.Prompt("Continue setup"),
+                CancellationToken.None)).IsSuccess);
+            Assert.True((await original.Runtime.SendAsync(original.Prompt("Keep going"),
+                CancellationToken.None)).IsSuccess);
+            Assert.Null(original.Runtime.Snapshot.PersistenceError);
+            Assert.Empty(original.Terminal.Actions);
+            var rejection = Assert.Single(provider.Requests.ToArray()[1].Messages,
+                message => message.ToolResult?.ProviderCallId == "credential-call").ToolResult!;
+            Assert.Equal("terminal_input_contains_credentials", rejection.StableCode);
+            Assert.DoesNotContain("read_from_file", Assert.Single(checkpoints.Values).PayloadJson,
+                StringComparison.Ordinal);
+        }
+
+        await using var restored = new RuntimeFixture(ProviderRound.AnswerEveryTurn(),
+            checkpointStore: checkpoints);
+        await restored.Runtime.RestoreLatestConversationAsync(CancellationToken.None);
+        Assert.Equal(["Continue setup", "Continued safely.", "Keep going", "Continued safely."],
+            restored.Runtime.Snapshot.Messages.Select(message => message.Content), StringComparer.Ordinal);
+        Assert.Empty(restored.Provider.Requests);
+    }
+
+    [Fact]
+    public async Task CheckpointFailureIsVisibleDuringProviderWorkAndClearsAfterSuccessfulSave()
+    {
+        var checkpoints = new InMemoryCheckpointStore { ThrowOnSave = true };
+        var provider = ProviderRound.AnswerEveryTurn(blockOnCall: 1);
+        await using var fixture = new RuntimeFixture(provider, checkpointStore: checkpoints);
+        var sending = fixture.Runtime.SendAsync(fixture.Prompt("Keep this conversation"),
+            CancellationToken.None).AsTask();
+        await provider.BlockedCall.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(GovernedAgentState.StreamingProvider, fixture.Runtime.Snapshot.State);
+        Assert.Contains("before restarting", fixture.Runtime.Snapshot.PersistenceError,
+            StringComparison.Ordinal);
+        checkpoints.ThrowOnSave = false;
+        provider.ReleaseBlockedCall.TrySetResult();
+        Assert.True((await sending.WaitAsync(TimeSpan.FromSeconds(5))).IsSuccess);
+        Assert.Null(fixture.Runtime.Snapshot.PersistenceError);
+        Assert.Single(checkpoints.Values);
+    }
+
+    [Fact]
     public async Task ThrowingCheckpointStoreCannotTurnCompletedAnswerIntoFailedRun()
     {
         var checkpoints = new InMemoryCheckpointStore
@@ -3376,7 +3426,7 @@ public sealed partial class GovernedAgentRuntimeTests
 
         public IReadOnlyCollection<AgentSessionCheckpoint> Values => _values.Values;
 
-        public bool ThrowOnSave { get; init; }
+        public bool ThrowOnSave { get; set; }
 
         public ValueTask<AgentSessionCheckpointStoreResult<Unit>> SaveAsync(
             AgentSessionCheckpoint checkpoint,

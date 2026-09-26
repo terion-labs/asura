@@ -64,7 +64,15 @@ deterministic first-user-message title. Restore rejects unknown fields, unsuppor
 schema versions, inconsistent revisions/generations, malformed conversation shapes,
 duplicate or changed provider aliases, and values outside the current kernel
 limits. Credential-shaped literal text and structured credential properties
-fail checkpoint capture and restore instead of becoming durable data.
+fail checkpoint capture and restore instead of becoming durable data. Tool
+arguments and results are sanitized before capture: a flagged value is replaced
+with an explicit redaction receipt while its call/result identity and later
+messages remain intact. Redacting arguments also removes that assistant message's
+provider-private replay atoms, which contain the original arguments. Live tool
+validation and execution are unchanged; restored calls are inert history.
+This prevents even a rejected command from blocking every later checkpoint.
+Capture or storage failures publish a persistent conversation-save notice during
+active work as well as after completion; subsequent progress cannot hide it.
 Provider raw reasoning that was intentionally suppressed from user-visible
 reasoning summaries can exist only in volatile memory for its immediate tool
 continuation. This includes Anthropic thinking and OpenAI reasoning text;

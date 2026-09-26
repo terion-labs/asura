@@ -2750,6 +2750,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         Status = boundProviderMissing
             ? "This run's provider is no longer enabled. Clear the run to choose another."
             : snapshot.Status;
+        ReportError(snapshot.PersistenceError, "Conversation not saved");
         NotifyAvailabilityChanged();
         NotifyContentChanged();
         if (_approvalModeChangePending
