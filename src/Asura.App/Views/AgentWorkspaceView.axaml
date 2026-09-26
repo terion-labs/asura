@@ -965,7 +965,7 @@
         </ItemsControl>
         <Border
           x:Name="AgentComposer"
-          Margin="{controls:Inset Horizontal=Md, Bottom=Sm}"
+          Margin="{controls:Inset Horizontal=Md, Bottom=Md}"
           Padding="{controls:Inset Sm}"
           Background="{DynamicResource ShellSurfaceBrush}"
           BorderBrush="{DynamicResource ShellBorderBrush}"
@@ -1100,6 +1100,7 @@
             <Button
                 x:Name="AgentModelPickerButton"
                 Grid.Column="3"
+                Margin="0"
                 MinWidth="0"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
