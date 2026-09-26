@@ -472,6 +472,43 @@ public sealed class BrowserAgentToolResultJsonTests
     }
 
     [Fact]
+    public void TransportFailureExplainsTheApplicationLimitationAcrossHostProjection()
+    {
+        var browserError = BrowserError.Create(
+            BrowserErrorCode.TransportUnavailable,
+            "native secret-canary",
+            retryable: true);
+        var hostError = new HostError(
+            HostErrorCode.CapabilityNotSupported,
+            browserError.StableCode,
+            browserError.Message,
+            Retryable: true);
+        var panelId = new PanelInstanceId("panel-browser");
+        var results = new[]
+        {
+            BrowserAgentToolResultJson.Failure(browserError, panelId),
+            BrowserAgentToolResultJson.Failure(hostError, panelId),
+            BrowserAgentToolResultJson.Rejected(browserError.StableCode, panelId),
+        };
+
+        Assert.All(results, json =>
+        {
+            Assert.DoesNotContain("secret-canary", json, StringComparison.Ordinal);
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            Assert.False(root.GetProperty("ok").GetBoolean());
+            Assert.Equal("panel-browser", root.GetProperty("panel_id").GetString());
+            Assert.Equal("browser_transport_unavailable",
+                root.GetProperty("error").GetProperty("code").GetString());
+            Assert.False(root.GetProperty("error").GetProperty("retryable").GetBoolean());
+            Assert.Contains("not a restriction on the requested website",
+                root.GetProperty("message").GetString(), StringComparison.Ordinal);
+            Assert.Equal("report_browser_capability_failure",
+                root.GetProperty("required_action").GetString());
+        });
+    }
+
+    [Fact]
     public void HostFailureAndRuntimeRejectionUseTheSameEnvelope()
     {
         var hostFailure = BrowserAgentToolResultJson.Failure(

@@ -727,6 +727,11 @@ governed; the DELETE case protects the ordinary UI path.
   frames, service workers, or downloads. Re-enablement requires peer-bound
   redirect/subresource enforcement and named-platform cancellation/recovery
   evidence. Human browsing is not governed by this model-action gate.
+  Missing transport support returns `browser_transport_unavailable`, with fixed
+  provider guidance identifying an application capability failure. It must not
+  be reported as `browser_domain_policy_denied`: no destination decision or
+  native dispatch occurred. The latter code remains reserved for an actual
+  destination-policy rejection.
 - Document snapshot capture uses a fixed script in the page realm and reads
   only the top document; it is not a platform-native accessibility tree and
   does not cover frames or shadow roots. A hostile page can influence

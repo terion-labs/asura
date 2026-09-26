@@ -3910,7 +3910,7 @@ public sealed partial class BrowserSurface :
     private static BrowserResult<T> PeerBoundTransportUnavailable<T>() =>
         BrowserResult<T>.Failure(
             BrowserError.Create(
-                BrowserErrorCode.NavigationPolicyDenied,
+                BrowserErrorCode.TransportUnavailable,
                 "Governed browser interaction is unavailable because the native transport cannot bind policy to the connected peer."));
 
     private bool AllowsGovernedDestination(

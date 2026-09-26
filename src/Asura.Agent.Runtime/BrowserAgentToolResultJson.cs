@@ -104,7 +104,7 @@ internal static class BrowserAgentToolResultJson
     {
         ArgumentNullException.ThrowIfNull(error);
         var stableCode = error.StableCode;
-        return AgentToolResultJson.Failure(
+        return Failure(
             stableCode,
 !string.Equals(stableCode, InteractionOutcomeUnknownStableCode
 , StringComparison.Ordinal) && error.Retryable,
@@ -117,7 +117,7 @@ internal static class BrowserAgentToolResultJson
     {
         ArgumentNullException.ThrowIfNull(error);
         var stableCode = ProviderStableCode(error);
-        return AgentToolResultJson.Failure(
+        return Failure(
             stableCode,
 !string.Equals(stableCode, InteractionOutcomeUnknownStableCode
 , StringComparison.Ordinal) && error.Retryable,
@@ -156,10 +156,37 @@ internal static class BrowserAgentToolResultJson
     public static string Rejected(
         string stableCode,
         PanelInstanceId? panelId = null) =>
-        AgentToolResultJson.Failure(
+        Failure(
             stableCode,
             retryable: false,
             panelId);
+
+    private static string Failure(
+        string stableCode,
+        bool retryable,
+        PanelInstanceId? panelId)
+    {
+        if (!string.Equals(stableCode, "browser_transport_unavailable", StringComparison.Ordinal))
+        {
+            return AgentToolResultJson.Failure(stableCode, retryable, panelId);
+        }
+
+        var buffer = new ArrayBufferWriter<byte>();
+        using var writer = new Utf8JsonWriter(buffer);
+        writer.WriteStartObject();
+        writer.WriteBoolean("ok", false);
+        AgentToolResultJson.WritePanelId(writer, panelId);
+        AgentToolResultJson.WriteError(writer, "error", stableCode, retryable: false);
+        // Fixed product guidance only: native error text can contain page data.
+        writer.WriteString("message",
+            "Asura's browser transport does not support this agent action. "
+            + "No action was dispatched. This is an application capability failure, "
+            + "not a restriction on the requested website.");
+        writer.WriteString("required_action", "report_browser_capability_failure");
+        writer.WriteEndObject();
+        writer.Flush();
+        return Encoding.UTF8.GetString(buffer.WrittenSpan);
+    }
 
     private static void WriteState(
         Utf8JsonWriter writer,
@@ -474,6 +501,7 @@ internal static class BrowserAgentToolResultJson
             or "navigation_in_progress"
             or "browser_state_changed"
             or "browser_domain_policy_denied"
+            or "browser_transport_unavailable"
             or "browser_action_not_authorized"
             or "browser_snapshot_invalid"
             or "browser_element_reference_stale"

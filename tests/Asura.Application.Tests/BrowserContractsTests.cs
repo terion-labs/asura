@@ -656,6 +656,7 @@ public sealed class BrowserContractsTests
         [
             (BrowserErrorCode.UnsupportedCapability, "unsupported_capability"),
             (BrowserErrorCode.RendererUnavailable, "renderer_unavailable"),
+            (BrowserErrorCode.TransportUnavailable, "browser_transport_unavailable"),
             (BrowserErrorCode.HistoryUnavailable, "history_unavailable"),
             (BrowserErrorCode.NavigationInProgress, "navigation_in_progress"),
             (BrowserErrorCode.NavigationStateChanged, "browser_state_changed"),

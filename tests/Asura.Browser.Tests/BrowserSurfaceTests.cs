@@ -2420,7 +2420,7 @@ public sealed class BrowserSurfaceTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(BrowserErrorCode.NavigationPolicyDenied, result.Error?.Code);
+        Assert.Equal(BrowserErrorCode.TransportUnavailable, result.Error?.Code);
         Assert.Contains("connected peer", result.Error?.Message, StringComparison.Ordinal);
         Assert.Equal(0, nativeView.NavigateCount);
     }
@@ -2476,7 +2476,7 @@ public sealed class BrowserSurfaceTests
 
         Assert.All(
             [click.Error, fill.Error, check.Error],
-            error => Assert.Equal(BrowserErrorCode.NavigationPolicyDenied, error?.Code));
+            error => Assert.Equal(BrowserErrorCode.TransportUnavailable, error?.Code));
         Assert.Equal(0, clickNative.ClickCount);
         Assert.Equal(0, fillNative.FillCount);
         Assert.Equal(0, checkNative.CheckCount);
@@ -2516,7 +2516,7 @@ public sealed class BrowserSurfaceTests
         Assert.Equal(1, nativeView.SnapshotCount);
         Assert.False(governed.IsSuccess);
         Assert.Equal(
-            BrowserErrorCode.NavigationPolicyDenied,
+            BrowserErrorCode.TransportUnavailable,
             governed.Error?.Code);
         Assert.Equal(1, nativeView.NavigateCount);
         Assert.Equal(0, nativeView.ReloadCount);
