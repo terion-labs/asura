@@ -2425,6 +2425,33 @@ public sealed class BrowserSurfaceTests
         Assert.Equal(0, nativeView.NavigateCount);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FullAccessUsesTheExistingWorkspaceRouteForPrivateSitesAndRedirects(bool routed)
+    {
+        var native = new RecordingEmbeddedBrowserView { SupportsPeerBoundTransport = false };
+        var surface = new BrowserSurface(native,
+            routed ? BrowserDestinationPolicy.SshRouted : BrowserDestinationPolicy.LocalSystem,
+            InlineBrowserUiDispatcher.Instance);
+        var target = Address("https://100.96.184.41/");
+        var redirected = Address("https://private.workspace.test/login");
+        var operation = surface.NavigateWithinOriginAsync(
+            new BrowserOriginConstrainedNavigationRequest.Navigate(target),
+            BrowserNavigationOrigin.WorkspaceNetwork,
+            BrowserNavigationStartBinding.FromState(surface.State), default).AsTask();
+
+        Assert.Equal(1, native.NavigateCount);
+        Assert.False(native.RaiseNavigationStarted(target));
+        Assert.False(native.RaiseNavigationStarted(redirected));
+        native.RaiseNavigationCompleted(redirected, isSuccess: true);
+
+        var result = await operation;
+        Assert.True(result.IsSuccess);
+        Assert.Equal(redirected, result.Value!.Address);
+        Assert.False(native.IsDisposed);
+    }
+
     [Fact]
     public async Task GovernedElementMutationsFailBeforeNativeDispatchWithoutPeerBinding()
     {

@@ -223,6 +223,79 @@ public sealed class BrowserLowLevelAutomationTests
     }
 
     [Fact]
+    public async Task CancellingQueuedInputAndMovementPreventsLaterPresses()
+    {
+        var transport = new RecordingTransport();
+        var paused = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var input = new CefHumanizedInput(transport, new Random(17), _ => paused.Task);
+        using var firstCancellation = new CancellationTokenSource();
+        using var queuedCancellation = new CancellationTokenSource();
+        var first = input.ClickAsync(20, 30, BrowserMouseButton.Left,
+            BrowserMouseButtons.None, BrowserInputModifiers.None, 1,
+            cancellationToken: firstCancellation.Token);
+        var queued = input.ClickAsync(40, 50, BrowserMouseButton.Left,
+            BrowserMouseButtons.None, BrowserInputModifiers.None, 1,
+            cancellationToken: queuedCancellation.Token);
+
+        queuedCancellation.Cancel();
+        firstCancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => queued);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first);
+        var sent = transport.Calls.Count;
+        paused.SetResult();
+        await Task.Yield();
+
+        Assert.Equal(sent, transport.Calls.Count);
+        Assert.DoesNotContain(transport.Calls, call =>
+            string.Equals(call.Method, "Input.dispatchMouseEvent", StringComparison.Ordinal)
+            && EventType(call) == "mousePressed");
+    }
+
+    [Fact]
+    public async Task CancellationAfterButtonDownStillReleasesTheButton()
+    {
+        var transport = new RecordingTransport();
+        using var cancellation = new CancellationTokenSource();
+        using var input = new CefHumanizedInput(transport, new Random(17), _ =>
+        {
+            if (transport.Calls.Any(call =>
+                string.Equals(call.Method, "Input.dispatchMouseEvent", StringComparison.Ordinal)
+                && EventType(call) == "mousePressed"))
+            {
+                cancellation.Cancel();
+            }
+            return Task.CompletedTask;
+        });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => input.ClickAsync(
+            20, 30, BrowserMouseButton.Left, BrowserMouseButtons.None,
+            BrowserInputModifiers.None, 1, cancellationToken: cancellation.Token));
+
+        Assert.Equal("mouseReleased", EventType(transport.Calls[^1]));
+        Assert.Single(transport.Calls, call =>
+            string.Equals(call.Method, "Input.dispatchMouseEvent", StringComparison.Ordinal)
+            && EventType(call) == "mousePressed");
+    }
+
+    [Fact]
+    public async Task CancellingTypingStopsTheRemainingText()
+    {
+        var transport = new RecordingTransport();
+        using var cancellation = new CancellationTokenSource();
+        using var input = new CefHumanizedInput(transport, new Random(17), _ =>
+        {
+            cancellation.Cancel();
+            return Task.CompletedTask;
+        });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            input.TypeTextAsync("abcdef", cancellation.Token));
+
+        Assert.Equal("a", InsertedText(Assert.Single(transport.Calls, call =>
+            string.Equals(call.Method, "Input.insertText", StringComparison.Ordinal))));
+    }
+
+    [Fact]
     public async Task CursorMovementTimeBudgetScalesWithDistance()
     {
         var shortDelays = new List<TimeSpan>();

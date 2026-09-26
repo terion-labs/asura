@@ -263,15 +263,20 @@ The security objective is:
   `text`/`search`/`email`/`url`/`tel`; password, file, and contenteditable are
   excluded. Check accepts only native checkbox/radio inputs and never exposes
   uncheck or general property-setting authority.
-- Production advertises state read, guarded navigation, and stop, but not
-  snapshot, click, fill, or check. The shipped CEF adapter cannot bind policy
-  to the connected peer, so every governed CEF mutation/automation request and
-  detached rendered web-read/search request fails before native dispatch.
-  Human navigation and bounded observation of already-loaded content remain
-  separate. The omitted interaction operations also require an explicitly
-  injected full-automation candidate profile until named-platform evidence
-  closes the page-realm boundary. Factory, session, and renderer share one
-  fixed profile, and renderer attachment rejects capability drift.
+- Production advertises state, navigation, snapshots, semantic and low-level
+  input, waits, and stop; arbitrary script evaluation remains disabled.
+  Confirmed run-local Full access selects host-owned workspace-network
+  authority, giving the agent the same private/public network access as manual
+  browsing. It retains the existing renderer, profile, cookies, and workspace
+  route, with no direct fallback around a proxy. This is not a public-only
+  network policy. Other authorization sources still require peer-bound
+  transport; the shipped CEF adapter cannot provide it and rejects those
+  mutations before dispatch. Providers cannot select workspace-network
+  authority in arguments. Native input observes run/lease cancellation and
+  releases pressed keys/buttons. The macOS arm64 native acceptance runner
+  covers cold hidden navigation, semantic input, cookies, cancellation, and
+  authenticated proxy routing. Factory, session, and renderer share one fixed
+  capability profile, and renderer attachment rejects capability drift.
 - Remote machines run no Asura agent. They receive ordinary terminal input
   through an already established connection and return terminal output.
 - Future headless, ACP, A2A, remote browser control, and multi-user hosting must
@@ -663,14 +668,14 @@ unsupported input types, and proves that provider results and audit never echo
 the text. Check coverage restricts activation to native checkbox/radio inputs,
 proves event-free already-checked success, and verifies checkedness after
 captured native activation. Production-composition coverage proves that the
-shared baseline advertises guarded navigation while omitting interaction
-tools, that the shipped CEF renderer rejects every governed network-capable
-dispatch without peer binding, that mismatched renderer capabilities cannot
-attach, and that created-session capability drift is rejected before
-registration. Named-platform
-page-realm/synthetic-click/fill/check and navigation-event-order
-conformance, plus malicious-content fixtures for reference consumers beyond
-click/fill/check, remain required. File malicious-content fixtures likewise
+shared baseline advertises navigation and interaction but excludes evaluation,
+that restricted CEF dispatch requires peer binding, that mismatched renderer
+capabilities cannot attach, and that created-session capability drift is
+rejected before registration. Confirmed Full access additionally has macOS
+arm64 native acceptance for hidden startup, semantic input, cookies,
+cancellation, and authenticated proxy routing without direct fallback.
+Other named-platform conformance and malicious-content fixtures for reference
+consumers beyond click/fill/check remain required. File malicious-content fixtures likewise
 remain required before additional corresponding bridges are enabled. MCP
 boundary coverage exercises annotation removal, preserved argument-property
 names, exact-secret result redaction, ambient-environment isolation, frozen
@@ -721,12 +726,12 @@ governed; the DELETE case protects the ordinary UI path.
   `OpenTab`, membership can evolve only within that confirmed workspace/tab as
   the live topology changes.
 - The retained governed-navigation state machine constrains observed top-level
-  redirects and late events in peer-capable conformance fakes. The shipped CEF
-  adapter is not peer-capable, so all model-governed network-capable CEF paths
-  fail before native dispatch; they cannot create redirects, subresources,
-  frames, service workers, or downloads. Re-enablement requires peer-bound
-  redirect/subresource enforcement and named-platform cancellation/recovery
-  evidence. Human browsing is not governed by this model-action gate.
+  redirects and late events. The shipped CEF adapter is not peer-capable;
+  restricted actions fail before dispatch. Confirmed Full access deliberately
+  shares manual browsing's workspace network authority, including private
+  destinations and cross-origin redirects. It does not provide public-only
+  containment of redirects, frames, subresources, service workers, or downloads.
+  Restricted dispatch still requires peer-bound transport enforcement.
   Missing transport support returns `browser_transport_unavailable`, with fixed
   provider guidance identifying an application capability failure. It must not
   be reported as `browser_domain_policy_denied`: no destination decision or

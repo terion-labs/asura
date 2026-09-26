@@ -321,7 +321,7 @@ internal sealed class RecordingEmbeddedBrowserView : IEmbeddedBrowserView
     }
 
     public Task<NativeBrowserClickResult> ClickAsync(
-        NativeBrowserElementHandle handle)
+        NativeBrowserElementHandle handle, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(handle);
         ClickCount++;
@@ -338,7 +338,7 @@ internal sealed class RecordingEmbeddedBrowserView : IEmbeddedBrowserView
 
     public Task<NativeBrowserFillResult> FillAsync(
         NativeBrowserElementHandle handle,
-        string text)
+        string text, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(handle);
         ArgumentNullException.ThrowIfNull(text);
@@ -356,7 +356,7 @@ internal sealed class RecordingEmbeddedBrowserView : IEmbeddedBrowserView
     }
 
     public Task<NativeBrowserCheckResult> CheckAsync(
-        NativeBrowserElementHandle handle)
+        NativeBrowserElementHandle handle, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(handle);
         CheckCount++;
@@ -391,21 +391,21 @@ internal sealed class RecordingEmbeddedBrowserView : IEmbeddedBrowserView
         Task.FromResult(Viewport);
 
     public Task<NativeBrowserAutomationResult> DispatchMouseAsync(
-        BrowserMouseRequest request)
+        BrowserMouseRequest request, CancellationToken cancellationToken = default)
     {
         LastMouseRequest = request;
         return PendingAutomation?.Task ?? Task.FromResult(AutomationResult);
     }
 
     public Task<NativeBrowserAutomationResult> DispatchKeyAsync(
-        BrowserKeyRequest request)
+        BrowserKeyRequest request, CancellationToken cancellationToken = default)
     {
         LastKeyRequest = request;
         return PendingAutomation?.Task ?? Task.FromResult(AutomationResult);
     }
 
     public Task<NativeBrowserAutomationResult> DispatchScrollAsync(
-        BrowserScrollRequest request)
+        BrowserScrollRequest request, CancellationToken cancellationToken = default)
     {
         LastScrollRequest = request;
         return PendingAutomation?.Task ?? Task.FromResult(AutomationResult);

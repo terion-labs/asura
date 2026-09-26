@@ -594,7 +594,7 @@ public sealed partial class BrowserSurface :
             return Cancelled();
         }
 
-        if (!_nativeView.SupportsPeerBoundTransport)
+        if (!allowedOrigin.UsesWorkspaceNetwork && !_nativeView.SupportsPeerBoundTransport)
         {
             return PeerBoundTransportUnavailable<BrowserSessionState>();
         }
@@ -603,8 +603,8 @@ public sealed partial class BrowserSurface :
         {
             if (request is BrowserOriginConstrainedNavigationRequest.Navigate navigate
                 && (!AllowsGovernedDestination(allowedOrigin, navigate.Address)
-                    || !await _destinationPolicy
-                        .AllowsResolvedAsync(navigate.Address, cancellationToken)
+                    || !await AllowsResolvedGovernedDestinationAsync(
+                        allowedOrigin, navigate.Address, cancellationToken)
                         .ConfigureAwait(false)))
             {
                 return PolicyDenied();
@@ -711,7 +711,7 @@ public sealed partial class BrowserSurface :
             return ClickCancelled();
         }
 
-        if (!_nativeView.SupportsPeerBoundTransport)
+        if (!allowedOrigin.UsesWorkspaceNetwork && !_nativeView.SupportsPeerBoundTransport)
         {
             return PeerBoundTransportUnavailable<BrowserClickReceipt>();
         }
@@ -770,7 +770,7 @@ public sealed partial class BrowserSurface :
             return FillCancelled();
         }
 
-        if (!_nativeView.SupportsPeerBoundTransport)
+        if (!allowedOrigin.UsesWorkspaceNetwork && !_nativeView.SupportsPeerBoundTransport)
         {
             return PeerBoundTransportUnavailable<BrowserFillReceipt>();
         }
@@ -828,7 +828,7 @@ public sealed partial class BrowserSurface :
             return CheckCancelled();
         }
 
-        if (!_nativeView.SupportsPeerBoundTransport)
+        if (!allowedOrigin.UsesWorkspaceNetwork && !_nativeView.SupportsPeerBoundTransport)
         {
             return PeerBoundTransportUnavailable<BrowserCheckReceipt>();
         }
@@ -1177,7 +1177,9 @@ public sealed partial class BrowserSurface :
         {
             pending.NativeDispatchCommitted = true;
             pending.NativeCompletion =
-                _nativeView.ClickAsync(lease.Handle);
+                RunNativeInputAsync(
+                    token => pending.NativeView.ClickAsync(lease.Handle, token),
+                    cancellationToken, pending.DeadlineCancellation.Token);
         }
         catch (Exception)
         {
@@ -1531,7 +1533,9 @@ public sealed partial class BrowserSurface :
         {
             pending.NativeDispatchCommitted = true;
             pending.NativeCompletion =
-                _nativeView.FillAsync(lease.Handle, text);
+                RunNativeInputAsync(
+                    token => pending.NativeView.FillAsync(lease.Handle, text, token),
+                    cancellationToken, pending.DeadlineCancellation.Token);
         }
         catch (Exception)
         {
@@ -1911,7 +1915,9 @@ public sealed partial class BrowserSurface :
         {
             pending.NativeDispatchCommitted = true;
             pending.NativeCompletion =
-                _nativeView.CheckAsync(lease.Handle);
+                RunNativeInputAsync(
+                    token => pending.NativeView.CheckAsync(lease.Handle, token),
+                    cancellationToken, pending.DeadlineCancellation.Token);
         }
         catch (Exception)
         {
@@ -3917,7 +3923,8 @@ public sealed partial class BrowserSurface :
         BrowserNavigationOrigin allowedOrigin,
         BrowserAddress address) =>
         allowedOrigin.Allows(address)
-        && _destinationPolicy.AllowsNavigationStart(address);
+        && (allowedOrigin.UsesWorkspaceNetwork
+            || _destinationPolicy.AllowsNavigationStart(address));
 
     private void ProtectActiveNavigation(
         BrowserNavigationOrigin allowedOrigin) =>
@@ -3933,9 +3940,10 @@ public sealed partial class BrowserSurface :
         BrowserAddress address,
         CancellationToken cancellationToken) =>
         allowedOrigin.Allows(address)
-        && await _destinationPolicy
-            .AllowsResolvedAsync(address, cancellationToken)
-            .ConfigureAwait(false);
+        && (allowedOrigin.UsesWorkspaceNetwork
+            || await _destinationPolicy
+                .AllowsResolvedAsync(address, cancellationToken)
+                .ConfigureAwait(false));
 
     private static BrowserError PolicyError() =>
         BrowserError.Create(

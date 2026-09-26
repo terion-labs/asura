@@ -152,6 +152,11 @@ internal static class AgentBrowserDomainPolicy
         }
 
         var allowedOrigin = OriginFor(request);
+        if (allowedOrigin is not null
+            && authorizationSource == AgentAuthorizationSource.YoloPolicy)
+        {
+            allowedOrigin = BrowserNavigationOrigin.WorkspaceNetwork;
+        }
         return AgentBrowserDomainPolicyDecision.Allow(
             allowedOrigin,
             allowedOrigin is null

@@ -87,14 +87,17 @@ internal interface IEmbeddedBrowserView : IDisposable
         BrowserSnapshotQuery? query = null);
 
     Task<NativeBrowserClickResult> ClickAsync(
-        NativeBrowserElementHandle handle);
+        NativeBrowserElementHandle handle,
+        CancellationToken cancellationToken = default);
 
     Task<NativeBrowserFillResult> FillAsync(
         NativeBrowserElementHandle handle,
-        string text);
+        string text,
+        CancellationToken cancellationToken = default);
 
     Task<NativeBrowserCheckResult> CheckAsync(
-        NativeBrowserElementHandle handle);
+        NativeBrowserElementHandle handle,
+        CancellationToken cancellationToken = default);
 
     Task<NativeBrowserElementStateResult> ReadElementStateAsync(
         NativeBrowserElementHandle handle);
@@ -107,11 +110,11 @@ internal interface IEmbeddedBrowserView : IDisposable
 
     Task<NativeBrowserViewport> ReadViewportAsync();
 
-    Task<NativeBrowserAutomationResult> DispatchMouseAsync(BrowserMouseRequest request);
+    Task<NativeBrowserAutomationResult> DispatchMouseAsync(BrowserMouseRequest request, CancellationToken cancellationToken = default);
 
-    Task<NativeBrowserAutomationResult> DispatchKeyAsync(BrowserKeyRequest request);
+    Task<NativeBrowserAutomationResult> DispatchKeyAsync(BrowserKeyRequest request, CancellationToken cancellationToken = default);
 
-    Task<NativeBrowserAutomationResult> DispatchScrollAsync(BrowserScrollRequest request);
+    Task<NativeBrowserAutomationResult> DispatchScrollAsync(BrowserScrollRequest request, CancellationToken cancellationToken = default);
 
     Task<NativeBrowserAutomationResult> EvaluateAsync(BrowserEvaluateRequest request);
 

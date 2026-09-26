@@ -121,7 +121,8 @@ internal sealed class CefBrowserSemanticAdapter(ICefSemanticBrowser browser)
     }
 
     public async Task<NativeBrowserClickResult> ClickAsync(
-        NativeBrowserElementHandle handle)
+        NativeBrowserElementHandle handle,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(handle);
         if (!TryGetLease(handle, out var lease))
@@ -156,7 +157,7 @@ internal sealed class CefBrowserSemanticAdapter(ICefSemanticBrowser browser)
         CefSemanticPoint? point;
         try
         {
-            point = await PrepareVerifiedClickPointAsync(lease)
+            point = await PrepareVerifiedClickPointAsync(lease, cancellationToken)
                 .ConfigureAwait(false);
             if (point is null)
             {
@@ -174,7 +175,7 @@ internal sealed class CefBrowserSemanticAdapter(ICefSemanticBrowser browser)
         {
             if (!await _browser.DispatchClickAsync(
                     point.Value,
-                    lease.BackendNodeId)
+                    lease.BackendNodeId, cancellationToken)
                     .ConfigureAwait(false))
             {
                 ConsumeLeases();
@@ -194,7 +195,8 @@ internal sealed class CefBrowserSemanticAdapter(ICefSemanticBrowser browser)
 
     public async Task<NativeBrowserFillResult> FillAsync(
         NativeBrowserElementHandle handle,
-        string text)
+        string text,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(handle);
         ArgumentNullException.ThrowIfNull(text);
@@ -237,7 +239,7 @@ internal sealed class CefBrowserSemanticAdapter(ICefSemanticBrowser browser)
         {
             await _browser.ReplaceFocusedTextAsync(
                     lease.BackendNodeId,
-                    text)
+                    text, cancellationToken)
                 .ConfigureAwait(false);
             var verification = await ReadVerifiedNodeAsync(
                     lease,
@@ -267,7 +269,8 @@ internal sealed class CefBrowserSemanticAdapter(ICefSemanticBrowser browser)
     }
 
     public async Task<NativeBrowserCheckResult> CheckAsync(
-        NativeBrowserElementHandle handle)
+        NativeBrowserElementHandle handle,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(handle);
         if (!TryGetLease(handle, out var lease))
@@ -313,7 +316,7 @@ internal sealed class CefBrowserSemanticAdapter(ICefSemanticBrowser browser)
         CefSemanticPoint? point;
         try
         {
-            point = await PrepareVerifiedClickPointAsync(lease)
+            point = await PrepareVerifiedClickPointAsync(lease, cancellationToken)
                 .ConfigureAwait(false);
             if (point is null)
             {
@@ -336,7 +339,7 @@ internal sealed class CefBrowserSemanticAdapter(ICefSemanticBrowser browser)
             // activation and wait only for its observable postcondition.
             if (!await _browser.DispatchClickAsync(
                     point.Value,
-                    lease.BackendNodeId)
+                    lease.BackendNodeId, cancellationToken)
                     .ConfigureAwait(false))
             {
                 ConsumeLeases();
@@ -404,12 +407,13 @@ internal sealed class CefBrowserSemanticAdapter(ICefSemanticBrowser browser)
     }
 
     private async Task<CefSemanticPoint?> PrepareVerifiedClickPointAsync(
-        ElementLease lease)
+        ElementLease lease, CancellationToken cancellationToken)
     {
         for (var attempt = 0; attempt < InteractionGeometryAttempts; attempt++)
         {
             var point = await _browser
-                .PrepareClickPointAsync(lease.BackendNodeId)
+                .PrepareClickPointAsync(lease.BackendNodeId, cancellationToken)
+                .WaitAsync(cancellationToken)
                 .ConfigureAwait(false);
             if (point is not null
                 && await _browser.HitTestIncludesAsync(
@@ -422,7 +426,7 @@ internal sealed class CefBrowserSemanticAdapter(ICefSemanticBrowser browser)
 
             if (attempt + 1 < InteractionGeometryAttempts)
             {
-                await Task.Delay(VerificationDelay).ConfigureAwait(false);
+                await Task.Delay(VerificationDelay, cancellationToken).ConfigureAwait(false);
             }
         }
 

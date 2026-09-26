@@ -51,11 +51,11 @@ internal sealed class CefHumanizedInput : IDisposable
         _cursorActivity = cursorActivity;
     }
 
-    public async Task<NativeBrowserViewport> ReadViewportAsync()
+    public async Task<NativeBrowserViewport> ReadViewportAsync(CancellationToken cancellationToken = default)
     {
         using var reply = await ExecuteAsync(
                 "Page.getLayoutMetrics",
-                parametersJson: null)
+                parametersJson: null, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         var result = RequireResult(reply.RootElement);
         var viewport = result.TryGetProperty("cssVisualViewport", out var visual)
@@ -71,17 +71,18 @@ internal sealed class CefHumanizedInput : IDisposable
         double y,
         BrowserMouseButtons buttons = BrowserMouseButtons.None,
         BrowserInputModifiers modifiers = BrowserInputModifiers.None,
-        double targetWidth = 12)
+        double targetWidth = 12,
+        CancellationToken cancellationToken = default)
     {
         ValidatePoint(x, y);
-        await _gestureGate.WaitAsync().ConfigureAwait(false);
+        await _gestureGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             await MoveCoreAsync(
                     new CefCursorPoint(x, y),
                     buttons,
                     modifiers,
-                    targetWidth)
+                    targetWidth, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
         }
         finally
@@ -97,20 +98,25 @@ internal sealed class CefHumanizedInput : IDisposable
         BrowserMouseButtons buttons,
         BrowserInputModifiers modifiers,
         int clickCount,
-        double targetWidth = 12)
+        double targetWidth = 12,
+        CancellationToken cancellationToken = default)
     {
         ValidatePoint(x, y);
-        await _gestureGate.WaitAsync().ConfigureAwait(false);
+        await _gestureGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             await MoveCoreAsync(
                     new CefCursorPoint(x, y),
                     buttons,
                     modifiers,
-                    targetWidth)
+                    targetWidth, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
-            await PauseAsync(35, 105).ConfigureAwait(false);
-            await DispatchMouseEventAsync(
+            await PauseAsync(35, 105,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                await DispatchMouseEventAsync(
                     "mousePressed",
                     x,
                     y,
@@ -119,10 +125,16 @@ internal sealed class CefHumanizedInput : IDisposable
                     modifiers,
                     clickCount,
                     deltaX: 0,
-                    deltaY: 0)
+                    deltaY: 0, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
-            await PauseAsync(45, 125).ConfigureAwait(false);
-            await DispatchMouseEventAsync(
+                await PauseAsync(45, 125,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            finally
+            {
+                // A cancelled gesture must release a possibly pressed button.
+                await DispatchMouseEventAsync(
                     "mouseReleased",
                     x,
                     y,
@@ -131,8 +143,9 @@ internal sealed class CefHumanizedInput : IDisposable
                     modifiers,
                     clickCount,
                     deltaX: 0,
-                    deltaY: 0)
+                    deltaY: 0, cancellationToken: CancellationToken.None)
                 .ConfigureAwait(false);
+            }
             KeepCursorVisible();
         }
         finally
@@ -147,7 +160,8 @@ internal sealed class CefHumanizedInput : IDisposable
         double deltaX,
         double deltaY,
         BrowserInputModifiers modifiers,
-        BrowserMouseButtons buttons = BrowserMouseButtons.None)
+        BrowserMouseButtons buttons = BrowserMouseButtons.None,
+        CancellationToken cancellationToken = default)
     {
         ValidatePoint(originX, originY);
         if (!double.IsFinite(deltaX) || !double.IsFinite(deltaY))
@@ -157,14 +171,14 @@ internal sealed class CefHumanizedInput : IDisposable
                 "Wheel deltas must be finite.");
         }
 
-        await _gestureGate.WaitAsync().ConfigureAwait(false);
+        await _gestureGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             await MoveCoreAsync(
                     new CefCursorPoint(originX, originY),
                     buttons,
                     modifiers,
-                    targetWidth: 24)
+                    targetWidth: 24, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
 
             var magnitude = Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
@@ -195,7 +209,7 @@ internal sealed class CefHumanizedInput : IDisposable
                         modifiers,
                         clickCount: 0,
                         stepX,
-                        stepY)
+                        stepY, cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
                 KeepCursorVisible();
                 sentX += stepX;
@@ -203,7 +217,8 @@ internal sealed class CefHumanizedInput : IDisposable
                 priorProgress = progress;
                 if (index != steps)
                 {
-                    await PauseAsync(14, 42).ConfigureAwait(false);
+                    await PauseAsync(14, 42,
+                        cancellationToken: cancellationToken).ConfigureAwait(false);
                 }
             }
         }
@@ -213,7 +228,7 @@ internal sealed class CefHumanizedInput : IDisposable
         }
     }
 
-    public async Task TypeTextAsync(string text)
+    public async Task TypeTextAsync(string text, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(text);
         if (text.Length == 0)
@@ -222,10 +237,10 @@ internal sealed class CefHumanizedInput : IDisposable
         }
 
         var elements = TextElements(text);
-        await _gestureGate.WaitAsync().ConfigureAwait(false);
+        await _gestureGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await EnsureCursorAsync().ConfigureAwait(false);
+            await EnsureCursorAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
             var burstsRemaining = MaximumTypingBursts;
             for (var index = 0; index < elements.Count; burstsRemaining--)
             {
@@ -248,7 +263,8 @@ internal sealed class CefHumanizedInput : IDisposable
                         "Input.insertText",
                         JsonSerializer.Serialize(
                             new CdpInsertTextParameters(burst),
-                            BrowserJsonContext.Default.CdpInsertTextParameters))
+                            BrowserJsonContext.Default.CdpInsertTextParameters),
+                            cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
                 KeepCursorVisible();
                 index += burstSize;
@@ -266,7 +282,7 @@ internal sealed class CefHumanizedInput : IDisposable
                         baseDelay += RandomMilliseconds(35, 105);
                     }
 
-                    await _delay(TimeSpan.FromMilliseconds(baseDelay))
+                    await _delay(TimeSpan.FromMilliseconds(baseDelay)).WaitAsync(cancellationToken)
                         .ConfigureAwait(false);
                 }
             }
@@ -277,12 +293,12 @@ internal sealed class CefHumanizedInput : IDisposable
         }
     }
 
-    public async Task EnsureCursorVisibleAsync()
+    public async Task EnsureCursorVisibleAsync(CancellationToken cancellationToken = default)
     {
-        await _gestureGate.WaitAsync().ConfigureAwait(false);
+        await _gestureGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await EnsureCursorAsync().ConfigureAwait(false);
+            await EnsureCursorAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
             KeepCursorVisible();
         }
         finally
@@ -303,9 +319,10 @@ internal sealed class CefHumanizedInput : IDisposable
         CefCursorPoint target,
         BrowserMouseButtons buttons,
         BrowserInputModifiers modifiers,
-        double targetWidth)
+        double targetWidth,
+        CancellationToken cancellationToken = default)
     {
-        var start = await EnsureCursorAsync().ConfigureAwait(false);
+        var start = await EnsureCursorAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
         var distance = Distance(start, target);
         var duration = MovementDuration(distance, targetWidth);
         if (distance > OvershootThresholdCss)
@@ -317,7 +334,8 @@ internal sealed class CefHumanizedInput : IDisposable
                     buttons,
                     modifiers,
                     spreadOverride: null,
-                    ScaleDuration(duration, OvershootTravelFraction))
+                    ScaleDuration(duration, OvershootTravelFraction),
+                        cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
             await FollowCurveAsync(
                     overshoot,
@@ -325,7 +343,8 @@ internal sealed class CefHumanizedInput : IDisposable
                     buttons,
                     modifiers,
                     CorrectionSpreadCss,
-                    ScaleDuration(duration, 1 - OvershootTravelFraction))
+                    ScaleDuration(duration, 1 - OvershootTravelFraction),
+                        cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
             return;
         }
@@ -336,25 +355,25 @@ internal sealed class CefHumanizedInput : IDisposable
                 buttons,
                 modifiers,
                 spreadOverride: null,
-                duration)
+                duration, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
     }
 
-    private async Task<CefCursorPoint> EnsureCursorAsync()
+    private async Task<CefCursorPoint> EnsureCursorAsync(CancellationToken cancellationToken = default)
     {
         if (_cursor is { } cursor)
         {
             return cursor;
         }
 
-        var viewport = await ReadViewportAsync().ConfigureAwait(false);
+        var viewport = await ReadViewportAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
         var initial = new CefCursorPoint(
             RandomViewportCoordinate(viewport.WidthCss),
             RandomViewportCoordinate(viewport.HeightCss));
         await DispatchMovedAsync(
                 initial,
                 BrowserMouseButtons.None,
-                BrowserInputModifiers.None)
+                BrowserInputModifiers.None, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         return initial;
     }
@@ -374,12 +393,13 @@ internal sealed class CefHumanizedInput : IDisposable
         BrowserMouseButtons buttons,
         BrowserInputModifiers modifiers,
         double? spreadOverride,
-        TimeSpan duration)
+        TimeSpan duration, CancellationToken cancellationToken = default)
     {
         var distance = Distance(start, finish);
         if (distance < 0.5)
         {
-            await DispatchMovedAsync(finish, buttons, modifiers)
+            await DispatchMovedAsync(finish, buttons, modifiers,
+                cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
             return;
         }
@@ -403,11 +423,12 @@ internal sealed class CefHumanizedInput : IDisposable
                 controls.Second,
                 finish,
                 t);
-            await DispatchMovedAsync(point, buttons, modifiers)
+            await DispatchMovedAsync(point, buttons, modifiers,
+                cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
             if (index != steps)
             {
-                await _delay(frameDuration).ConfigureAwait(false);
+                await _delay(frameDuration).WaitAsync(cancellationToken).ConfigureAwait(false);
             }
         }
     }
@@ -435,7 +456,8 @@ internal sealed class CefHumanizedInput : IDisposable
     private async Task DispatchMovedAsync(
         CefCursorPoint point,
         BrowserMouseButtons buttons,
-        BrowserInputModifiers modifiers)
+        BrowserInputModifiers modifiers,
+        CancellationToken cancellationToken = default)
     {
         await DispatchMouseEventAsync(
                 "mouseMoved",
@@ -446,7 +468,7 @@ internal sealed class CefHumanizedInput : IDisposable
                 modifiers,
                 clickCount: 0,
                 deltaX: 0,
-                deltaY: 0)
+                deltaY: 0, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         _cursor = point;
         _cursorActivity?.Invoke(point);
@@ -461,7 +483,8 @@ internal sealed class CefHumanizedInput : IDisposable
         BrowserInputModifiers modifiers,
         int clickCount,
         double deltaX,
-        double deltaY) =>
+        double deltaY,
+        CancellationToken cancellationToken = default) =>
         ExecuteAcknowledgedAsync(
             "Input.dispatchMouseEvent",
             JsonSerializer.Serialize(
@@ -476,25 +499,29 @@ internal sealed class CefHumanizedInput : IDisposable
                     deltaX,
                     deltaY,
                     "mouse"),
-                BrowserJsonContext.Default.CdpMouseEventParameters));
+                BrowserJsonContext.Default.CdpMouseEventParameters),
+                cancellationToken: cancellationToken);
 
     private async Task ExecuteAcknowledgedAsync(
         string method,
-        string parametersJson)
+        string parametersJson,
+        CancellationToken cancellationToken = default)
     {
-        using var reply = await ExecuteAsync(method, parametersJson)
+        using var reply = await ExecuteAsync(method, parametersJson,
+            cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         _ = RequireResult(reply.RootElement);
     }
 
     private async Task<JsonDocument> ExecuteAsync(
         string method,
-        string? parametersJson)
+        string? parametersJson, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var reply = await _transport.ExecuteAsync(
                 method,
                 parametersJson)
-            .ConfigureAwait(false);
+            .WaitAsync(cancellationToken).ConfigureAwait(false);
         if (StrictUtf8.GetByteCount(reply) > MaximumCdpReplyBytes)
         {
             throw new InvalidOperationException(
@@ -567,9 +594,9 @@ internal sealed class CefHumanizedInput : IDisposable
         return Math.Clamp(progress, priorProgress + 0.0001, 0.9999);
     }
 
-    private Task PauseAsync(int minimumMilliseconds, int maximumMilliseconds) =>
+    private Task PauseAsync(int minimumMilliseconds, int maximumMilliseconds, CancellationToken cancellationToken = default) =>
         _delay(TimeSpan.FromMilliseconds(
-            RandomMilliseconds(minimumMilliseconds, maximumMilliseconds)));
+            RandomMilliseconds(minimumMilliseconds, maximumMilliseconds))).WaitAsync(cancellationToken);
 
     private int RandomMilliseconds(int minimum, int maximum) =>
         _random.Next(minimum, checked(maximum + 1));

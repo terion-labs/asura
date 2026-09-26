@@ -14,17 +14,30 @@ public sealed record BrowserNavigationOrigin
         string idnHost,
         int port,
         bool isBlank,
-        bool isUnrestricted)
+        bool isUnrestricted,
+        bool usesWorkspaceNetwork = false)
     {
         Scheme = scheme;
         IdnHost = idnHost;
         Port = port;
         IsBlank = isBlank;
         IsUnrestricted = isUnrestricted;
+        UsesWorkspaceNetwork = usesWorkspaceNetwork;
     }
 
     public static BrowserNavigationOrigin Unrestricted { get; } =
         new("*", string.Empty, port: -1, isBlank: false, isUnrestricted: true);
+
+    /// <summary>
+    /// Host-selected authority for a confirmed Full access action. Uses the
+    /// existing browser profile and workspace route, including private sites,
+    /// just as manual browsing does. Never accepted from tool arguments.
+    /// </summary>
+    public static BrowserNavigationOrigin WorkspaceNetwork { get; } =
+        new("*", string.Empty, port: -1, isBlank: false,
+            isUnrestricted: true, usesWorkspaceNetwork: true);
+
+    public bool UsesWorkspaceNetwork { get; }
 
     public string Scheme { get; }
 

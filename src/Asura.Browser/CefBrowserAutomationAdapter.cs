@@ -83,16 +83,19 @@ internal sealed class CefBrowserAutomationAdapter
     }
 
     public Task<NativeBrowserAutomationResult> DispatchMouseAsync(
-        BrowserMouseRequest request) =>
-        CaptureOutcomeAsync(() => DispatchMouseCoreAsync(request));
+        BrowserMouseRequest request,
+        CancellationToken cancellationToken = default) =>
+        CaptureOutcomeAsync(() => DispatchMouseCoreAsync(request, cancellationToken));
 
     public Task<NativeBrowserAutomationResult> DispatchKeyAsync(
-        BrowserKeyRequest request) =>
-        CaptureOutcomeAsync(() => DispatchKeyCoreAsync(request));
+        BrowserKeyRequest request,
+        CancellationToken cancellationToken = default) =>
+        CaptureOutcomeAsync(() => DispatchKeyCoreAsync(request, cancellationToken));
 
     public Task<NativeBrowserAutomationResult> DispatchScrollAsync(
-        BrowserScrollRequest request) =>
-        CaptureOutcomeAsync(() => DispatchScrollCoreAsync(request));
+        BrowserScrollRequest request,
+        CancellationToken cancellationToken = default) =>
+        CaptureOutcomeAsync(() => DispatchScrollCoreAsync(request, cancellationToken));
 
     public Task<NativeBrowserAutomationResult> EvaluateAsync(
         BrowserEvaluateRequest request) =>
@@ -117,7 +120,8 @@ internal sealed class CefBrowserAutomationAdapter
         CaptureOutcomeAsync(ExtractReadableArticleCoreAsync);
 
     private async Task<NativeBrowserAutomationResult> DispatchMouseCoreAsync(
-        BrowserMouseRequest request)
+        BrowserMouseRequest request,
+        CancellationToken cancellationToken = default)
     {
         switch (request.Action)
         {
@@ -126,7 +130,7 @@ internal sealed class CefBrowserAutomationAdapter
                         request.XCss,
                         request.YCss,
                         request.Buttons,
-                        request.Modifiers)
+                        request.Modifiers, cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
                 break;
             case BrowserMouseAction.Click:
@@ -136,7 +140,7 @@ internal sealed class CefBrowserAutomationAdapter
                         request.Button,
                         request.Buttons,
                         request.Modifiers,
-                        request.ClickCount)
+                        request.ClickCount, cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
                 break;
             case BrowserMouseAction.Wheel:
@@ -146,7 +150,7 @@ internal sealed class CefBrowserAutomationAdapter
                         request.DeltaX,
                         request.DeltaY,
                         request.Modifiers,
-                        request.Buttons)
+                        request.Buttons, cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
                 break;
             default:
@@ -157,27 +161,37 @@ internal sealed class CefBrowserAutomationAdapter
     }
 
     private async Task<NativeBrowserAutomationResult> DispatchScrollCoreAsync(
-        BrowserScrollRequest request)
+        BrowserScrollRequest request,
+        CancellationToken cancellationToken = default)
     {
         await _humanizedInput.ScrollAsync(
                 request.OriginXCss,
                 request.OriginYCss,
                 request.DeltaX,
                 request.DeltaY,
-                request.Modifiers)
+                request.Modifiers, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         return NativeBrowserAutomationResult.Acknowledged();
     }
 
     private async Task<NativeBrowserAutomationResult> DispatchKeyCoreAsync(
-        BrowserKeyRequest request)
+        BrowserKeyRequest request,
+        CancellationToken cancellationToken = default)
     {
-        await _humanizedInput.EnsureCursorVisibleAsync().ConfigureAwait(false);
+        await _humanizedInput.EnsureCursorVisibleAsync(cancellationToken).ConfigureAwait(false);
         var key = KeyDescriptor.For(request.Key, request.Modifiers);
-        await DispatchKeyEventAsync("keyDown", key, request.Modifiers)
-            .ConfigureAwait(false);
-        await DispatchKeyEventAsync("keyUp", key, request.Modifiers)
-            .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            await DispatchKeyEventAsync("keyDown", key, request.Modifiers)
+                .WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            await DispatchKeyEventAsync("keyUp", key, request.Modifiers)
+                .ConfigureAwait(false);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
         _humanizedInput.KeepCursorVisible();
 
         return NativeBrowserAutomationResult.Acknowledged();

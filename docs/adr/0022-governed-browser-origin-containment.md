@@ -26,6 +26,30 @@ renderer boundary.
 
 ## Decision
 
+### 2026-09-26 Full access workspace-network amendment
+
+Confirmed run-local Full access uses the same browser network access as manual
+browsing, including private, loopback, and Tailscale destinations. After
+validating the broker authorization and current document binding, SessionHost
+selects `BrowserNavigationOrigin.WorkspaceNetwork` only for `YoloPolicy`.
+The provider cannot request this authority in tool arguments. The browser
+keeps its existing renderer, profile, cookies, and workspace proxy; it does
+not open a separate browser or fall back to the host network when routing
+fails. Cross-origin navigation and redirects follow normal workspace access.
+
+This authority does not claim public-internet-only containment. Other
+authorization sources retain the peer-bound transport requirement below;
+the native adapter still reports that capability as unavailable. Document,
+viewport, lease, input-epoch, serialization, and cancellation checks remain.
+Cancellation reaches queued and active native input, including release of
+pressed keys/buttons. Production still excludes arbitrary script evaluation.
+
+`scripts/check-browser-agent-native.sh` exercises the real macOS arm64 CEF
+renderer with disposable profiles and a loopback fixture: cold hidden startup,
+navigation, snapshot, fill/check/click, session cookies, canceled typing,
+authenticated proxy routing, and no direct fallback on proxy denial. Host
+tests separately prove that only confirmed Full access selects this authority.
+
 ### 2026-08-25 peer-binding amendment
 
 The shipped CEF adapter cannot attest or bind policy to the actual connected
