@@ -1116,6 +1116,38 @@ public sealed class GhosttyVtTerminalSessionTests
         Assert.Equal(SessionLifecycle.Closed, (await session.SnapshotAsync(default)).Lifecycle);
     }
 
+    [Theory]
+    [InlineData(PanelCloseMode.Graceful, PanelCloseOutcome.GracefullyClosed)]
+    [InlineData(PanelCloseMode.Force, PanelCloseOutcome.ForceTerminated)]
+    public async Task Real_terminal_with_output_during_shutdown_closes_on_first_attempt(
+        PanelCloseMode mode, PanelCloseOutcome expected)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        _ = GhosttyVtTestRuntime.RequireStagedRuntime();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        const string script = """
+            trap 'i=0; while [ "$i" -lt 2000 ]; do printf "shell shutdown output\n"; i=$((i+1)); done; exit' HUP
+            printf '\033]133;A\007READY> \033]133;B\007'
+            read answer
+            """;
+        await using var session = await new GhosttyVtTerminalSessionFactory().CreateAsync(
+            SessionId.New(),
+            new TerminalLaunchRequest(Environment.CurrentDirectory, "/bin/sh", ["-c", script]),
+            deadline.Token);
+        await WaitForScreenAsync(session, screen => screen.ShellIntegrationEvents.Count == 2);
+        Assert.False((await session.SnapshotAsync(deadline.Token)).HasActiveWork);
+
+        var outcome = await session.CloseAsync(mode, deadline.Token).AsTask().WaitAsync(deadline.Token);
+
+        Assert.Equal(expected, outcome);
+        Assert.Equal(SessionLifecycle.Closed, (await session.SnapshotAsync(deadline.Token)).Lifecycle);
+        Assert.Equal(PanelCloseOutcome.AlreadyClosed, await session.CloseAsync(mode, deadline.Token));
+    }
+
     [Fact]
     public async Task Shutdown_waits_until_owned_child_is_reaped_after_streams_close()
     {
