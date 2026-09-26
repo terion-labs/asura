@@ -1455,10 +1455,32 @@ public sealed class AgentBrowserSessionHostTests
 
         Assert.IsType<AgentBrowserActionResult.Completed>(result.Value());
         Assert.Equal(1, fixture.Renderer.ReloadCount);
+        Assert.Equal(BrowserNavigationOrigin.WorkspaceNetwork,
+            fixture.Renderer.LastNavigationOrigin);
         AssertCompletion(
             Assert.Single(fixture.Authorization.Completions),
             AgentActionOutcome.Succeeded,
             "reload_completed");
+    }
+
+    [Theory]
+    [InlineData(AgentAuthorizationSource.HumanApproval, false)]
+    [InlineData(AgentAuthorizationSource.AutoPolicy, false)]
+    [InlineData(AgentAuthorizationSource.YoloPolicy, true)]
+    public async Task WorkspaceNetworkAuthorityComesOnlyFromConfirmedFullAccess(
+        AgentAuthorizationSource source, bool workspaceNetwork)
+    {
+        await using var fixture = await AgentBrowserHostFixture.CreateAsync();
+        var action = await fixture.PrepareAsync(
+            Navigate(fixture.SessionId, "https://100.96.184.41/"));
+
+        _ = (await fixture.Client.RunAgentBrowserActionAsync(
+            fixture.Authorization.Arm(action, source: source), action, default)).Value();
+
+        Assert.Equal(workspaceNetwork,
+            fixture.Renderer.LastNavigationOrigin!.UsesWorkspaceNetwork);
+        Assert.Equal(workspaceNetwork,
+            fixture.Renderer.LastNavigationOrigin.Allows(Address("https://login.example.test/")));
     }
 
     [Fact]

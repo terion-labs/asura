@@ -420,7 +420,7 @@ public sealed class CefBrowserSemanticAdapterTests
             Task.FromResult(ReadNode(backendNodeId));
 
         public Task<CefSemanticPoint?> PrepareClickPointAsync(
-            int backendNodeId)
+            int backendNodeId, CancellationToken cancellationToken = default)
         {
             PrepareClickPointCount++;
             return Task.FromResult<CefSemanticPoint?>(new(20, 30));
@@ -441,7 +441,7 @@ public sealed class CefBrowserSemanticAdapterTests
 
         public Task<bool> DispatchClickAsync(
             CefSemanticPoint point,
-            int backendNodeId)
+            int backendNodeId, CancellationToken cancellationToken = default)
         {
             ClickDispatchCount++;
             if (ThrowDuringClickDispatch)
@@ -463,7 +463,7 @@ public sealed class CefBrowserSemanticAdapterTests
             return Task.FromResult(true);
         }
 
-        public Task ReplaceFocusedTextAsync(int backendNodeId, string text)
+        public Task ReplaceFocusedTextAsync(int backendNodeId, string text, CancellationToken cancellationToken = default)
         {
             ReplaceTextCount++;
             if (!PreserveValueOnReplace

@@ -9,9 +9,10 @@ namespace Asura.Browser;
 public sealed class BrowserCapabilityProfile
 {
     /// <summary>
-    /// The capability set used by desktop production. Semantic automation is
-    /// enabled only because the native CEF adapter is covered by the focused
-    /// conformance suite.
+    /// The capability set used by desktop production. Confirmed Full access
+    /// uses the existing workspace browser route; restricted actions still
+    /// require peer-bound transport. Native acceptance covers navigation and
+    /// semantic input on macOS arm64, including routed input cancellation.
     /// </summary>
     public static BrowserCapabilityProfile Production { get; } = new(
     [

@@ -248,45 +248,57 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
     }
 
     public async Task<NativeBrowserClickResult> ClickAsync(
-        NativeBrowserElementHandle handle)
+        NativeBrowserElementHandle handle,
+        CancellationToken cancellationToken = default)
     {
+        using var inputCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, _lifetime.Token);
+        var inputToken = inputCancellation.Token;
         ArgumentNullException.ThrowIfNull(handle);
-        if (!await EnsureRendererReadyAsync().ConfigureAwait(false))
+        if (!await EnsureRendererReadyAsync().WaitAsync(inputToken).ConfigureAwait(false))
         {
             return NativeBrowserClickResult.Stale();
         }
 
-        return await (_semanticAdapter?.ClickAsync(handle)
+        return await (_semanticAdapter?.ClickAsync(handle, inputToken)
             ?? Task.FromResult(NativeBrowserClickResult.Stale()))
             .ConfigureAwait(false);
     }
 
     public async Task<NativeBrowserFillResult> FillAsync(
         NativeBrowserElementHandle handle,
-        string text)
+        string text,
+        CancellationToken cancellationToken = default)
     {
+        using var inputCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, _lifetime.Token);
+        var inputToken = inputCancellation.Token;
         ArgumentNullException.ThrowIfNull(handle);
         ArgumentNullException.ThrowIfNull(text);
-        if (!await EnsureRendererReadyAsync().ConfigureAwait(false))
+        if (!await EnsureRendererReadyAsync().WaitAsync(inputToken).ConfigureAwait(false))
         {
             return NativeBrowserFillResult.Stale();
         }
 
-        return await (_semanticAdapter?.FillAsync(handle, text)
+        return await (_semanticAdapter?.FillAsync(handle, text, inputToken)
             ?? Task.FromResult(NativeBrowserFillResult.Stale()))
             .ConfigureAwait(false);
     }
 
     public async Task<NativeBrowserCheckResult> CheckAsync(
-        NativeBrowserElementHandle handle)
+        NativeBrowserElementHandle handle,
+        CancellationToken cancellationToken = default)
     {
+        using var inputCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, _lifetime.Token);
+        var inputToken = inputCancellation.Token;
         ArgumentNullException.ThrowIfNull(handle);
-        if (!await EnsureRendererReadyAsync().ConfigureAwait(false))
+        if (!await EnsureRendererReadyAsync().WaitAsync(inputToken).ConfigureAwait(false))
         {
             return NativeBrowserCheckResult.Stale();
         }
 
-        return await (_semanticAdapter?.CheckAsync(handle)
+        return await (_semanticAdapter?.CheckAsync(handle, inputToken)
             ?? Task.FromResult(NativeBrowserCheckResult.Stale()))
             .ConfigureAwait(false);
     }
@@ -362,19 +374,34 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
     }
 
     public async Task<NativeBrowserAutomationResult> DispatchMouseAsync(
-        BrowserMouseRequest request) =>
-        await DispatchAutomationAsync(
-            adapter => adapter.DispatchMouseAsync(request));
+        BrowserMouseRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        using var inputCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, _lifetime.Token);
+        return await DispatchAutomationAsync(
+            adapter => adapter.DispatchMouseAsync(request, inputCancellation.Token));
+    }
 
     public async Task<NativeBrowserAutomationResult> DispatchKeyAsync(
-        BrowserKeyRequest request) =>
-        await DispatchAutomationAsync(
-            adapter => adapter.DispatchKeyAsync(request));
+        BrowserKeyRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        using var inputCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, _lifetime.Token);
+        return await DispatchAutomationAsync(
+            adapter => adapter.DispatchKeyAsync(request, inputCancellation.Token));
+    }
 
     public async Task<NativeBrowserAutomationResult> DispatchScrollAsync(
-        BrowserScrollRequest request) =>
-        await DispatchAutomationAsync(
-            adapter => adapter.DispatchScrollAsync(request));
+        BrowserScrollRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        using var inputCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, _lifetime.Token);
+        return await DispatchAutomationAsync(
+            adapter => adapter.DispatchScrollAsync(request, inputCancellation.Token));
+    }
 
     public async Task<NativeBrowserAutomationResult> EvaluateAsync(
         BrowserEvaluateRequest request) =>

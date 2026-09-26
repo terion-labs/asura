@@ -24,7 +24,7 @@ const trackSocket = socket => {
   return socket;
 };
 const credentials = 'Basic ' + Buffer.from('fixture:fixture').toString('base64');
-const counters = {originRequests:0, serverAuthenticated:0, proxyRequests:0, proxyAuthenticated:0, connectAttempts:0, connectAuthenticated:0, connectAllowed:0};
+const counters = {originRequests:0, serverAuthenticated:0, proxyRequests:0, proxyAuthenticated:0, connectAttempts:0, connectAuthenticated:0, connectAllowed:0, agentInputEvents:0, deniedProbeRequests:0, proxyDenied:0};
 const proxyAuthenticated = request => {
   let count = 0;
   for (let index = 0; index < request.rawHeaders.length; index += 2) {
@@ -46,6 +46,10 @@ const child = html(`<h1>Hosted child: visible origin above</h1><p id="proof"></p
 <button onclick="window.open('/nested','nested')">Nested popup</button><pre id="messages"></pre>
 <script>document.querySelector('#proof').textContent='Opener exists: '+!!opener+'; cookie: '+document.cookie;opener?.postMessage('child-ready',location.origin);addEventListener('message',e=>{if(e.origin===location.origin){document.querySelector('#messages').textContent+=e.data+'\\n';opener?.postMessage('child-received-'+e.data,location.origin)}})</script>`);
 const persistence = html(`<h1>Disposable session persistence</h1><button onclick="document.cookie='persistentSmoke=verified; Max-Age=86400; Path=/; SameSite=Lax';localStorage.setItem('smoke','verified');show()">Sign in with synthetic session</button><pre id="state"></pre><script>function show(){document.querySelector('#state').textContent='Cookie: '+document.cookie+'; storage: '+localStorage.getItem('smoke')}show()</script>`);
+const agentForm = html(`<h1>Native agent fixture</h1><form action="/agent-result">
+<label>Fixture text <input name="value" autocomplete="off" oninput="if(this.value.length)fetch('/agent-input-event')"></label>
+<label><input type="checkbox" name="checked" value="true">Fixture check</label>
+<button type="submit">Submit fixture</button></form>`);
 const canaryPersistence = html(`<h1>Disposable persistence ${persistencePhase} proof</h1><button id="write-canary" onclick="writeCanary()">Write this synthetic canary</button><pre id="state"></pre><script>
 const expected=${JSON.stringify(persistenceCanary)};
 function writeCanary(){document.cookie='sealCanary='+expected+'; Max-Age=86400; Path=/; SameSite=Lax';localStorage.setItem('sealCanary',expected);show()}
@@ -59,6 +63,8 @@ fetch('/persistence-report?cookie='+cookie+'&storage='+storage,{cache:'no-store'
 </script>`);
 const server = http.createServer((request, response) => {
   counters.originRequests++;
+  if (request.url === '/agent-input-event') counters.agentInputEvents++;
+  if (request.url === '/agent-route-denied') counters.deniedProbeRequests++;
   if (request.headers.authorization === credentials) counters.serverAuthenticated++;
   console.log(JSON.stringify({source:'origin', method:request.method, url:request.url, authenticated:request.headers.authorization===credentials}));
   if (request.url === '/fixture-status') {
@@ -72,6 +78,15 @@ const server = http.createServer((request, response) => {
   }
   response.setHeader('Content-Type', 'text/html; charset=utf-8');
   response.setHeader('Cache-Control', 'no-store');
+  if (request.url === '/agent-form') {
+    response.setHeader('Set-Cookie', 'agentFixture=retained; Path=/; SameSite=Lax');
+    response.end(agentForm); return;
+  }
+  if (request.url?.startsWith('/agent-result?')) {
+    response.end(html(request.headers.cookie?.split('; ').includes('agentFixture=retained')
+      ? '<h1>Fixture session retained</h1>' : '<h1>Fixture session lost</h1>'));
+    return;
+  }
   if (request.url?.startsWith('/persistence-report?')) {
     const report = new URL(request.url, 'http://127.0.0.1');
     console.log(JSON.stringify({source:'persistence', phase:persistencePhase,
@@ -101,6 +116,7 @@ const proxy = http.createServer((request, response) => {
   let url;
   try { url = new URL(request.url); } catch { response.writeHead(400); response.end(); return; }
   if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || Number(url.port) !== originPort) {
+    counters.proxyDenied++;
     response.writeHead(502); response.end('Fixture refuses non-loopback destinations'); return;
   }
   const headers = {...request.headers}; delete headers['proxy-authorization'];

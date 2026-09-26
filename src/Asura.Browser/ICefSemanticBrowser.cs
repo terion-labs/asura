@@ -10,7 +10,7 @@ internal interface ICefSemanticBrowser
 
     Task<CefSemanticNode?> ReadAccessibilityNodeAsync(int backendNodeId);
 
-    Task<CefSemanticPoint?> PrepareClickPointAsync(int backendNodeId);
+    Task<CefSemanticPoint?> PrepareClickPointAsync(int backendNodeId, CancellationToken cancellationToken = default);
 
     Task<bool> HitTestIncludesAsync(
         CefSemanticPoint point,
@@ -18,9 +18,10 @@ internal interface ICefSemanticBrowser
 
     Task<bool> DispatchClickAsync(
         CefSemanticPoint point,
-        int backendNodeId);
+        int backendNodeId,
+        CancellationToken cancellationToken = default);
 
-    Task ReplaceFocusedTextAsync(int backendNodeId, string text);
+    Task ReplaceFocusedTextAsync(int backendNodeId, string text, CancellationToken cancellationToken = default);
 
     Task<bool> IsVisibleAsync(int backendNodeId);
 }

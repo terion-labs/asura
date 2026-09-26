@@ -27,7 +27,7 @@ public sealed partial class BrowserSurface
             request,
             allowedOrigin,
             SessionCapabilities.BrowserMouse,
-            nativeView => nativeView.DispatchMouseAsync(request),
+            (nativeView, token) => nativeView.DispatchMouseAsync(request, token),
             cancellationToken);
 
     public ValueTask<BrowserResult<BrowserAutomationReceipt>>
@@ -39,7 +39,7 @@ public sealed partial class BrowserSurface
             request,
             allowedOrigin,
             SessionCapabilities.BrowserKey,
-            nativeView => nativeView.DispatchKeyAsync(request),
+            (nativeView, token) => nativeView.DispatchKeyAsync(request, token),
             cancellationToken);
 
     public ValueTask<BrowserResult<BrowserAutomationReceipt>>
@@ -51,7 +51,7 @@ public sealed partial class BrowserSurface
             request,
             allowedOrigin,
             SessionCapabilities.BrowserScroll,
-            nativeView => nativeView.DispatchScrollAsync(request),
+            (nativeView, token) => nativeView.DispatchScrollAsync(request, token),
             cancellationToken);
 
     public async ValueTask<BrowserResult<BrowserEvaluationResult>>
@@ -73,7 +73,7 @@ public sealed partial class BrowserSurface
                 allowedOrigin,
                 request.Timeout,
                 advancesInputEpoch: false,
-                nativeView => nativeView.EvaluateAsync(request),
+                (nativeView, _) => nativeView.EvaluateAsync(request),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!completion.IsSuccess)
@@ -104,7 +104,7 @@ public sealed partial class BrowserSurface
             TRequest request,
             BrowserNavigationOrigin allowedOrigin,
             string capability,
-            Func<IEmbeddedBrowserView, Task<NativeBrowserAutomationResult>> dispatch,
+            Func<IEmbeddedBrowserView, CancellationToken, Task<NativeBrowserAutomationResult>> dispatch,
             CancellationToken cancellationToken)
         where TRequest : notnull
     {
@@ -144,7 +144,7 @@ public sealed partial class BrowserSurface
             BrowserNavigationOrigin allowedOrigin,
             TimeSpan deadline,
             bool advancesInputEpoch,
-            Func<IEmbeddedBrowserView, Task<NativeBrowserAutomationResult>> dispatch,
+            Func<IEmbeddedBrowserView, CancellationToken, Task<NativeBrowserAutomationResult>> dispatch,
             CancellationToken cancellationToken)
     {
         if (cancellationToken.IsCancellationRequested)
@@ -152,7 +152,7 @@ public sealed partial class BrowserSurface
             return AutomationCancelled();
         }
 
-        if (!_nativeView.SupportsPeerBoundTransport)
+        if (!allowedOrigin.UsesWorkspaceNetwork && !_nativeView.SupportsPeerBoundTransport)
         {
             return PeerBoundTransportUnavailable<NativeAutomationCompletion>();
         }
@@ -225,7 +225,7 @@ public sealed partial class BrowserSurface
         NativeBrowserViewport nativeViewport,
         TimeSpan deadline,
         bool advancesInputEpoch,
-        Func<IEmbeddedBrowserView, Task<NativeBrowserAutomationResult>> dispatch,
+        Func<IEmbeddedBrowserView, CancellationToken, Task<NativeBrowserAutomationResult>> dispatch,
         CancellationToken cancellationToken)
     {
         if (cancellationToken.IsCancellationRequested)
@@ -282,7 +282,9 @@ public sealed partial class BrowserSurface
         try
         {
             pending.NativeDispatchCommitted = true;
-            pending.NativeCompletion = dispatch(_nativeView);
+            pending.NativeCompletion = RunNativeInputAsync(
+                token => dispatch(pending.NativeView, token),
+                cancellationToken, pending.DeadlineCancellation.Token);
         }
         catch (Exception)
         {
@@ -300,6 +302,17 @@ public sealed partial class BrowserSurface
         _ = ObserveBrowserAutomationDeadlineAsync(pending);
         _ = ObserveNativeBrowserAutomationAsync(pending);
         return pending.Completion.Task;
+    }
+
+    private static async Task<T> RunNativeInputAsync<T>(
+        Func<CancellationToken, Task<T>> dispatch,
+        CancellationToken authorityCancellation,
+        CancellationToken completionCancellation)
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            authorityCancellation, completionCancellation);
+        cancellation.Token.ThrowIfCancellationRequested();
+        return await dispatch(cancellation.Token).ConfigureAwait(false);
     }
 
     private async Task ObserveNativeBrowserAutomationAsync(

@@ -54,7 +54,8 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
     }
 
     public async Task<CefSemanticPoint?> PrepareClickPointAsync(
-        int backendNodeId)
+        int backendNodeId,
+        CancellationToken cancellationToken = default)
     {
         await EnsureDomainsEnabledAsync().ConfigureAwait(false);
         for (var attempt = 0; attempt < MaximumRevealAttempts; attempt++)
@@ -78,7 +79,7 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
                 return null;
             }
 
-            var viewport = await _humanizedInput.ReadViewportAsync()
+            var viewport = await _humanizedInput.ReadViewportAsync(cancellationToken)
                 .ConfigureAwait(false);
             var point = new CefSemanticPoint(
                 clip.X + clip.Width / 2,
@@ -103,9 +104,9 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
                     viewport.HeightCss / 2,
                     deltaX,
                     deltaY,
-                    BrowserInputModifiers.None)
+                    BrowserInputModifiers.None, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
-            await Task.Delay(TimeSpan.FromMilliseconds(35))
+            await Task.Delay(TimeSpan.FromMilliseconds(35), cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -141,12 +142,13 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
 
     public async Task<bool> DispatchClickAsync(
         CefSemanticPoint point,
-        int backendNodeId)
+        int backendNodeId,
+        CancellationToken cancellationToken = default)
     {
         await _humanizedInput.MoveAsync(
                 point.X,
                 point.Y,
-                targetWidth: point.TargetWidth)
+                targetWidth: point.TargetWidth, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         if (!await HitTestIncludesAsync(point, backendNodeId)
                 .ConfigureAwait(false))
@@ -161,49 +163,47 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
                 BrowserMouseButtons.None,
                 BrowserInputModifiers.None,
                 clickCount: 1,
-                targetWidth: point.TargetWidth)
+                targetWidth: point.TargetWidth, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         return true;
     }
 
     public async Task ReplaceFocusedTextAsync(
         int backendNodeId,
-        string text)
+        string text,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(text);
         await EnsureDomainsEnabledAsync().ConfigureAwait(false);
-        await _humanizedInput.EnsureCursorVisibleAsync().ConfigureAwait(false);
-        await _browser.Dom.FocusAsync(backendNodeId).ConfigureAwait(false);
-        await DispatchKeyAsync(
-                "rawKeyDown",
-                "a",
-                "KeyA",
-                65,
-                commands: ["SelectAll"])
-            .ConfigureAwait(false);
-        await DispatchKeyAsync(
-                "keyUp",
-                "a",
-                "KeyA",
-                65)
-            .ConfigureAwait(false);
-        await DispatchKeyAsync(
-                "rawKeyDown",
-                "Backspace",
-                "Backspace",
-                8)
-            .ConfigureAwait(false);
-        await DispatchKeyAsync(
-                "keyUp",
-                "Backspace",
-                "Backspace",
-                8)
-            .ConfigureAwait(false);
+        await _humanizedInput.EnsureCursorVisibleAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        await _browser.Dom.FocusAsync(backendNodeId).WaitAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            await DispatchKeyAsync("rawKeyDown", "a", "KeyA", 65, commands: ["SelectAll"])
+                .WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            await DispatchKeyAsync("keyUp", "a", "KeyA", 65).ConfigureAwait(false);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            await DispatchKeyAsync("rawKeyDown", "Backspace", "Backspace", 8)
+                .WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            await DispatchKeyAsync("keyUp", "Backspace", "Backspace", 8).ConfigureAwait(false);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
         if (text.Length != 0)
         {
             // Input.insertText is Chromium's acknowledged, trusted input path;
             // it fires editing/input behavior without assigning page state.
-            await _humanizedInput.TypeTextAsync(text).ConfigureAwait(false);
+            await _humanizedInput.TypeTextAsync(text, cancellationToken).ConfigureAwait(false);
         }
     }
 
