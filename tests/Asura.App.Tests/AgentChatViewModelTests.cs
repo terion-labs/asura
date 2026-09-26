@@ -14,6 +14,32 @@ public sealed partial class AgentChatViewModelTests
         ApplicationViewCatalog.Load();
 
     [Fact]
+    public void Persistence_failure_remains_visible_after_progress_changes()
+    {
+        var provider = Provider("provider", "Provider", order: 0);
+        using var runtime = new StubGovernedRuntime
+        {
+            Snapshot = Snapshot(providerId: provider.Id) with
+            {
+                State = GovernedAgentState.StreamingProvider,
+                PersistenceError = "Recent messages could not be saved.",
+            },
+        };
+        using var profiles = new StubProfileRuntime { Profiles = [provider] };
+        using var viewModel = new AgentChatViewModel(runtime, profiles,
+            ImmediateUiThreadDispatcher.Instance);
+        runtime.Snapshot = runtime.Snapshot with
+        {
+            Status = "Waiting for the provider…",
+            PersistenceError = null,
+        };
+        runtime.RaiseChanged();
+        var notice = Assert.Single(viewModel.ErrorNotices.Items);
+        Assert.Equal("Conversation not saved", notice.Title);
+        Assert.Equal("Recent messages could not be saved.", notice.Message);
+    }
+
+    [Fact]
     public void Constructor_projects_enabled_providers_and_pending_capability_state()
     {
         var first = Provider("first", "Alpha", order: 1);

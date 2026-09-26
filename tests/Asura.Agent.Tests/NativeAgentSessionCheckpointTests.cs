@@ -605,6 +605,65 @@ public sealed partial class NativeAgentSessionTests
         Assert.Equal(AgentCheckpointCaptureErrorCode.UnsafeContent, capture.ErrorCode);
     }
 
+    [Theory]
+    [InlineData("{\"text\":\"token = read_from_file()\"}")]
+    [InlineData("{\"password\":\"fixture-value\"}")]
+    public async Task CheckpointRetainsLaterDialogueAfterRejectedCredentialShapedToolCall(string arguments)
+    {
+        var session = CreateSession();
+        var tools = ImmutableArray.Create(Tool("terminal.submit_text"));
+        var replay = ReplayState("provider", AiProviderKind.OpenAi,
+            AiProviderProtocol.OpenAiResponses, "model", AgentProviderReplayFormat.OpenAiResponseItems,
+            [new AgentProviderReplayItem(0, AgentProviderReplayItemKind.OpenAiFunctionCall,
+                $$"""{"type":"function_call","id":"fc-1","call_id":"provider-call-1","name":"{{ProviderName("terminal.submit_text")}}","arguments":"{{JsonEncodedText.Encode(arguments)}}"}""", 0)]);
+        var turn = await session.RunTurnAsync(
+            "Continue setup", tools,
+            new SequenceProvider(
+                new AgentProviderEvent.ResponseStarted(),
+                new AgentProviderEvent.ToolCallStarted(0, "provider-call-1", ProviderName("terminal.submit_text")),
+                new AgentProviderEvent.ToolCallArgumentsDelta(0, arguments),
+                new AgentProviderEvent.ToolCallCompleted(0),
+                new AgentProviderEvent.ReplayStateFinalized(replay),
+                new AgentProviderEvent.ResponseCompleted(AgentProviderStopReason.ToolUse)),
+            CancellationToken.None);
+        Assert.True(turn.Succeeded, turn.ErrorCode?.ToString());
+        var proposal = Assert.Single(turn.ToolProposals);
+        var denied = new AgentToolResult(proposal, AgentToolResultStatus.Failed,
+            "credential_material_rejected", AgentToolResultValue.FromText("Command did not run."));
+
+        var interrupted = session.CaptureInterruptedCheckpoint([denied]);
+        Assert.True(interrupted.Succeeded, interrupted.ErrorCode?.ToString());
+        var interruptedSession = Assert.IsType<NativeAgentSession>(
+            NativeAgentSession.RestoreCheckpoint(interrupted.Checkpoint!).Session);
+        Assert.Equal(NativeAgentSessionState.Ready, interruptedSession.Snapshot().State);
+        Assert.Empty(interruptedSession.Snapshot().PendingToolProposals);
+
+        Assert.True((await session.SubmitToolResultsAsync(
+            proposal.Generation, [denied], tools, TextProvider("Use interactive sign-in."),
+            CancellationToken.None)).Succeeded);
+        Assert.True((await session.RunTurnAsync("Sign-in completed", [],
+            TextProvider("Setup is complete."), CancellationToken.None)).Succeeded);
+        var captured = session.CaptureCheckpoint();
+        Assert.True(captured.Succeeded, captured.ErrorCode?.ToString());
+        var restored = Assert.IsType<NativeAgentSession>(
+            NativeAgentSession.RestoreCheckpoint(captured.Checkpoint!).Session);
+        Assert.Equal("Setup is complete.", restored.Snapshot().Transcript[^1].Content);
+        Assert.Equal("Sign-in completed", restored.Snapshot().Transcript[^2].Content);
+        Assert.Equal(arguments, Assert.Single(session.Snapshot().Transcript
+            .SelectMany(message => message.ToolCalls)).Arguments.GetRawText());
+        var retained = Assert.Single(restored.Snapshot().Transcript.SelectMany(message => message.ToolCalls));
+        Assert.True(retained.Arguments.GetProperty("redacted").GetBoolean());
+        Assert.Equal(proposal.Id, retained.Id);
+        Assert.Null(Assert.Single(restored.Snapshot().Transcript
+            .Where(message => message.ToolCalls.Length > 0)).ProviderReplayState);
+        Assert.NotNull(Assert.Single(session.Snapshot().Transcript
+            .Where(message => message.ToolCalls.Length > 0)).ProviderReplayState);
+        Assert.Equal(AgentToolResultStatus.Failed, Assert.Single(restored.Snapshot().Transcript
+            .Where(message => message.ToolResult is not null)).ToolResult!.Status);
+        Assert.DoesNotContain("fixture-value", captured.Checkpoint!.PayloadJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("read_from_file", captured.Checkpoint.PayloadJson, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task CheckpointRedactsUnsafeToolOutputAndPreservesLaterMessages()
     {

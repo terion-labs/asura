@@ -14,7 +14,7 @@ public sealed partial class NativeAgentSession
         "The previous agent turn was interrupted. No pending tool action was resumed.";
     private const string RedactedToolResultText =
         "[REDACTED TOOL RESULT CONTENT]";
-    private const string RedactedToolResultJson =
+    private const string RedactedToolContentJson =
         "{\"redacted\":true,\"reason\":\"credential-shaped tool content omitted from the local checkpoint\"}";
     private const int MaximumRouteIdentityLength = 256;
 
@@ -698,6 +698,27 @@ public sealed partial class NativeAgentSession
     private static AgentMessage ToDurableCheckpointMessage(AgentMessage message)
     {
         var durableMessage = WithoutUnsafeProviderReplayState(message);
+        if (durableMessage.ToolCalls.Any(ContainsUnsafeToolArguments))
+        {
+            using var redacted = JsonDocument.Parse(RedactedToolContentJson);
+            durableMessage = AgentMessage.Assistant(
+                durableMessage.Content,
+                [.. durableMessage.ToolCalls.Select(proposal =>
+                    ContainsUnsafeToolArguments(proposal)
+                        ? new AgentToolProposal(
+                            proposal.Id,
+                            proposal.Generation,
+                            proposal.ProviderCallId,
+                            proposal.ToolName,
+                            redacted.RootElement)
+                        : proposal)],
+                durableMessage.ReasoningSummary,
+                durableMessage.Usage,
+                // Replay atoms also contain the original arguments. Keep the
+                // neutral historical call/result pair, never those raw bytes.
+                providerReplayState: null,
+                requestedReasoningEffort: durableMessage.RequestedReasoningEffort);
+        }
         if (durableMessage.ToolResult is not { } result
             || !ContainsUnsafeToolResultValue(result))
         {
@@ -709,7 +730,7 @@ public sealed partial class NativeAgentSession
         // cannot prevent every later transcript revision from being saved.
         var redactedValue = result.Value.Kind is AgentToolResultValueKind.Json
             ? AgentToolResultValue.FromJson(
-                Encoding.UTF8.GetBytes(RedactedToolResultJson))
+                Encoding.UTF8.GetBytes(RedactedToolContentJson))
             : AgentToolResultValue.FromText(RedactedToolResultText);
         return AgentMessage.FromToolResult(new AgentToolResult(
             result.ProposalId,
@@ -719,6 +740,10 @@ public sealed partial class NativeAgentSession
             result.StableCode,
             redactedValue));
     }
+
+    private static bool ContainsUnsafeToolArguments(AgentToolProposal proposal) =>
+        LiteralSecretValidator.ContainsLikelyLiteralSecret(proposal.Arguments.GetRawText())
+        || ContainsReservedSecretProperty(proposal.Arguments);
 
     private static CheckpointProviderReplayState ToCheckpointReplayState(
         AgentProviderReplayState state) =>
@@ -1066,9 +1091,7 @@ public sealed partial class NativeAgentSession
                         proposal.ProviderCallId)
                     || LiteralSecretValidator.ContainsLikelyLiteralSecret(
                         proposal.ToolName)
-                    || LiteralSecretValidator.ContainsLikelyLiteralSecret(
-                        proposal.Arguments.GetRawText())
-                    || ContainsReservedSecretProperty(proposal.Arguments))
+                    || ContainsUnsafeToolArguments(proposal))
                 {
                     return true;
                 }
