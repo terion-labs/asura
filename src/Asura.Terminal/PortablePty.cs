@@ -1,4 +1,5 @@
 using Asura.Application;
+using Microsoft.Win32.SafeHandles;
 using Porta.Pty;
 
 namespace Asura.Terminal;
@@ -63,7 +64,15 @@ internal sealed class PortaPtyFactory : IPortablePtyFactory
                 },
                 cancellationToken)
             .ConfigureAwait(false);
-        return new PortaPtyConnection(connection);
+        // Porta.Pty 1.0.7's Unix streams borrow the master descriptor and its
+        // Dispose only signals the child. Own the master here so unread terminal
+        // output cannot keep a Darwin child stuck in tty drain during exit.
+        var master = OperatingSystem.IsWindows()
+            ? null
+            : new SafeFileHandle(
+                ((FileStream)connection.ReaderStream).SafeFileHandle.DangerousGetHandle(),
+                ownsHandle: true);
+        return new PortaPtyConnection(connection, master);
     }
 
     internal static Dictionary<string, string> CreateProcessEnvironment(
@@ -108,11 +117,14 @@ internal sealed class PortaPtyFactory : IPortablePtyFactory
 internal sealed class PortaPtyConnection : IPortablePtyConnection
 {
     private readonly IPtyConnection _connection;
+    private readonly SafeFileHandle? _master;
     private readonly TaskCompletionSource _exited = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private int _disposed;
 
-    public PortaPtyConnection(IPtyConnection connection)
+    public PortaPtyConnection(IPtyConnection connection, SafeFileHandle? master = null)
     {
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
+        _master = master;
         _connection.ProcessExited += OnProcessExited;
         if (_connection.WaitForExit(0))
         {
@@ -146,7 +158,20 @@ internal sealed class PortaPtyConnection : IPortablePtyConnection
 
     public void Dispose()
     {
-        _connection.Dispose();
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            _connection.Dispose();
+        }
+        finally
+        {
+            _master?.Dispose();
+        }
+
         if (_exited.Task.IsCompleted)
         {
             _connection.ProcessExited -= OnProcessExited;
