@@ -2352,6 +2352,7 @@ public sealed partial class AgentChatViewModelTests
                     "Embedded browser",
                     workingDirectory: null,
                     [
+                        new AgentApprovalArgument("session_id", "browser-session-1"),
                         new AgentApprovalArgument(
                             "address",
                             "https://docs.example.test/runbook"),
@@ -2383,9 +2384,14 @@ public sealed partial class AgentChatViewModelTests
         Assert.False(approval.TemporarilyYieldsTerminalInput);
         Assert.Equal("Embedded browser", approval.Host);
         Assert.Equal("Not reported", approval.WorkingDirectory);
+        Assert.True(approval.HasHost);
+        Assert.False(approval.HasWorkingDirectory);
+        Assert.Equal(2, approval.Arguments.Count);
+        Assert.Contains(approval.Arguments, argument => argument.Name == "session_id");
         Assert.Equal(
             "https://docs.example.test/runbook",
-            Assert.Single(approval.Arguments).DisplayValue);
+            Assert.Single(approval.ActionArguments).DisplayValue);
+        Assert.Equal("Destination", Assert.Single(approval.ActionArguments).DisplayName);
     }
 
     [Fact]

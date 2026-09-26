@@ -177,7 +177,20 @@ public sealed record AgentHistoryRetentionOption(
 public sealed record AgentApprovalArgumentViewModel(
     string Name,
     string DisplayValue,
-    bool IsSensitive);
+    bool IsSensitive)
+{
+    public string DisplayName => Name switch
+    {
+        "address" => "Destination",
+        "text" => "Text",
+        "command" => "Command",
+        "path" => "Path",
+        _ => Name,
+    };
+
+    public bool IsRoutingIdentifier => Name is
+        "session_id" or "window_id" or "workspace_id" or "tab_id" or "panel_id";
+}
 
 public sealed record AgentApprovalCardViewModel(
     AgentApprovalId Id,
@@ -194,6 +207,17 @@ public sealed record AgentApprovalCardViewModel(
     bool TemporarilyYieldsTerminalInput)
 {
     public bool HasArguments => Arguments.Count > 0;
+
+    public IReadOnlyList<AgentApprovalArgumentViewModel> ActionArguments =>
+        [.. Arguments.Where(argument => !argument.IsRoutingIdentifier)];
+
+    public bool HasActionArguments => Arguments.Any(argument => !argument.IsRoutingIdentifier);
+
+    public bool HasHost => !string.Equals(Host, "Not reported", StringComparison.Ordinal);
+
+    public bool HasWorkingDirectory => !string.Equals(WorkingDirectory, "Not reported", StringComparison.Ordinal);
+
+    public bool IsHighRisk => Risk is "Destructive" or "Privileged";
 
     public string InputYieldWarning =>
         "Approving temporarily yields terminal input to the agent for this one action. "

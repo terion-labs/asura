@@ -424,8 +424,51 @@ internal sealed class QaApplication : Avalonia.Application
             AgentProfiles.PublishSampleProfile();
             AgentRuntime.PublishSampleFailure();
         }),
-        // The one governance decision the panel ever asks. It was the panel's
-        // least reviewed surface for exactly that reason.
+        // Approval cards at the docked panel width, with their disclosure open
+        // and closed. The fixture never performs the requested action.
+        new("workspace-agent-approval", vm =>
+        {
+            vm.ShowWorkspace();
+            vm.ToggleAgentPanel();
+            if (!vm.IsAgentPanelDocked)
+            {
+                _ = vm.ToggleAgentPanelPinAsync(CancellationToken.None);
+            }
+            AgentProfiles.PublishSampleProfile();
+            AgentRuntime.PublishSampleApproval();
+        }),
+        new("workspace-agent-approval-details", vm =>
+        {
+            vm.ShowWorkspace();
+            vm.ToggleAgentPanel();
+            if (!vm.IsAgentPanelDocked)
+            {
+                _ = vm.ToggleAgentPanelPinAsync(CancellationToken.None);
+            }
+            AgentProfiles.PublishSampleProfile();
+            AgentRuntime.PublishSampleApproval();
+        }, PrepareCapture: window =>
+        {
+            var approval = window.GetVisualDescendants().OfType<AgentApprovalCardView>().Single();
+            approval.GetVisualDescendants().OfType<Expander>().Single().IsExpanded = true;
+        }),
+        new("workspace-agent-approval-light", vm =>
+        {
+            vm.ShowWorkspace();
+            vm.ToggleAgentPanel();
+            if (!vm.IsAgentPanelDocked)
+            {
+                _ = vm.ToggleAgentPanelPinAsync(CancellationToken.None);
+            }
+            AgentProfiles.PublishSampleProfile();
+            AgentRuntime.PublishSampleApproval();
+        }, Width: 1080, Height: 680, Theme: new ThemePreference(
+            ThemePreference.Default.Id, ThemePreference.Default.Name, AppearanceMode.Light,
+            PlatformProfile.Automatic, AccentPreference.FollowHost), PrepareCapture: window =>
+        {
+            var approval = window.GetVisualDescendants().OfType<AgentApprovalCardView>().Single();
+            approval.GetVisualDescendants().OfType<Expander>().Single().IsExpanded = false;
+        }),
         new("workspace-agent-capability", vm =>
         {
             vm.ShowWorkspace();

@@ -256,6 +256,19 @@ public static class LiteralSecretValidator
                 continue;
             }
 
+            // An unescaped line break ends this command. An interactive
+            // option at the end of a line must not consume the next command
+            // as its credential value. Backslash continuations remain unsafe.
+            while (cursor < value.Length && char.IsWhiteSpace(value[cursor])
+                && value[cursor] is not ('\r' or '\n'))
+            {
+                cursor++;
+            }
+            if (cursor < value.Length && value[cursor] is '\r' or '\n')
+            {
+                continue;
+            }
+
             if (HasSecretBearingValue(value, cursor))
             {
                 return true;

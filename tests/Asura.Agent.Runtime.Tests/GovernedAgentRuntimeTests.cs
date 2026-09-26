@@ -1360,6 +1360,44 @@ public sealed partial class GovernedAgentRuntimeTests
     }
 
     [Fact]
+    public async Task InteractiveLoginInstructionsAndLaterRepliesSurviveRuntimeRestart()
+    {
+        const string example = "```sh\nmultica login --token\nmultica daemon start\nexit\n```";
+        var checkpoints = new InMemoryCheckpointStore();
+        var provider = new ProviderRound((call, _) => ProviderRound.Answer(
+            call == 1 ? example : "Setup complete."));
+        await using (var original = new RuntimeFixture(provider, checkpointStore: checkpoints))
+        {
+            Assert.True((await original.Runtime.SendAsync(original.Prompt("Continue setup"),
+                CancellationToken.None)).IsSuccess);
+            Assert.Null(original.Runtime.Snapshot.PersistenceError);
+            Assert.True((await original.Runtime.SendAsync(original.Prompt("Login completed"),
+                CancellationToken.None)).IsSuccess);
+            Assert.Null(original.Runtime.Snapshot.PersistenceError);
+        }
+        await using var restored = new RuntimeFixture(ProviderRound.AnswerEveryTurn(),
+            checkpointStore: checkpoints);
+        await restored.Runtime.RestoreLatestConversationAsync(CancellationToken.None);
+        Assert.Equal(["Continue setup", example, "Login completed", "Setup complete."],
+            restored.Runtime.Snapshot.Messages.Select(message => message.Content), StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public async Task CheckpointCaptureFailureReportsCauseWithoutLeakingMessageContent()
+    {
+        var checkpoints = new InMemoryCheckpointStore();
+        var provider = new ProviderRound((_, _) => ProviderRound.Answer("api_key=fixture-secret-value"));
+        await using var fixture = new RuntimeFixture(provider, checkpointStore: checkpoints);
+        Assert.True((await fixture.Runtime.SendAsync(fixture.Prompt("Continue setup"),
+            CancellationToken.None)).IsSuccess);
+        var error = Assert.IsType<string>(fixture.Runtime.Snapshot.PersistenceError);
+        Assert.Contains("credential filter", error, StringComparison.Ordinal);
+        Assert.DoesNotContain("fixture-secret-value", error, StringComparison.Ordinal);
+        Assert.DoesNotContain("fixture-secret-value", Assert.Single(checkpoints.Values).PayloadJson,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CheckpointFailureIsVisibleDuringProviderWorkAndClearsAfterSuccessfulSave()
     {
         var checkpoints = new InMemoryCheckpointStore { ThrowOnSave = true };
@@ -1371,6 +1409,8 @@ public sealed partial class GovernedAgentRuntimeTests
         Assert.Equal(GovernedAgentState.StreamingProvider, fixture.Runtime.Snapshot.State);
         Assert.Contains("before restarting", fixture.Runtime.Snapshot.PersistenceError,
             StringComparison.Ordinal);
+        Assert.Contains("local database", fixture.Runtime.Snapshot.PersistenceError, StringComparison.Ordinal);
+        Assert.DoesNotContain("Injected", fixture.Runtime.Snapshot.PersistenceError, StringComparison.Ordinal);
         checkpoints.ThrowOnSave = false;
         provider.ReleaseBlockedCall.TrySetResult();
         Assert.True((await sending.WaitAsync(TimeSpan.FromSeconds(5))).IsSuccess);

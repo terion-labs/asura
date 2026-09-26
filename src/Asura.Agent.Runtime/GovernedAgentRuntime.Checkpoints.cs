@@ -138,7 +138,7 @@ public sealed partial class GovernedAgentRuntime
         var captured = session.CaptureCheckpoint();
         if (!captured.Succeeded || captured.Checkpoint is null)
         {
-            ReportCheckpointSaveFailure();
+            ReportCheckpointSaveFailure(captured.ErrorCode ?? AgentCheckpointCaptureErrorCode.LimitExceeded);
             return false;
         }
 
@@ -217,7 +217,7 @@ public sealed partial class GovernedAgentRuntime
 
         if (!captured.Succeeded || captured.Checkpoint is null)
         {
-            ReportCheckpointSaveFailure();
+            ReportCheckpointSaveFailure(captured.ErrorCode ?? AgentCheckpointCaptureErrorCode.LimitExceeded);
             return false;
         }
 
@@ -225,7 +225,7 @@ public sealed partial class GovernedAgentRuntime
             .ConfigureAwait(false);
         if (!saved.IsSuccess)
         {
-            ReportCheckpointSaveFailure();
+            ReportCheckpointSaveFailure(saved.Error?.Code ?? AgentSessionCheckpointStoreErrorCode.StorageFailure);
         }
         else
         {
@@ -790,7 +790,38 @@ public sealed partial class GovernedAgentRuntime
         AgentSessionCheckpointStoreResult<T>.Failure(
             new AgentSessionCheckpointStoreError(code, message));
 
-    private void ReportCheckpointSaveFailure()
+    private void ReportCheckpointSaveFailure(AgentCheckpointCaptureErrorCode code)
+    {
+        SecretSafeDiagnosticProjection.WriteTrace(
+            "agent.checkpoint.capture." + code.ToString().ToLowerInvariant(),
+            SecretSafeDiagnosticKind.Unexpected);
+        ReportCheckpointSaveFailure(code switch
+        {
+            AgentCheckpointCaptureErrorCode.UnsafeContent =>
+                "The credential filter blocked saving part of this conversation.",
+            AgentCheckpointCaptureErrorCode.SessionNotIdle =>
+                "The conversation was not ready to be saved.",
+            _ => "The conversation could not be prepared within the local save limits.",
+        });
+    }
+
+    private void ReportCheckpointSaveFailure(AgentSessionCheckpointStoreErrorCode code)
+    {
+        SecretSafeDiagnosticProjection.WriteTrace(
+            "agent.checkpoint.store." + code.ToString().ToLowerInvariant(),
+            SecretSafeDiagnosticKind.Unexpected);
+        ReportCheckpointSaveFailure(code switch
+        {
+            AgentSessionCheckpointStoreErrorCode.RevisionConflict =>
+                "A conflicting saved version prevented this conversation from being updated.",
+            AgentSessionCheckpointStoreErrorCode.Cancelled => "Saving the conversation was interrupted.",
+            AgentSessionCheckpointStoreErrorCode.InvalidCheckpoint or AgentSessionCheckpointStoreErrorCode.CorruptData =>
+                "The local conversation data could not be validated.",
+            _ => "The local database could not save this conversation.",
+        });
+    }
+
+    private void ReportCheckpointSaveFailure(string? reason = null)
     {
         lock (_gate)
         {
@@ -804,7 +835,9 @@ public sealed partial class GovernedAgentRuntime
                 Status = _snapshot.State == GovernedAgentState.Ready
                     ? "This conversation could not be saved locally."
                     : _snapshot.Status,
-                PersistenceError = "Recent messages could not be saved. Keep this workspace open and copy any messages you need before restarting.",
+                PersistenceError = reason is null && _snapshot.PersistenceError is { } existing
+                    ? existing
+                    : $"{reason ?? "Recent messages could not be saved."} Keep this workspace open and copy any messages you need before restarting.",
             };
         }
 
