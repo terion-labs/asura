@@ -1732,15 +1732,14 @@ public sealed class BrowserSurfaceTests
                 navigationGeneration: 1);
         var replacementCount = 0;
         var presentationCount = 0;
-        var replacementPublished = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
+        var dispatcher = new QueuedBrowserUiDispatcher();
         BrowserResult<BrowserSessionState>? reentrantNavigation = null;
         BrowserResult<BrowserDocumentSnapshot>? reentrantSnapshot = null;
         BrowserSurface? surface = null;
         surface = new BrowserSurface(
             nativeView,
             BrowserTestDestinationPolicy.Public,
-            InlineBrowserUiDispatcher.Instance,
+            dispatcher,
             () =>
             {
                 replacementCount++;
@@ -1765,21 +1764,19 @@ public sealed class BrowserSurfaceTests
             },
             nativeSnapshotDeadline: TimeSpan.FromMilliseconds(25),
             capabilityProfile: BrowserCapabilityProfile.FullAutomationCandidate);
-        surface.StateChanged += (_, args) =>
-        {
-            if (args.State.DocumentRevision == 1)
-            {
-                replacementPublished.TrySetResult();
-            }
-        };
         var firstDocument =
             BrowserDocumentBinding.FromState(surface.State);
 
-        var timedOut = await surface.CaptureSnapshotAsync(
+        var capture = surface.CaptureSnapshotAsync(
             firstDocument,
-            CancellationToken.None);
-        await replacementPublished.Task.WaitAsync(
-            TimeSpan.FromSeconds(1));
+            CancellationToken.None).AsTask();
+        dispatcher.Suspend();
+
+        var timedOut = await capture.WaitAsync(TimeSpan.FromSeconds(1));
+        await dispatcher.WaitForWorkAsync().WaitAsync(TimeSpan.FromSeconds(1));
+        // Publishing the new document occurs inside replacement. Drain the
+        // whole UI operation before issuing a new snapshot against that view.
+        dispatcher.Drain();
 
         Assert.False(timedOut.IsSuccess);
         Assert.Equal(
