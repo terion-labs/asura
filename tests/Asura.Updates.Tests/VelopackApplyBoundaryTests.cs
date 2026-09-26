@@ -1,6 +1,7 @@
 using Asura.Application.ApplicationUpdates;
 using Velopack;
 using Velopack.Locators;
+using Velopack.Logging;
 
 namespace Asura.Updates.Tests;
 
@@ -60,8 +61,10 @@ public sealed class VelopackApplyBoundaryTests
         }
     }
 
-    [Fact]
-    public async Task AsynchronousPreparationFailureReportsApplyFailureWithoutLaunchingUpdater()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AsynchronousPreparationFailureReportsApplyFailureWithoutLaunchingUpdater(bool hasStep)
     {
         var directory = Directory.CreateTempSubdirectory("asura-updater-failure-").FullName;
         try
@@ -71,18 +74,29 @@ public sealed class VelopackApplyBoundaryTests
             var process = new CapturingProcess();
             var preparation = new TaskCompletionSource(
                 TaskCreationOptions.RunContinuationsAsynchronously);
+            var log = new CapturingLogger();
+            var locator = new CapturingLocator("/Applications/Asura.app", directory, updater, process, log);
             var service = new VelopackApplicationUpdateService(
                 new DistributionIdentity(DistributionSource.GitHubRelease, ApplicationUpdateStrategy.Velopack, "stable"),
                 _ => preparation.Task,
-                new CapturingLocator("/Applications/Asura.app", directory, updater, process));
+                locator);
 
             var restart = service.RestartToApplyAsync();
-            preparation.SetException(new InvalidOperationException("Test cleanup failure."));
+            var underlying = new IOException("Private path /Users/example/secret and credential=private-value");
+            preparation.SetException(hasStep
+                ? new UpdateRestartPreparationException(UpdateRestartStep.ClosePresentation, underlying)
+                : underlying);
             await restart.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Equal(ApplicationUpdateStage.Failed, service.Snapshot.Stage);
             Assert.Equal(ApplicationUpdateError.ApplyFailed, service.Snapshot.Error);
             Assert.Null(process.Executable);
+            var error = Assert.Single(log.Errors);
+            Assert.Contains(hasStep ? "update.restart.presentation-close.failed" : "update.restart.failed", error,
+                StringComparison.Ordinal);
+            Assert.Contains("type=io", error, StringComparison.Ordinal);
+            Assert.DoesNotContain("private", error, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("/Users/", error, StringComparison.Ordinal);
         }
         finally
         {
@@ -90,9 +104,25 @@ public sealed class VelopackApplyBoundaryTests
         }
     }
 
-    private sealed class CapturingLocator(string rootDirectory, string directory, string updater, CapturingProcess process)
+    private sealed class CapturingLogger : IVelopackLogger
+    {
+        public List<string> Errors { get; } = [];
+
+        public void Log(VelopackLogLevel logLevel, string? message, Exception? exception)
+        {
+            Assert.Null(exception);
+            if (logLevel == VelopackLogLevel.Error)
+            {
+                Errors.Add(message ?? string.Empty);
+            }
+        }
+    }
+
+    private sealed class CapturingLocator(string rootDirectory, string directory, string updater, CapturingProcess process,
+        IVelopackLogger? logger = null)
         : TestVelopackLocator(
             "Asura", "1.0.0", rootDirectory, directory, directory, updater,
+            logger: logger,
             localPackage: new VelopackAsset { Version = SemanticVersion.Parse("2.0.0"), FileName = "test.nupkg" })
     {
         public override IProcessImpl Process => process;

@@ -3,6 +3,7 @@ using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views;
 using Asura.Application;
+using Asura.Application.ApplicationUpdates;
 using Asura.Core;
 using Avalonia;
 using Avalonia.Controls;
@@ -1089,17 +1090,45 @@ public sealed partial class App : Avalonia.Application
         MainWindowViewModel[] allViewModels = _mainWindowViewModel is { } mainViewModel
             ? [mainViewModel, .. additionalViewModels]
             : additionalViewModels;
-        await Task.WhenAll(allViewModels.Select(viewModel =>
-            CloseWindowForUpdateRestartAsync(viewModel, cancellationToken)));
-
-        _mainWindowViewModel?.TeardownPresentationForShutdown();
-        foreach (var viewModel in additionalViewModels)
+        var step = UpdateRestartStep.CloseSessions;
+        try
         {
-            viewModel.TeardownPresentationForShutdown();
-        }
+            await Task.WhenAll(allViewModels.Select(viewModel =>
+                CloseWindowForUpdateRestartAsync(viewModel, cancellationToken)));
 
-        _quickTerminalController?.Dispose();
-        await QuiesceForShutdownAsync(cancellationToken);
+            step = UpdateRestartStep.ClosePresentation;
+            _mainWindowViewModel?.TeardownPresentationForShutdown();
+            foreach (var viewModel in additionalViewModels)
+            {
+                viewModel.TeardownPresentationForShutdown();
+            }
+
+            step = UpdateRestartStep.CloseQuickTerminal;
+            _quickTerminalController?.Dispose();
+            step = UpdateRestartStep.SaveWorkspaces;
+            await QuiesceForShutdownAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            if (step == UpdateRestartStep.CloseSessions)
+            {
+                // A failed close leaves presentation alive. Release every
+                // window's activation barrier, including windows whose close
+                // succeeded before another window failed.
+                _desktopExitStarted = false;
+                foreach (var viewModel in allViewModels)
+                {
+                    viewModel.ResumeAfterWindowCloseAttempt();
+                }
+            }
+
+            if (exception is UpdateRestartPreparationException)
+            {
+                throw;
+            }
+
+            throw new UpdateRestartPreparationException(step, exception);
+        }
     }
 
     private static async Task CloseWindowForUpdateRestartAsync(
@@ -1117,14 +1146,20 @@ public sealed partial class App : Avalonia.Application
             || !string.Equals(
                 completed.TargetId,
                 viewModel.WindowId.Value,
-                StringComparison.Ordinal)
-            || completed.Sessions.Any(session => session.Outcome is not (
+                StringComparison.Ordinal))
+        {
+            throw new UpdateRestartPreparationException(UpdateRestartStep.CloseSessions);
+        }
+
+        var failedSession = completed.Sessions.FirstOrDefault(session => session.Outcome is not (
                 SessionCloseOutcome.GracefullyClosed
                 or SessionCloseOutcome.ForceTerminated
-                or SessionCloseOutcome.AlreadyClosed)))
+                or SessionCloseOutcome.AlreadyClosed));
+        if (failedSession is not null)
         {
-            throw new InvalidOperationException(
-                "The session host could not close a window for the update restart.");
+            throw new UpdateRestartPreparationException(
+                UpdateRestartStep.CloseSessions,
+                closeOutcome: failedSession.Outcome);
         }
     }
 

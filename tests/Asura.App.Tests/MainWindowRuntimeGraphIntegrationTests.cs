@@ -9,6 +9,7 @@ using Asura.App.ViewModels;
 using Asura.App.Views;
 using Asura.App.Views.Components;
 using Asura.Application;
+using Asura.Application.ApplicationUpdates;
 using Asura.Core;
 using Asura.Docker;
 using Asura.Git;
@@ -1526,6 +1527,34 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(1, stopCountAtNativeClose);
         var stopped = Assert.Single(provider.StopBindings);
         Assert.Equal(binding.LeaseId, stopped.LeaseId);
+    }
+
+    [Theory]
+    [InlineData(SessionCloseOutcome.Cancelled, "update.restart.session-close.cancelled")]
+    [InlineData(SessionCloseOutcome.EngineFailed, "update.restart.session-close.engine-failed")]
+    [InlineData(SessionCloseOutcome.ConfirmationRequired, "update.restart.session-close.confirmation-required")]
+    public async Task FailedUpdateCloseReportsOutcomeAndAllowsWorkspaceActivation(
+        SessionCloseOutcome outcome,
+        string diagnosticCode)
+    {
+        var snapshot = CreateCatalogSnapshot();
+        var (client, recorder) = CreateSessionClient();
+        using var viewModel = CreateViewModel(client, snapshot);
+        Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+        recorder.NextWindowCloseOutcome = outcome;
+        var application = new App();
+        typeof(App).GetField("_mainWindowViewModel", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(application, viewModel);
+
+        var failure = await Assert.ThrowsAsync<UpdateRestartPreparationException>(
+            () => application.PrepareForUpdateRestartAsync(CancellationToken.None));
+
+        Assert.Equal(diagnosticCode, failure.DiagnosticCode);
+        Assert.Equal(outcome, failure.CloseOutcome);
+        Assert.False((bool)typeof(App).GetField("_desktopExitStarted", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(application)!);
+        Assert.True(await viewModel.OpenConnectionAsync(snapshot.Connections[0].Value.Id));
+        await application.PrepareForUpdateRestartAsync(CancellationToken.None);
     }
 
     [Theory]
@@ -9890,6 +9919,8 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
 
         public bool CompleteNextWorkspaceCloseWithEngineFailure { get; set; }
 
+        public SessionCloseOutcome? NextWindowCloseOutcome { get; set; }
+
         public bool AcceptThenCancelNextRegistration { get; set; }
 
         public bool FailNextRegistrationWithTransportError { get; set; }
@@ -10749,6 +10780,19 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
             lock (_gate)
             {
                 _sessionCloses.Add(new(request, context));
+                if (request.Scope == CloseScopeKind.Window
+                    && NextWindowCloseOutcome is { } outcome)
+                {
+                    NextWindowCloseOutcome = null;
+                    return ValueTask.FromResult(HostResult<CloseScopeResult>.Succeed(
+                        new CloseScopeResult.Completed(request.Scope, request.TargetId,
+                        [
+                            new SessionCloseResult(new SessionId("failed-update-close"), outcome,
+                                "Private session detail that must not reach update logs."),
+                        ]),
+                        _workspace?.Revision ?? 0));
+                }
+
                 if (request.Scope == CloseScopeKind.Workspace
                     && RejectNextWorkspaceClose)
                 {
