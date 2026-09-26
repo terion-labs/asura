@@ -4079,8 +4079,17 @@ public sealed partial class AgentChatViewModelTests
             fileProviderProfileId,
             fileRootDisplay);
 
-    private sealed class StubGovernedRuntime : IGovernedAgentRuntime
+    private sealed class StubGovernedRuntime : IGovernedAgentRuntime, IAgentAttachmentRuntime
     {
+        public bool SupportsFileAttachments { get; set; }
+        public Dictionary<string, byte[]> ImportedFiles { get; } = new(StringComparer.Ordinal);
+        public ValueTask<AgentFileAttachment> ImportAttachmentAsync(string fileName, ReadOnlyMemory<byte> content, CancellationToken token)
+        {
+            var file = new AgentFileAttachment(Guid.NewGuid().ToString("N"), fileName, content.Length);
+            ImportedFiles[file.Id] = content.ToArray();
+            return ValueTask.FromResult(file);
+        }
+
         private EventHandler? _changed;
 
         public event EventHandler? Changed

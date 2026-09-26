@@ -228,6 +228,8 @@ public sealed class AgentRuntimeBoundaryTests
             typeName => Assert.Contains(
                 typeName,
                 [
+                    // Immutable attachment metadata; byte storage and filesystem access stay outside the kernel.
+                    "Asura.Core.AgentFileAttachment",
                     "Asura.Core.AgentImageAttachment",
                     "Asura.Core.AgentReasoningEffort",
                     "Asura.Core.AgentRunId",

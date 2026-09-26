@@ -108,6 +108,10 @@ internal static class HistoricalDatabaseFixture
                 "browser-address-history",
                 "F50929DD9BED1361CB7AFC4B0C31B02BB2FD27DC3DABFC1432113A9974E48DAD",
                 IsDestructive: false),
+            [22] = new(
+                "agent-file-attachments",
+                "C425AB5BBA89CDAE4AC275628B944EAD2AA70A110117A71009C06B345BD607F7",
+                IsDestructive: false),
         };
 
     public static readonly DateTimeOffset ReferenceTime =
@@ -386,6 +390,7 @@ internal static class HistoricalDatabaseFixture
             18 => "agent_run_history_retention",
             19 => "definition_payload_migration_v20_guard",
             20 => "browser_history",
+            21 => "agent_file_attachments",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(currentVersion),
                 currentVersion,

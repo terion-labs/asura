@@ -76,12 +76,12 @@ public sealed partial class MainWindow
     {
         _ = sender;
         _ = e;
-        if (ViewModel.AgentChat is not { CanAttachImages: true } agentChat)
+        if (ViewModel.AgentChat is not { CanAttachFiles: true } agentChat)
         {
             return;
         }
 
-        await AgentImageImport.PickAsync(StorageProvider, agentChat, _lifetime.Token);
+        await AgentAttachmentImport.PickAsync(StorageProvider.OpenFilePickerAsync, agentChat, _lifetime.Token);
     }
 
     private void OnClearAgentImagesClick(object? sender, RoutedEventArgs e)

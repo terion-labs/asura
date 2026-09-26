@@ -171,7 +171,8 @@ public sealed partial class NativeAgentSession
         ImmutableArray<AgentToolDefinition> tools,
         AgentReasoningEffort reasoningEffort,
         IAgentProvider provider,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ImmutableArray<AgentFileAttachment> files = default)
     {
         ArgumentNullException.ThrowIfNull(userMessage);
         if (images.IsDefault)
@@ -181,10 +182,10 @@ public sealed partial class NativeAgentSession
                 nameof(images));
         }
 
-        if (string.IsNullOrWhiteSpace(userMessage) && images.Length == 0)
+        if (string.IsNullOrWhiteSpace(userMessage) && images.Length == 0 && files.IsDefaultOrEmpty)
         {
             throw new ArgumentException(
-                "A turn requires text or an image.",
+                "A turn requires text or an attachment.",
                 nameof(userMessage));
         }
 
@@ -205,7 +206,7 @@ public sealed partial class NativeAgentSession
             return AgentTurnResult.Failure(AgentTurnErrorCode.Cancelled);
         }
 
-        var user = new AgentMessage(AgentMessageRole.User, userMessage, images);
+        var user = new AgentMessage(AgentMessageRole.User, userMessage, images, files);
         Dictionary<string, string> toolNamesByProviderName;
         try
         {
@@ -923,6 +924,7 @@ public sealed partial class NativeAgentSession
         long characters = message.Content.Length;
         characters += message.ReasoningSummary?.Length ?? 0;
         characters += message.Images.Length * 4_800L;
+        characters += message.Files.Sum(file => (long)file.Id.Length + file.FileName.Length + 64);
         foreach (var toolCall in message.ToolCalls)
         {
             characters += toolCall.ToolName.Length;
@@ -1554,7 +1556,7 @@ public sealed partial class NativeAgentSession
                 var user = conversation[index];
                 if (user.Role != AgentMessageRole.User
                     || (string.IsNullOrWhiteSpace(user.Content)
-                        && user.Images.Length == 0)
+                        && user.Images.Length == 0 && user.Files.Length == 0)
                     || !IsPlainMessage(user))
                 {
                     throw new AgentConversationException();
@@ -1736,6 +1738,11 @@ public sealed partial class NativeAgentSession
             }
         }
 
+        foreach (var file in message.Files)
+        {
+            byteCount = checked(byteCount + file.Id.Length + 64 + Encoding.UTF8.GetByteCount(file.FileName));
+        }
+
         foreach (var image in message.Images)
         {
             byteCount = checked(
@@ -1763,7 +1770,8 @@ public sealed partial class NativeAgentSession
 
     private void ValidateMessageBounds(AgentMessage message, int maximumBytes)
     {
-        if (Encoding.UTF8.GetByteCount(message.Content) > maximumBytes)
+        if (Encoding.UTF8.GetByteCount(message.Content) > maximumBytes
+            || message.Images.Length + message.Files.Length > AgentFileAttachment.MaximumPerMessage)
         {
             throw new AgentLimitException();
         }

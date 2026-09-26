@@ -156,6 +156,18 @@ public sealed partial class SqliteAgentSessionCheckpointStore : IAgentSessionChe
                     "The agent checkpoint write lost its revision fence.");
             }
 
+            // Files are independent blobs. Mark only references in a committed checkpoint;
+            // deleting history can then reclaim them without touching unsent draft imports.
+            await using var attachments = connection.CreateCommand();
+            attachments.Transaction = transaction;
+            attachments.CommandText = """
+                UPDATE agent_file_attachments SET committed = 1
+                WHERE scope_id = $scope AND instr($payload, id) > 0;
+                """;
+            attachments.Parameters.AddWithValue("$scope", conversationScopeId?.Value ?? string.Empty);
+            attachments.Parameters.AddWithValue("$payload", checkpoint.PayloadJson);
+            await attachments.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+
             // Checkpoints remain subject to retention even if the later,
             // separate presentation-metadata write never commits.
             var retention = await ReadRetentionAsync(connection, transaction, cancellationToken)

@@ -21,6 +21,16 @@ public partial class AgentWorkspaceView
         }
     }
 
+    private void OnRemoveAgentFileClick(object? sender, RoutedEventArgs e)
+    {
+        _ = e;
+        if (sender is Button { Tag: AgentFileAttachment file }
+            && DataContext is IAgentWorkspaceHost { AgentChat: { } agent })
+        {
+            agent.RemovePendingFile(file);
+        }
+    }
+
     private async void OnAgentPromptPasting(object? sender, RoutedEventArgs e)
     {
         _ = sender;
@@ -43,14 +53,14 @@ public partial class AgentWorkspaceView
             var files = await data.TryGetFilesAsync();
             if (files is { Length: > 0 })
             {
-                await AgentImageImport.AddFilesAsync(agent, files, CancellationToken.None);
+                await AgentAttachmentImport.AddFilesAsync(agent, files, CancellationToken.None);
                 return;
             }
 
             using var bitmap = await data.TryGetBitmapAsync();
             if (bitmap is not null)
             {
-                AgentImageImport.RequireAvailable(agent);
+                AgentAttachmentImport.RequireAvailable(agent);
                 using var stream = new MemoryStream();
                 bitmap.Save(stream);
                 agent.AddPendingImage(new AgentImageAttachment("Pasted image.png", "image/png", stream.ToArray()));

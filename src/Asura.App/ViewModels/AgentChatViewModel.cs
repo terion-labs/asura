@@ -13,7 +13,8 @@ public sealed record AgentChatMessageViewModel(
     IReadOnlyList<AgentChatImage>? Images = null,
     AgentReasoningEffort? RequestedReasoningEffort = null,
     AgentConversationForkPoint? ForkPoint = null,
-    AgentChatMessageKind Kind = AgentChatMessageKind.Message)
+    AgentChatMessageKind Kind = AgentChatMessageKind.Message,
+    IReadOnlyList<string>? Files = null)
 {
     public bool IsUser => Role == AgentChatMessageRole.User;
 
@@ -45,6 +46,10 @@ public sealed record AgentChatMessageViewModel(
         IsAssistant
         && (RequestedReasoningEffort is not null and not AgentReasoningEffort.Automatic
             || Usage?.ReasoningTokens > 0);
+
+    public bool HasFiles => IsUser && Files is { Count: > 0 };
+
+    public string FilesLabel => Files is null ? string.Empty : "Files · " + string.Join(", ", Files);
 
     public bool HasImages => IsUser && Images is { Count: > 0 };
 
@@ -580,6 +585,57 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<AgentImageAttachment> PendingImages { get; } = [];
 
+    public ObservableCollection<AgentFileAttachment> PendingFiles { get; } = [];
+
+    public bool HasPendingFiles => PendingFiles.Count > 0;
+
+    public bool CanAttachFiles => SelectedProvider is not null
+        && State is GovernedAgentState.Ready or GovernedAgentState.Cancelled
+        && !_clearInFlight;
+
+    public ValueTask<AgentFileAttachment> ImportFileAsync(string name, ReadOnlyMemory<byte> bytes, CancellationToken token)
+    {
+        if (!CanAttachFiles || _runtime is not IAgentAttachmentRuntime { SupportsFileAttachments: true } attachments)
+        {
+            throw new InvalidOperationException("File attachments are unavailable in this workspace.");
+        }
+        return attachments.ImportAttachmentAsync(name, bytes, token);
+    }
+
+    public void AddPendingFiles(IEnumerable<AgentFileAttachment> files)
+    {
+        var batch = AgentFileAttachment.CopyBatch(PendingFiles.Concat(files));
+        if (batch.Length + PendingImages.Count > AgentFileAttachment.MaximumPerMessage)
+        {
+            throw new InvalidOperationException("At most eight attachments can be added to one prompt.");
+        }
+        PendingFiles.Clear();
+        foreach (var file in batch)
+        {
+            PendingFiles.Add(file);
+        }
+        AttachmentError = string.Empty;
+        NotifyPendingFilesChanged();
+    }
+
+    public void RemovePendingFile(AgentFileAttachment file)
+    {
+        PendingFiles.Remove(file);
+        NotifyPendingFilesChanged();
+    }
+
+    private void ClearPendingFiles()
+    {
+        PendingFiles.Clear();
+        NotifyPendingFilesChanged();
+    }
+
+    private void NotifyPendingFilesChanged()
+    {
+        OnPropertyChanged(nameof(HasPendingFiles));
+        OnPropertyChanged(nameof(CanSend));
+    }
+
     public IReadOnlyList<AgentHistoryRetentionOption> HistoryRetentionOptions =>
         AllHistoryRetentionOptions;
 
@@ -843,6 +899,11 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 "At most four images can be attached to one prompt.");
         }
 
+        if (PendingFiles.Count + PendingImages.Count + images.Count > AgentFileAttachment.MaximumPerMessage)
+        {
+            throw new InvalidOperationException("At most eight attachments can be added to one prompt.");
+        }
+
         var totalBytes = PendingImages.Sum(item => (long)item.Content.Length)
             + images.Sum(image => (long)image.Content.Length);
         if (totalBytes > AgentImageAttachment.MaximumTotalBytesPerMessage)
@@ -910,6 +971,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 // starts only from the explicit Refresh models action.
 
                 OnPropertyChanged(nameof(CanAttachImages));
+                OnPropertyChanged(nameof(CanAttachFiles));
                 NotifyAvailabilityChanged();
             }
         }
@@ -1531,7 +1593,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             || State == GovernedAgentState.Cancelled)
         && !_clearInFlight
         && (!HasPendingImages || SelectedProvider.SupportsImageInput)
-        && (!string.IsNullOrWhiteSpace(Prompt) || HasPendingImages);
+        && (!string.IsNullOrWhiteSpace(Prompt) || HasPendingImages || HasPendingFiles);
 
     public bool CanOfferFollowUpQueue =>
         SelectedProvider is not null
@@ -1761,7 +1823,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         if ((!_runtimeCanSend && State != GovernedAgentState.Cancelled)
             || State is not (GovernedAgentState.Ready or GovernedAgentState.Cancelled)
             || _clearInFlight
-            || (string.IsNullOrWhiteSpace(Prompt) && !HasPendingImages))
+            || (string.IsNullOrWhiteSpace(Prompt) && !HasPendingImages && !HasPendingFiles))
         {
             return Task.CompletedTask;
         }
@@ -1798,6 +1860,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
         var prompt = Prompt;
         var images = PendingImages.ToArray();
+        var files = PendingFiles.ToArray();
         var selectedModel = SelectedModel?.Id ?? policy.Model;
         var requestedPolicy = policy.SelectPrimaryModel(
             provider.Id.Value,
@@ -1812,15 +1875,18 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             requestedPolicy,
             _fullAccessSelected
                 ? AgentApprovalMode.FullAccess
-                : AgentApprovalMode.Ask);
+                : AgentApprovalMode.Ask,
+            files);
 
         Prompt = string.Empty;
         ClearPendingImages();
+        ClearPendingFiles();
         lock (_sendGate)
         {
             if (!_activeSend.IsCompleted)
             {
                 Prompt = prompt;
+                AddPendingFiles(files);
                 foreach (var image in images)
                 {
                     AddPendingImage(image);
@@ -2437,6 +2503,11 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                         : Prompt + Environment.NewLine + Environment.NewLine + recovered;
                 }
 
+                if (!result.InitialPromptCommitted && PendingFiles.Count == 0)
+                {
+                    AddPendingFiles(request.Files);
+                }
+
                 if (!result.InitialPromptCommitted && PendingImages.Count == 0)
                 {
                     foreach (var image in request.Images)
@@ -2643,7 +2714,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                     message.Images,
                     message.RequestedReasoningEffort,
                     message.ForkPoint,
-                    message.Kind)));
+                    message.Kind,
+                    message.Files)));
         NotifyContextWindowChanged();
         Replace(
             Conversations,
@@ -3371,6 +3443,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CanSelectReasoningEffort));
         OnPropertyChanged(nameof(CanSelectServiceTier));
         OnPropertyChanged(nameof(CanAttachImages));
+        OnPropertyChanged(nameof(CanAttachFiles));
         OnPropertyChanged(nameof(CanEnterPrompt));
         OnPropertyChanged(nameof(CanStartConversation));
         OnPropertyChanged(nameof(ConnectionStatus));
@@ -3612,6 +3685,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HasPendingImages));
         OnPropertyChanged(nameof(PendingImagesLabel));
         OnPropertyChanged(nameof(CanAttachImages));
+        OnPropertyChanged(nameof(CanAttachFiles));
         OnPropertyChanged(nameof(CanSend));
         OnPropertyChanged(nameof(CanSubmitPrompt));
     }

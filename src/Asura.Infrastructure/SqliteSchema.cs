@@ -721,5 +721,20 @@ internal static class SqliteSchema
                 AND lower(json_extract(payload_json, '$.persistence')) = 'durablemetadata'
                 AND lower(json_extract(payload_json, '$.privacy.history')) = 'donotrecord';
             """),
+        new(
+            22,
+            "agent-file-attachments",
+            """
+            CREATE TABLE agent_file_attachments (
+                id TEXT PRIMARY KEY NOT NULL,
+                scope_id TEXT NOT NULL,
+                file_name TEXT NOT NULL,
+                byte_count INTEGER NOT NULL CHECK(byte_count BETWEEN 0 AND 52428800),
+                committed INTEGER NOT NULL DEFAULT 0,
+                sha256 BLOB NOT NULL CHECK(length(sha256) = 32),
+                content BLOB NOT NULL CHECK(length(content) = byte_count)
+            );
+            CREATE INDEX agent_file_attachments_scope ON agent_file_attachments(scope_id);
+            """),
     ];
 }
