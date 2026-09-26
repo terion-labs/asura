@@ -25,4 +25,5 @@ public enum BrowserErrorCode
     CheckStateNotApplied,
     ScriptRejected,
     ScriptResultRejected,
+    TransportUnavailable,
 }

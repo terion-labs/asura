@@ -60,7 +60,7 @@ public sealed class BrowserLowLevelAutomationTests
 
         Assert.All(
             [mouse.Error, key.Error, scroll.Error, evaluate.Error],
-            error => Assert.Equal(BrowserErrorCode.NavigationPolicyDenied, error?.Code));
+            error => Assert.Equal(BrowserErrorCode.TransportUnavailable, error?.Code));
         Assert.Null(native.LastMouseRequest);
         Assert.Null(native.LastKeyRequest);
         Assert.Null(native.LastScrollRequest);

@@ -952,6 +952,8 @@ public sealed partial class InMemorySessionHostClient
         {
             BrowserErrorCode.UnsupportedCapability =>
                 HostErrorCode.CapabilityNotSupported,
+            BrowserErrorCode.TransportUnavailable =>
+                HostErrorCode.CapabilityNotSupported,
             BrowserErrorCode.RendererUnavailable =>
                 HostErrorCode.EngineFailed,
             BrowserErrorCode.HistoryUnavailable =>
@@ -1002,6 +1004,7 @@ public sealed partial class InMemorySessionHostClient
                     and not BrowserErrorCode.ElementNotFillable
                     and not BrowserErrorCode.ElementNotCheckable
                     and not BrowserErrorCode.FillValueNotSupported
+                    and not BrowserErrorCode.TransportUnavailable
                     and not BrowserErrorCode.InteractionOutcomeUnknown && error.Retryable),
             revision);
     }

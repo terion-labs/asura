@@ -2023,6 +2023,31 @@ public sealed class AgentBrowserSessionHostTests
     }
 
     [Fact]
+    public async Task MissingTransportIsReportedAsCapabilityFailureRatherThanDomainDenial()
+    {
+        await using var fixture = await AgentBrowserHostFixture.CreateAsync();
+        fixture.Renderer.Failure = BrowserError.Create(
+            BrowserErrorCode.TransportUnavailable,
+            "native-private-detail",
+            retryable: true);
+        var action = await fixture.PrepareAsync(
+            Navigate(fixture.SessionId, "https://example.test/"));
+
+        var result = await fixture.Client.RunAgentBrowserActionAsync(
+            fixture.Authorization.Arm(action), action, default);
+
+        Assert.Equal(HostErrorCode.CapabilityNotSupported, result.Error().Code);
+        Assert.Equal("browser_transport_unavailable", result.Error().StableCode);
+        Assert.False(result.Error().Retryable);
+        Assert.DoesNotContain("native-private-detail", result.Error().Message,
+            StringComparison.Ordinal);
+        AssertCompletion(
+            Assert.Single(fixture.Authorization.Completions),
+            AgentActionOutcome.Failed,
+            "browser_transport_unavailable");
+    }
+
+    [Fact]
     public async Task Redirect_policy_failure_is_preserved_and_audited_once()
     {
         await using var fixture = await AgentBrowserHostFixture.CreateAsync();
