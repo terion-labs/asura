@@ -1,3 +1,4 @@
+using Asura.Application;
 using Asura.Application.ApplicationUpdates;
 using Velopack;
 using Velopack.Locators;
@@ -203,10 +204,13 @@ internal sealed class VelopackApplicationUpdateService : IApplicationUpdateServi
             }).ConfigureAwait(false);
             _log.LogInformation("Asura update restart: desktop shutdown requested.");
         }
-        catch (Exception)
+        catch (Exception exception)
         {
             // Exception messages can contain workspace paths or credentials.
-            _log.LogError("Asura update restart failed before desktop shutdown completed.");
+            var preparationFailure = exception as UpdateRestartPreparationException;
+            _log.LogError(SecretSafeDiagnosticProjection.FromException(
+                preparationFailure?.DiagnosticCode ?? "update.restart.failed",
+                preparationFailure?.InnerException ?? exception));
             SetFailure(ApplicationUpdateError.ApplyFailed);
         }
         finally
