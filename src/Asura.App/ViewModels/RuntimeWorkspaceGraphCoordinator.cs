@@ -578,7 +578,10 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
             && success.Value.Descriptor.Id == request.SessionId
             && success.Value.Descriptor.Owner == owner
             && success.Value.Descriptor.Kind == PanelKind.Browser
-            && success.Value.Descriptor.Lifecycle == SessionLifecycle.Active
+            // A new browser becomes active only after its renderer is attached.
+            // Accept Starting so background panels can reach that attachment step.
+            && success.Value.Descriptor.Lifecycle is
+                SessionLifecycle.Starting or SessionLifecycle.Active
                 ? success.Value
                 : null;
     }

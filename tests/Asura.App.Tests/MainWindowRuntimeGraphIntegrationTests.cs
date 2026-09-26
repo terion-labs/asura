@@ -10,9 +10,12 @@ using Asura.App.Views;
 using Asura.App.Views.Components;
 using Asura.Application;
 using Asura.Application.ApplicationUpdates;
+using Asura.Browser;
 using Asura.Core;
 using Asura.Docker;
 using Asura.Git;
+using Asura.SessionHost;
+using Asura.SessionHost.Tests;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -23,6 +26,97 @@ namespace Asura.App.Tests;
 [Collection(AvaloniaUiCollection.Name)]
 public sealed class MainWindowRuntimeGraphIntegrationTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Agent_can_read_and_navigate_unvisited_background_browser_after_workspace_open_or_restore(bool restore)
+    {
+        var catalog = CreateCatalogSnapshot();
+        string payload;
+        var (sourceClient, _) = CreateSessionClient();
+        using (var source = CreateViewModel(sourceClient, catalog,
+                   browserRendererFactory: new RecordingBrowserRendererViewFactory()))
+        {
+            Assert.True(await source.OpenWorkspaceAsync(WorkspaceId));
+            var workspace = source.RuntimeWorkspace!;
+            Assert.True(await source.ActivateTabAsync(workspace.Tabs[1].Id));
+            var definition = catalog.Workspaces.Single(item => item.Value.Id == WorkspaceId).Value;
+            payload = RuntimeWorkspaceRecoveryCodec.Serialize(workspace,
+                new RuntimeHistorySource(definition.Key, definition.Name));
+        }
+
+        var composer = new AgentBrowserActionComposer();
+        await using var broker = new AgentCapabilityBroker(
+            BuiltInAgentTools.Catalog, new SuccessfulAuditStore(), TimeProvider.System);
+        await using var host = new InMemorySessionHostClient(
+            new FakeTerminalSessionFactory(), new DesktopLifecyclePolicy(),
+            browserPanelFactory: new BrowserPanelSessionFactory(),
+            agentBrowserActionComposer: composer, agentAuthorizationConsumer: broker);
+        var renderers = new RecordingBrowserRendererViewFactory
+        {
+            Capabilities = BrowserCapabilityProfile.Production.Capabilities,
+        };
+        using var viewModel = CreateViewModel(host, catalog, browserRendererFactory: renderers);
+        if (restore)
+        {
+            var recovery = new RuntimeRecoverySnapshot("browser-restart", RuntimeWorkspaceRecoveryCodec.SnapshotKey,
+                RuntimeWorkspaceRecoveryCodec.SchemaVersion, payload, DateTimeOffset.UtcNow);
+            Assert.True(await viewModel.RestoreRuntimeSnapshotsAsync([recovery]));
+        }
+        else
+        {
+            Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+            Assert.True(await viewModel.ActivateTabAsync(viewModel.RuntimeWorkspace!.Tabs[1].Id));
+        }
+
+        var runtime = viewModel.RuntimeWorkspace!;
+        var browserTab = runtime.Tabs.Single(tab => tab.Panels.OfType<BrowserRuntimePanelViewModel>().Any());
+        var browser = Assert.Single(browserTab.Panels.OfType<BrowserRuntimePanelViewModel>());
+        Assert.NotSame(browserTab, runtime.ActiveTab);
+        // No Window or BrowserPresentationHost is created: selecting the tab must
+        // not be a prerequisite for starting its session or attaching its renderer.
+        await WaitForAsync(() => browser.HasInteractiveAttachment);
+        var snapshot = Assert.IsType<HostResult<SessionSnapshot>.Success>(
+            await host.GetSnapshotAsync(browser.SessionRequest.SessionId,
+                OperationContext.ForHuman(viewModel.ClientId), default)).Value;
+        Assert.Equal(SessionLifecycle.Active, snapshot.Descriptor.Lifecycle);
+        Assert.Equal(viewModel.ClientId, Assert.Single(snapshot.Attachments).ClientId);
+
+        var runId = AgentRunId.New();
+        var actor = new ActorDescriptor(new ActorId("background-browser-agent"), ActorKind.Agent, "Agent");
+        var target = new AgentTarget.Workspace(viewModel.WindowId, runtime.Id);
+        Assert.Null(await broker.RegisterRunAsync(new AgentRunRegistration(
+            runId, actor, viewModel.ClientId, target, AgentPolicy.Default, policyGeneration: 0), default));
+        var address = new BrowserAddress(new Uri("https://background.example.test/"));
+        AgentBrowserRequest[] requests =
+        [
+            new AgentBrowserRequest.ReadState(browser.SessionRequest.SessionId),
+            new AgentBrowserRequest.Navigate(new BrowserNavigateRequest(browser.SessionRequest.SessionId, address)),
+            new AgentBrowserRequest.ReadState(browser.SessionRequest.SessionId),
+        ];
+        foreach (var request in requests)
+        {
+            var context = Assert.IsType<HostResult<AgentContextSnapshot>.Success>(
+                await host.InspectAgentContextAsync(new AgentContextRequest(target),
+                    new OperationContext(RequestId.New(), actor), default)).Value;
+            var now = DateTimeOffset.UtcNow;
+            var action = composer.Prepare(new AgentActionEnvelope(
+                AgentActionId.New(), runId, actor, 0, now, now.AddMinutes(1)), context, request);
+            var approval = Assert.IsType<AgentAuthorizationResult.ApprovalRequired>(
+                await broker.RequestAsync(action.Proposal, default));
+            var authorization = Assert.IsType<AgentAuthorizationResult.Authorized>(
+                await broker.DecideAsync(new AgentApprovalDecision(approval.Approval.Id,
+                    OperationContext.ForHuman(viewModel.ClientId).Actor, true,
+                    AgentApprovalDuration.Once, now), default));
+            Assert.IsType<HostResult<AgentBrowserActionResult>.Success>(
+                await host.RunAgentBrowserActionAsync(authorization.Authorization.Id, action, default));
+        }
+
+        Assert.Equal(address, Assert.Single(renderers.Renderers).State.Address);
+        Assert.NotSame(browserTab, runtime.ActiveTab);
+        Assert.True(browser.HasInteractiveAttachment);
+    }
+
     [Fact]
     public async Task Workspace_network_session_uses_the_effective_policy_and_closes_with_workspace()
     {
@@ -9647,6 +9741,8 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
 
         public List<RecordingBrowserRenderer> Renderers { get; } = [];
 
+        public CapabilitySet? Capabilities { get; init; }
+
         public int CreateCount { get; private set; }
 
         public int DisposeCount => _lifetimes.Sum(lifetime => lifetime.DisposeCount);
@@ -9655,7 +9751,7 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
         {
             CreateCount++;
             var lifetime = new RecordingBrowserRendererLifetime();
-            var renderer = new RecordingBrowserRenderer();
+            var renderer = new RecordingBrowserRenderer(Capabilities);
             _lifetimes.Add(lifetime);
             Renderers.Add(renderer);
             return new BrowserRendererView(
@@ -9702,7 +9798,7 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
         public void Dispose() => DisposeCount++;
     }
 
-    private sealed class RecordingBrowserRenderer :
+    private sealed class RecordingBrowserRenderer(CapabilitySet? capabilities = null) :
         IBrowserRenderer,
         IBrowserPhysicalInputBarrier,
         IBrowserNewTabRequestSource
@@ -9710,7 +9806,7 @@ public sealed class MainWindowRuntimeGraphIntegrationTests
         public BrowserSessionState State { get; private set; } =
             BrowserSessionState.Initial(BrowserAddress.Blank);
 
-        public CapabilitySet Capabilities { get; } = new(
+        public CapabilitySet Capabilities { get; } = capabilities ?? new(
         [
             SessionCapabilities.BrowserReadState,
             SessionCapabilities.BrowserSnapshot,
