@@ -18,6 +18,7 @@ namespace Asura.Agent.Runtime;
 public sealed partial class GovernedAgentRuntime :
     IGovernedAgentRuntime,
     IAgentWorkspaceLayoutRuntime,
+    IAgentAttachmentRuntime,
     IAsyncDisposable
 {
     private const long InitialPolicyGeneration = 1;
@@ -106,6 +107,7 @@ public sealed partial class GovernedAgentRuntime :
     private readonly AgentToolCatalog _toolCatalog;
     private readonly IAgentProviderResolver _providerResolver;
     private readonly IAgentSessionCheckpointStore? _checkpointStore;
+    private readonly IAgentAttachmentService? _attachments;
     private readonly WorkspaceInstanceId? _workspaceId;
     private readonly AgentConversationScopeId? _conversationScopeId;
     private readonly ActorDescriptor _approvalActor;
@@ -199,7 +201,8 @@ public sealed partial class GovernedAgentRuntime :
         IAgentGitSessionHost? agentGitHost = null,
         AgentGitActionComposer? gitComposer = null,
         IAgentKubernetesSessionHost? agentKubernetesHost = null,
-        AgentKubernetesReadActionComposer? kubernetesComposer = null)
+        AgentKubernetesReadActionComposer? kubernetesComposer = null,
+        IAgentAttachmentService? attachments = null)
         : this(
             sessionHost,
             broker,
@@ -238,7 +241,8 @@ public sealed partial class GovernedAgentRuntime :
             agentGitHost,
             gitComposer,
             agentKubernetesHost,
-            kubernetesComposer)
+            kubernetesComposer,
+            attachments)
     {
     }
 
@@ -295,7 +299,8 @@ public sealed partial class GovernedAgentRuntime :
         IAgentGitSessionHost? agentGitHost = null,
         AgentGitActionComposer? gitComposer = null,
         IAgentKubernetesSessionHost? agentKubernetesHost = null,
-        AgentKubernetesReadActionComposer? kubernetesComposer = null)
+        AgentKubernetesReadActionComposer? kubernetesComposer = null,
+        IAgentAttachmentService? attachments = null)
         : this(
             sessionHost,
             broker,
@@ -322,7 +327,8 @@ public sealed partial class GovernedAgentRuntime :
             agentGitHost: agentGitHost,
             gitComposer: gitComposer,
             agentKubernetesHost: agentKubernetesHost,
-            kubernetesComposer: kubernetesComposer)
+            kubernetesComposer: kubernetesComposer,
+            attachments: attachments)
     {
     }
 
@@ -364,7 +370,8 @@ public sealed partial class GovernedAgentRuntime :
         IAgentGitSessionHost? agentGitHost = null,
         AgentGitActionComposer? gitComposer = null,
         IAgentKubernetesSessionHost? agentKubernetesHost = null,
-        AgentKubernetesReadActionComposer? kubernetesComposer = null)
+        AgentKubernetesReadActionComposer? kubernetesComposer = null,
+        IAgentAttachmentService? attachments = null)
     {
         _sessionHost = sessionHost ?? throw new ArgumentNullException(nameof(sessionHost));
         _broker = broker ?? throw new ArgumentNullException(nameof(broker));
@@ -466,6 +473,7 @@ public sealed partial class GovernedAgentRuntime :
         _providerResolver =
             providerResolver ?? throw new ArgumentNullException(nameof(providerResolver));
         _checkpointStore = checkpointStore;
+        _attachments = attachments;
         _workspaceId = workspaceId;
         _conversationScopeId = conversationScopeId;
         ArgumentNullException.ThrowIfNull(approvalPrincipal);
@@ -892,7 +900,8 @@ public sealed partial class GovernedAgentRuntime :
                     session,
                     request.Message,
                     request.Images,
-                    CancellationToken.None)
+                    CancellationToken.None,
+                    request.Files)
                 .ConfigureAwait(false);
             providerTurnStarted = true;
             var result = await RunProviderAndToolsAsync(
@@ -903,7 +912,8 @@ public sealed partial class GovernedAgentRuntime :
                 request.ReasoningEffort,
                 provider,
                 contextWindowTokens,
-                turnCancellation)
+                turnCancellation,
+                request.Files)
                 .ConfigureAwait(false);
             return result;
         }
@@ -1810,7 +1820,8 @@ public sealed partial class GovernedAgentRuntime :
         AgentReasoningEffort reasoningEffort,
         IAgentProvider provider,
         int? contextWindowTokens,
-        CancellationTokenSource turnCancellation)
+        CancellationTokenSource turnCancellation,
+        ImmutableArray<AgentFileAttachment> files = default)
     {
         var result = await RunProviderOperationAsync(
                 session,
@@ -1820,7 +1831,8 @@ public sealed partial class GovernedAgentRuntime :
                     tools,
                     reasoningEffort,
                     provider,
-                    turnCancellation.Token),
+                    turnCancellation.Token,
+                    files),
                 turnCancellation,
                 allowSteering: true)
             .ConfigureAwait(false);
@@ -2350,6 +2362,16 @@ public sealed partial class GovernedAgentRuntime :
         ImmutableArray<AgentToolDefinition> advertisedTools,
         CancellationToken cancellationToken)
     {
+        if (string.Equals(proposal.ToolName, "attachments.list", StringComparison.Ordinal))
+        {
+            return ListAttachments(proposal);
+        }
+
+        if (string.Equals(proposal.ToolName, "attachments.open", StringComparison.Ordinal))
+        {
+            return await OpenAttachmentAsync(proposal, cancellationToken).ConfigureAwait(false);
+        }
+
         if (string.Equals(proposal.ToolName, IntrinsicAgentTools.RunSequence, StringComparison.Ordinal))
         {
             return await ExecuteSequenceAsync(proposal, advertisedTools, cancellationToken)
@@ -3144,6 +3166,7 @@ public sealed partial class GovernedAgentRuntime :
     {
         var tools = ImmutableArray.CreateBuilder<AgentToolDefinition>(25);
         tools.Add(AgentAskUserIntrinsic.Definition);
+        if (SupportsFileAttachments) { tools.Add(AttachmentOpenTool); tools.Add(AttachmentListTool); }
         tools.Add(AgentReportProgressIntrinsic.Definition);
         var contributionContext = new AgentToolBuildContext(
             context,
@@ -4986,7 +5009,7 @@ public sealed partial class GovernedAgentRuntime :
         {
             var message = conversation[messageIndex];
             if (message.Role == AgentMessageRole.User
-                    && (message.Content.Length > 0 || message.Images.Length > 0)
+                    && (message.Content.Length > 0 || message.Images.Length > 0 || message.Files.Length > 0)
                 || message.Role == AgentMessageRole.Assistant
                     && (message.Content.Length > 0
                         || message.ReasoningSummary is not null))
@@ -5018,7 +5041,8 @@ public sealed partial class GovernedAgentRuntime :
                         message.Role == AgentMessageRole.Assistant
                             && message.ToolCalls.Length == 0
                                 ? new AgentConversationForkPoint(messageIndex + 1)
-                                : null));
+                                : null,
+                        Files: message.Files.IsEmpty ? null : [.. message.Files.Select(file => file.FileName)]));
             }
 
             if (message.Role == AgentMessageRole.Assistant)

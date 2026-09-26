@@ -85,13 +85,13 @@ public sealed partial class QuickTerminalWindow
         _ = e;
         if (DataContext is not QuickTerminalViewModel
             {
-                AgentChat: { CanAttachImages: true } agentChat,
+                AgentChat: { CanAttachFiles: true } agentChat,
             })
         {
             return;
         }
 
-        await AgentImageImport.PickAsync(StorageProvider, agentChat, _lifetime.Token);
+        await AgentAttachmentImport.PickAsync(StorageProvider.OpenFilePickerAsync, agentChat, _lifetime.Token);
     }
 
     private void OnClearAgentImagesClick(object? sender, RoutedEventArgs e)

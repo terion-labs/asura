@@ -247,7 +247,8 @@ public sealed partial class NativeAgentSession
     /// </summary>
     public AgentCheckpointCaptureResult CaptureInterruptedCheckpoint(
         string userMessage,
-        ImmutableArray<AgentImageAttachment> images)
+        ImmutableArray<AgentImageAttachment> images,
+        ImmutableArray<AgentFileAttachment> files = default)
     {
         ArgumentNullException.ThrowIfNull(userMessage);
         if (images.IsDefault)
@@ -257,7 +258,7 @@ public sealed partial class NativeAgentSession
                 nameof(images));
         }
 
-        var user = new AgentMessage(AgentMessageRole.User, userMessage, images);
+        var user = new AgentMessage(AgentMessageRole.User, userMessage, images, files);
         lock (_gate)
         {
             if (_state != NativeAgentSessionState.Ready
@@ -681,7 +682,8 @@ public sealed partial class NativeAgentSession
                 : ToCheckpointReplayState(message.ProviderReplayState),
             message.RequestedReasoningEffort is { } effort
                 ? ToReasoningEffortToken(effort)
-                : null);
+                : null,
+            [.. message.Files.Select(file => new CheckpointFile(file.Id, file.FileName, file.ByteCount))]);
 
     private static AgentMessage WithoutUnsafeProviderReplayState(
         AgentMessage message) =>
@@ -796,6 +798,7 @@ public sealed partial class NativeAgentSession
         var images = (message.Images ?? [])
             .Select(FromCheckpointImage)
             .ToImmutableArray();
+        var files = (message.Files ?? []).Select(file => new AgentFileAttachment(file.Id, file.FileName, file.ByteCount)).ToImmutableArray();
         var toolCalls = message.ToolCalls
             .Select(FromCheckpointToolCall)
             .ToImmutableArray();
@@ -809,7 +812,7 @@ public sealed partial class NativeAgentSession
 
         if (role == AgentMessageRole.Assistant)
         {
-            if (message.ToolResult is not null || images.Length != 0)
+            if (message.ToolResult is not null || images.Length != 0 || files.Length != 0)
             {
                 throw new ArgumentException("An assistant checkpoint message is invalid.");
             }
@@ -833,7 +836,7 @@ public sealed partial class NativeAgentSession
                 || message.ToolResult is null
                 || message.ReasoningSummary is not null
                 || usage is not null
-                || images.Length != 0
+                || images.Length != 0 || files.Length != 0
                 || message.ProviderReplayState is not null
                 || message.RequestedReasoningEffort is not null)
             {
@@ -858,14 +861,12 @@ public sealed partial class NativeAgentSession
             || usage is not null
             || message.ProviderReplayState is not null
             || message.RequestedReasoningEffort is not null
-            || (role != AgentMessageRole.User && images.Length != 0))
+            || (role != AgentMessageRole.User && (images.Length != 0 || files.Length != 0)))
         {
             throw new ArgumentException("A plain checkpoint message is invalid.");
         }
 
-        return images.Length == 0
-            ? new AgentMessage(role, message.Content)
-            : new AgentMessage(role, message.Content, images);
+        return new AgentMessage(role, message.Content, images, files);
     }
 
     private static bool CheckpointToolResultContentMatches(
@@ -1073,6 +1074,11 @@ public sealed partial class NativeAgentSession
                 || (message.ReasoningSummary is { } reasoningSummary
                     && LiteralSecretValidator.ContainsLikelyLiteralSecret(
                         reasoningSummary)))
+            {
+                return true;
+            }
+
+            if (message.Files.Any(file => LiteralSecretValidator.ContainsLikelyLiteralSecret(file.FileName)))
             {
                 return true;
             }
@@ -1320,7 +1326,10 @@ public sealed partial class NativeAgentSession
         CheckpointTokenUsage? Usage,
         CheckpointImage[]? Images,
         CheckpointProviderReplayState? ProviderReplayState,
-        string? RequestedReasoningEffort);
+        string? RequestedReasoningEffort,
+        CheckpointFile[]? Files = null);
+
+    private sealed record CheckpointFile(string Id, string FileName, int ByteCount);
 
     private sealed record CheckpointProviderReplayState(
         string ProfileId,

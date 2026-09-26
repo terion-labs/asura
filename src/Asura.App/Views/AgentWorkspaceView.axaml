@@ -390,6 +390,10 @@
                             Classes="Eyebrow"
                             Text="{Binding ImagesLabel}"
                             IsVisible="{Binding HasImages}" />
+                        <TextBlock
+                            Classes="Eyebrow"
+                            Text="{Binding FilesLabel}"
+                            IsVisible="{Binding HasFiles}" />
                         <components:MarkdownPreviewView
                             ContinuousSelection="True"
                             Text="{Binding Content}" />
@@ -976,32 +980,60 @@
           CornerRadius="{DynamicResource ShellCardCornerRadius}"
           IsVisible="{Binding AgentChat.HasProvider, FallbackValue=False}">
         <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="{DynamicResource ShellSpaceXs}">
-          <ItemsControl
-              x:Name="AgentPendingImages"
-              ItemsSource="{Binding AgentChat.PendingImages}"
-              IsVisible="{Binding AgentChat.HasPendingImages}"
-              AutomationProperties.Name="Images attached to the next message">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="core:AgentImageAttachment">
-                <Border Margin="{controls:Inset Right=Xs, Bottom=Xs}" Padding="{controls:Inset Left=Sm}"
-                    Background="{DynamicResource ShellSurfaceRaisedBrush}"
-                    CornerRadius="{DynamicResource ShellControlCornerRadius}">
-                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
-                    <icons:SymbolIcon Symbol="Image" FontSize="14" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="1" MaxWidth="180" VerticalAlignment="Center"
-                        Text="{Binding FileName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FileName}" />
-                    <Button Grid.Column="2" Classes="IconButton" Click="OnRemoveAgentImageClick" Tag="{Binding}"
-                        ToolTip.Tip="Remove image" AutomationProperties.Name="{Binding FileName, StringFormat={}Remove attached image {0}}">
-                      <icons:SymbolIcon Symbol="Dismiss" FontSize="12" />
-                    </Button>
-                  </Grid>
-                </Border>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
+          <StackPanel>
+            <ItemsControl
+                x:Name="AgentPendingImages"
+                ItemsSource="{Binding AgentChat.PendingImages}"
+                IsVisible="{Binding AgentChat.HasPendingImages}"
+                AutomationProperties.Name="Images attached to the next message">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="core:AgentImageAttachment">
+                  <Border Margin="{controls:Inset Right=Xs, Bottom=Xs}" Padding="{controls:Inset Left=Sm}"
+                      Background="{DynamicResource ShellSurfaceRaisedBrush}"
+                      CornerRadius="{DynamicResource ShellControlCornerRadius}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                      <icons:SymbolIcon Symbol="Image" FontSize="14" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="1" MaxWidth="180" VerticalAlignment="Center"
+                          Text="{Binding FileName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FileName}" />
+                      <Button Grid.Column="2" Classes="IconButton" Click="OnRemoveAgentImageClick" Tag="{Binding}"
+                          ToolTip.Tip="Remove image" AutomationProperties.Name="{Binding FileName, StringFormat={}Remove attached image {0}}">
+                        <icons:SymbolIcon Symbol="Dismiss" FontSize="12" />
+                      </Button>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <ItemsControl
+                x:Name="AgentPendingFiles"
+                ItemsSource="{Binding AgentChat.PendingFiles}"
+                IsVisible="{Binding AgentChat.HasPendingFiles}"
+                AutomationProperties.Name="Files attached to the next message">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="core:AgentFileAttachment">
+                  <Border Margin="{controls:Inset Right=Xs, Bottom=Xs}" Padding="{controls:Inset Left=Sm}"
+                      Background="{DynamicResource ShellSurfaceRaisedBrush}"
+                      CornerRadius="{DynamicResource ShellControlCornerRadius}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                      <icons:SymbolIcon Symbol="Document" FontSize="14" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="1" MaxWidth="180" VerticalAlignment="Center"
+                          Text="{Binding FileName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FileName}" />
+                      <Button Grid.Column="2" Classes="IconButton" Click="OnRemoveAgentFileClick" Tag="{Binding}"
+                          ToolTip.Tip="Remove file" AutomationProperties.Name="{Binding FileName, StringFormat={}Remove attached file {0}}">
+                        <icons:SymbolIcon Symbol="Dismiss" FontSize="12" />
+                      </Button>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
           <TextBox
               x:Name="AgentChatPromptInput"
               Grid.Row="1"
@@ -1029,9 +1061,9 @@
                 Width="32"
                 Classes="IconButton ComposerControl"
                 Click="OnAttachAgentImageClick"
-                IsEnabled="{Binding AgentChat.CanAttachImages}"
-                ToolTip.Tip="Attach image"
-                AutomationProperties.Name="Attach an image to the AI agent prompt">
+                IsEnabled="{Binding AgentChat.CanAttachFiles}"
+                ToolTip.Tip="Attach file"
+                AutomationProperties.Name="Attach a file to the AI agent prompt">
               <icons:SymbolIcon Symbol="Add" FontSize="15" />
             </Button>
             <Button

@@ -3586,7 +3586,8 @@ public sealed partial class GovernedAgentRuntimeTests
             AgentPolicy? configuredPolicy = null,
             TimeProvider? timeProvider = null,
             IAgentSessionCheckpointStore? checkpointStore = null,
-            WorkspaceInstanceId? workspaceId = null)
+            WorkspaceInstanceId? workspaceId = null,
+            IAgentAttachmentService? attachments = null)
         {
             timeProvider ??= TimeProvider.System;
             Provider = provider;
@@ -3618,7 +3619,9 @@ public sealed partial class GovernedAgentRuntimeTests
                 timeProvider,
                 ConfiguredPolicy,
                 checkpointStore: checkpointStore,
-                workspaceId: workspaceId);
+                workspaceId: workspaceId,
+                conversationScopeId: attachments is null ? null : new AgentConversationScopeId("test-files"),
+                attachments: attachments);
         }
 
         public ProviderRound Provider { get; }

@@ -607,6 +607,11 @@ public sealed partial class SqliteAgentSessionCheckpointStore
             DELETE FROM agent_session_checkpoints WHERE run_id = $runId;
             DELETE FROM agent_run_history_metadata WHERE run_id = $runId;
             DELETE FROM agent_run_history_tombstones WHERE run_id = $runId;
+            DELETE FROM agent_file_attachments
+            WHERE committed = 1 AND NOT EXISTS (
+                SELECT 1 FROM agent_session_checkpoints
+                WHERE instr(payload_json, agent_file_attachments.id) > 0);
+
             """;
         command.Parameters.AddWithValue("$runId", runId);
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);

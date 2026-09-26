@@ -215,6 +215,7 @@ public sealed class CompositionTests
                    AgentPolicy.Default))
         {
             Assert.NotSame(firstWorkspaceAgent, secondWorkspaceAgent);
+            Assert.True(Assert.IsAssignableFrom<IAgentAttachmentRuntime>(firstWorkspaceAgent).SupportsFileAttachments);
         }
         Assert.Equal(
             approvalPrincipal.Actor.ClientId,

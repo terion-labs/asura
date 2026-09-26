@@ -162,7 +162,8 @@ public sealed partial class GovernedAgentRuntime
         NativeAgentSession session,
         string userMessage,
         ImmutableArray<AgentImageAttachment> images,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ImmutableArray<AgentFileAttachment> files = default)
     {
         if (_checkpointStore is null)
         {
@@ -170,7 +171,7 @@ public sealed partial class GovernedAgentRuntime
         }
 
         return await SaveCheckpointCaptureAsync(
-                session.CaptureInterruptedCheckpoint(userMessage, images),
+                session.CaptureInterruptedCheckpoint(userMessage, images, files),
                 cancellationToken)
             .ConfigureAwait(false);
     }

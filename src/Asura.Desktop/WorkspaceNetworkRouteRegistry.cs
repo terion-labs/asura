@@ -69,6 +69,16 @@ internal sealed class WorkspaceNetworkRouteRegistry : IWorkspaceNetworkRouteReso
         }
     }
 
+    public bool TryGetAttachmentRuntime(WorkspaceInstanceId workspace, out IConnectionCommandRuntime? runtime)
+    {
+        lock (_gate)
+        {
+            var found = _routes.TryGetValue(workspace, out var route);
+            runtime = route?.IsolatedCommandRuntime;
+            return found;
+        }
+    }
+
     private void Unregister(WorkspaceInstanceId workspaceId, Route route)
     {
         lock (_gate)

@@ -204,7 +204,8 @@ public sealed record GovernedAgentPrompt
         AgentReasoningEffort reasoningEffort,
         AgentServiceTier serviceTier,
         AgentPolicy policy,
-        AgentApprovalMode approvalMode)
+        AgentApprovalMode approvalMode,
+        IReadOnlyList<AgentFileAttachment>? files = null)
         : this(
             providerId,
             message,
@@ -212,7 +213,8 @@ public sealed record GovernedAgentPrompt
             reasoningEffort,
             serviceTier,
             policy,
-            images)
+            images,
+            files)
     {
         if (!Enum.IsDefined(approvalMode))
         {
@@ -304,7 +306,8 @@ public sealed record GovernedAgentPrompt
         AgentReasoningEffort reasoningEffort,
         AgentServiceTier serviceTier,
         AgentPolicy policy,
-        IReadOnlyList<AgentImageAttachment>? images)
+        IReadOnlyList<AgentImageAttachment>? images,
+        IReadOnlyList<AgentFileAttachment>? files = null)
     {
         if (string.IsNullOrWhiteSpace(providerId.Value))
         {
@@ -324,10 +327,11 @@ public sealed record GovernedAgentPrompt
                 nameof(images));
         }
 
-        if (string.IsNullOrWhiteSpace(message) && imageArray.Length == 0)
+        Files = AgentFileAttachment.CopyBatch(files);
+        if (string.IsNullOrWhiteSpace(message) && imageArray.Length == 0 && Files.Length == 0)
         {
             throw new ArgumentException(
-                "An agent prompt requires text or an image.",
+                "An agent prompt requires text or an attachment.",
                 nameof(message));
         }
         if (message.Length > MaximumMessageLength)
@@ -391,6 +395,8 @@ public sealed record GovernedAgentPrompt
     public AgentServiceTier ServiceTier { get; }
 
     public ImmutableArray<AgentImageAttachment> Images { get; }
+
+    public ImmutableArray<AgentFileAttachment> Files { get; }
 
     /// <summary>
     /// The complete trusted run policy. The runtime never manufactures missing
