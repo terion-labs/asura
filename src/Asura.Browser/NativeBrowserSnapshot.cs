@@ -1,10 +1,12 @@
 using Asura.Application;
+using Asura.Core;
 
 namespace Asura.Browser;
 
 internal sealed record NativeBrowserSnapshot(
     IReadOnlyList<NativeBrowserSnapshotNode> Nodes,
-    bool IsTruncated);
+    bool IsTruncated,
+    AgentImageAttachment? Image = null);
 
 internal sealed record NativeBrowserSnapshotNode(
     int Depth,

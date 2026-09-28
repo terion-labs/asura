@@ -464,6 +464,49 @@ public sealed class StreamingProviderConformanceTests
         Assert.Equal(proposal, Assert.Single(session.Snapshot().PendingToolProposals));
     }
 
+    [Theory]
+    [InlineData(AiProviderKind.Anthropic)]
+    [InlineData(AiProviderKind.OpenAiCompatible)]
+    public async Task ScreenshotToolImageReachesProvider(AiProviderKind kind)
+    {
+        using var vault = new InMemorySecretVault();
+        var profile = CreateLoopbackProfile(kind);
+        var responseNumber = 0;
+        using var handler = new StubHttpMessageHandler((_, _) => Task.FromResult(SseResponse(
+            Interlocked.Increment(ref responseNumber) == 1
+                ? kind == AiProviderKind.Anthropic ? AnthropicToolStream() : OpenAiToolStream()
+                : kind == AiProviderKind.Anthropic ? AnthropicTextStream("seen") : OpenAiTextStream("seen"))));
+        using var factory = new AiProviderFactory(vault, handler);
+        var provider = factory.Create(profile);
+        var session = CreateSession();
+        var tools = ImmutableArray.Create(ReadFileTool());
+        var first = await session.RunTurnAsync("Inspect", tools, provider, CancellationToken.None);
+        var proposal = Assert.Single(first.ToolProposals);
+        var image = TinyPng();
+        var continuation = await session.SubmitToolResultsAsync(proposal.Generation,
+            [new AgentToolResult(proposal, AgentToolResultStatus.Succeeded, "ok",
+                AgentToolResultValue.FromText("viewport"), [image])], tools, tools, provider, CancellationToken.None);
+        Assert.True(continuation.Succeeded);
+        using var body = JsonDocument.Parse(handler.Requests[1].Body);
+        var messages = body.RootElement.GetProperty("messages");
+        if (kind == AiProviderKind.Anthropic)
+        {
+            var result = messages[2].GetProperty("content")[0];
+            Assert.Equal("tool_result", result.GetProperty("type").GetString());
+            Assert.Equal(proposal.ProviderCallId, result.GetProperty("tool_use_id").GetString());
+            Assert.Equal(Convert.ToBase64String(image.Content), result.GetProperty("content")[1]
+                .GetProperty("source").GetProperty("data").GetString());
+        }
+        else
+        {
+            Assert.Equal("tool", messages[2].GetProperty("role").GetString());
+            Assert.Equal(proposal.ProviderCallId, messages[2].GetProperty("tool_call_id").GetString());
+            Assert.Equal("user", messages[3].GetProperty("role").GetString());
+            Assert.Equal($"data:image/png;base64,{Convert.ToBase64String(image.Content)}",
+                messages[3].GetProperty("content")[1].GetProperty("image_url").GetProperty("url").GetString());
+        }
+    }
+
     [Fact]
     public async Task OpenAiContinuationSendsAssistantToolCallAndCorrelatedToolResult()
     {

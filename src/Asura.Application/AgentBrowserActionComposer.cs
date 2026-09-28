@@ -155,6 +155,11 @@ public sealed class AgentBrowserActionComposer
         AgentBrowserRequest.Snapshot request)
     {
         var query = request.Query ?? BrowserSnapshotQuery.Lean;
+        if (query.CaptureImage)
+        {
+            return PrepareSessionOnly(BuiltInAgentTools.BrowserScreenshot,
+                SessionCapabilities.BrowserSnapshot, request.SessionId);
+        }
         var arguments = new List<MaterialArgument>
         {
             Argument(

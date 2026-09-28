@@ -240,6 +240,8 @@ public sealed partial class GovernedAgentRuntime
         {
             BrowserAgentIntent.ReadState =>
                 new AgentBrowserRequest.ReadState(sessionId),
+            BrowserAgentIntent.Screenshot =>
+                new AgentBrowserRequest.Snapshot(sessionId, BrowserSnapshotQuery.Screenshot),
             BrowserAgentIntent.Snapshot snapshot =>
                 new AgentBrowserRequest.Snapshot(
                     sessionId,
@@ -381,11 +383,14 @@ public sealed partial class GovernedAgentRuntime
             proposal,
             AgentToolResultStatus.Succeeded,
             "tool_succeeded",
-            JsonValue(BrowserAgentToolResultJson.Success(result, panelId)));
+            JsonValue(BrowserAgentToolResultJson.Success(result, panelId)),
+            result is AgentBrowserActionResult.Snapshot { Value.Screenshot: { } screenshot }
+                ? [screenshot.Image] : []);
 
     private static bool IsBrowserTool(string toolName) =>
         toolName is
             BuiltInAgentTools.BrowserReadState
+            or BuiltInAgentTools.BrowserScreenshot
             or BuiltInAgentTools.BrowserSnapshot
             or BuiltInAgentTools.BrowserWait
             or BuiltInAgentTools.BrowserClick

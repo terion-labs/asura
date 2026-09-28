@@ -2338,7 +2338,8 @@ public sealed partial class BrowserSurface :
             _nativeView,
             document,
             nativeCompletion,
-            referenceEpoch);
+            referenceEpoch,
+            State);
         _pendingDocumentSnapshot = pending;
         pending.CancellationRegistration = cancellationToken.Register(
             () =>
@@ -2506,7 +2507,11 @@ public sealed partial class BrowserSurface :
             || State.LoadState != BrowserLoadState.Ready
             || HasGovernedNavigationActivity
             || !pending.Document.Matches(State)
-            || pending.ReferenceEpoch != SnapshotReferenceEpoch())
+            || pending.ReferenceEpoch != SnapshotReferenceEpoch()
+            || (nativeResult.Value?.Image is not null
+                && (pending.InitialState.Viewport != State.Viewport
+                    || pending.InitialState.ViewportRevision != State.ViewportRevision
+                    || pending.InitialState.InputEpoch != State.InputEpoch)))
         {
             pending.Completion.TrySetResult(
                 BrowserResult<BrowserDocumentSnapshot>.Failure(
@@ -2564,7 +2569,11 @@ public sealed partial class BrowserSurface :
                 pending.Document,
                 nodes,
                 capturedAtUtc,
-                nativeResult.Value.IsTruncated);
+                nativeResult.Value.IsTruncated,
+                nativeResult.Value.Image is { } image
+                    ? new BrowserScreenshot(image, new BrowserAutomationBinding(
+                        pending.Document, State.Viewport!, State.ViewportRevision, State.InputEpoch))
+                    : null);
             lock (_snapshotReferenceGate)
             {
                 _snapshotReferences = references;
@@ -4070,8 +4079,11 @@ public sealed partial class BrowserSurface :
         IEmbeddedBrowserView nativeView,
         BrowserDocumentBinding document,
         Task<NativeBrowserSnapshotResult> nativeCompletion,
-        long referenceEpoch)
+        long referenceEpoch,
+        BrowserSessionState initialState)
     {
+        public BrowserSessionState InitialState { get; } = initialState;
+
         private int _hasTimedOut;
 
         public IEmbeddedBrowserView NativeView { get; } =

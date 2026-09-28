@@ -254,6 +254,15 @@ internal static class BrowserAgentToolResultJson
         writer.WriteString(
             "captured_at_utc",
             snapshot.CapturedAtUtc.ToUniversalTime());
+        if (snapshot.Screenshot is { } screenshot)
+        {
+            writer.WriteNumber("image_width", screenshot.PixelWidth);
+            writer.WriteNumber("image_height", screenshot.PixelHeight);
+            writer.WriteNumber("viewport_width_css", screenshot.Binding.Viewport.WidthCss);
+            writer.WriteNumber("viewport_height_css", screenshot.Binding.Viewport.HeightCss);
+            writer.WriteNumber("viewport_revision", screenshot.Binding.ViewportRevision);
+            writer.WriteNumber("input_epoch", screenshot.Binding.InputEpoch);
+        }
         writer.WritePropertyName("nodes");
         writer.WriteStartArray();
 

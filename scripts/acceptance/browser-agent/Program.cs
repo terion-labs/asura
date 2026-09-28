@@ -89,6 +89,29 @@ internal sealed class ProbeApp : Avalonia.Application
             surface.IsVisible = true;
             await Task.Delay(200, deadline.Token);
 
+            var custom = await surface.ClickWithinOriginAsync(
+                await ReferenceAsync(surface, "clickable", "Rescue fixture", deadline.Token),
+                BrowserNavigationOrigin.WorkspaceNetwork, deadline.Token);
+            Require(custom.IsSuccess, "custom click target", custom.Error);
+            var customSnapshot = await surface.CaptureSnapshotAsync(
+                BrowserDocumentBinding.FromState(surface.State), deadline.Token);
+            Require(customSnapshot.IsSuccess && customSnapshot.Value!.Nodes.Any(node =>
+                node.Name.Contains("Custom control activated", StringComparison.Ordinal)),
+                "custom click delivered", customSnapshot.Error);
+            Console.WriteLine("PASS custom onclick control has a reference and receives native click");
+            var tableClick = await surface.ClickWithinOriginAsync(
+                await ReferenceAsync(surface, "clickable", "Table control", deadline.Token),
+                BrowserNavigationOrigin.WorkspaceNetwork, deadline.Token);
+            Require(tableClick.IsSuccess, "clickable table cell", tableClick.Error);
+            Console.WriteLine("PASS custom table cell receives native click");
+            var screenshot = await surface.CaptureSnapshotAsync(
+                BrowserDocumentBinding.FromState(surface.State), deadline.Token, BrowserSnapshotQuery.Screenshot);
+            Require(screenshot.IsSuccess && screenshot.Value!.Screenshot is { PixelWidth: > 0, PixelHeight: > 0 },
+                "viewport screenshot", screenshot.Error);
+            await File.WriteAllBytesAsync(Path.Combine(Program.Profile, "viewport.png"),
+                screenshot.Value!.Screenshot!.Image.Content.ToArray(), deadline.Token);
+            Console.WriteLine("PASS viewport PNG captured with coordinate bindings");
+
             var input = await ReferenceAsync(surface, "textbox", "Fixture text", deadline.Token);
             var fill = await surface.FillWithinOriginAsync(input, "native-canary",
                 BrowserNavigationOrigin.WorkspaceNetwork, deadline.Token);
@@ -201,10 +224,12 @@ internal sealed class ProbeApp : Avalonia.Application
         var snapshot = await surface.CaptureSnapshotAsync(
             BrowserDocumentBinding.FromState(surface.State), cancellationToken);
         Require(snapshot.IsSuccess, "snapshot", snapshot.Error);
-        return snapshot.Value!.Nodes.Single(node =>
+        var match = snapshot.Value!.Nodes.SingleOrDefault(node =>
             string.Equals(node.Role, role, StringComparison.Ordinal)
-            && string.Equals(node.Name.Trim(), name, StringComparison.Ordinal)).Reference
-            ?? throw new InvalidOperationException("The fixture element has no reference.");
+            && string.Equals(node.Name.Trim(), name, StringComparison.Ordinal));
+        return match?.Reference ?? throw new InvalidOperationException(
+            $"The fixture element {role}/{name} has no reference: "
+            + string.Join("; ", snapshot.Value.Nodes.Select(node => $"{node.Role}/{node.Name}/{node.Reference?.Value}")));
     }
 
     private static void Require(bool condition, string step, BrowserError? error)

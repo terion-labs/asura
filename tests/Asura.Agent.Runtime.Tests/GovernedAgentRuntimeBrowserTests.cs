@@ -348,7 +348,7 @@ public sealed class GovernedAgentRuntimeBrowserTests
             firstRequest.Messages,
             message => message.Role == AgentMessageRole.System).Content;
         Assert.Contains(
-            "operations=\"read_state,snapshot,wait,click,fill,check,",
+            "operations=\"read_state,snapshot,screenshot,wait,click,fill,check,",
             systemPrompt,
             StringComparison.Ordinal);
         var requested = Assert.Single(
@@ -569,7 +569,7 @@ public sealed class GovernedAgentRuntimeBrowserTests
         var browserTools = firstRequest.Tools
             .Where(tool => tool.Name.StartsWith("browser.", StringComparison.Ordinal))
             .ToArray();
-        Assert.Equal(scope == BrowserScope.Workspace ? 14 : 11, browserTools.Length);
+        Assert.Equal(scope == BrowserScope.Workspace ? 15 : 12, browserTools.Length);
         foreach (var tool in browserTools)
         {
             Assert.Contains(
@@ -695,6 +695,41 @@ public sealed class GovernedAgentRuntimeBrowserTests
             root.GetProperty("title").GetString());
         Assert.Equal(1, root.GetProperty("title_redactions").GetInt32());
         Assert.Equal(27, root.GetProperty("document_revision").GetInt64());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ScreenshotObservationDeliversImageAndCoordinateFrameToProvider(bool sequence)
+    {
+        await using var fixture = BrowserRuntimeFixture.Create(BrowserScope.ExactPanel,
+            ScriptedProvider.ToolThenAnswer(sequence ? IntrinsicAgentTools.RunSequence : BuiltInAgentTools.BrowserScreenshot,
+                sequence ? """{"steps":[{"tool":"browser.screenshot","arguments":{}},{"tool":"browser.read_state","arguments":{}}]}""" : "{}"),
+            PolicyWith(AgentCapability.BrowserData, AgentPermission.Auto));
+        var document = new BrowserDocumentBinding(new BrowserAddress(new Uri("https://example.test/")), 28);
+        var image = new AgentImageAttachment("browser.png", "image/png", Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lWQAAAAASUVORK5CYII="));
+        fixture.Browser.Results.Enqueue(new AgentBrowserActionResult.Snapshot(new BrowserDocumentSnapshot(
+            document, [], DateTimeOffset.UnixEpoch, screenshot: new BrowserScreenshot(image,
+                new BrowserAutomationBinding(document, new BrowserViewportState(800, 600, 2), 9, 3)))));
+        var result = await fixture.Runtime.SendAsync(fixture.Prompt("Show the browser."), CancellationToken.None);
+        Assert.True(result.IsSuccess);
+        Assert.True(Assert.IsType<AgentBrowserRequest.Snapshot>(Assert.Single(fixture.Browser.Actions).Request)
+            .Query!.CaptureImage);
+        var output = ToolResultFromLastRequest(fixture.Provider);
+        Assert.Same(image, Assert.Single(output.Images));
+        using var json = JsonDocument.Parse(output.Value.Content);
+        using var metadata = JsonDocument.Parse(sequence
+            ? json.RootElement.GetProperty("results")[0].GetProperty("content").GetString()! : output.Value.Content);
+        Assert.Equal(800, metadata.RootElement.GetProperty("viewport_width_css").GetDouble());
+        Assert.Equal(9, metadata.RootElement.GetProperty("viewport_revision").GetInt64());
+        Assert.Equal(3, metadata.RootElement.GetProperty("input_epoch").GetInt64());
+        if (sequence)
+        {
+            Assert.Equal(1, json.RootElement.GetProperty("remaining_steps").GetInt32());
+            Assert.Equal(0, json.RootElement.GetProperty("results")[0].GetProperty("image_indices")[0].GetInt32());
+        }
+        Assert.DoesNotContain(Convert.ToBase64String(image.Content), output.Value.Content, StringComparison.Ordinal);
     }
 
     internal async Task BrowserSnapshotAutoReturnsBoundedUntrustedNodes()

@@ -5,6 +5,52 @@ namespace Asura.Browser.Tests;
 
 public sealed class CefBrowserSemanticAdapterTests
 {
+    [Theory]
+    [InlineData("generic")]
+    [InlineData("cell")]
+    [InlineData("heading")]
+    [InlineData("LayoutTableCell")]
+    public async Task CustomClickListenerProducesUsableReferenceAndRevalidatesBeforeInput(string role)
+    {
+        CefSemanticNode[] source =
+        [
+            Node(1, "RootWebArea", "Fixture", parentId: null, childIds: ["2"]),
+            Node(2, role, "", childIds: ["3"]) with { IsIgnored = true },
+            Node(3, "StaticText", "Rescue", parentId: "2"),
+        ];
+        using var dom = JsonDocument.Parse("""
+            {"documents":[{"nodes":{"backendNodeId":[1,2,3],"isClickable":{"index":[1]}}}]}
+            """);
+        var browser = new RecordingCefSemanticBrowser(CefClickableNodes.Augment(source, dom.RootElement));
+        var adapter = new CefBrowserSemanticAdapter(browser);
+        var snapshot = await adapter.CaptureSnapshotAsync(new BrowserSnapshotQuery(filter: "Rescue"));
+        var target = Assert.Single(snapshot.Value!.Nodes, node => node.Name == "Rescue");
+        Assert.Equal("clickable", target.Role);
+        Assert.NotNull(target.Handle);
+        Assert.Equal(NativeBrowserClickStatus.Activated, (await adapter.ClickAsync(target.Handle!)).Status);
+        Assert.Equal(1, browser.ClickDispatchCount);
+
+        var fresh = await adapter.CaptureSnapshotAsync(new BrowserSnapshotQuery(filter: "Rescue"));
+        var current = Assert.Single(fresh.Value!.Nodes, node => string.Equals(node.Role, "clickable", StringComparison.Ordinal));
+        browser.SetNode(source[1]); // The handler/semantics disappeared before dispatch.
+        Assert.NotEqual(NativeBrowserClickStatus.Activated, (await adapter.ClickAsync(current.Handle!)).Status);
+        Assert.Equal(1, browser.ClickDispatchCount);
+    }
+
+    [Fact]
+    public void DelegatedContainerListenerDoesNotSwallowSemanticControls()
+    {
+        CefSemanticNode[] source =
+        [
+            Node(1, "generic", "Container", parentId: null, childIds: ["2"]),
+            Node(2, "button", "Submit"),
+        ];
+        using var dom = JsonDocument.Parse("""
+            {"documents":[{"nodes":{"backendNodeId":[1,2],"isClickable":{"index":[0,1]}}}]}
+            """);
+        Assert.Equal(source, CefClickableNodes.Augment(source, dom.RootElement));
+    }
+
     [Fact]
     public void CheckboxKeyboardActivationIncludesSpaceTextForChromium()
     {

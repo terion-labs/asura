@@ -1,5 +1,7 @@
+using System.Collections.Immutable;
 using System.Text;
 using System.Text.Json;
+using Asura.Core;
 
 namespace Asura.Agent;
 
@@ -119,14 +121,16 @@ public sealed class AgentToolResult
         AgentToolProposal proposal,
         AgentToolResultStatus status,
         string stableCode,
-        AgentToolResultValue value)
+        AgentToolResultValue value,
+        ImmutableArray<AgentImageAttachment> images = default)
         : this(
             proposal?.Id ?? throw new ArgumentNullException(nameof(proposal)),
             proposal.Generation,
             proposal.ProviderCallId,
             status,
             stableCode,
-            value)
+            value,
+            images)
     {
     }
 
@@ -136,7 +140,8 @@ public sealed class AgentToolResult
         string providerCallId,
         AgentToolResultStatus status,
         string stableCode,
-        AgentToolResultValue value)
+        AgentToolResultValue value,
+        ImmutableArray<AgentImageAttachment> images = default)
     {
         AgentToolDefinition.ValidateIdentifier(
             proposalId,
@@ -162,6 +167,13 @@ public sealed class AgentToolResult
         Status = status;
         StableCode = stableCode;
         Value = value ?? throw new ArgumentNullException(nameof(value));
+        Images = images.IsDefault ? [] : images;
+        if (Images.Length > AgentImageAttachment.MaximumPerMessage
+            || Images.Any(image => image is null)
+            || Images.Sum(image => (long)image.Content.Length) > AgentImageAttachment.MaximumTotalBytesPerMessage)
+        {
+            throw new ArgumentException("Tool images exceed their bounds.", nameof(images));
+        }
     }
 
     public string ProposalId { get; }
@@ -175,6 +187,8 @@ public sealed class AgentToolResult
     public string StableCode { get; }
 
     public AgentToolResultValue Value { get; }
+
+    public ImmutableArray<AgentImageAttachment> Images { get; }
 
     public bool ContainsUntrustedContent => true;
 }

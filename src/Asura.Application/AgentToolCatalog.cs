@@ -150,6 +150,7 @@ public static class BuiltInAgentTools
     public const string TerminalResize = "terminal.resize";
     public const string BrowserReadState = "browser.read_state";
     public const string BrowserSnapshot = "browser.snapshot";
+    public const string BrowserScreenshot = "browser.screenshot";
     public const string BrowserWait = "browser.wait";
     public const string BrowserClick = "browser.click";
     public const string BrowserFill = "browser.fill";
@@ -331,6 +332,11 @@ public static class BuiltInAgentTools
         Tool(
             BrowserReadState,
             "Read browser state",
+            AgentCapability.BrowserData,
+            AgentActionRisk.Observation),
+        Tool(
+            BrowserScreenshot,
+            "Capture browser screenshot",
             AgentCapability.BrowserData,
             AgentActionRisk.Observation),
         Tool(

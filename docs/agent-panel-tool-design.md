@@ -121,7 +121,7 @@ retain the researched target surface and mark deferred tools explicitly.
 | Common graph/layout | `workspace.inspect`, `tab.list`, `panel.list`, `panel.inspect`, `panel.focus`, `tab.create`, `tab.close`, `panel.add`, `panel.split`, `panel.close` |
 | Web | `http.fetch`, `web.read`, `web.search` |
 | Terminal | `terminal.read_screen`, `terminal.read_screen_diff`, `terminal.find_on_screen`, `terminal.find_rendered_history`, `terminal.jump_to_rendered_history`, `terminal.read_scrollback`, `terminal.find`, `terminal.scroll_viewport`, `terminal.wait`, `terminal.send_text`, `terminal.paste`, `terminal.submit_text`, `terminal.send_keys`, `terminal.send_chord`, `terminal.send_mouse`, `terminal.interrupt`, `terminal.resize` |
-| Browser | `browser.read_state`, `browser.snapshot`, `browser.wait`, `browser.click`, `browser.fill`, `browser.check`, `browser.mouse`, `browser.key`, `browser.scroll`, `browser.navigate`, `browser.back`, `browser.forward`, `browser.reload`, `browser.stop` |
+| Browser | `browser.read_state`, `browser.snapshot`, `browser.screenshot`, `browser.wait`, `browser.click`, `browser.fill`, `browser.check`, `browser.mouse`, `browser.key`, `browser.scroll`, `browser.navigate`, `browser.back`, `browser.forward`, `browser.reload`, `browser.stop` |
 | File Viewer | `files.list`, `files.search`, `files.stat`, `files.read`, `files.access_read`, `files.transfers`, `files.mkdir`, `files.create_text`, `files.replace_text`, `files.copy`, `files.move`, `files.delete` |
 | Statistics | `statistics.read` |
 | Process Monitor | `processes.list` |
@@ -400,7 +400,7 @@ getters, and predicates remain roadmap items pending artifact/inspection ports.
 | --- | --- | --- |
 | `browser.read_state` | URL, origin, title, load state, history flags, focused state, viewport CSS size/scale, document revision, active downloads, and input epoch. | `BrowserData` / Observation |
 | `browser.snapshot` | `interactive_only`, optional text `filter` and `max_depth`; returns a lean bounded accessibility tree and opaque refs. Filtering keeps ancestors and occurs before the node cap. Provider projection has no separate fixed node cutoff. | `BrowserData` / Observation |
-| `browser.screenshot` | `viewport|full_page`, optional bounded clip, PNG/JPEG/WebP quality; returns an image attachment/artifact and the exact document/viewport revision. | `BrowserData` / Observation |
+| `browser.screenshot` | Current viewport PNG (bounded to 4 MiB), delivered as a native provider image with image dimensions, CSS viewport dimensions, document/viewport revisions and input epoch. No page-supplied code is evaluated. | `BrowserData` / Observation |
 | `browser.get` | Ref plus `text|value|html|attribute|box|styles|accessible_name`. Attribute/style names use bounded allowlists. | `BrowserData` / Observation |
 | `browser.is` | Ref plus `visible|enabled|checked|selected|editable|focused`. | `BrowserData` / Observation |
 | `browser.wait` | One of delay/read-after, load state, URL pattern, text, ref state, document revision, or network idle; caller-selected timeout up to one hour. | `BrowserData` / Routine |
@@ -711,8 +711,9 @@ mutation; do not overload observation and control under one permission.
 4. Enforce strict bounded JSON projections and opaque references across every
    newly exposed observation.
 
-The run-scoped artifact broker remains a prerequisite for binary screenshots,
-uploads, downloads, and non-text file previews.
+The run-scoped artifact broker remains a prerequisite for uploads, downloads,
+and non-text file previews. Viewport screenshots use bounded tool-result image
+attachments, including provider serialization and checkpoint restoration.
 
 ### Landed: terminal completion
 
@@ -733,9 +734,13 @@ libghostty-vt state already exist.
 4. Add atomic panel-relative mouse move/click/wheel, key press, and scroll under
    the browser input barrier.
 
+5. Recover custom clickable text controls using Chromium DOM clickability.
+6. Capture viewport screenshots with coordinate bindings and deliver image parts
+   to providers. Sequences pause after image observations for inspection.
+
 ### Remaining: CEF interaction and power tier
 
-1. Add getters/predicates, screenshot artifacts, type/select/focus/hover, and
+1. Add getters/predicates, full-page/clip screenshots, type/select/focus/hover, and
    split or multi-event drag input with explicit commit receipts.
 2. Define a credential-safe scripting boundary; do not promote the current
    arbitrary-evaluate candidate merely because it uses an isolated world.

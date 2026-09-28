@@ -139,6 +139,8 @@ internal static class BrowserAgentToolParser
                     properties,
                     new BrowserAgentIntent.ReadState(),
                     panelId),
+            BuiltInAgentTools.BrowserScreenshot =>
+                ParseEmpty(properties, new BrowserAgentIntent.Screenshot(), panelId),
             BuiltInAgentTools.BrowserSnapshot =>
                 ParseSnapshot(properties, panelId),
             BuiltInAgentTools.BrowserWait =>
@@ -1043,6 +1045,7 @@ internal static class BrowserAgentToolParser
     private static bool IsKnownTool(string toolName) =>
         toolName is
             BuiltInAgentTools.BrowserReadState
+            or BuiltInAgentTools.BrowserScreenshot
             or BuiltInAgentTools.BrowserSnapshot
             or BuiltInAgentTools.BrowserWait
             or BuiltInAgentTools.BrowserClick

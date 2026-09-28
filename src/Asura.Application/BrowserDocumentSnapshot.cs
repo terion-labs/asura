@@ -15,13 +15,19 @@ public sealed record BrowserDocumentSnapshot
         BrowserDocumentBinding document,
         IReadOnlyList<BrowserSnapshotNode> nodes,
         DateTimeOffset capturedAtUtc,
-        bool isTruncated = false)
+        bool isTruncated = false,
+        BrowserScreenshot? screenshot = null)
     {
         Document = document
             ?? throw new ArgumentNullException(nameof(document));
         Nodes = SnapshotNodes(nodes, document);
         CapturedAtUtc = capturedAtUtc;
         IsTruncated = isTruncated;
+        if (screenshot is not null && screenshot.Binding.Document != document)
+        {
+            throw new ArgumentException("The screenshot must match its document.", nameof(screenshot));
+        }
+        Screenshot = screenshot;
     }
 
     public BrowserDocumentBinding Document { get; }
@@ -31,6 +37,8 @@ public sealed record BrowserDocumentSnapshot
     public DateTimeOffset CapturedAtUtc { get; }
 
     public bool IsTruncated { get; }
+
+    public BrowserScreenshot? Screenshot { get; }
 
     private static IReadOnlyList<BrowserSnapshotNode> SnapshotNodes(
         IReadOnlyList<BrowserSnapshotNode> nodes,

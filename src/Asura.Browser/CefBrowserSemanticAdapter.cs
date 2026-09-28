@@ -17,6 +17,7 @@ internal sealed class CefBrowserSemanticAdapter(ICefSemanticBrowser browser)
     private static readonly HashSet<string> ActionableRoles =
         new(StringComparer.Ordinal)
         {
+            "clickable",
             "button",
             "checkbox",
             "combobox",
@@ -33,6 +34,8 @@ internal sealed class CefBrowserSemanticAdapter(ICefSemanticBrowser browser)
             "tab",
             "textbox",
         };
+    internal static bool IsActionableRole(string role) => ActionableRoles.Contains(NormalizeRole(role));
+
     private static readonly HashSet<string> FillableRoles =
         new(StringComparer.Ordinal)
         {

@@ -36,6 +36,7 @@ public sealed class BrowserAgentToolContractTests
             [
                 BuiltInAgentTools.BrowserReadState,
                 BuiltInAgentTools.BrowserSnapshot,
+                BuiltInAgentTools.BrowserScreenshot,
                 BuiltInAgentTools.BrowserWait,
                 BuiltInAgentTools.BrowserClick,
                 BuiltInAgentTools.BrowserFill,
@@ -184,6 +185,7 @@ public sealed class BrowserAgentToolContractTests
             [
                 BuiltInAgentTools.BrowserReadState,
                 BuiltInAgentTools.BrowserSnapshot,
+                BuiltInAgentTools.BrowserScreenshot,
                 BuiltInAgentTools.BrowserStop,
             ],
             tools.Select(tool => tool.Name), StringComparer.Ordinal);
@@ -233,6 +235,7 @@ public sealed class BrowserAgentToolContractTests
             [
                 BuiltInAgentTools.BrowserReadState,
                 BuiltInAgentTools.BrowserSnapshot,
+                BuiltInAgentTools.BrowserScreenshot,
             ],
             tools.Select(tool => tool.Name), StringComparer.Ordinal);
         Assert.False(BrowserAgentToolSet.SupportsMutations(panel));
@@ -251,6 +254,7 @@ public sealed class BrowserAgentToolContractTests
             [
                 BuiltInAgentTools.BrowserReadState,
                 BuiltInAgentTools.BrowserSnapshot,
+                BuiltInAgentTools.BrowserScreenshot,
                 BuiltInAgentTools.BrowserWait,
                 BuiltInAgentTools.BrowserClick,
                 BuiltInAgentTools.BrowserFill,
@@ -402,6 +406,7 @@ public sealed class BrowserAgentToolContractTests
     [Theory]
     [InlineData(BuiltInAgentTools.BrowserReadState, typeof(BrowserAgentIntent.ReadState))]
     [InlineData(BuiltInAgentTools.BrowserSnapshot, typeof(BrowserAgentIntent.Snapshot))]
+    [InlineData(BuiltInAgentTools.BrowserScreenshot, typeof(BrowserAgentIntent.Screenshot))]
     [InlineData(BuiltInAgentTools.BrowserBack, typeof(BrowserAgentIntent.Back))]
     [InlineData(BuiltInAgentTools.BrowserForward, typeof(BrowserAgentIntent.Forward))]
     [InlineData(BuiltInAgentTools.BrowserReload, typeof(BrowserAgentIntent.Reload))]

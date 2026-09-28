@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 namespace Asura.Core;
 
 /// <summary>
-/// A copied, bounded raster image supplied by the local user. The media type
+/// A copied, bounded raster image supplied by the user or a tool observation. The media type
 /// is verified from the file signature so an attachment never carries path or
 /// executable-content semantics into the agent transcript.
 /// </summary>

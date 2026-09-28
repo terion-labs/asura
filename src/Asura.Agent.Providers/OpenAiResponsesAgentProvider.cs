@@ -346,7 +346,26 @@ internal sealed class OpenAiResponsesAgentProvider(
                 writer.WriteStartObject();
                 writer.WriteString("type", "function_call_output");
                 writer.WriteString("call_id", result.ProviderCallId);
-                writer.WriteString("output", AiProviderJson.ToolResultContent(result));
+                if (result.Images.IsEmpty)
+                {
+                    writer.WriteString("output", AiProviderJson.ToolResultContent(result));
+                }
+                else
+                {
+                    writer.WriteStartArray("output");
+                    writer.WriteStartObject();
+                    writer.WriteString("type", "input_text");
+                    writer.WriteString("text", AiProviderJson.ToolResultContent(result));
+                    writer.WriteEndObject();
+                    foreach (var image in result.Images)
+                    {
+                        writer.WriteStartObject();
+                        writer.WriteString("type", "input_image");
+                        writer.WriteString("image_url", DataUrl(image));
+                        writer.WriteEndObject();
+                    }
+                    writer.WriteEndArray();
+                }
                 writer.WriteEndObject();
                 return;
             default:
