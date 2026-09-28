@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Asura.Agent;
+using Asura.Core;
 
 namespace Asura.Agent.Runtime;
 
@@ -24,6 +25,7 @@ public sealed partial class GovernedAgentRuntime
         using var writer = new Utf8JsonWriter(buffer);
         writer.WriteStartObject();
         writer.WriteStartArray("results");
+        var images = ImmutableArray.CreateBuilder<AgentImageAttachment>();
         var completed = 0;
         AgentToolResult? last = null;
         for (var index = 0; index < steps.Length; index++)
@@ -56,9 +58,19 @@ public sealed partial class GovernedAgentRuntime
                 writer.WriteBoolean("content_omitted", true);
             }
 
+            if (!last.Images.IsEmpty)
+            {
+                writer.WriteStartArray("image_indices");
+                foreach (var image in last.Images)
+                {
+                    writer.WriteNumberValue(images.Count);
+                    images.Add(image);
+                }
+                writer.WriteEndArray();
+            }
             writer.WriteEndObject();
             completed++;
-            if (last.Status != AgentToolResultStatus.Succeeded
+            if (!last.Images.IsEmpty || last.Status != AgentToolResultStatus.Succeeded
                 || AgentToolOutcomePolicy.Classify(last) != AgentToolOutcomeDisposition.Continue)
             {
                 break;
@@ -73,6 +85,6 @@ public sealed partial class GovernedAgentRuntime
         writer.Flush();
         // Preserve uncertain-outcome codes so the outer run still reconciles or quarantines.
         return new AgentToolResult(proposal, last.Status, last.StableCode,
-            AgentToolResultValue.FromJson(buffer.WrittenMemory));
+            AgentToolResultValue.FromJson(buffer.WrittenMemory), images.ToImmutable());
     }
 }

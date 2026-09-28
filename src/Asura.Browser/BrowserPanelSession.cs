@@ -967,7 +967,12 @@ public sealed partial class BrowserPanelSession : IBrowserPanelSession
             logicalDocument,
             nodes,
             snapshot.CapturedAtUtc,
-            snapshot.IsTruncated);
+            snapshot.IsTruncated,
+            snapshot.Screenshot is { } screenshot
+                ? new BrowserScreenshot(screenshot.Image, new BrowserAutomationBinding(
+                    logicalDocument, screenshot.Binding.Viewport,
+                    screenshot.Binding.ViewportRevision, screenshot.Binding.InputEpoch))
+                : null);
     }
 
     private async ValueTask<BrowserResult<BrowserClickReceipt>>

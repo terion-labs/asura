@@ -16,6 +16,7 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
     private readonly CefBrowser _browser;
     private readonly CefHumanizedInput _humanizedInput;
     private bool _domainsEnabled;
+    private readonly HashSet<int> _customClickTargets = [];
 
     public CefSemanticBrowser(
         CefBrowser browser,
@@ -38,12 +39,28 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
         var nodes = document.RootElement
             .GetProperty("result")
             .GetProperty("nodes");
-        return [.. nodes.EnumerateArray().Select(Project)];
+        var domReply = await _browser.ExecuteDevToolsMethodAsync(
+                "DOMSnapshot.captureSnapshot", "{\"computedStyles\":[]}")
+            .ConfigureAwait(false);
+        using var dom = JsonDocument.Parse(domReply);
+        var projected = CefClickableNodes.Augment(
+            [.. nodes.EnumerateArray().Select(Project)], dom.RootElement.GetProperty("result"));
+        _customClickTargets.Clear();
+        foreach (var node in projected)
+        {
+            if (string.Equals(node.Role, "clickable", StringComparison.Ordinal) && node.BackendNodeId is { } id) { _customClickTargets.Add(id); }
+        }
+        return projected;
     }
 
     public async Task<CefSemanticNode?> ReadAccessibilityNodeAsync(
         int backendNodeId)
     {
+        if (_customClickTargets.Contains(backendNodeId))
+        {
+            var tree = await ReadAccessibilityTreeAsync().ConfigureAwait(false);
+            return tree.FirstOrDefault(node => node.BackendNodeId == backendNodeId);
+        }
         await EnsureDomainsEnabledAsync().ConfigureAwait(false);
         var nodes = await _browser.Accessibility
             .GetPartialTreeAsync(backendNodeId, fetchRelatives: true)

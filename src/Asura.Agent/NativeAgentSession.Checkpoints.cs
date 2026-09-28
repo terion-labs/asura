@@ -672,7 +672,7 @@ public sealed partial class NativeAgentSession
                     message.Usage.OutputTokens,
                     message.Usage.CachedInputTokens,
                     message.Usage.ReasoningTokens),
-            [.. message.Images
+            [.. (message.ToolResult is null ? message.Images : [])
                 .Select(image => new CheckpointImage(
                     image.FileName,
                     image.MediaType,
@@ -786,7 +786,9 @@ public sealed partial class NativeAgentSession
             result.StableCode,
             ToValueKindToken(result.Value.Kind),
             textValue,
-            jsonValue);
+            jsonValue,
+            [.. result.Images.Select(image => new CheckpointImage(
+                image.FileName, image.MediaType, Convert.ToBase64String(image.Content)))]);
     }
 
     private static AgentMessage FromCheckpointMessage(CheckpointMessage message)
@@ -1062,7 +1064,8 @@ public sealed partial class NativeAgentSession
             result.ProviderCallId,
             FromStatusToken(result.Status),
             result.StableCode,
-            value);
+            value,
+            [.. (result.Images ?? []).Select(FromCheckpointImage)]);
     }
 
     private static bool ContainsUnsafeStructuredContent(
@@ -1364,7 +1367,8 @@ public sealed partial class NativeAgentSession
         string StableCode,
         string ValueKind,
         string? TextValue,
-        JsonElement? JsonValue);
+        JsonElement? JsonValue,
+        CheckpointImage[]? Images = null);
 
     private sealed record CheckpointTokenUsage(
         long InputTokens,

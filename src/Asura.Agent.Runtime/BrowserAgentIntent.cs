@@ -11,6 +11,8 @@ internal abstract record BrowserAgentIntent
 
     public sealed record ReadState : BrowserAgentIntent;
 
+    public sealed record Screenshot : BrowserAgentIntent;
+
     public sealed record Snapshot(
         bool InteractiveOnly,
         string? Filter,

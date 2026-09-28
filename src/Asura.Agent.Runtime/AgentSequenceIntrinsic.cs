@@ -64,7 +64,7 @@ internal static class AgentSequenceIntrinsic
         return new AgentToolDefinition(IntrinsicAgentTools.RunSequence,
             "Run 1–32 existing tools in order in one call. Optional delay_ms waits before each step; "
             + "total delays must not exceed 30000 ms. Each step is separately authorized and checked "
-            + "against live state. Stops on the first failure or uncertain outcome; completed actions "
+            + "against live state. Stops after an image observation, or on the first failure or uncertain outcome; completed actions "
             + "are not rolled back. Use known panel IDs and browser references. No result substitution "
             + "or nested sequences. Results identify completed steps. Do not replay completed mutations.",
             buffer.WrittenMemory);

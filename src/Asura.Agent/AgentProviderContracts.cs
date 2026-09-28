@@ -102,7 +102,7 @@ public sealed record AgentMessage
             || (role != AgentMessageRole.Assistant
                 && providerReplayState is not null)
             || (role != AgentMessageRole.Assistant && hasRequestedReasoning)
-            || (role != AgentMessageRole.User && images.Length > 0)
+            || (role != AgentMessageRole.User && !hasToolResult && images.Length > 0)
             || reasoningSummary is { Length: 0 })
         {
             throw new ArgumentException("The structured message shape is invalid.");
@@ -206,7 +206,7 @@ public sealed record AgentMessage
             result,
             reasoningSummary: null,
             usage: null,
-            images: [],
+            images: result.Images,
             providerReplayState: null,
             requestedReasoningEffort: null);
 

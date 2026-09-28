@@ -571,7 +571,30 @@ internal sealed class AnthropicAgentProvider(
         writer.WriteBoolean(
             "is_error",
             result.Status == AgentToolResultStatus.Failed);
-        writer.WriteString("content", AiProviderJson.ToolResultContent(result));
+        if (result.Images.IsEmpty)
+        {
+            writer.WriteString("content", AiProviderJson.ToolResultContent(result));
+        }
+        else
+        {
+            writer.WriteStartArray("content");
+            writer.WriteStartObject();
+            writer.WriteString("type", "text");
+            writer.WriteString("text", AiProviderJson.ToolResultContent(result));
+            writer.WriteEndObject();
+            foreach (var image in result.Images)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("type", "image");
+                writer.WriteStartObject("source");
+                writer.WriteString("type", "base64");
+                writer.WriteString("media_type", image.MediaType);
+                writer.WriteString("data", Convert.ToBase64String(image.Content));
+                writer.WriteEndObject();
+                writer.WriteEndObject();
+            }
+            writer.WriteEndArray();
+        }
         writer.WriteEndObject();
     }
 

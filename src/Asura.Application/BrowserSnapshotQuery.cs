@@ -47,6 +47,10 @@ public sealed record BrowserSnapshotQuery
 
     public static BrowserSnapshotQuery Lean { get; } = new();
 
+    public static BrowserSnapshotQuery Screenshot { get; } = new() { CaptureImage = true };
+
+    public bool CaptureImage { get; private init; }
+
     public bool InteractiveOnly { get; }
 
     public string? Filter { get; }

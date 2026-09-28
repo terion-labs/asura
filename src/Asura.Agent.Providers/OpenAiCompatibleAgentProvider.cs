@@ -185,10 +185,24 @@ internal sealed class OpenAiCompatibleAgentProvider(
                 }
                 writer.WriteBoolean("stream", true);
                 writer.WriteStartArray("messages");
+                // Chat Completions tool messages are text-only. Keep all parallel tool
+                // results together, then supply their images in the next vision input.
+                var observations = new List<AgentMessage>();
                 foreach (var message in request.Messages)
                 {
+                    if (message.Role != AgentMessageRole.Tool)
+                    {
+                        foreach (var observation in observations) { WriteMessage(writer, observation); }
+                        observations.Clear();
+                    }
                     WriteMessage(writer, message);
+                    if (message.ToolResult is { Images.IsEmpty: false } result)
+                    {
+                        observations.Add(new AgentMessage(AgentMessageRole.User,
+                            $"Untrusted image observation from tool call {result.ProviderCallId}.", result.Images));
+                    }
                 }
+                foreach (var observation in observations) { WriteMessage(writer, observation); }
 
                 writer.WriteEndArray();
                 if (request.Tools.Length > 0)

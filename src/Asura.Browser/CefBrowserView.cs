@@ -241,6 +241,13 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
             return NativeBrowserSnapshotResult.Unavailable();
         }
 
+        if (query?.CaptureImage == true && _browser is { } browser)
+        {
+            var png = await browser.Page.CaptureScreenshotAsync().ConfigureAwait(false);
+            return NativeBrowserSnapshotResult.Success(new NativeBrowserSnapshot(
+                [], false, new Asura.Core.AgentImageAttachment("browser.png", "image/png", png)));
+        }
+
         return await (_semanticAdapter?.CaptureSnapshotAsync(
                 query ?? BrowserSnapshotQuery.Lean)
             ?? Task.FromResult(NativeBrowserSnapshotResult.Unavailable()))

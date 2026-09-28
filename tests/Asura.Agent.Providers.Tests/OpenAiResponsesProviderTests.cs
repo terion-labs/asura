@@ -143,6 +143,41 @@ public sealed class OpenAiResponsesProviderTests
     }
 
     [Fact]
+    public async Task ScreenshotToolImageReachesResponsesAndSurvivesCheckpoint()
+    {
+        using var vault = new InMemorySecretVault();
+        var profile = await CreateProfileAsync(vault);
+        using var handler = new CapturingHandler(
+            ResponsesToolStream("call-1", "fc-1", "read_file", "{\"path\":\"/tmp/a\"}"),
+            ResponsesTextStream("seen"));
+        using var factory = new AiProviderFactory(vault, handler);
+        var provider = factory.Create(profile);
+        var session = new NativeAgentSession(new AgentRunId("screenshot-run"));
+        var tools = ImmutableArray.Create(ReadFileTool());
+        var first = await session.RunTurnAsync("Inspect", tools, provider, CancellationToken.None);
+        var proposal = Assert.Single(first.ToolProposals);
+        var image = TinyPng();
+        var continuation = await session.SubmitToolResultsAsync(proposal.Generation,
+            [new AgentToolResult(proposal, AgentToolResultStatus.Succeeded, "ok",
+                AgentToolResultValue.FromText("viewport"), [image])],
+            tools, tools, provider, CancellationToken.None);
+        Assert.True(continuation.Succeeded);
+        using var body = JsonDocument.Parse(handler.Requests[1].Body);
+        var output = body.RootElement.GetProperty("input").EnumerateArray()
+            .Single(item => item.TryGetProperty("type", out var type) && type.GetString() == "function_call_output")
+            .GetProperty("output");
+        Assert.Equal("input_image", output[1].GetProperty("type").GetString());
+        Assert.Equal($"data:image/png;base64,{Convert.ToBase64String(image.Content)}",
+            output[1].GetProperty("image_url").GetString());
+        var checkpoint = Assert.IsType<AgentSessionCheckpoint>(session.CaptureCheckpoint().Checkpoint);
+        var restored = NativeAgentSession.RestoreCheckpoint(checkpoint);
+        Assert.True(restored.Succeeded);
+        var restoredImage = Assert.Single(Assert.Single(restored.Session!.Snapshot().Conversation,
+            message => message.Role == AgentMessageRole.Tool).Images);
+        Assert.Equal(image.Content.ToArray(), restoredImage.Content.ToArray());
+    }
+
+    [Fact]
     public async Task FunctionCallContinuationUsesResponsesItemsAndCallId()
     {
         using var vault = new InMemorySecretVault();
