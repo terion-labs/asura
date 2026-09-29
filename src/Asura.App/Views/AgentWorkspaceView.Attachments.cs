@@ -57,13 +57,18 @@ public partial class AgentWorkspaceView
                 return;
             }
 
-            using var bitmap = await data.TryGetBitmapAsync();
-            if (bitmap is not null)
+            if (data.Contains(DataFormat.Bitmap))
             {
                 AgentAttachmentImport.RequireAvailable(agent);
-                using var stream = new MemoryStream();
-                bitmap.Save(stream);
-                agent.AddPendingImage(new AgentImageAttachment("Pasted image.png", "image/png", stream.ToArray()));
+                using var bitmap = await data.TryGetBitmapAsync();
+                if (bitmap is null) { return; }
+                var image = AgentAttachmentImport.EncodePastedImage(bitmap);
+                if (!ReferenceEquals((DataContext as IAgentWorkspaceHost)?.AgentChat, agent))
+                {
+                    return;
+                }
+                AgentAttachmentImport.RequireAvailable(agent);
+                agent.AddPendingImage(image);
                 return;
             }
 

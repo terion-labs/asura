@@ -521,6 +521,7 @@ public sealed class QuickTerminalController : IDisposable
         previousViewModel.RecoveryStateChanged -= OnRecoveryStateChanged;
         previousViewModel.Dispose();
         _viewModel = CreateViewModel();
+        _mainWindowViewModel.ReplaceAgentHistoryOwner(previousViewModel.AgentChat, _viewModel.AgentChat);
         PublishRegistration();
         QueueRecoverySnapshot();
         foreach (var previousRequest in previousRequests)
@@ -800,7 +801,7 @@ public sealed class QuickTerminalController : IDisposable
             return;
         }
 
-        (mainWindow.DataContext as MainWindowViewModel)?.ShowSettings(SettingsPage.Agent);
+        (mainWindow.DataContext as MainWindowViewModel)?.ShowSettings(SettingsPage.Agent, _viewModel.AgentChat);
         if (!mainWindow.IsVisible)
         {
             mainWindow.Show();

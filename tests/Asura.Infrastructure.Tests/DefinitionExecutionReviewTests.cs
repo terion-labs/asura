@@ -5,6 +5,78 @@ namespace Asura.Infrastructure.Tests;
 
 public sealed class DefinitionExecutionReviewTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Browser_startup_destinations_use_existing_import_review_and_remain_unchanged(bool referenceExistingScreen)
+    {
+        await using var temporary = TemporaryDatabase.Create();
+        var layout = DurableDefinitionFixtures.Layout();
+        var panel = new ScreenPanelDefinition(new("browser"), new("main"), ScreenPanelKind.Browser,
+            "Local dashboard", null, new("http://127.0.0.1:43121/dashboard?open=1"));
+        var screen = new ScreenDefinition(new("browser-screen"), 1, "Browser screen", null, layout.Id, [panel]);
+        var entries = referenceExistingScreen
+            ? new WorkspaceEntry[] { new WorkspaceEntry.ScreenReference(new("background-browser"), screen.Id) }
+            : [new WorkspaceEntry.Tab(new("background-browser"), "Background browser", layout.Id, [panel])];
+        var workspace = new WorkspaceDefinition(new("browser-workspace"), 1, "Browser workspace", null, null, entries);
+        PortableDefinitionDocument[] documents;
+        if (referenceExistingScreen)
+        {
+            Assert.True((await new SqliteDefinitionRepository<LayoutDefinition>(temporary.Database, TimeProvider.System)
+                .SaveAsync(layout, null, CancellationToken.None)).IsSuccess);
+            Assert.True((await new SqliteDefinitionRepository<ScreenDefinition>(temporary.Database, TimeProvider.System)
+                .SaveAsync(screen, null, CancellationToken.None)).IsSuccess);
+            documents = [DurableDefinitionFixtures.Document(workspace)];
+        }
+        else
+        {
+            documents = [DurableDefinitionFixtures.Document(layout), DurableDefinitionFixtures.Document(screen),
+                DurableDefinitionFixtures.Document(workspace)];
+        }
+        var store = new SqliteDefinitionBundleStore(temporary.Database, TimeProvider.System);
+        var reviewed = (await store.PreflightImportAsync(new(1, DateTimeOffset.UtcNow, documents),
+            DefinitionImportMode.ReplaceExisting, CancellationToken.None)).Value!;
+
+        Assert.True(reviewed.CanCommit);
+        Assert.Contains(reviewed.ExecutionReview, item => item.Details.Contains(panel.Startup.Location!, StringComparison.Ordinal)
+            && item.Details.Contains("background tabs before they are selected", StringComparison.Ordinal));
+        Assert.Equal(DefinitionStoreErrorCode.InvalidDefinition,
+            (await store.CommitImportAsync(reviewed, CancellationToken.None)).Error?.Code);
+        Assert.True((await store.CommitImportAsync(reviewed, CancellationToken.None,
+            reviewed.AcknowledgeExecutionReview())).IsSuccess);
+
+        var saved = (await new SqliteDefinitionRepository<WorkspaceDefinition>(temporary.Database, TimeProvider.System)
+            .GetAsync(workspace.Key, CancellationToken.None)).Value!.Value;
+        if (referenceExistingScreen)
+        {
+            Assert.Equal(screen.Id, Assert.IsType<WorkspaceEntry.ScreenReference>(Assert.Single(saved.Entries)).ScreenId);
+        }
+        else
+        {
+            Assert.Equal(panel.Startup.Location, Assert.IsType<WorkspaceEntry.Tab>(Assert.Single(saved.Entries)).Panels[0].Startup.Location);
+        }
+        var savedScreen = (await new SqliteDefinitionRepository<ScreenDefinition>(temporary.Database, TimeProvider.System)
+            .GetAsync(screen.Key, CancellationToken.None)).Value!.Value;
+        Assert.Equal(panel.Startup.Location, savedScreen.Panels[0].Startup.Location);
+    }
+
+    [Fact]
+    public async Task A_blank_browser_startup_does_not_require_execution_approval()
+    {
+        await using var temporary = TemporaryDatabase.Create();
+        var layout = DurableDefinitionFixtures.Layout();
+        var screen = new ScreenDefinition(new("blank-browser"), 1, "Blank browser", null, layout.Id,
+            [new(new("browser"), new("main"), ScreenPanelKind.Browser, "Browser", null, PanelStartupBehavior.None)]);
+        var store = new SqliteDefinitionBundleStore(temporary.Database, TimeProvider.System);
+        var reviewed = (await store.PreflightImportAsync(new(1, DateTimeOffset.UtcNow,
+            [DurableDefinitionFixtures.Document(layout), DurableDefinitionFixtures.Document(screen)]),
+            DefinitionImportMode.ReplaceExisting, CancellationToken.None)).Value!;
+
+        Assert.True(reviewed.CanCommit);
+        Assert.Empty(reviewed.ExecutionReview);
+        Assert.True((await store.CommitImportAsync(reviewed, CancellationToken.None)).IsSuccess);
+    }
+
     [Fact]
     public async Task Export_preserves_saved_profile_addresses_without_reading_credentials()
     {

@@ -34,7 +34,6 @@ public sealed class AgentAttachmentStagingTests
     public async Task Preview_pages_reuse_the_initial_working_copy()
     {
         var directory = Directory.CreateTempSubdirectory("asura-attachment-preview-");
-        string? stagedPath = null;
         try
         {
             await using var database = new AsuraDatabase(new SqliteStorageOptions(Path.Combine(directory.FullName, "test.db")), TimeProvider.System);
@@ -44,11 +43,12 @@ public sealed class AgentAttachmentStagingTests
             await using var gateway = new HostWorkspaceSocksProxy();
             using var registration = routes.Register(workspace, gateway, null);
             var service = new DesktopAgentAttachmentService(store, routes);
+            await using var lifetime = service.CreateWorkspaceLifetime(workspace);
             var scope = new AgentConversationScopeId("scope");
             var bytes = Encoding.UTF8.GetBytes(new string('x', 9000));
             var file = await service.ImportAsync(scope, "notes.txt", bytes, CancellationToken.None);
             var first = await service.OpenAsync(scope, workspace, file, 0, CancellationToken.None);
-            stagedPath = first.Path;
+            var stagedPath = first.Path;
             Assert.NotNull(stagedPath);
             Assert.True(first.HasMore);
             var second = await service.OpenAsync(scope, workspace, file, first.NextOffset, CancellationToken.None);
@@ -59,7 +59,6 @@ public sealed class AgentAttachmentStagingTests
         }
         finally
         {
-            if (stagedPath is not null) { Directory.Delete(Path.GetDirectoryName(stagedPath)!, true); }
             directory.Delete(recursive: true);
         }
     }

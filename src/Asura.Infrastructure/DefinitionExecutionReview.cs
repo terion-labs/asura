@@ -139,6 +139,11 @@ internal static class DefinitionExecutionReview
                 {
                     Reference(new(ConnectionProfile.Kind, connection.Value));
                 }
+                if (panel.Kind == ScreenPanelKind.Browser && panel.Startup.Location is { } address)
+                {
+                    result.Add(new($"Browser startup - {owner} / {panel.Title}",
+                        $"Panel: {panel.Id.Value}; connection: {panel.ConnectionId?.Value ?? "local"}\nDestination: {address}\nOpening this workspace or screen loads this address automatically, including in background tabs before they are selected."));
+                }
                 if (panel.Kind == ScreenPanelKind.DatabaseViewer && panel.Startup.Location is { } target)
                 {
                     if (target.StartsWith("saved:", StringComparison.Ordinal))

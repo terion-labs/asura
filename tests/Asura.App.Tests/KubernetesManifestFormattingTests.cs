@@ -92,6 +92,34 @@ public sealed class KubernetesManifestFormattingTests
         Assert.False(panel.HasUnsavedChanges);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FormattingExpansionPreservesCompleteManifestPreviewAndApply(bool escaping)
+    {
+        string compact = escaping
+            ? "{\"kind\":\"Pod\",\"metadata\":{\"annotations\":{\"message\":\"" + new string('\u00e9', 1500000) + "\"}}}"
+            : "{\"kind\":\"Pod\",\"spec\":{\"payload\":" + new string('[', 61)
+                + string.Join(',', Enumerable.Repeat("0", 70000)) + new string(']', 61) + "}}";
+        var session = new KubernetesUiSession { ListedResource = KubernetesUiSession.Pod with { Json = compact }, AllowPatching = true };
+        using var panel = Create(session);
+        await SelectFirstAsync(panel);
+        Assert.Same(compact, panel.FormattedManifest);
+        Assert.Equal(compact, panel.ManifestDraft);
+        Assert.False(panel.HasUnsavedChanges);
+
+        string draft = compact + "\n";
+        panel.ManifestDraft = draft;
+        await panel.DryRunAsync();
+        Assert.Equal(draft, panel.PreviewManifest);
+        Assert.Equal(draft, Assert.Single(session.Mutations).Json);
+        Assert.True(panel.CanApplyManifest);
+        await panel.ApplyManifestAsync();
+        Assert.Equal(draft, session.Mutations[^1].Json);
+        Assert.Equal(draft, panel.ManifestDraft);
+        Assert.False(panel.HasUnsavedChanges);
+    }
+
     private static async Task SelectFirstAsync(KubernetesRuntimePanelViewModel panel)
     {
         await panel.Initialization;

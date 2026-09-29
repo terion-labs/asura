@@ -46,7 +46,7 @@ public sealed partial class GovernedAgentRuntime
             return CreateRejectedResult(proposal, "tool_request_rejected");
         }
 
-        var authorization = await _broker.RequestAsync(action.Proposal, cancellationToken)
+        var authorization = await RequestActionAuthorizationAsync(action.Proposal, cancellationToken)
             .ConfigureAwait(false);
         if (authorization is AgentAuthorizationResult.ApprovalRequired required)
         {

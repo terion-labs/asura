@@ -24,6 +24,13 @@ public interface IAgentWorkspaceLayoutMutationPort
 
     IReadOnlySet<PanelKind> SupportedPanelKinds { get; }
 
+    /// <summary>Resolves current operator policy for a composed external action.
+    /// The target and selectors come from trusted action composition, not remote arguments.</summary>
+    ValueTask<AgentPolicy?> ResolveExternalPolicyAsync(
+        AgentTarget target,
+        IReadOnlyList<AgentApprovalArgument> arguments,
+        CancellationToken cancellationToken) => ValueTask.FromResult<AgentPolicy?>(null);
+
     ValueTask<AgentWorkspaceLayoutMutationResult> MutateAsync(
         AgentWorkspaceLayoutRequest request,
         long expectedWorkspaceRevision,

@@ -1476,7 +1476,7 @@ public sealed partial class AgentChatViewModelTests
         Assert.Contains(
             composer.Elements(viewNamespace + "Border"),
             border => string.Equals(border.Attribute("IsVisible")?.Value
-, "{Binding AgentChat.HasProvider, FallbackValue=False}", StringComparison.Ordinal));
+, "{Binding AgentChat.ShowComposer, FallbackValue=False}", StringComparison.Ordinal));
 
         var action = Assert.Single(
             document.Descendants(viewNamespace + "Button"),

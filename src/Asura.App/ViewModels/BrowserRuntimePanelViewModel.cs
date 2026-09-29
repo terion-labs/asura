@@ -5,7 +5,11 @@ namespace Asura.App.ViewModels;
 
 public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
 {
+    private const int MaximumPendingHistoryRecords = 1_000;
+    private static readonly TimeSpan TitleHistoryInterval = TimeSpan.FromMilliseconds(250);
     private readonly object _initializationGate = new();
+    private readonly object _historyGate = new();
+    private readonly LinkedList<(BrowserSessionState State, bool IsTitleUpdate)> _pendingHistory = [];
     private readonly CancellationTokenSource _lifetime = new();
     private readonly IBrowserRendererViewFactory _rendererViewFactory;
     private readonly ConnectionProfile _connection;
@@ -23,6 +27,9 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
     private Task _initialization = Task.CompletedTask;
     private string? _routeErrorMessage;
     private bool _initializationStarted;
+    private bool _historyRecording;
+    private bool _historyClearing;
+    private Task _historyRecordingCompletion = Task.CompletedTask;
     private bool _disposed;
 
     public BrowserRuntimePanelViewModel(
@@ -211,10 +218,11 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
             && (_recordedAddress != state.Address || _recordedRevision != state.DocumentRevision
                 || !string.Equals(_recordedTitle, state.Title, StringComparison.Ordinal)))
         {
+            var isTitleUpdate = _recordedAddress == state.Address && _recordedRevision == state.DocumentRevision;
             _recordedAddress = state.Address;
             _recordedRevision = state.DocumentRevision;
             _recordedTitle = state.Title;
-            _ = RememberAddressAsync(state);
+            QueueHistoryState(state, isTitleUpdate);
         }
     }
 
@@ -307,8 +315,18 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         {
             return;
         }
+        Task recording;
+        lock (_historyGate)
+        {
+            _historyClearing = true;
+            _pendingHistory.Clear();
+            recording = _historyRecordingCompletion;
+        }
         try
         {
+            // Wait for the one in-flight write before clearing so a deferred
+            // title cannot recreate the row after the user clears history.
+            await recording.WaitAsync(cancellationToken);
             await _history.ClearAsync(_profile.Selection, cancellationToken);
             HistorySuggestions = [];
             HistoryStatus = null;
@@ -317,11 +335,18 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         {
             HistoryStatus = "Could not clear browser history: " + exception.Message;
         }
+        finally
+        {
+            lock (_historyGate)
+            {
+                _historyClearing = false;
+            }
+        }
         OnPropertyChanged(nameof(HistoryStatus));
         IsHistoryVisible = HistoryStatus is not null;
     }
 
-    private async Task RememberAddressAsync(BrowserSessionState state)
+    private void QueueHistoryState(BrowserSessionState state, bool isTitleUpdate)
     {
         if (WorkspacePrivateEndpointAddress.IsReservedHost(state.Address.Value.Host)
             || _history is null || _profile.Definition.Persistence == BrowserProfilePersistence.PrivateSession
@@ -329,9 +354,84 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         {
             return;
         }
+        lock (_historyGate)
+        {
+            if (_disposed || _historyClearing)
+            {
+                return;
+            }
+            var last = _pendingHistory.Last;
+            if (last is not null && last.Value.State.Address == state.Address
+                && last.Value.State.DocumentRevision == state.DocumentRevision)
+            {
+                last.Value = (state, last.Value.IsTitleUpdate);
+            }
+            else
+            {
+                // History retains 1,000 addresses. Retaining more deferred
+                // navigations cannot add entries to that bounded result.
+                if (_pendingHistory.Count == MaximumPendingHistoryRecords)
+                {
+                    _pendingHistory.RemoveFirst();
+                }
+                _pendingHistory.AddLast((state, isTitleUpdate));
+            }
+            if (!_historyRecording)
+            {
+                _historyRecording = true;
+                _historyRecordingCompletion = DrainHistoryAsync();
+            }
+        }
+    }
+
+    private async Task DrainHistoryAsync()
+    {
         try
         {
-            await _history.RecordAsync(_profile.Selection, state.Address, state.Title, _lifetime.Token);
+            while (true)
+            {
+                bool waitForTitle;
+                lock (_historyGate)
+                {
+                    if (_disposed || _historyClearing || _pendingHistory.First is null)
+                    {
+                        _historyRecording = false;
+                        return;
+                    }
+                    waitForTitle = _pendingHistory.First.Value.IsTitleUpdate;
+                }
+                if (waitForTitle)
+                {
+                    await Task.Delay(TitleHistoryInterval, _lifetime.Token);
+                }
+                BrowserSessionState state;
+                lock (_historyGate)
+                {
+                    if (_disposed || _historyClearing || _pendingHistory.First is null)
+                    {
+                        continue;
+                    }
+                    state = _pendingHistory.First.Value.State;
+                    _pendingHistory.RemoveFirst();
+                }
+                await RememberAddressAsync(state);
+            }
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        {
+            lock (_historyGate)
+            {
+                _pendingHistory.Clear();
+                _historyRecording = false;
+            }
+        }
+    }
+
+    private async Task RememberAddressAsync(BrowserSessionState state)
+    {
+        try
+        {
+            await _history!.RecordAsync(_profile.Selection, state.Address, state.Title, _lifetime.Token);
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
         {
@@ -398,6 +498,10 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         }
 
         _lifetime.Cancel();
+        lock (_historyGate)
+        {
+            _pendingHistory.Clear();
+        }
         // Keep the cancelled source valid until this panel is collected.
         // Initialization/attachment work may already hold its token on another
         // continuation; disposing here turns an ordinary shutdown race into an

@@ -5,6 +5,21 @@ namespace Asura.Architecture.Tests;
 public sealed class WorkspaceRuntimeLifetimeTests
 {
     [Fact]
+    public async Task Attachment_working_copies_release_before_connections_and_routes()
+    {
+        var attachments = new Resource();
+        var backend = new Resource { Wait = () => { Assert.Equal(1, attachments.Disposals); return Task.CompletedTask; } };
+        var sessions = new Resource { OnDispose = () => Assert.Equal(1, attachments.Disposals) };
+        var lifetime = new DesktopWorkspaceRuntimeServicesFactory.WorkspaceRuntimeLifetime(
+            new Resource(), new Resource(), backend, new Resource(), sessions, new Resource(), new Resource(), attachments);
+        await lifetime.DisposeAsync();
+        await lifetime.DisposeAsync();
+        Assert.Equal(1, attachments.Disposals);
+        Assert.Equal(1, backend.Disposals);
+        Assert.Equal(1, sessions.Disposals);
+    }
+
+    [Fact]
     public async Task Failed_backend_cleanup_remains_retryable_without_repeating_successful_releases()
     {
         var files = new Resource();
@@ -62,10 +77,12 @@ public sealed class WorkspaceRuntimeLifetimeTests
         internal int Disposals { get; private set; }
         internal bool Fail { get; set; }
         internal Func<Task>? Wait { get; init; }
+        internal Action? OnDispose { get; init; }
 
         public void Dispose()
         {
             Disposals++;
+            OnDispose?.Invoke();
             if (Fail) { throw new IOException("Fixture owned resource could not stop."); }
         }
 

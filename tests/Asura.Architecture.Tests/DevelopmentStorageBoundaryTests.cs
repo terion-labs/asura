@@ -125,6 +125,7 @@ public sealed class DevelopmentStorageBoundaryTests
                 File.WriteAllText(Path.Combine(directory.FullName, ".env"), """
                     GRAALVM_HOME="$PWD/local-toolchain"
                     APPLE_CERTIFICATE_PASSWORD='synthetic-local-secret'
+                    signing_exports_during_source="$(/usr/bin/env | /usr/bin/grep -c '^APPLE_' || true)"
                     """);
             }
 
@@ -139,11 +140,13 @@ public sealed class DevelopmentStorageBoundaryTests
             start.Environment["GRAALVM_HOME"] = "inherited-toolchain";
             start.Environment["APPLE_CERTIFICATE_PASSWORD"] = "synthetic-inherited-secret";
             start.ArgumentList.Add("-c");
-            start.ArgumentList.Add("set -eu\nrepository_dir=\"$PWD\"\n" + rehearsal[startIndex..endIndex] + """
+            var credentialBoundary = rehearsal[..rehearsal.IndexOf("\nscript_dir=", StringComparison.Ordinal)];
+            start.ArgumentList.Add(credentialBoundary + "\nrepository_dir=\"$PWD\"\n" + rehearsal[startIndex..endIndex] + """
 
                 if [[ -f .env ]]; then
                     [[ "$GRAALVM_HOME" == "$PWD/local-toolchain" ]]
                     [[ "$APPLE_CERTIFICATE_PASSWORD" == 'synthetic-local-secret' ]]
+                    [[ "$signing_exports_during_source" == '0' ]]
                 else
                     [[ "$GRAALVM_HOME" == 'inherited-toolchain' ]]
                     [[ "$APPLE_CERTIFICATE_PASSWORD" == 'synthetic-inherited-secret' ]]

@@ -1166,6 +1166,61 @@ public sealed partial class MainWindowViewModel
         public IReadOnlySet<PanelKind> SupportedPanelKinds =>
             owner.SupportedAgentWorkspacePanelKinds();
 
+        public async ValueTask<AgentPolicy?> ResolveExternalPolicyAsync(
+            AgentTarget target,
+            IReadOnlyList<AgentApprovalArgument> arguments,
+            CancellationToken cancellationToken)
+        {
+            AgentPolicy? policy = null;
+            await owner._uiThreadDispatcher.InvokeAsync(() =>
+            {
+                var workspace = owner._openWorkspaces.FirstOrDefault(candidate => candidate.Id == WorkspaceId);
+                var ownsTarget = target switch
+                {
+                    AgentTarget.Panel panel => panel.WindowId == WindowId && panel.WorkspaceId == WorkspaceId,
+                    AgentTarget.OpenTab scopeTab => scopeTab.WindowId == WindowId && scopeTab.WorkspaceId == WorkspaceId,
+                    AgentTarget.Workspace scope => scope.WindowId == WindowId && scope.WorkspaceId == WorkspaceId,
+                    _ => false,
+                };
+                if (workspace is null || !ownsTarget)
+                {
+                    return;
+                }
+
+                RuntimeTabViewModel? tab;
+                switch (target)
+                {
+                    case AgentTarget.Panel panel:
+                        tab = workspace.Tabs.FirstOrDefault(candidate => candidate.Id == panel.TabId
+                            && candidate.Panels.Any(item => item.Id == panel.PanelId));
+                        if (tab is null) { return; }
+                        break;
+                    case AgentTarget.OpenTab openTab:
+                        tab = workspace.Tabs.FirstOrDefault(candidate => candidate.Id == openTab.TabId);
+                        if (tab is null) { return; }
+                        break;
+                    case AgentTarget.Workspace:
+                        var tabId = arguments.FirstOrDefault(argument => argument.Name is "tab_id")?.DisplayValue;
+                        var panelId = arguments.FirstOrDefault(argument => argument.Name is "panel_id")?.DisplayValue;
+                        tab = workspace.Tabs.FirstOrDefault(candidate =>
+                            (tabId is null || string.Equals(candidate.Id.Value, tabId, StringComparison.Ordinal))
+                            && (panelId is null || candidate.Panels.Any(item => string.Equals(item.Id.Value, panelId, StringComparison.Ordinal))));
+                        if (tabId is null && panelId is null) { tab = null; }
+                        else if (tab is null) { return; }
+                        break;
+                    default:
+                        return;
+                }
+
+                // Model compatibility is irrelevant to external tools. An exact
+                // selected tab uses its captured override; broad workspace actions
+                // use the current defaults, including mixed inherited/saved tabs.
+                policy = tab?.AgentPolicy.HasPolicyOverride == true
+                    ? tab.AgentPolicy.EffectivePolicy : owner.DefaultAgentPolicySettings.Policy;
+            }, cancellationToken);
+            return policy;
+        }
+
         public async ValueTask<AgentWorkspaceLayoutMutationResult> MutateAsync(
             AgentWorkspaceLayoutRequest request,
             long expectedWorkspaceRevision,

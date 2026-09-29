@@ -321,7 +321,7 @@ public sealed partial class MainWindow
     {
         _ = sender;
         _ = e;
-        if (ViewModel.AgentChat is not { CanApplyHistoryRetention: true } agent
+        if (ViewModel.AgentHistoryOwner is not { CanApplyHistoryRetention: true } agent
             || !await Confirmations
                 .AgentHistoryRetentionChange(agent.SelectedHistoryRetentionOption)
                 .ShowDialog<bool>(this))
@@ -336,7 +336,7 @@ public sealed partial class MainWindow
     {
         _ = sender;
         _ = e;
-        if (ViewModel.AgentChat is not { CanExportHistory: true } agent)
+        if (ViewModel.AgentHistoryOwner is not { CanExportHistory: true } agent)
         {
             return;
         }

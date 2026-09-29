@@ -11,6 +11,39 @@ namespace Asura.App.Tests;
 public sealed partial class AgentChatViewModelTests
 {
     [Fact]
+    public Task Composer_stop_remains_available_when_the_last_provider_is_disabled() =>
+        RunAgentComposerHeadlessAsync(async () =>
+        {
+            var provider = Provider("provider", "Provider", order: 0);
+            using var runtime = new StubGovernedRuntime
+            {
+                Snapshot = Snapshot(state: GovernedAgentState.StreamingProvider,
+                    runId: new AgentRunId("run-provider-disabled"), providerId: provider.Id, target: Target()),
+            };
+            using var profiles = new StubProfileRuntime { Profiles = [provider] };
+            using var model = new AgentChatViewModel(runtime, profiles, ImmediateUiThreadDispatcher.Instance);
+            var view = new AgentWorkspaceView { DataContext = new AgentComposerHost(model) };
+            var window = new Window { Width = 420, Height = 900, Content = view };
+            Task stopRequest = Task.CompletedTask;
+            view.CancelAgentChatRequested += (_, _) => stopRequest = model.StopAsync(CancellationToken.None);
+            try
+            {
+                window.Show();
+                profiles.Profiles = [];
+                profiles.RaiseProfilesChanged();
+                await WaitUntilAsync(() => model.HasNoProvider);
+                window.UpdateLayout();
+                var stop = Assert.IsType<Button>(view.FindControl<Button>("AgentStopButton"));
+                Assert.True(stop.IsEffectivelyVisible);
+                Assert.True(stop.IsEffectivelyEnabled);
+                stop.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await stopRequest;
+                Assert.Equal(1, runtime.StopCount);
+            }
+            finally { window.Close(); }
+        });
+
+    [Fact]
     public Task Composer_stop_keeps_draft_and_allows_continuing_with_another_model() =>
         RunAgentComposerHeadlessAsync(async () =>
         {

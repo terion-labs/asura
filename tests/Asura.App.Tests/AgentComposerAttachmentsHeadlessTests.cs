@@ -16,6 +16,34 @@ namespace Asura.App.Tests;
 
 public sealed partial class AgentChatViewModelTests
 {
+    [Fact]
+    public void Pasted_image_output_capacity_is_bounded_for_irregular_encoder_writes()
+    {
+        using var output = new AgentAttachmentImport.PastedImageBuffer();
+        output.Write(new byte[3 * AgentImageAttachment.MaximumBytes / 4]);
+        output.Write(new byte[AgentImageAttachment.MaximumBytes / 8]);
+        Assert.False(output.ExceededLimit);
+        Assert.Equal(7L * AgentImageAttachment.MaximumBytes / 8, output.Length);
+        Assert.InRange(output.Capacity, (int)output.Length, AgentImageAttachment.MaximumBytes);
+    }
+
+    [Fact]
+    public void Pasted_image_output_stops_at_the_existing_attachment_byte_limit()
+    {
+        using var output = new AgentAttachmentImport.PastedImageBuffer();
+        var chunk = new byte[64 * 1024];
+        for (var index = 0; index < AgentImageAttachment.MaximumBytes / chunk.Length; index++)
+        {
+            output.Write(chunk);
+        }
+        Assert.False(output.ExceededLimit);
+        output.WriteByte(1);
+        output.Write(chunk, 0, chunk.Length);
+        Assert.True(output.ExceededLimit);
+        Assert.Equal(AgentImageAttachment.MaximumBytes, output.Length);
+        Assert.Equal(AgentImageAttachment.MaximumBytes, output.Capacity);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

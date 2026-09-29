@@ -28,6 +28,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
     private readonly IBrowserProfileAuthenticationResolver? _authenticationResolver;
     private readonly IWorkspaceProxyAuthenticationResolver? _proxyAuthenticationResolver;
     private readonly CancellationTokenSource _lifetime = new();
+    private readonly IBrowserUiDispatcher _titleDispatcher = AvaloniaBrowserUiDispatcher.Instance;
     private readonly Grid _view;
     private readonly CefAgentCursorOverlay _agentCursorOverlay;
     private readonly TaskCompletionSource<bool> _rendererReady = new(
@@ -45,6 +46,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
     private CefLocalDocumentAccessPolicy _localDocumentAccess =
         CefLocalDocumentAccessPolicy.None;
     private long _lastNavigationGeneration;
+    private int _titleChangeScheduled;
     private bool _ignoreInitialBlank = true;
     private bool _isAgentActive;
     private bool _disposed;
@@ -74,6 +76,11 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         _view.Children.Add(_agentCursorOverlay);
         _view.SizeChanged += (_, _) => ResizeHostedPopups();
         _webView.BrowserReady += OnBrowserReady;
+    }
+
+    internal CefBrowserView(IBrowserUiDispatcher titleDispatcher) : this()
+    {
+        _titleDispatcher = titleDispatcher ?? throw new ArgumentNullException(nameof(titleDispatcher));
     }
 
     public Control View => _view;
@@ -863,14 +870,36 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         }
     }
 
-    private void OnTitleChanged(object? sender, string title) =>
-        RunOnUiThread(() =>
+    internal void OnTitleChanged(object? sender, string title)
+    {
+        _ = sender;
+        _ = title;
+        if (_titleDispatcher.CheckAccess())
         {
-            if (!_disposed)
-            {
-                TitleChanged?.Invoke(this, EventArgs.Empty);
-            }
+            PublishCurrentTitle();
+            return;
+        }
+
+        // Chrome reads the current native title when this callback runs. Keeping
+        // one pending notification avoids queuing every intermediate page title.
+        if (Interlocked.Exchange(ref _titleChangeScheduled, 1) != 0)
+        {
+            return;
+        }
+        _titleDispatcher.Post(() =>
+        {
+            Interlocked.Exchange(ref _titleChangeScheduled, 0);
+            PublishCurrentTitle();
         });
+    }
+
+    private void PublishCurrentTitle()
+    {
+        if (!_disposed)
+        {
+            TitleChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
 
     private void OnAddressChanged(object? sender, string url) =>
         RunOnUiThread(() =>

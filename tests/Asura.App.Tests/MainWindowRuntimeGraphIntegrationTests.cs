@@ -24,7 +24,7 @@ using Avalonia.VisualTree;
 namespace Asura.App.Tests;
 
 [Collection(AvaloniaUiCollection.Name)]
-public sealed class MainWindowRuntimeGraphIntegrationTests
+public sealed partial class MainWindowRuntimeGraphIntegrationTests
 {
     [Theory]
     [InlineData(false)]
