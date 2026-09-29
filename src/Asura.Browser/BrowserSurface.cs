@@ -2416,8 +2416,9 @@ public sealed partial class BrowserSurface :
             nativeResult = await pending.NativeCompletion
                 .ConfigureAwait(false);
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            SecretSafeDiagnosticProjection.WriteTrace("browser.snapshot.capture-failed", exception);
             nativeResult = NativeBrowserSnapshotResult.Unavailable();
         }
 

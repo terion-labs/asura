@@ -419,6 +419,10 @@ jobs:
           security list-keychains -d user -s "${test_keychain}"
           security default-keychain -d user -s "${test_keychain}"
           ./scripts/build-cef-runtime.sh --rid osx-arm64 --dotnet "${ASURA_DOTNET}"
+      - name: Verify agent browser capture in Native AOT
+        run: |
+          cd "${ASURA_RELEASE_SOURCE_ROOT}"
+          ./scripts/check-browser-agent-native.sh --aot
       - name: Download campaign test results
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:

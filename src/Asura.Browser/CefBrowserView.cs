@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Text.Json;
 using Asura.Application;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -243,7 +244,13 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
 
         if (query?.CaptureImage == true && _browser is { } browser)
         {
-            var png = await browser.Page.CaptureScreenshotAsync().ConfigureAwait(false);
+            // PageClient.CaptureScreenshotAsync serializes its format through
+            // reflection, which is disabled in the Native AOT release.
+            var reply = await browser.ExecuteDevToolsMethodAsync(
+                "Page.captureScreenshot", "{\"format\":\"png\",\"captureBeyondViewport\":false}")
+                .ConfigureAwait(false);
+            using var document = JsonDocument.Parse(reply);
+            var png = document.RootElement.GetProperty("result").GetProperty("data").GetBytesFromBase64();
             return NativeBrowserSnapshotResult.Success(new NativeBrowserSnapshot(
                 [], false, new Asura.Core.AgentImageAttachment("browser.png", "image/png", png)));
         }

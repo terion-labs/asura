@@ -17,6 +17,14 @@ internal static class Program
     [STAThread]
     public static int Main(string[] arguments)
     {
+        if (JsonSerializer.IsReflectionEnabledByDefault)
+        {
+            Console.Error.WriteLine("Browser acceptance must use the release application's reflection-disabled JSON configuration.");
+            return 2;
+        }
+        Console.WriteLine(System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeSupported
+            ? "Browser acceptance: reflection-disabled managed build"
+            : "Browser acceptance: Native AOT build");
         if (arguments.Length is < 2 or > 3
             || !Uri.TryCreate(arguments[0], UriKind.Absolute, out var uri)
             || !uri.IsLoopback || !string.Equals(uri.Scheme, "http", StringComparison.Ordinal))
@@ -34,8 +42,18 @@ internal static class Program
                 return 2;
             }
         }
-        return BrowserEngineRuntime.Configure(AppBuilder.Configure<ProbeApp>().UsePlatformDetect())
-            .StartWithClassicDesktopLifetime(arguments, ShutdownMode.OnExplicitShutdown);
+        try
+        {
+            return BrowserEngineRuntime.Configure(AppBuilder.Configure<ProbeApp>().UsePlatformDetect())
+                .StartWithClassicDesktopLifetime(arguments, ShutdownMode.OnExplicitShutdown);
+        }
+        catch (Exception exception)
+        {
+            // Report startup failures to the gate instead of raising a macOS
+            // crash dialog for this disposable acceptance process.
+            Console.Error.WriteLine(exception);
+            return 1;
+        }
     }
 }
 
