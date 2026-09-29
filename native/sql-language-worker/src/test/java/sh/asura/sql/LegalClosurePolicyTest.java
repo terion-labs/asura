@@ -77,7 +77,7 @@ final class LegalClosurePolicyTest {
         assertTrue(coordinates.contains("org.apache.calcite:calcite-core:1.42.0"));
         assertTrue(coordinates.contains("org.apache.calcite:calcite-babel:1.42.0"));
         assertTrue(coordinates.contains("com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava"));
-        assertTrue(coordinates.contains("com.fasterxml.jackson.core:jackson-databind:2.18.9"));
+        assertTrue(coordinates.contains("com.fasterxml.jackson.core:jackson-databind:2.18.10"));
         assertTrue(coordinates.contains("org.apache.commons:commons-lang3:3.18.0"));
         assertFalse(coordinates.stream().anyMatch(coordinate -> coordinate.startsWith("org.apache.httpcomponents:")));
         assertEquals(1, legalReviewRows.size());
@@ -127,7 +127,7 @@ final class LegalClosurePolicyTest {
         assertTrue(calciteSection.contains("`META-INF/LICENSE` (embedded in JAR)"));
         assertTrue(calciteSection.contains("`META-INF/NOTICE` (embedded in JAR)"));
         String jacksonCoreSection = dependencySection(
-                noticeText, "com.fasterxml.jackson.core:jackson-core:2.18.9");
+                noticeText, "com.fasterxml.jackson.core:jackson-core:2.18.10");
         assertTrue(jacksonCoreSection.contains("`META-INF/FastDoubleParser-LICENSE` (embedded in JAR)"));
         assertTrue(jacksonCoreSection.contains("`META-INF/FastDoubleParser-ThirdParty-LICENSE` (embedded in JAR)"));
         assertTrue(jacksonCoreSection.contains("`META-INF/Schubfach-LICENSE` (embedded in JAR)"));

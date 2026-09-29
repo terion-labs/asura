@@ -3,59 +3,59 @@
   "repository": "https://repo.maven.apache.org/maven2/",
   "artifacts": [
     {
-      "path": "com/fasterxml/jackson/core/jackson-annotations/2.18.9/jackson-annotations-2.18.9.jar",
-      "size": 78411,
-      "sha256": "798c85b86e7420d0b4eb91e7b3e37d4bee673c61de37a616ba51a7539631e6b7"
+      "path": "com/fasterxml/jackson/core/jackson-annotations/2.18.10/jackson-annotations-2.18.10.jar",
+      "size": 78413,
+      "sha256": "67634a683cfb1695e55c78e351c5f38f4de0d8c64ed567419b8fe2d1dc354ada"
     },
     {
-      "path": "com/fasterxml/jackson/core/jackson-annotations/2.18.9/jackson-annotations-2.18.9.pom",
-      "size": 6804,
-      "sha256": "1b8c49e135d294415736966cd54d872034adb9116ec3c277ff58b22acb7d8774"
+      "path": "com/fasterxml/jackson/core/jackson-annotations/2.18.10/jackson-annotations-2.18.10.pom",
+      "size": 6806,
+      "sha256": "eabe97eb9c1c6bb134af6f424672a7bba6796cf0b0ef522299b52940c2ca20a4"
     },
     {
-      "path": "com/fasterxml/jackson/core/jackson-core/2.18.9/jackson-core-2.18.9.jar",
-      "size": 588002,
-      "sha256": "e03144f48c8d5307da2894570b4972aab8c72f22440f8dcdb745be2485ce2024"
+      "path": "com/fasterxml/jackson/core/jackson-core/2.18.10/jackson-core-2.18.10.jar",
+      "size": 592948,
+      "sha256": "e4544eec5754d2dd06c6b16cfc9d2883a523f7177c2429ab04b29ab5fab445c9"
     },
     {
-      "path": "com/fasterxml/jackson/core/jackson-core/2.18.9/jackson-core-2.18.9.pom",
-      "size": 9574,
-      "sha256": "178a2c07cf2c354bb558b0129fb9696cf3431cbb2441cab876695b47a306d73d"
+      "path": "com/fasterxml/jackson/core/jackson-core/2.18.10/jackson-core-2.18.10.pom",
+      "size": 9577,
+      "sha256": "ab797f41456afdd71026d081fffe4dda5cfdf9075ffc5aeaaf050988fafc4ac5"
     },
     {
-      "path": "com/fasterxml/jackson/core/jackson-databind/2.18.9/jackson-databind-2.18.9.jar",
-      "size": 1662872,
-      "sha256": "71595a3f7ff58344ec0496a9f9ec9f623ef7b85b45402d88f1ca261f1bc4b42c"
+      "path": "com/fasterxml/jackson/core/jackson-databind/2.18.10/jackson-databind-2.18.10.jar",
+      "size": 1665063,
+      "sha256": "ead55a0c649b11af6148a0c097323f5438afc5f563e7139681ad8277fff520bf"
     },
     {
-      "path": "com/fasterxml/jackson/core/jackson-databind/2.18.9/jackson-databind-2.18.9.pom",
-      "size": 21077,
-      "sha256": "dd1cde47b5d6dee487b0dda67bbf09d94a002e72759326182a5540f2f25eb98a"
+      "path": "com/fasterxml/jackson/core/jackson-databind/2.18.10/jackson-databind-2.18.10.pom",
+      "size": 21080,
+      "sha256": "055f4205e8d0206c0f7e7e9cd6e3653d46bc4b5ed2f368eba9d31ebb423e51dd"
     },
     {
-      "path": "com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.18.9/jackson-dataformat-yaml-2.18.9.jar",
-      "size": 55580,
-      "sha256": "0842c09ea5d21a7a4a604aafe1c9f5f206bdfaf4b2df7008c09bf5190639df9a"
+      "path": "com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.18.10/jackson-dataformat-yaml-2.18.10.jar",
+      "size": 55583,
+      "sha256": "8b4fae8cb7f12985f315dc10a743c4cc10aea21e8fbb422c2c2898251e719b34"
     },
     {
-      "path": "com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.18.9/jackson-dataformat-yaml-2.18.9.pom",
-      "size": 2631,
-      "sha256": "cd0868d9b5de09729240806f8489eaaa85b596892607c57777d6365027f82f87"
+      "path": "com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.18.10/jackson-dataformat-yaml-2.18.10.pom",
+      "size": 2632,
+      "sha256": "4a1371fc76f60f602808e99fd48ff1265d6a54145b00380aa2aa879107fb57a6"
     },
     {
-      "path": "com/fasterxml/jackson/dataformat/jackson-dataformats-text/2.18.9/jackson-dataformats-text-2.18.9.pom",
-      "size": 3717,
-      "sha256": "0524286d0e94ec23d3adb787a68212a9afa62048deae6be730ca5c5ff81fe633"
+      "path": "com/fasterxml/jackson/dataformat/jackson-dataformats-text/2.18.10/jackson-dataformats-text-2.18.10.pom",
+      "size": 3720,
+      "sha256": "26325c6eddb3b2d24c0021795f73dde0620f3cd1c46da81df4ae09cd89d97865"
     },
     {
-      "path": "com/fasterxml/jackson/jackson-base/2.18.9/jackson-base-2.18.9.pom",
-      "size": 11982,
-      "sha256": "585960c8dfbafb01088d596162186022190781a81380abc204cf2804a6a0a120"
+      "path": "com/fasterxml/jackson/jackson-base/2.18.10/jackson-base-2.18.10.pom",
+      "size": 11983,
+      "sha256": "48a438ad93116717138e2bd7ba28ec3c5d844e420a219ff9c0dacf2bdf055b46"
     },
     {
-      "path": "com/fasterxml/jackson/jackson-bom/2.18.9/jackson-bom-2.18.9.pom",
-      "size": 19145,
-      "sha256": "ef1f91d82ed18a1c3567c3288432a2d6f50b6bbeba18ebed92c21fcb10f28ad4"
+      "path": "com/fasterxml/jackson/jackson-bom/2.18.10/jackson-bom-2.18.10.pom",
+      "size": 19148,
+      "sha256": "d250a834e90595284f5aaf2f33c8c63ff99037791ce331dc5560530c6a5a165a"
     },
     {
       "path": "com/fasterxml/jackson/jackson-parent/2.18.4/jackson-parent-2.18.4.pom",

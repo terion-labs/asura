@@ -406,13 +406,14 @@ public sealed class SqlLanguageWorkerPackagingTests
             paths,
             StringComparer.Ordinal);
         Assert.Contains(
-            "com/fasterxml/jackson/jackson-bom/2.18.9/jackson-bom-2.18.9.pom",
+            "com/fasterxml/jackson/jackson-bom/2.18.10/jackson-bom-2.18.10.pom",
             paths,
             StringComparer.Ordinal);
         Assert.DoesNotContain(
             paths,
             path => path.EndsWith("jackson-databind-2.18.6.jar", StringComparison.Ordinal)
                 || path.EndsWith("jackson-core-2.18.6.jar", StringComparison.Ordinal)
+                || path.EndsWith("jackson-databind-2.18.9.jar", StringComparison.Ordinal)
                 || path.EndsWith("commons-lang3-3.1.jar", StringComparison.Ordinal)
                 || path.EndsWith("httpclient5-5.5.jar", StringComparison.Ordinal)
                 || path.EndsWith("httpcore5-5.3.5.jar", StringComparison.Ordinal)

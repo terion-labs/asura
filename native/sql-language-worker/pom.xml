@@ -14,7 +14,7 @@
     <asura.build.directory>${project.basedir}/target</asura.build.directory>
     <maven.compiler.release>21</maven.compiler.release>
     <calcite.version>1.42.0</calcite.version>
-    <jackson.version>2.18.9</jackson.version>
+    <jackson.version>2.18.10</jackson.version>
     <commons-lang3.version>3.18.0</commons-lang3.version>
     <junit.version>5.13.1</junit.version>
     <maven.clean.version>3.4.1</maven.clean.version>
