@@ -10,10 +10,6 @@ build_dir="${repository_dir}/native/artifacts/workspace-runtime-build"
 # dependency checkouts with the other writable native build artifacts.
 swift_scratch_dir="${build_dir}/swift"
 entitlements="${repository_dir}/tools/Asura.Packaging/MacOS/WorkspaceRuntime.entitlements"
-# Swift Testing is supplied by full Xcode, not every Command Line Tools SDK.
-if [[ -z "${DEVELOPER_DIR:-}" && -d /Applications/Xcode.app/Contents/Developer ]]; then
-    export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-fi
 sdk_version="0.42.0"
 sdk_revision="c0185aea5c04fcd4d1cfe9359e0066a380835403"
 vminit_image="ghcr.io/apple/containerization/vminit@sha256:cde8a93f9861c664bf2b74b4e2893cf877680806f12e7e989eb9c51b2f2e93bf"
@@ -29,7 +25,8 @@ source_manifest() {
     (
         cd "${repository_dir}"
         shasum -a 256 native/workspace-runtime/Package.swift native/workspace-runtime/Package.resolved \
-            scripts/build-workspace-runtime.sh scripts/package-workspace-boot.py tools/Asura.Packaging/MacOS/WorkspaceRuntime.entitlements
+            scripts/build-workspace-runtime.sh scripts/configure-macos-toolchain.sh \
+            scripts/package-workspace-boot.py tools/Asura.Packaging/MacOS/WorkspaceRuntime.entitlements
         find native/workspace-runtime/Sources -type f -print | LC_ALL=C sort | while IFS= read -r path; do
             shasum -a 256 "${path}"
         done
@@ -40,6 +37,7 @@ source_manifest() {
 # when the checkout moves (or when adopting a cache without a location receipt),
 # retaining the locked dependency checkouts and ordinary incremental builds.
 if [[ $# -eq 0 || "${1:-}" == --test ]]; then
+    source "${script_dir}/configure-macos-toolchain.sh"
     location_receipt="${swift_scratch_dir}/asura-build-location"
     if [[ ! -f "${location_receipt}" || "$(cat "${location_receipt}")" != "${package_dir}" ]]; then
         xcrun swift package --package-path "${package_dir}" --scratch-path "${swift_scratch_dir}" clean
