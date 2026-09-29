@@ -4,6 +4,17 @@
     <TargetFramework>net10.0</TargetFramework>
     <!-- Reuse the development bundle assembler and its CEF helper layout. -->
     <AssemblyName>Asura</AssemblyName>
+    <!-- Match the shipping app even when running the quick managed probe. -->
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AsuraBrowserAcceptanceNativeAot)' == 'true'">
+    <PublishAot>true</PublishAot>
+    <IlcUseServerGc>false</IlcUseServerGc>
+    <!-- Match Asura.Desktop's existing vendor boundary: dependency publish
+         warnings stay visible; first-party AOT analyzers remain build errors. -->
+    <IlcTreatWarningsAsErrors>false</IlcTreatWarningsAsErrors>
+    <LinkerFlavor Condition="'$(AsuraNativeAotLinker)' != ''">$(AsuraNativeAotLinker)</LinkerFlavor>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" />

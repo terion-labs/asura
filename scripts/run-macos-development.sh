@@ -120,10 +120,15 @@ mkdir -p -- "${app_parent_input}"
 app_parent="$(cd -- "${app_parent_input}" && pwd -P)"
 app_bundle="${app_parent}/$(basename -- "${app_bundle}")"
 expected_app_prefix="${repository_dir}/src/Asura.Desktop/obj/"
+if [[ "${assemble_only}" == true && -n "${ASURA_BUILD_ARTIFACTS_ROOT:-}" ]]; then
+    # Sealed release sources are read-only; acceptance bundles live in the
+    # explicitly configured build output, never in an installed app path.
+    expected_app_prefix="$(cd -- "${ASURA_BUILD_ARTIFACTS_ROOT}" && pwd -P)/"
+fi
 case "${app_bundle}" in
     "${expected_app_prefix}"*"/Asura.dev.app") ;;
     *)
-        echo "The development app must remain under Asura.Desktop/obj." >&2
+        echo "The development app must remain under ${expected_app_prefix}." >&2
         exit 1
         ;;
 esac

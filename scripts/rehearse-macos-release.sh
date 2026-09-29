@@ -403,6 +403,7 @@ ASURA_BACKEND_ARCH=x64 ./scripts/build-workspace-backend.sh
 ./scripts/build-macos-connection-engines.sh
 ./scripts/build-sql-language-worker.sh --local --rid osx-arm64
 ./scripts/build-cef-runtime.sh --rid osx-arm64 --dotnet "${dotnet}"
+./scripts/check-browser-agent-native.sh --aot
 prepare_signing_keychain
 security unlock-keychain -p "${signing_password}" "${signing_keychain}"
 security find-identity -v -p codesigning "${signing_keychain}" \
