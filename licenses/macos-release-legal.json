@@ -33,7 +33,7 @@
     "sqlLanguageWorker": {
       "status": "accepted-by-owner-for-macos",
       "scope": "macos-arm64",
-      "comment": "The project owner accepts the recorded Apache Commons Math BesselJ provenance exception for the exact macOS SQL worker closure."
+      "comment": "The project owner accepts the recorded Apache Commons Math BesselJ provenance exception for the exact macOS SQL worker closure. Engineering evidence renewed on 2026-09-29 for the requested 0.1.66 release: Jackson 2.18.9 to 2.18.10 is a security maintenance update. Embedded JAR license and notice files were inspected, and generated legal closure validation passed for all 45 runtime dependencies. The license expressions, retained third-party notices, and existing Commons Math provenance exception are unchanged; this is not a new independent legal review."
     }
   },
   "evidence": [
@@ -95,7 +95,7 @@
     },
     {
       "path": "native/sql-language-worker/src/legal/runtime-license-map.tsv",
-      "sha256": "a3cb4819a1088f7d720fa3cc5aceaecd35c6fd0ea8f5f0022065bde07da3d3fd"
+      "sha256": "b5f9c0ed31cb004fdb8ef0c4922c66626013b148be6a9f1fa18b44e625d9e9ec"
     }
   ]
 }
