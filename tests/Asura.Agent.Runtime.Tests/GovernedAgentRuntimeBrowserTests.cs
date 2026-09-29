@@ -499,6 +499,39 @@ public sealed class GovernedAgentRuntimeBrowserTests
             fixture.Context.BrowserSessionId);
     }
 
+    [Theory]
+    [InlineData(0, 3, 4)]
+    [InlineData(1, 2, 4)]
+    [InlineData(1, 3, 3)]
+    public async Task StaleScrollObservationReturnsRecoveryWithoutDispatch(
+        long documentRevision, long viewportRevision, long inputEpoch)
+    {
+        await using var fixture = BrowserRuntimeFixture.Create(
+            BrowserScope.ExactPanel,
+            ScriptedProvider.ToolThenAnswer(BuiltInAgentTools.BrowserScroll,
+                JsonSerializer.Serialize(new
+                {
+                    origin_x = 100,
+                    origin_y = 100,
+                    delta_x = 0,
+                    delta_y = 510,
+                    document_revision = documentRevision,
+                    viewport_revision = viewportRevision,
+                    input_epoch = inputEpoch,
+                })),
+            PolicyWith(AgentCapability.BrowserInteraction, AgentPermission.Auto),
+            includeLowLevelAutomation: true);
+        var result = await fixture.Runtime.SendAsync(fixture.Prompt("Scroll the observed page."), CancellationToken.None);
+        Assert.True(result.IsSuccess);
+        Assert.Empty(fixture.Browser.Actions);
+        Assert.Null(fixture.Runtime.Snapshot.PendingApproval);
+        var toolResult = ToolResultFromLastRequest(fixture.Provider);
+        Assert.Equal("browser_state_changed", toolResult.StableCode);
+        using var json = JsonDocument.Parse(toolResult.Value.Content);
+        Assert.True(json.RootElement.GetProperty("error").GetProperty("retryable").GetBoolean());
+        Assert.Equal("refresh_browser_observation", json.RootElement.GetProperty("required_action").GetString());
+    }
+
     [Fact]
     public async Task LowLevelMouseRunsThroughApprovalWithExactFreshBinding()
     {

@@ -5,6 +5,34 @@ namespace Asura.Browser.Tests;
 
 public sealed class CefBrowserSemanticAdapterTests
 {
+    [Fact]
+    public async Task RepeatedChromiumTextNodesDoNotHideCustomControls()
+    {
+        var generatedText = Node(-1, "InlineTextBox", "Rescue", parentId: "3") with { BackendNodeId = null };
+        CefSemanticNode[] source =
+        [
+            Node(1, "RootWebArea", "Fixture", parentId: null, childIds: ["2"]),
+            Node(2, "generic", "", childIds: ["3"]) with { IsIgnored = true },
+            Node(3, "StaticText", "Rescue", parentId: "2", childIds: [generatedText.Id]),
+            generatedText,
+            generatedText,
+        ];
+        using var dom = JsonDocument.Parse("""
+            {"documents":[{"nodes":{"backendNodeId":[1,2,3],"isClickable":{"index":[1]}}}]}
+            """);
+        var browser = new RecordingCefSemanticBrowser(CefClickableNodes.Augment(source, dom.RootElement));
+        var adapter = new CefBrowserSemanticAdapter(browser);
+
+        var snapshot = await adapter.CaptureSnapshotAsync(new BrowserSnapshotQuery(filter: "Rescue"));
+
+        Assert.True(snapshot.IsSuccess);
+        var target = Assert.Single(snapshot.Value!.Nodes, node => node.Name == "Rescue");
+        Assert.Equal("clickable", target.Role);
+        Assert.NotNull(target.Handle);
+        Assert.Equal(NativeBrowserClickStatus.Activated, (await adapter.ClickAsync(target.Handle!)).Status);
+        Assert.Equal(1, browser.ClickDispatchCount);
+    }
+
     [Theory]
     [InlineData("generic")]
     [InlineData("cell")]
@@ -438,7 +466,10 @@ public sealed class CefBrowserSemanticAdapterTests
         : ICefSemanticBrowser
     {
         private readonly Dictionary<int, CefSemanticNode> _nodes =
-            initialNodes.ToDictionary(node => node.BackendNodeId!.Value);
+            initialNodes.Where(node => node.BackendNodeId.HasValue)
+                .ToDictionary(node => node.BackendNodeId!.Value);
+        private readonly IReadOnlyList<CefSemanticNode> _generatedNodes =
+            [.. initialNodes.Where(node => node.BackendNodeId is null)];
 
         public bool HitTestResult { get; set; } = true;
 
@@ -459,7 +490,7 @@ public sealed class CefBrowserSemanticAdapterTests
         public Task<IReadOnlyList<CefSemanticNode>>
             ReadAccessibilityTreeAsync() =>
             Task.FromResult<IReadOnlyList<CefSemanticNode>>(
-                [.. _nodes.Values.OrderBy(node => node.BackendNodeId)]);
+                [.. _nodes.Values.Concat(_generatedNodes).OrderBy(node => node.BackendNodeId)]);
 
         public Task<CefSemanticNode?> ReadAccessibilityNodeAsync(
             int backendNodeId) =>

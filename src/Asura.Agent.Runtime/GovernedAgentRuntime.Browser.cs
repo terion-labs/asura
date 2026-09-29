@@ -79,6 +79,15 @@ public sealed partial class GovernedAgentRuntime
                     sessionId,
                     panel.BrowserMetadata));
         }
+        catch (StaleBrowserObservationException)
+        {
+            var error = BrowserError.Create(
+                BrowserErrorCode.NavigationStateChanged,
+                "The browser changed after it was observed. Read its current state before retrying.",
+                retryable: true);
+            return CreateFailedResult(proposal, error.StableCode,
+                BrowserAgentToolResultJson.Failure(error, panel.PanelId));
+        }
         catch (Exception exception)
             when (exception is ArgumentException or InvalidOperationException)
         {
@@ -363,9 +372,7 @@ public sealed partial class GovernedAgentRuntime
             || metadata.Viewport.WidthCss <= 0
             || metadata.Viewport.HeightCss <= 0)
         {
-            throw new ArgumentException(
-                "The browser document, viewport, or input epoch is stale.",
-                nameof(metadata));
+            throw new StaleBrowserObservationException();
         }
 
         return new BrowserAutomationBinding(
@@ -374,6 +381,8 @@ public sealed partial class GovernedAgentRuntime
             viewportRevision,
             inputEpoch);
     }
+
+    private sealed class StaleBrowserObservationException : InvalidOperationException;
 
     private static AgentToolResult CreateSucceededResult(
         AgentToolProposal proposal,

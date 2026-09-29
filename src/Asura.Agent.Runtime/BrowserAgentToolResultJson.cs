@@ -166,7 +166,8 @@ internal static class BrowserAgentToolResultJson
         bool retryable,
         PanelInstanceId? panelId)
     {
-        if (!string.Equals(stableCode, "browser_transport_unavailable", StringComparison.Ordinal))
+        var stateChanged = string.Equals(stableCode, "browser_state_changed", StringComparison.Ordinal);
+        if (!stateChanged && !string.Equals(stableCode, "browser_transport_unavailable", StringComparison.Ordinal))
         {
             return AgentToolResultJson.Failure(stableCode, retryable, panelId);
         }
@@ -176,13 +177,14 @@ internal static class BrowserAgentToolResultJson
         writer.WriteStartObject();
         writer.WriteBoolean("ok", false);
         AgentToolResultJson.WritePanelId(writer, panelId);
-        AgentToolResultJson.WriteError(writer, "error", stableCode, retryable: false);
+        AgentToolResultJson.WriteError(writer, "error", stableCode, stateChanged && retryable);
         // Fixed product guidance only: native error text can contain page data.
-        writer.WriteString("message",
-            "Asura's browser transport does not support this agent action. "
+        writer.WriteString("message", stateChanged
+            ? "The browser document, viewport, or input changed after observation. Read browser.read_state again; if the page or viewport changed, capture a fresh screenshot or snapshot before retrying."
+            : "Asura's browser transport does not support this agent action. "
             + "No action was dispatched. This is an application capability failure, "
             + "not a restriction on the requested website.");
-        writer.WriteString("required_action", "report_browser_capability_failure");
+        writer.WriteString("required_action", stateChanged ? "refresh_browser_observation" : "report_browser_capability_failure");
         writer.WriteEndObject();
         writer.Flush();
         return Encoding.UTF8.GetString(buffer.WrittenSpan);
