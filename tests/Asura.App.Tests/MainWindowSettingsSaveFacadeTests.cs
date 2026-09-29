@@ -335,7 +335,9 @@ public sealed class MainWindowSettingsSaveFacadeTests
 
     private static MainWindowViewModel CreateViewModel(
         IDefinitionCatalog catalog,
-        ISecretVault? secretVault = null)
+        ISecretVault? secretVault = null,
+        IGovernedAgentRuntime? agentChatRuntime = null,
+        IAiProviderProfileRuntime? aiProviderRuntime = null)
     {
         var files = new EmptyFileClients();
         return new MainWindowViewModel(
@@ -347,7 +349,25 @@ public sealed class MainWindowSettingsSaveFacadeTests
             files,
             new TerminalStartupCommandDispatcher(
                 new SuccessfulAuditStore(),
-                TimeProvider.System));
+                TimeProvider.System),
+            aiProviderRuntime: aiProviderRuntime,
+            agentChatRuntime: agentChatRuntime,
+            uiThreadDispatcher: new SettingsSaveImmediateDispatcher());
+    }
+
+    internal static MainWindowViewModel CreateAgentHistorySettings(
+        IGovernedAgentRuntime? agentChatRuntime, IAiProviderProfileRuntime profiles) =>
+        CreateViewModel(new RecordingDefinitionCatalog(SettingsSnapshot()),
+            agentChatRuntime: agentChatRuntime, aiProviderRuntime: profiles);
+
+    private sealed class SettingsSaveImmediateDispatcher : IUiThreadDispatcher
+    {
+        public Task InvokeAsync(Action action, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            action();
+            return Task.CompletedTask;
+        }
     }
 
     private static DefinitionCatalogSnapshot SettingsSnapshot() =>

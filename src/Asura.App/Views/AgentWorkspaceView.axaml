@@ -978,7 +978,7 @@
           BorderBrush="{DynamicResource ShellBorderBrush}"
           BorderThickness="1"
           CornerRadius="{DynamicResource ShellCardCornerRadius}"
-          IsVisible="{Binding AgentChat.HasProvider, FallbackValue=False}">
+          IsVisible="{Binding AgentChat.ShowComposer, FallbackValue=False}">
         <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="{DynamicResource ShellSpaceXs}">
           <StackPanel>
             <ItemsControl

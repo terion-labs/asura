@@ -190,11 +190,13 @@ public sealed record AgentApprovalArgumentViewModel(
         "text" => "Text",
         "command" => "Command",
         "path" => "Path",
+        "tab_id" => "Tab",
+        "panel_id" => "Panel",
         _ => Name,
     };
 
     public bool IsRoutingIdentifier => Name is
-        "session_id" or "window_id" or "workspace_id" or "tab_id" or "panel_id";
+        "session_id" or "window_id" or "workspace_id";
 }
 
 public sealed record AgentApprovalCardViewModel(
@@ -1615,6 +1617,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public bool CanSubmitPrompt => CanSend || CanQueueFollowUp;
 
     public bool CanShowPrimaryAction => HasProvider;
+
+    public bool ShowComposer => HasProvider || CanStop;
 
     public bool ShowPrimaryAction =>
         CanShowPrimaryAction && !HasFailedTurn && (!IsBusy || CanSubmitPrompt);
@@ -3430,6 +3434,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CanShowPrimaryAction));
         OnPropertyChanged(nameof(ShowPrimaryAction));
         OnPropertyChanged(nameof(ShowStopAction));
+        OnPropertyChanged(nameof(ShowComposer));
         OnPropertyChanged(nameof(PrimaryActionLabel));
         OnPropertyChanged(nameof(PrimaryActionAccessibleName));
         OnPropertyChanged(nameof(PromptPlaceholder));

@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text;
 using System.Text.Json;
 
@@ -37,13 +38,46 @@ public sealed partial class KubernetesRuntimePanelViewModel
         try
         {
             using var document = JsonDocument.Parse(source);
-            using var output = new MemoryStream();
+            var output = new ManifestFormattingBuffer();
             using (var writer = new Utf8JsonWriter(output, new JsonWriterOptions { Indented = true }))
             {
                 document.RootElement.WriteTo(writer);
             }
-            return Encoding.UTF8.GetString(output.GetBuffer(), 0, checked((int)output.Length));
+            return Encoding.UTF8.GetString(output.WrittenSpan);
         }
         catch (JsonException) { return source; }
+        catch (InvalidDataException) { return source; }
+    }
+
+    /// <summary>Limits indentation and escaping expansion while preserving the complete source on overflow.</summary>
+    private sealed class ManifestFormattingBuffer : IBufferWriter<byte>
+    {
+        private const int MaximumBytes = 8 * 1024 * 1024;
+        private readonly ArrayBufferWriter<byte> _buffer = new();
+
+        public ReadOnlySpan<byte> WrittenSpan => _buffer.WrittenSpan;
+
+        public void Advance(int count)
+        {
+            EnsureFits(count);
+            _buffer.Advance(count);
+        }
+
+        public Memory<byte> GetMemory(int sizeHint = 0)
+        {
+            EnsureFits(Math.Max(1, sizeHint));
+            var memory = _buffer.GetMemory(sizeHint);
+            return memory[..Math.Min(memory.Length, MaximumBytes - _buffer.WrittenCount)];
+        }
+
+        public Span<byte> GetSpan(int sizeHint = 0) => GetMemory(sizeHint).Span;
+
+        private void EnsureFits(int count)
+        {
+            if (count > MaximumBytes - _buffer.WrittenCount)
+            {
+                throw new InvalidDataException("Manifest formatting exceeds its display budget.");
+            }
+        }
     }
 }

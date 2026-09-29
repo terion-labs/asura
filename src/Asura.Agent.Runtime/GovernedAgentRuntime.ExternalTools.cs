@@ -107,12 +107,16 @@ public sealed partial class GovernedAgentRuntime
                 return CreateRejectedResult(proposal, "unknown_tool");
             }
 
-            var request = new GovernedAgentPrompt(new AiProviderProfileId(_configuredPolicy.Provider),
-                "External MCP operator", target, _configuredPolicy);
+            var policy = await _workspaceLayoutPort!.ResolveExternalPolicyAsync(target, [], cancellation.Token)
+                .ConfigureAwait(false);
+            if (policy is null) { return CreateRejectedResult(proposal, "agent_policy_unavailable"); }
+            policy = AgentPolicyResolver.Resolve(policy);
+            var request = new GovernedAgentPrompt(new AiProviderProfileId(policy.Provider),
+                "External MCP operator", target, policy);
             var resize = await InspectResizeAttachmentsAsync(context, cancellation.Token).ConfigureAwait(false);
             var browser = await InspectBrowserAttachmentsAsync(context, cancellation.Token).ConfigureAwait(false);
             var files = await InspectFileSessionsAsync(context, cancellation.Token).ConfigureAwait(false);
-            if (!TryPinOrValidateRun(request, _configuredPolicy, context,
+            if (!TryPinOrValidateRun(request, policy, context,
                     resize.Keys.ToImmutableHashSet(), browser, files, out var error))
             {
                 return CreateRejectedResult(proposal, error!.Code);
@@ -158,5 +162,71 @@ public sealed partial class GovernedAgentRuntime
         {
             ReleaseTurn(cancellation);
         }
+    }
+
+    private async ValueTask<AgentAuthorizationResult> RequestActionAuthorizationAsync(
+        AgentActionProposal proposal, CancellationToken cancellationToken)
+    {
+        if (_externalRun)
+        {
+            var policy = await _workspaceLayoutPort!.ResolveExternalPolicyAsync(
+                proposal.Target, proposal.Presentation.Arguments, cancellationToken).ConfigureAwait(false);
+            if (policy is null)
+            {
+                return new AgentAuthorizationResult.Denied(new AgentAuthorizationError(
+                    AgentAuthorizationErrorCode.TargetOutsideRunScope, "The external action's policy target is no longer available."));
+            }
+            var error = await RefreshExternalPolicyAsync(AgentPolicyResolver.Resolve(policy), cancellationToken)
+                .ConfigureAwait(false);
+            if (error is not null) { return new AgentAuthorizationResult.Denied(error); }
+            if (proposal.PolicyGeneration != GetPolicyGeneration())
+            {
+                // Reuse the existing retry to recompose the same exact action
+                // with its current policy generation before requesting approval.
+                return new AgentAuthorizationResult.Denied(new AgentAuthorizationError(
+                    AgentAuthorizationErrorCode.PolicyChanged, "The current external action policy was refreshed."));
+            }
+        }
+        return await _broker.RequestAsync(proposal, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async ValueTask<AgentAuthorizationError?> RefreshExternalPolicyAsync(
+        AgentPolicy policy, CancellationToken cancellationToken)
+    {
+        AgentRunPolicyUpdate update;
+        lock (_gate)
+        {
+            if (PolicyAuthorityEqual(_baselinePolicy, policy)) { return null; }
+            update = new AgentRunPolicyUpdate(GetRequiredSession().RunId, policy,
+                checked(_policyGeneration + 1), _approvalActor);
+            _policyChangeInFlight = true;
+        }
+
+        var error = await UpdateRunPolicyWithAuditRecoveryAsync(update,
+            "The external action policy update could not be confirmed.", cancellationToken).ConfigureAwait(false);
+        if (error is not null)
+        {
+            _ = PausePolicyChangeForRetry(update, error, "The external action policy could not be refreshed. Retry the action.");
+            return error;
+        }
+        lock (_gate)
+        {
+            _baselinePolicy = policy;
+            _runPolicy = policy;
+            _effectivePolicy = policy;
+            _policyGeneration = update.PolicyGeneration;
+            _policyChangeInFlight = false;
+            _pendingPolicyUpdate = null;
+            _snapshot = _snapshot with
+            {
+                TerminalMutationPermission = policy.GetPermission(AgentCapability.RunCommands),
+                EffectivePolicy = policy,
+                BaselinePolicy = policy,
+                RunPolicy = policy,
+                PolicyGeneration = _policyGeneration,
+            };
+        }
+        NotifyChanged();
+        return null;
     }
 }

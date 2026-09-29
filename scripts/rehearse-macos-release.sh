@@ -124,12 +124,14 @@ fi
 # repository root used by the documented Bash assignments.
 if [[ -f "${repository_dir}/.env" ]]; then
     set +x
-    set -a
-    source "${repository_dir}/.env"
+    # Child commands evaluated inside .env must never receive a signing
+    # assignment just because a later toolchain setting uses substitution.
     set +a
+    source "${repository_dir}/.env"
 fi
-# Loading .env exports toolchain settings, but signing material must stay in
-# this shell until the explicit signing commands below.
+# Export the documented toolchain settings explicitly. Signing material stays
+# in this shell until the explicit signing commands below.
+export GRAALVM_HOME JAVA_HOME DEVELOPER_DIR SDKROOT ASURA_XCODE_APP ASURA_NATIVE_AOT_LINKER
 export -n APPLE_CERTIFICATE_P12_BASE64 APPLE_CERTIFICATE_PASSWORD \
     APPLE_DEVELOPER_ID_APPLICATION APPLE_NOTARY_ISSUER_ID \
     APPLE_NOTARY_KEY_ID APPLE_NOTARY_PRIVATE_KEY_BASE64

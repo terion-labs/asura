@@ -554,7 +554,7 @@ public sealed class BrowserRuntimePanelViewModelTests
     }
 
     [Theory]
-    [InlineData(BrowserProfilePersistence.DurableMetadata, 2)]
+    [InlineData(BrowserProfilePersistence.DurableMetadata, 1)]
     [InlineData(BrowserProfilePersistence.PrivateSession, 0)]
     public void OnlyCommittedDurablePagesAreRemembered(BrowserProfilePersistence persistence, int expectedRecords)
     {

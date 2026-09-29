@@ -1337,13 +1337,13 @@
               <controls:SettingsGroup
                   Heading="Agent history"
                   Description="Choose how much agent-run history to keep, or export saved run metadata."
-                  IsVisible="{Binding AgentChat, Converter={x:Static ObjectConverters.IsNotNull}}">
+                  IsVisible="{Binding AgentHistoryOwner, Converter={x:Static ObjectConverters.IsNotNull}}">
                 <controls:SettingRow Label="Keep history">
                   <ComboBox
                       HorizontalAlignment="Stretch"
-                      ItemsSource="{Binding AgentChat.HistoryRetentionOptions}"
-                      SelectedItem="{Binding AgentChat.SelectedHistoryRetentionOption, Mode=TwoWay}"
-                      IsEnabled="{Binding !AgentChat.IsHistoryRetentionLoading}"
+                      ItemsSource="{Binding AgentHistoryOwner.HistoryRetentionOptions}"
+                      SelectedItem="{Binding AgentHistoryOwner.SelectedHistoryRetentionOption, Mode=TwoWay}"
+                      IsEnabled="{Binding !AgentHistoryOwner.IsHistoryRetentionLoading}"
                       AutomationProperties.Name="Agent history retention">
                     <ComboBox.ItemTemplate>
                       <DataTemplate x:DataType="vm:AgentHistoryRetentionOption">
@@ -1354,16 +1354,16 @@
                 </controls:SettingRow>
                 <controls:SettingsGroup.Footer>
                   <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                    <TextBlock Classes="Muted" Text="{Binding AgentChat.HistoryRetentionEffect}" TextWrapping="Wrap" />
+                    <TextBlock Classes="Muted" Text="{Binding AgentHistoryOwner.HistoryRetentionEffect}" TextWrapping="Wrap" />
                     <WrapPanel Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceSm}" LineSpacing="{DynamicResource ShellSpaceXs}">
                       <Button Classes="SecondaryButton" Click="OnApplyAgentHistoryRetentionClick" Content="Apply"
-                          IsEnabled="{Binding AgentChat.CanApplyHistoryRetention}"
+                          IsEnabled="{Binding AgentHistoryOwner.CanApplyHistoryRetention}"
                           AutomationProperties.Name="Apply agent history retention" />
                       <Button Classes="SecondaryButton" Click="OnExportAgentHistoryClick" Content="Export…"
-                          IsEnabled="{Binding AgentChat.CanExportHistory}"
+                          IsEnabled="{Binding AgentHistoryOwner.CanExportHistory}"
                           AutomationProperties.Name="Export metadata-only agent history" />
                     </WrapPanel>
-                    <controls:LiveRegionTextBlock Classes="Muted" Text="{Binding AgentChat.AgentHistoryStatus}" TextWrapping="Wrap"
+                    <controls:LiveRegionTextBlock Classes="Muted" Text="{Binding AgentHistoryOwner.AgentHistoryStatus}" TextWrapping="Wrap"
                         AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Agent history status" />
                   </StackPanel>
                 </controls:SettingsGroup.Footer>

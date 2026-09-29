@@ -102,6 +102,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     private readonly ShellNavigationViewModel _navigation = new();
     private RuntimeWorkspaceViewModel? _runtimeWorkspace;
     private AgentChatViewModel? _agentChat;
+    private AgentChatViewModel? _settingsAgentHistoryOwner;
     private LauncherScreenViewModel? _selectedAgentSavedScreenTemplate;
     private AgentSavedScreenLiveTarget? _agentSavedScreenLiveTarget;
     private bool _isPreparingAgentSavedScreenTarget;
@@ -545,10 +546,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             if (SetProperty(ref _agentChat, value))
             {
+                OnPropertyChanged(nameof(AgentHistoryOwner));
                 OnPropertyChanged(nameof(HasAgentSavedScreenTemplates));
                 OnPropertyChanged(nameof(CanCreateAgentSavedScreenTarget));
                 OnPropertyChanged(nameof(CanAuthorizeAgentSavedScreenTarget));
             }
+        }
+    }
+
+    public AgentChatViewModel? AgentHistoryOwner => _settingsAgentHistoryOwner ?? AgentChat;
+
+    internal void ReplaceAgentHistoryOwner(AgentChatViewModel? previousOwner, AgentChatViewModel? replacement)
+    {
+        if (previousOwner is not null && ReferenceEquals(_settingsAgentHistoryOwner, previousOwner))
+        {
+            _settingsAgentHistoryOwner = replacement;
+            OnPropertyChanged(nameof(AgentHistoryOwner));
         }
     }
 
@@ -2486,13 +2499,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     public int KeybindingConflictCount =>
         DefinitionSettings.KeybindingConflictCount;
 
-    public void ShowSettings(SettingsPage page = SettingsPage.Appearance)
+    public void ShowSettings(SettingsPage page = SettingsPage.Appearance,
+        AgentChatViewModel? agentHistoryOwner = null)
     {
         if (!TryDismissOverlayForNavigation())
         {
             return;
         }
 
+        _settingsAgentHistoryOwner = agentHistoryOwner;
+        OnPropertyChanged(nameof(AgentHistoryOwner));
         _navigation.ShowSettings(page);
         if (page is SettingsPage.Secrets or SettingsPage.Mcp)
         {

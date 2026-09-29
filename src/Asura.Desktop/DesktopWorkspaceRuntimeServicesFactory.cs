@@ -20,6 +20,7 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
     WorkspaceDockerPanelSessionFactory dockerPanelFactory,
     WorkspaceGitPanelSessionFactory gitPanelFactory,
     WorkspaceNetworkRouteRegistry networkRouteRegistry,
+    DesktopAgentAttachmentService attachments,
     WorkspaceSystemMonitorPanelSessionFactory systemMonitorFactory,
     IGitRepositoryMutationCoordinator gitMutationCoordinator,
     IDefinitionCatalog definitionCatalog,
@@ -93,7 +94,8 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
                 gateway,
                 hostSessionRegistrations,
                 hostMonitorRegistration,
-                hostMonitors);
+                hostMonitors,
+                attachments.CreateWorkspaceLifetime(request.WorkspaceId));
             return new WorkspaceRuntimeServices(
                 new WorkspaceRuntimeBackends(
                     hostDocker,
@@ -173,7 +175,8 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
             socksProxy,
             sessionRegistrations,
             monitorRegistration,
-            monitors);
+            monitors,
+            attachments.CreateWorkspaceLifetime(request.WorkspaceId));
         return new WorkspaceRuntimeServices(
             new WorkspaceRuntimeBackends(
                 docker,
@@ -239,7 +242,8 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
         IAsyncDisposable socksProxy,
         IDisposable sessionRegistrations,
         IDisposable monitorRegistration,
-        IDisposable monitorFactory) : IAsyncDisposable
+        IDisposable monitorFactory,
+        IAsyncDisposable? attachmentCopies = null) : IAsyncDisposable
     {
         private readonly SemaphoreSlim _disposeGate = new(1, 1);
         private bool _filesDisposed;
@@ -249,6 +253,7 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
         private bool _monitorFactoryDisposed;
         private bool _monitorRegistrationDisposed;
         private bool _socksDisposed;
+        private bool _attachmentsDisposed;
 
         public async ValueTask DisposeAsync()
         {
@@ -256,6 +261,11 @@ internal sealed class DesktopWorkspaceRuntimeServicesFactory(
             try
             {
                 List<Exception> errors = [];
+                await TryDisposeAsync(
+                    _attachmentsDisposed,
+                    () => attachmentCopies?.DisposeAsync() ?? ValueTask.CompletedTask,
+                    () => _attachmentsDisposed = true,
+                    errors).ConfigureAwait(false);
                 await TryDisposeAsync(
                     _backendDisposed,
                     connections.DisposeAsync,

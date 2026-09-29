@@ -2071,6 +2071,10 @@ public sealed class BrowserSurfaceTests
         nativeView.RaiseTitleChanged(new string('x', 2000) + "\0");
         Assert.Equal(BrowserSessionState.MaximumTitleLength, surface.State.Title.Length);
         Assert.DoesNotContain('\0', surface.State.Title);
+
+        nativeView.RaiseTitleChanged("\0" + new string('y', 20_000));
+        Assert.Equal(BrowserSessionState.MaximumTitleLength - 1, surface.State.Title.Length);
+        Assert.DoesNotContain('\0', surface.State.Title);
     }
 
     [Fact]

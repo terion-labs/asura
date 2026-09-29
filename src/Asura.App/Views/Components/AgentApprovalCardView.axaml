@@ -27,6 +27,8 @@
       <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
         <TextBlock FontSize="{DynamicResource ShellFontSize15}" FontWeight="SemiBold"
             Text="{Binding AgentChat.PendingApproval.ToolTitle}" TextWrapping="Wrap" />
+        <SelectableTextBlock FontSize="{DynamicResource ShellFontSize10}"
+            Text="{Binding AgentChat.PendingApproval.TargetTitle}" TextWrapping="Wrap" />
         <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}"
             Text="{Binding AgentChat.PendingApproval.Host}" TextWrapping="Wrap"
             IsVisible="{Binding AgentChat.PendingApproval.HasHost}" />
@@ -60,7 +62,6 @@
             <TextBlock Classes="Muted" Text="{Binding AgentChat.PendingApproval.Permission, StringFormat={}Permission: {0}}" TextWrapping="Wrap" />
             <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
               <TextBlock Classes="Muted" Text="Target" />
-              <SelectableTextBlock Text="{Binding AgentChat.PendingApproval.TargetTitle}" TextWrapping="Wrap" />
               <SelectableTextBlock Text="{Binding AgentChat.PendingApproval.ExactTarget}" TextWrapping="Wrap" />
             </StackPanel>
             <ItemsControl ItemsSource="{Binding AgentChat.PendingApproval.Arguments}"

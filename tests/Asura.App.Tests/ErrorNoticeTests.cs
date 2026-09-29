@@ -34,6 +34,34 @@ public sealed class ErrorNoticeTests
     }
 
     [Fact]
+    public void DistinctRemoteFailuresRetainOnlyTheRecentBoundedNotices()
+    {
+        var notices = new ErrorNoticeCollection();
+        for (var index = 0; index < ErrorNoticeCollection.MaximumNotices + 25; index++)
+        {
+            notices.Report($"Remote failure {index}", "Docker logs");
+        }
+
+        Assert.Equal(ErrorNoticeCollection.MaximumNotices, notices.Items.Count);
+        Assert.Equal("Remote failure 25", notices.Items[0].Message);
+        Assert.Equal($"Remote failure {ErrorNoticeCollection.MaximumNotices + 24}", notices.Items[^1].Message);
+        notices.Report(notices.Items[^1].Message, "Docker logs");
+        Assert.Equal(ErrorNoticeCollection.MaximumNotices, notices.Items.Count);
+        notices.Items[^1].Dismiss();
+        Assert.Equal(ErrorNoticeCollection.MaximumNotices - 1, notices.Items.Count);
+    }
+
+    [Fact]
+    public void OversizedErrorTextHasAnExplicitBoundedDisplay()
+    {
+        var notices = new ErrorNoticeCollection();
+        notices.Report(new string('x', ErrorNoticeCollection.MaximumMessageCharacters + 1));
+        var notice = Assert.Single(notices.Items);
+        Assert.Equal(ErrorNoticeCollection.MaximumMessageCharacters, notice.Message.Length);
+        Assert.EndsWith("…", notice.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task SharedPanelShowsRetainedErrorsAndDismissesOnlyTheChosenMessage()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));

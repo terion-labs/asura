@@ -198,7 +198,7 @@ public sealed class AgentWorkspaceViewContractTests
             element => string.Equals(element.Name.LocalName, "Border"
 , StringComparison.Ordinal) && composerStack.Descendants().Contains(element));
         Assert.Equal(
-            "{Binding AgentChat.HasProvider, FallbackValue=False}",
+            "{Binding AgentChat.ShowComposer, FallbackValue=False}",
             AttributeValue(composer, "IsVisible"));
 
         var contextUsage = Assert.Single(

@@ -1,5 +1,6 @@
 using Asura.App.ViewModels;
 using Asura.Core;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 
 namespace Asura.App.Views;
@@ -87,6 +88,81 @@ internal static class AgentAttachmentImport
                     : agent.IsBusy
                         ? "Wait for the current run to finish or stop it before attaching images."
                         : "At most four images can be attached to one prompt.");
+        }
+    }
+
+    internal static AgentImageAttachment EncodePastedImage(Bitmap bitmap)
+    {
+        ArgumentNullException.ThrowIfNull(bitmap);
+        var size = bitmap.PixelSize;
+        // Match the ordinary image preview budget so normal high-resolution
+        // screenshots remain usable without permitting unbounded PNG work.
+        if (size.Width <= 0 || size.Height <= 0
+            || (long)size.Width * size.Height > OrdinaryImagePreviewDecoder.MaximumSourcePixels)
+        {
+            throw new InvalidOperationException("The pasted image is too large. Resize it before pasting again.");
+        }
+
+        using var output = new PastedImageBuffer();
+        bitmap.Save(output);
+        if (output.ExceededLimit)
+        {
+            throw new InvalidOperationException("The pasted image exceeds 4 MiB. Resize it or attach it as a file.");
+        }
+        return new AgentImageAttachment("Pasted image.png", "image/png",
+            output.GetBuffer().AsSpan(0, checked((int)output.Length)));
+    }
+
+    // The native encoder can continue writing after the byte budget is reached.
+    // Discard its remaining output and report the limit after returning from
+    // native code, rather than throwing through a native stream callback.
+    internal sealed class PastedImageBuffer : MemoryStream
+    {
+        public bool ExceededLimit { get; private set; }
+
+        public override void Write(byte[] buffer, int offset, int count) =>
+            Write(buffer.AsSpan(offset, count));
+
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            if (ExceededLimit || Position + buffer.Length > AgentImageAttachment.MaximumBytes)
+            {
+                ExceededLimit = true;
+                return;
+            }
+            var end = checked((int)(Position + buffer.Length));
+            EnsureOutputCapacity(end);
+            if (end > Length) { base.SetLength(end); }
+            // MemoryStream's span overload routes derived streams through the
+            // virtual byte-array overload. Copy directly to avoid that recursion.
+            buffer.CopyTo(GetBuffer().AsSpan(checked((int)Position), buffer.Length));
+            Position = end;
+        }
+
+        public override void WriteByte(byte value)
+        {
+            Span<byte> buffer = [value];
+            Write(buffer);
+        }
+
+        public override void SetLength(long value)
+        {
+            if (value > AgentImageAttachment.MaximumBytes)
+            {
+                ExceededLimit = true;
+                return;
+            }
+            if (value >= 0) { EnsureOutputCapacity(checked((int)value)); }
+            base.SetLength(value);
+        }
+
+        private void EnsureOutputCapacity(int required)
+        {
+            if (required > Capacity)
+            {
+                Capacity = Math.Min(AgentImageAttachment.MaximumBytes,
+                    Math.Max(required, Math.Max(256, Capacity * 2)));
+            }
         }
     }
 

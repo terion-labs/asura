@@ -854,7 +854,7 @@ public sealed partial class GovernedAgentRuntimeTests
                 workspaceLayoutComposer: layoutComposer);
             if (IsWorkspaceFixture(kind))
             {
-                LayoutPort = new WorkspaceLayoutPort(WindowId, WorkspaceId);
+                LayoutPort = new WorkspaceLayoutPort(WindowId, WorkspaceId) { CurrentPolicy = policy };
                 Runtime.AttachWorkspaceLayoutPort(LayoutPort);
             }
         }
@@ -1234,6 +1234,27 @@ public sealed partial class GovernedAgentRuntimeTests
 
         public bool ReturnOutcomeUnknown { get; set; }
 
+        public AgentPolicy CurrentPolicy { get; set; } = AgentPolicy.Default;
+
+        public Dictionary<TabInstanceId, AgentPolicy> TabPolicies { get; } = [];
+
+        public AgentTarget? LastPolicyTarget { get; private set; }
+
+        public ValueTask<AgentPolicy?> ResolveExternalPolicyAsync(AgentTarget target,
+            IReadOnlyList<AgentApprovalArgument> arguments, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            LastPolicyTarget = target;
+            var tabId = target switch
+            {
+                AgentTarget.Panel panel => panel.TabId,
+                AgentTarget.OpenTab tab => tab.TabId,
+                _ => (TabInstanceId?)null,
+            };
+            return ValueTask.FromResult<AgentPolicy?>(tabId is { } id && TabPolicies.TryGetValue(id, out var policy)
+                ? policy : CurrentPolicy);
+        }
+
         public ValueTask<AgentWorkspaceLayoutMutationResult> MutateAsync(
             AgentWorkspaceLayoutRequest request,
             long expectedWorkspaceRevision,
@@ -1418,6 +1439,8 @@ public sealed partial class GovernedAgentRuntimeTests
 
         public int SuccessCount => Volatile.Read(ref _successCount);
 
+        public Action? AfterAction { get; set; }
+
         public async ValueTask<HostResult<AgentWorkspaceGraphActionResult>>
             RunAgentWorkspaceGraphActionAsync(
                 AgentAuthorizationId authorizationId,
@@ -1435,6 +1458,8 @@ public sealed partial class GovernedAgentRuntimeTests
             {
                 Interlocked.Increment(ref _successCount);
             }
+
+            AfterAction?.Invoke();
 
             return result;
         }

@@ -84,6 +84,15 @@ public sealed class AgentApprovalCardViewContractTests
         Assert.DoesNotContain("ShowDialog", codeBehind, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Approval_target_is_visible_without_expanding_details()
+    {
+        var document = LoadComponent();
+        var target = Assert.Single(document.Descendants(), element =>
+            AttributeValue(element, "Text") == "{Binding AgentChat.PendingApproval.TargetTitle}");
+        Assert.DoesNotContain(target.Ancestors(), element => element.Name.LocalName == "Expander");
+    }
+
     private static XElement FindButton(XDocument document, string content) =>
         Assert.Single(
             document.Descendants(),

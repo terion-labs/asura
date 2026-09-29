@@ -3139,8 +3139,9 @@ public sealed partial class BrowserSurface :
 
     private string ReadNativeTitle()
     {
-        var title = _nativeView.Title.Replace("\0", string.Empty, StringComparison.Ordinal);
-        return title[..Math.Min(title.Length, BrowserSessionState.MaximumTitleLength)];
+        var title = _nativeView.Title;
+        var prefix = title[..Math.Min(title.Length, BrowserSessionState.MaximumTitleLength)];
+        return prefix.Replace("\0", string.Empty, StringComparison.Ordinal);
     }
 
     private void OnTitleChanged(object? sender, EventArgs args)

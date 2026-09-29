@@ -331,7 +331,8 @@ public static class DesktopComposition
             provider.GetRequiredService<Asura.Mcp.Server.LocalMcpServerControl>());
         services.AddSingleton<IAgentSessionCheckpointStore, SqliteAgentSessionCheckpointStore>();
         services.AddSingleton<SqliteAgentAttachmentStore>();
-        services.AddSingleton<IAgentAttachmentService, DesktopAgentAttachmentService>();
+        services.AddSingleton<DesktopAgentAttachmentService>();
+        services.AddSingleton<IAgentAttachmentService>(provider => provider.GetRequiredService<DesktopAgentAttachmentService>());
         services.AddSingleton<IAgentModelFavoriteStore, SqliteAgentModelFavoriteStore>();
         services.AddSingleton<IAgentPolicyPreferenceStore,
             SqliteAgentPolicyPreferenceStore>();

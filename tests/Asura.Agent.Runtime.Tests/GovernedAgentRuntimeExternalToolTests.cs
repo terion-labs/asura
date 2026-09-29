@@ -65,4 +65,113 @@ public sealed partial class GovernedAgentRuntimeTests
         Assert.Equal(AgentToolResultStatus.Failed, result.Status);
         Assert.Empty(provider.Requests);
     }
+
+    [Theory]
+    [InlineData(AgentPermission.Auto, AgentPermission.Off)]
+    [InlineData(AgentPermission.Off, AgentPermission.Auto)]
+    public async Task ExternalCallsRefreshDefaultPolicyWithoutResettingRun(
+        AgentPermission initial, AgentPermission changed)
+    {
+        var provider = ScriptedWorkspaceGraphProvider.Create(WorkspaceGraphProviderRound.Answer("Unused"));
+        await using var fixture = await WorkspaceGraphRuntimeFixture.CreateAsync(provider,
+            WorkspaceGraphFixtureKind.GraphBackedWorkspaceLauncher, ExactWorkspaceGraphPolicy(initial));
+        using var arguments = JsonDocument.Parse("{}");
+        var first = await fixture.Runtime.CallExternalToolAsync(BuiltInAgentTools.WorkspaceInspect,
+            arguments.RootElement, CancellationToken.None);
+        Assert.Equal(initial == AgentPermission.Auto ? "workspace_inspected" : "policy_denied", first.StableCode);
+        var runId = fixture.Runtime.Snapshot.RunId;
+        var messages = fixture.Runtime.Snapshot.Messages;
+
+        fixture.LayoutPort.CurrentPolicy = ExactWorkspaceGraphPolicy(changed);
+        var second = await fixture.Runtime.CallExternalToolAsync(BuiltInAgentTools.WorkspaceInspect,
+            arguments.RootElement, CancellationToken.None);
+        Assert.Equal(changed == AgentPermission.Auto ? "workspace_inspected" : "policy_denied", second.StableCode);
+        var generation = fixture.Runtime.Snapshot.PolicyGeneration;
+        var third = await fixture.Runtime.CallExternalToolAsync(BuiltInAgentTools.WorkspaceInspect,
+            arguments.RootElement, CancellationToken.None);
+        Assert.Equal(second.StableCode, third.StableCode);
+        Assert.Equal(generation, fixture.Runtime.Snapshot.PolicyGeneration);
+        Assert.Equal(runId, fixture.Runtime.Snapshot.RunId);
+        Assert.Equal(messages, fixture.Runtime.Snapshot.Messages);
+        Assert.Equal(changed == AgentPermission.Auto ? 2 : 1, fixture.GraphHost.CallCount);
+        Assert.Empty(provider.Requests);
+    }
+
+    [Fact]
+    public async Task ExternalPanelReadsUseComposedTargetPolicyAndRefreshTabOverrides()
+    {
+        var provider = ScriptedWorkspaceGraphProvider.Create(WorkspaceGraphProviderRound.Answer("Unused"));
+        var policy = ExactWorkspaceGraphPolicy(AgentPermission.Auto);
+        await using var fixture = await WorkspaceGraphRuntimeFixture.CreateAsync(provider,
+            WorkspaceGraphFixtureKind.GraphBackedWorkspaceWithLauncher, policy);
+        fixture.LayoutPort.TabPolicies[fixture.TabId] = policy with
+        {
+            Permissions = policy.Permissions.SetItem(AgentCapability.TerminalRead, AgentPermission.Off),
+        };
+        fixture.LayoutPort.TabPolicies[fixture.SiblingTabId] = policy;
+        using var arguments = JsonDocument.Parse("""{"panel_id":"workspace-graph-terminal"}""");
+
+        var denied = await fixture.Runtime.CallExternalToolAsync(BuiltInAgentTools.TerminalReadScreen,
+            arguments.RootElement, CancellationToken.None);
+        Assert.Equal("policy_denied", denied.StableCode);
+        var target = Assert.IsType<AgentTarget.Panel>(fixture.LayoutPort.LastPolicyTarget);
+        Assert.Equal(fixture.TabId, target.TabId);
+        Assert.Equal(fixture.TerminalPanelId, target.PanelId);
+        var runId = fixture.Runtime.Snapshot.RunId;
+
+        fixture.LayoutPort.TabPolicies[fixture.TabId] = policy;
+        var allowed = await fixture.Runtime.CallExternalToolAsync(BuiltInAgentTools.TerminalReadScreen,
+            arguments.RootElement, CancellationToken.None);
+        Assert.Equal(AgentToolResultStatus.Succeeded, allowed.Status);
+        Assert.Equal(runId, fixture.Runtime.Snapshot.RunId);
+        Assert.Empty(provider.Requests);
+    }
+
+    [Theory]
+    [InlineData(AgentPermission.Auto, AgentPermission.Off)]
+    [InlineData(AgentPermission.Off, AgentPermission.Auto)]
+    public async Task ExternalSequencesRefreshDefaultPolicyBetweenCalls(
+        AgentPermission initial, AgentPermission changed)
+    {
+        var provider = ScriptedWorkspaceGraphProvider.Create(WorkspaceGraphProviderRound.Answer("Unused"));
+        await using var fixture = await WorkspaceGraphRuntimeFixture.CreateAsync(provider,
+            WorkspaceGraphFixtureKind.GraphBackedWorkspaceLauncher, ExactWorkspaceGraphPolicy(initial));
+        using var arguments = JsonDocument.Parse("""
+            {"steps":[{"tool":"workspace.inspect","arguments":{}},{"tool":"workspace.inspect","arguments":{}}]}
+            """);
+        var first = await fixture.Runtime.CallExternalToolAsync(IntrinsicAgentTools.RunSequence,
+            arguments.RootElement, CancellationToken.None);
+        Assert.Equal(initial == AgentPermission.Auto ? "workspace_inspected" : "policy_denied", first.StableCode);
+        var runId = fixture.Runtime.Snapshot.RunId;
+
+        fixture.LayoutPort.CurrentPolicy = ExactWorkspaceGraphPolicy(changed);
+        var second = await fixture.Runtime.CallExternalToolAsync(IntrinsicAgentTools.RunSequence,
+            arguments.RootElement, CancellationToken.None);
+        Assert.Equal(changed == AgentPermission.Auto ? "workspace_inspected" : "policy_denied", second.StableCode);
+        Assert.Equal(2, fixture.GraphHost.CallCount);
+        Assert.Equal(runId, fixture.Runtime.Snapshot.RunId);
+        Assert.Empty(provider.Requests);
+    }
+
+    [Fact]
+    public async Task ExternalSequenceRechecksPolicyBeforeEachDispatch()
+    {
+        var provider = ScriptedWorkspaceGraphProvider.Create(WorkspaceGraphProviderRound.Answer("Unused"));
+        await using var fixture = await WorkspaceGraphRuntimeFixture.CreateAsync(provider,
+            WorkspaceGraphFixtureKind.GraphBackedWorkspaceLauncher, ExactWorkspaceGraphPolicy(AgentPermission.Auto));
+        fixture.GraphHost.AfterAction = () => fixture.LayoutPort.CurrentPolicy = ExactWorkspaceGraphPolicy(AgentPermission.Off);
+        using var arguments = JsonDocument.Parse("""
+            {"steps":[{"tool":"workspace.inspect","arguments":{}},{"tool":"workspace.inspect","arguments":{}}]}
+            """);
+
+        var result = await fixture.Runtime.CallExternalToolAsync(IntrinsicAgentTools.RunSequence,
+            arguments.RootElement, CancellationToken.None);
+        Assert.Equal("policy_denied", result.StableCode);
+        Assert.Equal(1, fixture.GraphHost.CallCount);
+        using var json = JsonDocument.Parse(result.Value.Content);
+        Assert.Equal(2, json.RootElement.GetProperty("executed_steps").GetInt32());
+        Assert.Equal("workspace_inspected", json.RootElement.GetProperty("results")[0].GetProperty("code").GetString());
+        Assert.Equal("policy_denied", json.RootElement.GetProperty("results")[1].GetProperty("code").GetString());
+        Assert.Empty(provider.Requests);
+    }
 }
