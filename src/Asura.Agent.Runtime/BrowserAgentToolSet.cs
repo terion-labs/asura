@@ -234,7 +234,7 @@ internal static class BrowserAgentToolSet
               "type": "array", "uniqueItems": true, "maxItems": 4,
               "items": { "type": "string", "enum": ["alt", "control", "meta", "shift"] }
             },
-            "click_count": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "click_count": { "type": "integer", "minimum": 0, "maximum": 3, "description": "Defaults to 1 for click, 0 otherwise." },
             "delta_x": { "type": "number", "minimum": -10000, "maximum": 10000 },
             "delta_y": { "type": "number", "minimum": -10000, "maximum": 10000 },
             "document_revision": { "type": "integer", "minimum": 0 },

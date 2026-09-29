@@ -47,6 +47,8 @@ const child = html(`<h1>Hosted child: visible origin above</h1><p id="proof"></p
 <script>document.querySelector('#proof').textContent='Opener exists: '+!!opener+'; cookie: '+document.cookie;opener?.postMessage('child-ready',location.origin);addEventListener('message',e=>{if(e.origin===location.origin){document.querySelector('#messages').textContent+=e.data+'\\n';opener?.postMessage('child-received-'+e.data,location.origin)}})</script>`);
 const persistence = html(`<h1>Disposable session persistence</h1><button onclick="document.cookie='persistentSmoke=verified; Max-Age=86400; Path=/; SameSite=Lax';localStorage.setItem('smoke','verified');show()">Sign in with synthetic session</button><pre id="state"></pre><script>function show(){document.querySelector('#state').textContent='Cookie: '+document.cookie+'; storage: '+localStorage.getItem('smoke')}show()</script>`);
 const agentForm = html(`<h1>Native agent fixture</h1>
+<style>.generated-label::before { content: "Generated label"; }</style>
+<button type="button"><span class="generated-label"></span> Fixture option</button>
 <span style="display:inline-block;padding:12px;cursor:pointer" onclick="this.textContent='Custom control activated'">Rescue fixture</span>
 <table><tr><td onclick="this.textContent='Table control activated'">Table control</td></tr></table>
 <form action="/agent-result">

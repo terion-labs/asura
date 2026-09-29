@@ -533,11 +533,12 @@ internal static class BrowserAgentToolParser
                 properties,
                 "button",
                 ParseMouseButton,
-                BrowserMouseButton.None,
+                action == BrowserMouseAction.Click ? BrowserMouseButton.Left : BrowserMouseButton.None,
                 out BrowserMouseButton button)
             || !TryReadOptionalModifiers(properties, out var modifiers)
             || !TryReadOptionalButtons(properties, out var buttons)
-            || !TryReadOptionalInt(properties, "click_count", 0, out var clickCount)
+            || !TryReadOptionalInt(properties, "click_count",
+                action == BrowserMouseAction.Click ? 1 : 0, out var clickCount)
             || !TryReadOptionalFiniteNumber(properties, "delta_x", 0, out var deltaX)
             || !TryReadOptionalFiniteNumber(properties, "delta_y", 0, out var deltaY))
         {

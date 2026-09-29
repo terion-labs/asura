@@ -10,6 +10,9 @@ internal static class CefClickableNodes
         IReadOnlyList<CefSemanticNode> nodes,
         JsonElement snapshot)
     {
+        // Chromium can repeat generated InlineTextBox nodes in a full AX tree.
+        // Match the semantic adapter's first-node-wins identity handling.
+        nodes = [.. nodes.DistinctBy(node => node.Id, StringComparer.Ordinal)];
         var clickable = new HashSet<int>();
         foreach (var document in snapshot.GetProperty("documents").EnumerateArray())
         {

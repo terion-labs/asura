@@ -1026,6 +1026,23 @@ public sealed class BrowserAgentToolContractTests
         Assert.Contains("side-effect-free", tools[3].Description, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("", BrowserMouseAction.Click, 1)]
+    [InlineData(", \"button\":\"left\"", BrowserMouseAction.Click, 1)]
+    [InlineData("", BrowserMouseAction.Move, 0)]
+    public async Task OptionalMouseFieldsHaveValidActionDefaults(
+        string extra, BrowserMouseAction action, int expectedClicks)
+    {
+        var json = "{\"action\":\"" + action.ToString().ToLowerInvariant()
+            + "\",\"x\":155,\"y\":119,\"document_revision\":1,"
+            + "\"viewport_revision\":1,\"input_epoch\":87" + extra + "}";
+        var proposal = await ProposalAsync(BuiltInAgentTools.BrowserMouse, json);
+        var parsed = Assert.IsType<BrowserAgentIntentResult.Parsed>(BrowserAgentToolParser.Parse(proposal));
+        var mouse = Assert.IsType<BrowserAgentIntent.Mouse>(parsed.Intent);
+        Assert.Equal(expectedClicks, mouse.ClickCount);
+        Assert.Equal(action == BrowserMouseAction.Click ? BrowserMouseButton.Left : BrowserMouseButton.None, mouse.Button);
+    }
+
     [Fact]
     public async Task MouseParserReturnsExactBoundedInputAndFreshnessRevisions()
     {

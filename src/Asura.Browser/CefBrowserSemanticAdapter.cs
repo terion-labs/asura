@@ -104,8 +104,10 @@ internal sealed class CefBrowserSemanticAdapter(ICefSemanticBrowser browser)
             source = await _browser.ReadAccessibilityTreeAsync()
                 .ConfigureAwait(false);
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            SecretSafeDiagnosticProjection.WriteTrace(
+                "browser.snapshot.accessibility-read-failed", exception);
             return NativeBrowserSnapshotResult.Unavailable();
         }
 
