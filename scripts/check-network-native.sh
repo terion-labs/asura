@@ -9,6 +9,8 @@ case "${mode}" in
     *) echo "Usage: $0 [--quick|--full]" >&2; exit 64 ;;
 esac
 
+source "${script_dir}/configure-macos-toolchain.sh"
+
 command -v go >/dev/null || { echo "The pinned Go toolchain is required for native networking checks." >&2; exit 1; }
 export GOTOOLCHAIN=go1.26.3+auto
 [[ "$(go env GOVERSION)" == go1.26.3 ]] || { echo "Native networking checks require Go 1.26.3." >&2; exit 1; }
