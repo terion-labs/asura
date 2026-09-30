@@ -7,10 +7,17 @@ namespace Asura.Agent.Runtime;
 
 public sealed partial class GovernedAgentRuntime
 {
-    private async ValueTask<AgentToolResult> ExecuteTerminalProposalAsync(
+    private ValueTask<AgentToolResult> ExecuteTerminalProposalAsync(
         AgentToolExecutionRequest request,
         AgentPanelToolContext panelContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken) =>
+        ExecuteTerminalProposalAttemptAsync(request, panelContext, cancellationToken, attempt: 0);
+
+    private async ValueTask<AgentToolResult> ExecuteTerminalProposalAttemptAsync(
+        AgentToolExecutionRequest request,
+        AgentPanelToolContext panelContext,
+        CancellationToken cancellationToken,
+        int attempt)
     {
         var proposal = request.Proposal;
         var descriptor = request.Descriptor;
@@ -172,6 +179,36 @@ public sealed partial class GovernedAgentRuntime
             hostResult,
             actionCancellation.CancellationRequested
                 && !cancellationToken.IsCancellationRequested);
+        // An observation has not executed when consumption rejects its stale
+        // context. Reinspect and obtain a new permit; never reuse the rejected
+        // permit, replay input, or transfer a one-action human approval.
+        if (attempt < 2
+            && descriptor.Capability == AgentCapability.TerminalRead
+            && authorized.Source is AgentAuthorizationSource.AutoPolicy or AgentAuthorizationSource.YoloPolicy
+            && hostResult is HostResult<AgentTerminalActionResult>.Failure
+            {
+                Error.StableCode: "terminal_authorization_stale",
+            })
+        {
+            var refreshed = await InspectRunTargetContextAsync(
+                context.Target, action.Proposal.Actor, cancellationToken).ConfigureAwait(false);
+            var refreshedPanel = refreshed?.Panels.SingleOrDefault(candidate => candidate.PanelId == panel.PanelId);
+            if (refreshed is not null && MatchesPinnedScope(refreshed)
+                && refreshedPanel is not null
+                && refreshedPanel.SessionId == sessionId
+                && refreshedPanel.WindowId == panel.WindowId
+                && refreshedPanel.WorkspaceId == panel.WorkspaceId
+                && refreshedPanel.TabId == panel.TabId
+                && refreshedPanel.ConnectionId == panel.ConnectionId
+                && string.Equals(refreshedPanel.ConnectionBoundary, panel.ConnectionBoundary, StringComparison.Ordinal)
+                && string.Equals(refreshedPanel.KubernetesBindingFingerprint, panel.KubernetesBindingFingerprint, StringComparison.Ordinal))
+            {
+                return await ExecuteTerminalProposalAttemptAsync(
+                    request with { Context = refreshed },
+                    panelContext with { Context = refreshed },
+                    cancellationToken, attempt + 1).ConfigureAwait(false);
+            }
+        }
         if (hostResult is HostResult<AgentTerminalActionResult>.Success)
         {
             await RefreshTargetPresentationBestEffortAsync(cancellationToken)

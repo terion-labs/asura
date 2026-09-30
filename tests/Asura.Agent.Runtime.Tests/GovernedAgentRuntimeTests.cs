@@ -4717,23 +4717,27 @@ public sealed partial class GovernedAgentRuntimeTests
 
         public Func<AuditEventRecord, bool>? FailurePredicate { get; set; }
 
-        public ValueTask<AuditStoreResult<Unit>> AppendAsync(
+        public Func<AuditEventRecord, ValueTask>? BeforeAppendAsync { get; set; }
+
+        public async ValueTask<AuditStoreResult<Unit>> AppendAsync(
             AuditEventRecord auditEvent,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (FailurePredicate?.Invoke(auditEvent) == true)
             {
-                return ValueTask.FromResult(
-                    AuditStoreResult<Unit>.Failure(
+                return AuditStoreResult<Unit>.Failure(
                         new AuditStoreError(
                             AuditStoreErrorCode.StorageUnavailable,
-                            "Unavailable.")));
+                            "Unavailable."));
             }
 
+            if (BeforeAppendAsync is { } beforeAppend)
+            {
+                await beforeAppend(auditEvent);
+            }
             _events.Enqueue(auditEvent);
-            return ValueTask.FromResult(
-                AuditStoreResult<Unit>.Success(Unit.Value));
+            return AuditStoreResult<Unit>.Success(Unit.Value);
         }
 
         public ValueTask<AuditStoreResult<IReadOnlyList<AuditEventRecord>>>

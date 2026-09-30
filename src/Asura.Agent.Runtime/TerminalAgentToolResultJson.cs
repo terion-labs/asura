@@ -169,6 +169,21 @@ internal static class TerminalAgentToolResultJson
         PanelInstanceId? panelId = null)
     {
         ArgumentNullException.ThrowIfNull(error);
+        if (string.Equals(error.StableCode, "terminal_authorization_stale", StringComparison.Ordinal))
+        {
+            var buffer = new ArrayBufferWriter<byte>();
+            using var writer = new Utf8JsonWriter(buffer);
+            writer.WriteStartObject();
+            writer.WriteBoolean("ok", false);
+            AgentToolResultJson.WritePanelId(writer, panelId);
+            AgentToolResultJson.WriteError(writer, "error", error.StableCode, retryable: true);
+            writer.WriteString("message", "The terminal context changed after authorization. Inspect the terminal again before retrying.");
+            writer.WriteString("required_action", "inspect_live_state");
+            writer.WriteBoolean("action_executed", false);
+            writer.WriteEndObject();
+            writer.Flush();
+            return Encoding.UTF8.GetString(buffer.WrittenSpan);
+        }
         return AgentToolResultJson.Failure(
             error.StableCode,
             error.Retryable,

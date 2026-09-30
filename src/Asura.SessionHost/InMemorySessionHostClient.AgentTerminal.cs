@@ -1352,6 +1352,12 @@ public sealed partial class InMemorySessionHostClient
     {
         var hostError = error.Code switch
         {
+            AgentAuthorizationErrorCode.AuthorizationMismatch =>
+                new HostError(
+                    HostErrorCode.RevisionConflict,
+                    "terminal_authorization_stale",
+                    "The terminal context changed after authorization. Inspect the terminal again and request fresh authorization. No action was executed.",
+                    Retryable: true),
             AgentAuthorizationErrorCode.AuthorizationExpired
                 or AgentAuthorizationErrorCode.ApprovalExpired =>
                 HostError.Create(

@@ -1023,7 +1023,8 @@ public sealed class AgentTerminalSessionHostTests
             mutated,
             default);
 
-        Assert.Equal(HostErrorCode.InvalidRequest, result.Error().Code);
+        Assert.Equal(HostErrorCode.RevisionConflict, result.Error().Code);
+        Assert.Equal("terminal_authorization_stale", result.Error().StableCode);
         Assert.Equal(0, fixture.Factory[fixture.SessionId].WriteCount);
         Assert.Equal(1, fixture.Authorization.ConsumeCount);
         Assert.Empty(fixture.Authorization.Completions);
@@ -1054,7 +1055,8 @@ public sealed class AgentTerminalSessionHostTests
         var firstResult = await first;
 
         Assert.IsType<AgentTerminalActionResult.Completed>(firstResult.Value());
-        Assert.Equal(HostErrorCode.InvalidRequest, second.Error().Code);
+        Assert.Equal(HostErrorCode.RevisionConflict, second.Error().Code);
+        Assert.Equal("terminal_authorization_stale", second.Error().StableCode);
         Assert.Equal(1, terminal.WriteCount);
         Assert.Equal(2, fixture.Authorization.ConsumeCount);
         Assert.Single(fixture.Authorization.Completions);
@@ -1463,7 +1465,8 @@ public sealed class AgentTerminalSessionHostTests
             changed,
             default);
 
-        Assert.Equal(HostErrorCode.InvalidRequest, result.Error().Code);
+        Assert.Equal(HostErrorCode.RevisionConflict, result.Error().Code);
+        Assert.Equal("terminal_authorization_stale", result.Error().StableCode);
         Assert.Equal(0, fixture.Factory[fixture.SessionId].ResizeCount);
         Assert.Equal(1, fixture.Authorization.ConsumeCount);
         Assert.Empty(fixture.Authorization.Completions);
