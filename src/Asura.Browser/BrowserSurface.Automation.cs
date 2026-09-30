@@ -7,7 +7,7 @@ namespace Asura.Browser;
 public sealed partial class BrowserSurface
 {
     private static readonly TimeSpan DefaultNativeInputDeadline =
-        TimeSpan.FromSeconds(5);
+        TimeSpan.FromSeconds(60);
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -125,7 +125,7 @@ public sealed partial class BrowserSurface
         var completion = await RunBrowserAutomationAsync(
                 binding,
                 allowedOrigin,
-                DefaultNativeInputDeadline,
+                _nativeInputDeadline,
                 advancesInputEpoch: true,
                 dispatch,
                 cancellationToken)
@@ -408,6 +408,13 @@ public sealed partial class BrowserSurface
         }
 
         pending.NativeResult = result;
+        if (pending.OutcomeUnknownReported)
+        {
+            CompleteBrowserAutomation(pending,
+                BrowserResult<NativeAutomationCompletion>.Failure(InteractionOutcomeUnknown()));
+            return;
+        }
+
         TryCompleteBrowserAutomation(pending);
     }
 
@@ -425,7 +432,11 @@ public sealed partial class BrowserSurface
             return;
         }
 
-        if (pending.HasObservedNavigationStart && !pending.NavigationTerminal)
+        // Workspace input acknowledges the gesture, not the destination's load.
+        // Restricted-origin operations must still observe navigation to enforce
+        // their frozen origin before returning success.
+        if (pending.HasObservedNavigationStart && !pending.NavigationTerminal
+            && !pending.IsWorkspaceInput)
         {
             return;
         }
@@ -486,10 +497,23 @@ string.Equals(nativeResult.StableCode, "script_result_not_serializable"
         }
 
         InvalidateElementReferences();
-        if (!TryReplaceQuarantinedNativeView())
+        if (pending.IsWorkspaceInput && !pending.RequiresQuarantine)
         {
-            _interactionRecoveryFailed = true;
+            pending.CancellationRegistration.Unregister();
+            CancelUncertainInput(pending);
+            pending.Completion.TrySetResult(
+                BrowserResult<NativeAutomationCompletion>.Failure(InteractionOutcomeUnknown()));
+
+            if (pending.NativeCompletion is null || pending.NativeCompletion.IsCompleted)
+            {
+                CompleteBrowserAutomation(pending,
+                    BrowserResult<NativeAutomationCompletion>.Failure(InteractionOutcomeUnknown()));
+            }
+
+            return;
         }
+
+        SuspendUncertainBrowserActions();
 
         CompleteBrowserAutomation(
             pending,
@@ -502,9 +526,9 @@ string.Equals(nativeResult.StableCode, "script_result_not_serializable"
         BrowserError error,
         bool quarantine)
     {
-        if (quarantine && !TryReplaceQuarantinedNativeView())
+        if (quarantine)
         {
-            _interactionRecoveryFailed = true;
+            SuspendUncertainBrowserActions();
         }
 
         CompleteBrowserAutomation(
@@ -634,6 +658,7 @@ string.Equals(nativeResult.StableCode, "script_result_not_serializable"
     {
         public BrowserAutomationBinding SourceBinding { get; } = sourceBinding;
         public bool AdvancesInputEpoch { get; } = advancesInputEpoch;
+        public bool IsWorkspaceInput => AdvancesInputEpoch && AllowedOrigin.UsesWorkspaceNetwork;
         public TimeSpan Deadline { get; } = deadline;
         public Task<NativeBrowserAutomationResult>? NativeCompletion { get; set; }
         public NativeBrowserAutomationResult? NativeResult { get; set; }

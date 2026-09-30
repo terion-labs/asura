@@ -40,6 +40,7 @@ public sealed partial class BrowserSurface :
     private readonly TimeProvider _timeProvider;
     private readonly IDisposable? _networkLifetime;
     private readonly TimeSpan _nativeSnapshotDeadline;
+    private readonly TimeSpan _nativeInputDeadline;
     private readonly object _snapshotReferenceGate = new();
     private Dictionary<string, SnapshotReferenceLease> _snapshotReferences = [];
     private long _snapshotReferenceEpoch;
@@ -149,7 +150,8 @@ public sealed partial class BrowserSurface :
         TimeProvider? timeProvider = null,
         TimeSpan? nativeSnapshotDeadline = null,
         BrowserCapabilityProfile? capabilityProfile = null,
-        IDisposable? networkLifetime = null)
+        IDisposable? networkLifetime = null,
+        TimeSpan? nativeInputDeadline = null)
     {
         _nativeView = nativeView ?? throw new ArgumentNullException(nameof(nativeView));
         _destinationPolicy = destinationPolicy
@@ -170,6 +172,12 @@ public sealed partial class BrowserSurface :
             throw new ArgumentOutOfRangeException(
                 nameof(nativeSnapshotDeadline),
                 "The native snapshot deadline must be greater than zero and no more than 30 seconds.");
+        }
+
+        _nativeInputDeadline = nativeInputDeadline ?? DefaultNativeInputDeadline;
+        if (_nativeInputDeadline <= TimeSpan.Zero || _nativeInputDeadline > DefaultNativeInputDeadline)
+        {
+            throw new ArgumentOutOfRangeException(nameof(nativeInputDeadline));
         }
 
         _nativeView.NavigationStarted += OnNavigationStarted;
@@ -1242,7 +1250,7 @@ public sealed partial class BrowserSurface :
         try
         {
             await Task.Delay(
-                    _nativeSnapshotDeadline,
+                    _nativeInputDeadline,
                     pending.DeadlineCancellation.Token)
                 .ConfigureAwait(false);
         }
@@ -1287,6 +1295,13 @@ public sealed partial class BrowserSurface :
 
         pending.NativeResult = result
             ?? NativeBrowserClickResult.OutcomeUnknown();
+        if (pending.OutcomeUnknownReported)
+        {
+            CompleteElementClick(pending,
+                BrowserResult<BrowserClickReceipt>.Failure(InteractionOutcomeUnknown()));
+            return;
+        }
+
         TryCompleteElementClick(pending);
     }
 
@@ -1329,7 +1344,8 @@ public sealed partial class BrowserSurface :
                 return;
             case NativeBrowserClickStatus.Activated:
                 if (pending.HasObservedNavigationStart
-                    && !pending.NavigationTerminal)
+                    && !pending.NavigationTerminal
+                    && !pending.AllowedOrigin.UsesWorkspaceNetwork)
                 {
                     return;
                 }
@@ -1376,13 +1392,22 @@ public sealed partial class BrowserSurface :
             return;
         }
 
-        InvalidateElementReferences();
-        var replaced = TryReplaceQuarantinedNativeView();
-        pending.NativeViewWasReplaced = replaced;
-        if (!replaced)
+        if (pending.AllowedOrigin.UsesWorkspaceNetwork && !pending.RequiresQuarantine)
         {
-            _interactionRecoveryFailed = true;
+            CancelUncertainInput(pending);
+            pending.Completion.TrySetResult(
+                BrowserResult<BrowserClickReceipt>.Failure(InteractionOutcomeUnknown()));
+            if (pending.NativeCompletion is null || pending.NativeCompletion.IsCompleted)
+            {
+                CompleteElementClick(pending,
+                    BrowserResult<BrowserClickReceipt>.Failure(InteractionOutcomeUnknown()));
+            }
+
+            return;
         }
+
+        InvalidateElementReferences();
+        SuspendUncertainBrowserActions();
 
         CompleteElementClick(
             pending,
@@ -1397,12 +1422,7 @@ public sealed partial class BrowserSurface :
     {
         if (quarantine)
         {
-            var replaced = TryReplaceQuarantinedNativeView();
-            pending.NativeViewWasReplaced = replaced;
-            if (!replaced)
-            {
-                _interactionRecoveryFailed = true;
-            }
+            SuspendUncertainBrowserActions();
         }
 
         CompleteElementClick(
@@ -1594,7 +1614,7 @@ public sealed partial class BrowserSurface :
         try
         {
             await Task.Delay(
-                    _nativeSnapshotDeadline,
+                    _nativeInputDeadline,
                     pending.DeadlineCancellation.Token)
                 .ConfigureAwait(false);
         }
@@ -1658,6 +1678,13 @@ public sealed partial class BrowserSurface :
 
         pending.NativeResult = result
             ?? NativeBrowserFillResult.OutcomeUnknown();
+        if (pending.OutcomeUnknownReported)
+        {
+            CompleteElementFill(pending,
+                BrowserResult<BrowserFillReceipt>.Failure(InteractionOutcomeUnknown()));
+            return;
+        }
+
         TryCompleteElementFill(pending);
     }
 
@@ -1724,7 +1751,8 @@ public sealed partial class BrowserSurface :
                 return;
             case NativeBrowserFillStatus.Filled:
                 if (pending.HasObservedNavigationStart
-                    && !pending.NavigationTerminal)
+                    && !pending.NavigationTerminal
+                    && !pending.AllowedOrigin.UsesWorkspaceNetwork)
                 {
                     return;
                 }
@@ -1771,13 +1799,22 @@ public sealed partial class BrowserSurface :
             return;
         }
 
-        InvalidateElementReferences();
-        var replaced = TryReplaceQuarantinedNativeView();
-        pending.NativeViewWasReplaced = replaced;
-        if (!replaced)
+        if (pending.AllowedOrigin.UsesWorkspaceNetwork && !pending.RequiresQuarantine)
         {
-            _interactionRecoveryFailed = true;
+            CancelUncertainInput(pending);
+            pending.Completion.TrySetResult(
+                BrowserResult<BrowserFillReceipt>.Failure(InteractionOutcomeUnknown()));
+            if (pending.NativeCompletion is null || pending.NativeCompletion.IsCompleted)
+            {
+                CompleteElementFill(pending,
+                    BrowserResult<BrowserFillReceipt>.Failure(InteractionOutcomeUnknown()));
+            }
+
+            return;
         }
+
+        InvalidateElementReferences();
+        SuspendUncertainBrowserActions();
 
         CompleteElementFill(
             pending,
@@ -1792,12 +1829,7 @@ public sealed partial class BrowserSurface :
     {
         if (quarantine)
         {
-            var replaced = TryReplaceQuarantinedNativeView();
-            pending.NativeViewWasReplaced = replaced;
-            if (!replaced)
-            {
-                _interactionRecoveryFailed = true;
-            }
+            SuspendUncertainBrowserActions();
         }
 
         CompleteElementFill(
@@ -1974,7 +2006,7 @@ public sealed partial class BrowserSurface :
         try
         {
             await Task.Delay(
-                    _nativeSnapshotDeadline,
+                    _nativeInputDeadline,
                     pending.DeadlineCancellation.Token)
                 .ConfigureAwait(false);
         }
@@ -2002,8 +2034,8 @@ public sealed partial class BrowserSurface :
             {
                 // Do not make completion depend on a suspended UI loop. The
                 // timed-out operation is already terminal and non-retryable;
-                // the queued callback performs renderer quarantine before the
-                // loop can accept another interaction.
+                // the queued callback retires the input gate once native dispatch
+                // settles, while preserving the live page.
                 pending.Completion.TrySetResult(
                     BrowserResult<BrowserCheckReceipt>.Failure(
                         InteractionOutcomeUnknown()));
@@ -2048,9 +2080,14 @@ public sealed partial class BrowserSurface :
         NativeBrowserCheckResult result)
     {
         if (!ReferenceEquals(_pendingElementCheck, pending)
-            || !ReferenceEquals(_nativeView, pending.NativeView)
-            || pending.HasTerminalClaim)
+            || !ReferenceEquals(_nativeView, pending.NativeView))
         {
+            return;
+        }
+
+        if (pending.HasTerminalClaim)
+        {
+            _pendingElementCheck = null;
             return;
         }
 
@@ -2117,7 +2154,8 @@ public sealed partial class BrowserSurface :
                 return;
             case NativeBrowserCheckStatus.Checked:
                 if (pending.HasObservedNavigationStart
-                    && !pending.NavigationTerminal)
+                    && !pending.NavigationTerminal
+                    && !pending.AllowedOrigin.UsesWorkspaceNetwork)
                 {
                     return;
                 }
@@ -2182,14 +2220,11 @@ public sealed partial class BrowserSurface :
             return;
         }
 
-        // Ensuring a checkbox is checked is idempotent. An inconclusive
-        // postcondition invalidates the source snapshot, but it must not
-        // destroy the user's live page by replacing the renderer with its
-        // initial about:blank document. The governed run still receives the
-        // explicit unknown outcome and can fail closed at its own boundary.
         InvalidateElementReferences();
-
-        _pendingElementCheck = null;
+        if (pending.NativeCompletion is null || pending.NativeCompletion.IsCompleted)
+        {
+            _pendingElementCheck = null;
+        }
     }
 
     private void CompleteAmbiguousElementCheck(
@@ -2210,11 +2245,9 @@ public sealed partial class BrowserSurface :
         }
 
         InvalidateElementReferences();
-        var replaced = TryReplaceQuarantinedNativeView();
-        pending.NativeViewWasReplaced = replaced;
-        if (!replaced)
+        if (!pending.AllowedOrigin.UsesWorkspaceNetwork || pending.RequiresQuarantine)
         {
-            _interactionRecoveryFailed = true;
+            SuspendUncertainBrowserActions();
         }
 
         FinishClaimedElementCheck(
@@ -2236,12 +2269,7 @@ public sealed partial class BrowserSurface :
 
         if (quarantine)
         {
-            var replaced = TryReplaceQuarantinedNativeView();
-            pending.NativeViewWasReplaced = replaced;
-            if (!replaced)
-            {
-                _interactionRecoveryFailed = true;
-            }
+            SuspendUncertainBrowserActions();
         }
 
         FinishClaimedElementCheck(
@@ -2403,13 +2431,6 @@ public sealed partial class BrowserSurface :
             }
         }
 
-        if (pending.NativeViewWasReplaced)
-        {
-            _ = ObserveDetachedNativeSnapshotAsync(
-                pending.NativeCompletion);
-            return;
-        }
-
         NativeBrowserSnapshotResult nativeResult;
         try
         {
@@ -2444,20 +2465,6 @@ public sealed partial class BrowserSurface :
         }
     }
 
-    private static async Task ObserveDetachedNativeSnapshotAsync(
-        Task<NativeBrowserSnapshotResult> nativeCompletion)
-    {
-        try
-        {
-            _ = await nativeCompletion.ConfigureAwait(false);
-        }
-        catch (Exception)
-        {
-            // A quarantined adapter is no longer authoritative, but its
-            // non-cancellable native invocation must still be observed.
-        }
-    }
-
     private void TimeoutDocumentSnapshot(
         PendingDocumentSnapshot pending)
     {
@@ -2468,11 +2475,7 @@ public sealed partial class BrowserSurface :
         }
 
         pending.CancellationRegistration.Unregister();
-        if (TryReplaceQuarantinedNativeView())
-        {
-            pending.NativeViewWasReplaced = true;
-            _pendingDocumentSnapshot = null;
-        }
+        InvalidateElementReferences();
     }
 
     private void CancelDocumentSnapshot(
@@ -3019,9 +3022,14 @@ public sealed partial class BrowserSurface :
             {
                 RecordTerminalNavigation(
                     args.NavigationGeneration);
-                if (TryReplaceQuarantinedNativeView())
+                _drainingNativeNavigation = null;
+                if (args.IsSuccess)
                 {
-                    _drainingNativeNavigation = null;
+                    // A rejected navigation that nevertheless committed must
+                    // show its actual origin while automation stays suspended.
+                    PublishFailure(args.Address ?? State.Address,
+                        State.Failure ?? InteractionOutcomeUnknown());
+                    SuspendUncertainBrowserActions();
                 }
             }
 
@@ -3347,7 +3355,7 @@ public sealed partial class BrowserSurface :
             }
 
             var denied = PolicyError();
-            PublishGovernedFailure(pending, denied);
+            PublishFailure(args.Address, denied);
             QuarantineCompletedNativeNavigation(
                 args.NavigationGeneration);
             CompleteRetiredGovernedNavigation(
@@ -3457,13 +3465,47 @@ public sealed partial class BrowserSurface :
         _drainingNativeNavigation =
             DrainingNativeNavigation.FromRejected(
                 navigationGeneration);
-        if (TryReplaceQuarantinedNativeView())
+        SuspendUncertainBrowserActions();
+    }
+
+    private void SuspendUncertainBrowserActions()
+    {
+        // Keep the page visible. A policy violation or an unbounded script must
+        // fail closed, but destroying the user's document is not recovery.
+        _interactionRecoveryFailed = true;
+        InvalidateElementReferences();
+        try
         {
-            _drainingNativeNavigation = null;
+            _nativeView.Stop();
+        }
+        catch (Exception exception)
+        {
+            SecretSafeDiagnosticProjection.WriteTrace("browser.input.stop-failed", exception);
         }
     }
 
-    private bool TryReplaceQuarantinedNativeView()
+    private void CancelUncertainInput(PendingElementInteraction pending)
+    {
+        if (pending.OutcomeUnknownReported)
+        {
+            return;
+        }
+
+        pending.OutcomeUnknownReported = true;
+        InvalidateElementReferences();
+        if (State.InputEpoch < long.MaxValue)
+        {
+            AdvanceInputEpoch();
+        }
+        else
+        {
+            _interactionRecoveryFailed = true;
+        }
+
+        pending.DeadlineCancellation.Cancel();
+    }
+
+    private bool TryReplaceCrashedNativeView()
     {
         if (_nativeViewReplacementFactory is null
             || State.DocumentRevision == long.MaxValue)
@@ -3581,7 +3623,7 @@ public sealed partial class BrowserSurface :
         }
 
         var lostAddress = State.Address;
-        if (TryReplaceQuarantinedNativeView())
+        if (TryReplaceCrashedNativeView())
         {
             ProductEvent?.Invoke(
                 this,
@@ -3755,7 +3797,7 @@ public sealed partial class BrowserSurface :
     private static BrowserResult<BrowserSessionState>
         InteractionRecoveryUnavailable() =>
         RendererUnavailable(
-            "The embedded browser renderer is unavailable after an ambiguous element interaction.");
+            "Browser automation is paused after an uncertain or disallowed action. The page has been preserved; open a new tab to continue automation.");
 
     private static BrowserResult<BrowserSessionState> NavigationInProgress() =>
         BrowserResult<BrowserSessionState>.Failure(
@@ -4116,8 +4158,6 @@ public sealed partial class BrowserSurface :
         public bool HasTimedOut =>
             Volatile.Read(ref _hasTimedOut) != 0;
 
-        public bool NativeViewWasReplaced { get; set; }
-
         public bool TryMarkTimedOut() =>
             Interlocked.CompareExchange(
                 ref _hasTimedOut,
@@ -4166,9 +4206,9 @@ public sealed partial class BrowserSurface :
         public CancellationTokenSource DeadlineCancellation { get; } =
             new();
 
-        public bool NativeDispatchCommitted { get; set; }
+        public bool OutcomeUnknownReported { get; set; }
 
-        public bool NativeViewWasReplaced { get; set; }
+        public bool NativeDispatchCommitted { get; set; }
 
         public bool HasObservedNavigationStart { get; private set; }
 

@@ -780,6 +780,17 @@ Every tool family needs:
 - provider continuation tests for success, ordinary failure, and
   outcome-unknown quarantine.
 
+Browser input has a 60-second acknowledgement deadline. With workspace network
+access, an acknowledged gesture completes independently of destination loading;
+callers observe the resulting load state before another action. Timeouts and
+uncertain results preserve the live renderer, invalidate stale references and
+coordinate bindings, cancel the remaining gesture, and never replay it. The
+pending input gate remains until native dispatch settles. Restricted-origin
+violations and unbounded script uncertainty suspend further automation while
+preserving the visible page. A read-only snapshot timeout likewise keeps its
+single pending capture until the late result is discarded. These paths must
+never create a replacement `about:blank` page.
+
 Browser additionally needs deterministic local fixtures for accessibility,
 shadow DOM, iframes/OOPIF, canvas, contenteditable, file input, downloads,
 redirects, SPA navigation, dialogs, renderer crash, prototype poisoning, and
