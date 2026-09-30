@@ -10,6 +10,7 @@ public sealed class SystemCodexVersion
 {
     private readonly IConnectionExecutableLocator _locator;
     private readonly IWorkspaceIsolationCommandRunner _runner;
+    private readonly IReadOnlyList<string> _applicationDirectories;
 
     public SystemCodexVersion(IConnectionExecutableLocator locator)
         : this(locator, new WorkspaceIsolationCommandRunner())
@@ -18,37 +19,53 @@ public sealed class SystemCodexVersion
 
     internal SystemCodexVersion(
         IConnectionExecutableLocator locator,
-        IWorkspaceIsolationCommandRunner runner)
+        IWorkspaceIsolationCommandRunner runner,
+        IReadOnlyList<string>? applicationDirectories = null)
     {
         _locator = locator ?? throw new ArgumentNullException(nameof(locator));
         _runner = runner ?? throw new ArgumentNullException(nameof(runner));
+        _applicationDirectories = applicationDirectories ?? (OperatingSystem.IsMacOS()
+            ? [Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Applications"), "/Applications"]
+            : []);
     }
 
     public async ValueTask<string?> ReadAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var executable = FindExecutable();
-        if (executable is null)
-        {
-            return null;
-        }
-
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(5));
         try
         {
-            // Process creation must not block Avalonia's main thread. The shared
-            // runner bounds and drains output and terminates its child on timeout.
-            var result = await Task.Run(async () => await _runner.RunAsync(
-                new WorkspaceProcessLaunch(executable, ["--version"],
-                    new Dictionary<string, string>(StringComparer.Ordinal), hostWorkingDirectory: null),
-                ReadOnlyMemory<byte>.Empty,
-                timeout.Token).ConfigureAwait(false), timeout.Token).ConfigureAwait(false);
-            return result.ExitCode == 0 ? Parse(result.StandardOutput) : null;
-        }
-        catch (IOException)
-        {
-            return null;
+            // Lookup and process creation must not block Avalonia's main thread.
+            // All candidates share one deadline; the runner drains bounded output
+            // and terminates its child on cancellation.
+            return await Task.Run(async () =>
+            {
+                foreach (var executable in FindExecutables())
+                {
+                    timeout.Token.ThrowIfCancellationRequested();
+                    WorkspaceIsolationCommandResult result;
+                    try
+                    {
+                        result = await _runner.RunAsync(
+                            new WorkspaceProcessLaunch(executable, ["--version"],
+                                new Dictionary<string, string>(StringComparer.Ordinal), hostWorkingDirectory: null),
+                            ReadOnlyMemory<byte>.Empty,
+                            timeout.Token).ConfigureAwait(false);
+                    }
+                    catch (IOException)
+                    {
+                        continue;
+                    }
+
+                    if (result.ExitCode == 0 && Parse(result.StandardOutput) is { } version)
+                    {
+                        return version;
+                    }
+                }
+
+                return null;
+            }, timeout.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -56,33 +73,38 @@ public sealed class SystemCodexVersion
         }
     }
 
-    private string? FindExecutable()
+    private IEnumerable<string> FindExecutables()
     {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         var executable = _locator.Find("codex");
-        if (executable is not null || !OperatingSystem.IsMacOS())
+        if (executable is not null)
         {
-            return executable;
+            _ = seen.Add(executable);
+            yield return executable;
         }
 
         // Finder launches may not inherit the shell PATH. Prefer its Codex when
-        // present, then look in installed desktop bundles without launching them.
-        foreach (var applications in new[]
-        {
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Applications"),
-            "/Applications",
-        })
+        // runnable, then check the flat and nested desktop CLI layouts. A stale
+        // shim must not hide a working bundle. The GUI itself is never launched.
+        foreach (var applications in _applicationDirectories)
         {
             foreach (var bundle in new[] { "Codex.app", "ChatGPT.app" })
             {
-                executable = _locator.Find(Path.Combine(applications, bundle, "Contents", "Resources", "codex"));
-                if (executable is not null)
+                var resources = Path.Combine(applications, bundle, "Contents", "Resources");
+                foreach (var relativePath in new[]
                 {
-                    return executable;
+                    "codex",
+                    Path.Combine("codex-cli", "CodexCLI.app", "Contents", "MacOS", "codex"),
+                })
+                {
+                    executable = _locator.Find(Path.Combine(resources, relativePath));
+                    if (executable is not null && seen.Add(executable))
+                    {
+                        yield return executable;
+                    }
                 }
             }
         }
-
-        return null;
     }
 
     internal static string? Parse(string output)

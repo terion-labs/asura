@@ -503,8 +503,16 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
     public IReadOnlyList<AiProviderModelDescriptor> Models
     {
         get => _models;
-        private set => SetProperty(ref _models, value);
+        private set
+        {
+            if (SetProperty(ref _models, value))
+            {
+                OnPropertyChanged(nameof(HasModels));
+            }
+        }
     }
+
+    public bool HasModels => Models.Count > 0;
 
     public AiProviderProfileSaveRequest CreateSaveRequest()
     {

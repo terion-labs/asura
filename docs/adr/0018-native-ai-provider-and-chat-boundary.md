@@ -39,10 +39,13 @@ a default model rather than guessing one. OpenAI OAuth discovery obtains its
 `client_version` from the installed system Codex executable via `codex --version`.
 Infrastructure owns that bounded, cancellable process and supplies only the
 release triplet to the provider boundary. macOS desktop bundles are checked when
-Codex is absent from PATH. An unavailable version produces an explicit discovery
-error; no fixed version is substituted. Codex authentication, configuration, and
-chat sessions are not reused. Browser and device authentication continue to use
-Asura's own vault session.
+Codex is absent from PATH or a PATH launcher cannot return a valid version. Both
+the flat CLI and nested `codex-cli/CodexCLI.app` layouts are supported in user and
+system application folders, without launching the desktop app. Lookup and all
+version processes share one deadline and run off the UI thread. An unavailable
+version produces an explicit discovery error; no fixed version is substituted.
+Codex authentication, configuration, and chat sessions are not reused. Browser
+and device authentication continue to use Asura's own vault session.
 
 Every request is constructed beneath the configured base path and must retain
 the configured scheme, host, and port. Automatic redirects, ambient

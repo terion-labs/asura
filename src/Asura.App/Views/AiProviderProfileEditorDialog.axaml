@@ -190,16 +190,19 @@
         <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
           <TextBlock FontWeight="SemiBold" Text="{Binding TestStatus}" />
           <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding TestDetail}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
-          <ItemsControl ItemsSource="{Binding Models}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <Grid Margin="{controls:Inset Top=Xs}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                  <TextBlock FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Id}" />
-                  <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding DisplayName}" />
-                </Grid>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
+          <StackPanel IsVisible="{Binding HasModels}" Spacing="{DynamicResource ShellSpaceXs}">
+            <TextBlock x:Name="ModelCatalogHeading" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Last discovered models" />
+            <ItemsControl ItemsSource="{Binding Models}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Grid Margin="{controls:Inset Top=Xs}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                    <TextBlock FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Id}" />
+                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding DisplayName}" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
         </StackPanel>
       </controls:SurfaceCard>
 
