@@ -5,6 +5,19 @@ namespace Asura.Core.Tests;
 public sealed class LiteralSecretSpanTests
 {
     [Theory]
+    [InlineData("password=fixture-value", "fixture-value")]
+    [InlineData("token='two words'", "two words")]
+    [InlineData("password=prefix\" secret words \"suffix", "prefix secret words suffix")]
+    [InlineData("password=\"p\\u00e4ss\"", "päss")]
+    [InlineData("--api-key 'first second'", "first second")]
+    [InlineData("authorization: Bearer fixture-auth-value", "fixture-auth-value")]
+    [InlineData("fixture-value", "fixture-value")]
+    [InlineData("https://alice:fixture-password@host/path", "https://alice:fixture-password@host/path")]
+    [InlineData("before password=fixture-value after", "before password=fixture-value after")]
+    public void RevealShowsOnlyCompleteAssignmentValue(string original, string expected) =>
+        Assert.Equal(expected, LiteralSecretValidator.GetLiteralSecretDisplayValue(original), StringComparer.Ordinal);
+
+    [Theory]
     [InlineData("password=prefix\" secret words \"suffix")]
     [InlineData("password=\"first\"\"second\"")]
     [InlineData("password=first\\ second\\ third")]

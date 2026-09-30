@@ -1,6 +1,7 @@
 using Asura.App.Views.Components;
 using Asura.Application;
 using Asura.Core;
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -49,25 +50,39 @@ public sealed class MarkdownChatSecretsHeadlessTests
                 var button = Assert.Single(preview.GetVisualDescendants().OfType<Button>(), control =>
                     AutomationProperties.GetName(control)?.StartsWith("Reveal hidden content", StringComparison.Ordinal) == true);
                 Assert.Equal(0, runtime.RevealCount);
+                Assert.Equal("<secret>", Assert.IsType<TextBlock>(button.Content).Text);
+                if (kind == "prose")
+                {
+                    // A short inline spoiler must fit in the same single line as
+                    // the surrounding text, without growing its 20 DIP line box.
+                    var paragraph = Assert.Single(preview.GetVisualDescendants().OfType<SelectableTextBlock>(), control => control.IsEffectivelyVisible);
+                    Assert.InRange(paragraph.Bounds.Height, 1, 21);
+                    var position = button.TranslatePoint(new Point(), paragraph);
+                    Assert.NotNull(position);
+                    Assert.InRange(position.Value.Y, 0, paragraph.Bounds.Height - button.Bounds.Height + 0.5);
+                    var label = Assert.IsType<TextBlock>(button.Content);
+                    Assert.Equal(paragraph.TextLayout.TextLines[0].Baseline,
+                        position.Value.Y + label.TextLayout.TextLines[0].Baseline, precision: 1);
+                }
                 Assert.DoesNotContain(preview.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == RevealRuntime.Original);
                 button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background, CancellationToken.None);
                 Assert.Equal(1, runtime.RevealCount);
-                Assert.Equal(RevealRuntime.Original, Assert.IsType<TextBlock>(button.Content).Text, StringComparer.Ordinal);
+                Assert.Equal(RevealRuntime.Value, Assert.IsType<TextBlock>(button.Content).Text, StringComparer.Ordinal);
                 Assert.Equal("Hide revealed content", AutomationProperties.GetName(button), StringComparer.Ordinal);
                 Assert.DoesNotContain(RevealRuntime.Original, preview.Text, StringComparison.Ordinal);
                 host.IsVisible = false;
-                Assert.IsType<string>(button.Content);
+                Assert.Equal("<secret>", Assert.IsType<TextBlock>(button.Content).Text);
                 Assert.Null(button.ContextMenu);
                 host.IsVisible = true;
                 button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background, CancellationToken.None);
-                Assert.Equal(RevealRuntime.Original, Assert.IsType<TextBlock>(button.Content).Text, StringComparer.Ordinal);
+                Assert.Equal(RevealRuntime.Value, Assert.IsType<TextBlock>(button.Content).Text, StringComparer.Ordinal);
                 button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                Assert.IsType<string>(button.Content);
+                Assert.Equal("<secret>", Assert.IsType<TextBlock>(button.Content).Text);
                 Assert.Null(button.ContextMenu);
                 window.Content = null;
-                Assert.IsType<string>(button.Content);
+                Assert.Equal("<secret>", Assert.IsType<TextBlock>(button.Content).Text);
             }
             finally
             {
@@ -96,7 +111,7 @@ public sealed class MarkdownChatSecretsHeadlessTests
                 window.Content = null;
                 runtime.Release.TrySetResult();
                 await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background, CancellationToken.None);
-                Assert.IsType<string>(button.Content);
+                Assert.Equal("<secret>", Assert.IsType<TextBlock>(button.Content).Text);
                 Assert.Null(button.ContextMenu);
             }
             finally
@@ -120,7 +135,8 @@ public sealed class MarkdownChatSecretsHeadlessTests
 
     private sealed class RevealRuntime : IAgentChatSecretRuntime
     {
-        public const string Original = "password=**literal** [not a link](https://example.test)";
+        public const string Value = "**literal** [not a link](https://example.test)";
+        public const string Original = "password=\"" + Value + "\"";
         public int RevealCount { get; private set; }
         public TaskCompletionSource? Release { get; init; }
         public ProtectedChatText ProtectDraft(string text) => new(text, []);

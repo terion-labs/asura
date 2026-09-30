@@ -7,6 +7,26 @@
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch">
   <UserControl.Styles>
+    <!-- Embedded buttons use text geometry so they do not raise the baseline
+         or add the shell button's minimum width and padding to a sentence. -->
+    <Style Selector="Button.ChatSecret">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize13}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" />
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="Button.ChatSecret:pointerover /template/ ContentPresenter">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    </Style>
+    <Style Selector="Button.ChatSecret:focus-visible /template/ ContentPresenter">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    </Style>
     <!-- Every text block is selectable, so a preview can be read out of as
          well as looked at: select, copy, paste elsewhere. -->
     <Style Selector="SelectableTextBlock">

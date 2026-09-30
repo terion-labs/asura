@@ -107,7 +107,11 @@ public sealed partial class MarkdownPreviewView
             {
                 span.Inlines.Add(Inline(run with { Text = run.Text[cursor..found.Index] }));
             }
-            span.Inlines.Add(new InlineUIContainer { Child = SecretSpoiler(found.Reference) });
+            span.Inlines.Add(new InlineUIContainer
+            {
+                BaselineAlignment = BaselineAlignment.Baseline,
+                Child = SecretSpoiler(found.Reference)
+            });
             cursor = found.Index + found.Reference.Placeholder.Length;
         }
         return span;
@@ -115,8 +119,10 @@ public sealed partial class MarkdownPreviewView
 
     private Button SecretSpoiler(ChatHiddenReference reference)
     {
-        var label = "Hidden · " + reference.Id[..6];
-        var button = new Button { Content = label, Padding = new Thickness(4, 0), MinHeight = 20 };
+        const string label = "<secret>";
+        var display = new TextBlock { Text = label, TextWrapping = TextWrapping.Wrap };
+        var button = new SecretSpoilerButton { Content = display };
+        button.Classes.Add("ChatSecret");
         AutomationProperties.SetName(button, "Reveal hidden content " + reference.Id[..6]);
         string? revealed = null;
         CancellationTokenSource? pendingReveal = null;
@@ -124,7 +130,7 @@ public sealed partial class MarkdownPreviewView
         {
             pendingReveal?.Cancel();
             revealed = null;
-            button.Content = label;
+            display.Text = label;
             button.ContextMenu = null;
             AutomationProperties.SetName(button, "Reveal hidden content " + reference.Id[..6]);
         }
@@ -138,7 +144,7 @@ public sealed partial class MarkdownPreviewView
             }
             if (SecretRuntime is not { } runtime)
             {
-                button.Content = "Unavailable";
+                display.Text = "Unavailable";
                 return;
             }
             var generation = _buildGeneration;
@@ -153,7 +159,7 @@ public sealed partial class MarkdownPreviewView
                 {
                     if (generation == _buildGeneration && revealGeneration == _revealGeneration)
                     {
-                        button.Content = "Unavailable";
+                        display.Text = "Unavailable";
                     }
                     return;
                 }
@@ -161,9 +167,9 @@ public sealed partial class MarkdownPreviewView
                 {
                     return;
                 }
-                revealed = success.Value;
+                revealed = LiteralSecretValidator.GetLiteralSecretDisplayValue(success.Value);
                 // Original text is never parsed as Markdown, a URI, or a control.
-                button.Content = new TextBlock { Text = revealed, TextWrapping = TextWrapping.Wrap };
+                display.Text = revealed;
                 AutomationProperties.SetName(button, "Hide revealed content");
                 var copy = new MenuItem { Header = "Copy revealed content" };
                 copy.Click += async (_, _) =>
@@ -179,7 +185,7 @@ public sealed partial class MarkdownPreviewView
             {
                 if (generation == _buildGeneration && revealGeneration == _revealGeneration)
                 {
-                    button.Content = "Unavailable";
+                    display.Text = "Unavailable";
                 }
             }
             finally
@@ -189,6 +195,23 @@ public sealed partial class MarkdownPreviewView
             }
         };
         return button;
+    }
+
+    private sealed class SecretSpoilerButton : Button
+    {
+        protected override Type StyleKeyOverride => typeof(Button);
+
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            var size = base.MeasureOverride(availableSize);
+            if (Content is TextBlock text && text.TextLayout.TextLines.Count > 0)
+            {
+                // Embedded controls otherwise use their bottom edge as the
+                // baseline, clipping text inside the paragraph's fixed line height.
+                TextBlock.SetBaselineOffset(this, text.TextLayout.TextLines[0].Baseline);
+            }
+            return size;
+        }
     }
 
     private Control ProtectedCode(MarkdownBlock block)
