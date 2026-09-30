@@ -73,6 +73,57 @@ public sealed class AiProviderRuntimeBoundaryTests
     }
 
     [Fact]
+    public async Task OAuth_discovery_uses_a_real_cli_version_process_and_observes_installation_updates()
+    {
+        if (OperatingSystem.IsWindows()) { return; }
+        var directory = Directory.CreateTempSubdirectory("asura-provider-codex-");
+        try
+        {
+            var executable = Path.Combine(directory.FullName, "codex");
+            WriteVersion("1.23.45-alpha.1");
+            var reader = new SystemCodexVersion(new VersionExecutableLocator(executable));
+            using var vault = new InMemorySecretVault();
+            var id = new AiProviderProfileId("real-codex-version");
+            var secret = new SecretRef("asura-oauth-session");
+            await new AiProviderOAuthVault(vault).StoreAsync(id, secret,
+                new AiProviderOAuthSession(AiProviderOAuthSession.CurrentSchemaVersion,
+                    "openai", "asura-token", null, DateTimeOffset.MaxValue, "asura-account"),
+                CancellationToken.None);
+            var profile = new AiProviderProfile(id, AiProviderProfile.CurrentSchemaVersion,
+                "OpenAI", AiProviderKind.OpenAi, AiProviderProfile.DefaultEndpoint(AiProviderKind.OpenAi),
+                new AiProviderAuthentication.OAuth(secret, AiProviderOAuthFlow.Browser), "future-model", 0);
+            var handler = new StubHttpMessageHandler((_, _) => JsonResponseAsync(
+                """{"models":[{"slug":"future-model","display_name":"Future model","visibility":"list"}]}"""));
+            using var factory = new AiProviderFactory(vault, handler, readCodexVersion: reader.ReadAsync);
+            using var runtime = new CatalogAiProviderRuntime(new FixedDefinitionCatalog(Snapshot(profile)), factory);
+
+            Assert.True((await runtime.TestAsync(profile, CancellationToken.None)).IsSuccess);
+            Assert.Equal("?client_version=1.23.45", handler.LastRequest!.Uri.Query);
+            Assert.Equal("Bearer asura-token", handler.LastRequest.Authorization);
+            WriteVersion("1.24.0");
+            Assert.True((await runtime.TestAsync(profile, CancellationToken.None)).IsSuccess);
+            Assert.Equal("?client_version=1.24.0", handler.LastRequest!.Uri.Query);
+            Assert.Equal(2, handler.CallCount);
+
+            void WriteVersion(string version)
+            {
+                File.WriteAllText(executable, $"""
+                    #!/bin/sh
+                    test "$#" -eq 1 && test "$1" = "--version" || exit 23
+                    printf '%s\n' 'codex-cli {version}'
+                    """);
+                File.SetUnixFileMode(executable, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
+    private sealed class VersionExecutableLocator(string executable) : IConnectionExecutableLocator
+    {
+        public string? Find(string name) => name == "codex" ? executable : null;
+    }
+
+    [Fact]
     public async Task Open_ai_model_discovery_uses_exact_uri_bearer_auth_and_vault_scope()
     {
         using var vault = new RecordingSecretVault();

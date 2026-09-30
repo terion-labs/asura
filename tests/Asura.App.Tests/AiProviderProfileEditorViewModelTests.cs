@@ -308,6 +308,53 @@ public sealed class AiProviderProfileEditorViewModelTests
     }
 
     [Fact]
+    public async Task Failed_test_labels_previous_discovery_and_preserves_the_saved_catalog()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        try
+        {
+            Assert.True(await session.Dispatch(async () =>
+            {
+                using var runtime = new StubRuntime
+                {
+                    Result = new AiProviderTestResult(true, "ai_provider_test_succeeded", "Connected.",
+                        [new AiProviderModelDescriptor("model", "Model")]),
+                };
+                var editor = new AiProviderProfileEditorViewModel(runtime, [])
+                {
+                    Name = "Local",
+                    Kind = AiProviderKind.OpenAiCompatible,
+                    Endpoint = "http://localhost:11434/v1/",
+                    DefaultModel = "model",
+                    UseNoAuthentication = true,
+                };
+                await editor.TestAsync(timeout.Token);
+                var reopened = new AiProviderProfileEditorViewModel(runtime, [], editor.CreateSaveRequest().Profile);
+                runtime.Result = new AiProviderTestResult(false, "ai_provider_codex_version_unavailable",
+                    "Could not read the installed Codex version.", [], AiProviderRuntimeErrorCode.InvalidConfiguration);
+                var dialog = new AiProviderProfileEditorDialog(reopened);
+                dialog.Show();
+                try
+                {
+                    await reopened.TestAsync(timeout.Token);
+                    await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+                    dialog.UpdateLayout();
+                    Assert.Equal("Test failed", reopened.TestStatus);
+                    Assert.Equal(["model"], reopened.CreateSaveRequest().Profile.DiscoveredModelIds);
+                    var heading = dialog.FindControl<TextBlock>("ModelCatalogHeading");
+                    Assert.NotNull(heading);
+                    Assert.True(heading.IsEffectivelyVisible);
+                    Assert.Equal("Last discovered models", heading.Text);
+                }
+                finally { dialog.Close(); }
+                return true;
+            }, timeout.Token));
+        }
+        finally { await session.DisposeAsync(); }
+    }
+
+    [Fact]
     public async Task Discovery_selects_a_returned_model_when_no_default_is_configured()
     {
         using var runtime = new StubRuntime
