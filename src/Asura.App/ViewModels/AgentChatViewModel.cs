@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
 using Asura.Application;
 using Asura.Core;
@@ -18,13 +19,53 @@ public sealed record AgentChatMessageViewModel(
     IReadOnlyList<ChatHiddenReference>? HiddenReferences = null,
     IAgentChatSecretRuntime? SecretRuntime = null,
     int DisclosedHiddenCount = 0,
-    string? DisclosureDestination = null)
+    string? DisclosureDestination = null,
+    string? ChatMessageId = null) : INotifyPropertyChanged
 {
+    public event PropertyChangedEventHandler? PropertyChanged;
+    private bool _exposeSecretsOnNextRequest;
+    private string _nextDisclosureDestination = string.Empty;
+
+    public string NextDisclosureDestination
+    {
+        get => _nextDisclosureDestination;
+        set
+        {
+            if (string.Equals(_nextDisclosureDestination, value, StringComparison.Ordinal))
+            {
+                return;
+            }
+            _nextDisclosureDestination = value;
+            PropertyChanged?.Invoke(this, new(nameof(NextDisclosureDestination)));
+            PropertyChanged?.Invoke(this, new(nameof(SecretDisclosureExplanation)));
+        }
+    }
+
+    public bool HasHiddenSecrets => HiddenReferences is { Count: > 0 } && ChatMessageId is not null;
+
+    public bool ExposeSecretsOnNextRequest
+    {
+        get => _exposeSecretsOnNextRequest;
+        set
+        {
+            if (_exposeSecretsOnNextRequest == value)
+            {
+                return;
+            }
+            _exposeSecretsOnNextRequest = value;
+            PropertyChanged?.Invoke(this, new(nameof(ExposeSecretsOnNextRequest)));
+            PropertyChanged?.Invoke(this, new(nameof(SecretDisclosureExplanation)));
+        }
+    }
+
+    public string SecretDisclosureExplanation => (ExposeSecretsOnNextRequest
+        ? $"This message's secrets will be sent to {NextDisclosureDestination} on the next request. Click to keep them hidden."
+        : "This message's secrets will stay hidden on the next request. Click to send them once.")
+        + (HasDisclosureReceipt ? $" Previously sent raw secrets to {DisclosureDestination}." : string.Empty);
+
     public bool IsUser => Role == AgentChatMessageRole.User;
 
-    public bool HasDisclosureReceipt => DisclosedHiddenCount > 0;
-    public string DisclosureReceipt => HasDisclosureReceipt
-        ? $"Sent raw secrets to {DisclosureDestination}" : string.Empty;
+    public bool HasDisclosureReceipt => HasHiddenSecrets && DisclosedHiddenCount > 0;
 
     public bool IsAssistant => Role == AgentChatMessageRole.Assistant;
 
@@ -569,7 +610,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     }
 
     public string SendRawSecretsExplanation =>
-        $"Send hidden secrets in this conversation and your message to {SelectedProvider?.Name ?? "the selected provider"} / {SelectedModelName} for the next request. Turns off after sending. Revealing a secret only shows it locally.";
+        $"Send secrets in this new message to {SelectedProvider?.Name ?? "the selected provider"} / {SelectedModelName}. Turns off after sending. Use a message's lock button to send its secrets on the next request. Revealing a secret only shows it locally.";
 
     private string? DisclosureDestinationLabel(string? destination)
     {
@@ -584,18 +625,28 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     internal void ResetHiddenDisclosure()
     {
         SendRawSecrets = false;
+        foreach (var message in Messages)
+        {
+            message.ExposeSecretsOnNextRequest = false;
+            message.NextDisclosureDestination = $"{SelectedProvider?.Name ?? "the selected provider"} / {SelectedModelName}";
+        }
         OnPropertyChanged(nameof(SendRawSecretsExplanation));
     }
 
     private System.Collections.Immutable.ImmutableArray<ChatHiddenReference> RawSecretReferences(string prompt)
     {
-        if (!SendRawSecrets)
-        {
-            return [];
-        }
-        var draft = (_runtime as IAgentChatSecretRuntime)?.ProtectDraft(prompt);
-        return [.. Messages.SelectMany(message => message.HiddenReferences ?? [])
+        var draft = SendRawSecrets ? (_runtime as IAgentChatSecretRuntime)?.ProtectDraft(prompt) : null;
+        return [.. Messages.Where(message => message.ExposeSecretsOnNextRequest)
+            .SelectMany(message => message.HiddenReferences ?? [])
             .Concat(draft?.References ?? []).Distinct()];
+    }
+
+    public void ToggleMessageSecrets(AgentChatMessageViewModel message)
+    {
+        if (Messages.Contains(message) && message.HasHiddenSecrets && CanEnterPrompt)
+        {
+            message.ExposeSecretsOnNextRequest = !message.ExposeSecretsOnNextRequest;
+        }
     }
 
     public ObservableCollection<AgentQueuedFollowUpViewModel> QueuedFollowUps { get; } = [];
@@ -1760,9 +1811,9 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (SendRawSecrets)
+        if (SendRawSecrets || Messages.Any(message => message.ExposeSecretsOnNextRequest))
         {
-            ReportTargetUnavailable("Turn off Send raw secrets to queue a message, or wait for the agent to finish before sending.");
+            ReportTargetUnavailable("Lock message secrets and turn off Send raw secrets to queue, or wait for the agent to finish before sending.");
             return;
         }
 
@@ -1936,6 +1987,9 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             files)
         {
             DiscloseHiddenReferences = RawSecretReferences(prompt),
+            DiscloseHiddenMessageIds = [.. Messages.Where(message => message.ExposeSecretsOnNextRequest)
+                .Select(message => message.ChatMessageId!)],
+            DiscloseDraftSecrets = SendRawSecrets,
         };
 
         ResetHiddenDisclosure();
@@ -2766,6 +2820,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
         _contextTokensUsed = snapshot.ContextTokensUsed;
 
+        var selectedSecretMessages = Messages.Where(message => message.ExposeSecretsOnNextRequest)
+            .Select(message => message.ChatMessageId).ToHashSet(StringComparer.Ordinal);
         Replace(
             Messages,
             snapshot.Messages.Select(message =>
@@ -2782,7 +2838,12 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                     message.HiddenReferences,
                     _runtime as IAgentChatSecretRuntime,
                     message.DisclosedHiddenCount,
-                    DisclosureDestinationLabel(message.DisclosureDestination))));
+                    DisclosureDestinationLabel(message.DisclosureDestination),
+                    message.ChatMessageId)
+                {
+                    ExposeSecretsOnNextRequest = selectedSecretMessages.Contains(message.ChatMessageId),
+                    NextDisclosureDestination = $"{SelectedProvider?.Name ?? "the selected provider"} / {SelectedModelName}",
+                }));
         if (_auditRunId != (snapshot.SelectedConversationRunId ?? snapshot.RunId))
         {
             ResetHiddenDisclosure();

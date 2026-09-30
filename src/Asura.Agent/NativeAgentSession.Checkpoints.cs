@@ -13,14 +13,37 @@ public sealed partial class NativeAgentSession
     private int _nextChatDisclosureCount;
     private string? _nextChatDisclosureDestination;
 
-    internal void SetNextChatDisclosure(int count, string? destination)
+    internal void SetNextChatDisclosure(int count, string? destination,
+        ImmutableArray<string> messageIds = default, ImmutableArray<ChatHiddenReference> references = default)
     {
-        if (count is < 0 or > 4096 || (count > 0 && !IsValidRouteIdentity(destination)))
+        if (count is < 0 or > 4096 || ((count > 0 || !messageIds.IsDefaultOrEmpty) && !IsValidRouteIdentity(destination)))
         {
             throw new ArgumentException("The hidden content disclosure receipt is invalid.");
         }
         lock (_gate)
         {
+            // Receipts belong to the source messages, not the later prompt that
+            // happens to request their disclosure. Keep both durable projections aligned.
+            AgentMessage Mark(AgentMessage message)
+            {
+                if (messageIds.IsDefaultOrEmpty || !messageIds.Contains(message.ChatMessageId, StringComparer.Ordinal))
+                {
+                    return message;
+                }
+                var hidden = ProjectProtectedMessage(message, ChatTextProtection).HiddenReferences;
+                var disclosedCount = hidden.Count(reference => references.Contains(reference));
+                if (disclosedCount == 0)
+                {
+                    return message;
+                }
+                return message with
+                {
+                    DisclosedHiddenCount = disclosedCount,
+                    DisclosureDestination = destination,
+                };
+            }
+            _conversation = [.. _conversation.Select(Mark)];
+            _transcript = [.. _transcript.Select(Mark)];
             _nextChatDisclosureCount = count;
             _nextChatDisclosureDestination = count == 0 ? null : destination;
         }
@@ -551,6 +574,31 @@ public sealed partial class NativeAgentSession
             var transcript = (payload.Transcript ?? payload.Conversation!)
                 .Select(FromCheckpointMessage)
                 .ToImmutableArray();
+            // Older checkpoints have no message IDs. Match their retained
+            // context to transcript occurrences from the end, including duplicates.
+            var cursor = transcript.Length - 1;
+            for (var index = conversation.Length - 1; index >= 0; index--)
+            {
+                if (payload.Conversation![index].ChatMessageId is not null)
+                {
+                    continue;
+                }
+                for (var candidate = cursor; candidate >= 0; candidate--)
+                {
+                    if (conversation[index].Role == transcript[candidate].Role
+                        && string.Equals(conversation[index].Content, transcript[candidate].Content, StringComparison.Ordinal))
+                    {
+                        conversation = conversation.SetItem(index, conversation[index] with { ChatMessageId = transcript[candidate].ChatMessageId });
+                        cursor = candidate - 1;
+                        break;
+                    }
+                }
+            }
+            if (conversation.Select(message => message.ChatMessageId).Distinct(StringComparer.Ordinal).Count() != conversation.Length
+                || transcript.Select(message => message.ChatMessageId).Distinct(StringComparer.Ordinal).Count() != transcript.Length)
+            {
+                throw new ArgumentException("Duplicate chat message identities are invalid.");
+            }
             if (ContainsUnsafeStructuredContent(conversation)
                 || ContainsUnsafeStructuredContent(transcript))
             {
@@ -718,18 +766,13 @@ public sealed partial class NativeAgentSession
             [.. message.Files.Select(file => new CheckpointFile(file.Id, file.FileName, file.ByteCount))],
             [.. message.HiddenReferences.Select(reference => reference.Id)],
             message.DisclosedHiddenCount,
-            message.DisclosureDestination);
+            message.DisclosureDestination,
+            message.ChatMessageId);
 
     private static AgentMessage WithoutUnsafeProviderReplayState(
         AgentMessage message) =>
         message.ProviderReplayState?.ContainsSuppressedRawReasoning == true
-            ? AgentMessage.Assistant(
-                message.Content,
-                message.ToolCalls,
-                message.ReasoningSummary,
-                message.Usage,
-                providerReplayState: null,
-                requestedReasoningEffort: message.RequestedReasoningEffort)
+            ? message.WithoutProviderReplayState()
             : message;
 
     private static AgentMessage ToDurableCheckpointMessage(AgentMessage message)
@@ -842,13 +885,20 @@ public sealed partial class NativeAgentSession
                 && !(restored.ToolResult is { Value.Kind: AgentToolResultValueKind.Json } result
                     && HiddenJsonTextMatches(result.Value.Content, reference.Placeholder)))
             || message.DisclosedHiddenCount is < 0 or > 4096
-            || (message.DisclosedHiddenCount > 0 && (restored.Role != AgentMessageRole.User || !IsValidRouteIdentity(message.DisclosureDestination)))
+            || (message.DisclosedHiddenCount > 0 && !IsValidRouteIdentity(message.DisclosureDestination))
             || (message.DisclosedHiddenCount == 0 && message.DisclosureDestination is not null)
+            || (message.ChatMessageId is not null && !Guid.TryParseExact(message.ChatMessageId, "N", out _))
             || (references.Length > 0 && restored.ProviderReplayState is not null))
         {
             throw new ArgumentException("The hidden chat annotations are invalid.");
         }
-        return restored with { HiddenReferences = references, DisclosedHiddenCount = message.DisclosedHiddenCount, DisclosureDestination = message.DisclosureDestination };
+        return restored with
+        {
+            HiddenReferences = references,
+            DisclosedHiddenCount = message.DisclosedHiddenCount,
+            DisclosureDestination = message.DisclosureDestination,
+            ChatMessageId = message.ChatMessageId ?? restored.ChatMessageId
+        };
     }
 
     private static bool HiddenJsonTextMatches(string json, string placeholder)
@@ -1407,7 +1457,8 @@ public sealed partial class NativeAgentSession
         CheckpointFile[]? Files = null,
         string[]? HiddenReferences = null,
         int DisclosedHiddenCount = 0,
-        string? DisclosureDestination = null);
+        string? DisclosureDestination = null,
+        string? ChatMessageId = null);
 
     private sealed record CheckpointFile(string Id, string FileName, int ByteCount);
 

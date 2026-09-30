@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Asura.Agent;
 using Asura.Core;
 
@@ -7,6 +8,29 @@ namespace Asura.Agent.Tests;
 
 public sealed partial class NativeAgentSessionTests
 {
+    [Fact]
+    public async Task LegacyCheckpointAssignsDistinctSourceIdentitiesAndMatchesRetainedContext()
+    {
+        var session = CreateSession();
+        Assert.True((await session.RunTurnAsync("Repeated message", [], TextProvider("Reply"), default)).Succeeded);
+        Assert.True((await session.RunTurnAsync("Repeated message", [], TextProvider("Reply"), default)).Succeeded);
+        var checkpoint = Assert.IsType<AgentSessionCheckpoint>(session.CaptureCheckpoint().Checkpoint);
+        var payload = JsonNode.Parse(checkpoint.PayloadJson)!;
+        foreach (var collection in new[] { "conversation", "transcript" })
+        {
+            foreach (var message in payload[collection]!.AsArray())
+            {
+                message!.AsObject().Remove("chatMessageId");
+            }
+        }
+        var legacy = new AgentSessionCheckpoint(checkpoint.RunId, checkpoint.SchemaVersion, checkpoint.Generation,
+            checkpoint.Revision, payload.ToJsonString(), checkpoint.UpdatedAt);
+        var restored = Assert.IsType<NativeAgentSession>(NativeAgentSession.RestoreCheckpoint(legacy).Session).Snapshot();
+        Assert.Equal(4, restored.Transcript.Select(message => message.ChatMessageId).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(restored.Transcript.Select(message => message.ChatMessageId),
+            restored.Conversation.Select(message => message.ChatMessageId), StringComparer.Ordinal);
+    }
+
     [Fact]
     public async Task ProtectedCheckpointRoundTripsInertReferencesAndReceiptWhileLiveConversationStaysExact()
     {

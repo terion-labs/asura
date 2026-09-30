@@ -868,6 +868,7 @@ public sealed partial class GovernedAgentRuntime :
                     "The AI-provider profile changed. Clear the run before sending its transcript again.");
             }
 
+            var disclosedDraftCount = 0;
             try
             {
                 provider = providerBinding.CreateProvider(
@@ -876,10 +877,18 @@ public sealed partial class GovernedAgentRuntime :
                 if (_chatSecrets is not null)
                 {
                     var draft = _chatSecrets.Protect(request.Message);
-                    var known = Snapshot.Messages.SelectMany(message => message.HiddenReferences ?? [])
-                        .Concat(draft.References).ToHashSet();
-                    if (request.DiscloseHiddenReferences.IsDefault
-                        || request.DiscloseHiddenReferences.Length > 4096
+                    if (request.DiscloseHiddenMessageIds.IsDefault || request.DiscloseHiddenReferences.IsDefault
+                        || request.DiscloseHiddenMessageIds.Length > 4096 || request.DiscloseHiddenReferences.Length > 4096)
+                    {
+                        return FinishRecoverableSetupFailure(turnCancellation, baseMessages,
+                            "agent_hidden_selection_invalid", "Choose hidden content from this workspace conversation before sending it.");
+                    }
+                    var selectedMessages = Snapshot.Messages.Where(message => message.ChatMessageId is not null
+                        && request.DiscloseHiddenMessageIds.Contains(message.ChatMessageId, StringComparer.Ordinal)).ToArray();
+                    var known = selectedMessages.SelectMany(message => message.HiddenReferences ?? [])
+                        .Concat(request.DiscloseDraftSecrets ? draft.References : []).ToHashSet();
+                    if (request.DiscloseHiddenMessageIds.Distinct(StringComparer.Ordinal).Count() != selectedMessages.Length
+                        || selectedMessages.Any(message => message.HiddenReferences is not { Count: > 0 })
                         || request.DiscloseHiddenReferences.Any(reference => !known.Contains(reference)))
                     {
                         return FinishRecoverableSetupFailure(turnCancellation, baseMessages,
@@ -893,9 +902,10 @@ public sealed partial class GovernedAgentRuntime :
                                 "agent_hidden_content_unavailable", "Selected hidden content is unavailable. Unlock the operating-system vault or send with originals unchecked.");
                         }
                     }
-                    GetRequiredSession().SetNextChatDisclosure(request.DiscloseHiddenReferences.Distinct().Count(),
-                        request.ProviderId.Value + "/" + selectedModel);
-                    provider = new ChatSecretProvider(provider, _chatSecrets, request.DiscloseHiddenReferences);
+                    disclosedDraftCount = request.DiscloseDraftSecrets
+                        ? draft.References.Count(request.DiscloseHiddenReferences.Contains) : 0;
+                    provider = new ChatSecretProvider(provider, _chatSecrets, request.DiscloseHiddenReferences,
+                        request.DiscloseHiddenMessageIds, request.DiscloseDraftSecrets, selectedMessages);
                 }
             }
             catch (Exception exception)
@@ -941,6 +951,13 @@ public sealed partial class GovernedAgentRuntime :
             if (preflightCompaction.Compacted)
             {
                 baseMessages = ProjectMessages(session);
+            }
+
+            if (_chatSecrets is not null)
+            {
+                session.SetNextChatDisclosure(disclosedDraftCount,
+                    request.ProviderId.Value + "/" + selectedModel,
+                    request.DiscloseHiddenMessageIds, request.DiscloseHiddenReferences);
             }
 
             PublishPendingConversation(
@@ -5084,7 +5101,8 @@ public sealed partial class GovernedAgentRuntime :
             if (message.Role == AgentMessageRole.Tool && message.HiddenReferences.Length > 0)
             {
                 projected.Add(new AgentChatMessage(AgentChatMessageRole.Assistant, presentationContent,
-                    HiddenReferences: message.HiddenReferences));
+                    HiddenReferences: message.HiddenReferences, ChatMessageId: message.ChatMessageId,
+                    DisclosedHiddenCount: message.DisclosedHiddenCount, DisclosureDestination: message.DisclosureDestination));
             }
             if (message.Role == AgentMessageRole.User
                     && (message.Content.Length > 0 || message.Images.Length > 0 || message.Files.Length > 0)
@@ -5123,7 +5141,8 @@ public sealed partial class GovernedAgentRuntime :
                         Files: message.Files.IsEmpty ? null : [.. message.Files.Select(file => file.FileName)],
                         HiddenReferences: message.HiddenReferences,
                         DisclosedHiddenCount: message.DisclosedHiddenCount,
-                        DisclosureDestination: message.DisclosureDestination));
+                        DisclosureDestination: message.DisclosureDestination,
+                        ChatMessageId: message.ChatMessageId));
             }
 
             if (message.Role == AgentMessageRole.Assistant)

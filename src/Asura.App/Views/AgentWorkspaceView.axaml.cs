@@ -572,6 +572,15 @@ public sealed partial class AgentWorkspaceView : UserControl
     private void OnCopyAgentMessageClick(object? sender, RoutedEventArgs e) =>
         CopyAgentMessageRequested?.Invoke(sender, e);
 
+    private void OnToggleAgentMessageSecretsClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AgentChatMessageViewModel message }
+            && DataContext is IAgentWorkspaceHost { AgentChat: { } chat })
+        {
+            chat.ToggleMessageSecrets(message);
+        }
+    }
+
     private void OnForkAgentConversationClick(object? sender, RoutedEventArgs e) =>
         ForkAgentConversationRequested?.Invoke(sender, e);
 

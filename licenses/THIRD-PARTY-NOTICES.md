@@ -27,6 +27,7 @@ The application bundle also includes:
   worker closure;
 - Lucide `panel-left-close`, `panel-right-close`, `panel-bottom-close`,
   `panel-top-close`, and `fullscreen` vector geometry under the ISC license;
+- Fluent UI `ic_fluent_lock_open_12_regular` vector geometry under the MIT license;
 - Mozilla Readability 0.6.0, embedded for browser-side article extraction,
   under the Apache-2.0 license (retained at
   `src/Asura.Browser/Assets/Readability.LICENSE.md`);
@@ -239,3 +240,30 @@ Kubernetes API access uses the unmodified official `KubernetesClient.Aot` packag
 Its static-generator dependency is build-only and is absent from the published
 managed dependency closure. Helm is supplied by the selected execution environment;
 Asura does not bundle a Helm executable in this change.
+
+## Fluent UI icon geometry
+
+The message disclosure control uses `ic_fluent_lock_open_12_regular` from
+[Microsoft Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons/blob/main/assets/Lock%20Open/SVG/ic_fluent_lock_open_12_regular.svg).
+
+MIT License
+
+Copyright (c) 2020 Microsoft Corporation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

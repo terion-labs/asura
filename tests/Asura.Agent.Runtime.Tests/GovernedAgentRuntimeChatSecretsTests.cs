@@ -7,6 +7,74 @@ namespace Asura.Agent.Runtime.Tests;
 
 public sealed partial class GovernedAgentRuntimeTests
 {
+    [Fact]
+    public async Task CompactedReasoningSourceIncludesAuthorizedSecretOnItsOwnBodyOnce()
+    {
+        using var vault = new ChatSecretTestVault();
+        using var secrets = new WorkspaceChatSecrets(vault, ChatScope);
+        var hidden = secrets.Protect(ChatCredential);
+        var reference = Assert.Single(hidden.References);
+        var sourceId = Guid.NewGuid().ToString("N");
+        var provider = ProviderRound.AnswerEveryTurn();
+        var guarded = new ChatSecretProvider(provider, secrets, [reference], [sourceId], false,
+            [new(AgentChatMessageRole.Assistant, string.Empty, ReasoningSummary: hidden.Text,
+                HiddenReferences: [reference], ChatMessageId: sourceId)]);
+        var requestSource = ProviderRound.AnswerEveryTurn();
+        var session = new NativeAgentSession(new("compacted-source-run"));
+        Assert.True((await session.RunTurnAsync("Continue without a new secret", [], requestSource, default)).Succeeded);
+        var request = Assert.Single(requestSource.Requests);
+        await foreach (var item in guarded.StreamAsync(request, default))
+        {
+            _ = item;
+        }
+        var outgoing = provider.Requests.Single().Messages;
+        Assert.Equal(2, outgoing.Length);
+        Assert.Equal(sourceId, outgoing[0].ChatMessageId, StringComparer.Ordinal);
+        Assert.Contains(ChatCredential, outgoing[0].Content, StringComparison.Ordinal);
+        Assert.Contains(ChatCredential, outgoing[0].ReasoningSummary!, StringComparison.Ordinal);
+        Assert.DoesNotContain(ChatCredential, outgoing[1].Content, StringComparison.Ordinal);
+        await foreach (var item in guarded.StreamAsync(request, default))
+        {
+            _ = item;
+        }
+        Assert.All(provider.Requests.Last().Messages, message => Assert.DoesNotContain(ChatCredential, message.Content, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task DisclosureOfOneDuplicateMessageLeavesTheOtherMaskedAndMarksOnlyItsSource()
+    {
+        using var vault = new ChatSecretTestVault();
+        var checkpoints = new InMemoryCheckpointStore();
+        var provider = ProviderRound.AnswerEveryTurn();
+        await using var fixture = new RuntimeFixture(provider, checkpointStore: checkpoints,
+            secretVault: vault, conversationScopeId: ChatScope);
+        Assert.True((await fixture.Runtime.SendAsync(fixture.Prompt(ChatCredential), default)).IsSuccess);
+        Assert.True((await fixture.Runtime.SendAsync(fixture.Prompt(ChatCredential), default)).IsSuccess);
+        var sources = fixture.Runtime.Snapshot.Messages.Where(message => message.Role == AgentChatMessageRole.User).ToArray();
+        var selected = sources[1];
+        var reference = Assert.Single(selected.HiddenReferences!);
+        Assert.Equal(reference, Assert.Single(sources[0].HiddenReferences!));
+        Assert.True((await fixture.Runtime.SendAsync(fixture.Prompt("Continue without a new secret") with
+        {
+            DiscloseHiddenReferences = [reference],
+            DiscloseHiddenMessageIds = [selected.ChatMessageId!],
+        }, default)).IsSuccess);
+        var users = provider.Requests.Last().Messages.Where(message => message.Role == AgentMessageRole.User).ToArray();
+        Assert.DoesNotContain(ChatCredential, users[0].Content, StringComparison.Ordinal);
+        Assert.Equal(ChatCredential, users[1].Content, StringComparer.Ordinal);
+        Assert.DoesNotContain(ChatCredential, users[2].Content, StringComparison.Ordinal);
+        var receipt = Assert.Single(fixture.Runtime.Snapshot.Messages, message => message.DisclosedHiddenCount > 0);
+        Assert.Equal(selected.ChatMessageId, receipt.ChatMessageId, StringComparer.Ordinal);
+        Assert.Single(receipt.HiddenReferences!);
+        await using var restored = new RuntimeFixture(ProviderRound.AnswerEveryTurn(), checkpointStore: checkpoints,
+            secretVault: vault, conversationScopeId: ChatScope);
+        await restored.Runtime.RestoreLatestConversationAsync(default);
+        Assert.Equal(selected.ChatMessageId, Assert.Single(restored.Runtime.Snapshot.Messages,
+            message => message.DisclosedHiddenCount > 0).ChatMessageId, StringComparer.Ordinal);
+        Assert.True((await restored.Runtime.SendAsync(restored.Prompt("Continue masked"), default)).IsSuccess);
+        Assert.All(restored.Provider.Requests.Last().Messages, message => Assert.DoesNotContain(ChatCredential, message.Content, StringComparison.Ordinal));
+    }
+
     private static readonly AgentConversationScopeId ChatScope = new("hidden-chat-workspace");
     private const string ChatCredential = "password=fixture-chat-value";
 
@@ -53,7 +121,7 @@ public sealed partial class GovernedAgentRuntimeTests
         var protectedDraft = fixture.Runtime.ProtectDraft(ChatCredential + "; api_key=other-fixture-value");
         var reference = protectedDraft.References[0];
         Assert.True((await fixture.Runtime.SendAsync(fixture.Prompt(ChatCredential + "; api_key=other-fixture-value"), default)).IsSuccess);
-        var disclosed = await fixture.Runtime.SendAsync(fixture.Prompt("Use the selected original") with { DiscloseHiddenReferences = [reference] }, default);
+        var disclosed = await fixture.Runtime.SendAsync(fixture.Prompt("Use the selected original") with { DiscloseHiddenReferences = [reference], DiscloseHiddenMessageIds = [fixture.Runtime.Snapshot.Messages.First().ChatMessageId!] }, default);
         Assert.True(disclosed.IsSuccess, disclosed.Code + ": " + disclosed.Message);
         var requests = provider.Requests.ToArray();
         Assert.Equal(3, requests.Length);
@@ -63,6 +131,8 @@ public sealed partial class GovernedAgentRuntimeTests
         Assert.All(checkpoints.Values, checkpoint => Assert.DoesNotContain(ChatCredential, checkpoint.PayloadJson, StringComparison.Ordinal));
         var receipt = Assert.Single(fixture.Runtime.Snapshot.Messages, message => message.DisclosedHiddenCount > 0);
         Assert.Equal(1, receipt.DisclosedHiddenCount);
+        Assert.Equal(fixture.Runtime.Snapshot.Messages[0].ChatMessageId, receipt.ChatMessageId, StringComparer.Ordinal);
+        Assert.NotEmpty(receipt.HiddenReferences!);
         Assert.Equal("provider-1/provider-default-model", receipt.DisclosureDestination, StringComparer.Ordinal);
     }
 
@@ -74,7 +144,7 @@ public sealed partial class GovernedAgentRuntimeTests
         await using var fixture = new RuntimeFixture(provider, checkpointStore: new InMemoryCheckpointStore(), secretVault: vault, conversationScopeId: ChatScope);
         var reference = Assert.Single(fixture.Runtime.ProtectDraft(ChatCredential).References);
         fixture.Runtime.ProtectDraft(string.Empty); // The real composer clears itself before dispatch.
-        Assert.True((await fixture.Runtime.SendAsync(fixture.Prompt(ChatCredential) with { DiscloseHiddenReferences = [reference] }, default)).IsSuccess);
+        Assert.True((await fixture.Runtime.SendAsync(fixture.Prompt(ChatCredential) with { DiscloseHiddenReferences = [reference], DiscloseDraftSecrets = true }, default)).IsSuccess);
         Assert.Contains(provider.Requests.First().Messages, message => message.Content == ChatCredential);
         Assert.True((await fixture.Runtime.SendAsync(fixture.Prompt("Continue"), default)).IsSuccess);
         Assert.All(provider.Requests.Last().Messages, message => Assert.DoesNotContain(ChatCredential, message.Content, StringComparison.Ordinal));
@@ -89,7 +159,7 @@ public sealed partial class GovernedAgentRuntimeTests
         var reference = Assert.Single(first.Runtime.Snapshot.Messages[0].HiddenReferences!);
         await using var foreign = new RuntimeFixture(ProviderRound.AnswerEveryTurn(), checkpointStore: new InMemoryCheckpointStore(), secretVault: vault, conversationScopeId: new("foreign-workspace"));
         Assert.IsType<SecretVaultResult<string>.Failure>(await foreign.Runtime.RevealChatSecretAsync(reference, default));
-        var sent = await foreign.Runtime.SendAsync(foreign.Prompt(reference.Placeholder) with { DiscloseHiddenReferences = [reference] }, default);
+        var sent = await foreign.Runtime.SendAsync(foreign.Prompt(reference.Placeholder) with { DiscloseHiddenReferences = [reference], DiscloseHiddenMessageIds = [first.Runtime.Snapshot.Messages.First().ChatMessageId!] }, default);
         Assert.False(sent.IsSuccess);
         Assert.Equal("agent_hidden_selection_invalid", sent.Code, StringComparer.Ordinal);
         Assert.Empty(foreign.Provider.Requests);
@@ -114,7 +184,7 @@ public sealed partial class GovernedAgentRuntimeTests
         await using var restored = new RuntimeFixture(ProviderRound.AnswerEveryTurn(), checkpointStore: checkpoints, secretVault: vault, conversationScopeId: ChatScope);
         await restored.Runtime.RestoreLatestConversationAsync(default);
         Assert.IsType<SecretVaultResult<string>.Failure>(await restored.Runtime.RevealChatSecretAsync(reference, default));
-        var rejected = await restored.Runtime.SendAsync(restored.Prompt("Try original") with { DiscloseHiddenReferences = [reference] }, default);
+        var rejected = await restored.Runtime.SendAsync(restored.Prompt("Try original") with { DiscloseHiddenReferences = [reference], DiscloseHiddenMessageIds = [restored.Runtime.Snapshot.Messages.First().ChatMessageId!] }, default);
         Assert.False(rejected.IsSuccess);
         Assert.Equal("agent_hidden_content_unavailable", rejected.Code, StringComparer.Ordinal);
         Assert.True(restored.Runtime.Snapshot.CanSend);
@@ -210,7 +280,7 @@ public sealed partial class GovernedAgentRuntimeTests
         Assert.True((await fixture.Runtime.SendAsync(prompt, default)).IsSuccess);
         var reference = Assert.Single(fixture.Runtime.Snapshot.Messages.First().HiddenReferences!);
         Assert.DoesNotContain(filename, provider.Requests.First().Messages.SelectMany(message => message.Images).Select(image => image.FileName), StringComparer.Ordinal);
-        Assert.True((await fixture.Runtime.SendAsync(fixture.Prompt("Use its original name") with { DiscloseHiddenReferences = [reference] }, default)).IsSuccess);
+        Assert.True((await fixture.Runtime.SendAsync(fixture.Prompt("Use its original name") with { DiscloseHiddenReferences = [reference], DiscloseHiddenMessageIds = [fixture.Runtime.Snapshot.Messages.First().ChatMessageId!] }, default)).IsSuccess);
         Assert.Contains(filename, provider.Requests.Last().Messages.SelectMany(message => message.Images).Select(image => image.FileName), StringComparer.Ordinal);
         Assert.True((await fixture.Runtime.SendAsync(fixture.Prompt("Continue masked"), default)).IsSuccess);
         Assert.DoesNotContain(filename, provider.Requests.Last().Messages.SelectMany(message => message.Images).Select(image => image.FileName), StringComparer.Ordinal);
@@ -225,7 +295,7 @@ public sealed partial class GovernedAgentRuntimeTests
         await using var fixture = new RuntimeFixture(provider, checkpointStore: checkpoints, secretVault: vault, conversationScopeId: ChatScope);
         Assert.True((await fixture.Runtime.SendAsync(fixture.Prompt(ChatCredential), default)).IsSuccess);
         var reference = Assert.Single(fixture.Runtime.Snapshot.Messages.First().HiddenReferences!);
-        Assert.True((await fixture.Runtime.SendAsync(fixture.Prompt("Use original") with { DiscloseHiddenReferences = [reference] }, default)).IsSuccess);
+        Assert.True((await fixture.Runtime.SendAsync(fixture.Prompt("Use original") with { DiscloseHiddenReferences = [reference], DiscloseHiddenMessageIds = [fixture.Runtime.Snapshot.Messages.First().ChatMessageId!] }, default)).IsSuccess);
         Assert.DoesNotContain("fixture-chat-value", fixture.Runtime.Snapshot.Messages.Last().Content, StringComparison.Ordinal);
         Assert.All(checkpoints.Values, checkpoint => Assert.DoesNotContain("fixture-chat-value", checkpoint.PayloadJson, StringComparison.Ordinal));
         var echoReference = Assert.Single(fixture.Runtime.Snapshot.Messages.Last().HiddenReferences!);
