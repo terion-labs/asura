@@ -13,6 +13,14 @@
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch">
   <UserControl.Styles>
+    <Style Selector="ToggleSwitch.SecretDisclosure /template/ Border#SwitchTrack">
+      <Setter Property="Width" Value="28" />
+      <Setter Property="Height" Value="16" />
+    </Style>
+    <Style Selector="ToggleSwitch.SecretDisclosure /template/ Ellipse#SwitchKnob">
+      <Setter Property="Width" Value="12" />
+      <Setter Property="Height" Value="12" />
+    </Style>
     <Style Selector="Button.ComposerControl">
       <Setter Property="Height" Value="32" />
       <Setter Property="Margin" Value="{controls:Inset Right=Xs}" />
@@ -401,19 +409,27 @@
                             SecretRuntime="{Binding SecretRuntime}" />
                       </StackPanel>
                     </Border>
-                    <TextBlock Text="{Binding DisclosureReceipt}" IsVisible="{Binding HasDisclosureReceipt}"
-                        Classes="Muted" TextWrapping="Wrap" />
-                    <Button
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
                         Margin="{controls:Inset Top=Xs}"
-                        HorizontalAlignment="Right"
-                        Classes="IconButton"
-                        Click="OnCopyAgentMessageClick"
-                        Tag="{Binding}"
-                        IsVisible="{Binding HasMessageText}"
-                        ToolTip.Tip="Copy message"
-                        AutomationProperties.Name="Copy this message">
-                      <icons:SymbolIcon Symbol="Copy" FontSize="12" />
-                    </Button>
+                        Spacing="{DynamicResource ShellSpaceXs}">
+                      <Button Classes="IconButton" IsVisible="{Binding HasDisclosureReceipt}"
+                          ToolTip.Tip="{Binding DisclosureReceipt}"
+                          AutomationProperties.Name="{Binding DisclosureReceipt}">
+                        <Path Width="12" Height="12" Stretch="Uniform"
+                            Stroke="{DynamicResource ShellMutedBrush}" StrokeThickness="1.5"
+                            StrokeLineCap="Round" StrokeJoin="Round"
+                            Data="M7,10 V6 A5,5 0 0 1 17,6 M6,10 H18 Q20,10 20,12 V20 Q20,22 18,22 H6 Q4,22 4,20 V12 Q4,10 6,10 Z M12,15 V18" />
+                      </Button>
+                      <Button
+                          Classes="IconButton"
+                          Click="OnCopyAgentMessageClick"
+                          Tag="{Binding}"
+                          IsVisible="{Binding HasMessageText}"
+                          ToolTip.Tip="Copy message"
+                          AutomationProperties.Name="Copy this message">
+                        <icons:SymbolIcon Symbol="Copy" FontSize="12" />
+                      </Button>
+                    </StackPanel>
                   </StackPanel>
                   <StackPanel
                       HorizontalAlignment="Stretch"
@@ -1044,18 +1060,21 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
           </StackPanel>
-          <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="6"
+          <Border Grid.Row="4" BorderThickness="0,1,0,0"
+              BorderBrush="{DynamicResource ShellBorderBrush}" Padding="{controls:Inset Top=Xs}"
               IsVisible="{Binding !AgentChat.HasFailedTurn}">
-            <ToggleSwitch IsChecked="{Binding AgentChat.SendRawSecrets, Mode=TwoWay}"
-                IsEnabled="{Binding AgentChat.CanEnterPrompt}"
-                AutomationProperties.Name="Send raw secrets" />
-            <TextBlock Text="Send raw secrets" FontSize="{DynamicResource ShellFontSize11}" VerticalAlignment="Center" Classes="Muted" />
-            <Button Classes="TextButton" Padding="0" MinWidth="20" MinHeight="22"
-                ToolTip.Tip="{Binding AgentChat.SendRawSecretsExplanation}"
-                AutomationProperties.Name="How sending raw secrets works">
-              <icons:SymbolIcon Symbol="Info" FontSize="13" />
-            </Button>
-          </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <ToggleSwitch Classes="SecretDisclosure" IsChecked="{Binding AgentChat.SendRawSecrets, Mode=TwoWay}"
+                  IsEnabled="{Binding AgentChat.CanEnterPrompt}"
+                  AutomationProperties.Name="Send raw secrets" />
+              <TextBlock Text="Send raw secrets" FontSize="{DynamicResource ShellFontSize11}" VerticalAlignment="Center" Classes="Muted" />
+              <Button Classes="TextButton" Padding="0" MinWidth="20" MinHeight="22"
+                  ToolTip.Tip="{Binding AgentChat.SendRawSecretsExplanation}"
+                  AutomationProperties.Name="How sending raw secrets works">
+                <icons:SymbolIcon Symbol="Info" FontSize="13" />
+              </Button>
+            </StackPanel>
+          </Border>
           <TextBox
               x:Name="AgentChatPromptInput"
               Grid.Row="1"

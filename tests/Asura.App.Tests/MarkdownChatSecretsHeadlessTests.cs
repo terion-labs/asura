@@ -6,6 +6,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -51,6 +52,7 @@ public sealed class MarkdownChatSecretsHeadlessTests
                     AutomationProperties.GetName(control)?.StartsWith("Reveal hidden content", StringComparison.Ordinal) == true);
                 Assert.Equal(0, runtime.RevealCount);
                 Assert.Equal("<secret>", Assert.IsType<TextBlock>(button.Content).Text);
+                Assert.Equal(FontStyle.Italic, Assert.IsType<TextBlock>(button.Content).FontStyle);
                 if (kind == "prose")
                 {
                     // A short inline spoiler must fit in the same single line as
@@ -69,10 +71,12 @@ public sealed class MarkdownChatSecretsHeadlessTests
                 await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background, CancellationToken.None);
                 Assert.Equal(1, runtime.RevealCount);
                 Assert.Equal(RevealRuntime.Value, Assert.IsType<TextBlock>(button.Content).Text, StringComparer.Ordinal);
+                Assert.Equal(FontStyle.Normal, Assert.IsType<TextBlock>(button.Content).FontStyle);
                 Assert.Equal("Hide revealed content", AutomationProperties.GetName(button), StringComparer.Ordinal);
                 Assert.DoesNotContain(RevealRuntime.Original, preview.Text, StringComparison.Ordinal);
                 host.IsVisible = false;
                 Assert.Equal("<secret>", Assert.IsType<TextBlock>(button.Content).Text);
+                Assert.Equal(FontStyle.Italic, Assert.IsType<TextBlock>(button.Content).FontStyle);
                 Assert.Null(button.ContextMenu);
                 host.IsVisible = true;
                 button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

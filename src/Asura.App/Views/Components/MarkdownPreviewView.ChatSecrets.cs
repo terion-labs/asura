@@ -120,7 +120,7 @@ public sealed partial class MarkdownPreviewView
     private Button SecretSpoiler(ChatHiddenReference reference)
     {
         const string label = "<secret>";
-        var display = new TextBlock { Text = label, TextWrapping = TextWrapping.Wrap };
+        var display = new TextBlock { Text = label, TextWrapping = TextWrapping.Wrap, FontStyle = FontStyle.Italic };
         var button = new SecretSpoilerButton { Content = display };
         button.Classes.Add("ChatSecret");
         AutomationProperties.SetName(button, "Reveal hidden content " + reference.Id[..6]);
@@ -131,6 +131,7 @@ public sealed partial class MarkdownPreviewView
             pendingReveal?.Cancel();
             revealed = null;
             display.Text = label;
+            display.FontStyle = FontStyle.Italic;
             button.ContextMenu = null;
             AutomationProperties.SetName(button, "Reveal hidden content " + reference.Id[..6]);
         }
@@ -170,6 +171,7 @@ public sealed partial class MarkdownPreviewView
                 revealed = LiteralSecretValidator.GetLiteralSecretDisplayValue(success.Value);
                 // Original text is never parsed as Markdown, a URI, or a control.
                 display.Text = revealed;
+                display.FontStyle = FontStyle.Normal;
                 AutomationProperties.SetName(button, "Hide revealed content");
                 var copy = new MenuItem { Header = "Copy revealed content" };
                 copy.Click += async (_, _) =>
