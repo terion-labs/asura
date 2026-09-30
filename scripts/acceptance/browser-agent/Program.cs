@@ -142,7 +142,8 @@ internal sealed class ProbeApp : Avalonia.Application
                 await ReferenceAsync(surface, "button", "Submit fixture", deadline.Token),
                 BrowserNavigationOrigin.WorkspaceNetwork, deadline.Token);
             Require(click.IsSuccess, "click", click.Error);
-            while (!surface.State.Address.Value.AbsolutePath.Equals("/agent-result", StringComparison.Ordinal))
+            while (surface.State.LoadState != BrowserLoadState.Ready
+                || !surface.State.Address.Value.AbsolutePath.Equals("/agent-result", StringComparison.Ordinal))
             {
                 await Task.Delay(20, deadline.Token);
             }
@@ -158,6 +159,8 @@ internal sealed class ProbeApp : Avalonia.Application
                 string.Equals(node.Name, "Fixture session retained", StringComparison.Ordinal)),
                 "same browser session", resultSnapshot.Error);
             Console.WriteLine("PASS browser session cookie survives agent interaction");
+
+            await VerifySlowMouseNavigationAsync(surface, fixtureClient, deadline.Token);
 
             var restricted = await surface.NavigateWithinOriginAsync(
                 new BrowserOriginConstrainedNavigationRequest.Navigate(address),
@@ -188,7 +191,12 @@ internal sealed class ProbeApp : Avalonia.Application
             await Task.Delay(400, deadline.Token);
             Require(stoppedInputs == await CounterAsync(fixtureClient, "agentInputEvents", deadline.Token),
                 "no input after cancellation", null);
-            Console.WriteLine("PASS cancelling real native typing stops subsequent input events");
+            Require(surface.State.Address == address, "cancelled typing preserves the page", null);
+            Require((await surface.CheckWithinOriginAsync(
+                await ReferenceAsync(surface, "checkbox", "Fixture check", deadline.Token),
+                BrowserNavigationOrigin.WorkspaceNetwork, deadline.Token)).IsSuccess,
+                "same page remains usable after cancellation", null);
+            Console.WriteLine("PASS cancelling real native typing stops input and preserves the usable page");
             if (Program.Proxy is not null)
             {
                 Require(await CounterAsync(fixtureClient, "proxyAuthenticated", deadline.Token) > 0,
@@ -234,6 +242,40 @@ internal sealed class ProbeApp : Avalonia.Application
     {
         using var status = JsonDocument.Parse(await client.GetStringAsync(new Uri("/fixture-status", UriKind.Relative), cancellationToken));
         return status.RootElement.GetProperty(name).GetInt32();
+    }
+
+    private static async Task VerifySlowMouseNavigationAsync(
+        BrowserSurface surface, HttpClient client, CancellationToken cancellationToken)
+    {
+        var source = new BrowserAddress(new Uri(Program.Fixture + "/agent-slow-form"));
+        Require((await surface.NavigateWithinOriginAsync(
+            new BrowserOriginConstrainedNavigationRequest.Navigate(source),
+            BrowserNavigationOrigin.WorkspaceNetwork,
+            BrowserNavigationStartBinding.FromState(surface.State), cancellationToken)).IsSuccess,
+            "slow mouse fixture navigation", null);
+        var initial = await CounterAsync(client, "agentSlowNavigations", cancellationToken);
+        var click = await surface.DispatchMouseWithinOriginAsync(
+            new BrowserMouseRequest(new Asura.Core.SessionId("fixture"),
+                BrowserAutomationBinding.FromState(surface.State), BrowserMouseAction.Click,
+                100, 65, BrowserMouseButton.Left, clickCount: 1),
+            BrowserNavigationOrigin.WorkspaceNetwork, cancellationToken);
+        Require(click.IsSuccess || click.Error?.Code == BrowserErrorCode.InteractionOutcomeUnknown,
+            "slow mouse dispatch result", click.Error);
+        Require(surface.State.Address != BrowserAddress.Blank,
+            "slow mouse navigation preserves live renderer", click.Error);
+        while (surface.State.LoadState != BrowserLoadState.Ready)
+        {
+            await Task.Delay(20, cancellationToken);
+        }
+        Require(string.Equals(surface.State.Address.Value.AbsolutePath, "/agent-slow-target", StringComparison.Ordinal),
+            "slow mouse navigation completes on the same page", null);
+        Require(await CounterAsync(client, "agentSlowNavigations", cancellationToken) == initial + 1,
+            "slow click is not replayed", null);
+        Require((await surface.CheckWithinOriginAsync(
+            await ReferenceAsync(surface, "checkbox", "Fixture check", cancellationToken),
+            BrowserNavigationOrigin.WorkspaceNetwork, cancellationToken)).IsSuccess,
+            "page remains interactive after slow mouse navigation", null);
+        Console.WriteLine("PASS slow coordinate click preserves the page and does not replay input");
     }
 
     private static async Task<BrowserElementReference> ReferenceAsync(

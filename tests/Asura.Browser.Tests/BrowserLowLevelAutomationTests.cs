@@ -135,8 +135,10 @@ public sealed class BrowserLowLevelAutomationTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(BrowserErrorCode.InteractionOutcomeUnknown, result.Error?.Code);
-        Assert.True(native.IsDisposed);
-        Assert.NotEqual(binding.Document.DocumentRevision, surface.State.DocumentRevision);
+        Assert.False(native.IsDisposed);
+        Assert.False((await surface.CaptureSnapshotAsync(
+            BrowserDocumentBinding.FromState(surface.State), CancellationToken.None)).IsSuccess);
+        Assert.Equal(binding.Document.DocumentRevision, surface.State.DocumentRevision);
     }
 
     [Fact]
@@ -163,7 +165,9 @@ public sealed class BrowserLowLevelAutomationTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(BrowserErrorCode.NavigationPolicyDenied, result.Error?.Code);
-        Assert.True(native.IsDisposed);
+        Assert.False(native.IsDisposed);
+        Assert.False((await surface.CaptureSnapshotAsync(
+            BrowserDocumentBinding.FromState(surface.State), CancellationToken.None)).IsSuccess);
     }
 
     [Fact]

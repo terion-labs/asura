@@ -24,7 +24,7 @@ const trackSocket = socket => {
   return socket;
 };
 const credentials = 'Basic ' + Buffer.from('fixture:fixture').toString('base64');
-const counters = {originRequests:0, serverAuthenticated:0, proxyRequests:0, proxyAuthenticated:0, connectAttempts:0, connectAuthenticated:0, connectAllowed:0, agentInputEvents:0, deniedProbeRequests:0, proxyDenied:0};
+const counters = {originRequests:0, serverAuthenticated:0, proxyRequests:0, proxyAuthenticated:0, connectAttempts:0, connectAuthenticated:0, connectAllowed:0, agentInputEvents:0, agentSlowNavigations:0, deniedProbeRequests:0, proxyDenied:0};
 const proxyAuthenticated = request => {
   let count = 0;
   for (let index = 0; index < request.rawHeaders.length; index += 2) {
@@ -86,6 +86,17 @@ const server = http.createServer((request, response) => {
   if (request.url === '/agent-form') {
     response.setHeader('Set-Cookie', 'agentFixture=retained; Path=/; SameSite=Lax');
     response.end(agentForm); return;
+  }
+  if (request.url === '/agent-slow-form') {
+    response.end(html('<button style="position:fixed;left:40px;top:40px;width:180px;height:50px;margin:0" onclick="location.href=\'/agent-slow-target\'">Slow navigation</button>'));
+    return;
+  }
+  if (request.url === '/agent-slow-target') {
+    counters.agentSlowNavigations++;
+    // Deliberately exceed the input deadline without failing the navigation.
+    const timer = setTimeout(() => { delayedResponses.delete(timer); response.end(agentForm); }, 7000);
+    delayedResponses.add(timer);
+    return;
   }
   if (request.url?.startsWith('/agent-result?')) {
     response.end(html(request.headers.cookie?.split('; ').includes('agentFixture=retained')

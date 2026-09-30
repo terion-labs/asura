@@ -393,6 +393,8 @@ internal sealed class RecordingEmbeddedBrowserView : IEmbeddedBrowserView
     public Task<NativeBrowserAutomationResult> DispatchMouseAsync(
         BrowserMouseRequest request, CancellationToken cancellationToken = default)
     {
+        AutomationDispatchCount++;
+        LastAutomationCancellation = cancellationToken;
         LastMouseRequest = request;
         return PendingAutomation?.Task ?? Task.FromResult(AutomationResult);
     }
@@ -400,6 +402,8 @@ internal sealed class RecordingEmbeddedBrowserView : IEmbeddedBrowserView
     public Task<NativeBrowserAutomationResult> DispatchKeyAsync(
         BrowserKeyRequest request, CancellationToken cancellationToken = default)
     {
+        AutomationDispatchCount++;
+        LastAutomationCancellation = cancellationToken;
         LastKeyRequest = request;
         return PendingAutomation?.Task ?? Task.FromResult(AutomationResult);
     }
@@ -407,9 +411,14 @@ internal sealed class RecordingEmbeddedBrowserView : IEmbeddedBrowserView
     public Task<NativeBrowserAutomationResult> DispatchScrollAsync(
         BrowserScrollRequest request, CancellationToken cancellationToken = default)
     {
+        AutomationDispatchCount++;
+        LastAutomationCancellation = cancellationToken;
         LastScrollRequest = request;
         return PendingAutomation?.Task ?? Task.FromResult(AutomationResult);
     }
+
+    public int AutomationDispatchCount { get; private set; }
+    public CancellationToken LastAutomationCancellation { get; private set; }
 
     public Task<NativeBrowserAutomationResult> EvaluateAsync(
         BrowserEvaluateRequest request)
