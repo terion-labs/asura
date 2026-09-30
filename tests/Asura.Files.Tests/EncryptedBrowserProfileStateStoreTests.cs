@@ -268,6 +268,34 @@ public sealed class EncryptedBrowserProfileStateStoreTests : IDisposable
         Assert.Single(preserved.GetCollection<BsonDocument>("browser_profile_state").FindAll());
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(8191)]
+    public void TruncatedPrivateArchiveIsNeverInitializedByReadOrWrite(int length)
+    {
+        var directory = Path.Combine(_root, "truncated-store");
+        CreatePrivateDirectory(directory);
+        var database = Path.Combine(directory, "browser-profiles.db");
+        var contents = Enumerable.Repeat((byte)0x62, length).ToArray();
+        File.WriteAllBytes(database, contents);
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(database, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
+        using var store = new EncryptedBrowserProfileStateStore(directory, new TestApplicationEncryption());
+        var key = StateKey("profile.truncated", "local");
+
+        Assert.Throws<InvalidDataException>(() => store.Inspect(key.Selection));
+        Assert.Equal(contents, File.ReadAllBytes(database));
+        Assert.Throws<InvalidDataException>(() => store.ListKeys(key.Selection));
+        Assert.Equal(contents, File.ReadAllBytes(database));
+        Assert.Throws<InvalidDataException>(() => store.Restore(key, Path.Combine(_root, "restore-truncated")));
+        Assert.Equal(contents, File.ReadAllBytes(database));
+        Assert.Throws<InvalidDataException>(() => SealMarker(store, key, "new-session"));
+        Assert.Equal(contents, File.ReadAllBytes(database));
+    }
+
     [Fact]
     public void CleanupFailureDoesNotDeleteTheNewlyCommittedArchive()
     {

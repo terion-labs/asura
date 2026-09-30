@@ -49,6 +49,10 @@ public sealed class DesktopBrowserStartupTests : IDisposable
         var database = Path.Combine(paths.PersistentDirectory, "browser-profiles.db");
         byte[] contents = [0x62, 0x61, 0x64];
         File.WriteAllBytes(database, contents);
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(database, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
         var recoveredCookies = Path.Combine(paths.RuntimeDirectory + ".recovery-1", "Cookies");
         using (var startup = new DesktopBrowserStartup(paths, new Encryption(), new Authentication()))
         {
@@ -73,7 +77,12 @@ public sealed class DesktopBrowserStartupTests : IDisposable
         foreach (var directory in new[] { paths.PersistentDirectory, paths.PersistentDirectory + ".recovery-1" })
         {
             Directory.CreateDirectory(directory);
-            File.WriteAllText(Path.Combine(directory, "browser-profiles.db"), "damaged");
+            var database = Path.Combine(directory, "browser-profiles.db");
+            File.WriteAllText(database, "damaged");
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(database, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            }
         }
         using var startup = new DesktopBrowserStartup(paths, new Encryption(), new Authentication());
         Assert.True(startup.RecoverProfile());

@@ -21,6 +21,7 @@ public sealed class EncryptedBrowserProfileStateStore :
     private const string DatabaseFileName = "browser-profiles.db";
     private const string ManifestCollection = "browser_profile_state";
     private const int ArchiveSchemaVersion = 1;
+    private const int MinimumContainerBytes = 8192; // LiteDB's header page size.
     private const int MaximumArchiveEntries = 100_000;
     private const long MaximumExpandedBytes = 8L * 1024 * 1024 * 1024;
 
@@ -308,7 +309,8 @@ public sealed class EncryptedBrowserProfileStateStore :
 
     private LiteDatabase OpenDatabase(bool create)
     {
-        if (!create && !File.Exists(DatabasePath))
+        var exists = File.Exists(DatabasePath);
+        if (!create && !exists)
         {
             throw new FileNotFoundException(
                 "The encrypted browser profile store does not exist.",
@@ -317,6 +319,12 @@ public sealed class EncryptedBrowserProfileStateStore :
 
         PrivateContentPathGuard.EnsurePrivateFile(DatabasePath);
         PrivateContentPathGuard.ValidateOptionalPrivateFile(LogPath);
+        // LiteDB initializes a file shorter than one page as an empty database.
+        // An existing archive must never be replaced by that initialization.
+        if (exists && new FileInfo(DatabasePath).Length < MinimumContainerBytes)
+        {
+            throw new InvalidDataException("The encrypted browser profile archive is truncated.");
+        }
         var database = new LiteDatabase(new ConnectionString
         {
             Filename = DatabasePath,
