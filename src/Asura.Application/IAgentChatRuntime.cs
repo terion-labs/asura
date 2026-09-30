@@ -69,7 +69,8 @@ public sealed record AgentChatMessage(
     IReadOnlyList<string>? Files = null,
     IReadOnlyList<ChatHiddenReference>? HiddenReferences = null,
     int DisclosedHiddenCount = 0,
-    string? DisclosureDestination = null);
+    string? DisclosureDestination = null,
+    string? ChatMessageId = null);
 
 public sealed record AgentChatSnapshot(
     AgentChatState State,

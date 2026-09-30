@@ -409,6 +409,10 @@ public sealed record GovernedAgentPrompt
     /// <summary>Trusted composer selection. Consumed once at the outgoing request boundary.</summary>
     public ImmutableArray<ChatHiddenReference> DiscloseHiddenReferences { get; init; } = [];
 
+    public ImmutableArray<string> DiscloseHiddenMessageIds { get; init; } = [];
+
+    public bool DiscloseDraftSecrets { get; init; }
+
 }
 
 public sealed record GovernedAgentFollowUp

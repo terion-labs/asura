@@ -126,6 +126,9 @@ public sealed record AgentMessage
 
     public AgentMessageRole Role { get; }
 
+    /// <summary>Local identity for message-scoped disclosure; never provider-authored authority.</summary>
+    public string ChatMessageId { get; internal init; } = Guid.NewGuid().ToString("N");
+
     public string Content { get; internal init; }
 
     public ImmutableArray<AgentToolProposal> ToolCalls { get; internal init; }
