@@ -7,30 +7,34 @@ namespace Asura.App.Tests;
 public sealed partial class AgentChatViewModelTests
 {
     [Fact]
-    public async Task OnlyCheckedOriginalsGoIntoNextRequestAndSelectionClearsAfterSend()
+    public async Task RawSecretsToggleIncludesConversationAndDraftOnce()
     {
         var provider = Provider("provider", "Provider", order: 0);
         var first = new ChatHiddenReference(Guid.NewGuid().ToString("N"));
         var second = new ChatHiddenReference(Guid.NewGuid().ToString("N"));
+        var draft = new ChatHiddenReference(Guid.NewGuid().ToString("N"));
         using var runtime = new StubGovernedRuntime
         {
             Snapshot = Snapshot(providerId: provider.Id, messages: [new(AgentChatMessageRole.User,
                 first.Placeholder + " " + second.Placeholder, HiddenReferences: [first, second])]),
+            DraftProtector = text => new(draft.Placeholder, [draft]),
         };
         using var profiles = new StubProfileRuntime { Profiles = [provider] };
         using var viewModel = new AgentChatViewModel(runtime, profiles, ImmediateUiThreadDispatcher.Instance);
-        viewModel.Prompt = "Use one original";
-        Assert.Equal(2, viewModel.HiddenContentChoices.Count);
-        Assert.All(viewModel.HiddenContentChoices, choice => Assert.False(choice.Include));
-        viewModel.HiddenContentChoices[0].Include = true;
+        viewModel.Prompt = "Use the secrets";
+        Assert.False(viewModel.SendRawSecrets);
+        viewModel.SendRawSecrets = true;
         await viewModel.SendAsync(Target(), Policy(provider), default);
-        Assert.Equal(first, Assert.Single(runtime.LastRequest!.DiscloseHiddenReferences));
-        Assert.All(viewModel.HiddenContentChoices, choice => Assert.False(choice.Include));
-        Assert.Contains("Provider", viewModel.HiddenDisclosureDestination, StringComparison.Ordinal);
+        Assert.Equal(new[] { first, second, draft }, runtime.LastRequest!.DiscloseHiddenReferences);
+        Assert.False(viewModel.SendRawSecrets);
+        Assert.Contains("Provider", viewModel.SendRawSecretsExplanation, StringComparison.Ordinal);
+        viewModel.Prompt = "Continue normally";
+        await viewModel.SendAsync(Target(), Policy(provider), default);
+        Assert.Empty(runtime.LastRequest!.DiscloseHiddenReferences);
     }
 
     [Fact]
-    public void ProviderAndConversationChangesResetDisclosureSelection()
+    public void ProviderAndConversationChangesTurnOffRawSecrets()
     {
         var firstProvider = Provider("first", "First", order: 0);
         var secondProvider = Provider("second", "Second", order: 1);
@@ -43,12 +47,12 @@ public sealed partial class AgentChatViewModelTests
         using var profiles = new StubProfileRuntime { Profiles = [firstProvider, secondProvider] };
         using var viewModel = new AgentChatViewModel(runtime, profiles, ImmediateUiThreadDispatcher.Instance);
         viewModel.Prompt = "Continue";
-        viewModel.HiddenContentChoices[0].Include = true;
+        viewModel.SendRawSecrets = true;
         viewModel.SelectedProvider = secondProvider;
-        Assert.False(viewModel.HiddenContentChoices[0].Include);
-        viewModel.HiddenContentChoices[0].Include = true;
+        Assert.False(viewModel.SendRawSecrets);
+        viewModel.SendRawSecrets = true;
         runtime.Snapshot = runtime.Snapshot with { SelectedConversationRunId = new("fork-run") };
         runtime.RaiseChanged();
-        Assert.False(viewModel.HiddenContentChoices[0].Include);
+        Assert.False(viewModel.SendRawSecrets);
     }
 }

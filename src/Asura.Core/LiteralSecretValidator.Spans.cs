@@ -68,7 +68,65 @@ public static partial class LiteralSecretValidator
         }
     }
 
-    /// <summary>Value candidates used only to protect echoes after an explicit disclosure.</summary>
+    /// <summary>
+    /// Displays the value of a complete credential assignment without its key or
+    /// quoting. The stored original remains unchanged for deliberate model disclosure.
+    /// Whole messages, credential URLs and private keys retain their original text.
+    /// </summary>
+    public static string GetLiteralSecretDisplayValue(string original)
+    {
+        ArgumentNullException.ThrowIfNull(original);
+        try
+        {
+            var match = CredentialExpression().Match(original);
+            var value = match.Groups["value"];
+            if (!match.Success || match.Index != 0)
+            {
+                return original;
+            }
+            var end = FindSecretValueEnd(original, value.Index);
+            var prefix = original[value.Index..end];
+            if (prefix.Equals("Bearer", StringComparison.OrdinalIgnoreCase) || prefix.Equals("Basic", StringComparison.OrdinalIgnoreCase))
+            {
+                var tokenStart = end;
+                while (tokenStart < original.Length && char.IsWhiteSpace(original[tokenStart]))
+                {
+                    tokenStart++;
+                }
+                if (tokenStart < original.Length)
+                {
+                    end = FindSecretValueEnd(original, tokenStart);
+                }
+            }
+            if (end != original.Length)
+            {
+                return original;
+            }
+            var candidate = original[value.Index..];
+            if (candidate.StartsWith('"') && candidate.EndsWith('"'))
+            {
+                try
+                {
+                    using var json = System.Text.Json.JsonDocument.Parse(candidate);
+                    if (json.RootElement.GetString() is { } literal)
+                    {
+                        return literal;
+                    }
+                }
+                catch (System.Text.Json.JsonException)
+                {
+                    // Shell double quotes may contain escapes JSON does not accept.
+                }
+            }
+            return FindLiteralSecretValueCandidates(original).LastOrDefault() ?? candidate;
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return original;
+        }
+    }
+
+    /// <summary>Value candidates used to protect echoes after an explicit disclosure.</summary>
     public static IReadOnlyList<string> FindLiteralSecretValueCandidates(string text)
     {
         var values = new List<string>();

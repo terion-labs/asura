@@ -1044,20 +1044,18 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
           </StackPanel>
-          <Expander Grid.Row="4" IsVisible="{Binding AgentChat.HasHiddenContentChoices}" Header="Include hidden originals in next request" IsExpanded="False">
-            <StackPanel Spacing="4">
-              <TextBlock Classes="Muted" TextWrapping="Wrap" Text="{Binding AgentChat.HiddenDisclosureDestination}" />
-              <ScrollViewer MaxHeight="160">
-                <ItemsControl ItemsSource="{Binding AgentChat.HiddenContentChoices}" IsEnabled="{Binding AgentChat.CanSend}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="vm:ChatSecretSelectionViewModel">
-                      <CheckBox Content="{Binding Label}" IsChecked="{Binding Include, Mode=TwoWay}" />
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-              </ScrollViewer>
-            </StackPanel>
-          </Expander>
+          <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="6"
+              IsVisible="{Binding !AgentChat.HasFailedTurn}">
+            <ToggleSwitch IsChecked="{Binding AgentChat.SendRawSecrets, Mode=TwoWay}"
+                IsEnabled="{Binding AgentChat.CanEnterPrompt}"
+                AutomationProperties.Name="Send raw secrets" />
+            <TextBlock Text="Send raw secrets" FontSize="{DynamicResource ShellFontSize11}" VerticalAlignment="Center" Classes="Muted" />
+            <Button Classes="TextButton" Padding="0" MinWidth="20" MinHeight="22"
+                ToolTip.Tip="{Binding AgentChat.SendRawSecretsExplanation}"
+                AutomationProperties.Name="How sending raw secrets works">
+              <icons:SymbolIcon Symbol="Info" FontSize="13" />
+            </Button>
+          </StackPanel>
           <TextBox
               x:Name="AgentChatPromptInput"
               Grid.Row="1"
