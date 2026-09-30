@@ -49,6 +49,7 @@
     <Content Include="../../licenses/GPL-3.0.txt" Link="GPL-3.0.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../../licenses/SQLCLIENT-MIT.txt" Link="SQLCLIENT-MIT.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../../licenses/THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../licenses/FLUENT-UI-ICONS-MIT.txt" Link="FLUENT-UI-ICONS-MIT.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../../native/artifacts/common/fonts/JetBrainsMono/OFL.txt" Link="JETBRAINS-MONO-OFL.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
