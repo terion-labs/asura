@@ -15,4 +15,7 @@ public enum SecretUseKind
     NetworkConnectionAuthentication,
     DatabaseRecovery,
     KubernetesConnectionAuthentication,
+    ChatHistoryPersistence,
+    ChatLocalReveal,
+    ChatModelDisclosure,
 }

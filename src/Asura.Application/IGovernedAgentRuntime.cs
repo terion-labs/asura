@@ -406,6 +406,9 @@ public sealed record GovernedAgentPrompt
 
     public AgentApprovalMode ApprovalMode { get; } = AgentApprovalMode.Ask;
 
+    /// <summary>Trusted composer selection. Consumed once at the outgoing request boundary.</summary>
+    public ImmutableArray<ChatHiddenReference> DiscloseHiddenReferences { get; init; } = [];
+
 }
 
 public sealed record GovernedAgentFollowUp

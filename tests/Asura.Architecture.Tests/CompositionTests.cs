@@ -215,6 +215,11 @@ public sealed class CompositionTests
                    AgentPolicy.Default))
         {
             Assert.NotSame(firstWorkspaceAgent, secondWorkspaceAgent);
+            var protectedDraft = Assert.IsAssignableFrom<IAgentChatSecretRuntime>(firstWorkspaceAgent).ProtectDraft("password=composition-fixture-value");
+            Assert.Single(protectedDraft.References);
+            Assert.DoesNotContain("composition-fixture-value", protectedDraft.Text, StringComparison.Ordinal);
+            var otherDraft = Assert.IsAssignableFrom<IAgentChatSecretRuntime>(secondWorkspaceAgent).ProtectDraft("password=composition-fixture-value");
+            Assert.NotEqual(protectedDraft.References[0], otherDraft.References[0]);
             Assert.True(Assert.IsAssignableFrom<IAgentAttachmentRuntime>(firstWorkspaceAgent).SupportsFileAttachments);
         }
         Assert.Equal(

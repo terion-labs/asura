@@ -36,13 +36,15 @@ internal sealed class DesktopAgentWorkspaceRuntimeFactory(
                 nameof(policy));
         }
 
+        var chatSecrets = new WorkspaceChatSecrets(services.GetRequiredService<ISecretVault>(), conversationScopeId);
         var explicitArguments = networkProxy is null
-            ? new object[] { workspaceId, conversationScopeId, policy }
+            ? new object[] { workspaceId, conversationScopeId, policy, chatSecrets }
             :
             [
                 workspaceId,
                 conversationScopeId,
                 policy,
+                chatSecrets,
                 new CatalogAgentProviderResolver(
                     services.GetRequiredService<CatalogAiProviderRuntime>(),
                     networkProxy),

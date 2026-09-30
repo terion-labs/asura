@@ -40,8 +40,9 @@ with item order and tool slots. A future continuation must match all of it
 before replay. Bounded user images retain only their plain file
 name, verified media type, and copied bytes; restore reconstructs them through
 the same signature-validating attachment constructor. No provider client, tool
-definition, approval, policy authority, capability, secret reference, or
-resolved secret is in the format.
+definition, approval, policy authority, execution capability, or resolved
+credential is in the format. Schema v4 adds inert hidden-content references;
+these cannot authorize tools or look up another workspace's originals.
 
 `CaptureInterruptedCheckpoint` uses the same bounded document for history-only
 recovery. Before provider invocation it stores the accepted user message plus a
@@ -54,20 +55,31 @@ session with no provider operation, proposal, approval, permit, capability, or
 run authority. It can be displayed and continued with a new user turn, but it
 cannot be mistaken for automatically resumable execution state.
 
-The current schema-v3 payload is owned by `Asura.Agent`; storage treats it
+The current schema-v4 payload is owned by `Asura.Agent`; storage treats it
 as an opaque bounded JSON object. Schema v2 added the optional bounded generated
 title. Schema v3 separates the append-only committed transcript from the
-compacted provider context projection. Restore still accepts schema v1/v2,
+compacted provider context projection. Schema v4 adds optional typed hidden-content occurrences and non-secret
+provider/model disclosure receipts. Restore still accepts schema v1/v2/v3,
 using their single conversation as both values because already-discarded
 pre-compaction messages cannot be reconstructed. Schema v1 also derives the
 deterministic first-user-message title. Restore rejects unknown fields, unsupported newer
 schema versions, inconsistent revisions/generations, malformed conversation shapes,
 duplicate or changed provider aliases, and values outside the current kernel
-limits. Credential-shaped literal text and structured credential properties
-fail checkpoint capture and restore instead of becoming durable data. Tool
-arguments and results are sanitized before capture: a flagged value is replaced
-with an explicit redaction receipt while its call/result identity and later
-messages remain intact. Redacting arguments also removes that assistant message's
+limits. Credential-shaped literal text and structured credential properties remain
+forbidden in checkpoint capture and restore. The desktop supplies a workspace
+text-protection projection before capture: detected expressions become random
+`⟦hidden-ID⟧` placeholders with typed occurrence annotations. Exact originals
+are staged in disposable bounded buffers and written to the existing OS vault
+under the persistent workspace's internal `WorkspaceChat` scope before the safe
+checkpoint is saved. Internal entries have generic labels and stay outside the
+user credential settings list. User-management purposes cannot mutate them.
+Tool arguments/results with unsafe structured content are protected as whole
+originals while their call/result identity and later messages remain intact.
+If an identifier itself contains protected text, the inert projection maps it
+consistently across calls, results and stored aliases; live dispatch identifiers
+remain exact. A selected identifier can be hydrated only at the request boundary.
+A kernel without a host protection projection retains the previous strict
+text filter and lossy tool redaction behavior. Redacting arguments also removes that assistant message's
 provider-private replay atoms, which contain the original arguments. Live tool
 validation and execution are unchanged; restored calls are inert history.
 This prevents even a rejected command from blocking every later checkpoint.
@@ -137,3 +149,61 @@ reference binding. A mismatch fails closed and requires Clear. Clear deletes
 the durable checkpoint before resetting the visible run. If safe capture or
 storage fails, the in-memory completed response remains visible and the UI
 reports that local saving failed.
+
+## Hidden content and deliberate model disclosure
+
+The first implementation uses the existing native credential classifier, with
+exact spans for assignments, token prefixes, credential URLs and multiline
+private keys. Assignment scanning shares the classifier's quote/escape rules.
+Overlapping spans merge; unfamiliar expressions and regex timeouts conservatively
+hide the full text, including spaced source-language concatenations. This is credential detection, not comprehensive PII detection
+or a guarantee that every arbitrary bare secret can be recognized.
+After deliberate disclosure, a bounded workspace-local cache also recognizes
+the selected original and its decoded value in later model echoes. Matching
+protects bare echoed values without requiring an assignment key. Streaming
+previews mask these values, including unfinished prefixes, without staging
+partial originals in the vault.
+
+Chat renders typed occurrences as native keyboard-accessible spoiler buttons,
+including prose, fenced code, links and large source blocks. Revealing resolves
+one original locally and displays it as literal text. Reveals hide again on click,
+view rebuild, scrolling out of view, ancestor visibility changes or detachment.
+Pending reveal operations are canceled when hidden. Ordinary message copy uses
+masked content; copying an original requires the revealed control's explicit
+copy action. A pasted or model-invented marker has no typed lookup annotation.
+
+Every provider invocation receives projected context by default, including tool
+continuations, steering, title generation and compaction. The composer can select
+specific originals for the next request and shows the destination provider/model.
+Selection clears after sending and when the route, conversation or active workspace
+changes; shell locking clears it during quiescence. It
+cannot authorize queued follow-ups. The one-use provider wrapper hydrates only
+selected references in a transient request; later calls reproject from the
+unmodified kernel conversation. Opaque provider replay is removed whenever it
+could carry another copy of protected content. The accepted user message retains
+only a count and destination receipt, including the interrupted checkpoint before
+the request; no permission to disclose is restored after restart.
+
+Missing/locked vault originals fail deliberate disclosure before provider
+invocation with a recoverable error. Local history still saves with placeholders
+when vault writes fail; a notice describes loss of original recovery after restart.
+Healthy vault operation does not show the former credential-filter save warning.
+Staging is bounded to 4096 entries and 4 MiB of owned buffers, with a 1 MiB limit
+per original. Unused draft originals are pruned; the disclosed-value cache is
+also bounded to 4096 values and 4 MiB. No plaintext fallback file
+is created. Workspace disposal clears staged buffers. A vault write owns a clone
+across awaits so concurrent disposal cannot destroy its input.
+
+Cleanup checks all workspace checkpoint rows, rather than the bounded history
+catalog, and also retains current transcript/draft references. Forks therefore
+share originals safely; deletion/retention removes vault entries only after the
+last checkpoint and live occurrence disappears. Unknown store implementations
+conservatively retain entries. A crash between vault insertion and checkpoint
+save can leave an orphan, reclaimed by the same workspace's later cleanup.
+
+The desktop factory constructs the application-owned store already bound to its
+workspace, and injects that store into the coordinator. The coordinator never
+receives the general vault or raw credential-buffer type. The kernel sees only
+three exact Core types (`ChatHiddenReference`, `ProtectedChatText`, and
+`IChatTextProtection`); their architecture allowlist is limited to immutable
+occurrence data and write-only text projection, with no resolve or execution API.

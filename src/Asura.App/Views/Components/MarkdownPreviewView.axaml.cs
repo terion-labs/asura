@@ -50,6 +50,10 @@ public sealed partial class MarkdownPreviewView : UserControl
         InitializeComponent();
         EffectiveViewportChanged += (_, e) =>
         {
+            if (e.EffectiveViewport.Width <= 0 || e.EffectiveViewport.Height <= 0)
+            {
+                HideChatReveals(discardControls: false);
+            }
             _effectiveViewport = e.EffectiveViewport;
             RenderWhenInViewport();
         };
@@ -83,6 +87,7 @@ public sealed partial class MarkdownPreviewView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        AttachChatRevealVisibility();
         // Resources resolve against the tree, so a render before attachment
         // would silently draw every themed brush as nothing.
         _hasRendered = false;
@@ -99,6 +104,8 @@ public sealed partial class MarkdownPreviewView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        DetachChatRevealVisibility();
+        HideChatReveals();
         _buildGeneration++;
         _building?.Cancel();
         _building?.Dispose();
@@ -116,6 +123,18 @@ public sealed partial class MarkdownPreviewView : UserControl
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
+        if (change.Property == HiddenReferencesProperty || change.Property == SecretRuntimeProperty || change.Property == TextProperty)
+        {
+            HideChatReveals();
+            if (change.Property != TextProperty)
+            {
+                _rendered = null;
+                if (VisualRoot is not null)
+                {
+                    Render();
+                }
+            }
+        }
         if (change.Property == BoundsProperty && !_isInView)
         {
             // A newly attached preview can receive its viewport before its
@@ -336,6 +355,11 @@ public sealed partial class MarkdownPreviewView : UserControl
 
             var start = Math.Clamp(block.SourceStart, 0, markdown.Length);
             var length = Math.Clamp(block.SourceLength, 0, markdown.Length - start);
+            var sourceText = markdown.Substring(start, length);
+            if (HasHiddenText(sourceText))
+            {
+                return new ScrollViewer { Content = Prose([new MarkdownRun(sourceText, MarkdownRunStyle.Code)]), MaxHeight = 320 };
+            }
             var source = new CodePreviewView
             {
                 Text = markdown.Substring(start, length),
@@ -497,6 +521,18 @@ public sealed partial class MarkdownPreviewView : UserControl
     /// </summary>
     private Control ContinuousDocument(ImmutableArray<MarkdownBlock> blocks)
     {
+        if (HiddenReferences is { Count: > 0 })
+        {
+            var protectedDocument = new StackPanel { Spacing = Metric("ShellSpaceSm", 8) };
+            foreach (var block in blocks)
+            {
+                if (Build(block) is { } control)
+                {
+                    protectedDocument.Children.Add(control);
+                }
+            }
+            return protectedDocument;
+        }
         if (!blocks.Any(IsEmbeddedBlock))
         {
             return ContinuousText(blocks);
@@ -550,10 +586,10 @@ public sealed partial class MarkdownPreviewView : UserControl
         MarkdownBlockKind.Paragraph => Paragraph(block),
         MarkdownBlockKind.ListItem => ListItem(block),
         MarkdownBlockKind.Quote => Quote(block),
-        MarkdownBlockKind.Code => IsMermaid(block) ? Mermaid(block) : Code(block),
+        MarkdownBlockKind.Code => HasHiddenText(block.Text) ? ProtectedCode(block) : IsMermaid(block) ? Mermaid(block) : Code(block),
         MarkdownBlockKind.ThematicBreak => ThematicBreak(),
         MarkdownBlockKind.Table => Table(block),
-        MarkdownBlockKind.Math => Formula(block),
+        MarkdownBlockKind.Math => HasHiddenText(block.Text) ? ProtectedCode(block) : Formula(block),
         _ => null,
     };
 
@@ -859,6 +895,10 @@ public sealed partial class MarkdownPreviewView : UserControl
 
     private Inline Inline(MarkdownRun run)
     {
+        if (HiddenInline(run) is { } hidden)
+        {
+            return hidden;
+        }
         if (run.Style.HasFlag(MarkdownRunStyle.Math))
         {
             var formula = new MathView

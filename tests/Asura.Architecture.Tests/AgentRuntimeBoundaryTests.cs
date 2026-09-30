@@ -239,6 +239,11 @@ public sealed class AgentRuntimeBoundaryTests
                     "Asura.Core.AiProviderProfileId",
                     "Asura.Core.AiProviderProtocol",
                     "Asura.Core.LiteralSecretValidator",
+                    // ADR 0043: inert occurrence metadata and a write-only text projection.
+                    // No vault resolution, OS API, or execution authority reaches the kernel.
+                    "Asura.Core.ChatHiddenReference",
+                    "Asura.Core.IChatTextProtection",
+                    "Asura.Core.ProtectedChatText",
                 ], StringComparer.Ordinal));
         var environmentMembers = metadata.MemberReferences
             .Select(handle => metadata.GetMemberReference(handle))

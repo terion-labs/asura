@@ -317,6 +317,7 @@ public sealed class SecretSettingsViewModel : ObservableObject, IDisposable
             var metadata =
                 ((SecretVaultResult<IReadOnlyList<SecretMetadata>>.Success)result).Value;
             Replace(metadata
+                .Where(item => item.Scope.Kind != SecretScopeKind.WorkspaceChat)
                 .OrderBy(item => item.Label, StringComparer.OrdinalIgnoreCase)
                 .Select(item => Project(item, _catalog.Snapshot)));
             ProjectionChanged?.Invoke(this, EventArgs.Empty);

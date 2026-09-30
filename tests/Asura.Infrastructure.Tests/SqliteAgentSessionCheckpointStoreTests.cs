@@ -4,7 +4,7 @@ using Microsoft.Data.Sqlite;
 
 namespace Asura.Infrastructure.Tests;
 
-public sealed class SqliteAgentSessionCheckpointStoreTests
+public sealed partial class SqliteAgentSessionCheckpointStoreTests
 {
     private static readonly DateTimeOffset Baseline =
         new(2026, 8, 13, 12, 0, 0, TimeSpan.Zero);
