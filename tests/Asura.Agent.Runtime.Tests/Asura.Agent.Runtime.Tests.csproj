@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\ChatSecretTestVault.cs" Link="Shared\ChatSecretTestVault.cs" />
     <Using Include="Xunit" />
   </ItemGroup>
 

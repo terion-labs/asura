@@ -4,7 +4,7 @@ namespace Asura.Core;
 /// Recognizes credential-shaped literal material that must stay out of agent
 /// approval and execution payloads until an opaque secret-reference path exists.
 /// </summary>
-public static class LiteralSecretValidator
+public static partial class LiteralSecretValidator
 {
     private static readonly string[] SecretMarkers =
     [
@@ -15,6 +15,8 @@ public static class LiteralSecretValidator
         "-----begin private key-----",
         "-----begin encrypted private key-----",
         "-----begin openssh private key-----",
+        "-----begin rsa private key-----",
+        "-----begin ec private key-----",
     ];
 
     private static readonly string[] TokenPrefixes =
@@ -292,45 +294,7 @@ public static class LiteralSecretValidator
             return false;
         }
 
-        var cursor = start;
-        var quote = '\0';
-        var escaped = false;
-        while (cursor < value.Length)
-        {
-            var character = value[cursor];
-            if (quote != '\0')
-            {
-                cursor++;
-                if (escaped)
-                {
-                    escaped = false;
-                }
-                else if (character == '\\')
-                {
-                    escaped = true;
-                }
-                else if (character == quote)
-                {
-                    quote = '\0';
-                }
-
-                continue;
-            }
-
-            if (character is '"' or '\'')
-            {
-                quote = character;
-                cursor++;
-                continue;
-            }
-
-            if (char.IsWhiteSpace(character) || IsValueDelimiter(character))
-            {
-                break;
-            }
-
-            cursor++;
-        }
+        var cursor = FindSecretValueEnd(value, start);
 
         var candidate = value[start..cursor];
         var isNonSecretLiteral =
@@ -364,6 +328,57 @@ public static class LiteralSecretValidator
         }
 
         return cursor < value.Length && value[cursor] is '+' or '?';
+    }
+
+    private static int FindSecretValueEnd(string value, int start)
+    {
+        var cursor = start;
+        var quote = '\0';
+        var escaped = false;
+        while (cursor < value.Length)
+        {
+            var character = value[cursor];
+            if (quote != '\0')
+            {
+                cursor++;
+                if (escaped)
+                {
+                    escaped = false;
+                }
+                else if (character == '\\')
+                {
+                    escaped = true;
+                }
+                else if (character == quote)
+                {
+                    quote = '\0';
+                }
+
+                continue;
+            }
+
+            if (character == '\\' && cursor + 1 < value.Length)
+            {
+                cursor += 2;
+                continue;
+            }
+
+            if (character is '"' or '\'')
+            {
+                quote = character;
+                cursor++;
+                continue;
+            }
+
+            if (char.IsWhiteSpace(character) || IsValueDelimiter(character))
+            {
+                break;
+            }
+
+            cursor++;
+        }
+
+        return cursor;
     }
 
     private static bool HasKeyStartBoundary(string value, int keyStart)

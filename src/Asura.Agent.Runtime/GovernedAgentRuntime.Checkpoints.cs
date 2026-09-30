@@ -42,6 +42,7 @@ public sealed partial class GovernedAgentRuntime
 
         if (restored is null)
         {
+            await ReclaimChatSecretsAsync(cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -103,6 +104,7 @@ public sealed partial class GovernedAgentRuntime
             };
         }
 
+        await ReclaimChatSecretsAsync(cancellationToken).ConfigureAwait(false);
         NotifyChanged();
     }
 
@@ -110,6 +112,7 @@ public sealed partial class GovernedAgentRuntime
         NativeAgentSession session,
         CancellationToken cancellationToken)
     {
+        session.ChatTextProtection = _chatSecrets;
         if (_checkpointStore is null)
         {
             return true;
@@ -222,6 +225,16 @@ public sealed partial class GovernedAgentRuntime
             return false;
         }
 
+        var originalsSaved = true;
+        try
+        {
+            originalsSaved = _chatSecrets is null || await _chatSecrets.FlushAsync(captured.Checkpoint.PayloadJson, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            originalsSaved = false;
+            SecretSafeDiagnosticProjection.WriteTrace("agent.hidden_store.unavailable", SecretSafeDiagnosticKind.Unexpected);
+        }
         var saved = await SaveCheckpointAsync(captured.Checkpoint, cancellationToken)
             .ConfigureAwait(false);
         if (!saved.IsSuccess)
@@ -232,7 +245,11 @@ public sealed partial class GovernedAgentRuntime
         {
             lock (_gate)
             {
-                _snapshot = _snapshot with { PersistenceError = null };
+                _snapshot = _snapshot with
+                {
+                    PersistenceError = originalsSaved ? null
+                    : "Conversation saved with hidden content. Some originals could not be stored in the operating-system vault and will be unavailable after restart."
+                };
             }
         }
         return saved.IsSuccess;
@@ -491,6 +508,7 @@ public sealed partial class GovernedAgentRuntime
             };
         }
 
+        await ReclaimChatSecretsAsync(cancellationToken).ConfigureAwait(false);
         NotifyChanged();
     }
 
@@ -502,7 +520,7 @@ public sealed partial class GovernedAgentRuntime
     {
         var normalized = string.Join(
             ' ',
-            userMessage.Split(
+            (_chatSecrets?.Protect(userMessage).Text ?? userMessage).Split(
                 (char[]?)null,
                 StringSplitOptions.RemoveEmptyEntries));
         var title = normalized.Length switch

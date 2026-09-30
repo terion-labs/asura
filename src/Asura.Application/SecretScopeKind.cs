@@ -12,4 +12,5 @@ public enum SecretScopeKind
     NetworkConnection,
     DatabaseRecovery,
     KubernetesConnection,
+    WorkspaceChat,
 }

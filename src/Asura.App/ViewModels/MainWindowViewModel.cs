@@ -1502,6 +1502,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     private void ActivateWorkspaceAgentChat(WorkspaceInstanceId? workspaceId)
     {
+        AgentChat?.ResetHiddenDisclosure();
         if (_agentRuntimeFactory is null || _aiProviderRuntime is null)
         {
             return;

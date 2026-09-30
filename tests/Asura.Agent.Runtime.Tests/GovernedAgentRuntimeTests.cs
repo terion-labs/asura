@@ -3466,6 +3466,10 @@ public sealed partial class GovernedAgentRuntimeTests
 
         public IReadOnlyCollection<AgentSessionCheckpoint> Values => _values.Values;
 
+        public ValueTask<bool> IsChatHiddenReferenceInUseAsync(AgentConversationScopeId conversationScopeId,
+            string referenceId, CancellationToken cancellationToken) => ValueTask.FromResult(
+                _values.Values.Any(checkpoint => checkpoint.PayloadJson.Contains(referenceId, StringComparison.Ordinal)));
+
         public bool ThrowOnSave { get; set; }
 
         public ValueTask<AgentSessionCheckpointStoreResult<Unit>> SaveAsync(
@@ -3587,7 +3591,9 @@ public sealed partial class GovernedAgentRuntimeTests
             TimeProvider? timeProvider = null,
             IAgentSessionCheckpointStore? checkpointStore = null,
             WorkspaceInstanceId? workspaceId = null,
-            IAgentAttachmentService? attachments = null)
+            IAgentAttachmentService? attachments = null,
+            ISecretVault? secretVault = null,
+            AgentConversationScopeId? conversationScopeId = null)
         {
             timeProvider ??= TimeProvider.System;
             Provider = provider;
@@ -3620,8 +3626,9 @@ public sealed partial class GovernedAgentRuntimeTests
                 ConfiguredPolicy,
                 checkpointStore: checkpointStore,
                 workspaceId: workspaceId,
-                conversationScopeId: attachments is null ? null : new AgentConversationScopeId("test-files"),
-                attachments: attachments);
+                conversationScopeId: conversationScopeId ?? (attachments is null ? null : new AgentConversationScopeId("test-files")),
+                attachments: attachments,
+                chatSecrets: secretVault is null ? null : new WorkspaceChatSecrets(secretVault, conversationScopeId ?? new("test-files")));
         }
 
         public ProviderRound Provider { get; }
@@ -3843,6 +3850,8 @@ public sealed partial class GovernedAgentRuntimeTests
 
         public int BlockOnCall { get; init; } = int.MaxValue;
 
+        public Func<AgentProviderEvent, CancellationToken, ValueTask>? AfterEvent { get; init; }
+
         public async IAsyncEnumerable<AgentProviderEvent> StreamAsync(
             AgentProviderRequest request,
             [EnumeratorCancellation] CancellationToken cancellationToken)
@@ -3868,6 +3877,10 @@ public sealed partial class GovernedAgentRuntimeTests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 yield return providerEvent;
+                if (AfterEvent is { } afterEvent)
+                {
+                    await afterEvent(providerEvent, cancellationToken);
+                }
                 await Task.Yield();
             }
         }

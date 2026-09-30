@@ -16,6 +16,11 @@ public sealed record AgentSessionCheckpointSummary(
 /// </summary>
 public interface IAgentSessionCheckpointStore
 {
+    // Unknown adapters conservatively retain vault entries. SQLite checks every
+    // workspace row, including history that is outside the UI's catalog window.
+    ValueTask<bool> IsChatHiddenReferenceInUseAsync(AgentConversationScopeId scope, string id, CancellationToken cancellationToken) =>
+        ValueTask.FromResult(true);
+
     ValueTask<AgentSessionCheckpointStoreResult<Unit>> SaveAsync(
         AgentSessionCheckpoint checkpoint,
         CancellationToken cancellationToken);

@@ -14,9 +14,17 @@ public sealed record AgentChatMessageViewModel(
     AgentReasoningEffort? RequestedReasoningEffort = null,
     AgentConversationForkPoint? ForkPoint = null,
     AgentChatMessageKind Kind = AgentChatMessageKind.Message,
-    IReadOnlyList<string>? Files = null)
+    IReadOnlyList<string>? Files = null,
+    IReadOnlyList<ChatHiddenReference>? HiddenReferences = null,
+    IAgentChatSecretRuntime? SecretRuntime = null,
+    int DisclosedHiddenCount = 0,
+    string? DisclosureDestination = null)
 {
     public bool IsUser => Role == AgentChatMessageRole.User;
+
+    public bool HasDisclosureReceipt => DisclosedHiddenCount > 0;
+    public string DisclosureReceipt => HasDisclosureReceipt
+        ? $"Included {DisclosedHiddenCount.ToString(CultureInfo.InvariantCulture)} hidden values in the request to {DisclosureDestination}" : string.Empty;
 
     public bool IsAssistant => Role == AgentChatMessageRole.Assistant;
 
@@ -553,6 +561,36 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<AgentChatMessageViewModel> Messages { get; } = [];
 
+    public ObservableCollection<ChatSecretSelectionViewModel> HiddenContentChoices { get; } = [];
+    public bool HasHiddenContentChoices => HiddenContentChoices.Count > 0;
+    public string HiddenDisclosureDestination => $"Send selected originals to {SelectedProvider?.Name ?? "provider"} / {SelectedModelName} in the next request";
+
+    internal void ResetHiddenDisclosure()
+    {
+        foreach (var choice in HiddenContentChoices)
+        {
+            choice.Include = false;
+        }
+    }
+
+    private void RefreshHiddenContentChoices(bool reset = false)
+    {
+        HashSet<ChatHiddenReference> selected = reset ? [] : [.. HiddenContentChoices.Where(choice => choice.Include).Select(choice => choice.Reference)];
+        var draft = (_runtime as IAgentChatSecretRuntime)?.ProtectDraft(Prompt ?? string.Empty);
+        var candidates = Messages.SelectMany((message, index) => (message.HiddenReferences ?? [])
+                .Select(reference => (Reference: reference, Source: $"Message {(index + 1).ToString(CultureInfo.InvariantCulture)}")))
+            .Concat((draft?.References ?? []).Select(reference => (Reference: reference, Source: "Prompt")))
+            .DistinctBy(candidate => candidate.Reference).ToArray();
+        HiddenContentChoices.Clear();
+        foreach (var candidate in candidates)
+        {
+            HiddenContentChoices.Add(new(candidate.Reference, candidate.Source + " · hidden " + candidate.Reference.Id[..6])
+            { Include = selected.Contains(candidate.Reference) });
+        }
+        OnPropertyChanged(nameof(HasHiddenContentChoices));
+        OnPropertyChanged(nameof(HiddenDisclosureDestination));
+    }
+
     public ObservableCollection<AgentQueuedFollowUpViewModel> QueuedFollowUps { get; } = [];
 
     public ObservableCollection<AgentConversationItemViewModel> Conversations { get; } = [];
@@ -742,6 +780,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
             if (SetProperty(ref _selectedModel, value))
             {
+                RefreshHiddenContentChoices(reset: true);
                 OnPropertyChanged(nameof(SelectedModelName));
                 NotifyContextWindowChanged();
                 UpdateModelCapabilities(value);
@@ -965,6 +1004,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         {
             if (SetProperty(ref _selectedProvider, value))
             {
+                RefreshHiddenContentChoices(reset: true);
                 _modelSelectionExplicit = false;
                 UpdateModels(value, value?.DefaultModel);
 
@@ -986,6 +1026,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         {
             if (SetProperty(ref _prompt, value))
             {
+                RefreshHiddenContentChoices();
                 OnPropertyChanged(nameof(CanSend));
                 OnPropertyChanged(nameof(CanQueueFollowUp));
                 OnPropertyChanged(nameof(CanSubmitPrompt));
@@ -1713,6 +1754,12 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             return;
         }
 
+        if (HiddenContentChoices.Any(choice => choice.Include))
+        {
+            ReportTargetUnavailable("Wait for the agent to be ready before explicitly including hidden content in a model request.");
+            return;
+        }
+
         var followUp = Prompt;
         Prompt = string.Empty;
         try
@@ -1880,7 +1927,15 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             _fullAccessSelected
                 ? AgentApprovalMode.FullAccess
                 : AgentApprovalMode.Ask,
-            files);
+            files)
+        {
+            DiscloseHiddenReferences = [.. HiddenContentChoices.Where(choice => choice.Include).Select(choice => choice.Reference)],
+        };
+
+        foreach (var choice in HiddenContentChoices)
+        {
+            choice.Include = false;
+        }
 
         Prompt = string.Empty;
         ClearPendingImages();
@@ -2427,6 +2482,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     public async Task QuiesceAsync(CancellationToken cancellationToken)
     {
+        ResetHiddenDisclosure();
         if (CanStop)
         {
             await StopAsync(cancellationToken);
@@ -2719,7 +2775,12 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                     message.RequestedReasoningEffort,
                     message.ForkPoint,
                     message.Kind,
-                    message.Files)));
+                    message.Files,
+                    message.HiddenReferences,
+                    _runtime as IAgentChatSecretRuntime,
+                    message.DisclosedHiddenCount,
+                    message.DisclosureDestination)));
+        RefreshHiddenContentChoices(reset: _auditRunId != (snapshot.SelectedConversationRunId ?? snapshot.RunId));
         NotifyContextWindowChanged();
         Replace(
             Conversations,
@@ -2850,7 +2911,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         Status = boundProviderMissing
             ? "This run's provider is no longer enabled. Clear the run to choose another."
             : snapshot.Status;
-        ReportError(snapshot.PersistenceError, "Conversation not saved");
+        ReportError(snapshot.PersistenceError, snapshot.PersistenceError?.StartsWith("Conversation saved", StringComparison.Ordinal) == true
+            ? "Hidden content not saved" : "Conversation not saved");
         NotifyAvailabilityChanged();
         NotifyContentChanged();
         if (_approvalModeChangePending

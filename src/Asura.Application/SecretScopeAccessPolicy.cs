@@ -34,12 +34,22 @@ public sealed class SecretScopeAccessPolicy : ISecretAccessPolicy
 
         if (purpose.Kind == SecretUseKind.UserManagement)
         {
-            return operation != SecretVaultOperation.Resolve;
+            return scope.Kind != SecretScopeKind.WorkspaceChat && operation != SecretVaultOperation.Resolve;
         }
 
         if (purpose.Kind == SecretUseKind.PlatformMaintenance)
         {
             return true;
+        }
+
+        if (scope.Kind == SecretScopeKind.WorkspaceChat)
+        {
+            return purpose.Kind switch
+            {
+                SecretUseKind.ChatHistoryPersistence => operation is not SecretVaultOperation.Resolve,
+                SecretUseKind.ChatLocalReveal or SecretUseKind.ChatModelDisclosure => operation == SecretVaultOperation.Resolve,
+                _ => false,
+            };
         }
 
         return scope.Kind == ScopeFor(purpose.Kind);

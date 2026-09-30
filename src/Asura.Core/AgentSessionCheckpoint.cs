@@ -10,7 +10,7 @@ namespace Asura.Core;
 /// </summary>
 public sealed class AgentSessionCheckpoint
 {
-    public const int CurrentSchemaVersion = 3;
+    public const int CurrentSchemaVersion = 4;
     public const int MaximumPayloadBytes = 32 * 1024 * 1024;
     public const int MaximumRunIdBytes = 256;
 

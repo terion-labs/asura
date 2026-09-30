@@ -8,6 +8,35 @@ namespace Asura.Agent;
 
 public sealed partial class NativeAgentSession
 {
+    internal IChatTextProtection? ChatTextProtection { get; set; }
+
+    private int _nextChatDisclosureCount;
+    private string? _nextChatDisclosureDestination;
+
+    internal void SetNextChatDisclosure(int count, string? destination)
+    {
+        if (count is < 0 or > 4096 || (count > 0 && !IsValidRouteIdentity(destination)))
+        {
+            throw new ArgumentException("The hidden content disclosure receipt is invalid.");
+        }
+        lock (_gate)
+        {
+            _nextChatDisclosureCount = count;
+            _nextChatDisclosureDestination = count == 0 ? null : destination;
+        }
+    }
+
+    private AgentMessage ApplyNextChatDisclosureUnsafe(AgentMessage user, bool consume)
+    {
+        var result = user with { DisclosedHiddenCount = _nextChatDisclosureCount, DisclosureDestination = _nextChatDisclosureDestination };
+        if (consume)
+        {
+            _nextChatDisclosureCount = 0;
+            _nextChatDisclosureDestination = null;
+        }
+        return result;
+    }
+
     private const string CheckpointReadyState = "ready";
     private const string CheckpointInterruptedState = "interrupted";
     private const string InterruptedTurnMessage =
@@ -271,6 +300,7 @@ public sealed partial class NativeAgentSession
                     AgentCheckpointCaptureErrorCode.SessionNotIdle);
             }
 
+            user = ApplyNextChatDisclosureUnsafe(user, consume: false);
             return CaptureInterruptedCheckpointUnsafe(
                 _conversation.Add(user).Add(InterruptedAssistantMessage()),
                 _transcript.Add(user).Add(InterruptedAssistantMessage()));
@@ -408,10 +438,10 @@ public sealed partial class NativeAgentSession
         ValidateConversation(conversation);
         ValidateTranscript(transcript);
         var durableConversation = conversation
-            .Select(ToDurableCheckpointMessage)
+            .Select(message => ProjectProtectedMessage(message, ChatTextProtection))
             .ToImmutableArray();
         var durableTranscript = transcript
-            .Select(ToDurableCheckpointMessage)
+            .Select(message => ProjectProtectedMessage(message, ChatTextProtection))
             .ToImmutableArray();
         ValidateConversation(durableConversation);
         ValidateTranscript(durableTranscript);
@@ -429,16 +459,18 @@ public sealed partial class NativeAgentSession
             .LastOrDefault(candidate => candidate is not null);
         var payload = new CheckpointPayload(
             state,
-            _conversationTitle,
+            _conversationTitle is { } title ? ChatTextProtection?.Protect(title).Text ?? title : null,
             conversationRevision,
             _sequence,
             _lastSubmittedToolGeneration,
             [.. durableConversation.Select(ToCheckpointMessage)],
             [.. _providerToolBindings
                 .OrderBy(binding => binding.Key, StringComparer.Ordinal)
-                .Select(binding => new CheckpointToolBinding(
-                    binding.Key,
-                    binding.Value))],
+                .Select(binding =>
+                {
+                    var name = ChatTextProtection is null ? binding.Value : ProjectProtectedIdentifier(binding.Value, ChatTextProtection).Text;
+                    return new CheckpointToolBinding(AgentToolDefinition.GetProviderName(name), name);
+                })],
             providerBinding?.ProfileId.Value ?? _conversationProviderId?.Value,
             providerBinding?.Model ?? _conversationModel,
             [.. durableTranscript.Select(ToCheckpointMessage)]);
@@ -468,7 +500,7 @@ public sealed partial class NativeAgentSession
     {
         ArgumentNullException.ThrowIfNull(checkpoint);
         if (checkpoint.SchemaVersion is not (
-                1 or 2 or AgentSessionCheckpoint.CurrentSchemaVersion))
+                1 or 2 or 3 or AgentSessionCheckpoint.CurrentSchemaVersion))
         {
             return AgentCheckpointRestoreResult.Failure(
                 AgentCheckpointRestoreErrorCode.UnsupportedSchema);
@@ -683,7 +715,10 @@ public sealed partial class NativeAgentSession
             message.RequestedReasoningEffort is { } effort
                 ? ToReasoningEffortToken(effort)
                 : null,
-            [.. message.Files.Select(file => new CheckpointFile(file.Id, file.FileName, file.ByteCount))]);
+            [.. message.Files.Select(file => new CheckpointFile(file.Id, file.FileName, file.ByteCount))],
+            [.. message.HiddenReferences.Select(reference => reference.Id)],
+            message.DisclosedHiddenCount,
+            message.DisclosureDestination);
 
     private static AgentMessage WithoutUnsafeProviderReplayState(
         AgentMessage message) =>
@@ -792,6 +827,45 @@ public sealed partial class NativeAgentSession
     }
 
     private static AgentMessage FromCheckpointMessage(CheckpointMessage message)
+    {
+        var restored = FromCheckpointMessageContent(message);
+        var references = (message.HiddenReferences ?? []).Select(id => new ChatHiddenReference(id)).ToImmutableArray();
+        var referenceText = restored.Content + restored.ReasoningSummary
+            + string.Concat(restored.ToolCalls.Select(call => call.Arguments.GetRawText()))
+            + string.Concat(restored.ToolCalls.Select(call => call.Id + call.ProviderCallId + call.ToolName))
+            + (restored.ToolResult is { } toolResult ? toolResult.ProposalId + toolResult.ProviderCallId + toolResult.StableCode : null)
+            + string.Concat(restored.Files.Select(file => file.FileName))
+            + string.Concat(restored.Images.Select(image => image.FileName));
+        if (references.Length > 4096 || references.Distinct().Count() != references.Length
+            || references.Any(reference => !referenceText.Contains(reference.Placeholder, StringComparison.Ordinal)
+                && !restored.ToolCalls.Any(call => ContainsHiddenJsonText(call.Arguments, reference.Placeholder))
+                && !(restored.ToolResult is { Value.Kind: AgentToolResultValueKind.Json } result
+                    && HiddenJsonTextMatches(result.Value.Content, reference.Placeholder)))
+            || message.DisclosedHiddenCount is < 0 or > 4096
+            || (message.DisclosedHiddenCount > 0 && (restored.Role != AgentMessageRole.User || !IsValidRouteIdentity(message.DisclosureDestination)))
+            || (message.DisclosedHiddenCount == 0 && message.DisclosureDestination is not null)
+            || (references.Length > 0 && restored.ProviderReplayState is not null))
+        {
+            throw new ArgumentException("The hidden chat annotations are invalid.");
+        }
+        return restored with { HiddenReferences = references, DisclosedHiddenCount = message.DisclosedHiddenCount, DisclosureDestination = message.DisclosureDestination };
+    }
+
+    private static bool HiddenJsonTextMatches(string json, string placeholder)
+    {
+        using var document = JsonDocument.Parse(json);
+        return ContainsHiddenJsonText(document.RootElement, placeholder);
+    }
+
+    private static bool ContainsHiddenJsonText(JsonElement value, string placeholder) => value.ValueKind switch
+    {
+        JsonValueKind.String => value.GetString()?.Contains(placeholder, StringComparison.Ordinal) == true,
+        JsonValueKind.Object => value.EnumerateObject().Any(property => ContainsHiddenJsonText(property.Value, placeholder)),
+        JsonValueKind.Array => value.EnumerateArray().Any(item => ContainsHiddenJsonText(item, placeholder)),
+        _ => false,
+    };
+
+    private static AgentMessage FromCheckpointMessageContent(CheckpointMessage message)
     {
         ArgumentNullException.ThrowIfNull(message);
         ArgumentNullException.ThrowIfNull(message.Content);
@@ -1330,7 +1404,10 @@ public sealed partial class NativeAgentSession
         CheckpointImage[]? Images,
         CheckpointProviderReplayState? ProviderReplayState,
         string? RequestedReasoningEffort,
-        CheckpointFile[]? Files = null);
+        CheckpointFile[]? Files = null,
+        string[]? HiddenReferences = null,
+        int DisclosedHiddenCount = 0,
+        string? DisclosureDestination = null);
 
     private sealed record CheckpointFile(string Id, string FileName, int ByteCount);
 

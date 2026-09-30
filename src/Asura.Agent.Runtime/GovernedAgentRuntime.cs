@@ -19,6 +19,7 @@ public sealed partial class GovernedAgentRuntime :
     IGovernedAgentRuntime,
     IAgentWorkspaceLayoutRuntime,
     IAgentAttachmentRuntime,
+    IAgentChatSecretRuntime,
     IAsyncDisposable
 {
     private const long InitialPolicyGeneration = 1;
@@ -114,6 +115,7 @@ public sealed partial class GovernedAgentRuntime :
     private readonly IAgentProviderResolver _providerResolver;
     private readonly IAgentSessionCheckpointStore? _checkpointStore;
     private readonly IAgentAttachmentService? _attachments;
+    private readonly WorkspaceChatSecrets? _chatSecrets;
     private readonly WorkspaceInstanceId? _workspaceId;
     private readonly AgentConversationScopeId? _conversationScopeId;
     private readonly ActorDescriptor _approvalActor;
@@ -208,7 +210,8 @@ public sealed partial class GovernedAgentRuntime :
         AgentGitActionComposer? gitComposer = null,
         IAgentKubernetesSessionHost? agentKubernetesHost = null,
         AgentKubernetesReadActionComposer? kubernetesComposer = null,
-        IAgentAttachmentService? attachments = null)
+        IAgentAttachmentService? attachments = null,
+        WorkspaceChatSecrets? chatSecrets = null)
         : this(
             sessionHost,
             broker,
@@ -248,7 +251,8 @@ public sealed partial class GovernedAgentRuntime :
             gitComposer,
             agentKubernetesHost,
             kubernetesComposer,
-            attachments)
+            attachments,
+            chatSecrets)
     {
     }
 
@@ -306,7 +310,8 @@ public sealed partial class GovernedAgentRuntime :
         AgentGitActionComposer? gitComposer = null,
         IAgentKubernetesSessionHost? agentKubernetesHost = null,
         AgentKubernetesReadActionComposer? kubernetesComposer = null,
-        IAgentAttachmentService? attachments = null)
+        IAgentAttachmentService? attachments = null,
+        WorkspaceChatSecrets? chatSecrets = null)
         : this(
             sessionHost,
             broker,
@@ -334,7 +339,8 @@ public sealed partial class GovernedAgentRuntime :
             gitComposer: gitComposer,
             agentKubernetesHost: agentKubernetesHost,
             kubernetesComposer: kubernetesComposer,
-            attachments: attachments)
+            attachments: attachments,
+            chatSecrets: chatSecrets)
     {
     }
 
@@ -377,7 +383,8 @@ public sealed partial class GovernedAgentRuntime :
         AgentGitActionComposer? gitComposer = null,
         IAgentKubernetesSessionHost? agentKubernetesHost = null,
         AgentKubernetesReadActionComposer? kubernetesComposer = null,
-        IAgentAttachmentService? attachments = null)
+        IAgentAttachmentService? attachments = null,
+        WorkspaceChatSecrets? chatSecrets = null)
     {
         _sessionHost = sessionHost ?? throw new ArgumentNullException(nameof(sessionHost));
         _broker = broker ?? throw new ArgumentNullException(nameof(broker));
@@ -482,6 +489,11 @@ public sealed partial class GovernedAgentRuntime :
         _attachments = attachments;
         _workspaceId = workspaceId;
         _conversationScopeId = conversationScopeId;
+        if (chatSecrets is not null && chatSecrets.Workspace != conversationScopeId)
+        {
+            throw new ArgumentException("The hidden-content store must belong to this conversation workspace.", nameof(chatSecrets));
+        }
+        _chatSecrets = chatSecrets;
         ArgumentNullException.ThrowIfNull(approvalPrincipal);
         _approvalActor = ValidateApprovalPrincipal(approvalPrincipal.Actor);
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
@@ -535,7 +547,12 @@ public sealed partial class GovernedAgentRuntime :
         {
             lock (_gate)
             {
-                return _snapshot;
+                return _chatSecrets is null || _disposed ? _snapshot : _snapshot with
+                {
+                    Messages = CopyMessages(_snapshot.Messages),
+                    ProvisionalAssistantText = ProtectStreamingText(_snapshot.ProvisionalAssistantText),
+                    ProvisionalReasoningSummary = ProtectStreamingText(_snapshot.ProvisionalReasoningSummary),
+                };
             }
         }
     }
@@ -697,6 +714,11 @@ public sealed partial class GovernedAgentRuntime :
                 SteeringAvailable = false,
                 SteeringGeneration = null,
             };
+            if (_draftIsEmpty)
+            {
+                _draftHiddenReferences = [];
+            }
+
         }
 
         NotifyChanged();
@@ -851,6 +873,30 @@ public sealed partial class GovernedAgentRuntime :
                 provider = providerBinding.CreateProvider(
                     selectedModel,
                     request.ServiceTier);
+                if (_chatSecrets is not null)
+                {
+                    var draft = _chatSecrets.Protect(request.Message);
+                    var known = Snapshot.Messages.SelectMany(message => message.HiddenReferences ?? [])
+                        .Concat(draft.References).ToHashSet();
+                    if (request.DiscloseHiddenReferences.IsDefault
+                        || request.DiscloseHiddenReferences.Length > 4096
+                        || request.DiscloseHiddenReferences.Any(reference => !known.Contains(reference)))
+                    {
+                        return FinishRecoverableSetupFailure(turnCancellation, baseMessages,
+                            "agent_hidden_selection_invalid", "Choose hidden content from this workspace conversation before sending it.");
+                    }
+                    foreach (var reference in request.DiscloseHiddenReferences.Distinct())
+                    {
+                        if (!await _chatSecrets.CanResolveAsync(reference, turnCancellation.Token).ConfigureAwait(false))
+                        {
+                            return FinishRecoverableSetupFailure(turnCancellation, baseMessages,
+                                "agent_hidden_content_unavailable", "Selected hidden content is unavailable. Unlock the operating-system vault or send with originals unchecked.");
+                        }
+                    }
+                    GetRequiredSession().SetNextChatDisclosure(request.DiscloseHiddenReferences.Distinct().Count(),
+                        request.ProviderId.Value + "/" + selectedModel);
+                    provider = new ChatSecretProvider(provider, _chatSecrets, request.DiscloseHiddenReferences);
+                }
             }
             catch (Exception exception)
                 when (exception is
@@ -1495,6 +1541,14 @@ public sealed partial class GovernedAgentRuntime :
                 };
             }
 
+            lock (_gate)
+            {
+                if (_draftIsEmpty)
+                {
+                    _draftHiddenReferences = [];
+                }
+            }
+            await ReclaimChatSecretsAsync(cancellationToken).ConfigureAwait(false);
             NotifyChanged();
             return true;
         }
@@ -1588,6 +1642,7 @@ public sealed partial class GovernedAgentRuntime :
                 "runtime_disposed",
                 CancellationToken.None)
             .ConfigureAwait(false);
+        _chatSecrets?.Dispose();
     }
 
     private async ValueTask<GovernedAgentPolicyResult> DisableYoloCoreAsync(
@@ -2132,7 +2187,8 @@ public sealed partial class GovernedAgentRuntime :
         SetStreamingStatus("Compacting the conversation…");
         var compactor = new ProviderConversationCompactor(
             _providerResolver,
-            selection);
+            selection,
+            _chatSecrets);
         try
         {
             var result = await session.CompactAsync(
@@ -2229,7 +2285,8 @@ public sealed partial class GovernedAgentRuntime :
         {
             var generator = new ProviderConversationTitleGenerator(
                 _providerResolver,
-                selection);
+                selection,
+                _chatSecrets);
             var title = await generator.GenerateAsync(
                     session.Snapshot().Transcript,
                     cancellationToken)
@@ -3267,6 +3324,7 @@ public sealed partial class GovernedAgentRuntime :
                     ?? new NativeAgentSession(
                         runId,
                         [new AgentMessage(AgentMessageRole.System, systemPrompt)]);
+                _session.ChatTextProtection = _chatSecrets;
                 _restoredSession = null;
                 _snapshot = _snapshot with
                 {
@@ -4999,7 +5057,7 @@ public sealed partial class GovernedAgentRuntime :
     private static AgentToolResultValue JsonValue(string json) =>
         AgentToolResultValue.FromJson(Encoding.UTF8.GetBytes(json));
 
-    private static IReadOnlyList<AgentChatMessage> ProjectMessages(
+    private IReadOnlyList<AgentChatMessage> ProjectMessages(
         NativeAgentSession? session)
     {
         if (session is null)
@@ -5013,11 +5071,25 @@ public sealed partial class GovernedAgentRuntime :
         var conversation = session.Snapshot().Transcript;
         for (var messageIndex = 0; messageIndex < conversation.Length; messageIndex++)
         {
-            var message = conversation[messageIndex];
+            session.ChatTextProtection = _chatSecrets;
+            var message = _chatSecrets is null ? conversation[messageIndex]
+                : NativeAgentSession.ProjectProtectedMessage(conversation[messageIndex], _chatSecrets);
+            var hiddenOutsideBody = message.HiddenReferences.Where(reference =>
+                !message.Content.Contains(reference.Placeholder, StringComparison.Ordinal)
+                && message.ReasoningSummary?.Contains(reference.Placeholder, StringComparison.Ordinal) != true).ToArray();
+            var presentationContent = message.ToolResult is not null && message.HiddenReferences.Length > 0
+                ? "Hidden tool content: " + string.Join(" ", message.HiddenReferences.Select(reference => reference.Placeholder))
+                : hiddenOutsideBody.Length == 0 ? message.Content
+                    : message.Content + "\n\nHidden content: " + string.Join(" ", hiddenOutsideBody.Select(reference => reference.Placeholder));
+            if (message.Role == AgentMessageRole.Tool && message.HiddenReferences.Length > 0)
+            {
+                projected.Add(new AgentChatMessage(AgentChatMessageRole.Assistant, presentationContent,
+                    HiddenReferences: message.HiddenReferences));
+            }
             if (message.Role == AgentMessageRole.User
                     && (message.Content.Length > 0 || message.Images.Length > 0 || message.Files.Length > 0)
                 || message.Role == AgentMessageRole.Assistant
-                    && (message.Content.Length > 0
+                    && (presentationContent.Length > 0
                         || message.ReasoningSummary is not null))
             {
                 projected.Add(
@@ -5025,7 +5097,7 @@ public sealed partial class GovernedAgentRuntime :
                         message.Role == AgentMessageRole.User
                             ? AgentChatMessageRole.User
                             : AgentChatMessageRole.Assistant,
-                        message.Content,
+                        presentationContent,
                         message.ReasoningSummary,
                         message.Usage is { } usage
                             ? new AgentChatUsage(
@@ -5048,7 +5120,10 @@ public sealed partial class GovernedAgentRuntime :
                             && message.ToolCalls.Length == 0
                                 ? new AgentConversationForkPoint(messageIndex + 1)
                                 : null,
-                        Files: message.Files.IsEmpty ? null : [.. message.Files.Select(file => file.FileName)]));
+                        Files: message.Files.IsEmpty ? null : [.. message.Files.Select(file => file.FileName)],
+                        HiddenReferences: message.HiddenReferences,
+                        DisclosedHiddenCount: message.DisclosedHiddenCount,
+                        DisclosureDestination: message.DisclosureDestination));
             }
 
             if (message.Role == AgentMessageRole.Assistant)
@@ -5163,9 +5238,9 @@ public sealed partial class GovernedAgentRuntime :
         }
     }
 
-    private static IReadOnlyList<AgentChatMessage> CopyMessages(
+    private IReadOnlyList<AgentChatMessage> CopyMessages(
         IEnumerable<AgentChatMessage> messages) =>
-        Array.AsReadOnly(messages.ToArray());
+        Array.AsReadOnly(messages.Select(ProtectPresentationMessage).ToArray());
 
     private long GetPolicyGeneration()
     {

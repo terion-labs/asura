@@ -66,7 +66,10 @@ public sealed record AgentChatMessage(
     AgentReasoningEffort? RequestedReasoningEffort = null,
     AgentConversationForkPoint? ForkPoint = null,
     AgentChatMessageKind Kind = AgentChatMessageKind.Message,
-    IReadOnlyList<string>? Files = null);
+    IReadOnlyList<string>? Files = null,
+    IReadOnlyList<ChatHiddenReference>? HiddenReferences = null,
+    int DisclosedHiddenCount = 0,
+    string? DisclosureDestination = null);
 
 public sealed record AgentChatSnapshot(
     AgentChatState State,

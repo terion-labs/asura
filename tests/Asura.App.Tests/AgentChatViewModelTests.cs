@@ -4079,7 +4079,7 @@ public sealed partial class AgentChatViewModelTests
             fileProviderProfileId,
             fileRootDisplay);
 
-    private sealed class StubGovernedRuntime : IGovernedAgentRuntime, IAgentAttachmentRuntime
+    private sealed class StubGovernedRuntime : IGovernedAgentRuntime, IAgentAttachmentRuntime, IAgentChatSecretRuntime
     {
         public bool SupportsFileAttachments { get; set; }
         public Dictionary<string, byte[]> ImportedFiles { get; } = new(StringComparer.Ordinal);
@@ -4089,6 +4089,11 @@ public sealed partial class AgentChatViewModelTests
             ImportedFiles[file.Id] = content.ToArray();
             return ValueTask.FromResult(file);
         }
+
+        public Func<string, ProtectedChatText>? DraftProtector { get; init; }
+        public ProtectedChatText ProtectDraft(string text) => DraftProtector?.Invoke(text) ?? new(text, []);
+        public ValueTask<SecretVaultResult<string>> RevealChatSecretAsync(ChatHiddenReference reference, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(SecretVaultResult<string>.Fail(SecretVaultError.Create(SecretVaultErrorCode.NotFound)));
 
         private EventHandler? _changed;
 

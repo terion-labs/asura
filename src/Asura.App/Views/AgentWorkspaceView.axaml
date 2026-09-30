@@ -396,9 +396,13 @@
                             IsVisible="{Binding HasFiles}" />
                         <components:MarkdownPreviewView
                             ContinuousSelection="True"
-                            Text="{Binding Content}" />
+                            Text="{Binding Content}"
+                            HiddenReferences="{Binding HiddenReferences}"
+                            SecretRuntime="{Binding SecretRuntime}" />
                       </StackPanel>
                     </Border>
+                    <TextBlock Text="{Binding DisclosureReceipt}" IsVisible="{Binding HasDisclosureReceipt}"
+                        Classes="Muted" TextWrapping="Wrap" />
                     <Button
                         Margin="{controls:Inset Top=Xs}"
                         HorizontalAlignment="Right"
@@ -460,12 +464,16 @@
                           IsVisible="{Binding IsChecked, ElementName=CommittedReasoningDisclosure}">
                         <components:MarkdownPreviewView
                             ContinuousSelection="True"
-                            Text="{Binding ReasoningSummaryDisplay}" />
+                            Text="{Binding ReasoningSummaryDisplay}"
+                            HiddenReferences="{Binding HiddenReferences}"
+                            SecretRuntime="{Binding SecretRuntime}" />
                       </Border>
                     </StackPanel>
                     <components:MarkdownPreviewView
                         ContinuousSelection="True"
-                        Text="{Binding Content}" />
+                        Text="{Binding Content}"
+                            HiddenReferences="{Binding HiddenReferences}"
+                            SecretRuntime="{Binding SecretRuntime}" />
                     <TextBlock
                         Classes="Muted"
                         FontSize="{DynamicResource ShellFontSize9}"
@@ -521,7 +529,9 @@
                       </Grid>
                       <components:MarkdownPreviewView
                           ContinuousSelection="True"
-                          Text="{Binding Content}" />
+                          Text="{Binding Content}"
+                            HiddenReferences="{Binding HiddenReferences}"
+                            SecretRuntime="{Binding SecretRuntime}" />
                     </StackPanel>
                   </controls:SurfaceCard>
                 </Grid>
@@ -979,7 +989,7 @@
           BorderThickness="1"
           CornerRadius="{DynamicResource ShellCardCornerRadius}"
           IsVisible="{Binding AgentChat.ShowComposer, FallbackValue=False}">
-        <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="{DynamicResource ShellSpaceXs}">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="{DynamicResource ShellSpaceXs}">
           <StackPanel>
             <ItemsControl
                 x:Name="AgentPendingImages"
@@ -1034,6 +1044,20 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
           </StackPanel>
+          <Expander Grid.Row="4" IsVisible="{Binding AgentChat.HasHiddenContentChoices}" Header="Include hidden originals in next request" IsExpanded="False">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="Muted" TextWrapping="Wrap" Text="{Binding AgentChat.HiddenDisclosureDestination}" />
+              <ScrollViewer MaxHeight="160">
+                <ItemsControl ItemsSource="{Binding AgentChat.HiddenContentChoices}" IsEnabled="{Binding AgentChat.CanSend}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ChatSecretSelectionViewModel">
+                      <CheckBox Content="{Binding Label}" IsChecked="{Binding Include, Mode=TwoWay}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </StackPanel>
+          </Expander>
           <TextBox
               x:Name="AgentChatPromptInput"
               Grid.Row="1"

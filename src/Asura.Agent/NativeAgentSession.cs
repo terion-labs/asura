@@ -260,6 +260,7 @@ public sealed partial class NativeAgentSession
                 return AgentTurnResult.Failure(AgentTurnErrorCode.LimitExceeded);
             }
 
+            user = ApplyNextChatDisclosureUnsafe(user, consume: true);
             var requestConversation = _conversation.Add(user);
             try
             {
