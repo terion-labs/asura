@@ -1007,6 +1007,18 @@ public sealed partial class GovernedAgentRuntimeTests
                 .ConfigureAwait(false);
         }
 
+        public async ValueTask ChangeTerminalInputLeaseAsync()
+        {
+            var snapshot = Value(await Client.GetSnapshotAsync(SessionId, HumanContext(), default));
+            var lease = Assert.IsType<InputLease>(snapshot.InputLease);
+            _ = Value(await Client.ReleaseInputLeaseAsync(
+                new ReleaseInputLeaseRequest(SessionId, lease.Id), HumanContext(), default));
+            var acquired = Value(await Client.AcquireInputLeaseAsync(
+                new AcquireInputLeaseRequest(SessionId, snapshot.Attachments.Single().Id, TimeSpan.FromMinutes(5)),
+                HumanContext(), default));
+            Assert.True(acquired.Granted);
+        }
+
         public async ValueTask DisposeAsync()
         {
             await Runtime.DisposeAsync().ConfigureAwait(false);
@@ -1271,6 +1283,8 @@ public sealed partial class GovernedAgentRuntimeTests
 
         public SessionLifecycle? LifecycleOverride { get; set; }
 
+        public Func<ValueTask>? BeforeInspectionAsync { get; set; }
+
         public void Initialize(ISessionHostClient inner) =>
             _inner = inner ?? throw new ArgumentNullException(nameof(inner));
 
@@ -1307,6 +1321,10 @@ public sealed partial class GovernedAgentRuntimeTests
                 OperationContext context,
                 CancellationToken cancellationToken)
         {
+            if (BeforeInspectionAsync is { } beforeInspection)
+            {
+                await beforeInspection();
+            }
             var result = await _inner.InspectAgentContextAsync(
                     request,
                     context,

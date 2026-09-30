@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Diagnostics;
+using System.IO.Pipelines;
 using Asura.Application;
 using Asura.ConnectionBackend;
 using Asura.Core;
@@ -14,21 +15,39 @@ public sealed class RedisWorkspaceSessionTests
     {
         var session = new RecordingSession();
         var factory = new RecordingFactory(session);
-        using var input = new MemoryStream();
-        using var output = new MemoryStream();
+        var requests = new Pipe();
+        var responses = new Pipe();
+        using var input = requests.Reader.AsStream();
+        using var output = responses.Writer.AsStream();
+        using var requestWriter = requests.Writer.AsStream();
+        using var responseReader = responses.Reader.AsStream();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var key = new RedisKeyReference("binary", [0, 255, 17]);
         var entry = new RedisValueEntry("identity", "field", "value", 7.5, [255, 0]);
         var subscription = new RedisSubscription(RedisSubscriptionKind.Pattern, "channel*");
         var operations = Enum.GetValues<RedisWorkspaceOperation>();
+        var replies = new List<RedisWorkspaceResponse>();
+        var child = RedisWorkspaceSession.RunChildAsync(input, output, factory, timeout.Token);
         foreach (var operation in operations)
         {
             var request = new RedisWorkspaceRequest((long)operation + 1, operation,
                 operation == RedisWorkspaceOperation.Open ? "secret-connection-string" : "text", "other",
                 key, 7, 1234567890123, 9.5, TimeSpan.FromSeconds(31), entry, subscription, true);
-            await WriteAsync(input, request);
+            await WriteAsync(requestWriter, request);
+            // The frontend serializes commands and drains unsolicited events
+            // while waiting for each command's response.
+            RedisWorkspaceResponse response;
+            do
+            {
+                response = await RedisWorkspaceProtocol.ReadAsync(responseReader,
+                    RedisWorkspaceJsonContext.Default.RedisWorkspaceResponse, timeout.Token);
+                replies.Add(response);
+            }
+            while (response.Id == 0);
+            Assert.Equal(request.Id, response.Id);
         }
-        input.Position = 0;
-        await RedisWorkspaceSession.RunChildAsync(input, output, factory, CancellationToken.None);
+        await requests.Writer.CompleteAsync();
+        await child.WaitAsync(timeout.Token);
         Assert.Equal("secret-connection-string", factory.ConnectionString);
         Assert.Null(factory.Tunnel);
         Assert.True(session.Disposed);
@@ -44,12 +63,6 @@ public sealed class RedisWorkspaceSessionTests
         Assert.Equal(subscription, session.LastSubscription);
         Assert.True(session.LastSharded);
 
-        output.Position = 0;
-        var replies = new List<RedisWorkspaceResponse>();
-        while (output.Position < output.Length)
-        {
-            replies.Add(await RedisWorkspaceProtocol.ReadAsync(output, RedisWorkspaceJsonContext.Default.RedisWorkspaceResponse, CancellationToken.None));
-        }
         var message = Assert.Single(replies, response => response.Message is not null).Message!;
         Assert.Equal("delivered", message.Payload);
         var results = replies.Where(response => response.Id != 0).ToArray();
@@ -61,6 +74,29 @@ public sealed class RedisWorkspaceSessionTests
         Assert.Equal(RedisEntryRemovalOutcome.Stale, results[(int)RedisWorkspaceOperation.RemoveEntry].Removal);
         Assert.Single(results[(int)RedisWorkspaceOperation.ListSearchIndexes].Indexes!);
         Assert.Equal(3, results[(int)RedisWorkspaceOperation.Search].Search!.Total);
+    }
+
+    [Fact]
+    public async Task SubscriptionOverflowCancelsChildWhenResponseReaderIsStalled()
+    {
+        var session = new RecordingSession();
+        var requests = new Pipe();
+        using var input = requests.Reader.AsStream();
+        using var requestWriter = requests.Writer.AsStream();
+        using var output = new StalledResponseStream();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var child = RedisWorkspaceSession.RunChildAsync(input, output, new RecordingFactory(session), timeout.Token);
+        await WriteAsync(requestWriter, new(1, RedisWorkspaceOperation.Open, Text: "fixture"));
+        await output.WriteStarted.Task.WaitAsync(timeout.Token);
+
+        for (var index = 0; index < RedisWorkspaceProtocol.MaximumQueuedEvents + 2; index++)
+        {
+            session.EmitMessage(new(new(RedisSubscriptionKind.Pattern, "channel*"), "channel", "event", DateTimeOffset.UnixEpoch));
+        }
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => child.WaitAsync(timeout.Token));
+        Assert.False(timeout.IsCancellationRequested);
+        Assert.True(session.Disposed);
     }
 
     [Theory]
@@ -209,11 +245,23 @@ public sealed class RedisWorkspaceSessionTests
         }
     }
 
+    private sealed class StalledResponseStream : MemoryStream
+    {
+        public TaskCompletionSource WriteStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            WriteStarted.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        }
+    }
+
     private sealed class RecordingSession : IRedisPanelSession
     {
         public RedisServerFacts Facts { get; private set; } = new("7", "RESP3", RedisTopologyKind.Standalone, RedisLogicalDatabaseMode.Selectable,
             0, 16, true, true, true, true);
         public event EventHandler<RedisPubSubMessage>? MessageReceived;
+        public void EmitMessage(RedisPubSubMessage message) => MessageReceived?.Invoke(this, message);
         public List<RedisWorkspaceOperation> Operations { get; } = [];
         public bool Disposed { get; private set; }
         public Exception? MutationFailure { get; init; }
