@@ -5131,7 +5131,8 @@ public sealed partial class GovernedAgentRuntime :
                                 .Select(image => new AgentChatImage(
                                     image.FileName,
                                     image.MediaType,
-                                    image.Content.Length))
+                                    image.Content.Length,
+                                    image))
                                 .ToArray(),
                         message.RequestedReasoningEffort,
                         message.Role == AgentMessageRole.Assistant

@@ -18,7 +18,7 @@ internal static class OrdinaryImagePreviewDecoder
     internal const int MaximumSourceDimension = 16_384;
     internal const long MaximumSourcePixels = 64_000_000;
 
-    public static Bitmap? Decode(FilePreviewContent content)
+    public static Bitmap? Decode(FilePreviewContent content, int preferredMaximumWidth = PreferredMaximumWidth)
     {
         ArgumentNullException.ThrowIfNull(content);
 
@@ -49,7 +49,7 @@ internal static class OrdinaryImagePreviewDecoder
             if (!PreviewRasterBudget.TryFit(
                     displayedSource.Width,
                     displayedSource.Height,
-                    PreferredMaximumWidth,
+                    preferredMaximumWidth,
                     out target))
             {
                 return null;
