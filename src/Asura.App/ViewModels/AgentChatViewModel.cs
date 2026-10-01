@@ -26,6 +26,47 @@ public sealed record AgentChatMessageViewModel(
     private bool _exposeSecretsOnNextRequest;
     private string _nextDisclosureDestination = string.Empty;
 
+    // UI subscriptions and the next-request lock state do not change a
+    // committed message. Fresh snapshot lists must not recreate its controls.
+    internal bool HasSamePresentation(AgentChatMessageViewModel other) =>
+        Role == other.Role && string.Equals(Content, other.Content, StringComparison.Ordinal)
+        && string.Equals(ReasoningSummary, other.ReasoningSummary, StringComparison.Ordinal) && Usage == other.Usage
+        && RequestedReasoningEffort == other.RequestedReasoningEffort
+        && ForkPoint == other.ForkPoint && Kind == other.Kind
+        && string.Equals(ChatMessageId, other.ChatMessageId, StringComparison.Ordinal)
+        && DisclosedHiddenCount == other.DisclosedHiddenCount
+        && string.Equals(DisclosureDestination, other.DisclosureDestination, StringComparison.Ordinal)
+        && ReferenceEquals(SecretRuntime, other.SecretRuntime)
+        && (Files ?? []).SequenceEqual(other.Files ?? [], StringComparer.Ordinal)
+        && (HiddenReferences ?? []).SequenceEqual(other.HiddenReferences ?? [])
+        && SameImages(Images ?? [], other.Images ?? []);
+
+    private static bool SameImages(IReadOnlyList<AgentChatImage> first, IReadOnlyList<AgentChatImage> second)
+    {
+        if (first.Count != second.Count)
+        {
+            return false;
+        }
+        for (var index = 0; index < first.Count; index++)
+        {
+            var left = first[index];
+            var right = second[index];
+            if (!string.Equals(left.FileName, right.FileName, StringComparison.Ordinal)
+                || !string.Equals(left.MediaType, right.MediaType, StringComparison.Ordinal)
+                || left.ByteLength != right.ByteLength)
+            {
+                return false;
+            }
+            if (!ReferenceEquals(left.Attachment, right.Attachment)
+                && (left.Attachment is null || right.Attachment is null
+                    || !left.Attachment.Content.SequenceEqual(right.Attachment.Content)))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public string NextDisclosureDestination
     {
         get => _nextDisclosureDestination;
@@ -2818,8 +2859,9 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             .Select(message => message.ChatMessageId).ToHashSet(StringComparer.Ordinal);
         Replace(
             Messages,
-            snapshot.Messages.Select(message =>
-                new AgentChatMessageViewModel(
+            snapshot.Messages.Select((message, index) =>
+            {
+                var projected = new AgentChatMessageViewModel(
                     message.Role,
                     message.Content,
                     message.ReasoningSummary,
@@ -2837,7 +2879,15 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 {
                     ExposeSecretsOnNextRequest = selectedSecretMessages.Contains(message.ChatMessageId),
                     NextDisclosureDestination = $"{SelectedProvider?.Name ?? "the selected provider"} / {SelectedModelName}",
-                }));
+                };
+                if (index < Messages.Count && Messages[index].HasSamePresentation(projected))
+                {
+                    var retained = Messages[index];
+                    retained.NextDisclosureDestination = projected.NextDisclosureDestination;
+                    return retained;
+                }
+                return projected;
+            }));
         if (_auditRunId != (snapshot.SelectedConversationRunId ?? snapshot.RunId))
         {
             ResetHiddenDisclosure();

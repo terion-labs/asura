@@ -16,6 +16,88 @@ namespace Asura.App.Tests;
 
 public sealed partial class AgentChatViewModelTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task Streaming_updates_keep_committed_message_controls_and_scroll_position(bool withImage) =>
+        RunAgentComposerHeadlessAsync(async () =>
+        {
+            var provider = Provider("provider", "Provider", 0);
+            var image = withImage ? ChatImage("stable.png", 1200, 600) : null;
+            using var runtime = new StubGovernedRuntime
+            {
+                Snapshot = Snapshot(state: GovernedAgentState.StreamingProvider, providerId: provider.Id,
+                    messages: [.. Enumerable.Range(0, 24).Select(index => new AgentChatMessage(
+                        AgentChatMessageRole.User, $"Committed message {index}.\n\nKeep this row stable.",
+                        Images: index == 20 && image is not null ? [image] : null,
+                        ChatMessageId: $"stable-{index}"))]),
+            };
+            using var profiles = new StubProfileRuntime { Profiles = [provider] };
+            using var model = new AgentChatViewModel(runtime, profiles, ImmediateUiThreadDispatcher.Instance);
+            var view = new AgentWorkspaceView { DataContext = new AgentComposerHost(model) };
+            var window = new Window { Content = view, Width = 700, Height = 900 };
+            try
+            {
+                window.Show();
+                await Task.Delay(150);
+                window.UpdateLayout();
+                var transcript = view.FindControl<ScrollViewer>("AgentChatTranscript")!;
+                var rows = view.FindControl<ItemsControl>("AgentChatMessages")!;
+                var message = model.Messages[20];
+                var row = rows.ContainerFromIndex(20);
+                var thumbnail = withImage ? row!.GetVisualDescendants().OfType<Image>()
+                    .First(control => control.Name == "Thumbnail") : null;
+                if (thumbnail is not null)
+                {
+                    await WaitUntilAsync(() => thumbnail.Source is not null);
+                }
+                var bitmap = thumbnail?.Source;
+                transcript.Offset = new Vector(0, Math.Max(80, transcript.Offset.Y - 100));
+                await Task.Delay(80);
+                window.UpdateLayout();
+                var offset = transcript.Offset.Y;
+                var minimumOffset = offset;
+                transcript.ScrollChanged += (_, _) => minimumOffset = Math.Min(minimumOffset, transcript.Offset.Y);
+                for (var index = 0; index < 5; index++)
+                {
+                    runtime.Snapshot = runtime.Snapshot with
+                    {
+                        Messages = [.. runtime.Snapshot.Messages.Select(item => item with
+                        {
+                            Images = item.Images?.Select(current => current with
+                            {
+                                Attachment = current.Attachment is { } attachment
+                                    ? new AgentImageAttachment(attachment.FileName, attachment.MediaType, attachment.Content)
+                                    : null,
+                            }).ToArray(),
+                            HiddenReferences = item.HiddenReferences?.ToArray(),
+                            Files = item.Files?.ToArray(),
+                        })],
+                        ProvisionalAssistantText = $"Streaming update {index}.",
+                    };
+                    runtime.RaiseChanged();
+                    await Task.Delay(50);
+                    window.UpdateLayout();
+                    Assert.Same(message, model.Messages[20]);
+                    Assert.Same(row, rows.ContainerFromIndex(20));
+                    Assert.Same(bitmap, thumbnail?.Source);
+                }
+                Assert.InRange(minimumOffset, offset - 1, offset + 1);
+                Assert.InRange(transcript.Offset.Y, offset - 1, offset + 1);
+                runtime.Snapshot = runtime.Snapshot with
+                {
+                    Messages = [.. runtime.Snapshot.Messages.Select((item, index) => index == 23
+                        ? item with { Content = "The committed content really changed." } : item)],
+                };
+                runtime.RaiseChanged();
+                await Task.Delay(80);
+                window.UpdateLayout();
+                Assert.Equal("The committed content really changed.", model.Messages[23].Content);
+                Assert.Same(row, rows.ContainerFromIndex(20));
+            }
+            finally { window.Close(); }
+        }, typeof(AgentAttachmentHeadlessApplication));
+
     [Fact]
     public Task Chat_images_preserve_aspect_ratio_and_open_a_zoomable_preview() =>
         RunAgentComposerHeadlessAsync(async () =>
