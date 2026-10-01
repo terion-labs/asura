@@ -11,6 +11,49 @@ namespace Asura.App.Tests;
 public sealed class CodePreviewViewHeadlessTests
 {
     [Fact]
+    public Task Refreshed_preview_does_not_retain_previous_documents() =>
+        RunHeadlessAsync(() =>
+        {
+            var preview = new CodePreviewView { FileName = "data.txt" };
+            var editor = preview.FindControl<TextEditor>("Editor")!;
+            for (var index = 0; index < 100; index++)
+            {
+                preview.Text = $"Revision {index}\n" + new string('x', 100_000);
+            }
+            Assert.False(editor.Document.UndoStack.CanUndo,
+                "Read-only preview retained previous documents.");
+            return Task.CompletedTask;
+        });
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task Replacing_an_editor_document_discards_stale_undo_but_user_edits_remain_undoable(bool readOnly) =>
+        RunHeadlessAsync(() =>
+        {
+            var control = new CodeEditBox { IsReadOnly = readOnly };
+            var editor = control.FindControl<TextEditor>("Editor")!;
+            for (var index = 0; index < 100; index++)
+            {
+                control.Text = $"Revision {index}\n" + new string('x', 100_000);
+            }
+            Assert.False(editor.Document.UndoStack.CanUndo);
+            Assert.False(editor.Document.UndoStack.CanRedo);
+            control.IsReadOnly = false;
+            var original = control.Text;
+            editor.Document.Insert(0, "user edit\n");
+            Assert.True(editor.Document.UndoStack.CanUndo);
+            editor.Document.UndoStack.Undo();
+            Assert.Equal(original, control.Text);
+            editor.Document.UndoStack.Redo();
+            Assert.StartsWith("user edit\n", control.Text, StringComparison.Ordinal);
+            control.Text = "A different resource";
+            Assert.False(editor.Document.UndoStack.CanUndo);
+            Assert.False(editor.Document.UndoStack.CanRedo);
+            return Task.CompletedTask;
+        });
+
+    [Fact]
     public Task DeferredGrammarReportsWhenItsPresentationIsReady() =>
         RunHeadlessAsync(async () =>
         {

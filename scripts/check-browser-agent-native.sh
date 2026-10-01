@@ -37,7 +37,7 @@ if [[ "${1:-}" == "--aot" ]]; then
         -o "${work}/aot"
     /usr/bin/codesign --force --sign - "${work}/aot/Asura"
     cp "${work}/aot/"*.dylib "${app}/Contents/MacOS/"
-    ./scripts/namespace-avalonia-native-macos.sh "${app}/Contents/MacOS/libAvaloniaNative.dylib"
+    ./scripts/prepare-avalonia-native-macos.sh "${app}/Contents/MacOS/libAvaloniaNative.dylib"
     cp "${work}/aot/Asura" "${app}/Contents/MacOS/Asura"
 fi
 node scripts/acceptance/browser-shell-smoke-fixture.mjs > "${work}/fixture.log" 2>&1 &

@@ -50,6 +50,9 @@ python3 "${script_dir}/test-cef-keychain-scope.py"
 python3 "${script_dir}/test-gvisor-forwarding.py"
 python3 "${script_dir}/test-workspace-runtime-toolchain.py"
 "${script_dir}/check-network-native.sh" "${mode}"
+if [[ "${mode}" == --full && "$(uname -s)" == Darwin ]]; then
+    "${script_dir}/prepare-avalonia-native-macos.sh"
+fi
 "${dotnet}" tool restore
 "${dotnet}" restore Asura.slnx --locked-mode
 "${script_dir}/audit-dependencies.sh"

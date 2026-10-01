@@ -3,7 +3,7 @@ set -euo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 repository_dir="$(cd -- "${script_dir}/.." && pwd -P)"
-namespace_avalonia_native="${repository_dir}/scripts/namespace-avalonia-native-macos.sh"
+prepare_avalonia_native="${repository_dir}/scripts/prepare-avalonia-native-macos.sh"
 target_directory=""
 cef_runtime_root=""
 app_bundle=""
@@ -105,8 +105,8 @@ if [[ ! -f "${app_icon}" || -L "${app_icon}" ]]; then
     echo "The Asura macOS application icon is missing or linked." >&2
     exit 1
 fi
-if [[ ! -x "${namespace_avalonia_native}" ]]; then
-    echo "The Avalonia Native Objective-C namespace helper is unavailable." >&2
+if [[ ! -x "${prepare_avalonia_native}" ]]; then
+    echo "The patched Avalonia Native build helper is unavailable." >&2
     exit 1
 fi
 
@@ -235,7 +235,7 @@ if [[ -f "${workspace_runtime}" ]]; then
         "${workspace_runtime}"
     /usr/bin/codesign --verify --strict "${workspace_runtime}"
 fi
-"${namespace_avalonia_native}" \
+"${prepare_avalonia_native}" \
     "${macos_directory}/runtimes/osx/native/libAvaloniaNative.dylib"
 /usr/bin/sed \
     -e 's/__ASURA_VERSION__/0.0.0/g' \

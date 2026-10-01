@@ -28,7 +28,7 @@ product_identity_manifest="${repository_dir}/assets/macos/product-identity.json"
 compile_macos_app_icon="${repository_dir}/scripts/compile-macos-app-icon.sh"
 declare_macos_sdk="${repository_dir}/scripts/declare-macos-sdk26.sh"
 sign_notarize_macos="${repository_dir}/scripts/sign-notarize-macos.sh"
-namespace_avalonia_native="${repository_dir}/scripts/namespace-avalonia-native-macos.sh"
+prepare_avalonia_native="${repository_dir}/scripts/prepare-avalonia-native-macos.sh"
 nuget_packages="${NUGET_PACKAGES:-${repository_dir}/.nuget/packages}"
 sql_language_artifact_directory="${repository_dir}/native/artifacts/osx-arm64"
 sql_language_worker="${sql_language_artifact_directory}/asura-sql-language"
@@ -369,8 +369,8 @@ if [[ -n "${sign_identity}" && ! -x "${sign_notarize_macos}" ]]; then
     echo "The macOS signing helper is unavailable." >&2
     exit 1
 fi
-if [[ ! -x "${namespace_avalonia_native}" ]]; then
-    echo "The Avalonia Native Objective-C namespace helper is unavailable." >&2
+if [[ ! -x "${prepare_avalonia_native}" ]]; then
+    echo "The patched Avalonia Native build helper is unavailable." >&2
     exit 1
 fi
 if [[ ! -x "${compile_macos_app_icon}" ]]; then
@@ -793,9 +793,9 @@ done
     /usr/bin/shasum -a 256 -c workspace-network-gateway-MANIFEST.sha256
 )
 
-# Apply the Objective-C class namespace fix before managed evidence and package
-# fingerprints are generated, so the inspected payload is the shipped payload.
-"${namespace_avalonia_native}" \
+# Install the patched, namespaced native bridge before managed evidence and
+# package fingerprints are generated, so the inspected payload is shipped.
+"${prepare_avalonia_native}" \
     "${publish_dir}/libAvaloniaNative.dylib"
 cp "${publish_dir}/libAvaloniaNative.dylib" \
     "${managed_evidence_dir}/libAvaloniaNative.dylib"

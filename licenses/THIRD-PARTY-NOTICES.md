@@ -8,6 +8,10 @@ Asura does not claim ownership of these components.
 The application bundle also includes:
 
 - `ASURA-LICENSE.txt`, Asura's MIT license;
+- `AVALONIA-NATIVE-LICENSE.txt` beside the macOS native bridge, rebuilt from
+  Avalonia 12.0.5 commit `fee9c561ce036e8a3e8cee2397c75ca599b4790d` with
+  accessibility lifetime repairs and the file-dialog class namespace fix;
+  `avalonia-native-build-receipt.json` records its source and payload hashes;
 - `SMBLIBRARY-LGPL-3.0.txt`, `GPL-3.0.txt`, exact source provenance, and
   Native AOT replacement instructions for SMBLibrary 1.5.7.1;
 - `DOTNET-LICENSE.txt` and `DOTNET-THIRD-PARTY-NOTICES.txt` for the

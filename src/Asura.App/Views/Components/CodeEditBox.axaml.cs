@@ -210,6 +210,10 @@ public sealed partial class CodeEditBox : UserControl
             try
             {
                 Editor.Document.Text = text;
+                // A bound document replacement establishes a new editing
+                // baseline. User edits take the TextChanged path above and
+                // retain their undo history until the next replacement.
+                Editor.Document.UndoStack.ClearAll();
             }
             finally
             {

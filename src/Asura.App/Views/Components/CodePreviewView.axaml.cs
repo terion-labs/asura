@@ -67,6 +67,9 @@ public sealed partial class CodePreviewView : UserControl
     public CodePreviewView()
     {
         InitializeComponent();
+        // Live previews replace their document repeatedly. Keeping undo here
+        // retains every old resource/log snapshot for the lifetime of the panel.
+        Editor.Document.UndoStack.SizeLimit = 0;
         AddHandler(
             RequestBringIntoViewEvent,
             OnRequestBringIntoView,

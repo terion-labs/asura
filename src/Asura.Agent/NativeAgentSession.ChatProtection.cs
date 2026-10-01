@@ -39,8 +39,14 @@ public sealed partial class NativeAgentSession
             return new AgentToolProposal(Identifier(proposal.Id), proposal.Generation,
                 Identifier(proposal.ProviderCallId), Identifier(proposal.ToolName), arguments);
         }).ToImmutableArray();
-        var images = message.Images.Select(image => new AgentImageAttachment(
-            Add(protection.Protect(image.FileName)), image.MediaType, image.Content)).ToImmutableArray();
+        var images = message.Images.Select(image =>
+        {
+            var fileName = Add(protection.Protect(image.FileName));
+            // Attachments own immutable bytes. Repeated transcript projection
+            // must not copy every screenshot just to check its display name.
+            return string.Equals(fileName, image.FileName, StringComparison.Ordinal)
+                ? image : new AgentImageAttachment(fileName, image.MediaType, image.Content);
+        }).ToImmutableArray();
         var files = message.Files.Select(file => new AgentFileAttachment(
             file.Id, Add(protection.Protect(file.FileName)), file.ByteCount)).ToImmutableArray();
         var result = message.ToolResult;

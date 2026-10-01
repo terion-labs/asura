@@ -9,6 +9,39 @@ namespace Asura.Agent.Tests;
 public sealed partial class NativeAgentSessionTests
 {
     [Fact]
+    public void Protecting_unchanged_image_metadata_does_not_copy_image_payloads()
+    {
+        var bytes = new byte[2 * 1024 * 1024];
+        new byte[] { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a }.CopyTo(bytes, 0);
+        var image = new AgentImageAttachment("screenshot.png", "image/png", bytes);
+        var message = new AgentMessage(AgentMessageRole.User, "Inspect this image", images: [image]);
+        var protection = new TestChatProtection();
+        _ = NativeAgentSession.ProjectProtectedMessage(message, protection);
+        var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+        for (var index = 0; index < 32; index++)
+        {
+            var projected = NativeAgentSession.ProjectProtectedMessage(message, protection);
+            Assert.Equal(image.Content.Length, Assert.Single(projected.Images).Content.Length);
+        }
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+        Assert.True(allocated < 1024 * 1024, $"Metadata projection allocated {allocated} bytes for unchanged images.");
+    }
+
+    [Fact]
+    public void Protecting_image_names_preserves_pixels_without_exposing_the_original_name()
+    {
+        var image = new AgentImageAttachment("echo-fixture.png", "image/png",
+            [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+        var message = new AgentMessage(AgentMessageRole.User, "Inspect this image", images: [image]);
+        var projected = NativeAgentSession.ProjectProtectedMessage(message, new TestChatProtection("echo-fixture"));
+        var protectedImage = Assert.Single(projected.Images);
+        Assert.DoesNotContain("echo-fixture", protectedImage.FileName, StringComparison.Ordinal);
+        Assert.True(image.Content.SequenceEqual(protectedImage.Content));
+        Assert.Equal(Assert.Single(projected.HiddenReferences).Placeholder, protectedImage.FileName);
+        Assert.Equal("echo-fixture.png", image.FileName);
+    }
+
+    [Fact]
     public async Task LegacyCheckpointAssignsDistinctSourceIdentitiesAndMatchesRetainedContext()
     {
         var session = CreateSession();
