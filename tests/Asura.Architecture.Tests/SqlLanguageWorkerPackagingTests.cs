@@ -406,7 +406,7 @@ public sealed class SqlLanguageWorkerPackagingTests
             paths,
             StringComparer.Ordinal);
         Assert.Contains(
-            "com/fasterxml/jackson/jackson-bom/2.18.10/jackson-bom-2.18.10.pom",
+            "com/fasterxml/jackson/jackson-bom/2.18.11/jackson-bom-2.18.11.pom",
             paths,
             StringComparer.Ordinal);
         Assert.DoesNotContain(
