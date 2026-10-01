@@ -251,19 +251,22 @@ public sealed partial class MarkdownPreviewView : UserControl
             // in one frame. Parse only the latest value, away from Avalonia's
             // UI thread, then build native controls in short UI-thread steps.
             await Task.Delay(TimeSpan.FromMilliseconds(24), token);
-            ImmutableArray<MarkdownBlock> blocks;
-            await ParseGate.WaitAsync(token);
-            try
+            var blocks = await Task.Run(async () =>
             {
                 // Markdig cannot abort a parse already running. Serial admission
                 // prevents rapid streamed revisions accumulating parallel ASTs;
                 // canceled waiting revisions never start another parse.
-                blocks = await Task.Run(() => MarkdownPreviewDocument.Parse(markdown), token);
-            }
-            finally
-            {
-                ParseGate.Release();
-            }
+                // Release on the worker even if the UI dispatcher has shut down.
+                await ParseGate.WaitAsync(token).ConfigureAwait(false);
+                try
+                {
+                    return MarkdownPreviewDocument.Parse(markdown);
+                }
+                finally
+                {
+                    ParseGate.Release();
+                }
+            }, token);
             token.ThrowIfCancellationRequested();
             if (blocks.Length > 32 || markdown?.Length > 64 * 1024 || blocks.Any(RequiresSourceViewport))
             {

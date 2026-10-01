@@ -2238,6 +2238,47 @@ public sealed partial class AgentChatViewModelTests
             return Task.CompletedTask;
         });
 
+    [Fact]
+    public async Task Markdown_rendering_survives_closing_a_session_during_a_large_parse()
+    {
+        await RunAgentComposerHeadlessAsync(async () =>
+        {
+            var preview = new MarkdownPreviewView
+            {
+                Text = string.Concat(Enumerable.Repeat("A paragraph with **emphasis** and a [link](https://example.com).\n\n", 100_000)),
+            };
+            var window = new Window { Content = preview, Width = 700, Height = 900 };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                // Start the worker, then tear down its dispatcher before the
+                // large document finishes. The next session must still render.
+                await Task.Delay(50);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+        await RunAgentComposerHeadlessAsync(async () =>
+        {
+            var preview = new MarkdownPreviewView { Text = "# The next message", ContinuousSelection = true };
+            var window = new Window { Content = preview, Width = 700, Height = 900 };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                await WaitForVisualAsync<SelectableMarkdownDocument>(preview, window,
+                    text => text.Text == "The next message", "the message after dispatcher shutdown");
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
     private static async Task RunAgentComposerHeadlessAsync(Func<Task> assertion, Type? applicationType = null)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
