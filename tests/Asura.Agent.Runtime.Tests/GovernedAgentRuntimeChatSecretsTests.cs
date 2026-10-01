@@ -278,6 +278,11 @@ public sealed partial class GovernedAgentRuntimeTests
             [new AgentImageAttachment(filename, "image/png", [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])],
             AgentReasoningEffort.Automatic, fixture.ConfiguredPolicy);
         Assert.True((await fixture.Runtime.SendAsync(prompt, default)).IsSuccess);
+        var preview = Assert.Single(fixture.Runtime.Snapshot.Messages.First().Images!);
+        Assert.NotNull(preview.Attachment);
+        Assert.Equal(prompt.Images[0].Content.ToArray(), preview.Attachment.Content.ToArray());
+        Assert.Equal(preview.FileName, preview.Attachment.FileName, StringComparer.Ordinal);
+        Assert.DoesNotContain(filename, preview.Attachment.FileName, StringComparison.Ordinal);
         var reference = Assert.Single(fixture.Runtime.Snapshot.Messages.First().HiddenReferences!);
         Assert.DoesNotContain(filename, provider.Requests.First().Messages.SelectMany(message => message.Images).Select(image => image.FileName), StringComparer.Ordinal);
         Assert.True((await fixture.Runtime.SendAsync(fixture.Prompt("Use its original name") with { DiscloseHiddenReferences = [reference], DiscloseHiddenMessageIds = [fixture.Runtime.Snapshot.Messages.First().ChatMessageId!] }, default)).IsSuccess);

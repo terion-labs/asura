@@ -1,0 +1,47 @@
+<UserControl
+    x:Class="Asura.App.Views.Components.AgentChatImagePreview"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Asura.App.Controls"
+    xmlns:components="using:Asura.App.Views.Components"
+    xmlns:icons="using:FluentIcons.Avalonia"
+    MaxWidth="270" HorizontalAlignment="Left">
+  <UserControl.Styles>
+    <Style Selector="Button.ChatImage">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
+      <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+  </UserControl.Styles>
+  <Grid>
+    <Button x:Name="OpenPreview" Classes="ChatImage" IsEnabled="False" Click="OnOpenPreviewClick">
+      <Border CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
+        <Grid>
+          <Image x:Name="Thumbnail" MaxHeight="160" Stretch="Uniform" IsVisible="False" />
+          <TextBlock x:Name="Fallback" Classes="Muted" Margin="{controls:Inset Sm}" MaxWidth="250" TextWrapping="Wrap" />
+        </Grid>
+      </Border>
+    </Button>
+    <Popup x:Name="PreviewPopup" PlacementTarget="{Binding #OpenPreview}" Placement="Left"
+        ShouldUseOverlayLayer="True" IsLightDismissEnabled="True"
+        Opened="OnPreviewOpened" Closed="OnPreviewClosed">
+      <Border Background="{DynamicResource ShellPopupSurfaceBrush}"
+          BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1"
+          CornerRadius="{DynamicResource ShellCardCornerRadius}" Padding="{controls:Inset Sm}">
+        <Grid x:Name="PreviewSurface" RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+            <TextBlock x:Name="PreviewTitle" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            <Button x:Name="ClosePreview" Grid.Column="1" Classes="IconButton" Click="OnClosePreviewClick"
+                ToolTip.Tip="Close image preview" AutomationProperties.Name="Close image preview">
+              <icons:SymbolIcon Symbol="Dismiss" FontSize="12" />
+            </Button>
+          </Grid>
+          <components:ZoomableImageView x:Name="EnlargedImage" Grid.Row="1" />
+          <TextBlock x:Name="PreviewStatus" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Grid>
+      </Border>
+    </Popup>
+  </Grid>
+</UserControl>

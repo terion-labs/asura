@@ -410,10 +410,13 @@
                         Background="{DynamicResource ShellAccentSoftBrush}"
                         CornerRadius="12,12,3,12">
                       <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                        <TextBlock
-                            Classes="Eyebrow"
-                            Text="{Binding ImagesLabel}"
-                            IsVisible="{Binding HasImages}" />
+                        <ItemsControl ItemsSource="{Binding Images}" IsVisible="{Binding HasImages}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="application:AgentChatImage">
+                              <components:AgentChatImagePreview Attachment="{Binding}" Margin="{controls:Inset Bottom=Xs}" />
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                         <TextBlock
                             Classes="Eyebrow"
                             Text="{Binding FilesLabel}"

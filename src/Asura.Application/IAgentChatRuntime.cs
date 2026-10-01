@@ -52,10 +52,12 @@ public sealed record AgentChatUsage(
     long ReasoningTokens,
     long TotalTokens);
 
+/// <summary>Local preview payload accompanies metadata but is excluded from serialized presentation state.</summary>
 public sealed record AgentChatImage(
     string FileName,
     string MediaType,
-    int ByteLength);
+    int ByteLength,
+    [property: System.Text.Json.Serialization.JsonIgnore] AgentImageAttachment? Attachment = null);
 
 public sealed record AgentChatMessage(
     AgentChatMessageRole Role,

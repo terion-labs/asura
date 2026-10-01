@@ -824,7 +824,8 @@ public sealed class CatalogAiProviderRuntime :
                     .Select(image => new AgentChatImage(
                         image.FileName,
                         image.MediaType,
-                        image.Content.Length))
+                        image.Content.Length,
+                        image))
                     .ToArray()) is { Count: > 0 } images
                     ? images
                     : null,

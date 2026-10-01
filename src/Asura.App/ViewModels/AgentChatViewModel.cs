@@ -102,12 +102,6 @@ public sealed record AgentChatMessageViewModel(
 
     public bool HasImages => IsUser && Images is { Count: > 0 };
 
-    public string ImagesLabel => Images is not { Count: > 0 } images
-        ? string.Empty
-        : images.Count == 1
-            ? $"Image · {images[0].FileName}"
-            : $"{images.Count.ToString(CultureInfo.InvariantCulture)} images";
-
     public string UsageLabel => Usage is not { } usage
         ? string.Empty
         : $"{usage.TotalTokens.ToString(CultureInfo.InvariantCulture)} tokens · "
