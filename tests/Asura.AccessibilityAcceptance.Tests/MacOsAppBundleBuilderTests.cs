@@ -194,6 +194,9 @@ public sealed partial class MacOsAppBundleBuilderTests : IDisposable
             "GHOSTTY-LICENSE")));
         Assert.Equal("fixture SqlClient MIT license", File.ReadAllText(Path.Combine(
             output, "Contents", "Resources", "Licenses", "SQLCLIENT-MIT.txt")));
+        Assert.Equal("fixture Fluent icon MIT notice", File.ReadAllText(Path.Combine(
+            output, "Contents", "Resources", "Licenses", "FLUENT-UI-ICONS-MIT.txt")));
+        Assert.False(File.Exists(Path.Combine(output, "Contents", "MacOS", "FLUENT-UI-ICONS-MIT.txt")));
         Assert.True(File.Exists(Path.Combine(
             output,
             "Contents",
@@ -1110,6 +1113,7 @@ public sealed partial class MacOsAppBundleBuilderTests : IDisposable
     [InlineData("DOTNET-LICENSE.txt")]
     [InlineData("DOTNET-THIRD-PARTY-NOTICES.txt")]
     [InlineData("SQLCLIENT-MIT.txt")]
+    [InlineData("FLUENT-UI-ICONS-MIT.txt")]
     [InlineData("Asura.deps.json")]
     [InlineData("Asura.runtimeconfig.json")]
     public void Builder_fails_closed_when_a_required_file_is_missing(string missingFile)
@@ -1770,6 +1774,7 @@ public sealed partial class MacOsAppBundleBuilderTests : IDisposable
         WriteFile(directory, "THIRD-PARTY-NOTICES.md", "notices");
         WriteFile(directory, "DOTNET-LICENSE.txt", "dotnet license");
         WriteFile(directory, "DOTNET-THIRD-PARTY-NOTICES.txt", "dotnet notices");
+        WriteFile(directory, "FLUENT-UI-ICONS-MIT.txt", "fixture Fluent icon MIT notice");
         WriteFile(directory, "sentinel.txt", "publish sentinel");
         foreach (var assemblyName in ProjectAssemblyNames)
         {

@@ -734,6 +734,7 @@ required_publish=(
     "${publish_dir}/runtimes/osx-arm64/native/workspace-network-gateway-THIRD-PARTY-NOTICES.md"
     "${publish_dir}/runtimes/osx-arm64/native/workspace-network-gateway-GO-LICENSE.txt"
     "${publish_dir}/THIRD-PARTY-NOTICES.md"
+    "${publish_dir}/FLUENT-UI-ICONS-MIT.txt"
     "${publish_dir}/DOTNET-LICENSE.txt"
     "${publish_dir}/DOTNET-THIRD-PARTY-NOTICES.txt"
     "${publish_dir}/native-terminal-components.json"
@@ -1065,6 +1066,13 @@ candidate_sql_language_notices_sha="$(/usr/bin/shasum -a 256 "${candidate_sql_la
 if [[ "${candidate_sql_language_dependencies_sha}" != "${sql_language_expected_dependencies_sha}" \
     || "${candidate_sql_language_notices_sha}" != "${sql_language_expected_notices_sha}" ]]; then
     echo "The packaged SQL language worker legal files do not match its build receipt." >&2
+    exit 1
+fi
+
+candidate_fluent_notice="${candidate}/Contents/Resources/Licenses/FLUENT-UI-ICONS-MIT.txt"
+if [[ ! -f "${candidate_fluent_notice}" || -L "${candidate_fluent_notice}" ]] \
+    || ! /usr/bin/cmp -s "${repository_dir}/licenses/FLUENT-UI-ICONS-MIT.txt" "${candidate_fluent_notice}"; then
+    echo "The packaged Fluent icon attribution is missing, linked, or altered." >&2
     exit 1
 fi
 
