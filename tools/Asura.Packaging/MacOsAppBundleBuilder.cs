@@ -64,6 +64,7 @@ public sealed class MacOsAppBundleBuilder
     private const string SmbLicenseFileName = "SMBLIBRARY-LGPL-3.0.txt";
     private const string GplLicenseFileName = "GPL-3.0.txt";
     private const string SqlClientLicenseFileName = "SQLCLIENT-MIT.txt";
+    private const string FluentIconsLicenseFileName = "FLUENT-UI-ICONS-MIT.txt";
     private const string NativeResourcesDirectoryName = "Native";
     private const string SqlLanguageResourcesDirectoryName = "SqlLanguage";
 
@@ -90,6 +91,7 @@ public sealed class MacOsAppBundleBuilder
         SmbLicenseFileName,
         GplLicenseFileName,
         SqlClientLicenseFileName,
+        FluentIconsLicenseFileName,
     ];
 
     private static readonly IReadOnlyDictionary<string, string>
@@ -117,6 +119,7 @@ public sealed class MacOsAppBundleBuilder
             [SmbLicenseFileName] = SmbLicenseFileName,
             [GplLicenseFileName] = GplLicenseFileName,
             [SqlClientLicenseFileName] = SqlClientLicenseFileName,
+            [FluentIconsLicenseFileName] = FluentIconsLicenseFileName,
         };
 
     public MacOsAppBundleResult Build(MacOsAppBundleRequest request)
