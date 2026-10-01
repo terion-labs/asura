@@ -1,8 +1,8 @@
 # group:artifact:version<TAB>distribution license<TAB>fallback licenses when the JAR omits one<TAB>supplemental legal documents
-com.fasterxml.jackson.core:jackson-annotations:2.18.10	Apache-2.0	-	-
-com.fasterxml.jackson.core:jackson-core:2.18.10	Apache-2.0 AND MIT AND BSL-1.0 AND BSD-2-Clause	-	licenses/fast-double-parser-07d9189-bsl-1.0.txt,licenses/fastdoubleparser-522be16-mit.txt
-com.fasterxml.jackson.core:jackson-databind:2.18.10	Apache-2.0	-	-
-com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.10	Apache-2.0	-	-
+com.fasterxml.jackson.core:jackson-annotations:2.18.11	Apache-2.0	-	-
+com.fasterxml.jackson.core:jackson-core:2.18.11	Apache-2.0 AND MIT AND BSL-1.0 AND BSD-2-Clause	-	licenses/fast-double-parser-07d9189-bsl-1.0.txt,licenses/fastdoubleparser-522be16-mit.txt
+com.fasterxml.jackson.core:jackson-databind:2.18.11	Apache-2.0	-	-
+com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.11	Apache-2.0	-	-
 com.google.errorprone:error_prone_annotations:2.36.0	Apache-2.0	licenses/apache-2.0.txt	-
 com.google.guava:failureaccess:1.0.3	Apache-2.0	-	-
 com.google.guava:guava:33.4.8-jre	Apache-2.0	-	-
