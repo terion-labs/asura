@@ -18,7 +18,7 @@
     "managedComponents": {
       "status": "accepted-by-owner-for-macos",
       "scope": "macos-arm64",
-      "comment": "The project owner explicitly approved publication of the current macOS dependency closure for Asura 0.1.41, including official Microsoft.Data.SqlClient 6.0.2 MIT provenance, the first-party connection backend and authenticated MCP server, ModelContextProtocol 2.2.0 packages, and the ASP.NET Core runtime. The documented SMBLibrary Native AOT replacement path, remaining Inter provenance exception, SSH.NET 2026.0.0 and SharpCompress 0.50.3 exceptions remain accepted without independent legal review. Linux ARM64 and x64 backends have separate owner-accepted records."
+      "comment": "The project owner explicitly approved publication of the current macOS dependency closure for Asura 0.1.41, including official Microsoft.Data.SqlClient 6.0.2 MIT provenance, the first-party connection backend and authenticated MCP server, ModelContextProtocol 2.2.0 packages, and the ASP.NET Core runtime. The documented SMBLibrary Native AOT replacement path, remaining Inter provenance exception, SSH.NET 2026.0.0 and SharpCompress 0.50.3 exceptions remain accepted without independent legal review. Linux ARM64 and x64 backends have separate owner-accepted records. Engineering evidence renewed for the Avalonia.Native 12.0.5 macOS accessibility lifetime repair: the upstream revision and MIT license remain unchanged; the native bridge is rebuilt with a retained patch, generated ABI header, exact source archive hash, native regression test and build receipt. The notice now records that modification; this is not a new independent legal review."
     },
     "nativeTerminalAndShell": {
       "status": "accepted-by-owner-for-macos",
@@ -67,7 +67,7 @@
     },
     {
       "path": "licenses/THIRD-PARTY-NOTICES.md",
-      "sha256": "e6412cd64cb359bc581bf7998285617061deb0f9bd508f91086e5e3c772b5077"
+      "sha256": "660f1a793d8cbc3f13489b67355929aa83e14422bfaef4688ad982c53048bc72"
     },
     {
       "path": "licenses/cef-runtime-components.json",

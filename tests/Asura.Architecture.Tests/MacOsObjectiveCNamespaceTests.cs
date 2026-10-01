@@ -37,12 +37,29 @@ public sealed class MacOsObjectiveCNamespaceTests
             StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Macos_bundles_and_full_gate_use_the_tested_accessibility_bridge()
+    {
+        var scripts = Path.Combine(RepositoryRoot, "scripts");
+        foreach (var name in new[] { "run-macos-development.sh", "package-macos.sh", "check-browser-agent-native.sh", "check.sh" })
+        {
+            Assert.Contains("prepare-avalonia-native-macos.sh", File.ReadAllText(Path.Combine(scripts, name)), StringComparison.Ordinal);
+        }
+
+        var prepare = File.ReadAllText(Path.Combine(scripts, "prepare-avalonia-native-macos.sh"));
+        Assert.Contains("sourceArchiveSha256", prepare, StringComparison.Ordinal);
+        Assert.Contains("git -C \"${stage}/source\" apply --check", prepare, StringComparison.Ordinal);
+        Assert.Contains("namespace-avalonia-native-macos.sh", prepare, StringComparison.Ordinal);
+        Assert.Contains("\"${cache}/lifetime-test\"", prepare, StringComparison.Ordinal);
+        Assert.Contains("'ARCHS=arm64 x86_64'", prepare, StringComparison.Ordinal);
+    }
+
     private static void AssertNamespacesCopiedPayloadBefore(
         string script,
         string laterMarker)
     {
         var invocation = script.IndexOf(
-            "\n\"${namespace_avalonia_native}\" \\",
+            "\n\"${prepare_avalonia_native}\" \\",
             StringComparison.Ordinal);
         var later = script.IndexOf(
             laterMarker,
