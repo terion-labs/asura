@@ -56,6 +56,26 @@ public sealed partial class MacOsAppBundleBuilderTests : IDisposable
     public MacOsAppBundleBuilderTests() => Directory.CreateDirectory(_temporaryDirectory);
 
     [Fact]
+    public void Avalonia_native_evidence_is_packaged_as_resources_while_library_remains_code()
+    {
+        var publish = CreatePublishPayload();
+        File.WriteAllText(Path.Combine(publish, "avalonia-native-build-receipt.json"), "native build receipt");
+        File.WriteAllText(Path.Combine(publish, "AVALONIA-NATIVE-LICENSE.txt"), "native license");
+        File.WriteAllText(Path.Combine(publish, "libAvaloniaNative.dylib"), "patched native library");
+        var output = OutputPath();
+
+        _ = new MacOsAppBundleBuilder().Build(Request(publish, output));
+
+        var licenses = Path.Combine(output, "Contents", "Resources", "Licenses");
+        var code = Path.Combine(output, "Contents", "MacOS");
+        Assert.Equal("native build receipt", File.ReadAllText(Path.Combine(licenses, "Native", "avalonia-native-build-receipt.json")));
+        Assert.Equal("native license", File.ReadAllText(Path.Combine(licenses, "AVALONIA-NATIVE-LICENSE.txt")));
+        Assert.Equal("patched native library", File.ReadAllText(Path.Combine(code, "libAvaloniaNative.dylib")));
+        Assert.False(File.Exists(Path.Combine(code, "avalonia-native-build-receipt.json")));
+        Assert.False(File.Exists(Path.Combine(code, "AVALONIA-NATIVE-LICENSE.txt")));
+    }
+
+    [Fact]
     public void Gateway_metadata_is_packaged_as_resources()
     {
         var publish = CreatePublishPayload();

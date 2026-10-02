@@ -107,6 +107,9 @@ public sealed class MacOsAppBundleBuilder
                 Path.Combine("Native", NativeTerminalCatalogFileName),
             [NativeTerminalReceiptFileName] =
                 Path.Combine("Native", NativeTerminalReceiptFileName),
+            ["avalonia-native-build-receipt.json"] =
+                Path.Combine("Native", "avalonia-native-build-receipt.json"),
+            ["AVALONIA-NATIVE-LICENSE.txt"] = "AVALONIA-NATIVE-LICENSE.txt",
             [TerminalFontCatalogFileName] =
                 Path.Combine("Native", TerminalFontCatalogFileName),
             [TerminalFontReceiptFileName] =
