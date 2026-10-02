@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build the exact NuGet source revision with the macOS accessibility lifetime
-# repair. Keep managed Avalonia and the native COM ABI at the same version.
+# Build the exact NuGet source revision with macOS native repairs.
+# Keep managed Avalonia and the native COM ABI at the same version.
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 repository_dir="$(cd -- "${script_dir}/.." && pwd -P)"
 component="${repository_dir}/native/avalonia-native"
@@ -89,6 +89,12 @@ if [[ ! -d "${cache}" ]]; then
         "${component}/tests/lifetime.mm" "${stage}/libAvaloniaNative.dylib" \
         -framework Cocoa -Wl,-rpath,@executable_path -o "${stage}/lifetime-test"
     "${stage}/lifetime-test"
+    xcrun clang++ -std=c++11 -fobjc-arc -Wall -Wextra -Werror \
+        -isystem "${native_source}/inc" \
+        "${component}/tests/metal-resize.mm" "${stage}/libAvaloniaNative.dylib" \
+        -framework Cocoa -framework Metal -framework QuartzCore \
+        -Wl,-rpath,@executable_path -o "${stage}/metal-resize-test"
+    "${stage}/metal-resize-test"
     python3 - "${stage}" "${key}" "${revision}" "${archive_sha}" <<'PY'
 import hashlib
 import json
@@ -96,7 +102,7 @@ from pathlib import Path
 import sys
 root = Path(sys.argv[1])
 files = {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in (
-    'libAvaloniaNative.dylib', 'lifetime-test', 'AVALONIA-NATIVE-LICENSE.txt')}
+    'libAvaloniaNative.dylib', 'lifetime-test', 'metal-resize-test', 'AVALONIA-NATIVE-LICENSE.txt')}
 (root / 'avalonia-native-build-receipt.json').write_text(json.dumps({
     'version': '12.0.5', 'sourceRevision': sys.argv[3], 'sourceArchiveSha256': sys.argv[4],
     'buildInputsSha256': sys.argv[2], 'files': files,
@@ -125,12 +131,13 @@ root = Path(sys.argv[1])
 receipt = json.loads((root / 'avalonia-native-build-receipt.json').read_text())
 if receipt['buildInputsSha256'] != sys.argv[2]:
     raise SystemExit('Avalonia Native build inputs do not match their receipt.')
-for name in ('libAvaloniaNative.dylib', 'lifetime-test', 'AVALONIA-NATIVE-LICENSE.txt'):
+for name in ('libAvaloniaNative.dylib', 'lifetime-test', 'metal-resize-test', 'AVALONIA-NATIVE-LICENSE.txt'):
     path = root / name
     if path.is_symlink() or hashlib.sha256(path.read_bytes()).hexdigest() != receipt['files'][name]:
         raise SystemExit(f'Avalonia Native cached payload changed: {name}')
 PY
 "${cache}/lifetime-test"
+"${cache}/metal-resize-test"
 if [[ $# -eq 1 ]]; then
     cp "${cache}/libAvaloniaNative.dylib" "$1"
     cp "${cache}/avalonia-native-build-receipt.json" "${cache}/AVALONIA-NATIVE-LICENSE.txt" "$(dirname "$1")/"
