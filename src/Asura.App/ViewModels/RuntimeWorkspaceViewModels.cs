@@ -1901,6 +1901,12 @@ public abstract class RuntimePanelViewModel(
 
     public double LayoutMinimumHeight { get; private set; } = 140;
 
+    /// <summary>Adopts a host-approved owner without replacing the running session.</summary>
+    internal virtual void UpdateSessionOwner(SessionOwner owner)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+    }
+
     public virtual void Dispose()
     {
     }
@@ -1963,7 +1969,7 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
     private readonly IConnectionRuntime _connectionRuntime;
     private readonly IConnectionSecurityRuntime? _connectionSecurityRuntime;
     private readonly ConnectionProfile _connection;
-    private readonly SessionOwner _owner;
+    private SessionOwner _owner;
     private TerminalRenderProfileSnapshot? _renderProfile;
     private readonly TerminalKeymapSnapshot? _keymap;
     private readonly CancellationTokenSource _lifetime = new();
@@ -2077,6 +2083,18 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
 
             _renderProfile = value;
             OnPropertyChanged();
+        }
+    }
+
+    internal override void UpdateSessionOwner(SessionOwner owner)
+    {
+        _owner = owner;
+        if (_sessionRequest is { } request)
+        {
+            // Ownership changes neither the process nor its startup/notification
+            // state. The normal request setter deliberately resets those.
+            _sessionRequest = request with { Owner = owner };
+            OnPropertyChanged(nameof(SessionRequest));
         }
     }
 

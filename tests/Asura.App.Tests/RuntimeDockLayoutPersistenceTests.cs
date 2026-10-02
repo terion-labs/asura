@@ -402,6 +402,7 @@ public sealed class RuntimeDockLayoutPersistenceTests
             // cannot change window without that view being destroyed, so the
             // shell floats panels inside its own window instead.
             Assert.False(document.CanFloat);
+            Assert.False(Assert.IsAssignableFrom<IDock>(document.Owner).CanFloat);
         });
     }
 

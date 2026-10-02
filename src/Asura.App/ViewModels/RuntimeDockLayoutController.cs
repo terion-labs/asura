@@ -423,6 +423,7 @@ internal sealed class RuntimeDockLayoutController
 
     private static void NormalizeSelections(IDock dock)
     {
+        dock.CanFloat = false;
         var children = dock.VisibleDockables?
             .Where(child => child is not ProportionalDockSplitter)
             .ToArray()
@@ -537,7 +538,7 @@ internal sealed class RuntimeDockLayoutController
                 Id = slot.Id.Value,
                 Title = "Empty panel",
                 CanClose = false,
-                CanFloat = true,
+                CanFloat = false,
                 CanDrag = true,
                 CanDrop = true,
                 MinWidth = slot.MinimumSize.Width,
@@ -844,6 +845,14 @@ internal sealed class RuntimeDockFactory : Factory
     /// </summary>
     internal IRootDock? HomeLayout { get; set; }
 
+    // Dock also creates leaves while rearranging panels. They must keep the
+    // same missed-drop behavior as leaves created directly by the workspace.
+    public override IDocumentDock CreateDocumentDock() => new DocumentDock
+    {
+        CanFloat = false,
+        EnableWindowDrag = false,
+    };
+
     /// <summary>
     /// The geometry that holds one panel.
     ///
@@ -859,7 +868,10 @@ internal sealed class RuntimeDockFactory : Factory
         IsCollapsable = true,
         CanCloseLastDockable = true,
         CanCreateDocument = false,
-        EnableWindowDrag = true,
+        // A header drag resolves to this containing dock, not its document.
+        // Missed drops must not create native windows outside Asura's canvas.
+        CanFloat = false,
+        EnableWindowDrag = false,
         ActiveDockable = document,
         VisibleDockables = CreateList<IDockable>(document),
     };

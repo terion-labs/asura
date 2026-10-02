@@ -417,7 +417,6 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         string operation)
     {
         if (!ReferenceEquals(_currentWorkspace(), source)
-            || source == destination
             || source.Id != sourceProposal.Id
             || destination.Id != destinationProposal.Id)
         {
@@ -466,6 +465,9 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
             || !RuntimeWorkspaceGraphProjection.IntentMatches(
                 destinationProposal,
                 receipt.Destination.Workspace)
+            || (ReferenceEquals(source, destination)
+                && (receipt.Source.Revision != receipt.Destination.Revision
+                    || receipt.Source.LastSequence != receipt.Destination.LastSequence))
             || receipt.Sessions.Select(item => item.SessionId).Distinct().Count()
                 != receipt.Sessions.Count
             || !OwnershipReceiptsMatch(
@@ -481,17 +483,23 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
 
         commit();
         _workspaceCommitted(source);
-        _workspaceCommitted(destination);
+        if (!ReferenceEquals(source, destination))
+        {
+            _workspaceCommitted(destination);
+        }
         try
         {
             source.ApplyHostProjection(
                 receipt.Source.Workspace,
                 receipt.Source.Revision,
                 receipt.Source.LastSequence);
-            destination.ApplyHostProjection(
-                receipt.Destination.Workspace,
-                receipt.Destination.Revision,
-                receipt.Destination.LastSequence);
+            if (!ReferenceEquals(source, destination))
+            {
+                destination.ApplyHostProjection(
+                    receipt.Destination.Workspace,
+                    receipt.Destination.Revision,
+                    receipt.Destination.LastSequence);
+            }
         }
         catch (InvalidOperationException exception)
         {

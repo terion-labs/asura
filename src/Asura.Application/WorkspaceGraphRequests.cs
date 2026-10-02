@@ -115,6 +115,13 @@ public sealed record TransferWorkspaceTabRequest
             destinationWindowId,
             destination,
             expectedDestinationRevision);
+        if (source.Id == destination.Id)
+        {
+            throw new ArgumentException(
+                "A cross-owner transfer requires different source and destination workspaces.",
+                nameof(destination));
+        }
+
         WorkspaceGraphContractValidation.RequireId(tabId.Value, nameof(tabId));
         SourceWindowId = sourceWindowId;
         Source = new WorkspaceInstance(source);
@@ -134,6 +141,10 @@ public sealed record TransferWorkspaceTabRequest
     public TabInstanceId TabId { get; }
 }
 
+/// <summary>
+/// Moves a panel with its live sessions. For tabs in the same workspace, both
+/// graphs describe the identical final workspace and both revisions are equal.
+/// </summary>
 public sealed record TransferWorkspacePanelRequest
 {
     public TransferWorkspacePanelRequest(
@@ -157,6 +168,16 @@ public sealed record TransferWorkspacePanelRequest
         WorkspaceGraphContractValidation.RequireId(sourceTabId.Value, nameof(sourceTabId));
         WorkspaceGraphContractValidation.RequireId(destinationTabId.Value, nameof(destinationTabId));
         WorkspaceGraphContractValidation.RequireId(panelId.Value, nameof(panelId));
+        if (source.Id == destination.Id
+            && (sourceWindowId != destinationWindowId
+                || expectedSourceRevision != expectedDestinationRevision
+                || sourceTabId == destinationTabId))
+        {
+            throw new ArgumentException(
+                "A move between tabs requires one window and revision and two distinct tabs.",
+                nameof(destination));
+        }
+
         SourceWindowId = sourceWindowId;
         Source = new WorkspaceInstance(source);
         ExpectedSourceRevision = expectedSourceRevision;
@@ -193,13 +214,6 @@ internal static class WorkspaceGraphTransferValidation
         WorkspaceGraphContractValidation.RequireId(destinationWindowId.Value, nameof(destinationWindowId));
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(destination);
-        if (source.Id == destination.Id)
-        {
-            throw new ArgumentException(
-                "A cross-owner transfer requires different source and destination workspaces.",
-                nameof(destination));
-        }
-
         if (expectedSourceRevision < 1)
         {
             throw new ArgumentOutOfRangeException(nameof(expectedSourceRevision));

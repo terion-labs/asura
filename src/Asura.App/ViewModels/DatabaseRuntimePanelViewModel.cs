@@ -227,6 +227,9 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     /// Admits agent reachability only after MainWindow has registered the
     /// panel's exact workspace owner with SessionHost.
     /// </summary>
+    internal override void UpdateSessionOwner(SessionOwner owner) =>
+        _hostedSession?.UpdateOwner(owner);
+
     public Task StartHostingAsync(
         ISessionHostClient sessionClient,
         ClientId clientId,

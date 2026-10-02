@@ -128,6 +128,15 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
 
     public bool HasHostedSession => _hostedSession?.IsLinked == true;
 
+    internal override void UpdateSessionOwner(SessionOwner owner)
+    {
+        _hostedSession?.UpdateOwner(owner);
+        foreach (var shell in _inlineShells.Values)
+        {
+            shell.UpdateSessionOwner(owner);
+        }
+    }
+
     public Task StartHostingAsync(
         ISessionHostClient sessionClient,
         ClientId clientId,

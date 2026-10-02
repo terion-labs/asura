@@ -12,6 +12,9 @@ public sealed partial class KubernetesRuntimePanelViewModel
     public CapabilitySet HostedCapabilities => _hostedSession?.Capabilities ?? CapabilitySet.Empty;
     public bool HasHostedSession => _hostedSession?.IsLinked == true;
 
+    internal override void UpdateSessionOwner(SessionOwner owner) =>
+        _hostedSession?.UpdateOwner(owner);
+
     public Task StartHostingAsync(ISessionHostClient sessionClient, ClientId clientId, SessionOwner owner)
     {
         ArgumentNullException.ThrowIfNull(sessionClient);
