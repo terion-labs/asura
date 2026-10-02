@@ -107,6 +107,8 @@ internal sealed class ProbeApp : Avalonia.Application
             surface.IsVisible = true;
             await Task.Delay(200, deadline.Token);
 
+            await BrowserKeyboardAcceptance.VerifyAsync(surface, window, deadline.Token);
+
             var custom = await surface.ClickWithinOriginAsync(
                 await ReferenceAsync(surface, "clickable", "Rescue fixture", deadline.Token),
                 BrowserNavigationOrigin.WorkspaceNetwork, deadline.Token);
