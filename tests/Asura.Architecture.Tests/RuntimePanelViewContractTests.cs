@@ -707,14 +707,25 @@ public sealed class RuntimePanelViewContractTests
             "{TemplateBinding IsActive}",
             AttributeValue(card, "Classes.active"));
 
-        // The title is the drag surface. It no longer needs a hand-set data
+        // Title and passive status regions are drag surfaces. They need no hand-set data
         // context: a handle declared in a template cannot know where it will be
         // used, so PanelDockHandle finds its dockable by walking to the ancestor
         // that holds one.
-        var handle = Assert.Single(
-            theme.Descendants(),
-            element => string.Equals(element.Name.LocalName, "PanelDockHandle", StringComparison.Ordinal));
-        Assert.Null(AttributeValue(handle, "DataContext"));
+        var handles = theme.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "PanelDockHandle", StringComparison.Ordinal))
+            .ToArray();
+        Assert.Equal(
+            ["PART_StatusDragHandle", "PART_TitleDragHandle", "PART_FooterDragHandle"],
+            handles.Select(element => AttributeValue(element, "Name")),
+            StringComparer.Ordinal);
+        Assert.All(handles, handle => Assert.Null(AttributeValue(handle, "DataContext")));
+        foreach (var (index, slot) in new[] { (0, "Status"), (2, "Footer") })
+        {
+            var presenter = Assert.Single(handles[index].Elements());
+            Assert.Equal("ContentPresenter", presenter.Name.LocalName);
+            Assert.Equal($"{{TemplateBinding {slot}}}", AttributeValue(presenter, "Content"));
+            Assert.Equal("{TemplateBinding DataContext}", AttributeValue(presenter, "DataContext"));
+        }
 
         var handleSource = File.ReadAllText(Path.Combine(
             ApplicationViews.RepositoryRoot,

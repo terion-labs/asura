@@ -215,12 +215,18 @@
                       VerticalAlignment="Center"
                       Content="{TemplateBinding Actions}"
                       IsVisible="{TemplateBinding IsActionsVisible}" />
-                  <ContentPresenter
+                  <!-- Status stays bound to the panel even when the handle
+                       resolves Dock's document as its drag context. -->
+                  <controls:PanelDockHandle
+                      Name="PART_StatusDragHandle"
                       DockPanel.Dock="Left"
-                      Margin="{controls:Inset Right=Sm}"
-                      VerticalAlignment="Center"
-                      Content="{TemplateBinding Status}"
-                      IsVisible="{TemplateBinding IsStatusVisible}" />
+                      Padding="{controls:Inset Right=Sm}"
+                      VerticalContentAlignment="Center"
+                      IsVisible="{TemplateBinding IsStatusVisible}">
+                    <ContentPresenter
+                        DataContext="{TemplateBinding DataContext}"
+                        Content="{TemplateBinding Status}" />
+                  </controls:PanelDockHandle>
                   <ContentPresenter
                       DockPanel.Dock="Left"
                       Margin="{controls:Inset Right=Sm}"
@@ -235,6 +241,7 @@
                   -->
                   <Grid ColumnDefinitions="Auto,*">
                     <controls:PanelDockHandle
+                        Name="PART_TitleDragHandle"
                         Grid.Column="0"
                         Grid.ColumnSpan="{TemplateBinding TitleColumnSpan}">
                       <controls:PanelTitleLine
@@ -281,10 +288,15 @@
                   Grid.Row="3"
                   Classes="PanelFooter"
                   IsVisible="{TemplateBinding IsFooterVisible}">
-                <ContentPresenter
-                    Margin="{controls:Inset Horizontal=Sm}"
-                    VerticalAlignment="Center"
-                    Content="{TemplateBinding Footer}" />
+                <controls:PanelDockHandle
+                    Name="PART_FooterDragHandle"
+                    Padding="{controls:Inset Horizontal=Sm}"
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Center">
+                  <ContentPresenter
+                      DataContext="{TemplateBinding DataContext}"
+                      Content="{TemplateBinding Footer}" />
+                </controls:PanelDockHandle>
               </Border>
               </Grid>
             </controls:SurfaceCard>

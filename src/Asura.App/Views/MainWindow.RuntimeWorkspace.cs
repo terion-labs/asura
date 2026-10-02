@@ -655,16 +655,16 @@ public sealed partial class MainWindow
     }
 
     /// <summary>
-    /// Turns a placeholder into a real panel. The tab is told which placeholder is
-    /// being answered so the created panel takes its cell rather than being
-    /// appended wherever the layout would have put it.
+    /// Launches into the chosen placeholder, or into the empty docked canvas
+    /// when all panels are floating. The empty canvas has no placeholder in the
+    /// session graph, so launching there appends a panel to the same tab.
     ///
     /// These are the panel-level operations deliberately: the toolbar's "new
     /// terminal" action opens a whole tab, which is right when nothing is being
     /// answered and wrong here — it left the placeholder sitting empty and put the
     /// terminal in a new tab instead of the cell the user had just placed.
     /// </summary>
-    private async Task ChoosePlaceholderAsync(object? sender, Func<Task<bool>> create)
+    private async Task ChoosePanelFromLauncherAsync(object? sender, Func<Task<bool>> create)
     {
         if (sender is not Control source
             || ViewModel.RuntimeWorkspace?.ActiveTab is not { } tab)
@@ -676,12 +676,12 @@ public sealed partial class MainWindow
             source.DataContext as PanelPlaceholderViewModel
             ?? source.FindAncestorOfType<RuntimePanels.PanelPlaceholderView>()?.DataContext
                 as PanelPlaceholderViewModel;
-        if (placeholder is null)
+        if (placeholder is null && !tab.IsDockEmpty)
         {
             return;
         }
 
-        tab.ReplaceTarget = placeholder.Id;
+        tab.ReplaceTarget = placeholder?.Id;
         try
         {
             await create();
@@ -695,7 +695,7 @@ public sealed partial class MainWindow
     private async void OnPlaceholderTerminalClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
-        await ChoosePlaceholderAsync(
+        await ChoosePanelFromLauncherAsync(
             sender,
             () => ViewModel.AddLocalTerminalPanelAsync(_lifetime.Token));
     }
@@ -703,7 +703,7 @@ public sealed partial class MainWindow
     private async void OnPlaceholderBrowserClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
-        await ChoosePlaceholderAsync(
+        await ChoosePanelFromLauncherAsync(
             sender,
             () => ViewModel.AddBrowserPanelAsync(_lifetime.Token));
     }
@@ -711,7 +711,7 @@ public sealed partial class MainWindow
     private async void OnPlaceholderStatisticsClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
-        await ChoosePlaceholderAsync(
+        await ChoosePanelFromLauncherAsync(
             sender,
             () => ViewModel.AddStatisticsPanelAsync(_lifetime.Token));
     }
@@ -719,7 +719,7 @@ public sealed partial class MainWindow
     private async void OnPlaceholderFileViewerClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
-        await ChoosePlaceholderAsync(
+        await ChoosePanelFromLauncherAsync(
             sender,
             () => ViewModel.AddFilePanelAsync(_lifetime.Token));
     }
@@ -727,7 +727,7 @@ public sealed partial class MainWindow
     private async void OnPlaceholderProcessMonitorClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
-        await ChoosePlaceholderAsync(
+        await ChoosePanelFromLauncherAsync(
             sender,
             () => ViewModel.AddProcessMonitorPanelAsync(_lifetime.Token));
     }
@@ -735,7 +735,7 @@ public sealed partial class MainWindow
     private async void OnPlaceholderDatabaseClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
-        await ChoosePlaceholderAsync(
+        await ChoosePanelFromLauncherAsync(
             sender,
             () => ViewModel.AddDatabasePanelAsync(_lifetime.Token));
     }
@@ -743,7 +743,7 @@ public sealed partial class MainWindow
     private async void OnPlaceholderDockerClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
-        await ChoosePlaceholderAsync(
+        await ChoosePanelFromLauncherAsync(
             sender,
             () => ViewModel.AddDockerPanelAsync(_lifetime.Token));
     }
@@ -751,7 +751,7 @@ public sealed partial class MainWindow
     private async void OnPlaceholderGitClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
-        await ChoosePlaceholderAsync(
+        await ChoosePanelFromLauncherAsync(
             sender,
             () => ViewModel.AddGitPanelAsync(_lifetime.Token));
     }
@@ -822,7 +822,7 @@ public sealed partial class MainWindow
         object? sender,
         SavedConnectionLaunchViewModel launch)
     {
-        await ChoosePlaceholderAsync(
+        await ChoosePanelFromLauncherAsync(
             sender,
             () => ViewModel.AddSavedConnectionPanelAsync(launch, _lifetime.Token));
     }

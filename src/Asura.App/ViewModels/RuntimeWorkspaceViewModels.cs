@@ -404,6 +404,8 @@ public sealed class RuntimeTabViewModel : ObservableObject, IRuntimeTabStripItem
         _dockLayout = new RuntimeDockLayoutController(layout);
         _dockLayout.LayoutChanged += (_, _) =>
             OnPropertyChanged(nameof(DockLayoutRevision));
+        Panels.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsDockEmpty));
+        FloatingPanels.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsDockEmpty));
     }
 
     public TabInstanceId Id { get; }
@@ -1061,6 +1063,9 @@ public sealed class RuntimeTabViewModel : ObservableObject, IRuntimeTabStripItem
     /// The panels this tab is drawing over its layout rather than inside it.
     /// </summary>
     public ObservableCollection<FloatingRuntimePanelViewModel> FloatingPanels { get; } = [];
+
+    /// <summary>The launcher fills the canvas while every panel is floating.</summary>
+    public bool IsDockEmpty => !Panels.Any(panel => !IsPanelFloating(panel.Id));
 
     public bool IsPanelFloating(PanelInstanceId panelId) =>
         FloatingPanels.Any(floating => floating.Panel.Id == panelId);

@@ -36,7 +36,7 @@ public sealed partial class MainWindow
     }
 
     private async void OnPlaceholderKubernetesClick(object? sender, RoutedEventArgs e) =>
-        await ChoosePlaceholderAsync(sender, () => ViewModel.AddKubernetesPanelAsync(_lifetime.Token));
+        await ChoosePanelFromLauncherAsync(sender, () => ViewModel.AddKubernetesPanelAsync(_lifetime.Token));
 
     private async void OnNewKubernetesClick(object? sender, RoutedEventArgs e) =>
         await RequestNewAdapterTabAsync(PanelKind.Kubernetes);

@@ -637,6 +637,21 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
+        <!-- This is a view of an empty canvas, not another panel in its graph.
+             Release the launcher when a panel returns or one is launched here. -->
+        <ContentControl
+            x:Name="EmptyDockLauncher"
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch"
+            Classes.empty="{Binding RuntimeWorkspace.ActiveTab.IsDockEmpty}"
+            IsVisible="{Binding RuntimeWorkspace.ActiveTab.IsDockEmpty}">
+          <ContentControl.Styles>
+            <Style Selector="ContentControl.empty">
+              <Setter Property="Content" Value="{Binding}" />
+              <Setter Property="ContentTemplate" Value="{DynamicResource EmptyDockLauncherTemplate}" />
+            </Style>
+          </ContentControl.Styles>
+        </ContentControl>
         <!--
           Floating panels are drawn over the canvas and inside the same window.
           A panel can hold an operating-system view, and such a view does not
