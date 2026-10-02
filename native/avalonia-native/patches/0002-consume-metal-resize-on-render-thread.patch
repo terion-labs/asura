@@ -1,0 +1,85 @@
+--- a/native/Avalonia.Native/src/OSX/metal.mm
++++ b/native/Avalonia.Native/src/OSX/metal.mm
+@@ -4,6 +4,7 @@
+ #include "common.h"
+ #include "rendertarget.h"
+ #import "crapium.h"
++#include <mutex>
+ 
+ 
+ class API_AVAILABLE(macos(12.0)) AvnMTLSharedEvent : public ComSingleObject<IAvnMTLSharedEvent, &IID_IAvnMTLSharedEvent>
+@@ -227,12 +228,18 @@
+ class AvnMetalRenderTarget : public ComSingleObject<IAvnMetalRenderTarget, &IID_IAvnMetalRenderTarget>
+ {
+     CAMetalLayer* _layer;
+-    double _scaling = 1;
+-    AvnPixelSize _size = {1,1};
+     ComPtr<AvnMetalDevice> _device;
+-public:
+-    double PendingScaling = 1;
+-    AvnPixelSize PendingSize = {1,1};
++    std::mutex _resizeMutex;
++    double _pendingScaling = 1;
++    AvnPixelSize _pendingSize = {1,1};
++public:
++    void SetSize(AvnPixelSize size, double scaling)
++    {
++        // AppKit publishes on the UI thread; either rendering thread can consume.
++        std::lock_guard<std::mutex> lock(_resizeMutex);
++        _pendingSize = size;
++        _pendingScaling = scaling;
++    }
+     FORWARD_IUNKNOWN()
+     AvnMetalRenderTarget(CAMetalLayer* layer, ComPtr<AvnMetalDevice> device)
+     {
+@@ -249,14 +256,25 @@
+             auto buffer = [_device->queue commandBuffer];
+             [buffer commit];
+             [buffer waitUntilCompleted];
+-            _size = PendingSize;
+-            _scaling= PendingScaling;
+-            CGSize layerSize = {(CGFloat)_size.Width, (CGFloat)_size.Height};
+-
++        }
++
++        AvnPixelSize size;
++        double scaling;
++        {
++            std::lock_guard<std::mutex> lock(_resizeMutex);
++            size = _pendingSize;
++            scaling = _pendingScaling;
++        }
++        CGSize layerSize = {(CGFloat)size.Width, (CGFloat)size.Height};
++        // A one-event resize need not produce a main-thread paint before the
++        // compositor draws again. Consume the new size on that thread too,
++        // otherwise every subsequent frame keeps the old drawable dimensions.
++        if(onMainThread || !CGSizeEqualToSize(_layer.drawableSize, layerSize))
++        {
+             [CATransaction begin];
+             [CATransaction setDisableActions:YES];
+             [_layer setDrawableSize: layerSize];
+-            _layer.presentsWithTransaction = YES;
++            _layer.presentsWithTransaction = onMainThread;
+             [CATransaction commit];
+         }
+         auto drawable = [_layer nextDrawable];
+@@ -267,7 +285,7 @@
+             *ret = nullptr;
+             return E_FAIL;
+         }
+-        *ret = new AvnMetalRenderSession(_device, _layer, drawable, _size, _scaling, onMainThread);
++        *ret = new AvnMetalRenderSession(_device, _layer, drawable, size, scaling, onMainThread);
+         return 0;
+     }
+ };
+@@ -294,9 +312,7 @@
+ }
+ 
+ - (void)resize:(AvnPixelSize)size withScale:(float)scale {
+-    CGSize layerSize = {(CGFloat)size.Width, (CGFloat)size.Height};
+-    _target->PendingScaling = scale;
+-    _target->PendingSize = size;
++    _target->SetSize(size, scale);
+     [_layer setNeedsDisplay];
+ }
+ 
