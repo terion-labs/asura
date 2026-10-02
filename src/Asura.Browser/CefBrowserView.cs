@@ -600,6 +600,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         browser.LoadError += OnLoadError;
         browser.RenderProcessGone += OnRenderProcessGone;
         browser.ConsoleMessage += CefConsoleMessagePolicy.Handle;
+        browser.KeyEvent += OnUnhandledKeyEvent;
 
         // CEF has no host UI for these prompts in OSR mode. Every privileged
         // or filesystem-affecting operation therefore defaults closed until a
@@ -630,6 +631,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         browser.LoadError -= OnLoadError;
         browser.RenderProcessGone -= OnRenderProcessGone;
         browser.ConsoleMessage -= CefConsoleMessagePolicy.Handle;
+        browser.KeyEvent -= OnUnhandledKeyEvent;
         browser.BeforePopup -= OnBeforePopup;
         browser.ContextMenu -= OnContextMenu;
         browser.HostPopup -= OnHostPopup;
@@ -642,6 +644,19 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         browser.PermissionRequest -= BlockPermission;
         browser.MediaAccessRequest -= BlockMediaAccess;
         browser.CertError -= BlockCertificateError;
+    }
+
+    private static void OnUnhandledKeyEvent(object? sender, PreKeyEventArgs args)
+    {
+        _ = sender;
+        // KeyEvent runs AFTER Chromium and page handlers. Avalonia already
+        // owns host shortcuts; do not replay CEF's synthetic NSEvent into the
+        // macOS menu, where plain letters can activate dictation or emoji.
+        // PreKeyEvent must stay unhandled so web inputs and shortcuts work.
+        if (OperatingSystem.IsMacOS())
+        {
+            args.Handled = true;
+        }
     }
 
     private void DispatchQueuedNavigation(
