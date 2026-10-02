@@ -20,8 +20,10 @@ internal sealed class NativeSurfaceLayer : Canvas
     /// Every layer alive, so a suspension reaches all of them. Panels can be
     /// floated into windows of their own, and a drag that started in one window
     /// has to be visible in every window it might land in.
+    /// Registration must not keep an abandoned, never-shown layer alive.
     /// </summary>
-    private static readonly List<NativeSurfaceLayer> Layers = [];
+    private static readonly Lock LayersGate = new();
+    private static readonly List<WeakReference<NativeSurfaceLayer>> Layers = [];
 
     private static int _suspensions;
 
@@ -38,7 +40,7 @@ internal sealed class NativeSurfaceLayer : Canvas
         // once it was attached would miss a suspension raised before it got
         // there, and come up with its surfaces on top of whatever asked for the
         // screen.
-        Layers.Add(this);
+        Register();
     }
 
     /// <summary>
@@ -74,9 +76,45 @@ internal sealed class NativeSurfaceLayer : Canvas
     private static void ApplyAll()
     {
         SuspensionChanged?.Invoke(null, EventArgs.Empty);
-        foreach (var layer in Layers.ToArray())
+        WeakReference<NativeSurfaceLayer>[] layers;
+        lock (LayersGate)
         {
-            layer.ApplyAllHere();
+            Layers.RemoveAll(reference => !reference.TryGetTarget(out _));
+            layers = [.. Layers];
+        }
+        foreach (var reference in layers)
+        {
+            if (!reference.TryGetTarget(out var layer))
+            {
+                continue;
+            }
+            if (layer.Dispatcher.CheckAccess())
+            {
+                layer.ApplyAllHere();
+            }
+            else
+            {
+                // A layer belongs to its original dispatcher, even after a
+                // different UI lifetime becomes current. Keep queued work weak
+                // too, so a stopped dispatcher cannot retain an abandoned view.
+                layer.Dispatcher.Post(() =>
+                {
+                    if (reference.TryGetTarget(out var target))
+                    {
+                        target.ApplyAllHere();
+                    }
+                });
+            }
+        }
+    }
+
+    private void Register()
+    {
+        lock (LayersGate)
+        {
+            Layers.RemoveAll(reference => !reference.TryGetTarget(out var layer)
+                || ReferenceEquals(layer, this));
+            Layers.Add(new WeakReference<NativeSurfaceLayer>(this));
         }
     }
 
@@ -101,15 +139,17 @@ internal sealed class NativeSurfaceLayer : Canvas
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        if (!Layers.Contains(this))
-        {
-            Layers.Add(this);
-        }
+        Register();
+        ApplyAllHere();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        Layers.Remove(this);
+        lock (LayersGate)
+        {
+            Layers.RemoveAll(reference => !reference.TryGetTarget(out var layer)
+                || ReferenceEquals(layer, this));
+        }
         base.OnDetachedFromVisualTree(e);
     }
 
