@@ -961,6 +961,51 @@ public sealed class GhosttyVtTerminalSessionTests
         await write;
     }
 
+    [Theory]
+    [InlineData(TerminalPhysicalKey.MetaLeft, TerminalKeyAction.Press, false)]
+    [InlineData(TerminalPhysicalKey.MetaRight, TerminalKeyAction.Release, false)]
+    [InlineData(TerminalPhysicalKey.ShiftLeft, TerminalKeyAction.Press, false)]
+    [InlineData(TerminalPhysicalKey.ControlRight, TerminalKeyAction.Press, false)]
+    [InlineData(TerminalPhysicalKey.AltLeft, TerminalKeyAction.Press, false)]
+    [InlineData(TerminalPhysicalKey.A, TerminalKeyAction.Release, false)]
+    [InlineData(TerminalPhysicalKey.Unidentified, TerminalKeyAction.Press, false)]
+    [InlineData(TerminalPhysicalKey.MetaLeft, TerminalKeyAction.Press, true)]
+    [InlineData(TerminalPhysicalKey.MetaRight, TerminalKeyAction.Release, true)]
+    [InlineData(TerminalPhysicalKey.A, TerminalKeyAction.Release, true)]
+    public async Task Keys_without_terminal_bytes_preserve_selection_and_scrollback(
+        TerminalPhysicalKey key,
+        TerminalKeyAction action,
+        bool mouseTracking)
+    {
+        var harness = await CreateAsync();
+        await using var session = harness.Session;
+        await harness.Pty.WriteOutputAsync((mouseTracking ? "\u001b[?1000h" : string.Empty) + "copy-this-line\r\n" +
+            string.Concat(Enumerable.Repeat("later output\r\n", 60)) + "READY");
+        _ = await WaitForScreenAsync(session,
+            snapshot => snapshot.PlainText.Contains("READY", StringComparison.Ordinal));
+        _ = await session.FindAsync(new TerminalFindInput("copy-this-line"), default);
+        var before = await session.ReadScreenAsync(default);
+        var selection = await session.ReadSelectionAsync(default);
+        Assert.True(selection.HasSelection);
+        Assert.Equal(mouseTracking, before.IsMouseTrackingEnabled);
+        Assert.True(before.ScrollbackLinesBelow > 0);
+
+        await session.SendPhysicalKeyAsync(new TerminalPhysicalKeyEvent(
+            key, key.ToString(), string.Empty, TerminalKeyModifiers.None,
+            TerminalKeyModifiers.None, action), default);
+
+        Assert.Empty(harness.Pty.WrittenText);
+        Assert.Equal(selection, await session.ReadSelectionAsync(default));
+        var after = await session.ReadScreenAsync(default);
+        Assert.Equal(before.ScrollbackLinesBelow, after.ScrollbackLinesBelow);
+        Assert.Equal(before.ContentRevision, after.ContentRevision);
+
+        await session.SendPhysicalKeyAsync(PhysicalKey(TerminalKeyAction.Press), default);
+        Assert.Equal("a", harness.Pty.WrittenText);
+        Assert.False((await session.ReadSelectionAsync(default)).HasSelection);
+        Assert.Equal(0, (await session.ReadScreenAsync(default)).ScrollbackLinesBelow);
+    }
+
     [Fact]
     public async Task Kitty_keyboard_protocol_receives_press_repeat_and_release_actions()
     {

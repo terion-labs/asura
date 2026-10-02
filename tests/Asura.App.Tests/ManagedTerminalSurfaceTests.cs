@@ -169,11 +169,56 @@ public sealed class ManagedTerminalSurfaceTests
     [InlineData(PhysicalKey.ControlLeft)]
     [InlineData(PhysicalKey.ShiftRight)]
     public void Modifier_only_keys_stay_in_the_desktop_shortcut_layer(PhysicalKey key) =>
-        Assert.True(ManagedTerminalInput.IsModifierOnly(key));
+        Assert.True(ApplicationKeyStrokeMapper.IsModifierOnly(Key.None, key));
 
     [Fact]
     public void Modified_character_key_still_reaches_the_terminal_or_keymap() =>
-        Assert.False(ManagedTerminalInput.IsModifierOnly(PhysicalKey.C));
+        Assert.False(ApplicationKeyStrokeMapper.IsModifierOnly(Key.C, PhysicalKey.C));
+
+    [Theory]
+    [InlineData(PhysicalKey.MetaLeft)]
+    [InlineData(PhysicalKey.None)]
+    public async Task Command_between_prefix_and_copy_never_replays_terminal_input(PhysicalKey physicalKey)
+    {
+        var sink = new RecordingInputSink
+        {
+            SelectionText = new TerminalSelectionText("selected", true, false),
+        };
+        var clipboard = new RecordingClipboard();
+        var prefix = new KeyStroke("X", CoreKeyModifiers.Control);
+        var surface = new ManagedTerminalSurface
+        {
+            InputSink = sink,
+            Clipboard = clipboard,
+            Keymap = new TerminalKeymapSnapshot(new KeymapProfileId("copy.sequence"), "Copy sequence",
+                [new CommandBinding(BuiltInCommands.Copy,
+                    KeySequence.Of(prefix, new KeyStroke("C", CoreKeyModifiers.Meta)), CommandContext.Terminal)],
+                new PrefixConfiguration(prefix, TimeSpan.FromSeconds(5), false, FailedSequenceBehavior.PassThrough)),
+        };
+        Assert.Equal(TerminalCommandDispatchResult.Outcome.Pending,
+            (await surface.DispatchKeymapStrokeAsync(prefix)).Status);
+
+        surface.RaiseEvent(new KeyEventArgs
+        {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Key = Key.LWin,
+            PhysicalKey = physicalKey,
+            KeyModifiers = AvaloniaKeyModifiers.Meta,
+        });
+        surface.RaiseEvent(new KeyEventArgs
+        {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Key = Key.C,
+            PhysicalKey = PhysicalKey.C,
+            KeyModifiers = AvaloniaKeyModifiers.Meta,
+            KeySymbol = "c",
+        });
+
+        Assert.Equal(["selected"], clipboard.Writes);
+        Assert.Empty(sink.Text);
+        Assert.Empty(sink.Keys);
+        Assert.Empty(sink.PhysicalKeys);
+    }
 
     [Fact]
     public async Task SelectedKeymapControlsCopyAndPasteInsteadOfPlatformHardCoding()

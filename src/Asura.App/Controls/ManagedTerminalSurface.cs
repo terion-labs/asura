@@ -859,6 +859,12 @@ public sealed class ManagedTerminalSurface : Control
             return;
         }
 
+        if (ApplicationKeyStrokeMapper.IsModifierOnly(e.Key, e.PhysicalKey))
+        {
+            e.Handled = true;
+            return;
+        }
+
         var command = DispatchKeymapShortcutAsync(e.Key, e.KeyModifiers, e.KeySymbol);
         if (!command.IsCompletedSuccessfully)
         {
@@ -883,12 +889,6 @@ public sealed class ManagedTerminalSurface : Control
             e.Handled = true;
             ObserveInputAsync(RequireInputSink()
                 .ScrollViewportAsync(scrollInput!, default));
-            return;
-        }
-
-        if (ManagedTerminalInput.IsModifierOnly(e.PhysicalKey))
-        {
-            e.Handled = true;
             return;
         }
 
