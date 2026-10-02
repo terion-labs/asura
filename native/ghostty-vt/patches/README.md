@@ -66,3 +66,17 @@ When updating the pinned Ghostty commit, reapply the patch to a clean checkout,
 resolve against upstream behavior (never copy the renderer math into
 Asura), rerun the upstream tests, and regenerate the patch with
 `git format-patch`.
+
+`0003-preserve-cursor-line-on-resize.patch` preserves the cursor's physical
+row offset within its logical line when the C API resizes a terminal. Readline
+redraws relative to that offset after SIGWINCH; moving the cursor with reflow
+first duplicates parts of an unsubmitted command. Text still reflows normally,
+including input, completed output, and scrollback. Widening retains enough blank
+rows for the shell's cursor-up sequence. This works in nested and remote shells
+without OSC 133 integration.
+
+The policy is confined to C API resize requests. Internal Ghostty resize callers
+retain their existing default. The patch includes native tests for output reflow,
+wrapped input, and wide characters. Managed tests replay actual Bash resize output
+at the top and bottom of the terminal. No C ABI layout or export changes are
+required.
