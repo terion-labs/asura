@@ -20,6 +20,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
@@ -28,6 +29,293 @@ namespace Asura.App.Tests;
 [Collection(AvaloniaUiCollection.Name)]
 public sealed partial class MainWindowRuntimeGraphIntegrationTests
 {
+    [Fact]
+    public async Task Panel_move_preserves_browser_renderer_and_updates_its_session_owner()
+    {
+        await using var host = new InMemorySessionHostClient(
+            new FakeTerminalSessionFactory(), new DesktopLifecyclePolicy(),
+            browserPanelFactory: new BrowserPanelSessionFactory());
+        using var viewModel = CreateViewModel(host, CreateCatalogSnapshot(),
+            browserRendererFactory: new RecordingBrowserRendererViewFactory
+            {
+                Capabilities = BrowserCapabilityProfile.Production.Capabilities,
+            });
+        Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+        var workspace = viewModel.RuntimeWorkspace!;
+        var source = workspace.Tabs.First(tab => tab.Panels.OfType<BrowserRuntimePanelViewModel>().Any());
+        var browser = Assert.Single(source.Panels.OfType<BrowserRuntimePanelViewModel>());
+        await WaitForAsync(() => browser.HasInteractiveAttachment);
+        var renderer = browser.RendererView;
+        var sessionId = browser.SessionRequest.SessionId;
+        Assert.True(await viewModel.AddLauncherTabAsync());
+        var destination = workspace.ActiveTab!;
+        var beforePanels = source.Panels.ToArray();
+
+        Assert.False(await viewModel.MovePanelToTabAsync(workspace.Id, source.Id, browser.Id, source.Id));
+        Assert.Equal(beforePanels, source.Panels);
+        Assert.True(await viewModel.MovePanelToTabAsync(workspace.Id, source.Id, browser.Id, destination.Id));
+
+        Assert.Same(browser, Assert.Single(destination.Panels));
+        Assert.Same(renderer, browser.RendererView);
+        Assert.True(browser.HasInteractiveAttachment);
+        Assert.Equal(sessionId, browser.SessionRequest.SessionId);
+        Assert.Equal(destination.Id, browser.SessionRequest.Owner.TabId);
+        Assert.Equal(beforePanels.Where(panel => panel != browser), source.Panels);
+        var snapshot = Assert.IsType<HostResult<SessionSnapshot>.Success>(
+            await host.GetSnapshotAsync(sessionId, OperationContext.ForHuman(viewModel.ClientId), default)).Value;
+        Assert.Equal(destination.Id, snapshot.Descriptor.Owner.TabId);
+        Assert.Equal(SessionLifecycle.Active, snapshot.Descriptor.Lifecycle);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task Panel_header_drop_moves_live_terminal_to_another_tab(bool launcherTarget, bool omitMoveButtons)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            await using var host = new InMemorySessionHostClient(
+                new FakeTerminalSessionFactory(), new DesktopLifecyclePolicy(),
+                browserPanelFactory: new BrowserPanelSessionFactory());
+            var recoveryStore = new PanelMoveRecoveryStore();
+            var startup = new ApplicationStartupState();
+            startup.Initialize(new ApplicationRunStart("panel-move-test", false,
+                new ApplicationRunState(null, true, null, null)));
+            var recoveryWriter = new RuntimeRecoveryWriter(recoveryStore, startup, TimeProvider.System);
+            using var viewModel = CreateViewModel(host, CreateCatalogSnapshot(),
+                browserRendererFactory: new RecordingBrowserRendererViewFactory(),
+                runtimeRecoveryWriter: recoveryWriter);
+            Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+            var workspace = viewModel.RuntimeWorkspace!;
+            Assert.True(await viewModel.AddLocalTerminalTabAsync());
+            var source = workspace.ActiveTab!;
+            var moved = Assert.IsType<TerminalRuntimePanelViewModel>(source.Panels[0]);
+            await moved.Initialization;
+            var sessionId = moved.SessionRequest!.SessionId;
+            RuntimeTabViewModel destination;
+            if (launcherTarget)
+            {
+                Assert.True(await viewModel.AddLauncherTabAsync());
+                destination = workspace.ActiveTab!;
+            }
+            else
+            {
+                destination = workspace.Tabs.First(tab => tab != source);
+            }
+            var destinationPanels = destination.Panels.ToArray();
+            Assert.True(await viewModel.ActivateTabAsync(source.Id));
+            var window = new MainWindow { DataContext = viewModel, Width = 1400, Height = 900 };
+            // Exercise the real panel chrome and Dock input path without asking
+            // a native terminal renderer to attach to a headless window handle.
+            window.DataTemplates.Insert(0, new Avalonia.Controls.Templates.FuncDataTemplate<TerminalRuntimePanelViewModel>(
+                (panel, _) => new Asura.App.Controls.PanelChrome
+                {
+                    Title = panel!.Title,
+                    DataContext = panel,
+                    Content = new TextBlock { Text = "Terminal renderer is tested in the dev build." },
+                }));
+            window.Show();
+            try
+            {
+                window.UpdateLayout();
+                var handle = window.GetVisualDescendants().OfType<Asura.App.Controls.PanelDockHandle>()
+                    .Single(control => control.Name == "PART_TitleDragHandle"
+                        && control.IsEffectivelyVisible
+                        && control.FindAncestorOfType<RuntimePanelContentControl>()?.Content == moved);
+                var target = window.GetVisualDescendants().OfType<Grid>()
+                    .Single(grid => grid.Classes.Contains("RuntimeTabDropTarget")
+                        && grid.DataContext == destination);
+                var origin = handle.TranslatePoint(new Point(handle.Bounds.Width / 2, handle.Bounds.Height / 2), window)!.Value;
+                var drop = target.TranslatePoint(new Point(target.Bounds.Width / 2, target.Bounds.Height / 2), window)!.Value;
+                var modifiers = omitMoveButtons ? RawInputModifiers.None : RawInputModifiers.LeftMouseButton;
+                window.MouseDown(origin, Avalonia.Input.MouseButton.Left);
+                window.MouseMove(origin + new Vector(10, 0), modifiers);
+                window.MouseMove(drop, modifiers);
+                Assert.Contains("panelDropTarget", target.Classes, StringComparer.Ordinal);
+                window.MouseUp(drop, Avalonia.Input.MouseButton.Left);
+                await WaitForAsync(() => destination.Panels.Contains(moved) || viewModel.OperationError is not null);
+
+                Assert.Null(viewModel.OperationError);
+                Assert.Same(destination, workspace.ActiveTab);
+                Assert.Same(moved, destination.ActivePanel);
+                Assert.DoesNotContain(source, workspace.Tabs);
+                Assert.Equal(sessionId, moved.SessionRequest!.SessionId);
+                Assert.Equal(destination.Id, moved.SessionRequest.Owner.TabId);
+                Assert.Equal(launcherTarget ? 1 : destinationPanels.Length + 1, destination.Panels.Count);
+                Assert.Empty(source.DockLayout.Windows ?? []);
+                Assert.DoesNotContain("panelDropTarget", target.Classes, StringComparer.Ordinal);
+                var snapshot = Assert.IsType<HostResult<SessionSnapshot>.Success>(
+                    await host.GetSnapshotAsync(sessionId, OperationContext.ForHuman(viewModel.ClientId), default)).Value;
+                Assert.Equal(destination.Id, snapshot.Descriptor.Owner.TabId);
+                Assert.Equal(SessionLifecycle.Starting, snapshot.Descriptor.Lifecycle);
+
+                // The moved panel can be dragged back, including from a split
+                // tab, without replacing its view model or session.
+                Assert.True(await viewModel.AddLauncherTabAsync());
+                var returnTab = workspace.ActiveTab!;
+                Assert.True(await viewModel.MovePanelToTabAsync(
+                    workspace.Id, destination.Id, moved.Id, returnTab.Id));
+                Assert.Same(moved, Assert.Single(returnTab.Panels));
+                Assert.Equal(sessionId, moved.SessionRequest.SessionId);
+                Assert.Equal(returnTab.Id, moved.SessionRequest.Owner.TabId);
+                Assert.Null(viewModel.OperationError);
+                await recoveryWriter.FlushAsync(CancellationToken.None);
+                Assert.NotEmpty(recoveryStore.Snapshots);
+                await moved.RetryAsync();
+                Assert.NotEqual(sessionId, moved.SessionRequest!.SessionId);
+                Assert.Equal(returnTab.Id, moved.SessionRequest.Owner.TabId);
+                return true;
+            }
+            finally
+            {
+                window.Close();
+                await recoveryWriter.SealAndFlushAsync(CancellationToken.None);
+            }
+        }, timeout.Token));
+    }
+
+    [Fact]
+    public async Task Panel_header_drag_can_still_rearrange_panels_in_the_same_tab()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            await using var host = new InMemorySessionHostClient(
+                new FakeTerminalSessionFactory(), new DesktopLifecyclePolicy(),
+                browserPanelFactory: new BrowserPanelSessionFactory());
+            using var viewModel = CreateViewModel(host, CreateCatalogSnapshot(),
+                browserRendererFactory: new RecordingBrowserRendererViewFactory());
+            Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+            var workspace = viewModel.RuntimeWorkspace!;
+            Assert.True(await viewModel.AddLocalTerminalTabAsync());
+            var destination = workspace.ActiveTab!;
+            var stationary = Assert.IsType<TerminalRuntimePanelViewModel>(destination.Panels[0]);
+            await stationary.Initialization;
+            Assert.True(await viewModel.AddLocalTerminalTabAsync());
+            var source = workspace.ActiveTab!;
+            var moved = Assert.IsType<TerminalRuntimePanelViewModel>(source.Panels[0]);
+            await moved.Initialization;
+            Assert.True(await viewModel.ActivateTabAsync(source.Id));
+            Assert.True(await viewModel.MovePanelToTabAsync(workspace.Id, source.Id, moved.Id, destination.Id), viewModel.OperationError);
+            var window = new MainWindow { DataContext = viewModel, Width = 1400, Height = 900 };
+            window.DataTemplates.Insert(0, new Avalonia.Controls.Templates.FuncDataTemplate<TerminalRuntimePanelViewModel>(
+                (panel, _) => new Asura.App.Controls.PanelChrome
+                {
+                    Title = panel!.Title,
+                    DataContext = panel,
+                    Content = new TextBlock { Text = "Terminal renderer is tested in the dev build." },
+                }));
+            window.Show();
+            try
+            {
+                window.UpdateLayout();
+                var before = window.GetVisualDescendants().OfType<RuntimePanelContentControl>()
+                    .Where(control => control.IsEffectivelyVisible).ToArray();
+                var stationaryView = before.Single(control => control.Content == stationary);
+                var movedView = before.Single(control => control.Content == moved);
+                var handle = movedView.GetVisualDescendants().OfType<Asura.App.Controls.PanelDockHandle>()
+                    .Single(control => control.Name == "PART_TitleDragHandle");
+                var origin = handle.TranslatePoint(new Point(handle.Bounds.Width / 2, handle.Bounds.Height / 2), window)!.Value;
+                var hover = stationaryView.TranslatePoint(new Point(stationaryView.Bounds.Width / 2, stationaryView.Bounds.Height / 2), window)!.Value;
+                window.MouseDown(origin, MouseButton.Left);
+                window.MouseMove(origin + new Vector(10, 0), RawInputModifiers.LeftMouseButton);
+                window.MouseMove(hover, RawInputModifiers.LeftMouseButton);
+                window.UpdateLayout();
+                var selector = window.GetVisualDescendants().OfType<Control>()
+                    .First(control => control.Name == "PART_TopSelector" && control.IsEffectivelyVisible);
+                var drop = selector.TranslatePoint(new Point(selector.Bounds.Width / 2, selector.Bounds.Height / 2), window)!.Value;
+                window.MouseMove(drop, RawInputModifiers.LeftMouseButton);
+                window.MouseUp(drop, MouseButton.Left);
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+
+                var after = window.GetVisualDescendants().OfType<RuntimePanelContentControl>()
+                    .Where(control => control.IsEffectivelyVisible).ToArray();
+                var stationaryPosition = after.Single(control => control.Content == stationary).TranslatePoint(default, window)!.Value;
+                var movedPosition = after.Single(control => control.Content == moved).TranslatePoint(default, window)!.Value;
+                Assert.True(movedPosition.Y < stationaryPosition.Y);
+                Assert.Equal(stationaryPosition.X, movedPosition.X);
+                Assert.Equal(2, destination.Panels.Count);
+                Assert.Empty(destination.DockLayout.Windows ?? []);
+                Assert.Empty(destination.FloatingPanels);
+                Assert.False(Asura.App.Controls.NativeSurfaceLayer.IsSuspended);
+                Assert.Null(viewModel.OperationError);
+                return true;
+            }
+            finally
+            {
+                window.Close();
+            }
+        }, timeout.Token));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Dragging_a_single_panel_without_a_tab_drop_keeps_it_docked(bool escape)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            var (client, _) = CreateSessionClient();
+            using var viewModel = CreateViewModel(client, CreateCatalogSnapshot());
+            Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+            var workspace = viewModel.RuntimeWorkspace!;
+            Assert.True(await viewModel.AddLocalTerminalTabAsync());
+            var tab = workspace.ActiveTab!;
+            Assert.True(await viewModel.ActivateTabAsync(tab.Id));
+            var panel = tab.Panels[0];
+            var window = new MainWindow { DataContext = viewModel, Width = 1400, Height = 900 };
+            // Exercise the real panel chrome and Dock input path without asking
+            // a native terminal renderer to attach to a headless window handle.
+            window.DataTemplates.Insert(0, new Avalonia.Controls.Templates.FuncDataTemplate<TerminalRuntimePanelViewModel>(
+                (panel, _) => new Asura.App.Controls.PanelChrome
+                {
+                    Title = panel!.Title,
+                    DataContext = panel,
+                    Content = new TextBlock { Text = "Terminal renderer is tested in the dev build." },
+                }));
+            window.Show();
+            try
+            {
+                window.UpdateLayout();
+                var handle = window.GetVisualDescendants().OfType<Asura.App.Controls.PanelDockHandle>()
+                    .Single(control => control.Name == "PART_TitleDragHandle" && control.IsEffectivelyVisible);
+                var origin = handle.TranslatePoint(new Point(handle.Bounds.Width / 2, handle.Bounds.Height / 2), window)!.Value;
+                var drop = new Point(600, 450);
+                window.MouseDown(origin, Avalonia.Input.MouseButton.Left);
+                window.MouseMove(origin + new Vector(10, 0), RawInputModifiers.LeftMouseButton);
+                window.MouseMove(drop, RawInputModifiers.LeftMouseButton);
+                if (escape)
+                {
+                    window.KeyPress(Avalonia.Input.Key.Escape, Avalonia.Input.RawInputModifiers.None, Avalonia.Input.PhysicalKey.Escape, null);
+                }
+                window.MouseUp(drop, Avalonia.Input.MouseButton.Left);
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+
+                Assert.Same(panel, Assert.Single(tab.Panels));
+                Assert.Same(panel, tab.ActivePanel);
+                Assert.Empty(tab.DockLayout.Windows ?? []);
+                Assert.False(tab.IsDockEmpty);
+                Assert.Empty(tab.FloatingPanels);
+                Assert.Contains(window.GetVisualDescendants().OfType<RuntimePanelContentControl>(),
+                    control => ReferenceEquals(control.Content, panel) && control.IsEffectivelyVisible);
+                Assert.False(Asura.App.Controls.NativeSurfaceLayer.IsSuspended);
+                return true;
+            }
+            finally
+            {
+                window.Close();
+            }
+        }, timeout.Token));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -8730,7 +9018,8 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         TerminalMultiplexerCoordinator? terminalMultiplexerCoordinator = null,
         IWorkspaceRuntimeServicesFactory? workspaceRuntimeServicesFactory = null,
         IWorkspaceNetworkRuntime? workspaceNetworkRuntime = null,
-        RecentSessionHistory? recentSessionHistory = null) =>
+        RecentSessionHistory? recentSessionHistory = null,
+        RuntimeRecoveryWriter? runtimeRecoveryWriter = null) =>
         CreateViewModel(
             sessionClient,
             CreateFixedCatalog(snapshot),
@@ -8758,7 +9047,8 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             terminalMultiplexerCoordinator,
             workspaceRuntimeServicesFactory,
             workspaceNetworkRuntime,
-            recentSessionHistory);
+            recentSessionHistory,
+            runtimeRecoveryWriter);
 
     private static MainWindowViewModel CreateViewModel(
         ISessionHostClient sessionClient,
@@ -8787,7 +9077,8 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         TerminalMultiplexerCoordinator? terminalMultiplexerCoordinator = null,
         IWorkspaceRuntimeServicesFactory? workspaceRuntimeServicesFactory = null,
         IWorkspaceNetworkRuntime? workspaceNetworkRuntime = null,
-        RecentSessionHistory? recentSessionHistory = null)
+        RecentSessionHistory? recentSessionHistory = null,
+        RuntimeRecoveryWriter? runtimeRecoveryWriter = null)
     {
         var files = new EmptyFileClients();
         agentPolicyCoordinator ??= CreateConfiguredPolicyCoordinator(aiProfiles);
@@ -8819,7 +9110,26 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             terminalMultiplexerCoordinator: terminalMultiplexerCoordinator,
             workspaceRuntimeServicesFactory: workspaceRuntimeServicesFactory,
             workspaceNetworkRuntime: workspaceNetworkRuntime,
-            recentSessionHistory: recentSessionHistory);
+            recentSessionHistory: recentSessionHistory,
+            runtimeRecoveryWriter: runtimeRecoveryWriter);
+    }
+
+    private sealed class PanelMoveRecoveryStore : IRuntimeRecoveryStore
+    {
+        public System.Collections.Concurrent.ConcurrentQueue<RuntimeRecoverySnapshot> Snapshots { get; } = new();
+
+        public ValueTask<ApplicationRunResult<IReadOnlyList<RuntimeRecoverySnapshot>>> LoadAsync(
+            string runId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public ValueTask<ApplicationRunResult<Unit>> SaveAsync(
+            RuntimeRecoverySnapshot snapshot, CancellationToken cancellationToken)
+        {
+            Snapshots.Enqueue(snapshot);
+            return ValueTask.FromResult(ApplicationRunResult<Unit>.Success(Unit.Value));
+        }
+
+        public ValueTask<ApplicationRunResult<Unit>> DiscardAsync(
+            string runId, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class BlockingShutdownHistoryStore : IRecentSessionStore

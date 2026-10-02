@@ -324,6 +324,11 @@ internal sealed class WorkspaceGraphRegistry
                     "The exact source and destination ownership receipts are no longer current.");
             }
 
+            if (graphs.Source == graphs.Destination)
+            {
+                return MovePanelBetweenTabs(graphs, request, liveSessions);
+            }
+
             var sourceBefore = graphs.Source.Snapshot().Workspace;
             var destinationBefore = graphs.Destination.Snapshot().Workspace;
             var sourceTab = sourceBefore.Tabs.SingleOrDefault(tab => tab.Id == request.SourceTabId);
@@ -389,6 +394,52 @@ internal sealed class WorkspaceGraphRegistry
                 ownership);
         }
     }
+
+    private static HostResult<WorkspaceGraphTransferReceipt> MovePanelBetweenTabs(
+        TransferGraphs graphs,
+        TransferWorkspacePanelRequest request,
+        IReadOnlyList<LiveWorkspaceSession> liveSessions)
+    {
+        var before = graphs.Source.Snapshot().Workspace;
+        WorkspaceInstance expected;
+        try
+        {
+            expected = before.MovePanel(request.SourceTabId, request.DestinationTabId, request.PanelId);
+        }
+        catch (ArgumentException)
+        {
+            return InvalidTransfer(graphs, "The panel and both distinct tabs must belong to the workspace.");
+        }
+
+        // Both sides name the same atomic result, never intermediate graphs
+        // with a missing or duplicated panel. Only this exact move is accepted.
+        if (!WorkspaceEquivalent(expected, request.Source)
+            || !WorkspaceEquivalent(expected, request.Destination))
+        {
+            return InvalidTransfer(graphs, "A panel move must leave every other panel and tab unchanged.");
+        }
+
+        var ownership = liveSessions
+            .Where(session => session.Descriptor.Owner.WorkspaceId == before.Id
+                && session.Descriptor.Owner.TabId == request.SourceTabId
+                && session.Descriptor.Owner.PanelId == request.PanelId)
+            .Select(session => new SessionOwnershipTransferReceipt(
+                session.Descriptor.Id,
+                session.Descriptor.Owner,
+                session.Descriptor.Owner with { TabId = request.DestinationTabId }))
+            .ToArray();
+        var snapshot = graphs.Source.CommitTransfer(expected, request.SourceTabId, request.PanelId);
+        return HostResult<WorkspaceGraphTransferReceipt>.Succeed(
+            new WorkspaceGraphTransferReceipt(
+                Guid.NewGuid(), snapshot, snapshot, request.SourceTabId, request.PanelId, ownership),
+            snapshot.Revision);
+    }
+
+    private static bool WorkspaceEquivalent(WorkspaceInstance expected, WorkspaceInstance actual) =>
+        expected.Id == actual.Id
+        && WorkspaceTitleMatches(expected, actual)
+        && expected.ActiveTabId == actual.ActiveTabId
+        && SequenceEqual(expected.Tabs, actual.Tabs, TabEquivalent);
 
     public HostResult<WorkspaceGraphSnapshot>? ValidateSessionOwner(
         SessionOwner owner,
@@ -655,7 +706,6 @@ internal sealed class WorkspaceGraphRegistry
     {
         if (!_workspaces.TryGetValue(sourceWorkspaceId, out var source)
             || !_workspaces.TryGetValue(destinationWorkspaceId, out var destination)
-            || source == destination
             || source.WindowId != sourceWindowId
             || destination.WindowId != destinationWindowId
             || source.Revision != expectedSourceRevision

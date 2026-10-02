@@ -13,6 +13,10 @@
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch">
   <UserControl.Styles>
+    <Style Selector="Grid.RuntimeTabDropTarget.panelDropTarget Button.RuntimeTabActivator">
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
     <!-- The tab's size belongs to the strip's axis, not to the tab. A strip
          running across the chrome deals in fixed-width chips at the chrome's
          height; docked at the side it deals in rows — full width, control

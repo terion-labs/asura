@@ -125,7 +125,10 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
 
     public ClientId ClientId { get; }
 
-    public EnsureBrowserSessionRequest SessionRequest { get; }
+    public EnsureBrowserSessionRequest SessionRequest { get; private set; }
+
+    internal override void UpdateSessionOwner(SessionOwner owner) =>
+        SessionRequest = SessionRequest with { Owner = owner };
 
     public ConnectionId ConnectionId => _connection.Id;
 

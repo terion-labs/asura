@@ -139,6 +139,63 @@ public sealed class WorkspaceInstance
         return new WorkspaceInstance(Id, Title, tabs, tabId);
     }
 
+    /// <summary>
+    /// Moves one unchanged panel to another tab and selects it. An emptied
+    /// source tab closes; a destination containing only a launcher is filled.
+    /// The client proposes this graph and the host independently validates it.
+    /// </summary>
+    public WorkspaceInstance MovePanel(
+        TabInstanceId sourceTabId,
+        TabInstanceId destinationTabId,
+        PanelInstanceId panelId)
+    {
+        var source = Tabs.SingleOrDefault(tab => tab.Id == sourceTabId)
+            ?? throw new ArgumentOutOfRangeException(nameof(sourceTabId));
+        var destination = Tabs.SingleOrDefault(tab => tab.Id == destinationTabId)
+            ?? throw new ArgumentOutOfRangeException(nameof(destinationTabId));
+        var moved = source.Panels.SingleOrDefault(panel => panel.Id == panelId)
+            ?? throw new ArgumentOutOfRangeException(nameof(panelId));
+        if (sourceTabId == destinationTabId)
+        {
+            throw new ArgumentException("The destination must be another tab.", nameof(destinationTabId));
+        }
+
+        var remaining = source.Panels.Where(panel => panel.Id != panelId).ToArray();
+        var removedIndex = source.Panels.TakeWhile(panel => panel.Id != panelId).Count();
+        IReadOnlyList<PanelInstance> destinationPanels = destination.Panels.Count == 1
+            && destination.Panels[0].Kind == PanelKind.Placeholder
+            && destination.Panels[0].SessionId is null
+                ? []
+                : destination.Panels;
+        List<TabInstance> tabs = [];
+        foreach (var tab in Tabs)
+        {
+            if (tab.Id == sourceTabId)
+            {
+                if (remaining.Length > 0)
+                {
+                    tabs.Add(new TabInstance(
+                        tab.Id,
+                        tab.Title,
+                        remaining,
+                        tab.ActivePanelId == panelId
+                            ? remaining[Math.Min(removedIndex, remaining.Length - 1)].Id
+                            : tab.ActivePanelId));
+                }
+            }
+            else if (tab.Id == destinationTabId)
+            {
+                tabs.Add(new TabInstance(tab.Id, tab.Title, [.. destinationPanels, moved], panelId));
+            }
+            else
+            {
+                tabs.Add(tab);
+            }
+        }
+
+        return new WorkspaceInstance(Id, Title, tabs, destinationTabId);
+    }
+
     public WorkspaceInstance ReplacePanelSession(
         TabInstanceId tabId,
         PanelInstanceId panelId,

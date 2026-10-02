@@ -302,6 +302,14 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
 
     public IHostedFilePanelClient? HostedClient => _hostedClient;
 
+    internal override void UpdateSessionOwner(SessionOwner owner)
+    {
+        if (_hostedClient is SessionHostedFilePanelClient hosted)
+        {
+            hosted.UpdateOwner(owner);
+        }
+    }
+
     /// <summary>
     /// Raised when one of this panel's transfers completes or fails. Like the
     /// terminal notification source, this event is raised on the queue's

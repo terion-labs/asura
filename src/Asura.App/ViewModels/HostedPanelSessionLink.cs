@@ -14,7 +14,7 @@ internal sealed class HostedPanelSessionLink
     private readonly SemaphoreSlim _operationGate = new(1, 1);
     private readonly ISessionHostClient _sessionClient;
     private readonly ClientId _clientId;
-    private readonly SessionOwner _owner;
+    private SessionOwner _owner;
     private readonly PanelKind _kind;
     private SessionSnapshot? _snapshot;
     private bool _invalidated;
@@ -63,7 +63,9 @@ internal sealed class HostedPanelSessionLink
 
     public bool IsLinked => SessionId is not null;
 
-    public SessionOwner Owner => _owner;
+    public SessionOwner Owner => Volatile.Read(ref _owner);
+
+    public void UpdateOwner(SessionOwner owner) => Volatile.Write(ref _owner, owner);
 
     public async Task<bool> EnsureAsync(
         Func<SessionId, OperationContext, CancellationToken,
@@ -279,7 +281,7 @@ internal sealed class HostedPanelSessionLink
 
     private bool IsValidReceipt(SessionSnapshot snapshot, SessionId sessionId) =>
         snapshot.Descriptor.Id == sessionId
-        && snapshot.Descriptor.Owner == _owner
+        && snapshot.Descriptor.Owner == Owner
         && snapshot.Descriptor.Kind == _kind
         && snapshot.Descriptor.Lifecycle == SessionLifecycle.Active;
 

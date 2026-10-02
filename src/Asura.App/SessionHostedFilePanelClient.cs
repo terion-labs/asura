@@ -44,6 +44,7 @@ public sealed class SessionHostedFilePanelClient :
         _profileSource = profileSource ?? throw new ArgumentNullException(nameof(profileSource));
         _profileRuntime = profileSource as IFileProviderProfileRuntime;
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        Owner = options.Owner;
         _transferProjection = transferProjection;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _transferProjection?.TransfersChanged += OnProjectedTransfersChanged;
@@ -57,7 +58,9 @@ public sealed class SessionHostedFilePanelClient :
 
     public SessionId SessionId => _options.SessionId;
 
-    public SessionOwner Owner => _options.Owner;
+    public SessionOwner Owner { get; private set; }
+
+    internal void UpdateOwner(SessionOwner owner) => Owner = owner;
 
     public ClientId ClientId => _options.ClientId;
 

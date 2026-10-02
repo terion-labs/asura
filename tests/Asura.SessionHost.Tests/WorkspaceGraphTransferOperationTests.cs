@@ -129,6 +129,95 @@ public sealed class WorkspaceGraphTransferOperationTests
         Assert.Equal(1, harness.Factory.CreateCount);
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task Panel_move_between_tabs_preserves_session_and_commits_one_revision(
+        bool lastPanel, bool launcherTarget)
+    {
+        await using var harness = new SessionHostTestHarness();
+        var source = SourceWithMovablePanel(harness).Tabs[0];
+        if (lastPanel)
+        {
+            source = new TabInstance(source.Id, source.Title, [source.Panels[0]], source.Panels[0].Id);
+        }
+        var targetPanel = new PanelInstance(new PanelInstanceId("target-panel"),
+            launcherTarget ? PanelKind.Placeholder : PanelKind.FileViewer, "Target");
+        var target = new TabInstance(new TabInstanceId("target-tab"), "Target", [targetPanel], targetPanel.Id);
+        var workspace = new WorkspaceInstance(harness.WorkspaceId, "Workspace", [source, target], source.Id);
+        _ = await Register(harness, harness.WindowId, workspace);
+        _ = await harness.OpenAsync();
+        var attached = await harness.AttachAsync();
+        var before = await Get(harness, workspace.Id);
+        var after = before.Workspace.MovePanel(source.Id, target.Id, harness.PanelId);
+        var request = new TransferWorkspacePanelRequest(
+            harness.WindowId, after, before.Revision, source.Id,
+            harness.WindowId, after, before.Revision, target.Id, harness.PanelId);
+
+        var result = (await harness.Client.TransferWorkspacePanelAsync(
+            request, harness.HumanContext(), CancellationToken.None)).Value();
+
+        Assert.Equal(before.Revision + 1, result.Source.Revision);
+        Assert.Equal(result.Source.Revision, result.Destination.Revision);
+        Assert.Equal(result.Source.LastSequence, result.Destination.LastSequence);
+        var tabs = result.Source.Workspace.Tabs;
+        Assert.Equal(lastPanel ? 1 : 2, tabs.Count);
+        Assert.Equal(target.Id, result.Source.Workspace.ActiveTabId);
+        var destination = tabs.Single(tab => tab.Id == target.Id);
+        Assert.Equal(harness.PanelId, destination.ActivePanelId);
+        Assert.Equal(launcherTarget ? 1 : 2, destination.Panels.Count);
+        Assert.Equal(harness.SessionId, destination.Panels.Last().SessionId);
+        if (!lastPanel)
+        {
+            var remaining = tabs.Single(tab => tab.Id == source.Id);
+            Assert.Equal(new PanelInstanceId("source-spare-panel"), Assert.Single(remaining.Panels).Id);
+            Assert.Equal(remaining.Panels[0].Id, remaining.ActivePanelId);
+        }
+        var snapshot = (await harness.Client.GetSnapshotAsync(
+            harness.SessionId, harness.HumanContext(), CancellationToken.None)).Value();
+        Assert.Equal(target.Id, snapshot.Descriptor.Owner.TabId);
+        Assert.Contains(snapshot.Attachments, item => item.Id == attached.Attachment.Id);
+        Assert.Equal(1, harness.Factory.CreateCount);
+
+        var stale = await harness.Client.TransferWorkspacePanelAsync(
+            request, harness.HumanContext(), CancellationToken.None);
+        Assert.Equal(HostErrorCode.RevisionConflict, stale.Error().Code);
+        AssertGraphsUnchanged(result.Source, await Get(harness, workspace.Id));
+    }
+
+    [Fact]
+    public async Task Panel_move_rejects_unrelated_edits_and_foreign_client_without_mutating_ownership()
+    {
+        await using var harness = new SessionHostTestHarness();
+        var workspace = SourceWithMovableTab(harness);
+        _ = await Register(harness, harness.WindowId, workspace);
+        _ = await harness.OpenAsync();
+        var before = await Get(harness, workspace.Id);
+        var target = before.Workspace.Tabs[1];
+        var after = before.Workspace.MovePanel(harness.TabId, target.Id, harness.PanelId);
+        var invalid = new WorkspaceInstance(after.Id, "Unrequested rename", after.Tabs, after.ActiveTabId);
+        var invalidRequest = new TransferWorkspacePanelRequest(
+            harness.WindowId, invalid, before.Revision, harness.TabId,
+            harness.WindowId, invalid, before.Revision, target.Id, harness.PanelId);
+        Assert.Equal(HostErrorCode.InvalidRequest, (await harness.Client.TransferWorkspacePanelAsync(
+            invalidRequest, harness.HumanContext(), CancellationToken.None)).Error().Code);
+        var request = new TransferWorkspacePanelRequest(
+            harness.WindowId, after, before.Revision, harness.TabId,
+            harness.WindowId, after, before.Revision, target.Id, harness.PanelId);
+        Assert.Equal(HostErrorCode.RevisionConflict, (await harness.Client.TransferWorkspacePanelAsync(
+            request, harness.HumanContext(new ClientId("foreign")), CancellationToken.None)).Error().Code);
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        Assert.Equal(HostErrorCode.Cancelled, (await harness.Client.TransferWorkspacePanelAsync(
+            request, harness.HumanContext(), cancelled.Token)).Error().Code);
+        AssertGraphsUnchanged(before, await Get(harness, workspace.Id));
+        var session = (await harness.Client.GetSnapshotAsync(
+            harness.SessionId, harness.HumanContext(), CancellationToken.None)).Value();
+        Assert.Equal(harness.TabId, session.Descriptor.Owner.TabId);
+    }
+
     [Fact]
     public async Task Stale_rejected_and_cancelled_transfers_leave_both_graphs_unchanged()
     {

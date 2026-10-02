@@ -191,6 +191,9 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
 
     public bool HasHostedSession => _hostedSession?.IsLinked == true;
 
+    internal override void UpdateSessionOwner(SessionOwner owner) =>
+        _hostedSession?.UpdateOwner(owner);
+
     public Task StartHostingAsync(
         ISessionHostClient sessionClient,
         ClientId clientId,
