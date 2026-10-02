@@ -68,6 +68,35 @@
        keeps template content deferred, so a window pays for Settings or an
        overlay only when that route is requested for the first time. -->
   <Window.Resources>
+    <DataTemplate x:Key="EmptyDockLauncherTemplate" x:DataType="vm:MainWindowViewModel">
+      <controls:SurfaceCard Tone="Panel" Padding="0" ClipsContent="True">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+          <components:LauncherView
+              Margin="{controls:Inset Xl}"
+              ShowCloseAction="False"
+              AddConnectionRequested="OnAddConnectionClick"
+              ManageConnectionsRequested="OnManageConnectionsClick"
+              NewBrowserRequested="OnPlaceholderBrowserClick"
+              NewDatabaseRequested="OnPlaceholderDatabaseClick"
+              NewDockerRequested="OnPlaceholderDockerClick"
+              NewKubernetesRequested="OnPlaceholderKubernetesClick"
+              NewFileViewerRequested="OnPlaceholderFileViewerClick"
+              NewGitRequested="OnPlaceholderGitClick"
+              NewLocalTerminalRequested="OnPlaceholderTerminalClick"
+              NewProcessMonitorRequested="OnPlaceholderProcessMonitorClick"
+              NewStatisticsRequested="OnPlaceholderStatisticsClick"
+              ConnectionLaunchRequested="OnPlaceholderConnectionLaunchRequested"
+              DeleteConnectionRequested="OnDeleteSavedConnectionRequested"
+              EditConnectionRequested="OnEditSavedConnectionRequested"
+              FinishOnboardingRequested="OnFinishOnboardingClick"
+              HistorySearchKeyDownRequested="OnHistorySearchKeyDown"
+              RetryOnboardingRequested="OnRetryOnboardingClick"
+              OpenScreenRequested="OnOpenScreenClick"
+              ShowCommandPaletteRequested="OnShowCommandPaletteClick"
+              ShowLayoutDesignerRequested="OnShowLayoutDesignerClick" />
+        </ScrollViewer>
+      </controls:SurfaceCard>
+    </DataTemplate>
     <DataTemplate x:Key="SettingsRouteTemplate" x:DataType="vm:MainWindowViewModel">
       <views:SettingsView
           AboutSettingsRequested="OnAboutSettingsClick"

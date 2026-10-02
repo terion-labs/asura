@@ -17,8 +17,10 @@ using Asura.Git;
 using Asura.SessionHost;
 using Asura.SessionHost.Tests;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
 namespace Asura.App.Tests;
@@ -4815,6 +4817,79 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.True(await viewModel.ActivatePanelAsync(requestedPanel.Id));
         Assert.Same(requestedPanel, tab.ActivePanel);
         Assert.Null(viewModel.OperationError);
+    }
+
+    [Fact]
+    public async Task Empty_dock_launcher_tracks_floating_panels_and_launches_into_the_same_tab()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            var (client, recorder) = CreateSessionClient();
+            using var viewModel = CreateViewModel(client, CreateCatalogSnapshot());
+            Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+            var workspace = viewModel.RuntimeWorkspace!;
+            var tab = workspace.ActiveTab!;
+            var panels = tab.Panels.ToArray();
+            var tabCount = workspace.Tabs.Count;
+            var window = new MainWindow { DataContext = viewModel };
+            window.Show();
+            try
+            {
+                window.UpdateLayout();
+                var launcherHost = Assert.Single(window.GetVisualDescendants().OfType<ContentControl>(),
+                    control => control.Name == "EmptyDockLauncher");
+                Assert.Null(launcherHost.Content);
+                Assert.False(launcherHost.IsVisible);
+
+                foreach (var panel in panels)
+                {
+                    Assert.True(tab.FloatPanel(panel.Id));
+                }
+                window.UpdateLayout();
+                Assert.True(launcherHost.IsEffectivelyVisible);
+                Assert.Single(launcherHost.GetVisualDescendants().OfType<LauncherView>());
+                Assert.Equal(panels, tab.Panels);
+
+                Assert.True(tab.DockPanel(panels[0].Id));
+                window.UpdateLayout();
+                Assert.False(launcherHost.IsVisible);
+                Assert.Null(launcherHost.Content);
+                Assert.Empty(launcherHost.GetVisualDescendants().OfType<LauncherView>());
+
+                Assert.True(tab.FloatPanel(panels[0].Id));
+                window.UpdateLayout();
+                var launcher = Assert.Single(launcherHost.GetVisualDescendants().OfType<LauncherView>());
+                var databaseButton = Assert.Single(launcher.GetVisualDescendants().OfType<Button>(),
+                    button => AutomationProperties.GetName(button) == "Open a new database viewer");
+                var launched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                tab.Panels.CollectionChanged += (_, _) => launched.TrySetResult();
+                databaseButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await launched.Task.WaitAsync(timeout.Token);
+                window.UpdateLayout();
+
+                Assert.Same(tab, workspace.ActiveTab);
+                Assert.Equal(tabCount, workspace.Tabs.Count);
+                Assert.Equal(panels.Length + 1, tab.Panels.Count);
+                Assert.Equal(panels.Length, tab.FloatingPanels.Count);
+                Assert.False(tab.IsDockEmpty);
+                Assert.False(launcherHost.IsVisible);
+                Assert.Null(launcherHost.Content);
+                Assert.Null(viewModel.OperationError);
+                Assert.Equal(tab.Panels.Select(panel => panel.Id),
+                    recorder.CurrentWorkspace!.Workspace.Tabs.Single(item => item.Id == tab.Id).Panels
+                        .Select(panel => panel.Id));
+
+                Assert.True(tab.DockPanel(panels[0].Id));
+                Assert.Equal(panels.Length + 1, tab.Panels.Count);
+                return true;
+            }
+            finally
+            {
+                window.Close();
+            }
+        }, timeout.Token));
     }
 
     /// <summary>

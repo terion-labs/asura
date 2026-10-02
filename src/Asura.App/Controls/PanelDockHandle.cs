@@ -12,8 +12,8 @@ using Dock.Settings;
 namespace Asura.App.Controls;
 
 /// <summary>
-/// Uses a panel's existing title as Dock's drag surface, avoiding a second tab
-/// strip above content that already owns complete panel chrome.
+/// Uses a panel's title and passive status areas as drag surfaces, avoiding a
+/// second tab strip above content that already owns complete panel chrome.
 /// </summary>
 public sealed class PanelDockHandle : ContentControl
 {

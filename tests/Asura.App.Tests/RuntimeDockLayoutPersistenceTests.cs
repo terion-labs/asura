@@ -673,6 +673,38 @@ public sealed class RuntimeDockLayoutPersistenceTests
         Assert.False(tab.DockPanel(panel.Id));
     }
 
+    [Fact]
+    public void Empty_dock_tracks_closing_and_returning_panels_without_adding_placeholders()
+    {
+        var tab = NewTab("empty-dock");
+        var first = Panel("floating-first");
+        var second = Panel("floating-second");
+        tab.AddPanel(first);
+        tab.AddPanel(second);
+        var notifications = new List<bool>();
+        tab.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(RuntimeTabViewModel.IsDockEmpty))
+            {
+                notifications.Add(tab.IsDockEmpty);
+            }
+        };
+
+        Assert.True(tab.FloatPanel(first.Id));
+        Assert.False(tab.IsDockEmpty);
+        Assert.True(tab.RemovePanel(second.Id));
+        Assert.True(tab.IsDockEmpty);
+        Assert.Same(first, Assert.Single(tab.Panels));
+        Assert.Empty(Enumerate(tab.DockLayout).OfType<IDocument>());
+
+        Assert.True(tab.DockPanel(first.Id));
+        Assert.False(tab.IsDockEmpty);
+        Assert.Same(first, Assert.Single(tab.Panels));
+        Assert.Equal(first.Id.Value, Assert.Single(Enumerate(tab.DockLayout).OfType<IDocument>()).Id);
+        Assert.Contains(true, notifications);
+        Assert.False(notifications[^1]);
+    }
+
     private static RuntimeTabViewModel NewTab(string id, string? dockLayoutJson = null) =>
         new(
             new TabInstanceId(id),
