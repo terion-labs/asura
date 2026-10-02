@@ -1,0 +1,165 @@
+diff --git a/src/terminal/Screen.zig b/src/terminal/Screen.zig
+index 8cc2787..c8718ac 100644
+--- a/src/terminal/Screen.zig
++++ b/src/terminal/Screen.zig
+@@ -1944,6 +1944,8 @@ pub inline fn blankCell(self: *const Screen) Cell {
+ }
+ 
+ pub const Resize = struct {
++    /// Whether cursor coordinates follow text reflow or the old physical rows.
++    reflow_cursor: bool = true,
+     /// The new size to resize to
+     cols: size.CellCountInt,
+     rows: size.CellCountInt,
+@@ -2045,6 +2047,27 @@ pub inline fn resize(
+         self.cursor.hyperlink = null;
+     }
+ 
++    // Readline tracks its physical row within the input independently of the
++    // terminal. Reflow text normally, but keep that row offset for SIGWINCH
++    // redraws, including when widening collapses several input rows into one.
++    const physical_cursor: ?struct { start: *Pin, row_offset: usize, x: size.CellCountInt } = if (!opts.reflow_cursor and opts.reflow and opts.cols != self.pages.cols) saved: {
++        var rows = self.cursor.page_pin.rowIterator(.left_up, self.pages.pin(.{ .active = .{} }));
++        var row_offset: usize = 0;
++        while (rows.next()) |row| : (row_offset += 1) {
++            if (row.rowAndCell().row.wrap_continuation) continue;
++            if (row_offset >= opts.rows) break :saved null;
++            var start = row;
++            start.x = 0;
++            break :saved .{
++                .start = try self.pages.trackPin(start),
++                .row_offset = row_offset,
++                .x = self.cursor.x,
++            };
++        }
++        break :saved null;
++    } else null;
++    defer if (physical_cursor) |saved| self.pages.untrackPin(saved.start);
++
+     // Perform the resize operation.
+     try tw.check(.pages);
+     try self.pages.resize(.{
+@@ -2058,6 +2081,26 @@ pub inline fn resize(
+         },
+     });
+ 
++    if (physical_cursor) |saved| {
++        // Widening may remove the rows Readline still thinks it occupies.
++        // Retain enough blank rows for its relative cursor-up sequence.
++        var retained_rows: usize = 0;
++        while (saved.start.down(saved.row_offset) == null and retained_rows < opts.rows) : (retained_rows += 1) {
++            _ = self.pages.grow() catch |err| {
++                // Text already reflowed successfully. Keep its valid cursor
++                // instead of failing midway through restoration on OOM.
++                log.warn("failed to retain shell redraw rows err={}", .{err});
++                break;
++            };
++        }
++        if (saved.start.down(saved.row_offset)) |position| {
++            if (self.pages.pointFromPin(.active, position) != null) {
++                self.cursor.page_pin.* = position;
++                self.cursor.page_pin.x = @min(saved.x, opts.cols - 1);
++            }
++        }
++    }
++
+     // No more failures are possible after this. Enforced by compiler
+     // because we do NO cleanup of the state below.
+     errdefer comptime unreachable;
+diff --git a/src/terminal/Terminal.zig b/src/terminal/Terminal.zig
+index d47fd47..f3b1f53 100644
+--- a/src/terminal/Terminal.zig
++++ b/src/terminal/Terminal.zig
+@@ -3712,6 +3712,8 @@ pub fn deccolm(self: *Terminal, alloc: Allocator, mode: DeccolmMode) !void {
+ ///
+ /// Cell pixel dimensions must already be scaled for the current display DPI.
+ pub const Resize = struct {
++    /// Shells redraw the cursor line relative to its pre-resize physical rows.
++    reflow_cursor: bool = true,
+     cols: size.CellCountInt,
+     rows: size.CellCountInt,
+     cell_size_px: ?struct {
+@@ -3818,6 +3820,7 @@ pub fn resize(
+         .cols = opts.cols,
+         .rows = opts.rows,
+         .reflow = self.modes.get(.wraparound),
++        .reflow_cursor = opts.reflow_cursor,
+         .prompt_redraw = self.flags.shell_redraws_prompt,
+     });
+ 
+diff --git a/src/terminal/c/terminal.zig b/src/terminal/c/terminal.zig
+index b06c8ac..2bf2d6d 100644
+--- a/src/terminal/c/terminal.zig
++++ b/src/terminal/c/terminal.zig
+@@ -818,6 +818,9 @@ pub fn resize(
+ ) callconv(lib.calling_conv) Result {
+     const wrapper = terminal_ orelse return .invalid_value;
+     wrapper.stream.handler.resize(.{
++        // Readline tracks physical rows and redraws after SIGWINCH. Reflowing
++        // its input first moves the cursor behind the shell's back.
++        .reflow_cursor = false,
+         .cols = cols,
+         .rows = rows,
+         .cell_size_px = .{
+@@ -4242,3 +4245,61 @@ test "get_multi null keys returns invalid_value" {
+     var values = [_]?*anyopaque{@ptrCast(&cols)};
+     try testing.expectEqual(Result.invalid_value, get_multi(null, 1, null, &values, null));
+ }
++
++test "resize keeps readline cursor row while reflowing completed output" {
++    const alloc = testing.allocator;
++    var t: Terminal = null;
++    try testing.expectEqual(Result.success, new(&lib.alloc.test_allocator, &t, 20, 8));
++    defer free(t);
++    const initial = "history-0123456789\r\nprobe> abcdefgh";
++    vt_write(t, initial, initial.len);
++    try testing.expectEqual(Result.success, resize(t, 8, 8, 8, 16));
++    // History wraps to three rows. The pending input stays on its original
++    // physical row so Readline's carriage return targets the prompt start.
++    try testing.expectEqual(3, t.?.terminal.screens.active.cursor.y);
++    const redraw = "\r\x1b[Kprobe> abcdefgh";
++    vt_write(t, redraw, redraw.len);
++    const actual = try t.?.terminal.screens.active.dumpStringAlloc(alloc, .{ .screen = .{} });
++    defer alloc.free(actual);
++    try testing.expectEqualStrings("history-\n01234567\n89\nprobe> a\nbcdefgh", actual);
++}
++
++test "resize preserves the physical cursor row of wrapped input" {
++    const alloc = testing.allocator;
++    var t: Terminal = null;
++    try testing.expectEqual(Result.success, new(&lib.alloc.test_allocator, &t, 8, 8));
++    defer free(t);
++    const initial = "probe> abcdefgh";
++    vt_write(t, initial, initial.len);
++    try testing.expectEqual(Result.success, resize(t, 20, 8, 8, 16));
++    try testing.expectEqual(1, t.?.terminal.screens.active.cursor.y);
++    try testing.expectEqual(7, t.?.terminal.screens.active.cursor.x);
++    const redraw = "\r\x1b[A\x1b[Jprobe> abcdefgh";
++    vt_write(t, redraw, redraw.len);
++    const actual = try t.?.terminal.screens.active.dumpStringAlloc(alloc, .{ .screen = .{} });
++    defer alloc.free(actual);
++    try testing.expectEqualStrings("probe> abcdefgh", actual);
++}
++
++test "resize reflows wide input glyphs without moving the cursor row" {
++    var t: Terminal = null;
++    try testing.expectEqual(Result.success, new(&lib.alloc.test_allocator, &t, 10, 8));
++    defer free(t);
++    const initial = "abc界def";
++    vt_write(t, initial, initial.len);
++    try testing.expectEqual(Result.success, resize(t, 4, 8, 8, 16));
++    try testing.expectEqual(0, t.?.terminal.screens.active.cursor.y);
++    try testing.expectEqual(3, t.?.terminal.screens.active.cursor.x);
++    t.?.terminal.screens.active.assertIntegrity();
++}
++
++test "resize never retains scrollback-sized cursor row offsets" {
++    var t: Terminal = null;
++    try testing.expectEqual(Result.success, new(&lib.alloc.test_allocator, &t, 8, 4));
++    defer free(t);
++    const text = "x" ** 800;
++    vt_write(t, text, text.len);
++    try testing.expectEqual(Result.success, resize(t, 80, 4, 8, 16));
++    try testing.expect(t.?.terminal.screens.active.pages.total_rows < 20);
++    try testing.expect(t.?.terminal.screens.active.cursor.y < 4);
++}
