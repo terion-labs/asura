@@ -195,6 +195,26 @@ internal sealed class ApplicationKeySequenceResolver
 
 internal static class ApplicationKeyStrokeMapper
 {
+    /// <summary>
+    /// Modifiers describe the following key, not a shortcut-sequence step.
+    /// Resolving them can replay a buffered prefix into the terminal before
+    /// Command+C reads its selection. Some platforms omit the physical key.
+    /// </summary>
+    public static bool IsModifierOnly(Key logicalKey, PhysicalKey physicalKey) => logicalKey is
+        Key.LeftShift or Key.RightShift
+        or Key.LeftCtrl or Key.RightCtrl
+        or Key.LeftAlt or Key.RightAlt
+        or Key.LWin or Key.RWin
+        || physicalKey is
+        PhysicalKey.ShiftLeft
+        or PhysicalKey.ShiftRight
+        or PhysicalKey.ControlLeft
+        or PhysicalKey.ControlRight
+        or PhysicalKey.AltLeft
+        or PhysicalKey.AltRight
+        or PhysicalKey.MetaLeft
+        or PhysicalKey.MetaRight;
+
     public static KeyStroke Map(
         Key key,
         AvaloniaKeyModifiers modifiers,

@@ -1911,6 +1911,13 @@ public sealed partial class MainWindow : Window
     private async void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         _ = sender;
+        // Modifiers describe the next shortcut; they must not resolve or
+        // replay a buffered prefix before the terminal can handle Cmd+C.
+        if (ApplicationKeyStrokeMapper.IsModifierOnly(e.Key, e.PhysicalKey))
+        {
+            return;
+        }
+
         if (ViewModel.ApplicationSecurityEditor.IsLocked)
         {
             // Locked means locked: no shortcut may act behind the veil. The

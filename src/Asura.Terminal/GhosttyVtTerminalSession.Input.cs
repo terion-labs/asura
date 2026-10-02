@@ -64,7 +64,6 @@ internal sealed partial class GhosttyVtTerminalSession
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_closed, this);
-            PrepareForTerminalInputUnsafe();
             encoded = EncodeKeyUnsafe(
                 MapPhysicalKey(keyEvent.PhysicalKey),
                 MapModifiers(keyEvent.Modifiers),
@@ -73,6 +72,12 @@ internal sealed partial class GhosttyVtTerminalSession
                 MapKeyAction(keyEvent.Action),
                 MapModifiers(keyEvent.ConsumedModifiers),
                 keyEvent.IsComposing);
+            // A modifier or an unreported key release is not terminal input.
+            // Preserve selection and viewport until there are bytes to send.
+            if (encoded.Length > 0)
+            {
+                PrepareForTerminalInputUnsafe();
+            }
         }
 
         return QueueInputAsync(encoded, cancellationToken);

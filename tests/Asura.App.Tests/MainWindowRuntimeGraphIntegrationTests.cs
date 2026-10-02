@@ -677,8 +677,12 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         }, timeout.Token));
     }
 
-    [Fact]
-    public async Task PrefixEnterShortcutIsClaimedBeforeItsAsynchronousCommandReachesTheTerminal()
+    [Theory]
+    [InlineData(null)]
+    [InlineData(PhysicalKey.MetaLeft)]
+    [InlineData(PhysicalKey.None)]
+    public async Task PrefixEnterShortcutIsClaimedBeforeItsAsynchronousCommandReachesTheTerminal(
+        PhysicalKey? modifierPhysicalKey)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
@@ -712,12 +716,25 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
                     KeyModifiers = Avalonia.Input.KeyModifiers.Control,
                 };
                 terminal.RaiseEvent(prefixEvent);
+                if (modifierPhysicalKey is { } physicalKey)
+                {
+                    // A bare Cmd press must not cancel or replay a pending shortcut.
+                    terminal.RaiseEvent(new KeyEventArgs
+                    {
+                        RoutedEvent = InputElement.KeyDownEvent,
+                        Key = Key.LWin,
+                        PhysicalKey = physicalKey,
+                        KeyModifiers = Avalonia.Input.KeyModifiers.Meta,
+                    });
+                    leaked = 0;
+                }
                 var enterEvent = new Avalonia.Input.KeyEventArgs
                 {
                     RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent,
                     Key = Avalonia.Input.Key.Enter,
                 };
                 terminal.RaiseEvent(enterEvent);
+                Assert.True(enterEvent.Handled);
                 await recorder.DelayedRegistrationEntered.Task.WaitAsync(timeout.Token);
 
                 Assert.True(prefixEvent.Handled);
