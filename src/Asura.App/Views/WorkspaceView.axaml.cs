@@ -21,6 +21,9 @@ public sealed partial class WorkspaceView : UserControl
         // be answered in one place instead of eight views forwarding the same
         // request.
         AddHandler(PanelChrome.FloatToggleRequestedEvent, OnFloatToggleRequested);
+        AddHandler(PanelChrome.CollapseRequestedEvent, OnCollapsePanelRequested);
+        AddHandler(PanelChrome.ExpandRequestedEvent, OnExpandPanelRequested);
+        DetachedFromVisualTree += (_, e) => EndPanelPreviewRequested?.Invoke(this, e);
     }
 
     /// <summary>

@@ -343,7 +343,7 @@ public sealed record RuntimeHistorySource
         && !value.Any(char.IsControl);
 }
 
-public sealed class RuntimeTabViewModel : ObservableObject, IRuntimeTabStripItem
+public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabStripItem
 {
     private const double DefaultPanelMinimumWidth = 220;
     private const double DefaultPanelMinimumHeight = 140;
@@ -404,7 +404,7 @@ public sealed class RuntimeTabViewModel : ObservableObject, IRuntimeTabStripItem
         _dockLayout = new RuntimeDockLayoutController(layout);
         _dockLayout.LayoutChanged += (_, _) =>
             OnPropertyChanged(nameof(DockLayoutRevision));
-        Panels.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsDockEmpty));
+        Panels.CollectionChanged += (_, _) => RefreshPanelVisibility();
         FloatingPanels.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsDockEmpty));
     }
 
@@ -911,13 +911,9 @@ public sealed class RuntimeTabViewModel : ObservableObject, IRuntimeTabStripItem
             return false;
         }
 
+        RestorePanel(panelId, activate: false);
         ActivePanelId = panelId;
         _dockLayout.Activate(panelId);
-        if (ZoomedPanelId is not null)
-        {
-            ZoomedPanelId = panelId;
-            ApplyZoomState();
-        }
 
         return true;
     }
@@ -977,18 +973,8 @@ public sealed class RuntimeTabViewModel : ObservableObject, IRuntimeTabStripItem
         return _dockLayout.FindPanel(activePanel.Id, direction);
     }
 
-    public bool ToggleActivePanelZoom()
-    {
-        if (ActivePanel is not { } activePanel)
-        {
-            return false;
-        }
-
-        ZoomedPanelId = ZoomedPanelId == activePanel.Id ? null : activePanel.Id;
-        ApplyZoomState();
-        NotifyPanelLayoutChanged();
-        return true;
-    }
+    public bool ToggleActivePanelZoom() =>
+        ActivePanel is { } activePanel && TogglePanelExpansion(activePanel.Id);
 
     public bool Rename(string title)
     {
@@ -1065,7 +1051,7 @@ public sealed class RuntimeTabViewModel : ObservableObject, IRuntimeTabStripItem
     public ObservableCollection<FloatingRuntimePanelViewModel> FloatingPanels { get; } = [];
 
     /// <summary>The launcher fills the canvas while every panel is floating.</summary>
-    public bool IsDockEmpty => !Panels.Any(panel => !IsPanelFloating(panel.Id));
+    public bool IsDockEmpty => !Panels.Any(panel => !panel.IsCollapsed && !IsPanelFloating(panel.Id));
 
     public bool IsPanelFloating(PanelInstanceId panelId) =>
         FloatingPanels.Any(floating => floating.Panel.Id == panelId);
@@ -1128,6 +1114,7 @@ public sealed class RuntimeTabViewModel : ObservableObject, IRuntimeTabStripItem
             return false;
         }
 
+        RestorePanel(panelId, activate: false);
         var removedIndex = Panels.IndexOf(panel);
         var wasActive = ActivePanelId == panelId;
         // Closing a floating panel closes the panel, not just its float.
@@ -1207,8 +1194,16 @@ public sealed class RuntimeTabViewModel : ObservableObject, IRuntimeTabStripItem
         replacement.SetAgentActivity(current.AgentActivity);
         replacement.IsVisibleInLayout = current.IsVisibleInLayout;
         replacement.IsZoomed = current.IsZoomed;
-        _dockLayout.Rebind(current, replacement);
+        replacement.IsCollapsed = current.IsCollapsed;
+        var floating = FloatingPanels.SingleOrDefault(item => item.Panel == current);
+        _dockLayout.Rebind(current, replacement, floating?.Document);
+        floating?.Panel = replacement;
         Panels[index] = replacement;
+        if (PreviewPanel == current)
+        {
+            PreviewCollapsedPanel(replacement.Id);
+        }
+        RefreshPanelVisibility();
         current.Dispose();
         OnPropertyChanged(nameof(ActivePanel));
         NotifyPanelLayoutChanged();
@@ -1604,18 +1599,10 @@ public sealed class RuntimeTabViewModel : ObservableObject, IRuntimeTabStripItem
             return;
         }
 
-        ZoomedPanelId = null;
-        ApplyZoomState();
+        RestoreAllPanels();
     }
 
-    private void ApplyZoomState()
-    {
-        foreach (var panel in Panels)
-        {
-            panel.IsZoomed = panel.Id == ZoomedPanelId;
-            panel.IsVisibleInLayout = ZoomedPanelId is null || panel.IsZoomed;
-        }
-    }
+    private void ApplyZoomState() => RefreshPanelVisibility();
 
     private void CollapseRuntimeSplit(RuntimePanelViewModel removedPanel)
     {
@@ -1808,6 +1795,7 @@ public abstract class RuntimePanelViewModel(
     private bool _hasAttention;
     private bool _isNotificationPulseActive;
     private string _agentActivity = string.Empty;
+    private bool _isCollapsed;
     private bool _isVisibleInLayout = true;
     private bool _isZoomed;
 
@@ -1871,6 +1859,14 @@ public abstract class RuntimePanelViewModel(
         }
 
         OnPropertyChanged(nameof(IsAgentActive));
+    }
+
+    public Symbol IconSymbol => WorkspaceIcons.SymbolFor(WorkspaceIcons.ForPanel(Kind));
+
+    public bool IsCollapsed
+    {
+        get => _isCollapsed;
+        internal set => SetProperty(ref _isCollapsed, value);
     }
 
     public bool IsVisibleInLayout

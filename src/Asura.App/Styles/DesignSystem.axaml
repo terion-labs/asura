@@ -170,6 +170,20 @@
                         IsVisible="{TemplateBinding HasAttention}"
                         ToolTip.Tip="This panel has an unread notification" />
                     <Button
+                        Name="PART_Collapse"
+                        AutomationProperties.Name="Collapse this panel"
+                        Classes="IconButton Compact"
+                        ToolTip.Tip="Collapse panel">
+                      <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="Subtract" />
+                    </Button>
+                    <Button
+                        Name="PART_Expand"
+                        AutomationProperties.Name="{TemplateBinding ExpansionLabel}"
+                        Classes="IconButton Compact"
+                        ToolTip.Tip="{TemplateBinding ExpansionLabel}">
+                      <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="{TemplateBinding ExpansionIcon}" />
+                    </Button>
+                    <Button
                         Name="PART_Float"
                         AutomationProperties.Name="Move this panel to its own window"
                         Classes="IconButton Compact"
@@ -255,10 +269,6 @@
                         <ContentPresenter
                             Content="{TemplateBinding TitleAdornment}"
                             IsVisible="{TemplateBinding IsTitleAdornmentVisible}" />
-                        <TextBlock
-                            Classes="Eyebrow Accent"
-                            IsVisible="{TemplateBinding IsZoomed}"
-                            Text="Zoomed" />
                       </controls:PanelTitleLine>
                     </controls:PanelDockHandle>
                     <ContentPresenter
@@ -356,13 +366,14 @@
           <Setter Property="Canvas.Top" Value="{Binding Y}" />
           <Setter Property="Width" Value="{Binding Width}" />
           <Setter Property="Height" Value="{Binding Height}" />
+          <Setter Property="IsVisible" Value="{Binding !Panel.IsCollapsed}" />
         </ControlTheme>
       </Setter>
       <Setter Property="ItemTemplate">
         <DataTemplate x:DataType="vm:FloatingRuntimePanelViewModel">
           <Grid>
-            <ContentControl
-                Content="{Binding Panel}"
+            <components:RuntimePanelContentControl
+                DataContext="{Binding Panel}"
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch" />
             <!--

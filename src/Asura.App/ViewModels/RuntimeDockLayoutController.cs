@@ -18,7 +18,7 @@ namespace Asura.App.ViewModels;
 /// document id: while a saved layout is still empty it is a layout-slot id; once
 /// a live panel fills the leaf it becomes that panel's instance id.
 /// </summary>
-internal sealed class RuntimeDockLayoutController
+internal sealed partial class RuntimeDockLayoutController
 {
     private const string RootId = "asura-root";
     private readonly IDockSerializer _serializer = DockLayoutSerializer.Create();
@@ -83,8 +83,7 @@ internal sealed class RuntimeDockLayoutController
         _isInitializedForPresentation = true;
     }
 
-    public string Serialize() => DockLayoutPayloadCodec.Encode(
-        _serializer.Serialize<IRootDock>(Layout));
+    public string Serialize() => SerializeExpandedLayout();
 
     public void Attach(
         RuntimePanelViewModel panel,
@@ -176,11 +175,11 @@ internal sealed class RuntimeDockLayoutController
         Changed();
     }
 
-    public void Rebind(RuntimePanelViewModel current, RuntimePanelViewModel replacement)
+    public void Rebind(RuntimePanelViewModel current, RuntimePanelViewModel replacement, IDocument? detachedDocument)
     {
         ArgumentNullException.ThrowIfNull(current);
         ArgumentNullException.ThrowIfNull(replacement);
-        var document = FindDocument(current.Id.Value);
+        var document = detachedDocument ?? FindDocument(current.Id.Value);
         if (document is null)
         {
             Attach(replacement);

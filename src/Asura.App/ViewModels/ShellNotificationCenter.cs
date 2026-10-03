@@ -240,6 +240,7 @@ internal sealed partial class ShellNotificationCenter
         && _isWorkspaceSurfaceVisible()
         && ReferenceEquals(_frontWorkspace(), workspace)
         && ReferenceEquals(workspace.ActiveTab, tab)
+        && !panel.IsCollapsed
         && ReferenceEquals(tab.ActivePanel, panel);
 
     /// <summary>

@@ -562,6 +562,46 @@
           Margin="{controls:Inset Right=Sm}"
           IsVisible="{Binding IsAgentPanelDockedVisible}" />
 
+      <Border
+          x:Name="CollapsedPanelRail"
+          DockPanel.Dock="Right"
+          Classes="FloatingSidebar workspaceRight"
+          controls:Concentric.IsEnabled="True"
+          Width="{DynamicResource ShellRailWidth}"
+          IsVisible="{Binding RuntimeWorkspace.ActiveTab.HasCollapsedPanels}">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+          <ItemsControl Margin="{controls:Inset Sm}" ItemsSource="{Binding RuntimeWorkspace.ActiveTab.CollapsedPanels}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:RuntimePanelViewModel">
+                <Button
+                    Classes="IconButton"
+                    Width="{DynamicResource ShellTileSizeMd}"
+                    Height="{DynamicResource ShellTileSizeMd}"
+                    Margin="{controls:Inset Bottom=Sm}"
+                    HorizontalAlignment="Center"
+                    Click="OnRestorePanelClick"
+                    PointerEntered="OnCollapsedPanelPointerEntered"
+                    PointerExited="OnCollapsedPanelPointerExited"
+                    ToolTip.Tip="{Binding Title}"
+                    AutomationProperties.Name="{Binding Title, StringFormat=Restore {0}}">
+                  <Panel>
+                    <icons:SymbolIcon Symbol="{Binding IconSymbol}" FontSize="18" />
+                    <controls:SignalDot
+                        HorizontalAlignment="Right" VerticalAlignment="Top"
+                        IsVisible="{Binding HasAttention}" />
+                    <icons:SymbolIcon
+                        Symbol="Bot" FontSize="10"
+                        HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                        Foreground="{DynamicResource ShellAccentBrush}"
+                        IsVisible="{Binding IsAgentActive}" />
+                  </Panel>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Border>
+
       <!-- The canvas gutter matches the splitter step, so a panel's distance to
            the rail, to the agent panel, and to its neighbour panel all read as
            the same gap. No top gutter: the chrome band above already ends one
@@ -661,6 +701,24 @@
         <controls:FloatingPanelLayer
             x:Name="FloatingPanels"
             ItemsSource="{Binding RuntimeWorkspace.ActiveTab.FloatingPanels}" />
+        <Border
+            x:Name="CollapsedPanelPreview"
+            Width="640" Height="420"
+            MaxWidth="{Binding $parent[Grid].Bounds.Width}"
+            MaxHeight="{Binding $parent[Grid].Bounds.Height}"
+            HorizontalAlignment="Right" VerticalAlignment="Top"
+            ZIndex="10"
+            Background="{DynamicResource ShellPopupSurfaceBrush}"
+            CornerRadius="{DynamicResource ShellCardCornerRadius}"
+            ClipToBounds="True"
+            BoxShadow="{DynamicResource ShellOverlayShadow}"
+            IsHitTestVisible="False"
+            IsVisible="{Binding !!RuntimeWorkspace.ActiveTab.PreviewPanel}">
+          <ContentControl
+              Content="{Binding RuntimeWorkspace.ActiveTab.PreviewPanel}"
+              HorizontalContentAlignment="Stretch"
+              VerticalContentAlignment="Stretch" />
+        </Border>
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}" IsVisible="{Binding !HasRuntimeWorkspace}">
           <TextBlock Classes="Muted" Text="Open a workspace from the launcher." />
           <Button Classes="PrimaryButton" Click="OnShowLauncherClick" Content="Open launcher" />

@@ -33,6 +33,24 @@ internal sealed class FloatingPanelLayer : ItemsControl
         // takes the pointer.
         Background = null;
         ClipToBounds = false;
+        LayoutUpdated += (_, _) => FitPanels(Bounds.Size);
+    }
+
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        // Parent resize and newly floated panels both pass through arrangement;
+        // pointer movement is not required to recover an off-canvas panel.
+        FitPanels(finalSize);
+
+        return base.ArrangeOverride(finalSize);
+    }
+
+    private void FitPanels(Size available)
+    {
+        foreach (var item in Items.OfType<FloatingRuntimePanelViewModel>())
+        {
+            item.FitWithin(available);
+        }
     }
 
     /// <summary>
@@ -105,6 +123,7 @@ internal sealed class FloatingPanelLayer : ItemsControl
         if (_resizing)
         {
             panel.ResizeTo(here.X - _grip.X, here.Y - _grip.Y);
+            panel.FitWithin(Bounds.Size);
             return;
         }
 

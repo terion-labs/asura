@@ -98,7 +98,8 @@ internal sealed partial class ShellNotificationCenter
         }
 
         var changed = _workspaceNotifications.Remove(workspace);
-        var activePanelId = workspace.ActiveTab?.ActivePanel?.Id;
+        var activePanelId = workspace.ActiveTab?.ActivePanel is { IsCollapsed: false } activePanel
+            ? activePanel.Id : (Asura.Core.PanelInstanceId?)null;
         for (var index = 0; index < _history.Count; index++)
         {
             var record = _history[index];
@@ -117,7 +118,7 @@ internal sealed partial class ShellNotificationCenter
             }
         }
 
-        if (workspace.ActiveTab is { ActivePanel: { } panel } tab
+        if (workspace.ActiveTab is { ActivePanel: { IsCollapsed: false } panel } tab
             && panel.HasAttention)
         {
             panel.HasAttention = false;
