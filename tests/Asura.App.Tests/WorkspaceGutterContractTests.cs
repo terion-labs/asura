@@ -28,12 +28,26 @@ public sealed class WorkspaceGutterContractTests
 , StringComparison.Ordinal) && string.Equals((string?)element.Attribute("IsVisible")
 , "{Binding IsWorkspaceCanvasVisible}", StringComparison.Ordinal));
         // The agent panel is not a canvas panel: it floats over the canvas or
-        // holds a slot beside it, and its docked/floating margins live in state
-        // styles precisely so an inline value cannot silence either state.
+        // holds a slot beside it. Its inset viewport owns the state-dependent
+        // margins so the agent's size constraint accounts for the entire inset.
+        var agentViewportMargins = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "Style", StringComparison.Ordinal)
+                && ((string?)element.Attribute("Selector"))
+                    ?.StartsWith("Panel#AgentViewport", StringComparison.Ordinal) == true)
+            .SelectMany(element => element.Descendants())
+            .Where(element => string.Equals((string?)element.Attribute("Property"), "Margin", StringComparison.Ordinal))
+            .Select(element => (string?)element.Attribute("Value"))
+            .ToArray();
+        Assert.Collection(
+            agentViewportMargins,
+            margin => Assert.Equal("{controls:Inset Right=Sm, Bottom=Sm}", margin),
+            margin => Assert.Equal("{DynamicResource ShellFlyoutMargin}", margin));
         var panelMargins = root.Descendants()
             .Where(element => string.Equals(element.Name.LocalName, "Style"
 , StringComparison.Ordinal) && ((string?)element.Attribute("Selector"))
-                    ?.StartsWith("views|AgentWorkspaceView", StringComparison.Ordinal) != true)
+                    ?.StartsWith("views|AgentWorkspaceView", StringComparison.Ordinal) != true
+                && ((string?)element.Attribute("Selector"))
+                    ?.StartsWith("Panel#AgentViewport", StringComparison.Ordinal) != true)
             .SelectMany(element => element.Descendants())
             .Where(element => string.Equals(element.Name.LocalName, "Setter"
 , StringComparison.Ordinal) && string.Equals((string?)element.Attribute("Property"), "Margin", StringComparison.Ordinal))
