@@ -61,6 +61,12 @@ public sealed partial class NativeAgentSession
             _conversation = MaterializeInitialConversation(initialMessages ?? []);
             ValidateConversation(_conversation);
             _transcript = _conversation;
+            // A fork retains completed tool calls. Its next generation must
+            // exceed theirs, and its first checkpoint must already be restorable.
+            _generation = _conversation.SelectMany(message => message.ToolCalls)
+                .Select(proposal => proposal.Generation).DefaultIfEmpty(0).Max();
+            _revision = _generation;
+            _sequence = _generation;
             RegisterProviderToolBindings(
                 EnumerateProviderToolBindings(_conversation));
         }
@@ -768,8 +774,7 @@ public sealed partial class NativeAgentSession
         AgentCompactionSettings settings)
     {
         var usage = EstimateContextUsage(conversation);
-        if (usage.EstimatedTokens
-            <= contextWindowTokens - settings.ReserveTokens)
+        if (!usage.RequiresCompaction(contextWindowTokens, settings))
         {
             return null;
         }
@@ -788,12 +793,15 @@ public sealed partial class NativeAgentSession
         }
 
         long recentTokens = 0;
+        long recentBytes = 0;
         var cutIndex = cutPoints[0];
         for (var index = conversation.Length - 1; index >= bodyStart; index--)
         {
             recentTokens = checked(
                 recentTokens + EstimateMessageTokens(conversation[index]));
-            if (recentTokens < settings.KeepRecentTokens)
+            recentBytes = checked(recentBytes + EstimateMessageRequestBytes(conversation[index]));
+            if (recentTokens < settings.KeepRecentTokens
+                && recentBytes < AgentContextWindowPolicy.KeepRecentHistoryBytes)
             {
                 continue;
             }
@@ -890,6 +898,7 @@ public sealed partial class NativeAgentSession
     private static AgentContextUsage EstimateContextUsage(
         ImmutableArray<AgentMessage> conversation)
     {
+        var estimatedBytes = conversation.Sum(EstimateMessageRequestBytes);
         for (var index = conversation.Length - 1; index >= 0; index--)
         {
             if (conversation[index].Usage is not { } usage)
@@ -908,7 +917,8 @@ public sealed partial class NativeAgentSession
 
             return new AgentContextUsage(
                 checked(usage.TotalTokens + trailing),
-                UsesProviderReportedUsage: true);
+                UsesProviderReportedUsage: true,
+                EstimatedBytes: estimatedBytes);
         }
 
         long estimated = 0;
@@ -917,7 +927,28 @@ public sealed partial class NativeAgentSession
             estimated = checked(estimated + EstimateMessageTokens(message));
         }
 
-        return new AgentContextUsage(estimated, UsesProviderReportedUsage: false);
+        return new AgentContextUsage(estimated, UsesProviderReportedUsage: false, EstimatedBytes: estimatedBytes);
+    }
+
+    private static long EstimateMessageRequestBytes(AgentMessage message)
+    {
+        // Account for base64 expansion and JSON framing independently of model
+        // tokens: a screenshot can be cheap in tokens but large on the wire.
+        var bytes = MessageByteCount(message) + 256L + message.ToolCalls.Length * 256L;
+        foreach (var character in message.Content)
+        {
+            bytes += character switch
+            {
+                '"' or '\\' or '\n' or '\r' or '\t' or '\b' or '\f' => 1,
+                < ' ' => 5,
+                _ => 0,
+            };
+        }
+        foreach (var image in message.Images)
+        {
+            bytes += ((image.Content.Length + 2L) / 3 * 4) - image.Content.Length + 128;
+        }
+        return bytes;
     }
 
     private static long EstimateMessageTokens(AgentMessage message)

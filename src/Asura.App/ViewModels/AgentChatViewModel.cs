@@ -508,6 +508,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     private readonly IAgentRunAuditReader? _auditReader;
     private readonly IAgentModelFavoriteStore? _favoriteStore;
     private readonly CancellationTokenSource _lifetime = new();
+    private readonly HashSet<AiProviderProfileId> _metadataDiscoveryStarted = [];
     private readonly object _sendGate = new();
     private Task _activeSend = Task.CompletedTask;
     private AiProviderProfileDescriptor? _selectedProvider;
@@ -883,14 +884,15 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     public string SelectedModelName => SelectedModel?.DisplayName ?? "No model";
 
-    public bool HasContextWindow => SelectedModel?.ContextWindowTokens is not null;
+    public bool HasContextWindow => SelectedModel is not null;
 
     public long ContextUsedTokens => _contextTokensUsed ?? Messages
         .LastOrDefault(message => message.IsAssistant && message.Usage is not null)
         ?.Usage?.TotalTokens ?? 0;
 
-    public int ContextEffectiveLimit => SelectedModel?.ContextWindowTokens is { } capacity
-        ? AgentContextWindowPolicy.EffectiveLimit(capacity)
+    public int ContextEffectiveLimit => HasContextWindow
+        ? AgentContextWindowPolicy.EffectiveLimit(SelectedModel?.ContextWindowTokens
+            ?? AgentContextWindowPolicy.FallbackContextWindowTokens)
         : 0;
 
     public double ContextWindowPercent => ContextEffectiveLimit == 0
@@ -902,6 +904,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     public string ContextWindowUsageLabel => HasContextWindow
         ? $"{FormatTokenCount(ContextUsedTokens)} / {FormatTokenCount(ContextEffectiveLimit)} tokens used"
+            + (SelectedModel?.ContextWindowTokens is null ? " · Local working budget; model limit unavailable" : string.Empty)
+            + ". Older context compacts automatically."
         : string.Empty;
 
     public string ModelSearch
@@ -1095,15 +1099,23 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         get => _selectedProvider;
         set
         {
+            var previousId = _selectedProvider?.Id;
             if (SetProperty(ref _selectedProvider, value))
             {
                 ResetHiddenDisclosure();
-                _modelSelectionExplicit = false;
-                UpdateModels(value, value?.DefaultModel);
+                if (previousId != value?.Id)
+                {
+                    _modelSelectionExplicit = false;
+                }
+                UpdateModels(value, previousId == value?.Id ? SelectedModel?.Id : value?.DefaultModel);
 
-                // Provider selection also runs during construction and restore.
-                // Keep it side-effect-free: credential-backed network discovery
-                // starts only from the explicit Refresh models action.
+                // Load the provider's real limits when a chat opens, including
+                // old profiles that only saved model IDs. Do not loop when the
+                // resulting ProfilesChanged event refreshes this selection.
+                if (value is not null && _metadataDiscoveryStarted.Add(value.Id))
+                {
+                    _ = DiscoverModelsAsync(value.Id, _lifetime.Token);
+                }
 
                 OnPropertyChanged(nameof(CanAttachImages));
                 OnPropertyChanged(nameof(CanAttachFiles));
@@ -2821,8 +2833,12 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         var snapshot = _runtime.Snapshot;
         var previousState = State;
         var previousQuestionId = PendingQuestion?.Id;
-        var selectedId = snapshot.ProviderId ?? SelectedProvider?.Id;
-        var selectedModelId = snapshot.ProviderId is not null
+        if (_auditRunId != (snapshot.SelectedConversationRunId ?? snapshot.RunId))
+        {
+            _modelSelectionExplicit = false;
+        }
+        var selectedId = _modelSelectionExplicit ? SelectedProvider?.Id : snapshot.ProviderId ?? SelectedProvider?.Id;
+        var selectedModelId = _modelSelectionExplicit ? SelectedModel?.Id : snapshot.ProviderId is not null
             && snapshot.ProviderId == selectedId
                 ? snapshot.Model ?? snapshot.EffectivePolicy?.Model
                 : selectedId == SelectedProvider?.Id

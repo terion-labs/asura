@@ -38,12 +38,16 @@ public sealed class AiProviderRuntimeBoundaryTests
         Assert.True((await runtime.TestAsync(profile, CancellationToken.None)).IsSuccess);
         Assert.Equal("?client_version=1.23.45", handler.LastRequest!.Uri.Query);
         Assert.Equal("Bearer asura-token", handler.LastRequest.Authorization);
+        var pinned = runtime.PinProvider(id);
+        Assert.Null(pinned.ContextWindowTokens("future-model"));
         version = "1.24.0";
         Assert.True((await runtime.DiscoverModelsAsync(id, CancellationToken.None)).IsSuccess);
         Assert.Equal("?client_version=1.24.0", handler.LastRequest!.Uri.Query);
         var model = Assert.Single(Assert.Single(runtime.Profiles).Models);
         Assert.Equal("future-model", model.Id);
         Assert.Equal(1048576, model.ContextWindowTokens);
+        Assert.Equal(1048576, pinned.ContextWindowTokens("future-model"));
+        Assert.True(pinned.IsCurrent);
         Assert.NotNull(factory.Create(profile, model.Id));
         await factory.ValidateAuthenticationAsync(profile, CancellationToken.None);
         Assert.Equal(2, handler.CallCount);

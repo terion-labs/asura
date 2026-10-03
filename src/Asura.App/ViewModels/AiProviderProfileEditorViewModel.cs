@@ -128,7 +128,12 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
         _isEnabled = existing.IsEnabled;
         _modelCatalogProfile = existing;
         _models = [.. existing.DiscoveredModelIds
-            .Select(id => new AiProviderModelDescriptor(id, id))];
+            .Select(id =>
+            {
+                var metadata = existing.DiscoveredModels.SingleOrDefault(model => string.Equals(model.Id, id, StringComparison.Ordinal));
+                return new AiProviderModelDescriptor(id, metadata?.DisplayName ?? id,
+                    contextWindowTokens: metadata?.ContextWindowTokens);
+            })];
         var existingMode = existing.Authentication switch
         {
             AiProviderAuthentication.None =>
@@ -745,6 +750,12 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
                 new AiProviderAuthentication.AwsCredentialChain(),
             _ => throw new ArgumentException("Choose an authentication method."),
         };
+        var keepModelMetadata = _modelCatalogProfile is { } tested
+                && tested.ProviderKind == Kind
+                && string.Equals(tested.Endpoint.AbsoluteUri,
+                    endpoint.AbsoluteUri.EndsWith('/') ? endpoint.AbsoluteUri : endpoint.AbsoluteUri + "/",
+                    StringComparison.Ordinal)
+                && tested.Authentication == authentication;
         return new AiProviderProfile(
             _id,
             _schemaVersion,
@@ -755,14 +766,11 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
             discoveryModel ?? Required(DefaultModel, "Default model"),
             Order,
             IsEnabled,
-            discoveredModelIds: _modelCatalogProfile is { } tested
-                && tested.ProviderKind == Kind
-                && string.Equals(tested.Endpoint.AbsoluteUri,
-                    endpoint.AbsoluteUri.EndsWith('/') ? endpoint.AbsoluteUri : endpoint.AbsoluteUri + "/",
-                    StringComparison.Ordinal)
-                && tested.Authentication == authentication
-                    ? Models.Select(model => model.Id).ToArray()
-                    : []);
+            discoveredModelIds: keepModelMetadata ? Models.Select(model => model.Id).ToArray() : [],
+            discoveredModels: keepModelMetadata
+                ? Models.Select(model => new AiProviderModelMetadata(
+                    model.Id, model.DisplayName, model.ContextWindowTokens)).ToArray()
+                : []);
     }
 
     private async Task ObserveAuthenticationAsync(

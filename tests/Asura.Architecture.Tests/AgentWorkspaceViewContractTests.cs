@@ -207,7 +207,9 @@ public sealed class AgentWorkspaceViewContractTests
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "AutomationProperties.Name")
 , "{Binding AgentChat.ContextWindowUsageLabel}", StringComparison.Ordinal));
         Assert.Null(AttributeValue(contextUsage, "Content"));
-        Assert.Equal("32", AttributeValue(contextUsage, "Width"));
+        Assert.Equal("26", AttributeValue(contextUsage, "Width"));
+        Assert.Equal("3", AttributeValue(contextUsage, "Grid.Column"));
+        Assert.Equal("4", AttributeValue(contextUsage.Ancestors().First(element => string.Equals(element.Name.LocalName, "Border", StringComparison.Ordinal)), "Grid.Row"));
         Assert.Contains("ComposerControl", AttributeValue(contextUsage, "Classes"), StringComparison.Ordinal);
         var contextDonut = Assert.Single(
             contextUsage.Elements(),
@@ -217,7 +219,7 @@ public sealed class AgentWorkspaceViewContractTests
             AttributeValue(contextDonut, "Percentage"));
         var composerToolbar = FindNamedElement(root, "AgentComposerToolbar");
         Assert.Equal(
-            "Auto,*,Auto,*,Auto,Auto",
+            "Auto,*,*,Auto,Auto",
             AttributeValue(composerToolbar, "ColumnDefinitions"));
         Assert.Equal("0", AttributeValue(composerToolbar, "ColumnSpacing"));
         var accessMode = Assert.Single(
@@ -250,7 +252,7 @@ public sealed class AgentWorkspaceViewContractTests
             "{Binding AgentChat.ShowStopAction, FallbackValue=False}",
             AttributeValue(stop, "IsVisible"));
         Assert.Same(composerToolbar, stop.Parent);
-        Assert.Equal("5", AttributeValue(stop, "Grid.Column"));
+        Assert.Equal("4", AttributeValue(stop, "Grid.Column"));
 
         var committedReasoning = Assert.Single(
             root.Descendants(),
@@ -390,7 +392,7 @@ public sealed class AgentWorkspaceViewContractTests
     }
 
     [Fact]
-    public void Model_picker_keeps_filter_content_reasoning_and_speed_in_separate_bands()
+    public void Model_picker_keeps_filter_and_speed_separate_while_reasoning_stays_in_composer()
     {
         var root = Assert.IsType<XElement>(LoadView().Root);
         var picker = FindNamedElement(root, "AgentModelPickerButton");
@@ -444,11 +446,13 @@ public sealed class AgentWorkspaceViewContractTests
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Grid.Row"), "2", StringComparison.Ordinal));
         Assert.Equal("0,1,0,0", AttributeValue(footer, "BorderThickness"));
         var reasoning = Assert.Single(
-            footer.Descendants(),
+            root.Descendants(),
             element => string.Equals(element.Name.LocalName, "ComboBox"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "AutomationProperties.Name")
 , "AI reasoning effort", StringComparison.Ordinal));
-        Assert.Equal("1", AttributeValue(reasoning, "Grid.Column"));
+        Assert.Equal("2", AttributeValue(reasoning, "Grid.Column"));
+        Assert.DoesNotContain(reasoning, picker.Descendants());
+        Assert.Equal("{Binding AgentChat.HasMultipleReasoningEfforts}", AttributeValue(reasoning, "IsVisible"));
         var serviceTier = Assert.Single(
             footer.Descendants(),
             element => string.Equals(element.Name.LocalName, "ComboBox"

@@ -2183,14 +2183,9 @@ public sealed partial class GovernedAgentRuntime :
         int? contextWindowTokens,
         CancellationToken cancellationToken)
     {
-        if (contextWindowTokens is null)
-        {
-            return ConversationCompactionOutcome.NotRequired();
-        }
-
+        var contextBudget = contextWindowTokens ?? AgentContextWindowPolicy.FallbackContextWindowTokens;
         var settings = new AgentCompactionSettings();
-        if (session.EstimateContextUsage().EstimatedTokens
-            <= contextWindowTokens.Value - settings.ReserveTokens)
+        if (!session.EstimateContextUsage().RequiresCompaction(contextBudget, settings))
         {
             return ConversationCompactionOutcome.NotRequired();
         }
@@ -2209,7 +2204,7 @@ public sealed partial class GovernedAgentRuntime :
         try
         {
             var result = await session.CompactAsync(
-                    contextWindowTokens.Value,
+                    contextBudget,
                     settings,
                     compactor,
                     cancellationToken)

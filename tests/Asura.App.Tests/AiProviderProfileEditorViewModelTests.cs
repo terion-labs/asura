@@ -280,7 +280,7 @@ public sealed class AiProviderProfileEditorViewModelTests
                 true,
                 "ai_provider_test_succeeded",
                 "Connected.",
-                [new AiProviderModelDescriptor("model", "Model")]),
+                [new AiProviderModelDescriptor("model", "Model", contextWindowTokens: 1_048_576)]),
         };
         var editor = new AiProviderProfileEditorViewModel(runtime, [])
         {
@@ -299,12 +299,15 @@ public sealed class AiProviderProfileEditorViewModelTests
         Assert.NotNull(runtime.LastProfile);
         var saved = editor.CreateSaveRequest().Profile;
         Assert.Equal(["model"], saved.DiscoveredModelIds);
+        Assert.Equal(1_048_576, Assert.Single(saved.DiscoveredModels).ContextWindowTokens);
         var reopened = new AiProviderProfileEditorViewModel(runtime, [], saved);
         Assert.Equal(["model"], reopened.CreateSaveRequest().Profile.DiscoveredModelIds);
+        Assert.Equal(1_048_576, Assert.Single(reopened.Models).ContextWindowTokens);
         reopened.DefaultModel = "another-model";
         Assert.Equal(["model"], reopened.CreateSaveRequest().Profile.DiscoveredModelIds);
         reopened.Endpoint = "http://localhost:11435/v1/";
         Assert.Empty(reopened.CreateSaveRequest().Profile.DiscoveredModelIds);
+        Assert.Empty(reopened.CreateSaveRequest().Profile.DiscoveredModels);
     }
 
     [Fact]

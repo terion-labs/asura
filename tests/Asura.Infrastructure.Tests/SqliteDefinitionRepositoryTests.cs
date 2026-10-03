@@ -984,6 +984,27 @@ public sealed class SqliteDefinitionRepositoryTests
     }
 
     [Fact]
+    public async Task AiProviderModelDetailsSurviveRepositoryReopen()
+    {
+        await using var temporary = TemporaryDatabase.Create();
+        var repository = new SqliteDefinitionRepository<AiProviderProfile>(temporary.Database, TimeProvider.System);
+        var profile = new AiProviderProfile(new AiProviderProfileId("metadata-provider"),
+            AiProviderProfile.CurrentSchemaVersion, "Local", AiProviderKind.OpenAiCompatible,
+            new Uri("http://localhost:11434/v1/"), new AiProviderAuthentication.None(), "model", 0,
+            discoveredModels: [new AiProviderModelMetadata("model", "Model display name", 1_048_576)]);
+        var saved = await repository.SaveAsync(profile, null, CancellationToken.None);
+        Assert.True(saved.IsSuccess, saved.Error?.Message);
+
+        var reopened = new SqliteDefinitionRepository<AiProviderProfile>(temporary.Database, TimeProvider.System);
+        var loaded = await reopened.GetAsync(profile.Key, CancellationToken.None);
+        Assert.True(loaded.IsSuccess, loaded.Error?.Message);
+        var metadata = Assert.Single(loaded.Value!.Value.DiscoveredModels);
+        Assert.Equal("Model display name", metadata.DisplayName);
+        Assert.Equal(1_048_576, metadata.ContextWindowTokens);
+        Assert.Equal(["model"], loaded.Value.Value.DiscoveredModelIds);
+    }
+
+    [Fact]
     public async Task AiProviderFallbackOrderIsUniqueAcrossDirectRepositorySaves()
     {
         await using var temporary = TemporaryDatabase.Create();

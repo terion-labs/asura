@@ -71,11 +71,11 @@ public sealed partial class AgentChatViewModelTests
         Assert.Equal("Capability check", viewModel.CapabilityLabel);
         Assert.False(viewModel.TerminalMutationAvailable);
         Assert.Contains("verified", viewModel.CapabilityNotice);
-        Assert.Equal(0, profiles.DiscoverModelsCount);
+        Assert.Equal(1, profiles.DiscoverModelsCount);
     }
 
     [Fact]
-    public async Task Model_discovery_starts_only_after_explicit_refresh()
+    public async Task Model_metadata_loads_on_open_and_explicit_refresh_reloads_it()
     {
         var provider = Provider("provider", "OpenAI", order: 0);
         using var runtime = new StubGovernedRuntime
@@ -91,12 +91,38 @@ public sealed partial class AgentChatViewModelTests
             profiles,
             ImmediateUiThreadDispatcher.Instance);
 
-        Assert.Equal(0, profiles.DiscoverModelsCount);
+        Assert.Equal(1, profiles.DiscoverModelsCount);
+
+        profiles.RaiseProfilesChanged();
+        Assert.Equal(1, profiles.DiscoverModelsCount);
+        Assert.True(viewModel.HasContextWindow);
+        Assert.Contains("Local working budget", viewModel.ContextWindowUsageLabel, StringComparison.Ordinal);
 
         await viewModel.RefreshModelsAsync(CancellationToken.None);
 
-        Assert.Equal(1, profiles.DiscoverModelsCount);
+        Assert.Equal(2, profiles.DiscoverModelsCount);
         Assert.Equal(provider.Id, profiles.LastDiscoveredProviderId);
+    }
+
+    [Fact]
+    public async Task Metadata_refresh_preserves_explicit_model_and_reasoning_choices()
+    {
+        var model = new AiProviderModelDescriptor("other", "Other", [AgentReasoningEffort.Automatic, AgentReasoningEffort.High]);
+        var provider = Provider("provider", "Provider", 0, models: [new("model", "Default"), model]);
+        using var runtime = new StubGovernedRuntime { Snapshot = Snapshot(providerId: provider.Id) };
+        using var profiles = new StubProfileRuntime { Profiles = [provider] };
+        using var viewModel = new AgentChatViewModel(runtime, profiles, ImmediateUiThreadDispatcher.Instance);
+        await viewModel.SelectModelAsync(model, CancellationToken.None);
+        viewModel.SelectedReasoningEffort = viewModel.ReasoningEfforts.Single(option => option.Value == AgentReasoningEffort.High);
+        var refreshed = new AiProviderModelDescriptor("other", "Other", [AgentReasoningEffort.Automatic, AgentReasoningEffort.High], contextWindowTokens: 200_000);
+        profiles.Profiles = [Provider("provider", "Provider", 0, models: [new("model", "Default"), refreshed])];
+
+        profiles.RaiseProfilesChanged();
+
+        Assert.Equal("other", viewModel.SelectedModel!.Id);
+        Assert.Equal(200_000, viewModel.SelectedModel.ContextWindowTokens);
+        Assert.Equal(AgentReasoningEffort.High, viewModel.SelectedReasoningEffort.Value);
+        Assert.Equal(1, profiles.DiscoverModelsCount);
     }
 
     [Fact]
@@ -252,7 +278,7 @@ public sealed partial class AgentChatViewModelTests
         Assert.Equal(255_616, viewModel.ContextEffectiveLimit);
         Assert.Equal(141_000, viewModel.ContextUsedTokens);
         Assert.Equal(55.16, viewModel.ContextWindowPercent, precision: 2);
-        Assert.Equal("141k / 256k tokens used", viewModel.ContextWindowUsageLabel);
+        Assert.Equal("141k / 256k tokens used. Older context compacts automatically.", viewModel.ContextWindowUsageLabel);
     }
 
     [Fact]

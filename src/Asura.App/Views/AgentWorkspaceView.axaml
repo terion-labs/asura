@@ -1075,19 +1075,61 @@
             </ItemsControl>
           </StackPanel>
           <Border Grid.Row="4" BorderThickness="0,1,0,0"
-              BorderBrush="{DynamicResource ShellBorderBrush}" Padding="{controls:Inset Top=Xs}"
-              IsVisible="{Binding !AgentChat.HasFailedTurn}">
-            <StackPanel Orientation="Horizontal" Spacing="6">
-              <ToggleSwitch Classes="SecretDisclosure" IsChecked="{Binding AgentChat.SendRawSecrets, Mode=TwoWay}"
-                  IsEnabled="{Binding AgentChat.CanEnterPrompt}"
-                  AutomationProperties.Name="Send raw secrets" />
-              <TextBlock Text="Send raw secrets" FontSize="{DynamicResource ShellFontSize11}" VerticalAlignment="Center" Classes="Muted" />
-              <Button Classes="TextButton" Padding="0" MinWidth="20" MinHeight="22"
-                  ToolTip.Tip="{Binding AgentChat.SendRawSecretsExplanation}"
-                  AutomationProperties.Name="How sending raw secrets works">
-                <icons:SymbolIcon Symbol="Info" FontSize="13" />
+              BorderBrush="{DynamicResource ShellBorderBrush}" Padding="{controls:Inset Top=Xs}">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+              <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding !AgentChat.HasFailedTurn}">
+                <ToggleSwitch Classes="SecretDisclosure" IsChecked="{Binding AgentChat.SendRawSecrets, Mode=TwoWay}"
+                    IsEnabled="{Binding AgentChat.CanEnterPrompt}"
+                    AutomationProperties.Name="Send raw secrets" />
+                <TextBlock Text="Send raw secrets" FontSize="{DynamicResource ShellFontSize11}" VerticalAlignment="Center" Classes="Muted" />
+                <Button Classes="TextButton" Padding="0" MinWidth="20" MinHeight="22"
+                    ToolTip.Tip="{Binding AgentChat.SendRawSecretsExplanation}"
+                    AutomationProperties.Name="How sending raw secrets works">
+                  <icons:SymbolIcon Symbol="Info" FontSize="13" />
+                </Button>
+              </StackPanel>
+              <ComboBox Grid.Column="2" Width="104" Margin="4,0" MinHeight="26"
+                  FontSize="{DynamicResource ShellFontSize11}"
+                  ItemsSource="{Binding AgentChat.ReasoningEfforts}"
+                  SelectedItem="{Binding AgentChat.SelectedReasoningEffort, Mode=TwoWay}"
+                  IsVisible="{Binding AgentChat.HasMultipleReasoningEfforts}"
+                  IsEnabled="{Binding AgentChat.CanSelectReasoningEffort}"
+                  ToolTip.Tip="Reasoning effort" AutomationProperties.Name="AI reasoning effort">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:AgentReasoningEffortOption"><TextBlock Text="{Binding Label}" /></DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <Button
+                  Grid.Column="3"
+                  Width="26"
+                  HorizontalAlignment="Right"
+                  Classes="IconButton ComposerControl"
+                  IsVisible="{Binding AgentChat.HasContextWindow}"
+                  ToolTip.Tip="{Binding AgentChat.ContextWindowUsageLabel}"
+                  AutomationProperties.Name="{Binding AgentChat.ContextWindowUsageLabel}">
+                <controls:ContextWindowDonut
+                    Width="17"
+                    Height="17"
+                    Percentage="{Binding AgentChat.ContextWindowPercent}"
+                    TrackBrush="{DynamicResource ShellBorderBrush}"
+                    IndicatorBrush="{DynamicResource ShellAccentBrush}"
+                    StrokeThickness="2" />
+                <Button.Flyout>
+                  <Flyout Placement="TopEdgeAlignedRight">
+                    <StackPanel Width="210" Spacing="{DynamicResource ShellSpaceSm}">
+                      <TextBlock FontWeight="SemiBold" Text="Context window" />
+                      <ProgressBar
+                          Minimum="0"
+                          Maximum="100"
+                          Value="{Binding AgentChat.ContextWindowPercent}" />
+                      <TextBlock
+                          Classes="Muted"
+                          Text="{Binding AgentChat.ContextWindowUsageLabel}" TextWrapping="Wrap" />
+                    </StackPanel>
+                  </Flyout>
+                </Button.Flyout>
               </Button>
-            </StackPanel>
+            </Grid>
           </Border>
           <TextBox
               x:Name="AgentChatPromptInput"
@@ -1109,7 +1151,7 @@
           <Grid
               x:Name="AgentComposerToolbar"
               Grid.Row="2"
-              ColumnDefinitions="Auto,*,Auto,*,Auto,Auto"
+              ColumnDefinitions="Auto,*,*,Auto,Auto"
               ColumnSpacing="0"
               IsVisible="{Binding !AgentChat.HasFailedTurn}">
             <Button
@@ -1158,38 +1200,8 @@
               </Button.Flyout>
             </Button>
             <Button
-                Grid.Column="2"
-                Width="32"
-                HorizontalAlignment="Right"
-                Classes="IconButton ComposerControl"
-                IsVisible="{Binding AgentChat.HasContextWindow}"
-                ToolTip.Tip="{Binding AgentChat.ContextWindowUsageLabel}"
-                AutomationProperties.Name="{Binding AgentChat.ContextWindowUsageLabel}">
-              <controls:ContextWindowDonut
-                  Width="17"
-                  Height="17"
-                  Percentage="{Binding AgentChat.ContextWindowPercent}"
-                  TrackBrush="{DynamicResource ShellBorderBrush}"
-                  IndicatorBrush="{DynamicResource ShellAccentBrush}"
-                  StrokeThickness="2" />
-              <Button.Flyout>
-                <Flyout Placement="TopEdgeAlignedRight">
-                  <StackPanel Width="210" Spacing="{DynamicResource ShellSpaceSm}">
-                    <TextBlock FontWeight="SemiBold" Text="Context window" />
-                    <ProgressBar
-                        Minimum="0"
-                        Maximum="100"
-                        Value="{Binding AgentChat.ContextWindowPercent}" />
-                    <TextBlock
-                        Classes="Muted"
-                        Text="{Binding AgentChat.ContextWindowUsageLabel}" />
-                  </StackPanel>
-                </Flyout>
-              </Button.Flyout>
-            </Button>
-            <Button
                 x:Name="AgentModelPickerButton"
-                Grid.Column="3"
+                Grid.Column="2"
                 Margin="0"
                 MinWidth="0"
                 HorizontalAlignment="Stretch"
@@ -1319,22 +1331,6 @@
                         <Grid
                             ColumnDefinitions="*,160"
                             ColumnSpacing="{DynamicResource ShellSpaceSm}"
-                            IsVisible="{Binding AgentChat.HasMultipleReasoningEfforts}">
-                          <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Reasoning" />
-                          <ComboBox
-                              Grid.Column="1"
-                              ItemsSource="{Binding AgentChat.ReasoningEfforts}"
-                              SelectedItem="{Binding AgentChat.SelectedReasoningEffort, Mode=TwoWay}"
-                              IsEnabled="{Binding AgentChat.CanSelectReasoningEffort}"
-                              AutomationProperties.Name="AI reasoning effort">
-                            <ComboBox.ItemTemplate>
-                              <DataTemplate x:DataType="vm:AgentReasoningEffortOption"><TextBlock Text="{Binding Label}" /></DataTemplate>
-                            </ComboBox.ItemTemplate>
-                          </ComboBox>
-                        </Grid>
-                        <Grid
-                            ColumnDefinitions="*,160"
-                            ColumnSpacing="{DynamicResource ShellSpaceSm}"
                             IsVisible="{Binding AgentChat.HasServiceTiers}">
                           <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Speed" />
                           <ComboBox
@@ -1356,7 +1352,7 @@
             </Button>
             <Button
                 x:Name="AgentSendButton"
-                Grid.Column="4"
+                Grid.Column="3"
                 Classes="PrimaryButton ComposerAction"
                 Click="OnSendAgentChatClick"
                 IsEnabled="{Binding AgentChat.CanSubmitPrompt}"
@@ -1367,7 +1363,7 @@
             </Button>
             <Button
                 x:Name="AgentStopButton"
-                Grid.Column="5"
+                Grid.Column="4"
                 Classes="PrimaryButton ComposerAction"
                 Click="OnCancelAgentChatClick"
                 IsEnabled="{Binding AgentChat.CanRequestStop}"

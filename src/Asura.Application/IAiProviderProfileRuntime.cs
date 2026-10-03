@@ -58,6 +58,7 @@ public enum AiProviderRuntimeErrorCode
     ResponseTooLarge,
     Timeout,
     Cancelled,
+    RequestTooLarge,
 }
 
 public sealed record AiProviderProfileDescriptor

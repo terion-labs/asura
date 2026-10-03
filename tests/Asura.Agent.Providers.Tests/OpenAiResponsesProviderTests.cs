@@ -9,7 +9,7 @@ using Asura.Infrastructure;
 
 namespace Asura.Agent.Providers.Tests;
 
-public sealed class OpenAiResponsesProviderTests
+public sealed partial class OpenAiResponsesProviderTests
 {
     private const string ApiKey = "openai-test-key";
     private const string Model = "gpt-test";
