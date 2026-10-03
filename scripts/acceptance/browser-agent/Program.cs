@@ -69,7 +69,13 @@ internal sealed class ProbeApp : Avalonia.Application
         surface.Width = 900;
         surface.Height = 650;
         surface.IsVisible = false;
-        var window = new Window { Title = "Asura browser acceptance", Width = 940, Height = 700, Content = surface };
+        // The probe injects events at the Avalonia boundary. Do not steal the
+        // user's physical keyboard while these assertions run in the background.
+        var window = new Window
+        {
+            Title = "Asura browser acceptance", Width = 940, Height = 700,
+            Content = surface, ShowActivated = false,
+        };
         lifetime.MainWindow = window;
         window.Show();
         Dispatcher.UIThread.Post(() => _ = RunAsync(surface, window, lifetime));
