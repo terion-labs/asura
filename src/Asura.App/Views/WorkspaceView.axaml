@@ -63,10 +63,14 @@
          top-right corner with its own height. -->
     <Style Selector="views|AgentWorkspaceView">
       <Setter Property="Width" Value="352" />
+    </Style>
+    <Style Selector="Panel#AgentViewport">
       <Setter Property="Margin" Value="{controls:Inset Right=Sm, Bottom=Sm}" />
     </Style>
-    <Style Selector="views|AgentWorkspaceView.floating">
+    <Style Selector="Panel#AgentViewport.floating">
       <Setter Property="Margin" Value="{DynamicResource ShellFlyoutMargin}" />
+    </Style>
+    <Style Selector="views|AgentWorkspaceView.floating">
       <Setter Property="VerticalAlignment" Value="Top" />
       <Setter Property="Height" Value="620" />
     </Style>
@@ -779,46 +783,55 @@
         ClipToBounds="False"
         Margin="{DynamicResource ShellWindowEdgeInset}"
         IsVisible="{Binding IsAgentPanelVisible}">
-      <views:AgentWorkspaceView
-          x:Name="AgentWorkspaceSurface"
+      <!-- Keep the inset outside the bounded viewport so a remembered panel size
+           fits the entire window, including its margins, after a parent resize. -->
+      <Panel
+          x:Name="AgentViewport"
           ClipToBounds="False"
-          HorizontalAlignment="Right"
-          Classes.floating="{Binding !IsAgentPanelDocked}"
-          Classes.edgeResizable="{Binding IsAgentPanelDocked}"
-          Classes.edgeRight="{Binding IsAgentPanelDocked}"
-          AgentQuestionResponseKeyDownRequested="OnAgentQuestionResponseKeyDown"
-          ApproveAgentActionRequested="OnApproveAgentActionClick"
-          CancelAgentActionRequested="OnCancelAgentActionClick"
-          CancelAgentChatRequested="OnCancelAgentChatClick"
-          ClearAgentChatRequested="OnClearAgentChatClick"
-          ClearAgentSavedScreenTargetRequested="OnClearAgentSavedScreenTargetClick"
-          CreateAgentSavedScreenTargetRequested="OnCreateAgentSavedScreenTargetClick"
-          DeclineAgentQuestionRequested="OnDeclineAgentQuestionClick"
-          DenyAgentActionRequested="OnDenyAgentActionClick"
-          DisableAgentYoloRequested="OnDisableAgentYoloClick"
-          EnableAgentCapabilityAskRequested="OnEnableAgentCapabilityAskClick"
-          EnableAgentYoloRequested="OnEnableAgentYoloClick"
-          KeepAgentCapabilityOffRequested="OnKeepAgentCapabilityOffClick"
-          LoadOlderAgentAuditRequested="OnLoadOlderAgentAuditClick"
-          MoveQueuedFollowUpRequested="OnMoveAgentQueuedFollowUpRequested"
-          RefreshAgentAuditRequested="OnRefreshAgentAuditClick"
-          AuthorizeAgentSavedScreenTargetRequested="OnAuthorizeAgentSavedScreenTargetClick"
+          Classes.floating="{Binding !IsAgentPanelDocked}">
+        <views:AgentWorkspaceView
+            x:Name="AgentWorkspaceSurface"
+            ClipToBounds="False"
+            MaxWidth="{Binding #AgentViewport.Bounds.Width}"
+            MaxHeight="{Binding #AgentViewport.Bounds.Height}"
+            HorizontalAlignment="Right"
+            Classes.floating="{Binding !IsAgentPanelDocked}"
+            Classes.edgeResizable="{Binding IsAgentPanelDocked}"
+            Classes.edgeRight="{Binding IsAgentPanelDocked}"
+            AgentQuestionResponseKeyDownRequested="OnAgentQuestionResponseKeyDown"
+            ApproveAgentActionRequested="OnApproveAgentActionClick"
+            CancelAgentActionRequested="OnCancelAgentActionClick"
+            CancelAgentChatRequested="OnCancelAgentChatClick"
+            ClearAgentChatRequested="OnClearAgentChatClick"
+            ClearAgentSavedScreenTargetRequested="OnClearAgentSavedScreenTargetClick"
+            CreateAgentSavedScreenTargetRequested="OnCreateAgentSavedScreenTargetClick"
+            DeclineAgentQuestionRequested="OnDeclineAgentQuestionClick"
+            DenyAgentActionRequested="OnDenyAgentActionClick"
+            DisableAgentYoloRequested="OnDisableAgentYoloClick"
+            EnableAgentCapabilityAskRequested="OnEnableAgentCapabilityAskClick"
+            EnableAgentYoloRequested="OnEnableAgentYoloClick"
+            KeepAgentCapabilityOffRequested="OnKeepAgentCapabilityOffClick"
+            LoadOlderAgentAuditRequested="OnLoadOlderAgentAuditClick"
+            MoveQueuedFollowUpRequested="OnMoveAgentQueuedFollowUpRequested"
+            RefreshAgentAuditRequested="OnRefreshAgentAuditClick"
+            AuthorizeAgentSavedScreenTargetRequested="OnAuthorizeAgentSavedScreenTargetClick"
 
-          StartNewAgentConversationRequested="OnStartNewAgentConversationClick"
-          OpenAgentConversationRequested="OnOpenAgentConversationClick"
-          DeleteAgentConversationRequested="OnDeleteAgentConversationClick"
-          CopyAgentMessageRequested="OnCopyAgentMessageClick"
-          ForkAgentConversationRequested="OnForkAgentConversationClick"
-          SelectAgentModelRequested="OnSelectAgentModelClick"
-          ToggleAgentModelFavoriteRequested="OnToggleAgentModelFavoriteClick"
-          RefreshAgentModelsRequested="OnRefreshAgentModelsClick"
-          SendAgentChatRequested="OnSendAgentChatClick"
-          QueueAgentSteeringRequested="OnQueueAgentSteeringClick"
-          AttachAgentImageRequested="OnAttachAgentImageClick"
-          ClearAgentImagesRequested="OnClearAgentImagesClick"
-          ShowAgentSettingsRequested="OnShowAgentSettingsClick"
-          SubmitAgentQuestionRequested="OnSubmitAgentQuestionClick"
-          ToggleAgentPinRequested="OnToggleAgentPinClick" />
+            StartNewAgentConversationRequested="OnStartNewAgentConversationClick"
+            OpenAgentConversationRequested="OnOpenAgentConversationClick"
+            DeleteAgentConversationRequested="OnDeleteAgentConversationClick"
+            CopyAgentMessageRequested="OnCopyAgentMessageClick"
+            ForkAgentConversationRequested="OnForkAgentConversationClick"
+            SelectAgentModelRequested="OnSelectAgentModelClick"
+            ToggleAgentModelFavoriteRequested="OnToggleAgentModelFavoriteClick"
+            RefreshAgentModelsRequested="OnRefreshAgentModelsClick"
+            SendAgentChatRequested="OnSendAgentChatClick"
+            QueueAgentSteeringRequested="OnQueueAgentSteeringClick"
+            AttachAgentImageRequested="OnAttachAgentImageClick"
+            ClearAgentImagesRequested="OnClearAgentImagesClick"
+            ShowAgentSettingsRequested="OnShowAgentSettingsClick"
+            SubmitAgentQuestionRequested="OnSubmitAgentQuestionClick"
+            ToggleAgentPinRequested="OnToggleAgentPinClick" />
+      </Panel>
     </Panel>
 
     <!-- This is deliberately an in-window overlay, not a Flyout. Platform

@@ -351,7 +351,15 @@ public sealed class WorkspaceViewContractTests
             floatingSurface.Descendants(),
             setter => string.Equals(AttributeValue(setter, "Property"), "BoxShadow"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(setter, "Value"), "{DynamicResource ShellFlyoutShadow}", StringComparison.Ordinal));
-        var agentOverlay = agentWorkspace.Parent!;
+        var agentViewport = agentWorkspace.Parent!;
+        Assert.Equal("Panel", agentViewport.Name.LocalName);
+        Assert.Equal("AgentViewport", AttributeValue(agentViewport, "Name"));
+        Assert.Null(AttributeValue(agentViewport, "Background"));
+        Assert.Equal("False", AttributeValue(agentViewport, "ClipToBounds"));
+        Assert.Equal("{Binding !IsAgentPanelDocked}", AttributeValue(agentViewport, "Classes.floating"));
+        Assert.Equal("{Binding #AgentViewport.Bounds.Width}", AttributeValue(agentWorkspace, "MaxWidth"));
+        Assert.Equal("{Binding #AgentViewport.Bounds.Height}", AttributeValue(agentWorkspace, "MaxHeight"));
+        var agentOverlay = agentViewport.Parent!;
         Assert.Equal("Panel", agentOverlay.Name.LocalName);
         Assert.Equal(
             "{Binding IsAgentPanelVisible}",
