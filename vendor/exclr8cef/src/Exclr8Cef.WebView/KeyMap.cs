@@ -164,6 +164,14 @@ internal static class KeyMap
         Key.Back     => 0x33,
         Key.Escape   => 0x35,
         Key.CapsLock => 0x39,
+        Key.LWin => 0x37,
+        Key.RWin => 0x36,
+        Key.LeftShift => 0x38,
+        Key.RightShift => 0x3C,
+        Key.LeftCtrl => 0x3B,
+        Key.RightCtrl => 0x3E,
+        Key.LeftAlt => 0x3A,
+        Key.RightAlt => 0x3D,
         Key.Left     => 0x7B,
         Key.Right    => 0x7C,
         Key.Down     => 0x7D,
@@ -173,11 +181,15 @@ internal static class KeyMap
         Key.PageUp   => 0x74,
         Key.PageDown => 0x79,
         Key.Delete   => 0x75,
+        Key.Insert or Key.Help => 0x72,
+        Key.Clear or Key.NumLock => 0x47,
 
         // Function keys
         Key.F1 => 0x7A, Key.F2 => 0x78, Key.F3 => 0x63, Key.F4 => 0x76,
         Key.F5 => 0x60, Key.F6 => 0x61, Key.F7 => 0x62, Key.F8 => 0x64,
         Key.F9 => 0x65, Key.F10 => 0x6D, Key.F11 => 0x67, Key.F12 => 0x6F,
+        Key.F13 => 0x69, Key.F14 => 0x6B, Key.F15 => 0x71, Key.F16 => 0x6A,
+        Key.F17 => 0x40, Key.F18 => 0x4F, Key.F19 => 0x50, Key.F20 => 0x5A,
 
         // Numpad
         Key.NumPad0 => 0x52, Key.NumPad1 => 0x53, Key.NumPad2 => 0x54,
@@ -190,8 +202,33 @@ internal static class KeyMap
         Key.Divide   => 0x4B,
         Key.Decimal  => 0x41,
 
-        // -1 means "no Carbon equivalent known" — caller passes through to
-        // the shim, which leaves Chromium to fall back to other heuristics.
+        // Unknown keys must not fall back to zero: Carbon zero is the A key.
         _ => -1,
+    };
+
+    // CEF's macOS TranslateWebKeyEvent treats two empty character fields as
+    // NSEventTypeFlagsChanged, regardless of the requested down/up type. Cocoa
+    // navigation/function key characters must therefore accompany BOTH edges;
+    // otherwise the release becomes a second press. Only modifiers stay empty.
+    public static char MacCommandCharacter(Key key) => key switch
+    {
+        Key.Tab => '\t',
+        Key.Return => '\r',
+        Key.Back => '\x7F',
+        Key.Escape => '\x1B',
+        Key.Up => '\uF700',
+        Key.Down => '\uF701',
+        Key.Left => '\uF702',
+        Key.Right => '\uF703',
+        >= Key.F1 and <= Key.F24 => (char)('\uF704' + key - Key.F1),
+        Key.Insert => '\uF727',
+        Key.Delete => '\uF728',
+        Key.Home => '\uF729',
+        Key.End => '\uF72B',
+        Key.PageUp => '\uF72C',
+        Key.PageDown => '\uF72D',
+        Key.Help => '\uF746',
+        Key.Clear or Key.NumLock => '\x0C',
+        _ => '\0',
     };
 }

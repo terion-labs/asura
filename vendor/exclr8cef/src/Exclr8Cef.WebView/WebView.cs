@@ -356,8 +356,9 @@ public class WebView : Control, IWebView, IDisposable
 
         // KeyDown forwarding runs in the Tunnel phase so we claim the event
         // (for Tab, Enter, etc.) before any class handler — chiefly
-        // KeyboardNavigationHandler — also processes it.
-        AddHandler(KeyDownEvent, OnKeyDownTunnel, RoutingStrategies.Tunnel, handledEventsToo: true);
+        // KeyboardNavigationHandler — also processes it. Honor events already
+        // claimed by the host's shortcuts or physical-input gate.
+        AddHandler(KeyDownEvent, OnKeyDownTunnel, RoutingStrategies.Tunnel);
 
         // Drag-drop: forward OS-level drags into CEF so the page sees the
         // drag-over / drop events. Setting AllowDrop here covers consumers
@@ -501,7 +502,7 @@ public class WebView : Control, IWebView, IDisposable
 
         int vk = KeyMap.AvaloniaToWindowsVK(e.Key);
         int nativeCode = OperatingSystem.IsMacOS() ? KeyMap.AvaloniaToMacKeyCode(e.Key) : 0;
-        if (nativeCode < 0) nativeCode = 0;
+        if (nativeCode < 0) return;
         var modifiers = InputMapping.MapModifiers(e.KeyModifiers);
 
         bool shifted = (e.KeyModifiers & KeyModifiers.Shift) != 0;
@@ -513,6 +514,9 @@ public class WebView : Control, IWebView, IDisposable
             Key.Escape => (char)27,
             _ => '\0',
         };
+        var commandChar = KeyMap.MacCommandCharacter(e.Key);
+        if (OperatingSystem.IsMacOS() && commandChar != '\0')
+            keyChar = commandChar;
         if (keyChar == '\0')
         {
             if (vk >= 0x41 && vk <= 0x5A)
@@ -2399,17 +2403,6 @@ public class WebView : Control, IWebView, IDisposable
     {
         base.OnKeyUp(e);
         if (_browser is null) return;
-
-        // Tab moves focus on KeyDown. Sending the KeyUp afterwards makes
-        // Chromium synthesize a KeyDown on the now-focused element, doubling
-        // navigation. Suppress KeyUp for Tab specifically; other keys' KeyUp
-        // is needed for the default action to complete (Enter→click etc.).
-        if (e.Key == Key.Tab)
-        {
-            _keyDownForwarded = false;
-            e.Handled = true;
-            return;
-        }
 
         ForwardKeyToBrowser(e, isKeyUp: true);
         _keyDownForwarded = false;
