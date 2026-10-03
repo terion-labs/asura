@@ -99,7 +99,18 @@ internal sealed class ProbeApp : Avalonia.Application
     {
         var exitCode = 1;
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+        var stage = "cold background navigation";
         using var fixtureClient = new HttpClient { BaseAddress = new Uri(Program.Fixture) };
+        void BeginStage(string name)
+        {
+            // Each independent scenario keeps the same bound. A slow preceding
+            // scenario must not consume the renderer recovery scenario's budget.
+            // Check before resetting so an expired stage can never be revived.
+            deadline.Token.ThrowIfCancellationRequested();
+            stage = name;
+            deadline.CancelAfter(TimeSpan.FromSeconds(45));
+            Console.WriteLine("BEGIN " + stage);
+        }
         try
         {
             // Cold, backgrounded surface: no human visit or manual navigation.
@@ -113,8 +124,10 @@ internal sealed class ProbeApp : Avalonia.Application
             surface.IsVisible = true;
             await Task.Delay(200, deadline.Token);
 
+            BeginStage("keyboard translation");
             await BrowserKeyboardAcceptance.VerifyAsync(surface, window, deadline.Token);
 
+            BeginStage("custom controls and screenshot");
             var custom = await surface.ClickWithinOriginAsync(
                 await ReferenceAsync(surface, "clickable", "Rescue fixture", deadline.Token),
                 BrowserNavigationOrigin.WorkspaceNetwork, deadline.Token);
@@ -138,6 +151,7 @@ internal sealed class ProbeApp : Avalonia.Application
                 screenshot.Value!.Screenshot!.Image.Content.ToArray(), deadline.Token);
             Console.WriteLine("PASS viewport PNG captured with coordinate bindings");
 
+            BeginStage("form input and session persistence");
             var input = await ReferenceAsync(surface, "textbox", "Fixture text", deadline.Token);
             var fill = await surface.FillWithinOriginAsync(input, "native-canary",
                 BrowserNavigationOrigin.WorkspaceNetwork, deadline.Token);
@@ -168,8 +182,10 @@ internal sealed class ProbeApp : Avalonia.Application
                 "same browser session", resultSnapshot.Error);
             Console.WriteLine("PASS browser session cookie survives agent interaction");
 
+            BeginStage("slow coordinate navigation");
             await VerifySlowMouseNavigationAsync(surface, fixtureClient, deadline.Token);
 
+            BeginStage("input cancellation and authority");
             var restricted = await surface.NavigateWithinOriginAsync(
                 new BrowserOriginConstrainedNavigationRequest.Navigate(address),
                 BrowserNavigationOrigin.Unrestricted,
@@ -207,6 +223,7 @@ internal sealed class ProbeApp : Avalonia.Application
             Console.WriteLine("PASS cancelling real native typing stops input and preserves the usable page");
             if (Program.Proxy is not null)
             {
+                BeginStage("proxy authentication and isolation");
                 Require(await CounterAsync(fixtureClient, "proxyAuthenticated", deadline.Token) > 0,
                     "workspace proxy used", null);
                 while (surface.State.LoadState != BrowserLoadState.Ready)
@@ -228,11 +245,15 @@ internal sealed class ProbeApp : Avalonia.Application
                     "no direct fallback around workspace proxy", null);
                 Console.WriteLine("PASS workspace proxy authentication and no direct-network fallback");
             }
+            BeginStage("renderer crash and recovery");
             await BrowserRendererRecoveryAcceptance.VerifyAsync(surface, address, deadline.Token);
+            deadline.Token.ThrowIfCancellationRequested();
             exitCode = 0;
         }
         catch (Exception exception)
         {
+            Console.Error.WriteLine("Browser acceptance failed during " + stage
+                + (deadline.IsCancellationRequested ? " (45-second stage deadline expired)." : "."));
             Console.Error.WriteLine(exception);
         }
         finally
