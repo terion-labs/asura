@@ -56,5 +56,37 @@ internal static class BrowserKeyboardAcceptance
             browser.KeyEvent -= OnReturnedKey;
             menu.Items.Clear();
         }
+
+        var browserSurface = (Asura.Browser.BrowserSurface)surface;
+        var view = surface.GetVisualDescendants().OfType<WebView>().Single();
+        var blockedKeys = 0;
+        void OnBlockedKey(object? sender, PreKeyEventArgs args) => blockedKeys++;
+        browser.PreKeyEvent += OnBlockedKey;
+        try
+        {
+            // The host rejects physical input by default. Tunnel forwarding
+            // must not bypass that decision, including host-owned shortcuts.
+            view.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.K });
+            view.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyUpEvent, Key = Key.K });
+            await Task.Delay(100, cancellationToken);
+            if (blockedKeys != 0)
+            {
+                throw new InvalidOperationException("Handled host keystrokes reached the browser.");
+            }
+            Console.WriteLine("PASS host-consumed keyboard events are not replayed into Chromium");
+        }
+        finally
+        {
+            browser.PreKeyEvent -= OnBlockedKey;
+        }
+        browserSurface.BindPhysicalInputGate(_ => true);
+        try
+        {
+            await BrowserKeyTranslationAcceptance.VerifyAsync(view, cancellationToken);
+        }
+        finally
+        {
+            browserSurface.BindPhysicalInputGate(null);
+        }
     }
 }

@@ -33,3 +33,11 @@ This is a platform-specific acceptance check in addition to `check.sh --full`;
 it is not evidence for other platforms or arbitrary script evaluation. The
 SessionHost tests separately cover selection of workspace-network authority
 only after confirmed Full access authorization.
+
+Keyboard checks raise Avalonia events through the production WebView bridge and
+assert Chromium's actual caret movement and balanced DOM keydown/keyup events.
+They cover arrows, Tab, Enter, Escape, a function key, deletion, left/right
+modifiers, and Cmd+A. They reproduce the former doubled-arrow defect (key-up
+became another key-down) and modifier events arriving as KeyA. Direct CEF/CDP
+input alone cannot catch that translation error. Physical keyboard checks still
+exercise the macOS event entry point separately.
