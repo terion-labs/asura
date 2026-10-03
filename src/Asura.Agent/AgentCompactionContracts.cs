@@ -38,7 +38,12 @@ public sealed record AgentCompactionSettings
     public int KeepRecentTokens { get; }
 }
 
-public sealed record AgentContextUsage(long EstimatedTokens, bool UsesProviderReportedUsage);
+public sealed record AgentContextUsage(long EstimatedTokens, bool UsesProviderReportedUsage, long EstimatedBytes = 0)
+{
+    public bool RequiresCompaction(int contextWindowTokens, AgentCompactionSettings settings) =>
+        EstimatedTokens > contextWindowTokens - settings.ReserveTokens
+        || EstimatedBytes > AgentContextWindowPolicy.MaximumHistoryBytes;
+}
 
 public interface IAgentConversationCompactor
 {

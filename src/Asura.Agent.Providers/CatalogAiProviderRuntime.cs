@@ -738,7 +738,12 @@ public sealed class CatalogAiProviderRuntime :
         {
             return [.. profile.DiscoveredModelIds.Prepend(profile.DefaultModel)
                 .Distinct(StringComparer.Ordinal)
-                .Select(id => new AiProviderModelDescriptor(id, id))];
+                .Select(id =>
+                {
+                    var metadata = profile.DiscoveredModels.SingleOrDefault(model => string.Equals(model.Id, id, StringComparison.Ordinal));
+                    return new AiProviderModelDescriptor(id, metadata?.DisplayName ?? id,
+                        contextWindowTokens: metadata?.ContextWindowTokens);
+                })];
         }
 
         return

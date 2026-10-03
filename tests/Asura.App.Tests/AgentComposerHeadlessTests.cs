@@ -772,7 +772,7 @@ public sealed partial class AgentChatViewModelTests
                 var context = Assert.Single(
                     view.GetVisualDescendants().OfType<Button>(),
                     button => string.Equals(AutomationProperties.GetName(button)
-, "141k / 256k tokens used", StringComparison.Ordinal));
+, "141k / 256k tokens used. Older context compacts automatically.", StringComparison.Ordinal));
                 Assert.True(context.IsEffectivelyVisible);
                 var donut = Assert.IsType<ContextWindowDonut>(context.Content);
                 Assert.Equal(viewModel.ContextWindowPercent, donut.Percentage);
@@ -785,7 +785,7 @@ public sealed partial class AgentChatViewModelTests
                     .Where(button => button.IsEffectivelyVisible)
                     .OrderBy(button => button.Bounds.Left)
                     .ToArray();
-                Assert.Equal(5, visibleButtons.Length);
+                Assert.Equal(4, visibleButtons.Length);
                 for (var index = 1; index < visibleButtons.Length; index++)
                 {
                     Assert.True(

@@ -33,6 +33,13 @@ public sealed class CatalogAiProviderBinding
 
     public bool IsCurrent => _owner.IsCurrent(this);
 
+    // Discovery can finish after a run is pinned. Model limits are refreshed
+    // independently of the immutable credential/route revision.
+    public int? ContextWindowTokens(string model) => _owner.Profiles
+        .SingleOrDefault(profile => profile.Id == ProfileId)?.Models
+        .SingleOrDefault(candidate => string.Equals(candidate.Id, model, StringComparison.Ordinal))
+        ?.ContextWindowTokens;
+
     public IAgentProvider CreateProvider() =>
         _owner.CreateProvider(this, _profile);
 

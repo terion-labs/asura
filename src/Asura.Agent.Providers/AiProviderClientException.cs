@@ -83,6 +83,12 @@ internal sealed class AiProviderClientException : AgentProviderException
                 "The AI provider returned an unsupported or invalid response.",
                 retryAfter,
                 innerException),
+            AiProviderRuntimeErrorCode.RequestTooLarge => new(
+                code,
+                "ai_provider_request_too_large",
+                "The conversation and attachments are too large to send. Start a new chat or use smaller attachments.",
+                retryAfter,
+                innerException),
             AiProviderRuntimeErrorCode.ResponseTooLarge => new(
                 code,
                 "ai_provider_response_too_large",

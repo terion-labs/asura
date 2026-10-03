@@ -26,7 +26,8 @@ public sealed record AiProviderProfile : IDurableDefinition
         string defaultModel,
         int order,
         bool isEnabled = true,
-        IReadOnlyList<string>? discoveredModelIds = null)
+        IReadOnlyList<string>? discoveredModelIds = null,
+        IReadOnlyList<AiProviderModelMetadata>? discoveredModels = null)
         : this(
             id,
             schemaVersion,
@@ -39,7 +40,8 @@ public sealed record AiProviderProfile : IDurableDefinition
             isEnabled,
             AiProviderCatalog.Get(providerKind).Protocol,
             capabilities: null,
-            discoveredModelIds)
+            discoveredModelIds,
+            discoveredModels)
     {
     }
 
@@ -56,7 +58,8 @@ public sealed record AiProviderProfile : IDurableDefinition
         bool isEnabled,
         AiProviderProtocol protocol,
         AiProviderCapabilities? capabilities,
-        IReadOnlyList<string>? discoveredModelIds = null)
+        IReadOnlyList<string>? discoveredModelIds = null,
+        IReadOnlyList<AiProviderModelMetadata>? discoveredModels = null)
     {
         RuntimeId.Require(id.Value, nameof(id));
         if (schemaVersion != CurrentSchemaVersion)
@@ -121,10 +124,25 @@ public sealed record AiProviderProfile : IDurableDefinition
             throw new ArgumentException("The discovered model list is too large.", nameof(discoveredModelIds));
         }
 
+        if (discoveredModels is { Count: > MaximumDiscoveredModels }
+            || discoveredModels?.Any(model => model is null) == true
+            || discoveredModels?.Select(model => model.Id).Distinct(StringComparer.Ordinal).Count()
+                != discoveredModels?.Count)
+        {
+            throw new ArgumentException("Model metadata must be bounded and unique.", nameof(discoveredModels));
+        }
+
+        DiscoveredModels = Array.AsReadOnly((discoveredModels ?? []).ToArray());
         DiscoveredModelIds = Array.AsReadOnly((discoveredModelIds ?? [])
+            .Concat(DiscoveredModels.Select(model => model.Id))
             .Select(model => RequirePrintable(model, nameof(discoveredModelIds), MaximumModelIdLength))
             .Distinct(StringComparer.Ordinal)
             .ToArray());
+        if (DiscoveredModelIds.Count > MaximumDiscoveredModels)
+        {
+            throw new ArgumentException("The combined model catalog is too large.", nameof(discoveredModels));
+        }
+
         if (order is < 0 or > MaximumOrder)
         {
             throw new ArgumentOutOfRangeException(
@@ -165,6 +183,8 @@ public sealed record AiProviderProfile : IDurableDefinition
     public string DefaultModel { get; }
 
     public IReadOnlyList<string> DiscoveredModelIds { get; }
+
+    public IReadOnlyList<AiProviderModelMetadata> DiscoveredModels { get; }
 
     public int Order { get; }
 

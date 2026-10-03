@@ -27,7 +27,7 @@ internal sealed class BoundedMemoryStream(int maximumBytes) : MemoryStream
         if (count < 0 || Position > maximumBytes - count)
         {
             throw AiProviderClientException.Create(
-                AiProviderRuntimeErrorCode.InvalidConfiguration);
+                AiProviderRuntimeErrorCode.RequestTooLarge);
         }
     }
 }

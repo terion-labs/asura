@@ -643,7 +643,12 @@ public sealed partial class NativeAgentSession
                     .Select(message => message.ToolResult!.Generation))
                 .DefaultIfEmpty(0)
                 .Max();
-            if (greatestTranscriptGeneration > checkpoint.Generation)
+            // Older forks copied completed tool history but initialized their
+            // counters to zero. Recover only that never-started fork shape;
+            // active/nonzero generations must still agree with the envelope.
+            var legacyFork = checkpoint.Generation == 0
+                && payload.LastSubmittedToolGeneration == 0;
+            if (greatestTranscriptGeneration > checkpoint.Generation && !legacyFork)
             {
                 return AgentCheckpointRestoreResult.Failure(
                     AgentCheckpointRestoreErrorCode.InvalidPayload);
@@ -657,9 +662,9 @@ public sealed partial class NativeAgentSession
                 ? null
                 : new AiProviderProfileId(payload.ProviderId);
             session._conversationModel = payload.Model;
-            session._generation = checkpoint.Generation;
-            session._revision = checkpoint.Revision;
-            session._sequence = payload.LastSequence;
+            session._generation = Math.Max(checkpoint.Generation, greatestTranscriptGeneration);
+            session._revision = Math.Max(checkpoint.Revision, session._generation);
+            session._sequence = session._revision;
             session._lastSubmittedToolGeneration = payload.LastSubmittedToolGeneration;
             session._state = NativeAgentSessionState.Ready;
             return AgentCheckpointRestoreResult.Success(session);

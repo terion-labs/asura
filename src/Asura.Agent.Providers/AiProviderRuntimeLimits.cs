@@ -3,7 +3,10 @@ namespace Asura.Agent.Providers;
 public sealed class AiProviderRuntimeLimits
 {
     public AiProviderRuntimeLimits(
-        int maximumRequestBytes = 4 * 1024 * 1024,
+        // The kernel accepts 8 MiB of conversation data, including images.
+        // Base64 and JSON encoding must fit alongside tool definitions; the
+        // former 4 MiB cap rejected ordinary, otherwise-valid continuations.
+        int maximumRequestBytes = 32 * 1024 * 1024,
         int maximumModelResponseBytes = 2 * 1024 * 1024,
         int maximumStreamResponseBytes = 16 * 1024 * 1024,
         int maximumSseEventBytes = 1024 * 1024,

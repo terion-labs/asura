@@ -25,19 +25,16 @@ internal sealed class CatalogAgentProviderResolver(
                 "The requested enabled AI-provider profile is unavailable.");
         }
 
-        return new Binding(_providers.PinProvider(profileId), profile, _networkProxy);
+        return new Binding(_providers.PinProvider(profileId), _networkProxy);
     }
 
     private sealed class Binding(
         CatalogAiProviderBinding value,
-        AiProviderProfileDescriptor profile,
         Uri? networkProxy)
         : IAgentProviderBinding
     {
         private readonly CatalogAiProviderBinding _value =
             value ?? throw new ArgumentNullException(nameof(value));
-        private readonly AiProviderProfileDescriptor _profile =
-            profile ?? throw new ArgumentNullException(nameof(profile));
 
         public AiProviderProfileId ProfileId => _value.ProfileId;
 
@@ -47,12 +44,7 @@ internal sealed class CatalogAgentProviderResolver(
 
         public bool IsCurrent => _value.IsCurrent;
 
-        public int? ContextWindowTokens(string model) => _profile.Models
-            .SingleOrDefault(candidate => string.Equals(
-                candidate.Id,
-                model,
-                StringComparison.Ordinal))
-            ?.ContextWindowTokens;
+        public int? ContextWindowTokens(string model) => _value.ContextWindowTokens(model);
 
         public IAgentProvider CreateProvider(string model) => networkProxy is null
             ? _value.CreateProvider(model)

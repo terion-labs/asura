@@ -337,6 +337,52 @@ public sealed partial class GovernedAgentRuntimeTests
     }
 
     [Fact]
+    public async Task MissingModelMetadataStillCompactsBeforeNextUserTurn()
+    {
+        var provider = new ProviderRound((call, request) => call switch
+        {
+            1 =>
+            [
+                new AgentProviderEvent.ResponseStarted(),
+                new AgentProviderEvent.TextDelta("First answer"),
+                new AgentProviderEvent.Usage(new AgentTokenUsage(120_000, 100)),
+                new AgentProviderEvent.ResponseCompleted(AgentProviderStopReason.EndTurn),
+            ],
+            2 when request.Messages[^1].Content.Contains(
+                "PREFIX of a turn",
+                StringComparison.Ordinal) =>
+            [
+                new AgentProviderEvent.ResponseStarted(),
+                new AgentProviderEvent.TextDelta(
+                    "## Original Request\nFirst question.\n\n"
+                    + "## Context for Suffix\nThe first answer is retained."),
+                new AgentProviderEvent.ResponseCompleted(AgentProviderStopReason.EndTurn),
+            ],
+            3 when request.Messages.Any(message =>
+                message.Role == AgentMessageRole.Summary)
+                && string.Equals(request.Messages[^1].Content, "Second question", StringComparison.Ordinal) =>
+                ProviderRound.Answer("Second answer"),
+            _ => throw new InvalidOperationException("Unexpected provider call."),
+        });
+        await using var fixture = new RuntimeFixture(provider);
+
+        Assert.True((await fixture.Runtime.SendAsync(
+            fixture.Prompt("First question"),
+            CancellationToken.None)).IsSuccess);
+        Assert.Null(fixture.ProviderResolver.Binding.ContextWindowTokenLimit);
+        var second = await fixture.Runtime.SendAsync(
+            fixture.Prompt("Second question"),
+            CancellationToken.None);
+
+        Assert.True(second.IsSuccess, $"{second.Code}: {second.Message}");
+        Assert.Equal(3, provider.Requests.Count);
+        Assert.Contains(
+            provider.Requests.ToArray()[2].Messages,
+            message => message.Role == AgentMessageRole.Summary);
+        Assert.Equal("Second answer", fixture.Runtime.Snapshot.Messages[^1].Content);
+    }
+
+    [Fact]
     public async Task FailedPreflightCompactionNeverSendsTheOversizedUserTurn()
     {
         var provider = new ProviderRound((call, _) => call switch
