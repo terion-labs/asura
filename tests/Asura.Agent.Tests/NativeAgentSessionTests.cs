@@ -956,7 +956,7 @@ public sealed partial class NativeAgentSessionTests
             [],
             provider,
             CancellationToken.None).AsTask();
-        await provider.Started.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await provider.WaitingForRelease.Task.WaitAsync(TimeSpan.FromSeconds(1));
         Assert.True(session.Cancel());
         Assert.Equal(
             AgentTurnErrorCode.Cancelled,
@@ -2096,6 +2096,9 @@ public sealed partial class NativeAgentSessionTests
         public TaskCompletionSource Release { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
+        public TaskCompletionSource WaitingForRelease { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
         public TaskCompletionSource Finished { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -2128,6 +2131,7 @@ public sealed partial class NativeAgentSessionTests
                 SeenToken = cancellationToken;
                 Started.TrySetResult();
                 yield return new AgentProviderEvent.ResponseStarted();
+                WaitingForRelease.TrySetResult();
                 await Release.Task.ConfigureAwait(false);
                 yield return new AgentProviderEvent.TextDelta("late response");
                 yield return new AgentProviderEvent.ResponseCompleted(
