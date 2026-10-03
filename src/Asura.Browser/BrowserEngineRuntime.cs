@@ -22,6 +22,10 @@ public static class BrowserEngineRuntime
     private static readonly object StateGate = new();
     private static bool _initialized;
     private static bool _shutdown;
+    private static BrowserRendererExitLog? _rendererExitLog;
+
+    internal static void RecordRendererExit(int browserId, int status, int exitCode, bool navigating) =>
+        _rendererExitLog?.Record(browserId, status, exitCode, navigating);
 
     /// <summary>
     /// Lets CEF claim renderer/GPU/utility subprocess invocations before any
@@ -95,6 +99,8 @@ public static class BrowserEngineRuntime
             var versions = Cef.GetVersions();
             ValidateVersions(versions);
             var settings = CreateSettings(options);
+            _rendererExitLog = new BrowserRendererExitLog(
+                Path.Combine(Path.GetDirectoryName(options.LogFilePath)!, "renderer-exits.log"));
             // Chromium 150 can launch its unused on-device model service
             // through either of these feature gates. Disable both so its
             // startup metrics path cannot request a GPU adapter independently

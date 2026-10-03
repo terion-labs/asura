@@ -1111,6 +1111,13 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         RunOnUiThread(() =>
         {
             // Only numeric process metadata is safe; CEF's error text may contain page data.
+            if (_disposed || !ReferenceEquals(sender, _browser))
+            {
+                return;
+            }
+
+            BrowserEngineRuntime.RecordRendererExit(
+                _browser?.Id ?? 0, (int)args.Status, args.ErrorCode, _activeNavigation is not null);
             SecretSafeDiagnosticProjection.WriteStandardError(
                 string.Create(
                     CultureInfo.InvariantCulture,

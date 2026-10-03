@@ -34,6 +34,7 @@ public sealed class BrowserRuntimePanelViewModelTests
         Assert.DoesNotContain("restored", browser.ProductMessage);
         Assert.True(browser.HasProductAction);
         Assert.Equal("Reload page", browser.ProductActionLabel);
+        Assert.Equal(lostAddress.ToString(), browser.AddressText);
     }
 
     [Fact]

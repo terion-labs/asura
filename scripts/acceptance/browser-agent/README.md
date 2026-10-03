@@ -21,7 +21,8 @@ the sealed, read-only source tree.
 Checks cover a cold hidden browser surface, navigation, accessibility snapshot
 references, custom onclick controls, viewport PNGs with coordinate bindings,
 fill/check/click, retained cookies, rejection of native menu fallback for browser
-keystrokes, and cancellation during native
+keystrokes, repeated navigation, recovery and persistent numeric diagnostics after
+an intentional crash of the disposable renderer, and cancellation during native
 typing. The routed run also proves that requests use the authenticated proxy
 and a proxy-denied destination never reaches the origin through a direct
 fallback. Restricted authority continues to fail before native dispatch.
