@@ -708,12 +708,18 @@
             MaxHeight="{Binding $parent[Grid].Bounds.Height}"
             HorizontalAlignment="Right" VerticalAlignment="Top"
             ZIndex="10"
-            Background="{DynamicResource ShellPopupSurfaceBrush}"
-            CornerRadius="{DynamicResource ShellCardCornerRadius}"
-            ClipToBounds="True"
-            BoxShadow="{DynamicResource ShellOverlayShadow}"
             IsHitTestVisible="False"
             IsVisible="{Binding !!RuntimeWorkspace.ActiveTab.PreviewPanel}">
+          <Border.Styles>
+            <!-- The panel owns its fill, outline, and clip. A second rounded
+                 wrapper clips the outline with a different corner geometry. -->
+            <Style Selector="controls|PanelChrome /template/ controls|SurfaceCard#PART_PanelSurface">
+              <Setter Property="Elevation" Value="Overlay" />
+            </Style>
+            <Style Selector="controls|PanelChrome /template/ controls|SurfaceCard#PART_PanelSurface:overlay">
+              <Setter Property="Background" Value="{DynamicResource ShellPopupSurfaceBrush}" />
+            </Style>
+          </Border.Styles>
           <ContentControl
               Content="{Binding RuntimeWorkspace.ActiveTab.PreviewPanel}"
               HorizontalContentAlignment="Stretch"
