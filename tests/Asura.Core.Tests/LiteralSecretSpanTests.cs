@@ -23,6 +23,8 @@ public sealed class LiteralSecretSpanTests
     [InlineData("password=first\\ second\\ third")]
     [InlineData("--api-key 'first second'")]
     [InlineData("api_key:=test-value")]
+    [InlineData("Authorization: Bearer fixture-auth-value")]
+    [InlineData("Authorization: Basic dXNlcjpwYXNz")]
     [InlineData("ghp_fixtureabcdefghijk")]
     [InlineData("https://alice:fixture-password@host/path")]
     [InlineData("-----BEGIN RSA PRIVATE KEY-----\nfixture\n-----END RSA PRIVATE KEY-----")]
@@ -38,7 +40,21 @@ public sealed class LiteralSecretSpanTests
     [InlineData("multica login --token\nmultica daemon start\nexit")]
     [InlineData("password=null, token=false, api_key=\"\"")]
     [InlineData("Set an API key in settings")]
+    [InlineData("terrariumctl cluster join --token '<token>' --wireguard '<bundle>' --yes")]
+    [InlineData("Generated Cockpit root password: `/etc/terrarium/secrets/cockpit_root_password`.\nNext instruction")]
+    [InlineData("Choose a password:\n  - Generate one\n  - Store it")]
+    [InlineData("Set a random `password:`, and `cert: false`.")]
+    [InlineData("https://portal.example.com:8080@auth:admins")]
+    [InlineData("https://hermes-dash.example.com:9119@auth")]
+    [InlineData("https://*.example.com:3000@auth:admins~auth.example.com")]
     public void OrdinaryInstructionsRemainReadable(string text) => Assert.Empty(LiteralSecretValidator.FindLikelyLiteralSecretSpans(text));
+
+    [Theory]
+    [InlineData("https://alice:12345@auth")]
+    [InlineData("https://example.com:real-password@auth")]
+    [InlineData("https://ordinary.example/path https://alice:fixture-password@host/path")]
+    public void RealCredentialUrlsStillProtectTheirValues(string text) =>
+        Assert.NotEmpty(LiteralSecretValidator.FindLikelyLiteralSecretSpans(text));
 
     [Theory]
     [InlineData("password=prefix\" secret words \"suffix", "prefix secret words suffix")]

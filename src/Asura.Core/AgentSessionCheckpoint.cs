@@ -14,25 +14,6 @@ public sealed class AgentSessionCheckpoint
     public const int MaximumPayloadBytes = 32 * 1024 * 1024;
     public const int MaximumRunIdBytes = 256;
 
-    private static readonly HashSet<string> SecretPropertyNames = new(
-        StringComparer.OrdinalIgnoreCase)
-    {
-        "accessToken",
-        "apiKey",
-        "authorization",
-        "credential",
-        "credentialValue",
-        "password",
-        "passphrase",
-        "privateKey",
-        "refreshToken",
-        "secret",
-        "secretRef",
-        "secretReference",
-        "secretValue",
-        "token",
-    };
-
     public AgentSessionCheckpoint(
         AgentRunId runId,
         int schemaVersion,
@@ -86,8 +67,7 @@ public sealed class AgentSessionCheckpoint
                     nameof(payloadJson));
             }
 
-            if (LiteralSecretValidator.ContainsLikelyLiteralSecret(payloadJson)
-                || ContainsSecretProperty(document.RootElement))
+            if (LiteralSecretValidator.ContainsLikelyLiteralSecret(document.RootElement))
             {
                 throw new ArgumentException(
                     "The checkpoint payload contains credential material.",
@@ -127,30 +107,4 @@ public sealed class AgentSessionCheckpoint
         && Encoding.UTF8.GetByteCount(value) <= maximumBytes
         && !value.Any(character => char.IsControl(character) || char.IsWhiteSpace(character));
 
-    private static bool ContainsSecretProperty(JsonElement element)
-    {
-        if (element.ValueKind == JsonValueKind.Object)
-        {
-            foreach (var property in element.EnumerateObject())
-            {
-                if (SecretPropertyNames.Contains(property.Name)
-                    || ContainsSecretProperty(property.Value))
-                {
-                    return true;
-                }
-            }
-        }
-        else if (element.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var item in element.EnumerateArray())
-            {
-                if (ContainsSecretProperty(item))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
 }

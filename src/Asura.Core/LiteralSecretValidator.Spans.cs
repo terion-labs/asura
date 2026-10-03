@@ -25,6 +25,17 @@ public static partial class LiteralSecretValidator
                 {
                     var value = match.Groups["value"];
                     var length = value.Success ? FindSecretValueEnd(text, value.Index) - match.Index : match.Length;
+                    if (value.Success && text[value.Index..(match.Index + length)] is var prefix
+                        && (prefix.Equals("Bearer", StringComparison.OrdinalIgnoreCase)
+                            || prefix.Equals("Basic", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        var tokenStart = match.Index + length;
+                        while (tokenStart < text.Length && text[tokenStart] is ' ' or '\t')
+                        {
+                            tokenStart++;
+                        }
+                        length = FindSecretValueEnd(text, tokenStart) - match.Index;
+                    }
                     if (ContainsLikelyLiteralSecret(text.Substring(match.Index, length)))
                     {
                         var continuation = match.Index + length;
