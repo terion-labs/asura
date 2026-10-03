@@ -99,6 +99,24 @@ public sealed class CefRuntimePackageProvenanceTests : IDisposable
         Assert.Contains("does not match its receipt", exception.Message);
     }
 
+    [Theory]
+    [InlineData("ASURA-PATCHSET.sha256")]
+    [InlineData("ASURA-SOURCE-SNAPSHOT.sha256")]
+    public void Reviewed_manifests_match_the_actual_vendored_sources(string manifest)
+    {
+        // Catch stale source evidence in the normal repository gate, before a
+        // release spends time building unrelated native dependencies.
+        var root = Path.Combine(FindRepositoryRoot(), "vendor", "exclr8cef");
+        foreach (var line in File.ReadLines(Path.Combine(root, manifest)))
+        {
+            var entry = line.Split("  ", 2, StringSplitOptions.None);
+            Assert.Equal(2, entry.Length);
+            Assert.Equal(
+                entry[1] + ": " + entry[0],
+                entry[1] + ": " + Hash(Path.Combine(root, entry[1])));
+        }
+    }
+
     [Fact]
     public void Receipt_rejects_a_missing_mac_helper_variant()
     {

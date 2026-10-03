@@ -53,3 +53,9 @@ The v2 context-menu callback carries native link and media URLs to host-owned
 commands. The host can add actions before rendering and cancels CEF's pending
 menu before executing a host action. Page navigation and selection commands
 remain Chromium-owned. Older callback ABIs cannot bind to the v2 export.
+
+The managed macOS keyboard bridge supplies Cocoa navigation characters on both
+key edges and preserves left/right modifier key codes. Empty character fields
+are reserved for modifier changes, and unknown native codes never alias KeyA.
+Tab releases are delivered normally, and host-consumed events stay consumed.
+This changes the managed bridge; the native binding ABI remains unchanged.
