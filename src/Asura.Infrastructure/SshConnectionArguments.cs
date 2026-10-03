@@ -249,11 +249,14 @@ internal static class SshConnectionArguments
             + $"{sessionName} {QuotePosixShellWord(directoryArgument)}";
     }
 
+    // Keep tmux's copy-mode mouse bindings out of ordinary text selection.
+    // With mouse off, tmux still forwards mouse reporting requested by the
+    // application running inside tmux, but shell drags belong to the local terminal.
     private static string EstablishedMultiplexerScript() =>
         "if command -v tmux >/dev/null 2>&1 "
         + "&& tmux -L asura has-session -t \"$1\" 2>/dev/null; then "
         + "tmux -L asura set-option -t \"$1\" status off >/dev/null 2>&1; "
-        + "tmux -L asura set-option -t \"$1\" mouse on >/dev/null 2>&1; "
+        + "tmux -L asura set-option -t \"$1\" mouse off >/dev/null 2>&1; "
         + "asura_attach tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
         + "if command -v screen >/dev/null 2>&1 "
         + "&& screen -S \"$1\" -X select . >/dev/null 2>&1; then "
@@ -268,14 +271,14 @@ internal static class SshConnectionArguments
         return "if command -v tmux >/dev/null 2>&1; then "
             + "if tmux -L asura has-session -t \"$1\" 2>/dev/null; then "
             + "tmux -L asura set-option -t \"$1\" status off >/dev/null 2>&1; "
-            + "tmux -L asura set-option -t \"$1\" mouse on >/dev/null 2>&1; "
+            + "tmux -L asura set-option -t \"$1\" mouse off >/dev/null 2>&1; "
             + "asura_attach tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
             + "tmux -L asura -u -2 start-server \\; "
             + "set-option -s default-terminal tmux-256color \\; "
             + "set-option -s terminal-features \"xterm*:RGB\" \\; "
             + $"new-session -d -s \"$1\"{tmuxDirectory} \\; "
             + "set-option -t \"$1\" status off || exit 1; "
-            + "tmux -L asura set-option -t \"$1\" mouse on >/dev/null 2>&1; "
+            + "tmux -L asura set-option -t \"$1\" mouse off >/dev/null 2>&1; "
             + "asura_attach tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
             + "if command -v screen >/dev/null 2>&1; then "
             + screenDirectory

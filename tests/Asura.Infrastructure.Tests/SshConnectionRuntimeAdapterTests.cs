@@ -452,7 +452,7 @@ public sealed class SshConnectionRuntimeAdapterTests
         Assert.Contains("set-option -s terminal-features \"xterm*:RGB\"", command, StringComparison.Ordinal);
         Assert.Contains("new-session -d -s \"$1\" -c \"$2\"", command, StringComparison.Ordinal);
         Assert.Contains("set-option -t \"$1\" status off", command, StringComparison.Ordinal);
-        Assert.Contains("set-option -t \"$1\" mouse on", command, StringComparison.Ordinal);
+        Assert.Contains("set-option -t \"$1\" mouse off", command, StringComparison.Ordinal);
         Assert.Contains("asura_attach screen -A -U -D -RR -S \"$1\"", command, StringComparison.Ordinal);
         Assert.True(
             command.IndexOf("command -v tmux", StringComparison.Ordinal)
@@ -493,7 +493,7 @@ public sealed class SshConnectionRuntimeAdapterTests
             command,
             StringComparison.Ordinal);
         Assert.Contains(
-            "set-option -t \"$1\" mouse on",
+            "set-option -t \"$1\" mouse off",
             command,
             StringComparison.Ordinal);
         Assert.Contains("asura_attach screen -A -U -D -r \"$1\"", command, StringComparison.Ordinal);
