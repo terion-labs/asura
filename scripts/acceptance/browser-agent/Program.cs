@@ -222,6 +222,7 @@ internal sealed class ProbeApp : Avalonia.Application
                     "no direct fallback around workspace proxy", null);
                 Console.WriteLine("PASS workspace proxy authentication and no direct-network fallback");
             }
+            await BrowserRendererRecoveryAcceptance.VerifyAsync(surface, address, deadline.Token);
             exitCode = 0;
         }
         catch (Exception exception)

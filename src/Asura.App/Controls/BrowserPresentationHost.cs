@@ -926,6 +926,7 @@ public sealed class BrowserPresentationHost : ContentControl
                 _recoveryAddress = recovered.LostAddress == BrowserAddress.Blank
                     ? null
                     : recovered.LostAddress;
+                AddressText = _recoveryAddress?.ToString() ?? string.Empty;
                 ShowProductNotice(
                     "Page process restarted",
                     "The page process stopped. Cookies and persisted site data remain, but unsaved form input and other volatile page state were lost.",
@@ -949,7 +950,7 @@ public sealed class BrowserPresentationHost : ContentControl
     {
         _presentedAddress = state.Address;
         AddressText = state.Address == BrowserAddress.Blank
-            ? string.Empty
+            ? _recoveryAddress?.ToString() ?? string.Empty
             : state.Address.ToString();
         IsLoading = state.LoadState == BrowserLoadState.Loading;
         CanGoBack = state.CanGoBack;
