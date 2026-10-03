@@ -76,7 +76,7 @@ public sealed class ShellViewModelFileOwnershipTests
             runtime,
             StringComparison.Ordinal);
         Assert.Contains(
-            "public sealed class RuntimeTabViewModel",
+            "public sealed partial class RuntimeTabViewModel",
             runtime,
             StringComparison.Ordinal);
         Assert.Contains(

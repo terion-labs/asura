@@ -22,7 +22,7 @@ namespace Asura.App.Controls;
 /// own controls, what closing it is called — and the chrome it shares with every
 /// other panel comes with the component.
 /// </summary>
-internal sealed class PanelChrome : ContentControl
+internal sealed partial class PanelChrome : ContentControl
 {
     /// <summary>
     /// What the header calls this panel. Also the drag surface: the title is
@@ -429,6 +429,7 @@ internal sealed class PanelChrome : ContentControl
         Attach(_splitLeftRight, OnSplitLeftRightClick);
         Attach(_splitTopBottom, OnSplitTopBottomClick);
         Attach(_close, OnCloseClick);
+        AttachCollapseActions(e);
         UpdateDockState();
         UpdateNotificationPulseClass();
     }

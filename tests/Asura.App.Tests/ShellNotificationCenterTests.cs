@@ -12,6 +12,30 @@ namespace Asura.App.Tests;
 public sealed class ShellNotificationCenterTests
 {
     [Fact]
+    public void Collapsed_active_panel_keeps_attention_until_restored_even_during_preview()
+    {
+        var shell = new FakeShell();
+        var (workspace, tab, panel) = shell.AddWorkspace("front");
+        shell.Front = workspace;
+        workspace.ActiveTab = tab;
+        tab.ActivatePanel(panel.Id);
+        shell.Center.Watch(workspace);
+        Assert.True(tab.CollapsePanel(panel.Id));
+        panel.RaiseNotification();
+        Assert.True(panel.HasAttention);
+
+        tab.PreviewCollapsedPanel(panel.Id);
+        shell.Center.MarkVisibleSeen();
+        Assert.True(panel.HasAttention);
+        Assert.True(workspace.HasAttention);
+
+        Assert.True(tab.RestorePanel(panel.Id));
+        shell.Center.MarkVisibleSeen();
+        Assert.False(panel.HasAttention);
+        Assert.False(workspace.HasAttention);
+    }
+
+    [Fact]
     public void A_notification_marks_the_panel_its_tab_and_its_workspace()
     {
         var shell = new FakeShell();

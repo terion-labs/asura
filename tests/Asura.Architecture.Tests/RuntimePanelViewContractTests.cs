@@ -750,6 +750,8 @@ public sealed class RuntimePanelViewContractTests
             .ToArray();
         Assert.Equal(
             [
+                "PART_Collapse",
+                "PART_Expand",
                 "PART_Float",
                 "PART_Dock",
                 "PART_SplitLeftRight",
@@ -792,6 +794,8 @@ public sealed class RuntimePanelViewContractTests
             .ToArray();
         Assert.Equal(
             [
+                "Subtract",
+                "{TemplateBinding ExpansionIcon}",
                 "WindowMultiple",
                 "WindowMultipleOff",
                 "SplitVertical",

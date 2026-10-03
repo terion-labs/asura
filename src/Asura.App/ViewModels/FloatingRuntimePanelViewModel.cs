@@ -38,6 +38,8 @@ public sealed class FloatingRuntimePanelViewModel : ObservableObject
     private double _y;
     private double _width = DefaultWidth;
     private double _height = DefaultHeight;
+    private Rect? _boundsBeforeExpansion;
+    private RuntimePanelViewModel _panel;
 
     public FloatingRuntimePanelViewModel(
         RuntimePanelViewModel panel,
@@ -46,13 +48,17 @@ public sealed class FloatingRuntimePanelViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(panel);
         ArgumentNullException.ThrowIfNull(document);
-        Panel = panel;
+        _panel = panel;
         Document = document;
         _x = CascadeStep * (cascade + 1);
         _y = CascadeStep * (cascade + 1);
     }
 
-    public RuntimePanelViewModel Panel { get; }
+    public RuntimePanelViewModel Panel
+    {
+        get => _panel;
+        internal set => SetProperty(ref _panel, value);
+    }
 
     /// <summary>
     /// The panel's place in the dock graph, kept while it has none. Handing this
@@ -95,6 +101,41 @@ public sealed class FloatingRuntimePanelViewModel : ObservableObject
     {
         Width = Math.Max(240, width);
         Height = Math.Max(140, height);
+    }
+
+    /// <summary>Fits the whole panel into the current canvas, including its header and resize grip.</summary>
+    public void FitWithin(Size available)
+    {
+        // A hidden tab can be measured at zero before it is mounted again.
+        if (!double.IsFinite(available.Width) || !double.IsFinite(available.Height)
+            || available.Width <= 0 || available.Height <= 0)
+        {
+            return;
+        }
+
+        if (Panel.IsZoomed)
+        {
+            _boundsBeforeExpansion ??= new Rect(X, Y, Width, Height);
+            X = 0;
+            Y = 0;
+            Width = available.Width;
+            Height = available.Height;
+            return;
+        }
+
+        if (_boundsBeforeExpansion is { } original)
+        {
+            X = original.X;
+            Y = original.Y;
+            Width = original.Width;
+            Height = original.Height;
+            _boundsBeforeExpansion = null;
+        }
+
+        Width = Math.Min(Width, available.Width);
+        Height = Math.Min(Height, available.Height);
+        X = Math.Clamp(X, 0, Math.Max(0, available.Width - Width));
+        Y = Math.Clamp(Y, 0, Math.Max(0, available.Height - Height));
     }
 
     private static double Clamp(double position, double available, double extent)

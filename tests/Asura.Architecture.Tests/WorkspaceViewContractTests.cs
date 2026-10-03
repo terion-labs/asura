@@ -546,8 +546,7 @@ public sealed class WorkspaceViewContractTests
     [Fact]
     public void Workspace_view_forwards_input_without_taking_shell_ownership()
     {
-        var codeBehind = ApplicationViews.FindUniqueCodeBehindSourceContaining(
-            "public sealed partial class WorkspaceView");
+        var codeBehind = ApplicationViews.FindPartialClassSources("WorkspaceView");
 
         foreach (var interaction in ShellInteractions.Keys)
         {

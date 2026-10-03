@@ -1,4 +1,6 @@
 using System.ComponentModel;
+using Asura.App.ViewModels;
+using Avalonia;
 using Avalonia.Controls;
 using Dock.Model.Controls;
 using Dock.Model.Core;
@@ -13,10 +15,33 @@ public sealed class RuntimePanelContentControl : ContentControl
 {
     private INotifyPropertyChanged? _observedDock;
     private INotifyPropertyChanged? _observedDocument;
+    private RuntimePanelViewModel? _observedPanel;
 
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        ObserveDock();
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        ObserveDock();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        _observedDock?.PropertyChanged -= OnDockPropertyChanged;
+        _observedDocument?.PropertyChanged -= OnDocumentPropertyChanged;
+        _observedPanel?.PropertyChanged -= OnPanelPropertyChanged;
+        _observedDock = null;
+        _observedDocument = null;
+        _observedPanel = null;
+    }
+
+    private void ObserveDock()
+    {
         _observedDock?.PropertyChanged -= OnDockPropertyChanged;
         _observedDock = DataContext is IDocumentDock
             ? DataContext as INotifyPropertyChanged
@@ -54,6 +79,25 @@ public sealed class RuntimePanelContentControl : ContentControl
         }
     }
 
-    private void PublishContext() =>
-        Content = (DataContext as IDocumentDock)?.ActiveDockable?.Context;
+    private void PublishContext()
+    {
+        var panel = DataContext as RuntimePanelViewModel
+            ?? (DataContext as IDocumentDock)?.ActiveDockable?.Context as RuntimePanelViewModel;
+        if (_observedPanel != panel)
+        {
+            _observedPanel?.PropertyChanged -= OnPanelPropertyChanged;
+            _observedPanel = panel;
+            _observedPanel?.PropertyChanged += OnPanelPropertyChanged;
+        }
+
+        Content = panel is { IsCollapsed: false } ? panel : null;
+    }
+
+    private void OnPanelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(RuntimePanelViewModel.IsCollapsed))
+        {
+            PublishContext();
+        }
+    }
 }
