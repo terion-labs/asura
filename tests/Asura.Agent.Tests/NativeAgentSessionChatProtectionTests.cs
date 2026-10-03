@@ -101,7 +101,7 @@ public sealed partial class NativeAgentSessionTests
         var restored = Assert.IsType<NativeAgentSession>(NativeAgentSession.RestoreCheckpoint(checkpoint).Session);
         var assistant = Assert.Single(restored.Snapshot().Transcript, message => message.ToolCalls.Length > 0);
         var reference = Assert.Single(assistant.HiddenReferences);
-        Assert.Equal(reference.Placeholder, assistant.ToolCalls[0].Arguments.GetProperty("hiddenContent").GetString(), StringComparer.Ordinal);
+        Assert.Equal(reference.Placeholder, assistant.ToolCalls[0].Arguments.GetProperty("password").GetString(), StringComparer.Ordinal);
         Assert.Empty(restored.Snapshot().PendingToolProposals);
     }
 

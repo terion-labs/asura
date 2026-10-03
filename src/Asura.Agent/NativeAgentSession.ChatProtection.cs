@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Collections.Immutable;
 using System.Text;
 using System.Text.Json;
@@ -7,6 +8,11 @@ namespace Asura.Agent;
 
 public sealed partial class NativeAgentSession
 {
+    private static readonly JsonWriterOptions ChatJsonWriterOptions = new()
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(System.Text.Unicode.UnicodeRanges.All),
+    };
+
     /// <summary>
     /// Produces inert history/provider data without changing live tool proposals.
     /// References survive restore; provider-private atoms never retain an extra
@@ -29,13 +35,7 @@ public sealed partial class NativeAgentSession
         var reasoning = message.ReasoningSummary is { } summary ? Add(protection.Protect(summary)) : null;
         var tools = message.ToolCalls.Select(proposal =>
         {
-            var arguments = proposal.Arguments;
-            if (ContainsUnsafeToolArguments(proposal) || ContainsProtectedJson(arguments, protection))
-            {
-                var hidden = Add(protection.Hide(arguments.GetRawText()));
-                using var json = HiddenJson(hidden);
-                arguments = json.RootElement.Clone();
-            }
+            var arguments = ProtectChatJson(proposal.Arguments, protection, references) ?? proposal.Arguments;
             return new AgentToolProposal(Identifier(proposal.Id), proposal.Generation,
                 Identifier(proposal.ProviderCallId), Identifier(proposal.ToolName), arguments);
         }).ToImmutableArray();
@@ -53,21 +53,17 @@ public sealed partial class NativeAgentSession
         if (result is not null)
         {
             var value = result.Value;
-            var protectedValue = value.Kind == AgentToolResultValueKind.Json
-                ? ContainsProtectedJsonText(value.Content, protection)
-                : protection.Protect(value.Content).References.Length > 0;
-            if (ContainsUnsafeToolResultValue(result) || protectedValue)
+            if (value.Kind == AgentToolResultValueKind.Json)
             {
-                var hidden = Add(protection.Hide(value.Content));
-                if (value.Kind == AgentToolResultValueKind.Json)
+                using var json = JsonDocument.Parse(value.Content);
+                if (ProtectChatJson(json.RootElement, protection, references) is { } projected)
                 {
-                    using var json = HiddenJson(hidden);
-                    value = AgentToolResultValue.FromJson(Encoding.UTF8.GetBytes(json.RootElement.GetRawText()));
+                    value = AgentToolResultValue.FromJson(Encoding.UTF8.GetBytes(projected.GetRawText()));
                 }
-                else
-                {
-                    value = AgentToolResultValue.FromText(hidden);
-                }
+            }
+            else
+            {
+                value = AgentToolResultValue.FromText(Add(protection.Protect(value.Content)));
             }
             content = value.Content;
             result = new AgentToolResult(Identifier(result.ProposalId), result.Generation, Identifier(result.ProviderCallId),
@@ -110,10 +106,85 @@ public sealed partial class NativeAgentSession
         _ => false,
     };
 
-    private static JsonDocument HiddenJson(string placeholder)
+    private static JsonElement? ProtectChatJson(
+        JsonElement value, IChatTextProtection protection, ImmutableArray<ChatHiddenReference>.Builder references)
     {
-        // UTF-8 writer encoding must preserve the marker used by typed annotations.
-        var json = "{\"hiddenContent\":\"" + placeholder + "\"}";
-        return JsonDocument.Parse(json);
+        if (!LiteralSecretValidator.ContainsLikelyLiteralSecret(value) && !ContainsProtectedJson(value, protection))
+        {
+            return null;
+        }
+        string Add(ProtectedChatText text)
+        {
+            references.AddRange(text.References);
+            return text.Text;
+        }
+        var buffer = new ArrayBufferWriter<byte>();
+        using (var writer = new Utf8JsonWriter(buffer, ChatJsonWriterOptions))
+        {
+            Write(value);
+            void Write(JsonElement element)
+            {
+                switch (element.ValueKind)
+                {
+                    case JsonValueKind.Object:
+                        writer.WriteStartObject();
+                        foreach (var property in element.EnumerateObject())
+                        {
+                            writer.WritePropertyName(Add(protection.Protect(property.Name)));
+                            if (LiteralSecretValidator.IsSecretPropertyName(property.Name) && !LiteralSecretValidator.IsInertSecretValue(property.Value))
+                            {
+                                var original = property.Value.ValueKind == JsonValueKind.String
+                                    ? property.Value.GetString()! : property.Value.GetRawText();
+                                var hidden = Add(protection.Hide(original));
+                                if (property.Value.ValueKind == JsonValueKind.String)
+                                {
+                                    writer.WriteStringValue(hidden);
+                                }
+                                else
+                                {
+                                    writer.WriteStartObject();
+                                    writer.WriteString("hiddenContent", hidden);
+                                    writer.WriteEndObject();
+                                }
+                            }
+                            else
+                            {
+                                Write(property.Value);
+                            }
+                        }
+                        writer.WriteEndObject();
+                        break;
+                    case JsonValueKind.Array:
+                        writer.WriteStartArray();
+                        foreach (var item in element.EnumerateArray())
+                        {
+                            Write(item);
+                        }
+                        writer.WriteEndArray();
+                        break;
+                    case JsonValueKind.String:
+                        writer.WriteStringValue(Add(protection.Protect(element.GetString()!)));
+                        break;
+                    case JsonValueKind.Number:
+                        var projected = protection.Protect(element.GetRawText());
+                        if (projected.References.Length > 0)
+                        {
+                            writer.WriteStartObject();
+                            writer.WriteString("hiddenContent", Add(projected));
+                            writer.WriteEndObject();
+                        }
+                        else
+                        {
+                            element.WriteTo(writer);
+                        }
+                        break;
+                    default:
+                        element.WriteTo(writer);
+                        break;
+                }
+            }
+        }
+        using var document = JsonDocument.Parse(buffer.WrittenMemory);
+        return document.RootElement.Clone();
     }
 }

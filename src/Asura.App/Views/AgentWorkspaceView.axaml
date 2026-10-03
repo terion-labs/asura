@@ -1089,6 +1089,7 @@
                 </Button>
               </StackPanel>
               <ComboBox Grid.Column="2" Width="104" Margin="4,0" MinHeight="26"
+                  VerticalAlignment="Center"
                   FontSize="{DynamicResource ShellFontSize11}"
                   ItemsSource="{Binding AgentChat.ReasoningEfforts}"
                   SelectedItem="{Binding AgentChat.SelectedReasoningEffort, Mode=TwoWay}"
@@ -1102,7 +1103,13 @@
               <Button
                   Grid.Column="3"
                   Width="26"
+                  Height="26"
+                  Margin="0"
+                  Padding="0"
                   HorizontalAlignment="Right"
+                  VerticalAlignment="Center"
+                  HorizontalContentAlignment="Center"
+                  VerticalContentAlignment="Center"
                   Classes="IconButton ComposerControl"
                   IsVisible="{Binding AgentChat.HasContextWindow}"
                   ToolTip.Tip="{Binding AgentChat.ContextWindowUsageLabel}"

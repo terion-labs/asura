@@ -60,6 +60,21 @@ public static partial class LiteralSecretValidator
     public static bool ContainsLikelyLiteralSecret(string value)
     {
         ArgumentNullException.ThrowIfNull(value);
+        // Tool JSON is also retained as message text. Inspect its decoded fields
+        // so an inert placeholder is not mistaken for a new credential assignment.
+        var trimmed = value.AsSpan().TrimStart();
+        if (trimmed.Length > 0 && trimmed[0] is '{' or '[')
+        {
+            try
+            {
+                using var document = System.Text.Json.JsonDocument.Parse(value);
+                return ContainsLikelyLiteralSecret(document.RootElement);
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                // Incomplete JSON and ordinary prose still use the literal scan.
+            }
+        }
         if (SecretMarkers.Any(marker =>
                 value.Contains(marker, StringComparison.OrdinalIgnoreCase)))
         {
@@ -88,24 +103,26 @@ public static partial class LiteralSecretValidator
             return true;
         }
 
-        var scheme = value.IndexOf("://", StringComparison.Ordinal);
-        if (scheme < 0)
+        return CredentialUrlExpression().Matches(value).Any(match => !IsDocumentationProxyRoute(match.Value));
+    }
+
+    // Documentation for proxy routes uses host:port@auth, not user:password@host.
+    // Only exempt this exact notation on reserved example domains.
+    private static bool IsDocumentationProxyRoute(string value)
+    {
+        var authority = value[(value.IndexOf("://", StringComparison.Ordinal) + 3)..];
+        var marker = authority.IndexOf("@auth", StringComparison.Ordinal);
+        if (marker < 0 || (marker + 5 < authority.Length && authority[marker + 5] is not (':' or '~' or '`' or '.')))
         {
             return false;
         }
-
-        var authorityStart = scheme + 3;
-        var authorityEnd = value.IndexOfAny(
-            ['/', ' ', '\t', '\r', '\n'],
-            authorityStart);
-        if (authorityEnd < 0)
-        {
-            authorityEnd = value.Length;
-        }
-
-        var at = value.IndexOf('@', authorityStart, authorityEnd - authorityStart);
-        var colon = value.IndexOf(':', authorityStart, authorityEnd - authorityStart);
-        return colon >= authorityStart && at > colon;
+        var hostAndPort = authority[..marker];
+        var colon = hostAndPort.LastIndexOf(':');
+        return colon > 0
+            && (hostAndPort[..colon].Equals("example.com", StringComparison.OrdinalIgnoreCase)
+                || hostAndPort[..colon].EndsWith(".example.com", StringComparison.OrdinalIgnoreCase))
+            && int.TryParse(hostAndPort.AsSpan(colon + 1), System.Globalization.CultureInfo.InvariantCulture, out var port)
+            && port is > 0 and <= 65535;
     }
 
     public static bool ContainsLikelyLiteralSecret(
@@ -298,7 +315,8 @@ public static partial class LiteralSecretValidator
 
         var candidate = value[start..cursor];
         var isNonSecretLiteral =
-            candidate is "\"\"" or "''"
+            IsInertLiteral(candidate)
+            || candidate is "\"\"" or "''"
             || candidate.Equals(
                 "null",
                 StringComparison.OrdinalIgnoreCase)
@@ -328,6 +346,31 @@ public static partial class LiteralSecretValidator
         }
 
         return cursor < value.Length && value[cursor] is '+' or '?';
+    }
+
+    private static bool IsInertLiteral(string candidate)
+    {
+        candidate = candidate.TrimEnd('.');
+        if (candidate is "-" or "`")
+        {
+            return true;
+        }
+        if (candidate.Length >= 2 && candidate[0] is '\'' or '"' && candidate[^1] == candidate[0])
+        {
+            candidate = candidate[1..^1];
+        }
+        if (ChatHiddenReference.IsPlaceholder(candidate))
+        {
+            return true;
+        }
+        if (candidate.Length > 2 && candidate[0] == '<' && candidate[^1] == '>'
+            && candidate.AsSpan(1, candidate.Length - 2).IndexOfAnyExcept("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-".AsSpan()) < 0)
+        {
+            return true;
+        }
+        // A backticked absolute path after a label documents where a secret is stored.
+        var path = candidate.TrimEnd('.');
+        return path.StartsWith("`/", StringComparison.Ordinal) && path.EndsWith('`');
     }
 
     private static int FindSecretValueEnd(string value, int start)

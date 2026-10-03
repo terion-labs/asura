@@ -12,6 +12,10 @@ public sealed record ChatHiddenReference
         Id = id;
     }
 
+    public static bool IsPlaceholder(string value) => value.Length == 41
+        && value.StartsWith("⟦hidden-", StringComparison.Ordinal) && value.EndsWith('⟧')
+        && Guid.TryParseExact(value.AsSpan(8, 32), "N", out _);
+
     public string Id { get; }
     public string Placeholder => "⟦hidden-" + Id + "⟧";
 }

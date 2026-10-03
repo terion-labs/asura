@@ -91,25 +91,6 @@ public sealed partial class NativeAgentSession
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
 
-    private static readonly HashSet<string> SecretValuePropertyNames = new(
-        StringComparer.OrdinalIgnoreCase)
-    {
-        "password",
-        "passphrase",
-        "privateKey",
-        "apiKey",
-        "authorization",
-        "credential",
-        "accessToken",
-        "refreshToken",
-        "secret",
-        "secretRef",
-        "secretReference",
-        "secretValue",
-        "credentialValue",
-        "token",
-    };
-
     public AgentConversationDescriptor DescribeConversation()
     {
         lock (_gate)
@@ -827,8 +808,7 @@ public sealed partial class NativeAgentSession
     }
 
     private static bool ContainsUnsafeToolArguments(AgentToolProposal proposal) =>
-        LiteralSecretValidator.ContainsLikelyLiteralSecret(proposal.Arguments.GetRawText())
-        || ContainsReservedSecretProperty(proposal.Arguments);
+        LiteralSecretValidator.ContainsLikelyLiteralSecret(proposal.Arguments);
 
     private static CheckpointProviderReplayState ToCheckpointReplayState(
         AgentProviderReplayState state) =>
@@ -915,7 +895,8 @@ public sealed partial class NativeAgentSession
     private static bool ContainsHiddenJsonText(JsonElement value, string placeholder) => value.ValueKind switch
     {
         JsonValueKind.String => value.GetString()?.Contains(placeholder, StringComparison.Ordinal) == true,
-        JsonValueKind.Object => value.EnumerateObject().Any(property => ContainsHiddenJsonText(property.Value, placeholder)),
+        JsonValueKind.Object => value.EnumerateObject().Any(property => property.Name.Contains(placeholder, StringComparison.Ordinal)
+            || ContainsHiddenJsonText(property.Value, placeholder)),
         JsonValueKind.Array => value.EnumerateArray().Any(item => ContainsHiddenJsonText(item, placeholder)),
         _ => false,
     };
@@ -1202,7 +1183,7 @@ public sealed partial class NativeAgentSession
     {
         foreach (var message in conversation)
         {
-            if (LiteralSecretValidator.ContainsLikelyLiteralSecret(message.Content)
+            if ((message.ToolResult is null && LiteralSecretValidator.ContainsLikelyLiteralSecret(message.Content))
                 || (message.ReasoningSummary is { } reasoningSummary
                     && LiteralSecretValidator.ContainsLikelyLiteralSecret(
                         reasoningSummary)))
@@ -1255,18 +1236,13 @@ public sealed partial class NativeAgentSession
 
     private static bool ContainsUnsafeToolResultValue(AgentToolResult result)
     {
-        if (LiteralSecretValidator.ContainsLikelyLiteralSecret(result.Value.Content))
-        {
-            return true;
-        }
-
         if (result.Value.Kind is not AgentToolResultValueKind.Json)
         {
-            return false;
+            return LiteralSecretValidator.ContainsLikelyLiteralSecret(result.Value.Content);
         }
 
         using var document = JsonDocument.Parse(result.Value.Content);
-        return ContainsReservedSecretProperty(document.RootElement);
+        return LiteralSecretValidator.ContainsLikelyLiteralSecret(document.RootElement);
     }
 
     private void ValidateCheckpointDurableBounds(
@@ -1333,33 +1309,6 @@ public sealed partial class NativeAgentSession
 
             ValidateToolResultBounds(resultBuilder.MoveToImmutable());
         }
-    }
-
-    private static bool ContainsReservedSecretProperty(JsonElement element)
-    {
-        if (element.ValueKind == JsonValueKind.Object)
-        {
-            foreach (var property in element.EnumerateObject())
-            {
-                if (SecretValuePropertyNames.Contains(property.Name)
-                    || ContainsReservedSecretProperty(property.Value))
-                {
-                    return true;
-                }
-            }
-        }
-        else if (element.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var item in element.EnumerateArray())
-            {
-                if (ContainsReservedSecretProperty(item))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 
     private static string ToRoleToken(AgentMessageRole role) => role switch

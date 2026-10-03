@@ -5090,7 +5090,7 @@ public sealed partial class GovernedAgentRuntime :
                 !message.Content.Contains(reference.Placeholder, StringComparison.Ordinal)
                 && message.ReasoningSummary?.Contains(reference.Placeholder, StringComparison.Ordinal) != true).ToArray();
             var presentationContent = message.ToolResult is not null && message.HiddenReferences.Length > 0
-                ? "Hidden tool content: " + string.Join(" ", message.HiddenReferences.Select(reference => reference.Placeholder))
+                ? "Hidden values in tool result: " + string.Join(" ", message.HiddenReferences.Select(reference => reference.Placeholder))
                 : hiddenOutsideBody.Length == 0 ? message.Content
                     : message.Content + "\n\nHidden content: " + string.Join(" ", hiddenOutsideBody.Select(reference => reference.Placeholder));
             if (message.Role == AgentMessageRole.Tool && message.HiddenReferences.Length > 0)

@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -87,18 +88,55 @@ internal sealed class ChatSecretProvider(
         }
         JsonElement RestoreJson(JsonElement json)
         {
-            if (json.ValueKind == JsonValueKind.Object && json.TryGetProperty("hiddenContent", out var hidden)
-                && hidden.ValueKind == JsonValueKind.String)
+            var buffer = new ArrayBufferWriter<byte>();
+            using (var writer = new Utf8JsonWriter(buffer))
             {
-                var original = allowed.FirstOrDefault(entry => string.Equals(entry.Key.Placeholder, hidden.GetString(), StringComparison.Ordinal));
-                if (original.Key is not null)
+                Write(json);
+                void Write(JsonElement element)
                 {
-                    using var document = JsonDocument.Parse(original.Value);
-                    return document.RootElement.Clone();
+                    if (element.ValueKind == JsonValueKind.Object && element.EnumerateObject().Count() == 1
+                        && element.TryGetProperty("hiddenContent", out var hidden) && hidden.ValueKind == JsonValueKind.String)
+                    {
+                        var original = allowed.FirstOrDefault(entry => string.Equals(entry.Key.Placeholder, hidden.GetString(), StringComparison.Ordinal));
+                        if (original.Key is not null)
+                        {
+                            using var document = JsonDocument.Parse(original.Value);
+                            document.RootElement.WriteTo(writer);
+                            return;
+                        }
+                    }
+                    switch (element.ValueKind)
+                    {
+                        case JsonValueKind.Object:
+                            writer.WriteStartObject();
+                            foreach (var property in element.EnumerateObject())
+                            {
+                                writer.WritePropertyName(Replace(property.Name));
+                                Write(property.Value);
+                            }
+                            writer.WriteEndObject();
+                            break;
+                        case JsonValueKind.Array:
+                            writer.WriteStartArray();
+                            foreach (var item in element.EnumerateArray())
+                            {
+                                Write(item);
+                            }
+                            writer.WriteEndArray();
+                            break;
+                        case JsonValueKind.String:
+                            writer.WriteStringValue(Replace(element.GetString()!));
+                            break;
+                        default:
+                            element.WriteTo(writer);
+                            break;
+                    }
                 }
             }
-            return json;
+            using var restored = JsonDocument.Parse(buffer.WrittenMemory);
+            return restored.RootElement.Clone();
         }
+
         var images = message.Images.Select(image => new AgentImageAttachment(Replace(image.FileName), image.MediaType, image.Content)).ToImmutableArray();
         var result = message.ToolResult;
         if (result is not null)
@@ -116,7 +154,8 @@ internal sealed class ChatSecretProvider(
             result = new(Replace(result.ProposalId), result.Generation, Replace(result.ProviderCallId), result.Status, Replace(result.StableCode), value, images);
         }
         var content = result?.Value.Content ?? Replace(message.Content);
-        var outsideBody = allowed.Where(entry => !message.Content.Contains(entry.Key.Placeholder, StringComparison.Ordinal))
+        var outsideBody = allowed.Where(entry => !message.Content.Contains(entry.Key.Placeholder, StringComparison.Ordinal)
+                && !message.Content.Contains(JsonEncodedText.Encode(entry.Key.Placeholder).ToString(), StringComparison.Ordinal))
             .Select(entry => entry.Value).ToArray();
         if (outsideBody.Length > 0)
         {
