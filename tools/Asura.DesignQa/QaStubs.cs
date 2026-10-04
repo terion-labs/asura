@@ -1779,7 +1779,21 @@ internal sealed class QaGitRepositoryClient : IGitRepositoryClient
                             new GitDiffLine(GitDiffLineKind.Added, "        AdoptActiveProfile();", null, 44),
                             new GitDiffLine(GitDiffLineKind.Context, "        EnsureRuntime();", 42, 45),
                         ]),
-                ])));
+                ])
+            { RawPatch = "diff --git a/example.cs b/example.cs\n--- a/example.cs\n+++ b/example.cs\n@@ -1,2 +1,2 @@\n-old value\n+new value\n context\n" }));
+
+    public ValueTask<GitResult<IReadOnlyList<GitLfsLock>>> ReadLfsLocksAsync(GitRepositoryHandle repository, string? remote, CancellationToken cancellationToken) =>
+        ValueTask.FromResult<GitResult<IReadOnlyList<GitLfsLock>>>(new GitResult<IReadOnlyList<GitLfsLock>>.Success([
+            new("12", "assets/background.psd", "Alice", GitLfsLockOwnership.CurrentUser, DateTimeOffset.Parse("2026-10-04T10:00:00Z", System.Globalization.CultureInfo.InvariantCulture)),
+            new("13", "assets/icon.tiff", "Bob", GitLfsLockOwnership.OtherUser, null),
+        ]));
+    public ValueTask<GitResult<IReadOnlyList<GitLfsStatusFile>>> ReadLfsStatusAsync(GitRepositoryHandle repository, CancellationToken cancellationToken) =>
+        ValueTask.FromResult<GitResult<IReadOnlyList<GitLfsStatusFile>>>(new GitResult<IReadOnlyList<GitLfsStatusFile>>.Success([new("assets/background.psd", "Modified", null)]));
+    public ValueTask<GitResult<IReadOnlyList<GitSubmoduleItem>>> ReadSubmodulesAsync(GitRepositoryHandle repository, CancellationToken cancellationToken) =>
+        ValueTask.FromResult<GitResult<IReadOnlyList<GitSubmoduleItem>>>(new GitResult<IReadOnlyList<GitSubmoduleItem>>.Success([
+            new("vendor/parser", "1111111111111111111111111111111111111111", "Changed")
+            { ExpectedRevision = "1111111111111111111111111111111111111111", CheckedOutRevision = "2222222222222222222222222222222222222222", IsInitialized = true, IsDirty = true },
+        ]));
 
     public ValueTask<GitResult<GitUnit>> StageAsync(
         GitRepositoryHandle repository,

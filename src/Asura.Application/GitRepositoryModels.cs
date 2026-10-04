@@ -67,7 +67,10 @@ public abstract record GitResult<T>
 public sealed record GitRepositoryHandle(
     ConnectionProfile Connection,
     string WorkingTreeRoot,
-    string? RunAsUser = null);
+    string? RunAsUser = null)
+{
+    public string Executable { get; init; } = "git";
+}
 
 public enum GitChangeKind
 {
@@ -136,7 +139,13 @@ public sealed record GitWorktreeItem(
     string? HeadSha,
     bool IsMain);
 
-public sealed record GitSubmoduleItem(string Path, string Sha, string State);
+public sealed record GitSubmoduleItem(string Path, string Sha, string State)
+{
+    public string ExpectedRevision { get; init; } = Sha;
+    public string? CheckedOutRevision { get; init; }
+    public bool IsInitialized { get; init; }
+    public bool IsDirty { get; init; }
+}
 
 /// <summary>
 /// One immutable generation of repository state. The generation number lets
@@ -155,6 +164,7 @@ public sealed record GitRepositorySnapshot(
     IReadOnlyList<GitSubmoduleItem> Submodules,
     DateTimeOffset CapturedAtUtc)
 {
+
     public bool HasConflicts =>
         UnstagedChanges.Any(change => change.Kind == GitChangeKind.Conflicted);
 }
@@ -211,7 +221,9 @@ public sealed record GitDiffRequest(
     string? OriginalPath = null,
     string? CommitSha = null,
     bool IsUntracked = false,
-    bool IgnoreWhitespace = false);
+    bool IgnoreWhitespace = false,
+    string? BaseRevision = null,
+    int ContextLines = 3);
 
 public enum GitDiffLineKind
 {
@@ -235,7 +247,10 @@ public sealed record GitDiffDocument(
     string? OriginalPath,
     bool IsBinary,
     bool IsTruncated,
-    IReadOnlyList<GitDiffHunk> Hunks);
+    IReadOnlyList<GitDiffHunk> Hunks)
+{
+    public string RawPatch { get; init; } = "";
+}
 
 public sealed record GitCommitRequest(
     string Subject,
@@ -282,7 +297,7 @@ public sealed record GitUnit
 /// instance serves every panel; the panel session owns snapshots and the
 /// one-mutation-at-a-time gate.
 /// </summary>
-public interface IGitRepositoryClient
+public partial interface IGitRepositoryClient
 {
     /// <summary>Resolves a path to the repository containing it.</summary>
     ValueTask<GitResult<GitRepositoryHandle>> OpenRepositoryAsync(
@@ -436,8 +451,8 @@ public interface IGitRepositoryClient
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Rebases the current branch onto the named revision. A failed rebase is
-    /// aborted before the error surfaces, so the worktree never stays mid-rebase.
+    /// Rebases the current branch onto the named revision. Conflicts preserve
+    /// Git's operation state so the person can resolve, continue, skip or abort.
     /// </summary>
     ValueTask<GitResult<GitUnit>> RebaseAsync(
         GitRepositoryHandle repository,

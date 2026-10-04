@@ -1,0 +1,36 @@
+<Window x:Class="Asura.App.Views.GitSubmoduleDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Asura.App.ViewModels" xmlns:controls="using:Asura.App.Controls" Width="900" Height="650" MinWidth="550" MinHeight="400" ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
+  <controls:DialogShell x:Name="Shell" Title="Submodule" Scrolls="False">
+    <controls:DialogShell.Footer>
+      <WrapPanel x:Name="FooterActions" ItemSpacing="{DynamicResource ShellSpaceSm}" LineSpacing="{DynamicResource ShellSpaceXs}">
+        <Button x:Name="RefreshButton" Content="Refresh" Click="OnRefresh" />
+        <Button x:Name="InitializeButton" Content="Initialize" Tag="Initialize" Click="OnSubmoduleAction" />
+        <Button x:Name="UpdateButton" Content="Update checkout" Tag="Update" Click="OnSubmoduleAction" />
+        <Button x:Name="SyncButton" Content="Sync configured URL" Tag="Sync" Click="OnSubmoduleAction" />
+        <Button x:Name="CompareButton" Content="Compare recorded and checkout" Click="OnCompare" />
+        <Button x:Name="OpenButton" Content="Open submodule" Classes="PrimaryButton" Click="OnOpen" />
+        <Button Content="Close" Classes="SecondaryButton" Click="OnClose" />
+      </WrapPanel>
+    </controls:DialogShell.Footer>
+    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
+      <TextBlock x:Name="Message" TextWrapping="Wrap" IsVisible="False" />
+      <StackPanel Grid.Row="1" Spacing="{DynamicResource ShellSpaceXs}">
+        <TextBlock x:Name="StateLabel" TextWrapping="Wrap" />
+        <controls:LabeledField Label="Recorded revision"><TextBox x:Name="ExpectedInput" IsReadOnly="True" AutomationProperties.Name="Submodule revision recorded in parent index" /></controls:LabeledField>
+        <controls:LabeledField Label="Checked-out revision"><TextBox x:Name="CheckoutInput" IsReadOnly="True" AutomationProperties.Name="Submodule checked-out revision" /></controls:LabeledField>
+      </StackPanel>
+      <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <ListBox x:Name="ChangesList" SelectionChanged="OnComparisonSelection" AutomationProperties.Name="Submodule revision changes">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:GitChangeItemViewModel">
+              <StackPanel Margin="{DynamicResource ShellInsetSm}" Spacing="{DynamicResource ShellSpaceXs}">
+                <TextBlock Text="{Binding Path}" TextWrapping="Wrap" />
+                <TextBlock Classes="Muted" Text="{Binding KindLabel}" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <TextBox Grid.Column="1" x:Name="PatchInput" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" AutomationProperties.Name="Selected submodule file patch" />
+      </Grid>
+    </Grid>
+  </controls:DialogShell>
+</Window>

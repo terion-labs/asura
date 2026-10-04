@@ -285,7 +285,7 @@ public sealed class GitRepositoryClientTests
         Assert.IsType<GitResult<GitUnit>.Success>(result);
         var command = Assert.Single(executor.Commands);
         Assert.Equal(
-            ["--literal-pathspecs", "-C", "/repo", "push", "origin", "feature/x"],
+            ["--literal-pathspecs", "-C", "/repo", "push", "--recurse-submodules=check", "origin", "feature/x"],
             command.Arguments,
             StringComparer.Ordinal);
     }
@@ -316,7 +316,7 @@ public sealed class GitRepositoryClientTests
     }
 
     [Fact]
-    public async Task AConflictedRebaseIsAbortedAndTheErrorSaysSo()
+    public async Task AConflictedRebasePreservesTheOperationForResolution()
     {
         var executor = new RecordingExecutor(
             new ConnectionCommandResult(
@@ -332,16 +332,11 @@ public sealed class GitRepositoryClientTests
 
         var failure = Assert.IsType<GitResult<GitUnit>.Failure>(result);
         Assert.Equal(GitErrorCode.CommandFailed, failure.Error.Code);
-        Assert.EndsWith("(rebase aborted)", failure.Error.Message, StringComparison.Ordinal);
         Assert.Contains("could not apply", failure.Error.Message, StringComparison.Ordinal);
-        Assert.Equal(2, executor.Commands.Count);
+        Assert.Single(executor.Commands);
         Assert.Equal(
-            ["--literal-pathspecs", "-C", "/repo", "rebase", "main"],
+            ["--literal-pathspecs", "-C", "/repo", "-c", "core.editor=true", "rebase", "main"],
             executor.Commands[0].Arguments,
-            StringComparer.Ordinal);
-        Assert.Equal(
-            ["--literal-pathspecs", "-C", "/repo", "rebase", "--abort"],
-            executor.Commands[1].Arguments,
             StringComparer.Ordinal);
     }
 
@@ -368,7 +363,7 @@ public sealed class GitRepositoryClientTests
     }
 
     [Fact]
-    public async Task PullAndPushSpeakTheirPlainInvocations()
+    public async Task PullUsesDefaultInvocationAndPushChecksSubmodules()
     {
         var executor = new RecordingExecutor(Exited(0));
         var client = new GitRepositoryClient(executor, TimeProvider.System);
@@ -385,7 +380,7 @@ public sealed class GitRepositoryClientTests
             executor.Commands[0].Arguments,
             StringComparer.Ordinal);
         Assert.Equal(
-            ["--literal-pathspecs", "-C", "/repo", "push"],
+            ["--literal-pathspecs", "-C", "/repo", "push", "--recurse-submodules=check"],
             executor.Commands[1].Arguments,
             StringComparer.Ordinal);
     }
@@ -402,11 +397,11 @@ public sealed class GitRepositoryClientTests
 
         Assert.Equal(2, executor.Commands.Count);
         Assert.Equal(
-            ["--literal-pathspecs", "-C", "/repo", "stash", "push"],
+            ["--literal-pathspecs", "-C", "/repo", "--no-literal-pathspecs", "stash", "push"],
             executor.Commands[0].Arguments,
             StringComparer.Ordinal);
         Assert.Equal(
-            ["--literal-pathspecs", "-C", "/repo", "stash", "push", "-m", "wip: diff polish"],
+            ["--literal-pathspecs", "-C", "/repo", "--no-literal-pathspecs", "stash", "push", "-m", "wip: diff polish"],
             executor.Commands[1].Arguments,
             StringComparer.Ordinal);
     }

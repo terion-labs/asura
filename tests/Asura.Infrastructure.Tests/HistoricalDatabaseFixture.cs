@@ -112,6 +112,14 @@ internal static class HistoricalDatabaseFixture
                 "agent-file-attachments",
                 "C425AB5BBA89CDAE4AC275628B944EAD2AA70A110117A71009C06B345BD607F7",
                 IsDestructive: false),
+            [23] = new(
+                "git-drafts-and-recent-repositories",
+                "BC35FBF46A69AF86FC8636FB56A52F27670DBDCFE0FA07977CC5F84A76207A57",
+                IsDestructive: false),
+            [24] = new(
+                "git-display-and-commit-preferences",
+                "0083DB74EAFDE32F2540CC28EA9F111786E8F945ADD56F99316311660A912F81",
+                IsDestructive: false),
         };
 
     public static readonly DateTimeOffset ReferenceTime =
@@ -168,6 +176,8 @@ internal static class HistoricalDatabaseFixture
                       + "ADD COLUMN workspace_id TEXT;",
                 16 => "ALTER TABLE browser_profile_preference "
                       + "ADD COLUMN default_profile_id TEXT;",
+                23 => "ALTER TABLE git_panel_preference "
+                      + "ADD COLUMN settings_json TEXT;",
                 // Migration 9 adds no schema object of its own — it rewrites a
                 // row — so there is no name to collide with. A trigger that
                 // refuses the write is the same obstruction by other means.
@@ -196,6 +206,7 @@ internal static class HistoricalDatabaseFixture
                 5 => $"DROP INDEX {schemaObjectName};",
                 13 => "ALTER TABLE agent_session_checkpoints DROP COLUMN workspace_id;",
                 16 => "ALTER TABLE browser_profile_preference DROP COLUMN default_profile_id;",
+                23 => "ALTER TABLE git_panel_preference DROP COLUMN settings_json;",
                 8 => $"DROP TRIGGER {schemaObjectName};",
                 _ => $"DROP TABLE {schemaObjectName};",
             });
@@ -391,6 +402,8 @@ internal static class HistoricalDatabaseFixture
             19 => "definition_payload_migration_v20_guard",
             20 => "browser_history",
             21 => "agent_file_attachments",
+            22 => "git_commit_draft",
+            23 => "settings_json",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(currentVersion),
                 currentVersion,

@@ -1,0 +1,62 @@
+<Window x:Class="Asura.App.Views.GitFileHistoryDialog" x:DataType="vm:GitFileInvestigationViewModel" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Asura.App.ViewModels" xmlns:git="using:Asura.Git" xmlns:components="using:Asura.App.Views.Components" xmlns:controls="using:Asura.App.Controls" Width="1100" Height="760" MinWidth="700" MinHeight="480" ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
+  <Window.Styles>
+    <Style Selector="TabItem">
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
+    </Style>
+  </Window.Styles>
+  <controls:DialogShell Title="File history" Subtitle="Follow revisions, compare changes, and trace lines to their commits." Scrolls="False">
+    <controls:DialogShell.Footer>
+      <WrapPanel Orientation="Horizontal">
+        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Content="Copy patch" Click="OnCopyPatch" Classes="SecondaryButton" />
+        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" IsEnabled="{Binding IsFile}" Content="Save revision…" Click="OnSaveRevision" Classes="SecondaryButton" />
+        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" IsEnabled="{Binding IsFile}" Content="History of selected lines…" Click="OnRangeHistory" Classes="SecondaryButton" />
+        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Content="Open commit in panel" Click="OnOpenCommit" Classes="PrimaryButton" />
+        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Content="Close" Click="OnClose" Classes="SecondaryButton" />
+      </WrapPanel>
+    </controls:DialogShell.Footer>
+    <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="{DynamicResource ShellSpaceSm}">
+      <TextBlock Text="{Binding Path}" TextWrapping="Wrap" />
+      <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <TextBox Text="{Binding Revision}" AutomationProperties.Name="File history starting revision" />
+        <Button Grid.Column="1" Content="Refresh" Click="OnRefresh" IsEnabled="{Binding !IsBusy}" />
+      </Grid>
+      <Grid Grid.Row="2" ColumnDefinitions="300,Auto,*">
+        <Grid RowDefinitions="*,Auto">
+          <ListBox x:Name="Revisions" ItemsSource="{Binding Commits}" SelectedItem="{Binding SelectedCommit}" SelectionChanged="OnRevisionChanged" AutomationProperties.Name="File revisions">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="git:GitCommitItem">
+                <StackPanel Spacing="{DynamicResource ShellSpaceXs}" Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}">
+                  <TextBlock Text="{Binding Subject}" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding AuthorName}" FontSize="{DynamicResource ShellFontSize10}" Foreground="{DynamicResource ShellMutedBrush}" />
+                  <TextBlock Text="{Binding ShortSha}" FontFamily="{DynamicResource ShellMonospaceFont}" FontSize="{DynamicResource ShellFontSize10}" />
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <Button Grid.Row="1" Content="Load more revisions" IsVisible="{Binding HasMore}" Click="OnLoadMore" IsEnabled="{Binding !IsBusy}" />
+        </Grid>
+        <GridSplitter Grid.Column="1" Width="5" ResizeDirection="Columns" />
+        <TabControl Grid.Column="2">
+          <TabItem Header="Changes"><components:CodePreviewView Text="{Binding Diff}" FileName="changes.diff" WordWrap="False" /></TabItem>
+          <TabItem Header="File"><components:CodePreviewView x:Name="FileContent" Text="{Binding Content}" FileName="{Binding Path}" WordWrap="False" /></TabItem>
+          <TabItem Header="Blame">
+            <ListBox ItemsSource="{Binding Blame}" AutomationProperties.Name="Line attribution">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="git:GitBlameLine">
+                  <Grid ColumnDefinitions="45,90,140,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                    <TextBlock Text="{Binding LineNumber}" />
+                    <Button Grid.Column="1" Content="{Binding CommitSha}" ToolTip.Tip="{Binding Summary}" Click="OnBlameCommit" AutomationProperties.Name="Open responsible commit" />
+                    <TextBlock Grid.Column="2" Text="{Binding Author}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AuthoredAt}" />
+                    <TextBlock Grid.Column="3" Text="{Binding Text}" FontFamily="{DynamicResource ShellMonospaceFont}" TextWrapping="NoWrap" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </TabItem>
+        </TabControl>
+      </Grid>
+      <TextBlock Grid.Row="3" Text="{Binding Status}" TextWrapping="Wrap" />
+    </Grid>
+  </controls:DialogShell>
+</Window>

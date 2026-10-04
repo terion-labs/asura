@@ -1261,7 +1261,8 @@ public sealed partial class GitRepositoryClient
         CancellationToken cancellationToken,
         bool acceptExitOne,
         bool allowTruncated) =>
-        ExecuteIsolatedCommandAsync(repository, environmentArguments, GitExecutable, gitArguments,
+        // Human executable preferences cannot broaden governed Git authority.
+        ExecuteIsolatedCommandAsync(repository with { Executable = GitExecutable }, environmentArguments, GitExecutable, gitArguments,
             timeout, outputLimit, cancellationToken, acceptExitOne, allowTruncated);
 
     private ValueTask<GitResult<CommandOutput>> ExecuteIsolatedCommandAsync(

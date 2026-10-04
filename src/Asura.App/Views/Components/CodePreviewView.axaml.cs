@@ -127,6 +127,11 @@ public sealed partial class CodePreviewView : UserControl
         set => SetValue(TextProperty, value);
     }
 
+    public (int Start, int End) SelectedLineRange => (
+        Editor.Document.GetLineByOffset(Editor.SelectionStart).LineNumber,
+        Editor.Document.GetLineByOffset(Math.Min(Editor.Document.TextLength,
+            Editor.SelectionStart + Math.Max(0, Editor.SelectionLength - 1))).LineNumber);
+
     public string? FileName
     {
         get => GetValue(FileNameProperty);

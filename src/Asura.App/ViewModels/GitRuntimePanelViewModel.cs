@@ -14,7 +14,7 @@ namespace Asura.App.ViewModels;
 /// and parsing; this type owns selection, the snapshot generation, and the
 /// one-mutation-at-a-time sequencing that keeps index edits honest.
 /// </summary>
-public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
+public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
 {
     private const int CommitPageSize = 200;
     private const double SidebarExpandedWidth = 220;
@@ -89,6 +89,11 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
     private bool _isLoadingCommits;
     private bool _isRefreshing;
     private bool _isMutating;
+    private bool _isOpeningRepository;
+    private readonly SemaphoreSlim _openGate = new(1, 1);
+    private CancellationTokenSource? _openCancellation;
+    private int _openGeneration;
+    private bool _preserveComparisonSelection;
     private string _statusText = "Open a repository";
     private string? _issueTitle;
     private string? _issueMessage;
@@ -127,7 +132,8 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         string? initialRepositoryPath = null,
         IGitPanelPreferences? panelPreferences = null,
         IGitRepositoryMutationCoordinator? mutationCoordinator = null,
-        string? connectionDisplayName = null)
+        string? connectionDisplayName = null,
+        IImagePreviewDecoder? imagePreviewDecoder = null)
         : base(id, PanelKind.Git, title, "Git")
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
@@ -135,6 +141,7 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         _connectionDisplayName = connectionDisplayName;
         _panelPreferences = panelPreferences;
+        _imagePreviewDecoder = imagePreviewDecoder;
         if (connection.Endpoint is not (ConnectionEndpoint.Local or ConnectionEndpoint.Ssh))
         {
             throw new ArgumentException(
@@ -173,13 +180,10 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         if (_panelPreferences is { } preferences)
         {
             preferences.Changed += OnPanelPreferencesChanged;
-            _ = PresentStoredViewStyleAsync();
         }
 
-        if (_repositoryPathInput.Length > 0)
-        {
-            Initialization = OpenRepositoryAsync(_repositoryPathInput);
-        }
+        Initialization = InitializePanelAsync(_repositoryPathInput);
+        StartRepositoryTimer();
     }
 
     public Task Initialization { get; } = Task.CompletedTask;
@@ -263,7 +267,7 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
     /// Whether repository-wide gestures that the view drives through a
     /// dialog rather than a command — stash, for one — may start now.
     /// </summary>
-    public bool CanMutateRepository => IsRepositoryOpen && !IsMutating;
+    public bool CanMutateRepository => IsRepositoryOpen && !IsMutating && !_isOpeningRepository;
 
     public string RepositoryPathInput
     {
@@ -338,6 +342,7 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
             {
                 OnPropertyChanged(nameof(IsLocalChangesSection));
                 OnPropertyChanged(nameof(IsAllCommitsSection));
+                OnPropertyChanged(nameof(CanApplyPartialDiff));
                 RefreshDiffForSelection();
             }
         }
@@ -402,6 +407,7 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
             if (SetProperty(ref _unstagedItems, value))
             {
                 OnPropertyChanged(nameof(UnstagedCount));
+                OnPropertyChanged(nameof(HasUnresolvedConflicts));
                 _stageAllCommand.RaiseCanExecuteChanged();
             }
         }
@@ -496,6 +502,7 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (SetProperty(ref _selectedChange, value))
             {
+                OnPropertyChanged(nameof(IsConflictSelected));
                 _stageCommand.RaiseCanExecuteChanged();
                 _unstageCommand.RaiseCanExecuteChanged();
                 if (IsLocalChangesSection)
@@ -624,6 +631,7 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
             {
                 UnstagedViewIsTree = state.UnstagedViewIsTree;
                 StagedViewIsTree = state.StagedViewIsTree;
+                ApplyExtendedPreferences(state);
             }
             finally
             {
@@ -654,8 +662,19 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
     {
         try
         {
+            var stored = await preferences.ReadAsync(_lifetime.Token);
             await preferences.ApplyAsync(
-                new GitPanelPreferenceState(UnstagedViewIsTree, StagedViewIsTree),
+                stored with
+                {
+                    UnstagedViewIsTree = UnstagedViewIsTree,
+                    StagedViewIsTree = StagedViewIsTree,
+                    DiffIsSplit = DiffIsSplit,
+                    DiffWrap = DiffWrap,
+                    DiffIgnoresWhitespace = DiffIgnoresWhitespace,
+                    DiffShowsInvisibles = DiffShowsInvisibles,
+                    DiffHighlightsWords = DiffHighlightsWords,
+                    BackgroundFetch = BackgroundFetchEnabled,
+                },
                 _lifetime.Token);
         }
         catch (OperationCanceledException)
@@ -670,7 +689,10 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (SetProperty(ref _selectedCommit, value))
             {
-                StartCommitDetailLoad();
+                if (!_preserveComparisonSelection)
+                {
+                    StartCommitDetailLoad();
+                }
             }
         }
     }
@@ -720,16 +742,8 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
 
     public bool HasCommitParents => CommitParentShas.Count > 0;
 
-    /// <summary>Jumps the history selection to a parent already in the list.</summary>
-    public void SelectCommitBySha(string sha)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sha);
-        if (_commits.FirstOrDefault(item =>
-                item.Commit.Sha.StartsWith(sha, StringComparison.Ordinal)) is { } match)
-        {
-            SelectedCommit = match;
-        }
-    }
+    /// <summary>Jumps to a commit, reading it directly when it is outside the loaded history.</summary>
+    public void SelectCommitBySha(string sha) => _ = SelectCommitByShaAsync(sha);
 
     /// <summary>The Commit tab's file list opens files in the Changes tab.</summary>
     public void OpenCommitChange(GitChangeItemViewModel change)
@@ -830,6 +844,8 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (SetProperty(ref _diffIgnoresWhitespace, value))
             {
+                OnPropertyChanged(nameof(CanApplyPartialDiff));
+                SaveViewStyle();
                 // The option feeds the Git invocation, so the comparison has
                 // to be asked again, not merely re-rendered.
                 RefreshDiffForSelection();
@@ -841,7 +857,16 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
     public bool DiffIsSplit
     {
         get => _diffIsSplit;
-        set => SetProperty(ref _diffIsSplit, value);
+        set
+        {
+            if (SetProperty(ref _diffIsSplit, value))
+            {
+                OnPropertyChanged(nameof(ShowsUnifiedDiff));
+                OnPropertyChanged(nameof(ShowsSplitDiff));
+                OnPropertyChanged(nameof(CanApplyPartialDiff));
+                SaveViewStyle();
+            }
+        }
     }
 
     public bool ShowsDiffEmptyState => !HasDiff && !IsDiffLoading && !DiffIsBinary;
@@ -860,6 +885,7 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
             if (SetProperty(ref _diffIsBinary, value))
             {
                 OnPropertyChanged(nameof(ShowsDiffEmptyState));
+                OnPropertyChanged(nameof(ShowsBinaryDiffPlaceholder));
             }
         }
     }
@@ -878,6 +904,7 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
             if (SetProperty(ref _isDiffLoading, value))
             {
                 OnPropertyChanged(nameof(ShowsDiffEmptyState));
+                OnPropertyChanged(nameof(CanApplyPartialDiff));
             }
         }
     }
@@ -890,6 +917,9 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
             if (SetProperty(ref _commitSubject, value))
             {
                 _commitCommand.RaiseCanExecuteChanged();
+                OnPropertyChanged(nameof(CommitSubjectGuide));
+                if (!_applyingDraft) { _draftEditVersion++; _draftReady = true; }
+                _ = PersistDraftAsync();
             }
         }
     }
@@ -897,7 +927,14 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
     public string CommitBody
     {
         get => _commitBody;
-        set => SetProperty(ref _commitBody, value);
+        set
+        {
+            if (SetProperty(ref _commitBody, value))
+            {
+                if (!_applyingDraft) { _draftEditVersion++; _draftReady = true; }
+                _ = PersistDraftAsync();
+            }
+        }
     }
 
     public bool Amend
@@ -908,6 +945,8 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
             if (SetProperty(ref _amend, value))
             {
                 _commitCommand.RaiseCanExecuteChanged();
+                if (!_applyingDraft) { _draftEditVersion++; _draftReady = true; }
+                _ = PersistDraftAsync();
             }
         }
     }
@@ -1073,42 +1112,122 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
             return;
         }
 
-        ClearIssue();
-        var result = await _client.OpenRepositoryAsync(_connection, path.Trim(), _lifetime.Token);
-        if (result is GitResult<GitRepositoryHandle>.Failure failure)
+        _openCancellation?.Cancel();
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        _openCancellation = cancellation;
+        var openGeneration = ++_openGeneration;
+        _isOpeningRepository = true;
+        RaiseMutationCommands();
+        var acquired = false;
+        try
         {
-            UntrustedRepositoryPath = failure.Error.Code == GitErrorCode.OwnershipUntrusted
-                ? path.Trim()
-                : null;
-            PresentFailure(failure.Error, "Could not open repository");
-            return;
-        }
-
-        UntrustedRepositoryPath = null;
-        _repository = ((GitResult<GitRepositoryHandle>.Success)result).Value;
-        if (_repository.Connection.Endpoint is ConnectionEndpoint.Local)
-        {
-            _bindingRevision++;
-            _sessionTarget = new GitSessionTarget(_repository, _bindingRevision);
-            if (_hostedSession is not null)
+            await _openGate.WaitAsync(cancellation.Token);
+            acquired = true;
+            ClearIssue();
+            var result = await _client.OpenRepositoryWithExecutableAsync(_connection, path.Trim(), _gitPreferences.GitExecutable, cancellation.Token);
+            if (cancellation.IsCancellationRequested || openGeneration != _openGeneration)
             {
-                await _hostedSession.InvalidateAsync().ConfigureAwait(true);
+                return;
+            }
+            if (result is GitResult<GitRepositoryHandle>.Failure failure)
+            {
+                UntrustedRepositoryPath = failure.Error.Code == GitErrorCode.OwnershipUntrusted ? path.Trim() : null;
+                PresentFailure(failure.Error, "Could not open repository");
+                return;
+            }
+
+            await PersistDraftAsync();
+            cancellation.Token.ThrowIfCancellationRequested();
+            UntrustedRepositoryPath = null;
+            _repository = ((GitResult<GitRepositoryHandle>.Success)result).Value;
+            ApplyHumanGitExecutable();
+            var repository = _repository;
+            ResetRepositoryPresentation();
+            await LoadRepositoryDraftAsync(cancellation.Token);
+            cancellation.Token.ThrowIfCancellationRequested();
+            if (!ReferenceEquals(repository, _repository))
+            {
+                return;
+            }
+            if (repository.Connection.Endpoint is ConnectionEndpoint.Local)
+            {
+                _bindingRevision++;
+                _sessionTarget = new GitSessionTarget(repository with { Executable = "git" }, _bindingRevision);
+                if (_hostedSession is not null)
+                {
+                    await _hostedSession.InvalidateAsync().ConfigureAwait(true);
+                }
+            }
+            else
+            {
+                _sessionTarget = null;
+            }
+            cancellation.Token.ThrowIfCancellationRequested();
+            RepositoryPathInput = repository.WorkingTreeRoot;
+            OnPropertyChanged(nameof(IsRepositoryOpen));
+            OnPropertyChanged(nameof(RepositoryRoot));
+            OnPropertyChanged(nameof(RepositoryName));
+            OnPropertyChanged(nameof(EffectiveGitUser));
+            OnPropertyChanged(nameof(HasEffectiveGitUser));
+            await RefreshRepositoryAsync(preserveIssue: true, waitForTurn: true);
+            cancellation.Token.ThrowIfCancellationRequested();
+            await LoadCommitsAsync(reset: true, applyFilter: true);
+            QueueHostedSessionEnsure();
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+        catch (ArgumentException exception)
+        {
+            if (openGeneration == _openGeneration)
+            {
+                PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Invalid repository path");
             }
         }
-        else
+        finally
         {
-            _sessionTarget = null;
+            if (acquired) { _openGate.Release(); }
+            if (openGeneration == _openGeneration)
+            {
+                _openCancellation = null;
+                _isOpeningRepository = false;
+                RaiseMutationCommands();
+            }
         }
-        RepositoryPathInput = _repository.WorkingTreeRoot;
-        OnPropertyChanged(nameof(IsRepositoryOpen));
-        OnPropertyChanged(nameof(RepositoryRoot));
-        OnPropertyChanged(nameof(RepositoryName));
-        OnPropertyChanged(nameof(EffectiveGitUser));
-        OnPropertyChanged(nameof(HasEffectiveGitUser));
-        RaiseMutationCommands();
-        await RefreshAsync();
-        await LoadCommitsAsync(reset: true);
-        QueueHostedSessionEnsure();
+    }
+
+    private void ResetRepositoryPresentation()
+    {
+        _historyCancellation?.Cancel();
+        _comparisonCancellation?.Cancel();
+        _diffCancellation?.Cancel();
+        _snapshot = null;
+        _presentedHead = null;
+        SelectedCommit = null;
+        StartCommitDetailLoad();
+        SelectedCommits = [];
+        _commits.Clear();
+        HasMoreCommits = false;
+        HistoryRevision = "";
+        _historyHiddenRefs.Clear();
+        OnPropertyChanged(nameof(HasHiddenHistoryRefs));
+        Operation = GitOperationState.Normal;
+        PendingGitFlowFinish = null;
+        UnstagedItems = [];
+        StagedItems = [];
+        GitChangeTreeNodeViewModel.Reconcile(UnstagedTreeRoots, UnstagedItems);
+        GitChangeTreeNodeViewModel.Reconcile(StagedTreeRoots, StagedItems);
+        SelectedChange = null;
+        SelectedUnstagedItems = [];
+        SelectedStagedItems = [];
+        LocalBranches = [];
+        RemoteBranches = [];
+        Tags = [];
+        LocalBranchTree = [];
+        RemoteBranchTree = [];
+        TagTree = [];
+        Remotes = [];
+        Stashes = [];
+        Worktrees = [];
+        Submodules = [];
     }
 
     /// <summary>
@@ -1124,7 +1243,7 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
             return;
         }
 
-        var result = await _client.TrustRepositoryAsync(_connection, path, _lifetime.Token);
+        var result = await _client.TrustRepositoryWithExecutableAsync(_connection, path, _gitPreferences.GitExecutable, _lifetime.Token);
         if (result is GitResult<GitUnit>.Failure failure)
         {
             PresentFailure(failure.Error, "Could not trust repository");
@@ -1134,11 +1253,19 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         await OpenRepositoryAsync(path);
     }
 
-    public async Task RefreshAsync()
+    public Task RefreshAsync() => RefreshRepositoryAsync(preserveIssue: false);
+
+    private async Task RefreshRepositoryAsync(bool preserveIssue, bool waitForTurn = false)
     {
-        if (_disposed
-            || _repository is not { } repository
-            || !await _refreshGate.WaitAsync(0, _lifetime.Token))
+        if (_disposed || _repository is not { } repository)
+        {
+            return;
+        }
+        if (waitForTurn)
+        {
+            await _refreshGate.WaitAsync(_lifetime.Token);
+        }
+        else if (!await _refreshGate.WaitAsync(0, _lifetime.Token))
         {
             return;
         }
@@ -1148,14 +1275,43 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         {
             var generation = ++_generation;
             var result = await _client.ReadSnapshotAsync(repository, generation, _lifetime.Token);
+            if (_disposed || !ReferenceEquals(repository, _repository))
+            {
+                return;
+            }
             if (result is GitResult<GitRepositorySnapshot>.Failure failure)
             {
                 PresentFailure(failure.Error, "Git unavailable");
                 return;
             }
 
-            ClearIssue();
+            if (!preserveIssue)
+            {
+                ClearIssue();
+            }
             ApplySnapshot(((GitResult<GitRepositorySnapshot>.Success)result).Value);
+            var operation = await _client.ReadOperationAsync(repository, _lifetime.Token);
+            if (_disposed || !ReferenceEquals(repository, _repository))
+            {
+                return;
+            }
+            if (operation is GitResult<GitOperationState>.Success operationState)
+            {
+                Operation = operationState.Value;
+            }
+            else if (operation is GitResult<GitOperationState>.Failure operationFailure)
+            {
+                PresentFailure(operationFailure.Error, "Could not read operation state");
+            }
+            await ReadGitFlowPendingFinishAsync(_lifetime.Token);
+            if (Submodules.Count > 0)
+            {
+                var submodules = await ReadSubmodulesAsync(_lifetime.Token);
+                if (submodules is GitResult<IReadOnlyList<GitSubmoduleItem>>.Success submoduleRows)
+                {
+                    Submodules = submoduleRows.Value;
+                }
+            }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
         {
@@ -1196,6 +1352,10 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         {
             var generation = ++_generation;
             var result = await _client.ReadWorkingSetAsync(repository, generation, _lifetime.Token);
+            if (_disposed || !ReferenceEquals(repository, _repository))
+            {
+                return;
+            }
             if (result is GitResult<GitWorkingSet>.Failure failure)
             {
                 PresentFailure(failure.Error, "Git unavailable");
@@ -1217,6 +1377,8 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
                 StagedChanges = workingSet.StagedChanges,
             };
             _snapshot = patched;
+            OnPropertyChanged(nameof(CanContinueOperation));
+            OnPropertyChanged(nameof(OperationLabel));
             ApplyWorkingSet(patched, forceDiffReload: false);
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
@@ -1232,16 +1394,9 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
     private void ApplySnapshot(GitRepositorySnapshot snapshot)
     {
         _snapshot = snapshot;
-        var defaultRemote = snapshot.Remotes.FirstOrDefault()?.Name;
-        LocalBranches = [.. snapshot.Refs
-            .Where(item => item.Kind == GitRefKind.LocalBranch)
-            .Select(item => new GitRefItemViewModel(item, snapshot.Head.BranchName, defaultRemote))];
-        RemoteBranches = [.. snapshot.Refs
-            .Where(item => item.Kind == GitRefKind.RemoteBranch)
-            .Select(item => new GitRefItemViewModel(item))];
-        Tags = [.. snapshot.Refs
-            .Where(item => item.Kind == GitRefKind.Tag)
-            .Select(item => new GitRefItemViewModel(item))];
+        OnPropertyChanged(nameof(CanContinueOperation));
+        OnPropertyChanged(nameof(OperationLabel));
+        PresentRefs(snapshot);
         Remotes = snapshot.Remotes;
         Stashes = snapshot.Stashes;
         Worktrees = snapshot.Worktrees;
@@ -1318,23 +1473,41 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         }
     }
 
-    private async Task LoadCommitsAsync(bool reset)
+    private async Task LoadCommitsAsync(bool reset, bool applyFilter = false)
     {
-        if (_disposed || _repository is not { } repository || _isLoadingCommits)
+        if (_disposed || _repository is not { } repository || (!reset && _isLoadingCommits))
         {
             return;
         }
 
+        if (applyFilter)
+        {
+            _appliedHistoryQuery = HistoryQuery;
+        }
+        if (reset)
+        {
+            _historyCancellation?.Cancel();
+        }
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        _historyCancellation = cancellation;
+        var historyGeneration = ++_historyGeneration;
+        var query = _appliedHistoryQuery;
         _isLoadingCommits = true;
         _loadMoreCommitsCommand.RaiseCanExecuteChanged();
         try
         {
             var offset = reset ? 0 : _commits.Count;
-            var result = await _client.ReadCommitPageAsync(
+            var result = await _client.ReadHistoryAsync(
                 repository,
+                query,
                 offset,
                 CommitPageSize,
-                _lifetime.Token);
+                cancellation.Token);
+            if (cancellation.IsCancellationRequested || historyGeneration != _historyGeneration
+                || !ReferenceEquals(repository, _repository))
+            {
+                return;
+            }
             if (result is GitResult<GitCommitPage>.Failure failure)
             {
                 PresentFailure(failure.Error, "Could not read history");
@@ -1342,8 +1515,12 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
             }
 
             var page = ((GitResult<GitCommitPage>.Success)result).Value;
+            var selectedSha = SelectedCommit?.Commit.Sha;
+            var selectedShas = SelectedCommits.Select(item => item.Commit.Sha).ToHashSet(StringComparer.Ordinal);
+            _preserveComparisonSelection = reset && !applyFilter && _comparisonTarget is not null;
             if (reset)
             {
+                SelectedCommits = [];
                 _commits.Clear();
             }
 
@@ -1365,27 +1542,53 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
             }
 
             HasMoreCommits = page.HasMore;
+            OnPropertyChanged(nameof(RecentCommitMessages));
             if (reset)
             {
-                SelectedCommit = _commits.FirstOrDefault();
+                try
+                {
+                    SelectedCommit = _commits.FirstOrDefault(item => string.Equals(item.Commit.Sha, selectedSha, StringComparison.Ordinal))
+                        ?? _commits.FirstOrDefault();
+                }
+                finally { _preserveComparisonSelection = false; }
+                SelectedCommits = selectedShas.Count > 0
+                    ? [.. _commits.Where(item => selectedShas.Contains(item.Commit.Sha))]
+                    : SelectedCommit is { } anchor ? [anchor] : [];
             }
         }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
+        }
+        catch (ArgumentException exception)
+        {
+            if (historyGeneration == _historyGeneration)
+            {
+                PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Invalid history filter");
+            }
         }
         finally
         {
-            _isLoadingCommits = false;
-            _loadMoreCommitsCommand.RaiseCanExecuteChanged();
+            _preserveComparisonSelection = false;
+            if (historyGeneration == _historyGeneration)
+            {
+                _historyCancellation = null;
+                _isLoadingCommits = false;
+                _loadMoreCommitsCommand.RaiseCanExecuteChanged();
+            }
         }
     }
 
     private void StartCommitDetailLoad()
     {
+        _comparisonCancellation?.Cancel();
+        _comparisonBase = null;
+        _comparisonTarget = null;
+        OnPropertyChanged(nameof(ComparisonLabel));
         _detailCancellation?.Cancel();
         _detailCancellation?.Dispose();
         _detailCancellation = null;
         CommitDetail = null;
+        CommitSignatureSummary = "";
         CommitChanges = [];
         SelectedCommitChange = null;
         OnPropertyChanged(nameof(CommitParentShas));
@@ -1426,7 +1629,9 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         {
             var result = await _client.ReadCommitDetailAsync(repository, sha, cancellationToken);
             if (cancellationToken.IsCancellationRequested
-                || !string.Equals(SelectedCommit?.Commit.Sha, sha, StringComparison.Ordinal))
+                || !ReferenceEquals(repository, _repository)
+                || !string.Equals(SelectedCommit?.Commit.Sha, sha, StringComparison.Ordinal)
+                || _comparisonTarget is not null)
             {
                 return;
             }
@@ -1441,6 +1646,7 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
             CommitDetail = detail;
             CommitChanges = [.. detail.Changes.Select(change => new GitChangeItemViewModel(change))];
             SelectedCommitChange = CommitChanges.FirstOrDefault();
+            await LoadCommitSignatureAsync(repository, sha, cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -1469,7 +1675,8 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         try
         {
             var result = await _client.ReadTreeAsync(repository, sha, path, _lifetime.Token);
-            if (!string.Equals(_loadedTreeSha, sha, StringComparison.Ordinal))
+            if (_disposed || !ReferenceEquals(repository, _repository)
+                || !string.Equals(_loadedTreeSha, sha, StringComparison.Ordinal))
             {
                 return;
             }
@@ -1527,6 +1734,11 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
             {
                 return;
             }
+            if (!ReferenceEquals(repository, _repository)
+                || !string.Equals(SelectedCommit?.Commit.Sha, sha, StringComparison.Ordinal))
+            {
+                return;
+            }
 
             if (result is GitResult<GitBlobSnapshot>.Failure failure)
             {
@@ -1544,7 +1756,12 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         }
         finally
         {
-            IsCommitFileLoading = false;
+            if (ReferenceEquals(repository, _repository)
+                && string.Equals(SelectedCommit?.Commit.Sha, sha, StringComparison.Ordinal)
+                && string.Equals(SelectedTreeNode?.Path, path, StringComparison.Ordinal))
+            {
+                IsCommitFileLoading = false;
+            }
         }
     }
 
@@ -1557,12 +1774,18 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
             _diffCancellation?.Dispose();
             _diffCancellation = null;
             _lastDiffRequest = null;
+            _presentedDiffRequest = null;
+            _diffDocument = null;
+            _selectedDiffLines = [];
             DiffLines = [];
             DiffSplitRows = [];
             DiffFileName = null;
             DiffIsBinary = false;
             DiffIsTruncated = false;
             IsDiffLoading = false;
+            DiffImages = null;
+            DiffSearchMatch = null;
+            OnPropertyChanged(nameof(CanApplyPartialDiff));
             return;
         }
 
@@ -1579,7 +1802,7 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         _diffCancellation = cancellation;
         _lastDiffRequest = request;
-        IsDiffLoading = true;
+        IsDiffLoading = request != _presentedDiffRequest;
         DiffLoading = LoadDiffAsync(repository, request, cancellation.Token);
     }
 
@@ -1597,10 +1820,12 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
                 change.Path,
                 change.Change.OriginalPath,
                 IsUntracked: change.Change.Kind == GitChangeKind.Untracked,
-                IgnoreWhitespace: DiffIgnoresWhitespace);
+                IgnoreWhitespace: DiffIgnoresWhitespace,
+                ContextLines: DiffWholeFile ? 100000 : 3);
         }
 
-        if (SelectedCommitChange is not { } commitChange || SelectedCommit is not { } commit)
+        if (SelectedCommitChange is not { } commitChange
+            || (_comparisonTarget is null && SelectedCommit is null))
         {
             return null;
         }
@@ -1609,8 +1834,11 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
             GitDiffArea.Commit,
             commitChange.Path,
             commitChange.Change.OriginalPath,
-            commit.Commit.Sha,
-            IgnoreWhitespace: DiffIgnoresWhitespace);
+            _comparisonTarget ?? SelectedCommit!.Commit.Sha,
+            IgnoreWhitespace: DiffIgnoresWhitespace,
+            BaseRevision: _comparisonBase,
+            ContextLines: DiffWholeFile ? 100000 : 3) with
+        { CommitSha = _comparisonTarget ?? SelectedCommit!.Commit.Sha };
     }
 
     private async Task LoadDiffAsync(
@@ -1629,24 +1857,47 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
             if (result is GitResult<GitDiffDocument>.Failure failure)
             {
                 PresentFailure(failure.Error, "Could not read diff");
+                _diffDocument = null;
+                _presentedDiffRequest = null;
+                _selectedDiffLines = [];
                 DiffLines = [];
                 DiffSplitRows = [];
+                DiffImages = null;
+                OnPropertyChanged(nameof(CanApplyPartialDiff));
                 return;
             }
 
             var document = ((GitResult<GitDiffDocument>.Success)result).Value;
-            var lines = new List<GitDiffLineViewModel>();
-            foreach (var hunk in document.Hunks)
+            if (_presentedDiffRequest == request && _diffDocument is { } presented
+                && string.Equals(presented.RawPatch, document.RawPatch, StringComparison.Ordinal)
+                && !document.IsBinary)
             {
-                lines.Add(GitDiffLineViewModel.Hunk(hunk.Header));
-                lines.AddRange(hunk.Lines.Select(GitDiffLineViewModel.Content));
+                _diffDocument = document;
+                return;
+            }
+            _presentedDiffRequest = request;
+            _diffDocument = document;
+            _selectedDiffLines = [];
+            DiffSearchMatch = null;
+            var lines = new List<GitDiffLineViewModel>();
+            for (var hunkIndex = 0; hunkIndex < document.Hunks.Count; hunkIndex++)
+            {
+                var hunk = document.Hunks[hunkIndex];
+                lines.Add(GitDiffLineViewModel.Hunk(hunk.Header, hunkIndex));
+                for (var lineIndex = 0; lineIndex < hunk.Lines.Count; lineIndex++)
+                {
+                    lines.Add(GitDiffLineViewModel.Content(hunk.Lines[lineIndex], hunkIndex, lineIndex));
+                }
             }
 
             DiffFileName = document.Path;
             DiffIsBinary = document.IsBinary;
             DiffIsTruncated = document.IsTruncated;
+            PairDiffWords(lines);
             DiffLines = lines;
             DiffSplitRows = GitDiffSplitRowViewModel.Build(document.Hunks);
+            OnPropertyChanged(nameof(CanApplyPartialDiff));
+            await LoadDiffImagesAsync(repository, request, cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -1670,7 +1921,7 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
             repository => _client.StageAsync(
                 repository,
                 [.. changes.Select(change => change.Path)],
-                _lifetime.Token),
+                ActionToken),
             workingSetOnly: true);
     }
 
@@ -1682,7 +1933,7 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
             repository => _client.UnstageAsync(
                 repository,
                 [.. changes.Select(change => change.Path)],
-                _lifetime.Token),
+                ActionToken),
             workingSetOnly: true);
     }
 
@@ -1701,7 +1952,7 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         var changes = items.Select(item => item.Change).ToArray();
         PresentPredictedDiscard(changes);
         return MutateAsync(
-            repository => _client.DiscardAsync(repository, changes, _lifetime.Token),
+            repository => _client.DiscardAsync(repository, changes, ActionToken),
             workingSetOnly: true);
     }
 
@@ -1803,46 +2054,46 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
     // Destructive ones are called by the view only after its confirmation.
     public Task CheckoutBranchAsync(string name) =>
         RefActionAsync(name, (repository, value) =>
-            _client.CheckoutBranchAsync(repository, value, _lifetime.Token));
+            _client.CheckoutBranchAsync(repository, value, ActionToken));
 
     public Task CreateBranchAsync(string name) =>
         RefActionAsync(name, (repository, value) =>
-            _client.CreateBranchAsync(repository, value, _lifetime.Token));
+            _client.CreateBranchAsync(repository, value, ActionToken));
 
     public Task RenameBranchAsync(string oldName, string newName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(oldName);
         return RefActionAsync(newName, (repository, value) =>
-            _client.RenameBranchAsync(repository, oldName, value, _lifetime.Token));
+            _client.RenameBranchAsync(repository, oldName, value, ActionToken));
     }
 
     public Task DeleteBranchAsync(string name) =>
         RefActionAsync(name, (repository, value) =>
-            _client.DeleteBranchAsync(repository, value, _lifetime.Token));
+            _client.DeleteBranchAsync(repository, value, ActionToken));
 
     public Task MergeBranchAsync(string name) =>
         RefActionAsync(name, (repository, value) =>
-            _client.MergeBranchAsync(repository, value, _lifetime.Token));
+            _client.MergeBranchAsync(repository, value, ActionToken));
 
     public Task CheckoutAsWorktreeAsync(string path, string branch)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         return RefActionAsync(branch, (repository, value) =>
-            _client.WorktreeAddAsync(repository, path, value, _lifetime.Token));
+            _client.WorktreeAddAsync(repository, path, value, ActionToken));
     }
 
     public Task FastForwardBranchAsync(string branch, string upstream, bool isCurrent)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(upstream);
         return RefActionAsync(branch, (repository, value) =>
-            _client.FastForwardAsync(repository, value, upstream, isCurrent, _lifetime.Token));
+            _client.FastForwardAsync(repository, value, upstream, isCurrent, ActionToken));
     }
 
     public Task PushBranchAsync(string remote, string branch)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(remote);
         return RefActionAsync(branch, (repository, value) =>
-            _client.PushBranchAsync(repository, remote, value, _lifetime.Token));
+            _client.PushBranchAsync(repository, remote, value, ActionToken));
     }
 
     /// <summary>
@@ -1852,24 +2103,24 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
     /// </summary>
     public Task RebaseOntoAsync(string onto) =>
         RefActionAsync(onto, (repository, value) =>
-            _client.RebaseAsync(repository, value, _lifetime.Token));
+            _client.RebaseAsync(repository, value, ActionToken));
 
     public Task CreateTagAsync(string name, string? message, string? revision = null) =>
         RefActionAsync(name, (repository, value) =>
-            _client.CreateTagAsync(repository, value, message, revision, _lifetime.Token));
+            _client.CreateTagAsync(repository, value, message, revision, ActionToken));
 
     public Task DeleteTagAsync(string name, IReadOnlyList<string> alsoOnRemotes)
     {
         ArgumentNullException.ThrowIfNull(alsoOnRemotes);
         return RefActionAsync(name, (repository, value) =>
-            _client.DeleteTagAsync(repository, value, alsoOnRemotes, _lifetime.Token));
+            _client.DeleteTagAsync(repository, value, alsoOnRemotes, ActionToken));
     }
 
     public Task AddRemoteAsync(string name, string url)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(url);
         return RefActionAsync(name, (repository, value) =>
-            _client.AddRemoteAsync(repository, value, url, _lifetime.Token));
+            _client.AddRemoteAsync(repository, value, url, ActionToken));
     }
 
     public Task EditRemoteAsync(string oldName, string newName, string url)
@@ -1877,12 +2128,12 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         ArgumentException.ThrowIfNullOrWhiteSpace(oldName);
         ArgumentException.ThrowIfNullOrWhiteSpace(url);
         return RefActionAsync(newName, (repository, value) =>
-            _client.EditRemoteAsync(repository, oldName, value, url, _lifetime.Token));
+            _client.EditRemoteAsync(repository, oldName, value, url, ActionToken));
     }
 
     public Task RemoveRemoteAsync(string name) =>
         RefActionAsync(name, (repository, value) =>
-            _client.RemoveRemoteAsync(repository, value, _lifetime.Token));
+            _client.RemoveRemoteAsync(repository, value, ActionToken));
 
     /// <summary>
     /// Counts as a mutation for gating: fetch holds the gate while it talks
@@ -1890,7 +2141,7 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
     /// </summary>
     public Task FetchRemoteAsync(string name) =>
         RefActionAsync(name, (repository, value) =>
-            _client.FetchRemoteAsync(repository, value, _lifetime.Token));
+            _client.FetchRemoteAsync(repository, value, ActionToken));
 
     private Task RefActionAsync(
         string name,
@@ -1905,37 +2156,37 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
     // reload, because any of them can move refs or the rows history shows.
 
     public Task PullAsync() =>
-        RepositoryActionAsync(repository => _client.PullAsync(repository, _lifetime.Token));
+        RepositoryActionAsync(repository => _client.PullAsync(repository, ActionToken));
 
     public Task PushAsync() =>
-        RepositoryActionAsync(repository => _client.PushAsync(repository, _lifetime.Token));
+        RepositoryActionAsync(repository => _client.PushAsync(repository, ActionToken));
 
     /// <summary>Pull, then push, under one gate hold: sync is one gesture.</summary>
     public Task SyncAsync() =>
         RepositoryActionAsync(async repository =>
         {
-            var pulled = await _client.PullAsync(repository, _lifetime.Token);
+            var pulled = await _client.PullAsync(repository, ActionToken);
             return pulled is GitResult<GitUnit>.Failure
                 ? pulled
-                : await _client.PushAsync(repository, _lifetime.Token);
+                : await _client.PushAsync(repository, ActionToken);
         });
 
     public Task StashPushAsync(string? message) =>
         RepositoryActionAsync(repository =>
-            _client.StashPushAsync(repository, message, _lifetime.Token));
+            _client.StashPushAsync(repository, message, ActionToken));
 
     public Task StashApplyAsync(string reference)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reference);
         return RepositoryActionAsync(repository =>
-            _client.StashApplyAsync(repository, reference, _lifetime.Token));
+            _client.StashApplyAsync(repository, reference, ActionToken));
     }
 
     public Task StashPopAsync(string reference)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reference);
         return RepositoryActionAsync(repository =>
-            _client.StashPopAsync(repository, reference, _lifetime.Token));
+            _client.StashPopAsync(repository, reference, ActionToken));
     }
 
     /// <summary>Drops a stash. Destructive: the view owns the confirmation.</summary>
@@ -1943,7 +2194,7 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reference);
         return RepositoryActionAsync(repository =>
-            _client.StashDropAsync(repository, reference, _lifetime.Token));
+            _client.StashDropAsync(repository, reference, ActionToken));
     }
 
     private async Task RepositoryActionAsync(
@@ -1959,54 +2210,65 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         }
     }
 
-    private async Task CommitAsync()
+    private async Task<bool> CommitAsync()
     {
         var subject = CommitSubject.Trim();
         if (subject.Length == 0)
         {
-            return;
+            return false;
         }
 
+        var composer = new GitCommitRequest(CommitSubject, CommitBody, Amend);
         var committed = await MutateAsync(repository => _client.CommitAsync(
             repository,
-            new GitCommitRequest(subject, CommitBody.Trim(), Amend),
-            _lifetime.Token));
+            new GitCommitRequest(subject, composer.Body.Trim(), composer.Amend),
+            ActionToken));
         if (committed)
         {
-            CommitSubject = "";
-            CommitBody = "";
-            Amend = false;
+            if (string.Equals(CommitSubject, composer.Subject, StringComparison.Ordinal)
+                && string.Equals(CommitBody, composer.Body, StringComparison.Ordinal) && Amend == composer.Amend)
+            {
+                CommitSubject = "";
+                CommitBody = "";
+                Amend = false;
+            }
             await LoadCommitsAsync(reset: true);
         }
+        return committed;
     }
 
     private async Task<bool> MutateAsync(
         Func<GitRepositoryHandle, ValueTask<GitResult<GitUnit>>> operation,
         bool workingSetOnly = false)
     {
-        if (_disposed || _repository is not { } repository)
+        if (_disposed || !CanMutateRepository || _repository is not { } repository)
         {
             return false;
         }
 
         IAsyncDisposable? sharedMutation = null;
         var localMutation = false;
-        if (_mutationCoordinator is not null && _sessionTarget is { } target)
-        {
-            sharedMutation = await _mutationCoordinator
-                .AcquireAsync(target.Identity, _lifetime.Token)
-                .ConfigureAwait(true);
-        }
-        else
-        {
-            await _mutationGate.WaitAsync(_lifetime.Token);
-            localMutation = true;
-        }
-
         IsMutating = true;
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        _operationCancellation = cancellation;
+        var started = DateTimeOffset.UtcNow;
         try
         {
+            if (_mutationCoordinator is not null && _sessionTarget is { } target)
+            {
+                sharedMutation = await _mutationCoordinator.AcquireAsync(target.Identity, cancellation.Token);
+            }
+            else
+            {
+                await _mutationGate.WaitAsync(cancellation.Token);
+                localMutation = true;
+            }
+            if (!ReferenceEquals(repository, _repository))
+            {
+                return false;
+            }
             var result = await operation(repository);
+            RecordActivity(started, result);
             if (result is GitResult<GitUnit>.Failure failure)
             {
                 PresentFailure(failure.Error, "Git operation failed");
@@ -2020,27 +2282,48 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         {
             return false;
         }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            PresentFailure(new GitError(GitErrorCode.Cancelled, "Operation cancelled. The repository has been refreshed; inspect its state before retrying.", Retryable: false), "Git operation cancelled");
+            return false;
+        }
+        catch (ArgumentException exception)
+        {
+            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Invalid Git request");
+            return false;
+        }
         finally
         {
-            IsMutating = false;
-            if (sharedMutation is not null)
+            try
             {
-                await sharedMutation.DisposeAsync().ConfigureAwait(true);
-            }
-            else if (localMutation)
-            {
-                _mutationGate.Release();
-            }
+                if (sharedMutation is not null)
+                {
+                    await sharedMutation.DisposeAsync().ConfigureAwait(true);
+                }
+                else if (localMutation)
+                {
+                    _mutationGate.Release();
+                }
 
-            // The worktree moved; whatever happened, show its real state.
-            // Index-only mutations settle for the scoped read: staging cannot
-            // move refs, remotes, stashes, worktrees, or submodules.
-            await (workingSetOnly ? RefreshWorkingSetAsync() : RefreshAsync());
+                var issueTitle = IssueTitle;
+                var issueMessage = IssueMessage;
+                await (workingSetOnly ? RefreshWorkingSetAsync() : RefreshRepositoryAsync(preserveIssue: true));
+                if (issueMessage is not null)
+                {
+                    IssueTitle = issueTitle;
+                    IssueMessage = issueMessage;
+                }
+            }
+            finally
+            {
+                _operationCancellation = null;
+                IsMutating = false;
+            }
         }
     }
 
     private AsyncActionCommand MutationCommand(Func<Task> execute, Func<bool> canExecute) =>
-        new(execute, () => !_disposed && IsRepositoryOpen && !IsMutating && canExecute());
+        new(execute, () => !_disposed && CanMutateRepository && canExecute());
 
     private void RaiseMutationCommands()
     {
@@ -2053,6 +2336,8 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         _pushCommand.RaiseCanExecuteChanged();
         _syncCommand.RaiseCanExecuteChanged();
         OnPropertyChanged(nameof(CanMutateRepository));
+        OnPropertyChanged(nameof(CanApplyPartialDiff));
+        OnPropertyChanged(nameof(CanContinueOperation));
     }
 
     private void PresentFailure(GitError error, string title)
@@ -2075,20 +2360,27 @@ public sealed class GitRuntimePanelViewModel : RuntimePanelViewModel
         }
 
         _disposed = true;
+        _repositoryTimer?.Stop();
+        if (_repositoryTimer is { } timer)
+        {
+            timer.Tick -= OnRepositoryTimer;
+        }
+
         if (_panelPreferences is { } preferences)
         {
             preferences.Changed -= OnPanelPreferencesChanged;
         }
 
         _lifetime.Cancel();
+        _comparisonCancellation?.Cancel();
+        _openCancellation?.Cancel();
+        _historyCancellation?.Cancel();
         _diffCancellation?.Cancel();
         _diffCancellation?.Dispose();
         _detailCancellation?.Cancel();
         _detailCancellation?.Dispose();
         _lifetime.Dispose();
         _hostedSession?.Dispose();
-        _refreshGate.Dispose();
-        _mutationGate.Dispose();
         base.Dispose();
     }
 

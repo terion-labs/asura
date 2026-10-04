@@ -88,7 +88,7 @@ public static class GitDiffParser
             hunks.Add(new GitDiffHunk(header, lines));
         }
 
-        return new GitDiffDocument(path, originalPath, isBinary, isTruncated, hunks);
+        return new GitDiffDocument(path, originalPath, isBinary, isTruncated, hunks) { RawPatch = output };
     }
 
     private static (int OldStart, int NewStart) ParseHunkHeader(string header)

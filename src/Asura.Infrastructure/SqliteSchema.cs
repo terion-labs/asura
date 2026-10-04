@@ -736,5 +736,28 @@ internal static class SqliteSchema
             );
             CREATE INDEX agent_file_attachments_scope ON agent_file_attachments(scope_id);
             """),
+        new(
+            23,
+            "git-drafts-and-recent-repositories",
+            """
+            CREATE TABLE git_commit_draft (
+                repository_id TEXT PRIMARY KEY NOT NULL,
+                subject TEXT NOT NULL,
+                body TEXT NOT NULL,
+                amend INTEGER NOT NULL CHECK(amend IN (0, 1))
+            ) WITHOUT ROWID;
+            CREATE TABLE git_recent_repository (
+                connection_id TEXT NOT NULL,
+                path TEXT NOT NULL,
+                opened_at REAL NOT NULL,
+                PRIMARY KEY(connection_id, path)
+            ) WITHOUT ROWID;
+            """),
+        new(
+            24,
+            "git-display-and-commit-preferences",
+            """
+            ALTER TABLE git_panel_preference ADD COLUMN settings_json TEXT NOT NULL DEFAULT '{}';
+            """),
     ];
 }
