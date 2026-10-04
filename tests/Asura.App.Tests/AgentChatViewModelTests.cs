@@ -4180,6 +4180,17 @@ public sealed partial class AgentChatViewModelTests
 
         public bool ClearResult { get; set; } = true;
 
+        public TaskCompletionSource<GovernedAgentCompactionResult>? PendingCompaction { get; set; }
+
+        public int CompactCount { get; private set; }
+
+        public ValueTask<GovernedAgentCompactionResult> CompactAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            CompactCount++;
+            return new(PendingCompaction!.Task);
+        }
+
         public bool ForkResult { get; set; } = true;
 
         public TaskCompletionSource<GovernedAgentSendResult>? PendingSend { get; set; }

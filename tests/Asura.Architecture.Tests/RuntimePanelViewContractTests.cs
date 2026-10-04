@@ -756,6 +756,7 @@ public sealed class RuntimePanelViewContractTests
                 "PART_Dock",
                 "PART_SplitLeftRight",
                 "PART_SplitTopBottom",
+                "PART_Overflow",
                 "PART_Close",
             ],
             actions);
@@ -800,6 +801,7 @@ public sealed class RuntimePanelViewContractTests
                 "WindowMultipleOff",
                 "SplitVertical",
                 "SplitHorizontal",
+                "MoreHorizontal",
                 "Dismiss",
             ],
             splits);

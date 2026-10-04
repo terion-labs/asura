@@ -191,22 +191,49 @@ internal sealed partial class PanelChrome : ContentControl
             chrome => chrome.CanFloat);
 
     /// <summary>
-    /// The widths below which each part of the header stops being drawn.
-    ///
-    /// A panel can be dragged narrower than its header needs, and something has to
-    /// give. Left to itself a layout answers that by overlapping — the browser's
-    /// status text printed straight through its own address box, and its title
-    /// through the connection name beside it — because a control asked for a width
-    /// nobody had. Naming the order in which the row gives things up is the
-    /// difference between a header that degrades and one that becomes unreadable.
-    ///
-    /// Split, close, and the title stay at every width: those are how the panel is
-    /// closed and how it is dragged, and a panel too narrow to close is a trap.
+    /// Minimum useful width for panel-specific controls. Secondary panel actions
+    /// move to overflow before this space is spent on header decorations.
     /// </summary>
-    private const double ActionsFloor = 360;
-    private const double HeaderContentFloor = 260;
-    private const double LeadingFloor = 210;
-    private const double StatusFloor = 170;
+    public static readonly StyledProperty<double> MinimumHeaderContentWidthProperty =
+        AvaloniaProperty.Register<PanelChrome, double>(nameof(MinimumHeaderContentWidth), 160);
+
+    public static readonly DirectProperty<PanelChrome, bool> IsHeaderCondensedProperty =
+        AvaloniaProperty.RegisterDirect<PanelChrome, bool>(nameof(IsHeaderCondensed), chrome => chrome.IsHeaderCondensed);
+
+    public static readonly DirectProperty<PanelChrome, bool> IsTitleVisibleProperty =
+        AvaloniaProperty.RegisterDirect<PanelChrome, bool>(nameof(IsTitleVisible), chrome => chrome.IsTitleVisible);
+
+    public static readonly DirectProperty<PanelChrome, double> LeadingMaxWidthProperty =
+        AvaloniaProperty.RegisterDirect<PanelChrome, double>(nameof(LeadingMaxWidth), chrome => chrome.LeadingMaxWidth);
+
+    private bool _isHeaderCondensed;
+    private bool _isTitleVisible = true;
+    private double _leadingMaxWidth = double.PositiveInfinity;
+    private Button? _overflow;
+
+    public double MinimumHeaderContentWidth
+    {
+        get => GetValue(MinimumHeaderContentWidthProperty);
+        set => SetValue(MinimumHeaderContentWidthProperty, value);
+    }
+
+    public bool IsHeaderCondensed
+    {
+        get => _isHeaderCondensed;
+        private set => SetAndRaise(IsHeaderCondensedProperty, ref _isHeaderCondensed, value);
+    }
+
+    public bool IsTitleVisible
+    {
+        get => _isTitleVisible;
+        private set => SetAndRaise(IsTitleVisibleProperty, ref _isTitleVisible, value);
+    }
+
+    public double LeadingMaxWidth
+    {
+        get => _leadingMaxWidth;
+        private set => SetAndRaise(LeadingMaxWidthProperty, ref _leadingMaxWidth, value);
+    }
 
     private int _titleColumnSpan = 2;
     private bool _isStatusVisible;
@@ -239,10 +266,13 @@ internal sealed partial class PanelChrome : ContentControl
 
         IsNotificationPulseActiveProperty.Changed.AddClassHandler<PanelChrome>(
             (chrome, _) => chrome.UpdateNotificationPulseClass());
+        AffectsArrange<PanelChrome>(MinimumHeaderContentWidthProperty, CanSplitProperty, HasAttentionProperty);
     }
 
     /// <summary>Raised when the user asks for this panel to be closed.</summary>
     public event EventHandler<RoutedEventArgs>? CloseRequested;
+
+    public event EventHandler<MenuFlyout>? OverflowOpening;
 
     /// <summary>
     /// Raised when the user asks for an empty panel beside this one. What it
@@ -417,18 +447,21 @@ internal sealed partial class PanelChrome : ContentControl
         Detach(_splitLeftRight, OnSplitLeftRightClick);
         Detach(_splitTopBottom, OnSplitTopBottomClick);
         Detach(_close, OnCloseClick);
+        Detach(_overflow, OnOverflowClick);
 
         _float = e.NameScope.Find<Button>("PART_Float");
         _dock = e.NameScope.Find<Button>("PART_Dock");
         _splitLeftRight = e.NameScope.Find<Button>("PART_SplitLeftRight");
         _splitTopBottom = e.NameScope.Find<Button>("PART_SplitTopBottom");
         _close = e.NameScope.Find<Button>("PART_Close");
+        _overflow = e.NameScope.Find<Button>("PART_Overflow");
 
         Attach(_float, OnFloatClick);
         Attach(_dock, OnDockClick);
         Attach(_splitLeftRight, OnSplitLeftRightClick);
         Attach(_splitTopBottom, OnSplitTopBottomClick);
         Attach(_close, OnCloseClick);
+        Attach(_overflow, OnOverflowClick);
         AttachCollapseActions(e);
         UpdateDockState();
         UpdateNotificationPulseClass();
@@ -524,15 +557,72 @@ internal sealed partial class PanelChrome : ContentControl
         // Before the first arrange there is no width to judge by, and hiding
         // everything until one arrives would make the header flash empty.
         var available = width > 0 ? width : double.PositiveInfinity;
-        IsStatusVisible = Status is not null && available >= StatusFloor;
-        IsLeadingVisible = Leading is not null && available >= LeadingFloor;
-        IsHeaderContentVisible =
-            HeaderContent is not null && available >= HeaderContentFloor;
-        IsActionsVisible = Actions is not null && available >= ActionsFloor;
+        var leadingWidth = HeaderSlotWidth(Leading);
+        var actionsWidth = HeaderSlotWidth(Actions);
+        var contentWidth = HeaderContent is null ? 80 : MinimumHeaderContentWidth;
+        // Include padding and the status/title drag targets. Measure the actual
+        // controls so font scaling and longer connection labels affect overflow.
+        var standardActionsWidth = new[] { _collapse, _expand, _float, _dock, _splitLeftRight, _splitTopBottom, _close }
+            .Sum(HeaderSlotWidth);
+        IsHeaderCondensed = available < contentWidth + leadingWidth + actionsWidth + standardActionsWidth + 120;
+        var actionBudget = IsHeaderCondensed ? 56 : standardActionsWidth;
+        IsHeaderContentVisible = HeaderContent is not null && available >= 160;
+        IsTitleVisible = !IsHeaderContentVisible || !IsHeaderCondensed;
+        var remaining = available - actionBudget - 48;
+        LeadingMaxWidth = Math.Max(74, remaining - contentWidth - 8);
+        IsLeadingVisible = Leading is not null && remaining >= contentWidth + Math.Min(leadingWidth, 74) + 8;
+        if (IsLeadingVisible)
+        {
+            remaining -= Math.Min(leadingWidth, LeadingMaxWidth) + 8;
+        }
+
+        IsStatusVisible = Status is not null && available >= 170;
+        IsActionsVisible = Actions is not null && remaining >= contentWidth + actionsWidth + 8;
         // No floor. A footer is a strip along the bottom rather than a claim on
         // the header's width, and where it is the only part of a panel the shell
         // still draws, hiding it takes the panel's last reachable pixel with it.
         IsFooterVisible = Footer is not null;
         TitleColumnSpan = IsHeaderContentVisible ? 1 : 2;
+    }
+
+    private static double HeaderSlotWidth(object? slot)
+    {
+        if (slot is not Control control)
+        {
+            return 0;
+        }
+
+        control.Measure(new Size(double.PositiveInfinity, 48));
+        return control.DesiredSize.Width;
+    }
+
+    private void OnOverflowClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button)
+        {
+            return;
+        }
+
+        var menu = new MenuFlyout();
+        Add("Collapse panel", OnCollapseClick);
+        Add(ExpansionLabel, OnExpandClick);
+        Add(IsFloating ? "Dock panel" : "Float panel", OnFloatClick);
+        if (CanSplit)
+        {
+            Add("Split left/right", OnSplitLeftRightClick);
+            Add("Split top/bottom", OnSplitTopBottomClick);
+        }
+
+        OverflowOpening?.Invoke(this, menu);
+        button.Flyout = menu;
+        menu.ShowAt(button);
+        e.Handled = true;
+
+        void Add(string label, EventHandler<RoutedEventArgs> action)
+        {
+            var item = new MenuItem { Header = label };
+            item.Click += action;
+            menu.Items.Add(item);
+        }
     }
 }

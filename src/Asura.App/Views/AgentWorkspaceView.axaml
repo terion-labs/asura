@@ -1132,6 +1132,18 @@
                       <TextBlock
                           Classes="Muted"
                           Text="{Binding AgentChat.ContextWindowUsageLabel}" TextWrapping="Wrap" />
+                      <Button
+                          Content="{Binding AgentChat.CompactLabel}"
+                          Command="{Binding AgentChat.CompactCommand}"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Center"
+                          AutomationProperties.Name="Compact conversation context now"
+                          ToolTip.Tip="Summarize older context while preserving the latest turn and your chat history" />
+                      <TextBlock
+                          Text="{Binding AgentChat.CompactionStatus}"
+                          IsVisible="{Binding AgentChat.HasCompactionStatus}"
+                          TextWrapping="Wrap"
+                          Classes="Muted" />
                     </StackPanel>
                   </Flyout>
                 </Button.Flyout>

@@ -560,6 +560,9 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     private AgentPermission _terminalMutationPermission = AgentPermission.Ask;
     private bool _terminalMutationAvailable;
     private bool _runtimeCanSend = true;
+    private bool _runtimeCanCompact;
+    private bool _compactInFlight;
+    private string _compactionStatus = string.Empty;
     private bool _runtimeCanQueueFollowUp;
     private int _queuedFollowUpCount;
     private bool _runtimeCanStop;
@@ -610,6 +613,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         _effectivePolicy = runtime.Snapshot.EffectivePolicy;
         _effectivePolicyProvider = _effectivePolicy.Provider;
         _effectivePolicyModel = _effectivePolicy.Model;
+        CompactCommand = new AsyncActionCommand(() => CompactAsync(_lifetime.Token), () => CanCompact);
         _runtime.Changed += OnRuntimeChanged;
         _profiles.ProfilesChanged += OnProfilesChanged;
         if (_favoriteStore is not null)
@@ -885,6 +889,63 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public string SelectedModelName => SelectedModel?.DisplayName ?? "No model";
 
     public bool HasContextWindow => SelectedModel is not null;
+
+    public AsyncActionCommand CompactCommand { get; }
+
+    public bool CanCompact => _runtimeCanCompact && !_compactInFlight && !IsBusy && !_clearInFlight;
+
+    public bool IsCompacting => _compactInFlight;
+
+    public string CompactLabel => IsCompacting ? "Compacting…" : "Compact now";
+
+    public string CompactionStatus
+    {
+        get => _compactionStatus;
+        private set
+        {
+            if (SetProperty(ref _compactionStatus, value))
+            {
+                OnPropertyChanged(nameof(HasCompactionStatus));
+            }
+        }
+    }
+
+    public bool HasCompactionStatus => !string.IsNullOrEmpty(CompactionStatus);
+
+    public async Task CompactAsync(CancellationToken cancellationToken)
+    {
+        if (!CanCompact)
+        {
+            return;
+        }
+
+        _compactInFlight = true;
+        OnPropertyChanged(nameof(IsCompacting));
+        OnPropertyChanged(nameof(CompactLabel));
+        NotifyAvailabilityChanged();
+        CompactionStatus = "Summarizing older context. Your chat history stays available.";
+        try
+        {
+            var result = await _runtime.CompactAsync(cancellationToken);
+            CompactionStatus = result.Message;
+            Refresh();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            CompactionStatus = "Compaction cancelled.";
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            CompactionStatus = "The conversation could not be compacted. Try again.";
+        }
+        finally
+        {
+            _compactInFlight = false;
+            OnPropertyChanged(nameof(IsCompacting));
+            OnPropertyChanged(nameof(CompactLabel));
+            NotifyAvailabilityChanged();
+        }
+    }
 
     public long ContextUsedTokens => _contextTokensUsed ?? Messages
         .LastOrDefault(message => message.IsAssistant && message.Usage is not null)
@@ -3021,6 +3082,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
         _runId = snapshot.RunId;
         _runtimeCanSend = snapshot.CanSend;
+        _runtimeCanCompact = snapshot.CanCompact;
         _runtimeCanQueueFollowUp = snapshot.CanQueueFollowUp;
         if (_queuedFollowUpCount != snapshot.QueuedFollowUpCount)
         {
@@ -3616,6 +3678,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     private void NotifyAvailabilityChanged()
     {
+        OnPropertyChanged(nameof(CanCompact));
+        CompactCommand.RaiseCanExecuteChanged();
         OnPropertyChanged(nameof(CanSend));
         OnPropertyChanged(nameof(CanOfferFollowUpQueue));
         OnPropertyChanged(nameof(CanQueueFollowUp));
