@@ -65,6 +65,54 @@ public sealed partial class BrowserRuntimePanelView : UserControl
 
     public event EventHandler<RoutedEventArgs>? StopRequested;
 
+    private void OnBrowserHeaderSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        // Reserve a readable address field before spending width on navigation
+        // actions. Hidden buttons retain their bindings and move into the menu.
+        var compact = e.NewSize.Width < 360;
+        BrowserHeader.Classes.Set("compact", compact);
+        foreach (var button in new[] { BrowserBackButton, BrowserForwardButton, BrowserFindButton, BrowserExternalButton, BrowserToolsButton })
+        {
+            button.IsVisible = !compact;
+        }
+
+        BrowserOverflowButton.IsVisible = compact && !BrowserChrome.IsHeaderCondensed;
+    }
+
+    private void OnPanelOverflowOpening(object? sender, MenuFlyout menu)
+    {
+        if (BrowserHeader.Classes.Contains("compact"))
+        {
+            menu.Items.Add(new Separator());
+            AddBrowserOverflowActions(menu);
+        }
+    }
+
+    private void OnBrowserOverflowClick(object? sender, RoutedEventArgs e)
+    {
+        var menu = new MenuFlyout();
+        AddBrowserOverflowActions(menu);
+        BrowserOverflowButton.Flyout = menu;
+        menu.ShowAt(BrowserOverflowButton);
+        e.Handled = true;
+    }
+
+    private void AddBrowserOverflowActions(MenuFlyout menu)
+    {
+        Add("Back", BrowserBackButton, OnBackClick);
+        Add("Forward", BrowserForwardButton, OnForwardClick);
+        Add("Find in page", BrowserFindButton, OnFindClick);
+        Add("Open in system browser", BrowserExternalButton, OnOpenInSystemBrowserClick);
+        Add("Developer tools", BrowserToolsButton, OnDeveloperToolsClick);
+
+        void Add(string label, Button source, EventHandler<RoutedEventArgs> action)
+        {
+            var item = new MenuItem { Header = label, IsEnabled = source.IsEnabled };
+            item.Click += action;
+            menu.Items.Add(item);
+        }
+    }
+
     /// <summary>
     /// Browser actions are raised with the presentation host as the sender.
     ///

@@ -547,7 +547,8 @@ public sealed partial class GovernedAgentRuntime :
         {
             lock (_gate)
             {
-                return _chatSecrets is null || _disposed ? _snapshot : _snapshot with
+                var snapshot = _snapshot with { CanCompact = CanCompactConversationUnsafe() };
+                return _chatSecrets is null || _disposed ? snapshot : snapshot with
                 {
                     Messages = CopyMessages(_snapshot.Messages),
                     ProvisionalAssistantText = ProtectStreamingText(_snapshot.ProvisionalAssistantText),

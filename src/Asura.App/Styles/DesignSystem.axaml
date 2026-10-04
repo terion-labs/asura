@@ -4,7 +4,8 @@
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:controls="using:Asura.App.Controls"
-    xmlns:icons="using:FluentIcons.Avalonia">
+    xmlns:icons="using:FluentIcons.Avalonia"
+    xmlns:converters="using:Avalonia.Data.Converters">
   <!--
     The shell's design system: the components every view is built from, defined
     once, in terms of the published tokens and nothing else.
@@ -150,9 +151,8 @@
                   header than it has things to put in it, and a grid answers that
                   by letting its Auto columns overlap: the browser's status text
                   printed straight through its address box. Docking states the
-                  order in which the row gives up space instead — the shared
-                  actions are placed first and always fit, and what is left over
-                  goes to the panel's own controls.
+                  order in which the row gives up space instead — secondary actions move to overflow when space is tight. The
+                  browser keeps the remaining width for its address field.
                 -->
                 <DockPanel Margin="{controls:Inset Horizontal=Md}" LastChildFill="True">
                   <!--
@@ -169,51 +169,58 @@
                         Margin="{controls:Inset Right=Xs}"
                         IsVisible="{TemplateBinding HasAttention}"
                         ToolTip.Tip="This panel has an unread notification" />
-                    <Button
-                        Name="PART_Collapse"
-                        AutomationProperties.Name="Collapse this panel"
-                        Classes="IconButton Compact"
-                        ToolTip.Tip="Collapse panel">
-                      <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="Subtract" />
-                    </Button>
-                    <Button
-                        Name="PART_Expand"
-                        AutomationProperties.Name="{TemplateBinding ExpansionLabel}"
-                        Classes="IconButton Compact"
-                        ToolTip.Tip="{TemplateBinding ExpansionLabel}">
-                      <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="{TemplateBinding ExpansionIcon}" />
-                    </Button>
-                    <Button
-                        Name="PART_Float"
-                        AutomationProperties.Name="Move this panel to its own window"
-                        Classes="IconButton Compact"
-                        IsVisible="{TemplateBinding CanFloat}"
-                        ToolTip.Tip="Move to its own window">
-                      <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="WindowMultiple" />
-                    </Button>
-                    <Button
-                        Name="PART_Dock"
-                        AutomationProperties.Name="Put this panel back in the workspace"
-                        Classes="IconButton Compact"
-                        IsVisible="{TemplateBinding IsFloating}"
-                        ToolTip.Tip="Put back in the workspace">
-                      <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="WindowMultipleOff" />
-                    </Button>
-                    <Button
-                        Name="PART_SplitLeftRight"
-                        AutomationProperties.Name="Split this panel left and right"
-                        Classes="IconButton Compact"
-                        IsVisible="{TemplateBinding CanSplit}"
-                        ToolTip.Tip="Split left/right">
-                      <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="SplitVertical" />
-                    </Button>
-                    <Button
-                        Name="PART_SplitTopBottom"
-                        AutomationProperties.Name="Split this panel top and bottom"
-                        Classes="IconButton Compact"
-                        IsVisible="{TemplateBinding CanSplit}"
-                        ToolTip.Tip="Split top/bottom">
-                      <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="SplitHorizontal" />
+                    <StackPanel Orientation="Horizontal" IsVisible="{TemplateBinding IsHeaderCondensed, Converter={x:Static converters:BoolConverters.Not}}">
+                      <Button
+                          Name="PART_Collapse"
+                          AutomationProperties.Name="Collapse this panel"
+                          Classes="IconButton Compact"
+                          ToolTip.Tip="Collapse panel">
+                        <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="Subtract" />
+                      </Button>
+                      <Button
+                          Name="PART_Expand"
+                          AutomationProperties.Name="{TemplateBinding ExpansionLabel}"
+                          Classes="IconButton Compact"
+                          ToolTip.Tip="{TemplateBinding ExpansionLabel}">
+                        <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="{TemplateBinding ExpansionIcon}" />
+                      </Button>
+                      <Button
+                          Name="PART_Float"
+                          AutomationProperties.Name="Move this panel to its own window"
+                          Classes="IconButton Compact"
+                          IsVisible="{TemplateBinding CanFloat}"
+                          ToolTip.Tip="Move to its own window">
+                        <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="WindowMultiple" />
+                      </Button>
+                      <Button
+                          Name="PART_Dock"
+                          AutomationProperties.Name="Put this panel back in the workspace"
+                          Classes="IconButton Compact"
+                          IsVisible="{TemplateBinding IsFloating}"
+                          ToolTip.Tip="Put back in the workspace">
+                        <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="WindowMultipleOff" />
+                      </Button>
+                      <Button
+                          Name="PART_SplitLeftRight"
+                          AutomationProperties.Name="Split this panel left and right"
+                          Classes="IconButton Compact"
+                          IsVisible="{TemplateBinding CanSplit}"
+                          ToolTip.Tip="Split left/right">
+                        <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="SplitVertical" />
+                      </Button>
+                      <Button
+                          Name="PART_SplitTopBottom"
+                          AutomationProperties.Name="Split this panel top and bottom"
+                          Classes="IconButton Compact"
+                          IsVisible="{TemplateBinding CanSplit}"
+                          ToolTip.Tip="Split top/bottom">
+                        <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="SplitHorizontal" />
+                      </Button>
+                    </StackPanel>
+                    <Button Name="PART_Overflow" Classes="IconButton Compact"
+                        IsVisible="{TemplateBinding IsHeaderCondensed}"
+                        AutomationProperties.Name="Panel actions" ToolTip.Tip="Panel actions">
+                      <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="MoreHorizontal" />
                     </Button>
                     <Button
                         Name="PART_Close"
@@ -246,6 +253,7 @@
                       Margin="{controls:Inset Right=Sm}"
                       VerticalAlignment="Center"
                       Content="{TemplateBinding Leading}"
+                      MaxWidth="{TemplateBinding LeadingMaxWidth}"
                       IsVisible="{TemplateBinding IsLeadingVisible}" />
                   <!--
                     The title is Dock's drag surface, which is why panels have no
@@ -256,6 +264,7 @@
                   <Grid ColumnDefinitions="Auto,*">
                     <controls:PanelDockHandle
                         Name="PART_TitleDragHandle"
+                        IsVisible="{TemplateBinding IsTitleVisible}"
                         Grid.Column="0"
                         Grid.ColumnSpan="{TemplateBinding TitleColumnSpan}">
                       <controls:PanelTitleLine
@@ -265,6 +274,7 @@
                             FontSize="{DynamicResource ShellFontSize11}"
                             FontWeight="SemiBold"
                             Text="{TemplateBinding Title}"
+                            MaxWidth="160"
                             TextTrimming="CharacterEllipsis" />
                         <ContentPresenter
                             Content="{TemplateBinding TitleAdornment}"

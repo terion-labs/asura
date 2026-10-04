@@ -407,6 +407,18 @@ internal sealed class QaApplication : Avalonia.Application
             AgentProfiles.PublishSampleProfile();
             AgentRuntime.PublishSampleReasoningConversation();
         }, PrepareCapture: ShowReasoningStart),
+        new("workspace-agent-context", vm =>
+        {
+            vm.ShowWorkspace();
+            vm.ToggleAgentPanel();
+            AgentProfiles.PublishSampleProfile();
+            AgentRuntime.PublishSampleReasoningConversation();
+        }, PrepareCapture: window =>
+        {
+            var context = window.GetVisualDescendants().OfType<Button>()
+                .Single(button => button.Content is ContextWindowDonut);
+            context.Flyout!.ShowAt(context);
+        }),
         // The same panel pinned: the layout holds a slot for it and the canvas
         // moves aside instead of being covered.
         new("workspace-agent-docked", vm =>
@@ -498,6 +510,22 @@ internal sealed class QaApplication : Avalonia.Application
         {
             vm.ShowWorkspace();
             AddSampleBrowserPanel(vm);
+        }),
+        new("workspace-browser-narrow", vm =>
+        {
+            vm.ShowWorkspace();
+        }, PrepareCapture: window =>
+        {
+            // The normal browser route has no renderer. This probe renders the
+            // real browser header with a draft address, without opening a site.
+            var browser = new Asura.App.Views.RuntimePanels.BrowserRuntimePanelView
+            {
+                DataContext = null,
+                Width = 470,
+                Height = 300,
+            };
+            browser.FindControl<BrowserPresentationHost>("RuntimeBrowser")!.AddressText = "https://example.test/current-page";
+            window.Content = browser;
         }),
         new("workspace-kubernetes", vm =>
         {

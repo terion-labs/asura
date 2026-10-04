@@ -801,6 +801,14 @@ public sealed partial class AgentChatViewModelTests
                 Assert.Contains(
                     window.GetVisualDescendants().OfType<TextBlock>(),
                     block => string.Equals(block.Text, "Context window", StringComparison.Ordinal) && block.IsEffectivelyVisible);
+                var compact = Assert.Single(
+                    window.GetVisualDescendants().OfType<Button>(),
+                    button => string.Equals(AutomationProperties.GetName(button),
+                        "Compact conversation context now", StringComparison.Ordinal));
+                Assert.True(compact.IsEffectivelyVisible);
+                Assert.Equal("Compact now", compact.Content);
+                Assert.Same(viewModel.CompactCommand, compact.Command);
+                Assert.Equal(viewModel.CanCompact, compact.IsEffectivelyEnabled);
 
                 var access = Assert.Single(
                     view.GetVisualDescendants().OfType<Button>(),

@@ -20,6 +20,9 @@
     carried no Grid.Column, so they rendered on top of the status dot.
   -->
   <controls:PanelChrome
+      x:Name="BrowserChrome"
+      MinimumHeaderContentWidth="220"
+      OverflowOpening="OnPanelOverflowOpening"
       CloseLabel="Close browser panel"
       CloseRequested="OnCloseClick"
       HasAttention="{Binding HasAttention}"
@@ -45,9 +48,19 @@
 
     <controls:PanelChrome.HeaderContent>
       <Grid
-          ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto"
-          ColumnSpacing="{DynamicResource ShellSpaceXs}">
+          x:Name="BrowserHeader"
+          SizeChanged="OnBrowserHeaderSizeChanged"
+          ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto">
+        <Grid.Styles>
+          <Style Selector="Grid#BrowserHeader">
+            <Setter Property="ColumnSpacing" Value="{DynamicResource ShellSpaceXs}" />
+          </Style>
+          <Style Selector="Grid#BrowserHeader.compact">
+            <Setter Property="ColumnSpacing" Value="{DynamicResource ShellSpaceNone}" />
+          </Style>
+        </Grid.Styles>
         <Button
+            x:Name="BrowserBackButton"
             AutomationProperties.Name="Go back"
             Classes="IconButton"
             Click="OnBackClick"
@@ -57,6 +70,7 @@
         </Button>
         <Button
             Grid.Column="1"
+            x:Name="BrowserForwardButton"
             AutomationProperties.Name="Go forward"
             Classes="IconButton"
             Click="OnForwardClick"
@@ -159,6 +173,7 @@
         </Button>
         <Button
             Grid.Column="4"
+            x:Name="BrowserFindButton"
             AutomationProperties.Name="Find in page"
             Classes="IconButton"
             Click="OnFindClick"
@@ -168,6 +183,7 @@
         </Button>
         <Button
             Grid.Column="5"
+            x:Name="BrowserExternalButton"
             AutomationProperties.Name="Open current page in system browser"
             Classes="IconButton"
             Click="OnOpenInSystemBrowserClick"
@@ -177,12 +193,18 @@
         </Button>
         <Button
             Grid.Column="6"
+            x:Name="BrowserToolsButton"
             AutomationProperties.Name="Open browser developer tools"
             Classes="IconButton"
             Click="OnDeveloperToolsClick"
             IsEnabled="{Binding IsLive, ElementName=RuntimeBrowser}"
             ToolTip.Tip="Developer tools">
           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize13}" Symbol="Code" />
+        </Button>
+        <Button x:Name="BrowserOverflowButton" Grid.Column="7"
+            Classes="IconButton" IsVisible="False" Click="OnBrowserOverflowClick"
+            AutomationProperties.Name="Browser actions" ToolTip.Tip="Browser actions">
+          <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize13}" Symbol="MoreHorizontal" />
         </Button>
       </Grid>
     </controls:PanelChrome.HeaderContent>

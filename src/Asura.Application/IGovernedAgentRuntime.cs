@@ -157,7 +157,13 @@ public interface IGovernedAgentRuntime : IDisposable, IAsyncDisposable
         CancellationToken cancellationToken);
 
     ValueTask<bool> ClearAsync(CancellationToken cancellationToken);
+
+    ValueTask<GovernedAgentCompactionResult> CompactAsync(CancellationToken cancellationToken) =>
+        ValueTask.FromResult(new GovernedAgentCompactionResult(
+            false, "agent_compaction_unavailable", "Compaction is unavailable for this conversation."));
 }
+
+public sealed record GovernedAgentCompactionResult(bool IsSuccess, string Code, string Message);
 
 /// <summary>
 /// Trusted local-human identity bound by the desktop composition root. Agent
@@ -561,7 +567,8 @@ public sealed record GovernedAgentSnapshot(
     AgentPolicy? BaselinePolicy = null,
     AgentPolicy? RunPolicy = null,
     long PolicyGeneration = 1,
-    string? PersistenceError = null)
+    string? PersistenceError = null,
+    bool CanCompact = false)
 {
     public bool IsBusy => State is
         GovernedAgentState.StreamingProvider
