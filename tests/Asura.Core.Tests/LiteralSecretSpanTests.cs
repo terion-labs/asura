@@ -56,6 +56,29 @@ public sealed class LiteralSecretSpanTests
     public void RealCredentialUrlsStillProtectTheirValues(string text) =>
         Assert.NotEmpty(LiteralSecretValidator.FindLikelyLiteralSecretSpans(text));
 
+    [Fact]
+    public void LongOrdinarySchemaValueRemainsReadable()
+    {
+        var text = new string('s', 256 * 1024);
+
+        Assert.False(LiteralSecretValidator.ContainsLikelyLiteralSecret(text));
+        Assert.Empty(LiteralSecretValidator.FindLikelyLiteralSecretSpans(text));
+    }
+
+    [Fact]
+    public void CredentialAfterLongOrdinaryTextIsStillDetectedAndHidden()
+    {
+        var prefix = new string('s', 256 * 1024) + " ";
+        const string credential = "https://alice:fixture-password@host/path";
+        var text = prefix + credential;
+
+        Assert.True(LiteralSecretValidator.ContainsLikelyLiteralSecret(text));
+        var span = Assert.Single(LiteralSecretValidator.FindLikelyLiteralSecretSpans(text));
+        Assert.Equal(prefix.Length, span.Start);
+        Assert.Equal(credential, text.Substring(span.Start, span.Length), StringComparer.Ordinal);
+        Assert.Contains("fixture-password", LiteralSecretValidator.FindLiteralSecretValueCandidates(text), StringComparer.Ordinal);
+    }
+
     [Theory]
     [InlineData("password=prefix\" secret words \"suffix", "prefix secret words suffix")]
     [InlineData("password=\"p\\u00e4ss\"", "päss")]

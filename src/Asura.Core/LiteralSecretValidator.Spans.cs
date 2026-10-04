@@ -231,6 +231,8 @@ public static partial class LiteralSecretValidator
     [GeneratedRegex("(?<![^ \\t\\r\\n\"',;])(?:ghp_|github_pat_|sk-|akia|xoxb-|xoxp-)[^ \\t\\r\\n\"',;]+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, 500)]
     private static partial Regex TokenExpression();
 
-    [GeneratedRegex("[a-z][a-z0-9+.-]*://[^/\\s:]+:[^/\\s@]+@[^\\s\"'<>)\\]]*", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, 500)]
+    // Long schema values can resemble an unfinished scheme at every character.
+    // Linear matching avoids quadratic retries without relaxing credential detection.
+    [GeneratedRegex("[a-z][a-z0-9+.-]*://[^/\\s:]+:[^/\\s@]+@[^\\s\"'<>)\\]]*", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, 500)]
     private static partial Regex CredentialUrlExpression();
 }
