@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -23,12 +24,15 @@ import (
 
 func TestTCPConnectWaitsForRouteAndPreservesRefusal(t *testing.T) {
 	entered := make(chan struct{})
+	var signalEntered sync.Once
 	release := make(chan struct{})
 	route := &tcpFixtureProxy{dial: func(ctx context.Context, metadata *M.Metadata) (net.Conn, error) {
 		if metadata.DstIP.String() != "198.51.100.10" || metadata.DstPort != 1433 {
 			t.Errorf("changed destination: %v", metadata)
 		}
-		close(entered)
+		// SYN retransmissions can start another route attempt after a refusal.
+		// This channel reports the first attempt, not the number of dials.
+		signalEntered.Do(func() { close(entered) })
 		select {
 		case <-release:
 			return nil, errors.New("upstream refused")

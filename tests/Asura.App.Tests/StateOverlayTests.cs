@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Asura.App.Controls;
 using Avalonia;
 using Avalonia.Automation;
@@ -162,7 +163,37 @@ public sealed class StateOverlayTests
         }
         finally
         {
-            await session.DisposeAsync();
+            try
+            {
+                await session.DisposeAsync();
+            }
+            catch (InvalidOperationException exception)
+                when (IsCompletedHeadlessQueueRace(exception))
+            {
+                // Same boundary as AgentComposerHeadlessTests: Avalonia 12.0.5
+                // can complete the empty queue between its cancellation check
+                // and Take. Assertions and application cleanup happen above.
+            }
         }
+    }
+
+    [Fact]
+    public void Headless_teardown_filter_accepts_only_completed_queue_take()
+    {
+        using var queue = new BlockingCollection<int>();
+        queue.CompleteAdding();
+        var completedQueueTake = Assert.Throws<InvalidOperationException>(
+            () => queue.Take());
+
+        Assert.True(IsCompletedHeadlessQueueRace(completedQueueTake));
+        Assert.False(IsCompletedHeadlessQueueRace(new InvalidOperationException()));
+    }
+
+    private static bool IsCompletedHeadlessQueueRace(InvalidOperationException exception)
+    {
+        var declaringType = exception.TargetSite?.DeclaringType;
+        return exception.TargetSite?.Name == nameof(BlockingCollection<int>.Take)
+            && declaringType?.IsGenericType == true
+            && declaringType.GetGenericTypeDefinition() == typeof(BlockingCollection<>);
     }
 }
