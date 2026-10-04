@@ -210,7 +210,7 @@
     <Setter Property="MinWidth" Value="190" />
   </Style>
 
-  <Style Selector="FlyoutPresenter.AgentModelMenu, FlyoutPresenter.AgentConversationMenu">
+  <Style Selector="FlyoutPresenter.AgentModelMenu, FlyoutPresenter.AgentConversationMenu, FlyoutPresenter.WorkspaceMemoriesSheet">
     <Setter Property="Padding" Value="0" />
     <Setter Property="ClipToBounds" Value="True" />
   </Style>

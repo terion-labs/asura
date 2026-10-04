@@ -225,7 +225,7 @@
       the footer now, beside the run status they describe.
     -->
     <Grid RowDefinitions="Auto,*,Auto,Auto">
-      <Grid MinHeight="44" Margin="{controls:Inset Horizontal=Md}" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+      <Grid MinHeight="44" Margin="{controls:Inset Horizontal=Md}" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
         <Grid VerticalAlignment="Center">
           <icons:SymbolIcon
               Symbol="Bot"
@@ -253,10 +253,20 @@
             Content="{Binding AgentChat.ConnectionStatus}"
             IsVisible="{Binding AgentChat, Converter={x:Static ObjectConverters.IsNotNull}}"
             AutomationProperties.Name="AI agent state" />
-        <Button Grid.Column="6" Classes="IconButton" ToolTip.Tip="Workspace memories" AutomationProperties.Name="Open workspace memories"
-            IsVisible="{Binding WorkspaceMemories, Converter={x:Static ObjectConverters.IsNotNull}}">
+        <!-- What the workspace remembers sits beside what it has said: the
+             memories sheet next to the conversation history. -->
+        <Button
+            Grid.Column="4"
+            Classes="IconButton"
+            IsVisible="{Binding WorkspaceMemories, Converter={x:Static ObjectConverters.IsNotNull}}"
+            ToolTip.Tip="Workspace memories"
+            AutomationProperties.Name="Open workspace memories">
           <icons:SymbolIcon Symbol="BookOpen" FontSize="13" />
-          <Button.Flyout><Flyout Placement="BottomEdgeAlignedRight"><components:WorkspaceMemoriesView DataContext="{Binding WorkspaceMemories}" /></Flyout></Button.Flyout>
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedRight" FlyoutPresenterClasses="WorkspaceMemoriesSheet">
+              <components:WorkspaceMemoriesView DataContext="{Binding WorkspaceMemories}" />
+            </Flyout>
+          </Button.Flyout>
         </Button>
         <Button
             x:Name="AgentConversationHistoryButton"
