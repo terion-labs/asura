@@ -2,7 +2,7 @@
 
 Workspace memories are on by default and stay in the local application profile. Recalled notes enter the selected model's context. No historical conversation backfill or background model calls run automatically.
 
-Open **Memories** from the agent header to search, filter, edit, pin, archive, inspect revisions, export, or forget notes. Turning recall off preserves records for the user. Agent writes have a separate switch. Forgetting removes notes, revisions, and their search entries; previously exported files, backups, source conversations, and copies in external models are separate.
+Open **Workspace memories** from the agent header, beside the conversation history. The sheet lists notes on the left and edits one on the right: search (Enter), narrow by type, show archived notes, step through a note's revisions, pin, archive, export, or forget. The two header switches govern the whole store: recall, and whether agents may write. Turning recall off preserves records for the user. Forgetting removes notes, revisions, and their search entries; previously exported files, backups, source conversations, and copies in external models are separate.
 
 Saved definition identity owns memory, so renaming and reopening preserve it, while duplicated definitions start empty. Unsaved workspaces retain a memory identity in recovery snapshots. The store supports atomic transfer into a newly saved owner without merging another owner's notes. Quick terminal has no workspace memory. Portable workspace definitions do not include memory.
 
