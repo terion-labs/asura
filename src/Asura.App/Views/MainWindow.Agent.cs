@@ -334,7 +334,10 @@ public sealed partial class MainWindow
 
         try
         {
-            await agent.DeleteConversationAsync(runId, _lifetime.Token);
+            var memoryCount = await agent.CountConversationMemoriesAsync(runId, _lifetime.Token);
+            var forgetMemories = memoryCount > 0
+                && await Confirmations.ConversationMemories(memoryCount).ShowDialog<bool>(this);
+            await agent.DeleteConversationAsync(runId, _lifetime.Token, forgetMemories);
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
         {

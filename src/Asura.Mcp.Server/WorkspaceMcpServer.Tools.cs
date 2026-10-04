@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Asura.Agent;
+using Asura.Agent.Runtime;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
@@ -25,6 +26,16 @@ public sealed partial class WorkspaceMcpServer
                 InputSchema = workspaceSchema.RootElement.Clone(),
             },
         };
+        foreach (var definition in memories?.Snapshot().Count > 0 ? WorkspaceMemoryTools.MemoryTools : [])
+        {
+            var schema = JsonNode.Parse(definition.InputSchema.GetRawText())!.AsObject();
+            schema["properties"]!.AsObject()["workspace_id"] = new JsonObject { ["type"] = "string" };
+            var required = schema["required"]?.AsArray() ?? [];
+            required.Add((JsonNode?)JsonValue.Create("workspace_id"));
+            schema["required"] = required;
+            using var document = JsonDocument.Parse(schema.ToJsonString());
+            tools.Add(definition.Name, new Tool { Name = definition.Name, Description = definition.Description, InputSchema = document.RootElement.Clone() });
+        }
         foreach (var runtime in workspaces.Values)
         {
             foreach (var definition in await runtime.ListExternalToolsAsync(cancellationToken).ConfigureAwait(false))
@@ -76,7 +87,9 @@ public sealed partial class WorkspaceMcpServer
         if (string.Equals(parameters.Name, WorkspacesTool, StringComparison.Ordinal))
         {
             var items = new JsonArray();
-            foreach (var entry in workspaces)
+            foreach (var binding in memories?.Snapshot() ?? [])
+            { items.Add((JsonNode)new JsonObject { ["workspace_id"] = binding.Workspace.Value, ["title"] = binding.Title }); }
+            foreach (var entry in workspaces.Where(entry => !(memories?.Snapshot().Any(binding => string.Equals(binding.Workspace.Value, entry.Key, StringComparison.Ordinal)) ?? false)))
             {
                 items.Add((JsonNode)new JsonObject
                 {
@@ -88,6 +101,18 @@ public sealed partial class WorkspaceMcpServer
             return TextResult(items.ToJsonString(), isError: false);
         }
 
+        if (WorkspaceMemoryTools.IsMemoryTool(parameters.Name) && parameters.Arguments is not null
+            && parameters.Arguments.TryGetValue("workspace_id", out var memoryWorkspace) && memoryWorkspace.ValueKind == JsonValueKind.String
+            && memories?.Snapshot().FirstOrDefault(binding => string.Equals(binding.Workspace.Value, memoryWorkspace.GetString(), StringComparison.Ordinal)) is { } memoryBinding)
+        {
+            var memoryArguments = new JsonObject();
+            foreach (var argument in parameters.Arguments.Where(argument => !string.Equals(argument.Key, "workspace_id", StringComparison.Ordinal)))
+            { memoryArguments[argument.Key] = JsonNode.Parse(argument.Value.GetRawText()); }
+            using var memoryDocument = JsonDocument.Parse(memoryArguments.ToJsonString());
+            var memoryResult = await WorkspaceMemoryTools.CallAsync(memoryBinding.Access, parameters.Name, memoryDocument.RootElement,
+                "MCP session " + (request.Server.SessionId ?? "shared bearer") + " (reported)", cancellationToken).ConfigureAwait(false);
+            return TextResult(memoryResult.Value.Content, memoryResult.Status != AgentToolResultStatus.Succeeded);
+        }
         if (parameters.Arguments is null
             || !parameters.Arguments.TryGetValue("workspace_id", out var workspaceId)
             || workspaceId.ValueKind != JsonValueKind.String

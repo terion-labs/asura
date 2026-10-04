@@ -128,6 +128,10 @@ internal static class HistoricalDatabaseFixture
                 "mcp-legacy-trust-review",
                 "A1148446CB045EFEF35B3544343F7343A584263D18741E41B86E4C845EA217EB",
                 IsDestructive: false),
+            [27] = new(
+                "workspace-memories",
+                "860D6D7E05DFFDA81BB4C0B8E1B2DC26272AF8A96476133D8A37FC1A01CE40CB",
+                IsDestructive: false),
         };
 
     public static readonly DateTimeOffset ReferenceTime =
@@ -459,6 +463,7 @@ internal static class HistoricalDatabaseFixture
             23 => "settings_json",
             24 => "quick_terminal_hotkey_migration_collision",
             25 => "mcp_legacy_trust_migration_collision",
+            26 => "workspace_memory_state",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(currentVersion),
                 currentVersion,

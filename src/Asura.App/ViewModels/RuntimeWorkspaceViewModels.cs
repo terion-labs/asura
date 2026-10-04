@@ -9,6 +9,8 @@ namespace Asura.App.ViewModels;
 
 public sealed class RuntimeWorkspaceViewModel : ObservableObject
 {
+    public string MemoryOwnerId { get; internal set; } = Guid.NewGuid().ToString("N");
+
     private RuntimeTabViewModel? _activeTab;
     private RuntimeTabViewModel? _lastActiveTab;
     private bool _hasAttention;

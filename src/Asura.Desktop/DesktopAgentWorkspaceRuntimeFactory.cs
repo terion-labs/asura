@@ -52,6 +52,13 @@ internal sealed class DesktopAgentWorkspaceRuntimeFactory(
         var runtime = ActivatorUtilities.CreateInstance<GovernedAgentRuntime>(
             services,
             explicitArguments);
+        // Quick terminal has a conversation owner, but no workspace memory owner.
+        if (!string.Equals(conversationScopeId.Value, "quick-terminal", StringComparison.Ordinal))
+        {
+            var memories = services.GetRequiredService<WorkspaceMemoryRegistry>().Bind(workspaceId, conversationScopeId, "Workspace");
+            memories.AttachProtection(chatSecrets);
+            runtime.AttachMemories(memories);
+        }
         services.GetRequiredService<Asura.Mcp.Server.WorkspaceMcpServer>().Register(runtime);
         return runtime;
     }

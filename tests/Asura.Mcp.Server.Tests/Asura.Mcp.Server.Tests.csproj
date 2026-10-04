@@ -9,6 +9,8 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <Using Include="Xunit" />
+    <ProjectReference Include="../../src/Asura.Infrastructure/Asura.Infrastructure.csproj" />
+    <Compile Include="../Asura.Infrastructure.Tests/TemporaryDatabase.cs" Link="TemporaryDatabase.cs" />
     <ProjectReference Include="../../src/Asura.Mcp.Server/Asura.Mcp.Server.csproj" />
   </ItemGroup>
 </Project>

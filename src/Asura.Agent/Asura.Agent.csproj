@@ -8,6 +8,7 @@
     <InternalsVisibleTo Include="Asura.Agent.Providers" />
     <InternalsVisibleTo Include="Asura.Agent.Runtime" />
     <InternalsVisibleTo Include="Asura.Agent.Tests" />
+    <InternalsVisibleTo Include="Asura.Agent.Runtime.Tests" />
   </ItemGroup>
 
   <PropertyGroup>
