@@ -18,6 +18,7 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <signal.h>
 
 #include "include/cef_app.h"
 #include "include/cef_application_mac.h"
@@ -52,6 +53,25 @@ bool DisableKeychainInteraction() {
     return SecKeychainSetUserInteractionAllowed(false) == errSecSuccess;
 }
 #pragma clang diagnostic pop
+
+bool InitializePreservingChildExitHandler(const CefMainArgs& args,
+                                         const CefSettings& settings,
+                                         CefRefPtr<CefApp> app) {
+    // Chromium installs a no-op SIGCHLD handler. If the managed host has
+    // already started a Process, replacing its handler strands exited children
+    // and makes WaitForExitAsync time out (including Codex model discovery).
+    // Restore only a real host handler, including its mask/flags. Leave CEF's
+    // default in place when no host handler existed; .NET can install one later.
+    struct sigaction host_action = {};
+    if (sigaction(SIGCHLD, nullptr, &host_action) != 0) return false;
+    const bool has_host_handler = host_action.sa_handler != SIG_DFL &&
+                                  host_action.sa_handler != SIG_IGN;
+    const bool initialized = CefInitialize(args, settings, app, nullptr);
+    if (has_host_handler && sigaction(SIGCHLD, &host_action, nullptr) != 0) {
+        return false;
+    }
+    return initialized;
+}
 
 std::once_flag g_accelerated_copy_once;
 id<MTLDevice> g_accelerated_copy_device;
@@ -496,7 +516,7 @@ extern "C" int excef_initialize(int argc, char** argv,
         exclr8cef::ApplyHostInitSettings(settings);
 
         CefRefPtr<exclr8cef::Exclr8CefApp> app = exclr8cef::EnsureApp();
-        if (!CefInitialize(main_args, settings, app.get(), nullptr)) return 2;
+        if (!InitializePreservingChildExitHandler(main_args, settings, app)) return 2;
         return 0;
     }
 }
@@ -717,7 +737,7 @@ static int initialize_with_pump_impl(int argc, char** argv,
         exclr8cef::ApplyHostInitSettings(settings);
 
         CefRefPtr<exclr8cef::Exclr8CefApp> app = exclr8cef::EnsureApp();
-        if (!CefInitialize(main_args, settings, app.get(), nullptr)) return 2;
+        if (!InitializePreservingChildExitHandler(main_args, settings, app)) return 2;
         return 0;
     }
 }
@@ -753,7 +773,7 @@ extern "C" int excef_initialize_external_pump(int argc, char** argv,
         exclr8cef::ApplyHostInitSettings(settings);
 
         CefRefPtr<exclr8cef::Exclr8CefApp> app = exclr8cef::EnsureApp();
-        if (!CefInitialize(main_args, settings, app.get(), nullptr)) return 2;
+        if (!InitializePreservingChildExitHandler(main_args, settings, app)) return 2;
         return 0;
     }
 }

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Asura.Application;
 using Asura.Browser;
@@ -44,6 +45,20 @@ internal static class Program
         }
         try
         {
+            // Desktop startup runs tools before starting CEF. Initialize the
+            // managed child-exit handler in that same order for this regression.
+            // The proxy run also covers installing .NET's handler after CEF.
+            if (Proxy is null)
+            {
+                using var child = Process.Start(new ProcessStartInfo("/bin/sh")
+                {
+                    ArgumentList = { "-c", "exit 23" }, UseShellExecute = false,
+                })!;
+                if (!child.WaitForExit(5000) || child.ExitCode != 23)
+                {
+                    throw new InvalidOperationException("Child process failed before browser startup.");
+                }
+            }
             return BrowserEngineRuntime.Configure(AppBuilder.Configure<ProbeApp>().UsePlatformDetect())
                 .StartWithClassicDesktopLifetime(arguments, ShutdownMode.OnExplicitShutdown);
         }
@@ -113,6 +128,19 @@ internal sealed class ProbeApp : Avalonia.Application
         }
         try
         {
+            BeginStage("child process exit after browser startup");
+            using (var child = Process.Start(new ProcessStartInfo("/bin/sh")
+            {
+                ArgumentList = { "-c", "printf 'codex-cli 0.160.0\\n'; exit 23" },
+                UseShellExecute = false, RedirectStandardOutput = true,
+            })!)
+            {
+                using var childDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                var output = await child.StandardOutput.ReadToEndAsync(childDeadline.Token);
+                await child.WaitForExitAsync(childDeadline.Token);
+                Require(child.ExitCode == 23 && string.Equals(output.Trim(), "codex-cli 0.160.0", StringComparison.Ordinal), "child process exit and output", null);
+            }
+            Console.WriteLine("PASS managed child process exit and output after CEF startup");
             // Cold, backgrounded surface: no human visit or manual navigation.
             var address = new BrowserAddress(new Uri(Program.Fixture + "/agent-form"));
             var navigation = await surface.NavigateWithinOriginAsync(

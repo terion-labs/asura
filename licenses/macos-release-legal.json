@@ -28,7 +28,7 @@
     "cefMacos": {
       "status": "accepted-by-owner-for-macos",
       "scope": "macos-arm64",
-      "comment": "The project owner accepts the exact macOS CEF license and Chromium credits, including CEF 150.0.9+g81b0088+chromium-150.0.7871.46 and the 0.8.0-asura.11 binding source and patch evidence, and owns the security-update decision. Engineering evidence renewed for the macOS keyboard event translation repair: the managed binding source and patch hashes are updated, while the pinned CEF release, upstream binding revision, native ABI, licenses and notices remain unchanged. Source-hash regression tests and a fresh native CEF build passed; this is not a new independent legal review."
+      "comment": "The project owner accepts the exact macOS CEF license and Chromium credits, including CEF 150.0.9+g81b0088+chromium-150.0.7871.46 and the 0.8.0-asura.11 binding source and patch evidence, and owns the security-update decision. Engineering evidence renewed for the macOS keyboard event translation repair: the managed binding source and patch hashes are updated, while the pinned CEF release, upstream binding revision, native ABI, licenses and notices remain unchanged. Source-hash regression tests and a fresh native CEF build passed; this is not a new independent legal review. Engineering evidence renewed for preserving the macOS host child-exit handler across Chromium initialization. The pinned dependencies, native ABI, licenses, and notices remain unchanged. The rebuilt runtime passes Native AOT browser acceptance, including managed command output and exit status before and after CEF initialization; this is not a new independent legal review."
     },
     "sqlLanguageWorker": {
       "status": "accepted-by-owner-for-macos",
@@ -71,7 +71,7 @@
     },
     {
       "path": "licenses/cef-runtime-components.json",
-      "sha256": "6c710b2836e910880a17b4f11e1e6f036845708a8fa21619d6f54b1a81dfc6d6"
+      "sha256": "d534513a0a6eeb16300ee75c454340121be58890678e2041205636b54cffcba0"
     },
     {
       "path": "licenses/managed-components.json",

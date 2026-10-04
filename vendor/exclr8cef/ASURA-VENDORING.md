@@ -59,3 +59,10 @@ key edges and preserves left/right modifier key codes. Empty character fields
 are reserved for modifier changes, and unknown native codes never alias KeyA.
 Tab releases are delivered normally, and host-consumed events stay consumed.
 This changes the managed bridge; the native binding ABI remains unchanged.
+
+macOS initialization preserves an existing host SIGCHLD handler, including its
+mask and flags, across Chromium startup. Chromium's replacement is a no-op;
+losing .NET's handler leaves managed children unreaped and command probes hanging.
+When no custom handler exists, Chromium's handler remains installed. The native
+browser acceptance gate starts managed children both before and after CEF startup
+and verifies their output and exit status alongside real browser activity.
