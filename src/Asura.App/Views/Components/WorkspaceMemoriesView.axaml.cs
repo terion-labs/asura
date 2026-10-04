@@ -31,13 +31,6 @@ public sealed partial class WorkspaceMemoriesView : UserControl
         }
     }
 
-    /// <summary>The disclosure sits at the foot of a scrolling editor; opening it must show what it opened.</summary>
-    private void OnForgetExpanded(object? sender, RoutedEventArgs e)
-    {
-        _ = e;
-        if (sender is Control disclosure) { disclosure.BringIntoView(); }
-    }
-
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);

@@ -8,130 +8,98 @@
     xmlns:icons="using:FluentIcons.Avalonia"
     x:DataType="vm:WorkspaceMemoriesViewModel">
   <!--
-    A sheet in two columns: the notes on the left, the one you are reading or
-    writing on the right. The first cut stacked every control down one column
-    — switches, search, list, form, history, and deletion, all in the same
-    weight — so nothing stood out and the sheet ran taller than the panel it
-    opened from. Here the hierarchy is the layout: header for the two switches
-    that govern the whole store, toolbar for narrowing, list beside editor,
-    and the destructive actions folded away under a disclosure.
+    A sheet in two columns, each owning its own controls: the notes and how
+    to narrow them on the left, the one you are reading or writing on the
+    right. The header carries only the two switches that govern the whole
+    store, the footer only what is true of the store right now. Short fields
+    name themselves inline so the editor is a form you can take in at a
+    glance, not a column of labels; the one explanatory paragraph lives in
+    the empty state, where it is read once, rather than over every visit.
   -->
   <Grid
-      Width="660"
+      Width="640"
       MaxHeight="640"
-      RowDefinitions="Auto,Auto,*,Auto"
+      RowDefinitions="Auto,*,Auto"
       IsEnabled="{Binding IsReady}">
 
     <Border
         Padding="{controls:Inset Horizontal=Md, Vertical=Sm}"
         BorderBrush="{DynamicResource ShellBorderBrush}"
         BorderThickness="0,0,0,1">
-      <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-        <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-          <icons:SymbolIcon
-              VerticalAlignment="Center"
-              Symbol="BookOpen"
-              FontSize="16"
-              Foreground="{DynamicResource ShellAccentBrush}" />
-          <TextBlock
-              Grid.Column="1"
-              VerticalAlignment="Center"
-              FontSize="{DynamicResource ShellFontSize14}"
-              FontWeight="SemiBold"
-              Text="Workspace memories" />
-          <!-- The two switches that govern the whole store, not one note:
-               whether recalled notes reach the model, and whether agents may
-               write. They sit where a panel keeps its state controls, in the
-               header, so a glance at the top answers "is this on". -->
-          <StackPanel
-              Grid.Column="2"
-              Orientation="Horizontal"
-              Spacing="{DynamicResource ShellSpaceSm}"
-              ToolTip.Tip="When on, relevant notes are added to the selected model's context.">
-            <TextBlock VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize11}" Text="Recall" />
-            <ToggleSwitch
-                IsChecked="{Binding RecallEnabled, Mode=OneWay}"
-                Command="{Binding ToggleEnabledCommand}"
-                AutomationProperties.Name="Recall workspace memories" />
-          </StackPanel>
-          <StackPanel
-              Grid.Column="3"
-              Margin="{controls:Inset Left=Sm}"
-              Orientation="Horizontal"
-              Spacing="{DynamicResource ShellSpaceSm}"
-              ToolTip.Tip="When on, built-in and connected agents may save and archive notes. Reading is always allowed.">
-            <TextBlock VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize11}" Text="Agent writes" />
-            <ToggleSwitch
-                IsChecked="{Binding AgentWritesAllowed, Mode=OneWay}"
-                Command="{Binding ToggleWritesCommand}"
-                AutomationProperties.Name="Allow agents to write workspace memories" />
-          </StackPanel>
-        </Grid>
-        <TextBlock
-            Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize11}"
-            Text="Notes shared with built-in and connected agents. Stored locally; recalled notes are sent to the selected model. Check dated advice before acting."
-            TextWrapping="Wrap" />
-      </StackPanel>
-    </Border>
-
-    <Border
-        Grid.Row="1"
-        Padding="{controls:Inset Horizontal=Md, Vertical=Sm}"
-        BorderBrush="{DynamicResource ShellBorderBrush}"
-        BorderThickness="0,0,0,1">
-      <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-        <TextBox
-            Text="{Binding Search}"
-            PlaceholderText="Search notes"
-            KeyDown="OnSearchKeyDown"
-            ToolTip.Tip="Press Enter to search"
-            AutomationProperties.Name="Search workspace memories">
-          <TextBox.InnerLeftContent>
-            <icons:SymbolIcon
-                Margin="{controls:Inset Left=Sm}"
-                Symbol="Search"
-                FontSize="13"
-                Foreground="{DynamicResource ShellMutedBrush}" />
-          </TextBox.InnerLeftContent>
-        </TextBox>
-        <ComboBox
-            Grid.Column="1"
-            MinWidth="124"
-            ItemsSource="{Binding Filters}"
-            SelectedItem="{Binding Filter}"
-            AutomationProperties.Name="Filter memories by type" />
-        <!-- A list filter, not a setting: it widens what the list shows and
-             does not change what the store does. -->
-        <CheckBox
-            Grid.Column="2"
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <icons:SymbolIcon
             VerticalAlignment="Center"
-            Content="Show archived"
-            IsChecked="{Binding IncludeInactive}"
-            ToolTip.Tip="Include archived, superseded, and expired notes."
-            AutomationProperties.Name="Show archived, superseded, and expired notes" />
-        <Button
+            Symbol="BookOpen"
+            FontSize="15"
+            Foreground="{DynamicResource ShellAccentBrush}" />
+        <TextBlock
+            Grid.Column="1"
+            VerticalAlignment="Center"
+            FontSize="{DynamicResource ShellFontSize14}"
+            FontWeight="SemiBold"
+            Text="Workspace memories"
+            ToolTip.Tip="Notes shared with built-in and connected agents. Stored locally; recalled notes are sent to the selected model." />
+        <StackPanel
+            Grid.Column="2"
+            Orientation="Horizontal"
+            Spacing="{DynamicResource ShellSpaceSm}"
+            ToolTip.Tip="When on, relevant notes are added to the selected model's context.">
+          <TextBlock VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize11}" Text="Recall" />
+          <ToggleSwitch
+              IsChecked="{Binding RecallEnabled, Mode=OneWay}"
+              Command="{Binding ToggleEnabledCommand}"
+              AutomationProperties.Name="Recall workspace memories" />
+        </StackPanel>
+        <StackPanel
             Grid.Column="3"
-            Classes="PrimaryButton"
-            Command="{Binding NewCommand}"
-            AutomationProperties.Name="Start a new memory note">
-          <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-            <icons:SymbolIcon Symbol="Add" FontSize="13" />
-            <TextBlock Text="New note" />
-          </StackPanel>
-        </Button>
+            Margin="{controls:Inset Left=Sm}"
+            Orientation="Horizontal"
+            Spacing="{DynamicResource ShellSpaceSm}"
+            ToolTip.Tip="When on, agents may save and archive notes. Reading is always allowed.">
+          <TextBlock VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize11}" Text="Agent writes" />
+          <ToggleSwitch
+              IsChecked="{Binding AgentWritesAllowed, Mode=OneWay}"
+              Command="{Binding ToggleWritesCommand}"
+              AutomationProperties.Name="Allow agents to write workspace memories" />
+        </StackPanel>
       </Grid>
     </Border>
 
-    <Grid Grid.Row="2" ColumnDefinitions="248,*">
+    <Grid Grid.Row="1" MinHeight="360" ColumnDefinitions="240,*">
       <Border
           BorderBrush="{DynamicResource ShellBorderBrush}"
           BorderThickness="0,0,1,0">
-        <Grid RowDefinitions="*,Auto">
-          <Panel>
+        <Grid RowDefinitions="Auto,*,Auto">
+          <Grid
+              Margin="{controls:Inset Horizontal=Sm, Vertical=Sm}"
+              ColumnDefinitions="*,Auto"
+              ColumnSpacing="{DynamicResource ShellSpaceXs}">
+            <TextBox
+                Classes="Dense"
+                Text="{Binding Search}"
+                PlaceholderText="Search notes"
+                KeyDown="OnSearchKeyDown"
+                ToolTip.Tip="Press Enter to search"
+                AutomationProperties.Name="Search workspace memories">
+              <TextBox.InnerLeftContent>
+                <icons:SymbolIcon
+                    Margin="{controls:Inset Left=Sm}"
+                    Symbol="Search"
+                    FontSize="11"
+                    Foreground="{DynamicResource ShellMutedBrush}" />
+              </TextBox.InnerLeftContent>
+            </TextBox>
+            <ComboBox
+                Grid.Column="1"
+                Classes="Chip"
+                ItemsSource="{Binding Filters}"
+                SelectedItem="{Binding Filter}"
+                ToolTip.Tip="Show one kind of note"
+                AutomationProperties.Name="Filter memories by type" />
+          </Grid>
+          <Panel Grid.Row="1">
             <ListBox
                 Classes="Rows"
-                Margin="{controls:Inset Vertical=Xs}"
                 ItemsSource="{Binding Notes}"
                 SelectedItem="{Binding Selected}"
                 IsVisible="{Binding HasNotes}"
@@ -144,7 +112,7 @@
                       Title="{Binding Title}"
                       AutomationProperties.Name="{Binding Title}">
                     <controls:ListItem.Detail>
-                      <MultiBinding StringFormat="{}{0} · {1:d MMM yyyy}">
+                      <MultiBinding StringFormat="{}{0} · {1:d MMM}">
                         <Binding Path="Kind" />
                         <Binding Path="UpdatedAt" />
                       </MultiBinding>
@@ -172,48 +140,50 @@
             </ListBox>
             <controls:EmptyStatePanel
                 ShowsGlyph="False"
+                Padding="{DynamicResource ShellInsetLg}"
                 Heading="{Binding EmptyHeading}"
                 Body="{Binding EmptyBody}"
                 IsVisible="{Binding !HasNotes}" />
           </Panel>
-          <Border
-              Grid.Row="1"
-              Padding="{controls:Inset Horizontal=Sm, Vertical=Xs}"
-              BorderBrush="{DynamicResource ShellBorderBrush}"
-              BorderThickness="0,1,0,0">
-            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
-              <Button
-                  Classes="IconButton Compact"
-                  Command="{Binding PreviousCommand}"
-                  ToolTip.Tip="Previous page"
-                  AutomationProperties.Name="Previous page of notes">
-                <icons:SymbolIcon Symbol="ChevronLeft" FontSize="12" />
-              </Button>
-              <TextBlock
-                  Grid.Column="1"
-                  HorizontalAlignment="Center"
-                  VerticalAlignment="Center"
-                  Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize10}"
-                  Text="{Binding PageLabel}" />
-              <Button
-                  Grid.Column="2"
-                  Classes="IconButton Compact"
-                  Command="{Binding NextCommand}"
-                  ToolTip.Tip="Next page"
-                  AutomationProperties.Name="Next page of notes">
-                <icons:SymbolIcon Symbol="ChevronRight" FontSize="12" />
-              </Button>
-              <Button
-                  Grid.Column="3"
-                  Classes="IconButton Compact"
-                  Command="{Binding RefreshCommand}"
-                  ToolTip.Tip="Refresh"
-                  AutomationProperties.Name="Refresh workspace notes">
-                <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="12" />
-              </Button>
-            </Grid>
-          </Border>
+          <!-- Where you are in the list, and the one filter that widens it
+               rather than narrowing it. -->
+          <Grid
+              Grid.Row="2"
+              Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}"
+              ColumnDefinitions="Auto,Auto,Auto,*,Auto"
+              ColumnSpacing="{DynamicResource ShellSpaceXs}">
+            <Button
+                Classes="IconButton Compact"
+                Command="{Binding PreviousCommand}"
+                ToolTip.Tip="Previous page"
+                AutomationProperties.Name="Previous page of notes">
+              <icons:SymbolIcon Symbol="ChevronLeft" FontSize="12" />
+            </Button>
+            <TextBlock
+                Grid.Column="1"
+                MinWidth="56"
+                VerticalAlignment="Center"
+                TextAlignment="Center"
+                Classes="Muted"
+                FontSize="{DynamicResource ShellFontSize10}"
+                Text="{Binding PageLabel}" />
+            <Button
+                Grid.Column="2"
+                Classes="IconButton Compact"
+                Command="{Binding NextCommand}"
+                ToolTip.Tip="Next page"
+                AutomationProperties.Name="Next page of notes">
+              <icons:SymbolIcon Symbol="ChevronRight" FontSize="12" />
+            </Button>
+            <CheckBox
+                Grid.Column="4"
+                VerticalAlignment="Center"
+                FontSize="{DynamicResource ShellFontSize10}"
+                Content="Archived"
+                IsChecked="{Binding IncludeInactive}"
+                ToolTip.Tip="Also list archived, superseded, and expired notes."
+                AutomationProperties.Name="Show archived, superseded, and expired notes" />
+          </Grid>
         </Grid>
       </Border>
 
@@ -221,38 +191,29 @@
           Grid.Column="1"
           HorizontalScrollBarVisibility="Disabled"
           VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="{controls:Inset Md}" Spacing="{DynamicResource ShellSpaceMd}">
-          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-            <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-              <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                <TextBlock
-                    VerticalAlignment="Center"
-                    Classes="Eyebrow"
-                    Text="{Binding EditorEyebrow}" />
-                <controls:StatusChip
-                    Classes.Neutral="{Binding !IsNoteActive}"
-                    Content="{Binding NoteStatusLabel}"
-                    IsVisible="{Binding HasSelection}" />
-                <icons:SymbolIcon
-                    VerticalAlignment="Center"
-                    Symbol="Pin"
-                    FontSize="11"
-                    Foreground="{DynamicResource ShellMutedBrush}"
-                    IsVisible="{Binding IsNotePinned}"
-                    ToolTip.Tip="Pinned: recalled first" />
-              </StackPanel>
+        <StackPanel Margin="{controls:Inset Md}" Spacing="{DynamicResource ShellSpaceSm}">
+          <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+            <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
               <TextBlock
-                  Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize10}"
-                  Text="{Binding NoteMeta}"
-                  TextWrapping="Wrap"
+                  VerticalAlignment="Center"
+                  FontWeight="SemiBold"
+                  Text="{Binding EditorEyebrow}" />
+              <controls:StatusChip
+                  Classes.Neutral="{Binding !IsNoteActive}"
+                  Content="{Binding NoteStatusLabel}"
                   IsVisible="{Binding HasSelection}" />
+              <icons:SymbolIcon
+                  VerticalAlignment="Center"
+                  Symbol="Pin"
+                  FontSize="11"
+                  Foreground="{DynamicResource ShellMutedBrush}"
+                  IsVisible="{Binding IsNotePinned}"
+                  ToolTip.Tip="Pinned: recalled first" />
             </StackPanel>
             <!-- A note's history is a thing you step through, not a number you
                  type. -->
             <StackPanel
                 Grid.Column="1"
-                VerticalAlignment="Top"
                 Orientation="Horizontal"
                 Spacing="{DynamicResource ShellSpaceXs}"
                 IsVisible="{Binding HasSelection}">
@@ -276,117 +237,152 @@
                 <icons:SymbolIcon Symbol="ChevronRight" FontSize="12" />
               </Button>
             </StackPanel>
+            <Button
+                Grid.Column="2"
+                Classes="SecondaryButton Dense"
+                Command="{Binding NewCommand}"
+                IsVisible="{Binding HasSelection}"
+                AutomationProperties.Name="Start a new memory note">
+              <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+                <icons:SymbolIcon Symbol="Add" FontSize="11" />
+                <TextBlock Text="New note" />
+              </StackPanel>
+            </Button>
           </Grid>
+          <TextBlock
+              Classes="Muted"
+              FontSize="{DynamicResource ShellFontSize10}"
+              Text="{Binding NoteMeta}"
+              TextTrimming="CharacterEllipsis"
+              ToolTip.Tip="{Binding NoteMeta}"
+              IsVisible="{Binding HasSelection}" />
 
           <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-            <controls:LabeledField Label="Type">
-              <ComboBox
-                  MinWidth="124"
-                  ItemsSource="{Binding Kinds}"
-                  SelectedItem="{Binding Kind}"
-                  AutomationProperties.Name="Memory type" />
-            </controls:LabeledField>
-            <controls:LabeledField Grid.Column="1" Label="Title">
-              <TextBox
-                  Text="{Binding Title}"
-                  MaxLength="120"
-                  PlaceholderText="What this note is about"
-                  AutomationProperties.Name="Memory title" />
-            </controls:LabeledField>
-          </Grid>
-
-          <controls:LabeledField Label="Note">
+            <ComboBox
+                Classes="Chip"
+                VerticalAlignment="Center"
+                ItemsSource="{Binding Kinds}"
+                SelectedItem="{Binding Kind}"
+                ToolTip.Tip="What kind of note this is"
+                AutomationProperties.Name="Memory type" />
             <TextBox
-                MinHeight="96"
-                Text="{Binding Body}"
-                MaxLength="2000"
-                AcceptsReturn="True"
-                TextWrapping="Wrap"
-                PlaceholderText="What should this workspace remember?"
-                AutomationProperties.Name="Memory text" />
-          </controls:LabeledField>
-
+                Grid.Column="1"
+                Text="{Binding Title}"
+                MaxLength="120"
+                FontWeight="SemiBold"
+                PlaceholderText="Title"
+                AutomationProperties.Name="Memory title" />
+          </Grid>
+          <TextBox
+              MinHeight="96"
+              Text="{Binding Body}"
+              MaxLength="2000"
+              AcceptsReturn="True"
+              TextWrapping="Wrap"
+              PlaceholderText="What should this workspace remember?"
+              AutomationProperties.Name="Memory text" />
+          <!-- Short fields name themselves inside the box, so they keep their
+               names once filled without a row of labels above them. -->
           <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-            <controls:LabeledField Label="Source" Hint="Attribution, not proof.">
-              <TextBox
-                  Text="{Binding Source}"
-                  MaxLength="500"
-                  PlaceholderText="Conversation or document"
-                  AutomationProperties.Name="Memory source" />
-            </controls:LabeledField>
-            <controls:LabeledField Grid.Column="1" Label="Applies to" Hint="Empty applies everywhere.">
-              <TextBox
-                  Text="{Binding Applicability}"
-                  MaxLength="200"
-                  PlaceholderText="Environment or path"
-                  AutomationProperties.Name="Memory applicability" />
-            </controls:LabeledField>
+            <TextBox
+                Classes="Dense"
+                Text="{Binding Source}"
+                MaxLength="500"
+                PlaceholderText="Conversation or document"
+                ToolTip.Tip="Where this came from. Attribution, not proof."
+                AutomationProperties.Name="Memory source">
+              <TextBox.InnerLeftContent>
+                <TextBlock
+                    Margin="{controls:Inset Left=Sm}"
+                    VerticalAlignment="Center"
+                    Classes="Muted"
+                    FontSize="{DynamicResource ShellFontSize10}"
+                    Text="Source" />
+              </TextBox.InnerLeftContent>
+            </TextBox>
+            <TextBox
+                Grid.Column="1"
+                Classes="Dense"
+                Text="{Binding Applicability}"
+                MaxLength="200"
+                PlaceholderText="Everywhere"
+                ToolTip.Tip="An environment or path this note applies to. Empty means everywhere."
+                AutomationProperties.Name="Memory applicability">
+              <TextBox.InnerLeftContent>
+                <TextBlock
+                    Margin="{controls:Inset Left=Sm}"
+                    VerticalAlignment="Center"
+                    Classes="Muted"
+                    FontSize="{DynamicResource ShellFontSize10}"
+                    Text="Applies to" />
+              </TextBox.InnerLeftContent>
+            </TextBox>
           </Grid>
 
-          <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+          <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
             <Button
-                Classes="PrimaryButton"
+                Classes="PrimaryButton Dense"
                 Content="Save"
                 Command="{Binding SaveCommand}"
                 AutomationProperties.Name="Save memory note" />
             <Button
-                Classes="SecondaryButton"
+                Grid.Column="1"
+                Classes="SecondaryButton Dense"
                 Content="{Binding PinLabel}"
                 Command="{Binding PinCommand}"
                 IsVisible="{Binding HasSelection}"
                 ToolTip.Tip="Pinned notes are recalled first."
                 AutomationProperties.Name="Pin or unpin this note" />
             <Button
-                Classes="SecondaryButton"
+                Grid.Column="2"
+                Classes="SecondaryButton Dense"
                 Content="{Binding ArchiveLabel}"
                 Command="{Binding ArchiveCommand}"
                 IsVisible="{Binding HasSelection}"
                 ToolTip.Tip="Archived notes leave default recall but stay on record."
                 AutomationProperties.Name="Archive or restore this note" />
-          </StackPanel>
+            <!-- Deletion stays one quiet word until asked for. -->
+            <Button
+                Grid.Column="4"
+                Classes="TextButton Dense"
+                Content="Forget…"
+                Command="{Binding ToggleForgetCommand}"
+                AutomationProperties.Name="Show or hide the forget controls" />
+          </Grid>
 
-          <!-- Deletion lives behind a disclosure so the editor's resting state
-               has one red word on it, not three. -->
-          <Expander
-              Header="Forget notes"
-              HorizontalAlignment="Stretch"
-              HorizontalContentAlignment="Stretch"
-              IsExpanded="False"
-              Expanded="OnForgetExpanded"
-              AutomationProperties.Name="Permanently forget notes"
-              AutomationProperties.HelpText="Expand to permanently delete this note or every note in the workspace.">
-            <StackPanel Margin="{controls:Inset Top=Sm}" Spacing="{DynamicResource ShellSpaceSm}">
-              <TextBlock
-                  Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize10}"
-                  Text="Forgetting permanently removes notes and their revisions. It does not erase source conversations, backups, or copies already held by connected agents; reset those conversations to discard their context."
-                  TextWrapping="Wrap" />
-              <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                <TextBox
-                    Width="130"
-                    Text="{Binding Confirmation}"
-                    PlaceholderText="Type FORGET"
-                    AutomationProperties.Name="Confirm forgetting memory" />
-                <Button
-                    Classes="DestructiveButton"
-                    Content="Forget this note"
-                    Command="{Binding ForgetCommand}"
-                    IsVisible="{Binding HasSelection}"
-                    AutomationProperties.Name="Forget the selected note" />
-                <Button
-                    Classes="DestructiveButton"
-                    Content="Forget all"
-                    Command="{Binding ForgetAllCommand}"
-                    AutomationProperties.Name="Forget every note in this workspace" />
-              </StackPanel>
-            </StackPanel>
-          </Expander>
+          <controls:Callout
+              Tone="Danger"
+              Glyph="Delete"
+              Text="Forgetting permanently removes notes and their revisions. Source conversations, backups, and copies already held by connected agents are not erased."
+              IsVisible="{Binding IsForgetOpen}">
+            <Grid Margin="{controls:Inset Top=Xs}" ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+              <TextBox
+                  Classes="Dense"
+                  Width="110"
+                  Text="{Binding Confirmation}"
+                  PlaceholderText="Type FORGET"
+                  AutomationProperties.Name="Confirm forgetting memory" />
+              <Button
+                  Grid.Column="1"
+                  Classes="DestructiveButton Dense"
+                  Content="Forget this note"
+                  Command="{Binding ForgetCommand}"
+                  IsVisible="{Binding HasSelection}"
+                  AutomationProperties.Name="Forget the selected note" />
+              <Button
+                  Grid.Column="2"
+                  Classes="DestructiveButton Dense"
+                  Content="Forget all"
+                  Command="{Binding ForgetAllCommand}"
+                  AutomationProperties.Name="Forget every note in this workspace" />
+            </Grid>
+          </controls:Callout>
         </StackPanel>
       </ScrollViewer>
     </Grid>
 
     <Border
-        Grid.Row="3"
+        Grid.Row="2"
         Padding="{controls:Inset Horizontal=Md, Vertical=Xs}"
         BorderBrush="{DynamicResource ShellBorderBrush}"
         BorderThickness="0,1,0,0">
@@ -396,7 +392,8 @@
             Classes="Muted"
             FontSize="{DynamicResource ShellFontSize10}"
             Text="{Binding Status}"
-            TextWrapping="Wrap"
+            TextTrimming="CharacterEllipsis"
+            ToolTip.Tip="{Binding Status}"
             AutomationProperties.LiveSetting="Polite"
             AutomationProperties.Name="Memory status" />
         <controls:StatusChip
@@ -413,7 +410,7 @@
             ToolTip.Tip="Notes and their revisions count toward a 50 MiB quota per workspace." />
         <Button
             Grid.Column="3"
-            Classes="TextButton Accent"
+            Classes="TextButton Accent Dense"
             Content="Export…"
             Click="OnExportClick"
             ToolTip.Tip="Save every note and revision as JSON."

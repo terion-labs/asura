@@ -106,6 +106,30 @@ public sealed class WorkspaceMemoriesViewModelTests
         Assert.StartsWith("The memory change could not be saved", view.Status, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ForgetControlsAppearOnlyWhenAskedForAndPutThemselvesAwayAfterForgetting()
+    {
+        var store = new RecordingMemoryStore();
+        var view = new WorkspaceMemoriesViewModel(new(store, new("owner")));
+        view.RefreshCommand.Execute(null);
+        view.Selected = Assert.Single(view.Notes);
+        Assert.False(view.IsForgetOpen);
+
+        view.ToggleForgetCommand.Execute(null);
+        Assert.True(view.IsForgetOpen);
+        view.ForgetCommand.Execute(null);
+        Assert.Null(store.LastEdit);
+        Assert.Equal("Type FORGET before permanently deleting memory.", view.Status);
+
+        view.Confirmation = "FORGET";
+        view.ForgetCommand.Execute(null);
+        Assert.Equal(WorkspaceMemoryChange.Forget, store.LastEdit!.Change);
+        Assert.False(view.IsForgetOpen);
+        Assert.Equal("", view.Confirmation);
+        Assert.False(view.HasSelection);
+        Assert.Equal("Note forgotten.", view.Status);
+    }
+
     private sealed class RecordingMemoryStore : IWorkspaceMemoryStore
     {
         private WorkspaceMemoryState _state = new(true, true, 1, 1, 100);
