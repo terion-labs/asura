@@ -28,6 +28,7 @@ public sealed class WorkspaceMemoriesViewModel : ObservableObject
     private WorkspaceMemoryKind _kind;
     private bool _busy;
     private bool _loaded;
+    private bool _forgetOpen;
     private bool _includeInactive;
     private int _offset;
     private bool _hasMore;
@@ -56,6 +57,7 @@ public sealed class WorkspaceMemoriesViewModel : ObservableObject
         ToggleWritesCommand = new(() => RunAsync(() => ChangeAsync(_state.AllowAgentWrites ? WorkspaceMemoryChange.DenyWrites : WorkspaceMemoryChange.AllowWrites)), () => IsReady);
         OlderRevisionCommand = new(() => RunAsync(() => ReadRevisionAsync((_editing?.Revision ?? 1) - 1)), () => IsReady && _editing is { Revision: > 1 });
         NewerRevisionCommand = new(() => RunAsync(() => ReadRevisionAsync((_editing?.Revision ?? 0) + 1)), () => IsReady && _viewingHistory);
+        ToggleForgetCommand = new(() => { IsForgetOpen = !IsForgetOpen; return Task.CompletedTask; }, () => true);
     }
 
     public ObservableCollection<WorkspaceMemory> Notes { get; } = [];
@@ -74,6 +76,7 @@ public sealed class WorkspaceMemoriesViewModel : ObservableObject
     public AsyncActionCommand ToggleWritesCommand { get; }
     public AsyncActionCommand OlderRevisionCommand { get; }
     public AsyncActionCommand NewerRevisionCommand { get; }
+    public AsyncActionCommand ToggleForgetCommand { get; }
 
     public string Search { get => _search; set => SetProperty(ref _search, value); }
     public string Title { get => _title; set => SetProperty(ref _title, value); }
@@ -83,6 +86,9 @@ public sealed class WorkspaceMemoriesViewModel : ObservableObject
     public string Status { get => _status; private set => SetProperty(ref _status, value); }
     public string Confirmation { get => _confirmation; set => SetProperty(ref _confirmation, value); }
     public WorkspaceMemoryKind Kind { get => _kind; set => SetProperty(ref _kind, value); }
+
+    /// <summary>The forget controls are shown on request and put away again after a note is gone.</summary>
+    public bool IsForgetOpen { get => _forgetOpen; private set { if (SetProperty(ref _forgetOpen, value) && !value) { Confirmation = ""; } } }
 
     /// <summary>A narrowed list reloads itself; a filter the user has to submit reads as broken.</summary>
     public string Filter
@@ -245,7 +251,7 @@ public sealed class WorkspaceMemoriesViewModel : ObservableObject
         { Status = "Type FORGET before permanently deleting memory."; return; }
         var receipt = await _memory.ChangeAsync(new(change, change <= WorkspaceMemoryChange.Forget ? _editGeneration : _state.Generation,
             _editing?.Id, _editing?.Revision), new("User", true), CancellationToken.None);
-        if (receipt.Succeeded && change is WorkspaceMemoryChange.Forget or WorkspaceMemoryChange.ForgetAll) { StartNewNote(); Confirmation = ""; }
+        if (receipt.Succeeded && change is WorkspaceMemoryChange.Forget or WorkspaceMemoryChange.ForgetAll) { StartNewNote(); IsForgetOpen = false; }
         await ApplyAsync(receipt, change switch
         {
             WorkspaceMemoryChange.Archive => "Note archived.",
