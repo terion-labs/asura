@@ -1,0 +1,10 @@
+<Window x:Class="Asura.App.Views.GitStatisticsDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:Asura.App.Controls" Width="850" Height="650" ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
+  <controls:DialogShell Title="Repository statistics" Scrolls="False" Subtitle="Tracked blob sizes at HEAD. Each rectangle represents a top-level directory; submodule contents are counted in their own repository.">
+    <controls:DialogShell.Footer><Button Content="Close" Click="OnClose" Classes="SecondaryButton" /></controls:DialogShell.Footer>
+    <Grid RowDefinitions="Auto,2*,*" RowSpacing="{DynamicResource ShellSpaceSm}">
+      <TextBlock x:Name="Summary" />
+      <Canvas x:Name="Treemap" Grid.Row="1" SizeChanged="OnTreemapSize" AutomationProperties.Name="Repository size treemap" />
+      <TextBox x:Name="Contributors" Grid.Row="2" IsReadOnly="True" AcceptsReturn="True" AutomationProperties.Name="Contributors by commit count" />
+    </Grid>
+  </controls:DialogShell>
+</Window>

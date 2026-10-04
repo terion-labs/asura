@@ -9,10 +9,22 @@ public sealed record GitPanelPreferenceState(
     bool UnstagedViewIsTree,
     bool StagedViewIsTree)
 {
+    public string GitExecutable { get; init; } = "git";
+    public bool DiffIsSplit { get; init; }
+    public bool DiffWrap { get; init; }
+    public bool DiffIgnoresWhitespace { get; init; }
+    public bool DiffShowsInvisibles { get; init; }
+    public bool DiffHighlightsWords { get; init; } = true;
+    public bool BackgroundFetch { get; init; }
+    public int SubjectGuide { get; init; } = 72;
+    public string SpellingDictionary { get; init; } = "";
+    public IReadOnlyList<GitCustomCommandDefinition> CustomCommands { get; init; } = [];
     public static GitPanelPreferenceState Default { get; } = new(
         UnstagedViewIsTree: true,
         StagedViewIsTree: true);
 }
+
+public sealed record GitCustomCommandDefinition(string Name, string Executable, IReadOnlyList<string> Arguments);
 
 /// <summary>
 /// The live Git panel presentation preference, shared by every Git panel. A
@@ -22,6 +34,14 @@ public sealed record GitPanelPreferenceState(
 /// </summary>
 public interface IGitPanelPreferences
 {
+    ValueTask<GitCommitDraft?> ReadDraftAsync(string repositoryId, CancellationToken cancellationToken) => ValueTask.FromResult<GitCommitDraft?>(null);
+
+    ValueTask SaveDraftAsync(string repositoryId, GitCommitDraft draft, CancellationToken cancellationToken) => ValueTask.CompletedTask;
+
+    ValueTask<IReadOnlyList<string>> ReadRecentRepositoriesAsync(string connectionId, CancellationToken cancellationToken) => ValueTask.FromResult<IReadOnlyList<string>>([]);
+
+    ValueTask RecordRepositoryAsync(string connectionId, string path, CancellationToken cancellationToken) => ValueTask.CompletedTask;
+
     event EventHandler? Changed;
 
     ValueTask<GitPanelPreferenceState> ReadAsync(CancellationToken cancellationToken);

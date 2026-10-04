@@ -1,0 +1,32 @@
+<Window x:Class="Asura.App.Views.GitRebaseDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Asura.App.ViewModels" xmlns:controls="using:Asura.App.Controls" Width="900" Height="650" MinWidth="600" MinHeight="350" ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
+  <controls:DialogShell x:Name="Shell" Title="Interactive rebase" Subtitle="Commits run from top to bottom. This rewrites history; published commits may require a force-with-lease push." Scrolls="False">
+    <controls:DialogShell.Footer>
+      <WrapPanel Orientation="Horizontal">
+        <CheckBox Margin="{controls:Inset Right=Sm, Bottom=Xs}" x:Name="AutoStash" Content="Stash local edits and restore afterward" />
+        <CheckBox Margin="{controls:Inset Right=Sm, Bottom=Xs}" x:Name="UpdateRefs" Content="Update affected branches" />
+        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Content="Cancel" Click="OnCancel" Classes="SecondaryButton" />
+        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Content="Apply rebase" Click="OnApply" Classes="PrimaryButton" />
+      </WrapPanel>
+    </controls:DialogShell.Footer>
+    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="{DynamicResource ShellSpaceSm}">
+      <TextBlock x:Name="BaseLabel" />
+      <ListBox x:Name="Rows" Grid.Row="1" AutomationProperties.Name="Rebase todo" PointerMoved="OnDragMove" PointerReleased="OnDragEnd" PointerCaptureLost="OnDragLost">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:GitRebaseRowViewModel">
+            <Grid ColumnDefinitions="Auto,Auto,140,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+              <Button Content="↑" Tag="Up" Click="OnMove" AutomationProperties.Name="Move commit earlier" />
+              <Button Grid.Column="1" Content="↓" Tag="Down" Click="OnMove" AutomationProperties.Name="Move commit later" />
+              <ComboBox Grid.Column="2" ItemsSource="{Binding Actions}" SelectedItem="{Binding Action}" AutomationProperties.Name="Rebase action" />
+              <StackPanel Grid.Column="3">
+                <TextBlock Text="{Binding Subject}" TextTrimming="CharacterEllipsis" />
+                <TextBox Text="{Binding Message}" AcceptsReturn="True" TextWrapping="Wrap" AutomationProperties.Name="Reworded commit message" />
+              </StackPanel>
+              <TextBlock Grid.Column="4" Text="{Binding Sha}" MaxWidth="90" TextTrimming="CharacterEllipsis" PointerPressed="OnDragStart" ToolTip.Tip="Drag this commit to reorder it. The arrow buttons offer the same action." />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <TextBlock x:Name="Validation" Grid.Row="2" Foreground="{DynamicResource ShellDangerBrush}" TextWrapping="Wrap" />
+    </Grid>
+  </controls:DialogShell>
+</Window>

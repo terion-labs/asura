@@ -12,10 +12,10 @@ public sealed partial class GitRepositoryClient
     private const string CredentialScript = """
         IFS= read -r ASURA_GIT_USERNAME || exit 1
         IFS= read -r ASURA_GIT_PASSWORD || exit 1
-        ASURA_GIT_PROTOCOL=$1; ASURA_GIT_HOST=$2; ASURA_GIT_DEFAULT_HOST=$3; shift 3
+        ASURA_GIT_PROTOCOL=$1; ASURA_GIT_HOST=$2; ASURA_GIT_DEFAULT_HOST=$3; ASURA_GIT_EXECUTABLE=$4; shift 4
         export ASURA_GIT_USERNAME ASURA_GIT_PASSWORD ASURA_GIT_PROTOCOL ASURA_GIT_HOST ASURA_GIT_DEFAULT_HOST
         export GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/usr/bin/false
-        exec git -c credential.helper= -c 'credential.helper=!f() {
+        exec "$ASURA_GIT_EXECUTABLE" -c credential.helper= -c 'credential.helper=!f() {
           [ "$1" = get ] || exit 0
           protocol= host=
           while IFS= read -r line && [ -n "$line" ]; do
@@ -57,7 +57,7 @@ public sealed partial class GitRepositoryClient
     }
 
     private async ValueTask<GitResult<GitUnit>> AuthenticateAsync(
-        GitRepositoryHandle repository, IReadOnlyList<string> arguments, Uri remote, CancellationToken token)
+        GitRepositoryHandle repository, IReadOnlyList<string> arguments, Uri remote, CancellationToken token, bool inRepository = true)
     {
         // Isolates can reuse the same connection ID and filesystem path. Use the durable
         // workspace ID so credentials survive reopening without crossing isolate boundaries.
@@ -72,7 +72,7 @@ public sealed partial class GitRepositoryClient
         if (stored is SecretVaultResult<SecretMaterial>.Success saved)
         {
             using var material = saved.Value;
-            var attempt = await ExecuteAuthenticatedAsync(repository, arguments, remote, material, token).ConfigureAwait(false);
+            var attempt = await ExecuteAuthenticatedAsync(repository, arguments, remote, material, token, inRepository).ConfigureAwait(false);
             if (attempt is not GitResult<GitUnit>.Failure { Error.Code: GitErrorCode.AuthenticationRequired })
             {
                 return attempt;
@@ -88,7 +88,7 @@ public sealed partial class GitRepositoryClient
             return Failure<GitUnit>(GitErrorCode.Cancelled, "Git sign-in was cancelled.");
         }
 
-        var result = await ExecuteAuthenticatedAsync(repository, arguments, remote, credentials.Material, token).ConfigureAwait(false);
+        var result = await ExecuteAuthenticatedAsync(repository, arguments, remote, credentials.Material, token, inRepository).ConfigureAwait(false);
         if (result is GitResult<GitUnit>.Success && credentials.Save && secretVault?.Availability.CanPersist == true)
         {
             var persisted = rejected
@@ -106,11 +106,12 @@ public sealed partial class GitRepositoryClient
     }
 
     private async ValueTask<GitResult<GitUnit>> ExecuteAuthenticatedAsync(
-        GitRepositoryHandle repository, IReadOnlyList<string> arguments, Uri remote, SecretMaterial material, CancellationToken token)
+        GitRepositoryHandle repository, IReadOnlyList<string> arguments, Uri remote, SecretMaterial material, CancellationToken token, bool inRepository)
     {
         string[] invocation = ["-c", CredentialScript, "asura-git-auth", remote.Scheme, remote.Authority,
             remote.IsDefaultPort ? $"{remote.Authority}:{remote.Port}" : remote.Authority,
-            "--literal-pathspecs", "-C", repository.WorkingTreeRoot, .. arguments];
+            repository.Executable,
+            "--literal-pathspecs", .. inRepository ? ["-C", repository.WorkingTreeRoot] : Array.Empty<string>(), .. arguments];
         var command = new ConnectionCommand(repository.Connection,
             repository.RunAsUser is null ? "/bin/sh" : "sudo",
             repository.RunAsUser is { } owner
