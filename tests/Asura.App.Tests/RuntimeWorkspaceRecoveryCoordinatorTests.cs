@@ -39,6 +39,8 @@ public sealed class RuntimeWorkspaceRecoveryCoordinatorTests
             out var error),
             error);
         Assert.Equal(workspace.Name, payload!.Workspace!.Name);
+        Assert.Equal(workspace.MemoryOwnerId, payload.Workspace.MemoryOwnerId);
+        Assert.NotEqual(workspace.MemoryOwnerId, CreateWorkspace().MemoryOwnerId, StringComparer.Ordinal);
         Assert.Equal(workspace.ActiveTab!.Id.Value, payload.Workspace.ActiveTabKey);
     }
 

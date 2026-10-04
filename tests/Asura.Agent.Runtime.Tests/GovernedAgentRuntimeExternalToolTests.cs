@@ -13,6 +13,7 @@ public sealed partial class GovernedAgentRuntimeTests
         var provider = ScriptedWorkspaceGraphProvider.Create(WorkspaceGraphProviderRound.Answer("Unused"));
         await using var fixture = await WorkspaceGraphRuntimeFixture.CreateAsync(provider,
             WorkspaceGraphFixtureKind.GraphBackedWorkspaceLauncher, ExactWorkspaceGraphPolicy(AgentPermission.Auto));
+        fixture.Runtime.AttachMemories(new WorkspaceMemoryAccess(new ReadOnlyMemoryStore(), new("graph-memory")));
         using var arguments = JsonDocument.Parse("""{"kind":"placeholder"}""");
         var pending = fixture.Runtime.CallExternalToolAsync(BuiltInAgentTools.TabCreate,
             arguments.RootElement, CancellationToken.None).AsTask();
@@ -21,6 +22,9 @@ public sealed partial class GovernedAgentRuntimeTests
         var concurrent = await fixture.Runtime.CallExternalToolAsync(BuiltInAgentTools.WorkspaceInspect,
             empty.RootElement, CancellationToken.None);
         Assert.Equal("agent_busy", concurrent.StableCode);
+        var memory = await fixture.Runtime.CallExternalToolAsync("memory.brief", empty.RootElement, CancellationToken.None);
+        Assert.Equal("memory_retrieved", memory.StableCode);
+        Assert.Equal(approval.Id, fixture.Runtime.Snapshot.PendingApproval!.Id);
         Assert.True((await fixture.Runtime.DecideAsync(approval.Id, approved: false, CancellationToken.None)).IsAccepted);
         Assert.Equal("approval_denied", (await pending.WaitAsync(TimeSpan.FromSeconds(5))).StableCode);
         Assert.Empty(provider.Requests);
@@ -174,4 +178,12 @@ public sealed partial class GovernedAgentRuntimeTests
         Assert.Equal("policy_denied", json.RootElement.GetProperty("results")[1].GetProperty("code").GetString());
         Assert.Empty(provider.Requests);
     }
+    private sealed class ReadOnlyMemoryStore : IWorkspaceMemoryStore
+    {
+        public ValueTask<WorkspaceMemoryPage> QueryAsync(AgentConversationScopeId scope, WorkspaceMemoryQuery query, CancellationToken cancellationToken) => ValueTask.FromResult(new WorkspaceMemoryPage(new(true, true, 1, 0, 0), [], false));
+        public ValueTask<WorkspaceMemoryReceipt> SaveAsync(AgentConversationScopeId scope, WorkspaceMemoryWrite write, WorkspaceMemoryCaller caller, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public ValueTask<WorkspaceMemoryReceipt> ChangeAsync(AgentConversationScopeId scope, WorkspaceMemoryEdit edit, WorkspaceMemoryCaller caller, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public ValueTask TransferAsync(AgentConversationScopeId from, AgentConversationScopeId to, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
 }

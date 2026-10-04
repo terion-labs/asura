@@ -736,5 +736,46 @@ internal static class SqliteSchema
             );
             CREATE INDEX agent_file_attachments_scope ON agent_file_attachments(scope_id);
             """),
+        new(23, "workspace-memories", """
+            CREATE TABLE workspace_memory_state (
+                scope TEXT PRIMARY KEY NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, retired INTEGER NOT NULL DEFAULT 0,
+                allow_writes INTEGER NOT NULL DEFAULT 1, generation INTEGER NOT NULL DEFAULT 1,
+                revision INTEGER NOT NULL DEFAULT 0, content_bytes INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE workspace_memories (
+                row_id INTEGER PRIMARY KEY, scope TEXT NOT NULL REFERENCES workspace_memory_state(scope),
+                id TEXT NOT NULL, payload TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL,
+                tags TEXT NOT NULL, applicability TEXT NOT NULL, kind INTEGER NOT NULL,
+                status INTEGER NOT NULL, pinned INTEGER NOT NULL, revision INTEGER NOT NULL,
+                updated TEXT NOT NULL, expires TEXT, UNIQUE(scope, id)
+            );
+            CREATE INDEX workspace_memories_scope ON workspace_memories(scope, status, pinned, updated);
+            CREATE TABLE workspace_memory_revisions (
+                scope TEXT NOT NULL, id TEXT NOT NULL, revision INTEGER NOT NULL, payload TEXT NOT NULL,
+                PRIMARY KEY(scope, id, revision), FOREIGN KEY(scope, id) REFERENCES workspace_memories(scope, id) ON DELETE CASCADE
+            );
+            CREATE TABLE workspace_memory_audit (
+                scope TEXT NOT NULL REFERENCES workspace_memory_state(scope), revision INTEGER NOT NULL,
+                author TEXT NOT NULL, action TEXT NOT NULL, note_id TEXT, occurred_utc TEXT NOT NULL,
+                PRIMARY KEY(scope, revision)
+            ) WITHOUT ROWID;
+            CREATE TABLE workspace_memory_requests (
+                scope TEXT NOT NULL REFERENCES workspace_memory_state(scope), author TEXT NOT NULL,
+                request_id TEXT NOT NULL, generation INTEGER NOT NULL, fingerprint TEXT NOT NULL, note_id TEXT NOT NULL,
+                PRIMARY KEY(scope, author, request_id)
+            );
+            CREATE VIRTUAL TABLE workspace_memory_fts USING fts5(title, body, tags, content='workspace_memories', content_rowid='row_id');
+            INSERT INTO workspace_memory_fts(workspace_memory_fts,rank) VALUES('secure-delete',1);
+            CREATE TRIGGER workspace_memory_insert AFTER INSERT ON workspace_memories BEGIN
+                INSERT INTO workspace_memory_fts(rowid,title,body,tags) VALUES(new.row_id,new.title,new.body,new.tags);
+            END;
+            CREATE TRIGGER workspace_memory_delete AFTER DELETE ON workspace_memories BEGIN
+                INSERT INTO workspace_memory_fts(workspace_memory_fts,rowid,title,body,tags) VALUES('delete',old.row_id,old.title,old.body,old.tags);
+            END;
+            CREATE TRIGGER workspace_memory_update AFTER UPDATE ON workspace_memories BEGIN
+                INSERT INTO workspace_memory_fts(workspace_memory_fts,rowid,title,body,tags) VALUES('delete',old.row_id,old.title,old.body,old.tags);
+                INSERT INTO workspace_memory_fts(rowid,title,body,tags) VALUES(new.row_id,new.title,new.body,new.tags);
+            END;
+            """),
     ];
 }

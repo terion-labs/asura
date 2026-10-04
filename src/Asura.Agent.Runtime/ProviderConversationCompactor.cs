@@ -129,8 +129,11 @@ internal sealed class ProviderConversationCompactor(
     {
         var builder = new StringBuilder();
         builder.AppendLine("<conversation>");
+        var memoryCalls = messages.SelectMany(message => message.ToolCalls).Where(call => GovernedAgentRuntime.IsMemoryTool(call.ToolName)).Select(call => call.ProviderCallId).ToHashSet(StringComparer.Ordinal);
         foreach (var message in messages)
         {
+            if (message.ToolResult is { } memoryResult && (memoryCalls.Contains(memoryResult.ProviderCallId) || memoryResult.StableCode.StartsWith("memory_", StringComparison.Ordinal)))
+            { builder.AppendLine("[workspace memory retrieval omitted; refresh memory.brief after compaction]"); continue; }
             builder.Append('[').Append(message.Role).AppendLine("]");
             builder.AppendLine(message.Content);
             if (!string.IsNullOrWhiteSpace(message.ReasoningSummary))
@@ -141,6 +144,7 @@ internal sealed class ProviderConversationCompactor(
 
             foreach (var call in message.ToolCalls)
             {
+                if (GovernedAgentRuntime.IsMemoryTool(call.ToolName)) { continue; }
                 builder.Append("[tool call ").Append(call.ToolName).AppendLine("]");
                 builder.AppendLine(call.Arguments.GetRawText());
             }

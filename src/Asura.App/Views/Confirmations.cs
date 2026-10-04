@@ -257,6 +257,15 @@ internal static class Confirmations
         });
     }
 
+    public static ConfirmationDialog ConversationMemories(int count) => new(new ConfirmationDialogOptions
+    {
+        Title = "Memories from this conversation",
+        Heading = $"Also forget {count} workspace memories?",
+        Detail = "These notes cite the conversation being deleted. Keeping them preserves the notes and marks their source unavailable.",
+        ConfirmLabel = "Forget these memories",
+        CancelLabel = "Keep memories",
+    });
+
     public static ConfirmationDialog AgentConversationDelete(string title) =>
         new(new ConfirmationDialogOptions
         {

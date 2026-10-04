@@ -9,6 +9,8 @@ public interface IAgentWorkspaceHost
 {
     AgentChatViewModel? AgentChat { get; }
 
+    WorkspaceMemoriesViewModel? WorkspaceMemories => null;
+
     IReadOnlyList<LauncherScreenViewModel> AgentSavedScreenTemplates => [];
 
     LauncherScreenViewModel? SelectedAgentSavedScreenTemplate

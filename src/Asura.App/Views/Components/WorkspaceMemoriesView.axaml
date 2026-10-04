@@ -1,0 +1,44 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Asura.App.ViewModels" xmlns:core="using:Asura.Core" xmlns:controls="using:Asura.App.Controls"
+    x:Class="Asura.App.Views.Components.WorkspaceMemoriesView" x:DataType="vm:WorkspaceMemoriesViewModel">
+  <ScrollViewer MaxHeight="650" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Width="560" Spacing="{DynamicResource ShellSpaceSm}" Margin="{controls:Inset Md}" IsEnabled="{Binding IsReady}">
+      <TextBlock Text="Workspace memories" FontSize="{DynamicResource ShellFontSize18}" FontWeight="SemiBold" />
+      <TextBlock Text="Shared with built-in and connected agents. Stored locally; recalled notes are sent to the selected model. Check dated advice before acting." TextWrapping="Wrap" />
+      <WrapPanel><Button Content="{Binding EnabledLabel}" Command="{Binding ToggleEnabledCommand}" Margin="{controls:Inset Right=Sm}" />
+        <Button Content="{Binding WritesLabel}" Command="{Binding ToggleWritesCommand}" /></WrapPanel>
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <TextBox Text="{Binding Search}" PlaceholderText="Search notes" AutomationProperties.Name="Search workspace memories" />
+        <Button Grid.Column="1" Content="Search / Refresh" Command="{Binding RefreshCommand}" />
+      </Grid>
+      <ComboBox ItemsSource="{Binding Filters}" SelectedItem="{Binding Filter}" AutomationProperties.Name="Filter memories by type" />
+      <CheckBox Content="Include archived, superseded and expired notes" IsChecked="{Binding IncludeInactive}" />
+      <ListBox ItemsSource="{Binding Notes}" SelectedItem="{Binding Selected}" Height="145" AutomationProperties.Name="Workspace notes">
+        <ListBox.ItemTemplate><DataTemplate x:DataType="core:WorkspaceMemory"><StackPanel>
+          <TextBlock Text="{Binding Title}" FontWeight="SemiBold" /><TextBlock Text="{Binding Kind}" Opacity="0.7" />
+        </StackPanel></DataTemplate></ListBox.ItemTemplate>
+      </ListBox>
+      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+        <Button Content="Previous" Command="{Binding PreviousCommand}" /><Button Content="Next" Command="{Binding NextCommand}" />
+        <Button Content="New note" Command="{Binding NewCommand}" /><Button Content="Export" Click="OnExportClick" /><TextBlock Text="{Binding StorageLabel}" VerticalAlignment="Center" />
+      </StackPanel>
+      <TextBlock Text="{Binding SelectedDetails}" TextWrapping="Wrap" />
+      <ComboBox ItemsSource="{Binding Kinds}" SelectedItem="{Binding Kind}" AutomationProperties.Name="Memory type" />
+      <TextBox Text="{Binding Title}" MaxLength="120" PlaceholderText="Title" AutomationProperties.Name="Memory title" />
+      <TextBox Text="{Binding Body}" MaxLength="2000" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="100" PlaceholderText="What should this workspace remember?" AutomationProperties.Name="Memory text" />
+      <TextBox Text="{Binding Source}" MaxLength="500" PlaceholderText="Source or evidence reference" AutomationProperties.Name="Memory source" />
+      <TextBox Text="{Binding Applicability}" MaxLength="200" PlaceholderText="Environment or path, empty for general advice" AutomationProperties.Name="Memory applicability" />
+      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+        <Button Content="Save" Command="{Binding SaveCommand}" /><Button Content="Pin / Unpin" Command="{Binding PinCommand}" />
+        <Button Content="Archive / Restore" Command="{Binding ArchiveCommand}" />
+        <TextBox Width="60" Text="{Binding Revision}" AutomationProperties.Name="Revision number" /><Button Content="Read revision" Command="{Binding HistoryCommand}" />
+      </StackPanel>
+      <TextBlock Text="Forget permanently removes notes and their revisions. It does not erase source conversations, backups, or copies already held by connected agents. Reset those conversations to discard their context." TextWrapping="Wrap" />
+      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+        <TextBox Text="{Binding Confirmation}" PlaceholderText="Type FORGET" Width="130" AutomationProperties.Name="Confirm forgetting memory" />
+        <Button Content="Forget selected" Command="{Binding ForgetCommand}" /><Button Content="Forget all" Command="{Binding ForgetAllCommand}" />
+      </StackPanel>
+      <TextBlock Text="{Binding Status}" TextWrapping="Wrap" AutomationProperties.Name="Memory status" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -307,10 +307,12 @@ public sealed partial class MainWindow
             && agent.Conversations.FirstOrDefault(item => item.RunId == runId) is { } item
             && await Confirmations.AgentConversationDelete(item.Title).ShowDialog<bool>(this))
         {
+            var memoryCount = await agent.CountConversationMemoriesAsync(runId, _lifetime.Token);
+            var forgetMemories = memoryCount > 0 && await Confirmations.ConversationMemories(memoryCount).ShowDialog<bool>(this);
             await RunAgentConversationActionAsync(
                 sender,
                 e,
-                (agent, token) => agent.DeleteConversationAsync(runId, token),
+                (agent, token) => agent.DeleteConversationAsync(runId, token, forgetMemories),
                 hideHistoryFlyout: false);
         }
     }

@@ -347,6 +347,11 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
                     .ConfigureAwait(false);
                 if (affected == 1)
                 {
+                    if (key.Kind == WorkspaceDefinition.Kind || key.Kind == ScreenDefinition.Kind || key.Kind == ConnectionProfile.Kind)
+                    {
+                        await SqliteWorkspaceMemoryStore.RetireDefinitionAsync(connection, transaction,
+                            WorkspaceMemoryRegistry.ScopeOf(key), _timeProvider.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+                    }
                     await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
                     return DefinitionStoreResult<Unit>.Success(Unit.Value);
                 }

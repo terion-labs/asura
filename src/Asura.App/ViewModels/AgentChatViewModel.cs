@@ -2489,9 +2489,22 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         }
     }
 
+    public async ValueTask<int> CountConversationMemoriesAsync(AgentRunId runId, CancellationToken token)
+    {
+        if (_runtime is not IWorkspaceMemoryRuntime { Memories: { } memory }) { return 0; }
+        var count = 0;
+        WorkspaceMemoryPage page;
+        do
+        {
+            page = await memory.QueryAsync(new(IncludeInactive: true, UserAccess: true, SourceRunId: runId.Value, Offset: count, Limit: 100), token);
+            count += page.Notes.Length;
+        } while (page.HasMore);
+        return count;
+    }
+
     public async Task DeleteConversationAsync(
         AgentRunId runId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, bool forgetDerivedMemories = false)
     {
         if (IsBusy || _clearInFlight)
         {
@@ -2508,6 +2521,16 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             }
             else
             {
+                if (forgetDerivedMemories && _runtime is IWorkspaceMemoryRuntime { Memories: { } memory })
+                {
+                    WorkspaceMemoryReceipt receipt;
+                    do
+                    {
+                        var state = (await memory.QueryAsync(new(Limit: 1, UserAccess: true), cancellationToken)).State;
+                        receipt = await memory.ChangeAsync(new(WorkspaceMemoryChange.ForgetSource, state.Generation, SourceRunId: runId.Value), new("User", true), cancellationToken);
+                    } while (string.Equals(receipt.Code, "memory_generation_changed", StringComparison.Ordinal));
+                    if (!receipt.Succeeded) { Status = "Conversation deleted, but its memories could not be forgotten. Open Memories to retry."; return; }
+                }
                 Status = "Conversation and its retained audit history were deleted.";
             }
         }

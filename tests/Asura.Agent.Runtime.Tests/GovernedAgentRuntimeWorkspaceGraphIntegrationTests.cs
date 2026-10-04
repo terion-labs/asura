@@ -851,7 +851,8 @@ public sealed partial class GovernedAgentRuntimeTests
                 agentDockerHost: Client,
                 dockerComposer: dockerComposer,
                 agentWorkspaceLayoutHost: Client,
-                workspaceLayoutComposer: layoutComposer);
+                workspaceLayoutComposer: layoutComposer,
+                conversationScopeId: new AgentConversationScopeId("graph-memory"));
             if (IsWorkspaceFixture(kind))
             {
                 LayoutPort = new WorkspaceLayoutPort(WindowId, WorkspaceId) { CurrentPolicy = policy };

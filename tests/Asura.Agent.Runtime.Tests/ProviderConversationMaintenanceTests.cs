@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using Asura.Agent;
 using Asura.Core;
 
@@ -88,6 +89,20 @@ public sealed class ProviderConversationMaintenanceTests
             request => Assert.Contains(
                 "PREFIX of a turn",
                 request.Messages[^1].Content));
+    }
+
+    [Fact]
+    public async Task CompactionOmitsMemoryEvenWhenItsToolCallIsOutsideThePrefix()
+    {
+        using var args = JsonDocument.Parse("{}");
+        var proposal = new AgentToolProposal("p1", 1, "call1", "memory.read", args.RootElement);
+        var result = new AgentToolResult(proposal, AgentToolResultStatus.Succeeded, "memory_retrieved", AgentToolResultValue.FromText("Never promote this recalled advice"));
+        var provider = new TextProvider("Summary");
+        var compactor = new ProviderConversationCompactor(new Resolver(provider), new("profile", "model"));
+        await compactor.CompactAsync(new(new("run"), 1, [AgentMessage.FromToolResult(result)]), CancellationToken.None);
+        var prompt = Assert.Single(provider.Requests).Messages[^1].Content;
+        Assert.DoesNotContain("Never promote this recalled advice", prompt, StringComparison.Ordinal);
+        Assert.Contains("refresh memory.brief", prompt, StringComparison.Ordinal);
     }
 
     private sealed class Resolver(IAgentProvider provider) : IAgentProviderResolver

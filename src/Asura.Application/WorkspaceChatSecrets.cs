@@ -25,6 +25,8 @@ public sealed class WorkspaceChatSecrets(ISecretVault vault, AgentConversationSc
     private readonly HashSet<string> _disclosedValues = new(StringComparer.Ordinal);
     private int _disclosedBytes;
 
+    public bool ContainsProtectedText(string text) => FindProtectionSpans(text).Count != 0;
+
     public ProtectedChatText Protect(string text)
     {
         var spans = FindProtectionSpans(text);

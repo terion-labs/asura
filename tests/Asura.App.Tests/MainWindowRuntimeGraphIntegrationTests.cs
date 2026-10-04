@@ -7707,10 +7707,10 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(
             [mainWindow.RuntimeWorkspace.Id, quickTerminal.WorkspaceId],
             factory.CreatedWorkspaceIds);
-        Assert.EndsWith(
-            mainWindow.RuntimeWorkspace.Id.Value,
+        Assert.Equal(
+            "runtime:" + mainWindow.RuntimeWorkspace.MemoryOwnerId,
             factory.CreatedScopes[0].Value,
-            StringComparison.Ordinal);
+            StringComparer.Ordinal);
         Assert.Equal("quick-terminal", factory.CreatedScopes[1].Value);
     }
 

@@ -3,6 +3,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using Asura.Agent.Runtime;
+using Asura.Application;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -16,7 +17,7 @@ namespace Asura.Mcp.Server;
 /// Optional loopback MCP transport. Authentication is checked for every HTTP request,
 /// including discovery and resumed legacy sessions. The SDK owns protocol negotiation.
 /// </summary>
-public sealed partial class WorkspaceMcpServer : IAsyncDisposable
+public sealed partial class WorkspaceMcpServer(WorkspaceMemoryRegistry? memories = null) : IAsyncDisposable
 {
     private readonly ConcurrentDictionary<string, WeakReference<GovernedAgentRuntime>> _workspaces = new(StringComparer.Ordinal);
     private WebApplication? _application;

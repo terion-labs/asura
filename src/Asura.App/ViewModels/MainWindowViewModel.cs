@@ -185,7 +185,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         ILocalMcpServerControl? localMcpServerControl = null,
         IBrowserStartupRecovery? browserStartupRecovery = null,
         IBrowserHistory? browserHistory = null,
-        IKubernetesPanelSessionFactory? kubernetesPanelSessionFactory = null)
+        IKubernetesPanelSessionFactory? kubernetesPanelSessionFactory = null,
+        WorkspaceMemoryRegistry? workspaceMemories = null)
     {
         SessionClient = sessionClient ?? throw new ArgumentNullException(nameof(sessionClient));
         _workspaceDefinitionOccupancy = workspaceDefinitionOccupancy
@@ -258,6 +259,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             ?? filePanelClient as IFileProviderProfileRuntime;
         _aiProviderRuntime = aiProviderRuntime;
         _agentRuntimeFactory = agentRuntimeFactory;
+        _workspaceMemories = workspaceMemories;
         _agentRunAuditReader = agentRunAuditReader;
         _agentModelFavoriteStore = agentModelFavoriteStore;
         _aiProviderAuthenticationRuntime = aiProviderAuthenticationRuntime;
@@ -1503,6 +1505,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     private void ActivateWorkspaceAgentChat(WorkspaceInstanceId? workspaceId)
     {
         AgentChat?.ResetHiddenDisclosure();
+        WorkspaceMemories = workspaceId is { } memoryId && _workspaceMemories is not null
+            ? new WorkspaceMemoriesViewModel(_workspaceMemories.Bind(memoryId, ConversationScopeOf(memoryId), RuntimeWorkspace?.Name ?? "Workspace")) : null;
+        OnPropertyChanged(nameof(WorkspaceMemories));
         if (_agentRuntimeFactory is null || _aiProviderRuntime is null)
         {
             return;
@@ -1704,10 +1709,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 "definition:"
                 + Convert.ToHexStringLower(SHA256.HashData(
                     Encoding.UTF8.GetBytes(source.SourceDefinition.ToString()))))
-            : new AgentConversationScopeId($"runtime:{workspaceId.Value}");
+            : new AgentConversationScopeId($"runtime:{_openWorkspaces.FirstOrDefault(workspace => workspace.Id == workspaceId)?.MemoryOwnerId ?? workspaceId.Value}");
 
     private void RemoveWorkspaceAgentChat(WorkspaceInstanceId workspaceId)
     {
+        _workspaceMemories?.Unbind(workspaceId);
         if (_workspaceAgentChats.Remove(workspaceId, out var owned))
         {
             owned.Dispose();
@@ -4992,6 +4998,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             _ => await DefinitionSettings.DeleteAsync(key, revision, cancellationToken),
         };
         ApplyError(result.Error);
+        if (result.IsSuccess && _workspaceMemories is not null
+            && (key.Kind == WorkspaceDefinition.Kind || key.Kind == ScreenDefinition.Kind || key.Kind == ConnectionProfile.Kind))
+        { await _workspaceMemories.ForgetDefinitionAsync(key, cancellationToken); }
         return result;
     }
 
@@ -9972,6 +9981,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 : TerminalMultiplexingMode.Disabled,
             isolationBinding,
             recovered.NetworkIdentity);
+        if (recovered.MemoryOwnerId is { } memoryOwner) { runtime.MemoryOwnerId = memoryOwner; }
         if (recovered.HistorySource?.ToHistorySource() is { } recoveredSource)
         {
             _runtimeSources[runtime.Id] = recoveredSource;

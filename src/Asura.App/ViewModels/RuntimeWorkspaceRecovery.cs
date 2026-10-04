@@ -97,7 +97,7 @@ internal static class RuntimeWorkspaceRecoveryCodec
                     RuntimeWorkspaceIsolationMountRecoveryPayload.Capture)]
                 : [],
             workspace.IsolationBinding?.ImageReference,
-            workspace.NetworkIdentity);
+            workspace.NetworkIdentity, workspace.MemoryOwnerId);
 
     private static RuntimeTabRecoveryPayload CaptureTab(RuntimeTabViewModel tab) =>
         new(
@@ -209,6 +209,7 @@ internal static class RuntimeWorkspaceRecoveryCodec
         if (!IsDisplayText(workspace.Name, 256)
             || !IsDisplayText(workspace.Accent, 64)
             || !IsOptionalIdentifier(workspace.NetworkIdentity)
+            || (workspace.MemoryOwnerId is not null && !Guid.TryParseExact(workspace.MemoryOwnerId, "N", out _))
             || workspace.ConnectionIds is null
             || workspace.ConnectionIds.Length > 512
             || workspace.ConnectionIds.Any(id => !IsIdentifier(id))
@@ -586,7 +587,8 @@ internal sealed record RuntimeWorkspaceRecoveryPayload(
     bool IsIsolated = false,
     RuntimeWorkspaceIsolationMountRecoveryPayload[]? IsolationMounts = null,
     string? IsolationImageReference = null,
-    string? NetworkIdentity = null);
+    string? NetworkIdentity = null,
+    string? MemoryOwnerId = null);
 
 internal sealed record RuntimeWorkspaceIsolationMountRecoveryPayload(
     string HostSource,

@@ -55,7 +55,7 @@ public sealed partial class GovernedAgentRuntime
         ImmutableArray<AgentToolDefinition> native = [.. BuildAgentTools(
                 context, resize.Keys.ToImmutableHashSet(), browser, files)
             .Where(tool => _toolCatalog.TryGet(tool.Name, out _))];
-        return [.. native, AgentSequenceIntrinsic.Build(native)];
+        return [.. native, .. (Memories is null ? [] : MemoryTools), AgentSequenceIntrinsic.Build(native)];
     }
 
     /// <summary>
@@ -67,6 +67,11 @@ public sealed partial class GovernedAgentRuntime
     {
         var id = Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture);
         var proposal = new AgentToolProposal(id, 1, id, toolName, arguments);
+        if (IsMemoryTool(toolName))
+        {
+            if (ExternalToolTarget is null) { return CreateRejectedResult(proposal, "target_changed"); }
+            return await ExecuteMemoryAsync(proposal, external: true, cancellationToken).ConfigureAwait(false);
+        }
         CancellationTokenSource cancellation;
         lock (_gate)
         {
