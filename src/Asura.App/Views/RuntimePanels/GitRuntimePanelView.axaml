@@ -498,9 +498,10 @@
               <Setter Property="BorderThickness" Value="0" />
               <Setter Property="MinHeight" Value="24" />
               <Setter Property="HorizontalAlignment" Value="Stretch" />
-              <Style Selector="^ /template/ Panel#PART_ExpandCollapseChevronContainer">
+              <!-- State selectors override the Fluent template's fixed margins. -->
+              <Style Selector="^:not(:empty) /template/ Panel#PART_ExpandCollapseChevronContainer">
                 <Setter Property="Margin" Value="0" />
-                <Setter Property="Width" Value="16" />
+                <Setter Property="Width" Value="12" />
               </Style>
               <Style Selector="^ /template/ ToggleButton#PART_ExpandCollapseChevron">
                 <Setter Property="Width" Value="8" />
@@ -509,6 +510,7 @@
               <!-- A leaf's ref icon occupies the disclosure column. Reserving
                    an empty chevron here would double its apparent indent. -->
               <Style Selector="^:empty /template/ Panel#PART_ExpandCollapseChevronContainer">
+                <Setter Property="Margin" Value="0" />
                 <Setter Property="Width" Value="0" />
               </Style>
             </ControlTheme>
