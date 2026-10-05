@@ -32,6 +32,8 @@ internal sealed class FakeGitRepositoryClient : IGitRepositoryClient
     /// <summary>Replaces the default two-file unstaged list when set.</summary>
     public IReadOnlyList<GitFileChange>? UnstagedChangesOverride { get; init; }
 
+    public IReadOnlyList<GitRefItem>? RefsOverride { get; init; }
+
     /// <summary>When set, the next working-set read answers with this.</summary>
     public GitWorkingSet? NextWorkingSet { get; set; }
 
@@ -166,7 +168,7 @@ internal sealed class FakeGitRepositoryClient : IGitRepositoryClient
             Head(),
             UnstagedChanges(),
             StagedChanges(),
-            [new GitRefItem("refs/heads/dev", "dev", GitRefKind.LocalBranch, HeadCommit.Sha, IsCurrent: true)],
+            RefsOverride ?? [new GitRefItem("refs/heads/dev", "dev", GitRefKind.LocalBranch, HeadCommit.Sha, IsCurrent: true)],
             [new GitRemoteItem("origin", "git@github.com:t/x.git")],
             [],
             [new GitWorktreeItem("/repo", "dev", HeadCommit.Sha, IsMain: true)],

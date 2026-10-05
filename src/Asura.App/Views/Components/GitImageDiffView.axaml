@@ -1,0 +1,17 @@
+<UserControl x:Class="Asura.App.Views.Components.GitImageDiffView" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="{DynamicResource ShellSpaceXs}">
+    <WrapPanel Orientation="Horizontal">
+      <ComboBox x:Name="Mode" SelectionChanged="OnModeChanged" AutomationProperties.Name="Image comparison mode" />
+      <Slider x:Name="Blend" Minimum="0" Maximum="1" Value="0.5" Width="140" ValueChanged="OnOpacityChanged" AutomationProperties.Name="Image overlay opacity" />
+      <Slider x:Name="Zoom" Minimum="0.25" Maximum="4" Value="1" Width="140" ValueChanged="OnZoomChanged" AutomationProperties.Name="Image zoom" />
+      <Button x:Name="Download" Content="Download LFS objects" Click="OnDownload" IsVisible="False" />
+    </WrapPanel>
+    <TextBlock x:Name="Info" Grid.Row="1" TextWrapping="Wrap" />
+    <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+      <Grid x:Name="Images" ColumnDefinitions="*,*">
+        <Image x:Name="Before" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top" />
+        <Image x:Name="After" Grid.Column="1" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top" />
+      </Grid>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

@@ -1362,6 +1362,18 @@ internal sealed class QaApplication : Avalonia.Application
     /// </summary>
     private static readonly (string Name, Func<Window> Create, ThemePreference? Theme)[] Dialogs =
     [
+        ("git-workflow", () => new GitWorkflowDialog("Push repository", "Review the source and destination branches.",
+            [new("remote", "Remote", "origin"), new("source", "Source branch", "feature/parity"), new("destination", "Destination branch", "feature/parity")]), null),
+        ("git-conflict", () => new GitConflictDialog(new Asura.Git.GitConflictContent("src/service.cs", "return original;\n", "return current;\n", "return incoming;\n", false)), null),
+        ("git-rebase", () => new GitRebaseDialog("main", [new("1111111111111111111111111111111111111111", "Add workflow", Asura.Git.GitRebaseAction.Pick, "Add workflow\n\nRetain a detailed message."),
+            new("2222222222222222222222222222222222222222", "Polish workflow", Asura.Git.GitRebaseAction.Fixup)]), null),
+        ("git-statistics", () => new GitStatisticsDialog(new Asura.Git.GitRepositoryStatistics([new("src", 12000, 8), new("tests", 7000, 5), new("docs", 1000, 2)], "9 Alice\n4 Bob")), null),
+        ("git-lfs", () => new GitLfsDialog(new GitRuntimePanelViewModel(PanelInstanceId.New(), "Git", Git, BuiltInConnections.Local, "/srv/asura")), null),
+        ("git-submodule", () => new GitSubmoduleDialog(new GitRuntimePanelViewModel(PanelInstanceId.New(), "Git", Git, BuiltInConnections.Local, "/srv/asura"),
+            new Asura.Git.GitSubmoduleItem("vendor/parser", "1111111111111111111111111111111111111111", "Changed")
+            { ExpectedRevision = "1111111111111111111111111111111111111111", CheckedOutRevision = "2222222222222222222222222222222222222222", IsInitialized = true, IsDirty = true }), null),
+        ("git-hosting", () => new GitHostingDialog(new GitHostingBrowserViewModel(Git, Asura.Core.BuiltInConnections.Local)), null),
+        ("git-file-history", () => new GitFileHistoryDialog(new GitFileInvestigationViewModel(Git, new Asura.Git.GitRepositoryHandle(Asura.Core.BuiltInConnections.Local, "/srv/asura"), "src/service.cs")), null),
         // The workspaces-rail tiles at Retina density: every icon the rail can
         // draw, so glyph centering is measurable at the scale users run at.
         ("rail-tiles-2x", CreateRailTileProbe, null),

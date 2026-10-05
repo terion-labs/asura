@@ -1,0 +1,62 @@
+<Window x:Class="Asura.App.Views.GitLfsDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:git="using:Asura.Git" xmlns:vm="using:Asura.App.ViewModels" xmlns:controls="using:Asura.App.Controls" Width="850" Height="640" MinWidth="550" MinHeight="400" ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
+  <Window.Styles>
+    <Style Selector="TabItem">
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
+      <Setter Property="MinHeight" Value="{DynamicResource ShellControlMinHeight}" />
+    </Style>
+  </Window.Styles>
+  <controls:DialogShell x:Name="Shell" Title="Git LFS" Subtitle="Locks are verified against the remote. Ordinary unlock is available only for locks owned by your account." Scrolls="False">
+    <controls:DialogShell.Footer>
+      <WrapPanel ItemSpacing="{DynamicResource ShellSpaceSm}" LineSpacing="{DynamicResource ShellSpaceXs}">
+        <Button x:Name="RefreshButton" Content="Refresh" Classes="SecondaryButton" Click="OnRefresh" />
+        <Button Content="Close" Classes="SecondaryButton" Click="OnClose" />
+      </WrapPanel>
+    </controls:DialogShell.Footer>
+    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
+      <TextBlock x:Name="Message" TextWrapping="Wrap" IsVisible="False" />
+      <WrapPanel Grid.Row="1" ItemSpacing="{DynamicResource ShellSpaceSm}" LineSpacing="{DynamicResource ShellSpaceXs}">
+        <ComboBox x:Name="RemoteInput" MinWidth="140" AutomationProperties.Name="LFS remote" SelectionChanged="OnRemoteChanged" />
+        <TextBox x:Name="PathInput" Width="240" PlaceholderText="File path to lock" AutomationProperties.Name="File path to lock" />
+        <Button x:Name="LockButton" Content="Lock file" Click="OnLock" />
+        <Button x:Name="UnlockButton" Content="Unlock selected" Click="OnUnlock" IsEnabled="False" />
+        <Button x:Name="ForceButton" Content="Force unlock selected…" Classes="DestructiveButton" Click="OnForceUnlock" IsEnabled="False" />
+      </WrapPanel>
+      <TabControl Grid.Row="2">
+        <TabItem Header="Locks">
+          <ListBox x:Name="LocksList" SelectionChanged="OnLockSelection" AutomationProperties.Name="Verified LFS locks">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:GitLfsLockItemViewModel">
+                <StackPanel Margin="{DynamicResource ShellInsetSm}" Spacing="{DynamicResource ShellSpaceXs}">
+                  <TextBlock Text="{Binding Path}" TextWrapping="Wrap" FontWeight="SemiBold" />
+                  <WrapPanel ItemSpacing="{DynamicResource ShellSpaceMd}" LineSpacing="{DynamicResource ShellSpaceXs}">
+                    <TextBlock Text="{Binding OwnerName, StringFormat=Owner: {0}}" />
+                    <TextBlock Text="{Binding OwnershipLabel}" />
+                    <TextBlock Text="{Binding LockedAt}" />
+                  </WrapPanel>
+                  <TextBlock Classes="Muted" Text="{Binding Id, StringFormat=Lock: {0}}" />
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </TabItem>
+        <TabItem Header="Changed LFS files">
+          <ListBox x:Name="StatusList" AutomationProperties.Name="Changed LFS files">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="git:GitLfsStatusFile">
+                <StackPanel Margin="{DynamicResource ShellInsetSm}" Spacing="{DynamicResource ShellSpaceXs}">
+                  <TextBlock Text="{Binding Path}" TextWrapping="Wrap" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding Status}" />
+                  <TextBlock Classes="Muted" Text="{Binding OriginalPath}" />
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </TabItem>
+        <TabItem Header="Pending uploads and summary">
+          <TextBox x:Name="Summary" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" AutomationProperties.Name="LFS status and pending uploads" />
+        </TabItem>
+      </TabControl>
+    </Grid>
+  </controls:DialogShell>
+</Window>
