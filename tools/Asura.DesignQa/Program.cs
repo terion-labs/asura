@@ -511,22 +511,16 @@ internal sealed class QaApplication : Avalonia.Application
             vm.ShowWorkspace();
             AddSampleBrowserPanel(vm);
         }),
-        new("workspace-browser-narrow", vm =>
-        {
-            vm.ShowWorkspace();
-        }, PrepareCapture: window =>
-        {
-            // The normal browser route has no renderer. This probe renders the
-            // real browser header with a draft address, without opening a site.
-            var browser = new Asura.App.Views.RuntimePanels.BrowserRuntimePanelView
-            {
-                DataContext = null,
-                Width = 470,
-                Height = 300,
-            };
-            browser.FindControl<BrowserPresentationHost>("RuntimeBrowser")!.AddressText = "https://example.test/current-page";
-            window.Content = browser;
-        }),
+        new("workspace-browser-narrow", vm => vm.ShowWorkspace(),
+            PrepareCapture: window => PrepareBrowserHeader(window, 470, open: false)),
+        new("workspace-browser-overflow", vm => vm.ShowWorkspace(),
+            PrepareCapture: window => PrepareBrowserHeader(window, 470, open: true)),
+        new("workspace-browser-overflow-small", vm => vm.ShowWorkspace(),
+            PrepareCapture: window => PrepareBrowserHeader(window, 280, open: true)),
+        new("workspace-browser-overflow-scroll", vm => vm.ShowWorkspace(),
+            PrepareCapture: window => PrepareBrowserHeader(window, 200, open: true)),
+        new("workspace-browser-wide", vm => vm.ShowWorkspace(),
+            PrepareCapture: window => PrepareBrowserHeader(window, 1000, open: false)),
         new("workspace-kubernetes", vm =>
         {
             vm.ShowWorkspace();
@@ -911,6 +905,25 @@ internal sealed class QaApplication : Avalonia.Application
             PlatformProfile.Automatic,
             AccentPreference.FollowHost,
             textScaleOverride: scale);
+
+    private static void PrepareBrowserHeader(Window window, double width, bool open)
+    {
+        // Exercise the real controls without starting a renderer or visiting a site.
+        var browser = new Asura.App.Views.RuntimePanels.BrowserRuntimePanelView
+        {
+            DataContext = null,
+            Width = width,
+            Height = 300,
+        };
+        browser.FindControl<BrowserPresentationHost>("RuntimeBrowser")!.AddressText = "https://example.test/current-page";
+        window.Content = browser;
+        window.UpdateLayout();
+        if (open)
+        {
+            browser.GetVisualDescendants().OfType<Button>().Single(button => string.Equals(button.Name, "PART_Overflow", StringComparison.Ordinal))
+                .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        }
+    }
 
     private static void ShowSampleDragGhost(MainWindow window)
     {

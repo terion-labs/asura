@@ -13,6 +13,7 @@ public sealed partial class BrowserRuntimePanelView : UserControl
 {
     private const string BlankAddressPlaceholder = "about:blank";
     private BrowserRuntimePanelViewModel? _historyPanel;
+    private readonly StackPanel _overflowActions = new() { Orientation = Avalonia.Layout.Orientation.Horizontal };
 
     public BrowserRuntimePanelView()
     {
@@ -67,50 +68,30 @@ public sealed partial class BrowserRuntimePanelView : UserControl
 
     private void OnBrowserHeaderSizeChanged(object? sender, SizeChangedEventArgs e)
     {
-        // Reserve a readable address field before spending width on navigation
-        // actions. Hidden buttons retain their bindings and move into the menu.
+        // Move the original controls, keeping their live bindings and handlers.
         var compact = e.NewSize.Width < 360;
         BrowserHeader.Classes.Set("compact", compact);
         foreach (var button in new[] { BrowserBackButton, BrowserForwardButton, BrowserFindButton, BrowserExternalButton, BrowserToolsButton })
         {
-            button.IsVisible = !compact;
+            var destination = compact ? (Panel)_overflowActions : BrowserHeader;
+            if (button.Parent is Panel current && current != destination)
+            {
+                current.Children.Remove(button);
+                var index = compact
+                    ? destination.Children.Count
+                    : destination.Children.Count(child => Grid.GetColumn(child) < Grid.GetColumn(button));
+                destination.Children.Insert(index, button);
+            }
         }
 
+        BrowserChrome.HeaderOverflowContent = compact ? _overflowActions : null;
         BrowserOverflowButton.IsVisible = compact && !BrowserChrome.IsHeaderCondensed;
-    }
-
-    private void OnPanelOverflowOpening(object? sender, MenuFlyout menu)
-    {
-        if (BrowserHeader.Classes.Contains("compact"))
-        {
-            menu.Items.Add(new Separator());
-            AddBrowserOverflowActions(menu);
-        }
     }
 
     private void OnBrowserOverflowClick(object? sender, RoutedEventArgs e)
     {
-        var menu = new MenuFlyout();
-        AddBrowserOverflowActions(menu);
-        BrowserOverflowButton.Flyout = menu;
-        menu.ShowAt(BrowserOverflowButton);
+        BrowserChrome.ToggleHeaderOverflow(BrowserOverflowButton);
         e.Handled = true;
-    }
-
-    private void AddBrowserOverflowActions(MenuFlyout menu)
-    {
-        Add("Back", BrowserBackButton, OnBackClick);
-        Add("Forward", BrowserForwardButton, OnForwardClick);
-        Add("Find in page", BrowserFindButton, OnFindClick);
-        Add("Open in system browser", BrowserExternalButton, OnOpenInSystemBrowserClick);
-        Add("Developer tools", BrowserToolsButton, OnDeveloperToolsClick);
-
-        void Add(string label, Button source, EventHandler<RoutedEventArgs> action)
-        {
-            var item = new MenuItem { Header = label, IsEnabled = source.IsEnabled };
-            item.Click += action;
-            menu.Items.Add(item);
-        }
     }
 
     /// <summary>
