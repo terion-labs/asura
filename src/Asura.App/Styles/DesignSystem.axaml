@@ -141,7 +141,7 @@
               ClipsContent="True"
               Padding="0"
               Classes.active="{TemplateBinding IsActive}">
-            <Grid RowDefinitions="Auto,Auto,*,Auto">
+            <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
               <Border
                   Grid.Row="0"
                   Classes="PanelHeader"
@@ -169,53 +169,55 @@
                         Margin="{controls:Inset Right=Xs}"
                         IsVisible="{TemplateBinding HasAttention}"
                         ToolTip.Tip="This panel has an unread notification" />
-                    <StackPanel Orientation="Horizontal" IsVisible="{TemplateBinding IsHeaderCondensed, Converter={x:Static converters:BoolConverters.Not}}">
-                      <Button
-                          Name="PART_Collapse"
-                          AutomationProperties.Name="Collapse this panel"
-                          Classes="IconButton Compact"
-                          ToolTip.Tip="Collapse panel">
-                        <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="Subtract" />
-                      </Button>
-                      <Button
-                          Name="PART_Expand"
-                          AutomationProperties.Name="{TemplateBinding ExpansionLabel}"
-                          Classes="IconButton Compact"
-                          ToolTip.Tip="{TemplateBinding ExpansionLabel}">
-                        <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="{TemplateBinding ExpansionIcon}" />
-                      </Button>
-                      <Button
-                          Name="PART_Float"
-                          AutomationProperties.Name="Move this panel to its own window"
-                          Classes="IconButton Compact"
-                          IsVisible="{TemplateBinding CanFloat}"
-                          ToolTip.Tip="Move to its own window">
-                        <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="WindowMultiple" />
-                      </Button>
-                      <Button
-                          Name="PART_Dock"
-                          AutomationProperties.Name="Put this panel back in the workspace"
-                          Classes="IconButton Compact"
-                          IsVisible="{TemplateBinding IsFloating}"
-                          ToolTip.Tip="Put back in the workspace">
-                        <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="WindowMultipleOff" />
-                      </Button>
-                      <Button
-                          Name="PART_SplitLeftRight"
-                          AutomationProperties.Name="Split this panel left and right"
-                          Classes="IconButton Compact"
-                          IsVisible="{TemplateBinding CanSplit}"
-                          ToolTip.Tip="Split left/right">
-                        <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="SplitVertical" />
-                      </Button>
-                      <Button
-                          Name="PART_SplitTopBottom"
-                          AutomationProperties.Name="Split this panel top and bottom"
-                          Classes="IconButton Compact"
-                          IsVisible="{TemplateBinding CanSplit}"
-                          ToolTip.Tip="Split top/bottom">
-                        <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="SplitHorizontal" />
-                      </Button>
+                    <StackPanel Name="PART_HeaderActions" Orientation="Horizontal">
+                      <StackPanel Name="PART_SecondaryActions" Orientation="Horizontal">
+                        <Button
+                            Name="PART_Collapse"
+                            AutomationProperties.Name="Collapse this panel"
+                            Classes="IconButton Compact"
+                            ToolTip.Tip="Collapse panel">
+                          <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="Subtract" />
+                        </Button>
+                        <Button
+                            Name="PART_Expand"
+                            AutomationProperties.Name="{TemplateBinding ExpansionLabel}"
+                            Classes="IconButton Compact"
+                            ToolTip.Tip="{TemplateBinding ExpansionLabel}">
+                          <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="{TemplateBinding ExpansionIcon}" />
+                        </Button>
+                        <Button
+                            Name="PART_Float"
+                            AutomationProperties.Name="Move this panel to its own window"
+                            Classes="IconButton Compact"
+                            IsVisible="{TemplateBinding CanFloat}"
+                            ToolTip.Tip="Move to its own window">
+                          <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="WindowMultiple" />
+                        </Button>
+                        <Button
+                            Name="PART_Dock"
+                            AutomationProperties.Name="Put this panel back in the workspace"
+                            Classes="IconButton Compact"
+                            IsVisible="{TemplateBinding IsFloating}"
+                            ToolTip.Tip="Put back in the workspace">
+                          <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="WindowMultipleOff" />
+                        </Button>
+                        <Button
+                            Name="PART_SplitLeftRight"
+                            AutomationProperties.Name="Split this panel left and right"
+                            Classes="IconButton Compact"
+                            IsVisible="{TemplateBinding CanSplit}"
+                            ToolTip.Tip="Split left/right">
+                          <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="SplitVertical" />
+                        </Button>
+                        <Button
+                            Name="PART_SplitTopBottom"
+                            AutomationProperties.Name="Split this panel top and bottom"
+                            Classes="IconButton Compact"
+                            IsVisible="{TemplateBinding CanSplit}"
+                            ToolTip.Tip="Split top/bottom">
+                          <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="SplitHorizontal" />
+                        </Button>
+                      </StackPanel>
                     </StackPanel>
                     <Button Name="PART_Overflow" Classes="IconButton Compact"
                         IsVisible="{TemplateBinding IsHeaderCondensed}"
@@ -290,9 +292,23 @@
                   </Grid>
                 </DockPanel>
               </Border>
-              <components:ErrorNoticesView Grid.Row="1" DataContext="{CompiledBinding $parent[controls:PanelChrome].((vm:ObservableObject)DataContext).ErrorNotices}" />
+              <Border Grid.Row="1" Name="PART_OverflowStrip"
+                  IsVisible="{TemplateBinding IsHeaderOverflowOpen}"
+                  Background="{DynamicResource ShellSidebarBrush}"
+                  BorderBrush="{DynamicResource ShellSidebarBorderBrush}"
+                  BorderThickness="0,0,0,1"
+                  Padding="{controls:Inset Horizontal=Sm, Vertical=Xs}">
+                <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
+                  <StackPanel Name="PART_OverflowActions" Orientation="Horizontal"
+                      HorizontalAlignment="Right" KeyboardNavigation.TabNavigation="Continue">
+                    <ContentPresenter Name="PART_BrowserOverflow"
+                        Content="{TemplateBinding HeaderOverflowContent}" />
+                  </StackPanel>
+                </ScrollViewer>
+              </Border>
+              <components:ErrorNoticesView Grid.Row="2" DataContext="{CompiledBinding $parent[controls:PanelChrome].((vm:ObservableObject)DataContext).ErrorNotices}" />
               <ContentPresenter
-                  Grid.Row="2"
+                  Grid.Row="3"
                   Content="{TemplateBinding Content}"
                   ContentTemplate="{TemplateBinding ContentTemplate}"
                   HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
@@ -305,7 +321,7 @@
                 has to be reachable, both belong here.
               -->
               <Border
-                  Grid.Row="3"
+                  Grid.Row="4"
                   Classes="PanelFooter"
                   IsVisible="{TemplateBinding IsFooterVisible}">
                 <controls:PanelDockHandle

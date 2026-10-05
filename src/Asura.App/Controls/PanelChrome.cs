@@ -272,8 +272,6 @@ internal sealed partial class PanelChrome : ContentControl
     /// <summary>Raised when the user asks for this panel to be closed.</summary>
     public event EventHandler<RoutedEventArgs>? CloseRequested;
 
-    public event EventHandler<MenuFlyout>? OverflowOpening;
-
     /// <summary>
     /// Raised when the user asks for an empty panel beside this one. What it
     /// becomes is chosen there rather than in a modal over the window.
@@ -448,6 +446,7 @@ internal sealed partial class PanelChrome : ContentControl
         Detach(_splitTopBottom, OnSplitTopBottomClick);
         Detach(_close, OnCloseClick);
         Detach(_overflow, OnOverflowClick);
+        DetachHeaderOverflow();
 
         _float = e.NameScope.Find<Button>("PART_Float");
         _dock = e.NameScope.Find<Button>("PART_Dock");
@@ -463,6 +462,7 @@ internal sealed partial class PanelChrome : ContentControl
         Attach(_close, OnCloseClick);
         Attach(_overflow, OnOverflowClick);
         AttachCollapseActions(e);
+        AttachHeaderOverflow(e);
         UpdateDockState();
         UpdateNotificationPulseClass();
     }
@@ -565,6 +565,7 @@ internal sealed partial class PanelChrome : ContentControl
         var standardActionsWidth = new[] { _collapse, _expand, _float, _dock, _splitLeftRight, _splitTopBottom, _close }
             .Sum(HeaderSlotWidth);
         IsHeaderCondensed = available < contentWidth + leadingWidth + actionsWidth + standardActionsWidth + 120;
+        UpdateHeaderOverflow();
         var actionBudget = IsHeaderCondensed ? 56 : standardActionsWidth;
         IsHeaderContentVisible = HeaderContent is not null && available >= 160;
         IsTitleVisible = !IsHeaderContentVisible || !IsHeaderCondensed;
@@ -594,35 +595,5 @@ internal sealed partial class PanelChrome : ContentControl
 
         control.Measure(new Size(double.PositiveInfinity, 48));
         return control.DesiredSize.Width;
-    }
-
-    private void OnOverflowClick(object? sender, RoutedEventArgs e)
-    {
-        if (sender is not Button button)
-        {
-            return;
-        }
-
-        var menu = new MenuFlyout();
-        Add("Collapse panel", OnCollapseClick);
-        Add(ExpansionLabel, OnExpandClick);
-        Add(IsFloating ? "Dock panel" : "Float panel", OnFloatClick);
-        if (CanSplit)
-        {
-            Add("Split left/right", OnSplitLeftRightClick);
-            Add("Split top/bottom", OnSplitTopBottomClick);
-        }
-
-        OverflowOpening?.Invoke(this, menu);
-        button.Flyout = menu;
-        menu.ShowAt(button);
-        e.Handled = true;
-
-        void Add(string label, EventHandler<RoutedEventArgs> action)
-        {
-            var item = new MenuItem { Header = label };
-            item.Click += action;
-            menu.Items.Add(item);
-        }
     }
 }
