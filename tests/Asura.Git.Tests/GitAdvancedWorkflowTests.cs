@@ -235,19 +235,36 @@ public sealed class GitAdvancedWorkflowTests
             var version = int.Parse((await repo.TextAsync("version.txt")).Trim(), System.Globalization.CultureInfo.InvariantCulture);
             Success(await repo.Client.ControlOperationAsync(reopened, GitOperationKind.Bisect,
                 version >= 4 ? GitOperationControl.Bad : GitOperationControl.Good, CancellationToken.None));
-            if ((await repo.GitAsync("bisect", "log")).Contains("# first bad commit:", StringComparison.Ordinal))
+            if (Success(await repo.Client.ReadOperationAsync(reopened, CancellationToken.None)).FirstBadRevision is not null)
             {
                 break;
             }
         }
 
-        Assert.Contains("# first bad commit: [" + commits[3] + "]", await repo.GitAsync("bisect", "log"), StringComparison.Ordinal);
         Assert.Equal(commits[3], Success(await repo.Client.ReadOperationAsync(reopened, CancellationToken.None)).FirstBadRevision);
         Success(await repo.Client.ControlOperationAsync(reopened, GitOperationKind.Bisect,
             GitOperationControl.BisectReset, CancellationToken.None));
         Assert.Equal("main", (await repo.GitAsync("branch", "--show-current")).Trim());
         Assert.Equal(commits[^1], (await repo.GitAsync("rev-parse", "HEAD")).Trim());
         Assert.Equal(GitOperationKind.Normal, Success(await repo.Client.ReadOperationAsync(reopened, CancellationToken.None)).Kind);
+    }
+
+    [Theory]
+    [InlineData("# first bad commit: [", true)]
+    [InlineData("# first 'bad' commit: [", true)]
+    [InlineData("# possible first bad commit: [", false)]
+    [InlineData("# possible first 'bad' commit: [", false)]
+    public async Task BisectCompletionRecognizesOldAndNewGitLogs(string prefix, bool completed)
+    {
+        await using var repo = await Repository.CreateAsync();
+        var revision = (await repo.GitAsync("rev-parse", "HEAD")).Trim();
+        await repo.GitAsync("bisect", "start");
+        await repo.WriteAsync(".git/BISECT_LOG", prefix + revision + "] Base\n");
+
+        var state = Success(await repo.Client.ReadOperationAsync(repo.Handle, CancellationToken.None));
+
+        Assert.Equal(GitOperationKind.Bisect, state.Kind);
+        Assert.Equal(completed ? revision : null, state.FirstBadRevision);
     }
 
     [Fact]

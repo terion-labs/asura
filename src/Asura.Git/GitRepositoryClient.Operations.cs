@@ -55,12 +55,17 @@ public sealed partial class GitRepositoryClient
                 return new GitResult<GitOperationState>.Failure(logFailure.Error);
             }
 
-            var firstBad = Value(log).Text.Split('\n').LastOrDefault(line => line.StartsWith("# first bad commit: [", StringComparison.Ordinal));
+            // Git 2.55 quotes the bisect term; older versions leave it unquoted.
+            var firstBad = Value(log).Text.Split('\n').LastOrDefault(line =>
+                line.StartsWith("# first bad commit: [", StringComparison.Ordinal)
+                || line.StartsWith("# first 'bad' commit: [", StringComparison.Ordinal));
+            var openingBracket = firstBad?.IndexOf('[', StringComparison.Ordinal) ?? -1;
             var closingBracket = firstBad?.IndexOf(']', StringComparison.Ordinal) ?? -1;
             state = state with
             {
                 CurrentRevision = Value(head).Text.TrimEnd('\r', '\n'),
-                FirstBadRevision = closingBracket > 21 ? firstBad![21..closingBracket] : null,
+                FirstBadRevision = openingBracket >= 0 && closingBracket > openingBracket + 1
+                    ? firstBad![(openingBracket + 1)..closingBracket] : null,
             };
         }
 
