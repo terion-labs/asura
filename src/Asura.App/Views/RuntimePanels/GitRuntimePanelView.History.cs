@@ -12,15 +12,6 @@ public sealed partial class GitRuntimePanelView
     private bool _isSyncingHistorySelection;
     private readonly Dictionary<string, string> _conflictResolutionDrafts = new(StringComparer.Ordinal);
 
-    private void OnHistoryHostingShortcut(object? sender, RoutedEventArgs e)
-    {
-        if (sender is MenuItem { DataContext: GitCommitItemViewModel commit } && ViewModel is { } viewModel)
-        {
-            viewModel.SelectedCommit = commit;
-            OnHostingShortcut(sender, e);
-        }
-    }
-
     private async void OnHideHistoryRef(object? sender, RoutedEventArgs e)
     {
         if (RefItem(sender) is { } item && ViewModel is { } viewModel)

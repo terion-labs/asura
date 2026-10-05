@@ -1312,6 +1312,11 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
                     Submodules = submoduleRows.Value;
                 }
             }
+            if (_comparisonCancellation is null && _comparisonBase is { } comparisonBase && _comparisonTarget is null
+                && !_disposed && ReferenceEquals(repository, _repository))
+            {
+                await CompareAsync(comparisonBase, null);
+            }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
         {
@@ -1517,7 +1522,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
             var page = ((GitResult<GitCommitPage>.Success)result).Value;
             var selectedSha = SelectedCommit?.Commit.Sha;
             var selectedShas = SelectedCommits.Select(item => item.Commit.Sha).ToHashSet(StringComparer.Ordinal);
-            _preserveComparisonSelection = reset && !applyFilter && _comparisonTarget is not null;
+            _preserveComparisonSelection = reset && !applyFilter && _comparisonBase is not null;
             if (reset)
             {
                 SelectedCommits = [];
@@ -1631,7 +1636,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
             if (cancellationToken.IsCancellationRequested
                 || !ReferenceEquals(repository, _repository)
                 || !string.Equals(SelectedCommit?.Commit.Sha, sha, StringComparison.Ordinal)
-                || _comparisonTarget is not null)
+                || _comparisonBase is not null)
             {
                 return;
             }
@@ -1825,20 +1830,19 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         }
 
         if (SelectedCommitChange is not { } commitChange
-            || (_comparisonTarget is null && SelectedCommit is null))
+            || (_comparisonBase is null && SelectedCommit is null))
         {
             return null;
         }
 
         return new GitDiffRequest(
-            GitDiffArea.Commit,
+            _comparisonBase is not null && _comparisonTarget is null ? GitDiffArea.Worktree : GitDiffArea.Commit,
             commitChange.Path,
             commitChange.Change.OriginalPath,
-            _comparisonTarget ?? SelectedCommit!.Commit.Sha,
+            _comparisonBase is null ? SelectedCommit!.Commit.Sha : _comparisonTarget,
             IgnoreWhitespace: DiffIgnoresWhitespace,
             BaseRevision: _comparisonBase,
-            ContextLines: DiffWholeFile ? 100000 : 3) with
-        { CommitSha = _comparisonTarget ?? SelectedCommit!.Commit.Sha };
+            ContextLines: DiffWholeFile ? 100000 : 3);
     }
 
     private async Task LoadDiffAsync(

@@ -19,6 +19,10 @@ public sealed partial class GitRuntimePanelView : UserControl
     public GitRuntimePanelView()
     {
         InitializeComponent();
+        // Resolve the exact row before the standard menu controller opens the
+        // popup in the bubble phase, including keyboard context gestures.
+        CommitHistory.AddHandler(ContextRequestedEvent, OnHistoryContextRequested,
+            RoutingStrategies.Tunnel);
         DataContextChanged += OnDataContextChanged;
         GitSidebar.PropertyChanged += OnSidebarPropertyChanged;
     }

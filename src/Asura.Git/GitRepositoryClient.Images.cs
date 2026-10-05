@@ -13,7 +13,7 @@ public sealed partial class GitRepositoryClient
         ValidateWorktreePath(oldPath);
         var oldRevision = request.Area switch
         {
-            GitDiffArea.Worktree => "",
+            GitDiffArea.Worktree => request.BaseRevision ?? "",
             GitDiffArea.Index => "HEAD",
             GitDiffArea.Commit => request.BaseRevision ?? request.CommitSha + "^",
             _ => throw new ArgumentOutOfRangeException(nameof(request)),

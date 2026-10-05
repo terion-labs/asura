@@ -41,7 +41,7 @@ public sealed partial class GitRuntimePanelViewModel
     public string? CurrentBranchName => _snapshot?.Head.BranchName;
 
     public Task DownloadLfsImagesAsync() => RepositoryActionAsync(repository =>
-        _client.DownloadLfsObjectsAsync(repository, ComposeDiffRequest()?.CommitSha ?? "HEAD", ActionToken));
+        _client.DownloadLfsObjectsAsync(repository, ComposeDiffRequest()?.CommitSha ?? ComposeDiffRequest()?.BaseRevision ?? "HEAD", ActionToken));
     public GitFileInvestigationViewModel? CreateFileInvestigation(string path, bool isDirectory = false) => _repository is { } repository
         ? new(_client, repository, path, isDirectory) { Revision = IsLocalChangesSection ? "HEAD" : _comparisonTarget ?? SelectedCommit?.Commit.Sha ?? "HEAD" } : null;
 
@@ -52,6 +52,16 @@ public sealed partial class GitRuntimePanelViewModel
             return null;
         }
 
+        return await ReadPatchAsync(repository, request);
+    }
+
+    public Task<string?> ReadCommitPatchAsync(GitCommitItem commit) => _repository is { } repository
+        ? ReadPatchAsync(repository, new GitDiffRequest(GitDiffArea.Commit, ".", CommitSha: commit.Sha,
+            BaseRevision: commit.ParentShas.FirstOrDefault(), IncludeBinary: true))
+        : Task.FromResult<string?>(null);
+
+    private async Task<string?> ReadPatchAsync(GitRepositoryHandle repository, GitDiffRequest request)
+    {
         var result = await _client.ReadDiffAsync(repository, request, _lifetime.Token);
         if (result is GitResult<GitDiffDocument>.Failure failure)
         {

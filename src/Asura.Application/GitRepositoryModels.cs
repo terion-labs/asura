@@ -223,7 +223,8 @@ public sealed record GitDiffRequest(
     bool IsUntracked = false,
     bool IgnoreWhitespace = false,
     string? BaseRevision = null,
-    int ContextLines = 3);
+    int ContextLines = 3,
+    bool IncludeBinary = false);
 
 public enum GitDiffLineKind
 {
