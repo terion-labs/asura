@@ -122,6 +122,15 @@ public sealed class GitCommitMenuHeadlessTests
         var lefts = headers.Select(header => header.TranslatePoint(default, tree)!.Value.X).ToArray();
         Assert.Equal(16, lefts[1] - lefts[0], precision: 2);
         Assert.Equal(16, lefts[2] - lefts[1], precision: 2);
+        foreach (var header in headers[..^1])
+        {
+            var chevron = header.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>()
+                .Single(path => path.Name == "ChevronPath");
+            var folderLabel = header.GetVisualDescendants().OfType<TextBlock>().Single();
+            var chevronRight = chevron.TranslatePoint(new Point(chevron.Bounds.Width, 0), header)!.Value.X;
+            var folderLeft = folderLabel.TranslatePoint(default, header)!.Value.X;
+            Assert.InRange(folderLeft - chevronRight, 0, 2);
+        }
         foreach (var header in headers)
         {
             Assert.InRange(header.Bounds.Height, 20, 24);
