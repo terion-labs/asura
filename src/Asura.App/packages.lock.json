@@ -4,13 +4,13 @@
     "net10.0": {
       "Avalonia": {
         "type": "Direct",
-        "requested": "[12.0.5, )",
-        "resolved": "12.0.5",
-        "contentHash": "eGDbwos1AMlOaXnGN5IQ+JGG3RViFFuyN3GP70irOSbqZt4H9A6quIP6uVFVni/bBczmt5ELGuHzN+lkLQSD1A==",
+        "requested": "[12.1.3, )",
+        "resolved": "12.1.3",
+        "contentHash": "l0VGyGn1OwqFrhmIhIHivvrQP0DtBD4Vn2F1vLYgGA2X2qHg0DMVRAln/6xOTLBUYoTopiVAujN0jtH8MpVSeA==",
         "dependencies": {
           "Avalonia.BuildServices": "11.3.2",
-          "Avalonia.Remote.Protocol": "12.0.5",
-          "MicroCom.Runtime": "0.11.4"
+          "Avalonia.Remote.Protocol": "12.1.3",
+          "MicroCom.Runtime": "0.11.6"
         }
       },
       "Avalonia.AvaloniaEdit": {
@@ -122,13 +122,13 @@
       },
       "FluentIcons.Avalonia": {
         "type": "Direct",
-        "requested": "[2.1.333, )",
-        "resolved": "2.1.333",
-        "contentHash": "rysgTNvvjI8dlRVvt9bmSxfK06ZmPi1X8WIvo1Od+MgA3lI+QUp7mWvaD42Ni7Leh34iFKCME8dEAJdyKZWtlQ==",
+        "requested": "[2.1.343, )",
+        "resolved": "2.1.343",
+        "contentHash": "RNSJcUwRxC2HeQULT1rHnB/l9c2NfQyfX/NJ65yBhAj5i428N/9O3N+CHZega7iEaqRUsrRtyVV2Z7AzEHYrDQ==",
         "dependencies": {
           "Avalonia": "12.0.0",
-          "FluentIcons.Common": "[2.1.333]",
-          "FluentIcons.Resources.Avalonia": "[2.1.333]"
+          "FluentIcons.Common": "[2.1.343]",
+          "FluentIcons.Resources.Avalonia": "[2.1.343]"
         }
       },
       "Markdig": {
@@ -206,8 +206,8 @@
       },
       "Avalonia.Remote.Protocol": {
         "type": "Transitive",
-        "resolved": "12.0.5",
-        "contentHash": "/S4T1uZzXvPpN0Sqs44u3Rl5/qCZHHefRK7xyORONHH1w60IfsfsE5RbwFSku7qmib1DsGZZXxtweJq24ERfbg=="
+        "resolved": "12.1.3",
+        "contentHash": "HcF69DKyihgg5coLOSp7GTqxQvWAy58LMKauwcHA28uSBJVwu0h5+gTNdJA8Sn/nqJVTRDU98zYsk6i1QSwDVQ=="
       },
       "Dock.Controls.DeferredContentControl": {
         "type": "Transitive",
@@ -271,16 +271,16 @@
       },
       "FluentIcons.Common": {
         "type": "Transitive",
-        "resolved": "2.1.333",
-        "contentHash": "ph0Tqd6TIkSOr9Iixw+k6og1Y92UldfGLTxlDfj+FmdKtlG95qDX418TseY6gRcQVS9w+Tt2ye10RVM0kcGHmg=="
+        "resolved": "2.1.343",
+        "contentHash": "GKtYmGYzjJ9O1P7hmVQ6bkiJRsUaJnmdUWN7MfBpoty25QbzRbYDyTWhxbYJq6Lk2DyDYS2EQrMhYPtNLILn+Q=="
       },
       "FluentIcons.Resources.Avalonia": {
         "type": "Transitive",
-        "resolved": "2.1.333",
-        "contentHash": "RaFZs1cjhW0qzUE6ir5tjLQqIxq5c2l0QhuYb1Dckp3FHleHfGsLrME2/yYVLoF6eA6SCpQ+5ki+XiiNrSgamA==",
+        "resolved": "2.1.343",
+        "contentHash": "bAM0+BTjFHD7mVbasOc0CIAyErb170OeEAYCKPRyJXNaexzxmbKXGU8Y/ei7SWYlkX1q8RLSyxRJj9+OacPlbw==",
         "dependencies": {
           "Avalonia": "12.0.0",
-          "FluentIcons.Common": "[2.1.333]"
+          "FluentIcons.Common": "[2.1.343]"
         }
       },
       "HarfBuzzSharp": {
@@ -314,8 +314,8 @@
       },
       "MicroCom.Runtime": {
         "type": "Transitive",
-        "resolved": "0.11.4",
-        "contentHash": "yZ8+Lgwo+KtRI29TB2mIOEMzV+csMJ+pKZg4YHReAP3vRewWLKKeYfrBDo5FS69rWnEbCfU3sbM+ZEQr+GDLtg=="
+        "resolved": "0.11.6",
+        "contentHash": "NdNWGDiZ6eS/Mf/9+QHR91cj1K7Hy+PX9yrHI/zM7xFYuj9IWT2uxtB6sCHjrnxAeLV9fut1R6zHDUGKX6f9lQ=="
       },
       "Microsoft.Extensions.ObjectPool": {
         "type": "Transitive",
