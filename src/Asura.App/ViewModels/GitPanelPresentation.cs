@@ -409,10 +409,10 @@ public sealed class GitDiffLineViewModel
         IsHunkHeader = isHunkHeader;
     }
 
-    public static GitDiffLineViewModel Hunk(string header) =>
-        new("", "", header, isAdded: false, isRemoved: false, isHunkHeader: true);
+    public static GitDiffLineViewModel Hunk(string header, int hunkIndex = 0) =>
+        new("", "", header, isAdded: false, isRemoved: false, isHunkHeader: true) { HunkIndex = hunkIndex };
 
-    public static GitDiffLineViewModel Content(GitDiffLine line)
+    public static GitDiffLineViewModel Content(GitDiffLine line, int hunkIndex = 0, int lineIndex = 0)
     {
         ArgumentNullException.ThrowIfNull(line);
         return new GitDiffLineViewModel(
@@ -421,14 +421,26 @@ public sealed class GitDiffLineViewModel
             line.Text,
             line.Kind == GitDiffLineKind.Added,
             line.Kind == GitDiffLineKind.Removed,
-            isHunkHeader: false);
+            isHunkHeader: false)
+        { HunkIndex = hunkIndex, LineIndex = lineIndex };
     }
+
+    public int HunkIndex { get; private init; }
+
+    public int LineIndex { get; private init; }
+
+    public string AccessibleSummary => IsHunkHeader ? $"Hunk {HunkIndex + 1}: {Text}"
+        : IsAdded ? $"Added line {NewNumberText}: {Text}"
+        : IsRemoved ? $"Removed line {OldNumberText}: {Text}"
+        : $"Context, old line {OldNumberText}, new line {NewNumberText}: {Text}";
 
     public string OldNumberText { get; }
 
     public string NewNumberText { get; }
 
     public string Text { get; }
+
+    public string? PeerText { get; set; }
 
     public bool IsAdded { get; }
 
@@ -535,6 +547,14 @@ public sealed class GitDiffSplitRowViewModel
     public string LeftMarkerText => LeftIsRemoved ? "−" : "";
 
     public string RightMarkerText => RightIsAdded ? "+" : "";
+
+    public string AccessibleSummary => IsHunkHeader ? $"Hunk header: {HeaderText}"
+        : !LeftIsRemoved && !RightIsAdded ? $"Context, old line {LeftNumberText}, new line {RightNumberText}: {LeftText}"
+        : string.Join("; ", new[]
+        {
+            LeftNumberText.Length > 0 ? $"{(LeftIsRemoved ? "Removed" : "Context")} old line {LeftNumberText}: {LeftText}" : "",
+            RightNumberText.Length > 0 ? $"{(RightIsAdded ? "Added" : "Context")} new line {RightNumberText}: {RightText}" : "",
+        }.Where(text => text.Length > 0));
 }
 
 /// <summary>One ref row in the repository sidebar.</summary>
@@ -546,6 +566,8 @@ public sealed class GitRefItemViewModel(
     public GitRefItem Item { get; } = item ?? throw new ArgumentNullException(nameof(item));
 
     public string Name => Item.ShortName;
+
+    public string LeafName => Name[(Name.LastIndexOf('/') + 1)..];
 
     public bool IsCurrent => Item.IsCurrent;
 

@@ -1,0 +1,12 @@
+<Window x:Class="Asura.App.Views.GitOutputDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:Asura.App.Controls" Width="850" Height="600" MinWidth="500" MinHeight="300" ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
+  <controls:DialogShell x:Name="Shell" Scrolls="False">
+    <controls:DialogShell.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+        <Button Content="Copy" Classes="SecondaryButton" Click="OnCopy" />
+        <Button Content="Save…" Classes="SecondaryButton" Click="OnSave" />
+        <Button Content="Close" Classes="SecondaryButton" Click="OnClose" />
+      </StackPanel>
+    </controls:DialogShell.Footer>
+    <TextBox x:Name="Output" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" AutomationProperties.Name="Git operation output" />
+  </controls:DialogShell>
+</Window>

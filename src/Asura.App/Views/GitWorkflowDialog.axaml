@@ -1,0 +1,14 @@
+<Window x:Class="Asura.App.Views.GitWorkflowDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:Asura.App.Controls" Width="560" MaxHeight="750" SizeToContent="Height" CanResize="True" ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
+  <controls:DialogShell x:Name="Shell">
+    <controls:DialogShell.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+        <Button Classes="SecondaryButton" Content="Cancel" Click="OnCancel" />
+        <Button x:Name="ApplyButton" Classes="PrimaryButton" Content="Apply" Click="OnApply" />
+      </StackPanel>
+    </controls:DialogShell.Footer>
+    <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+      <StackPanel x:Name="Fields" Spacing="{DynamicResource ShellSpaceSm}" />
+      <TextBlock x:Name="ValidationMessage" Foreground="{DynamicResource ShellDangerBrush}" IsVisible="False" TextWrapping="Wrap" />
+    </StackPanel>
+  </controls:DialogShell>
+</Window>

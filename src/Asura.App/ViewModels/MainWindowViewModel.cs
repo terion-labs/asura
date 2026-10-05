@@ -11305,7 +11305,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             _gitMutationCoordinator,
             workspaceId is { } gitWorkspaceId
                 ? WorkspaceConnectionDisplayName(gitWorkspaceId, connection)
-                : null);
+                : null,
+            _imagePreviewDecoder);
     }
 
     /// <summary>

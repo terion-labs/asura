@@ -1,0 +1,40 @@
+<Window x:Class="Asura.App.Views.GitHostingDialog" x:DataType="vm:GitHostingBrowserViewModel" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Asura.App.ViewModels" xmlns:git="using:Asura.Git" xmlns:controls="using:Asura.App.Controls" Width="780" Height="650" MinWidth="540" MinHeight="420" ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
+  <controls:DialogShell Title="Hosting accounts and repositories" Subtitle="Browse account repositories and starred projects. Credentials use Asura's vault and the connection's network route." Scrolls="False">
+    <controls:DialogShell.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+        <Button Content="Cancel" Click="OnCancel" Classes="SecondaryButton" />
+        <Button IsEnabled="{Binding !IsBusy}" Content="Clone selected repository…" Click="OnClone" Classes="PrimaryButton" />
+      </StackPanel>
+    </controls:DialogShell.Footer>
+    <Grid IsEnabled="{Binding !IsBusy}" RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="{DynamicResource ShellSpaceSm}">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <ComboBox ItemsSource="{Binding Accounts}" SelectedItem="{Binding SelectedAccount}" PlaceholderText="Saved hosting account" AutomationProperties.Name="Hosting account">
+          <ComboBox.ItemTemplate><DataTemplate x:DataType="git:GitHostingAccount"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
+        </ComboBox>
+        <Button Grid.Column="1" Content="Remove account" Click="OnRemoveAccount" IsEnabled="{Binding !IsBusy}" />
+      </Grid>
+      <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <ComboBox ItemsSource="{Binding Providers}" SelectedItem="{Binding Provider}" AutomationProperties.Name="Hosting provider" />
+        <TextBox Grid.Column="1" Text="{Binding ApiAddress}" AutomationProperties.Name="Provider API base URL" />
+        <Button Grid.Column="2" Content="Sign in…" Click="OnSignIn" IsEnabled="{Binding !IsBusy}" />
+      </Grid>
+      <WrapPanel Grid.Row="2">
+        <TextBox Text="{Binding Filter}" PlaceholderText="Find a repository" Width="260" AutomationProperties.Name="Filter hosting repositories" />
+        <CheckBox Content="Starred only" IsChecked="{Binding Starred}" />
+        <Button Content="Load repositories" Click="OnLoad" IsEnabled="{Binding !IsBusy}" />
+        <Button Content="Load more" Click="OnLoadMore" IsVisible="{Binding HasMore}" IsEnabled="{Binding !IsBusy}" />
+      </WrapPanel>
+      <ListBox x:Name="Repositories" Grid.Row="3" ItemsSource="{Binding Repositories}" AutomationProperties.Name="Hosting repositories">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="git:GitHostedRepository">
+            <Grid ColumnDefinitions="*,Auto" Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}">
+              <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
+              <TextBlock Grid.Column="1" Text="Private" IsVisible="{Binding IsPrivate}" Foreground="{DynamicResource ShellMutedBrush}" />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <TextBlock Grid.Row="4" Text="{Binding Status}" TextWrapping="Wrap" />
+    </Grid>
+  </controls:DialogShell>
+</Window>

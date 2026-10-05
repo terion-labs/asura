@@ -19,6 +19,10 @@ public sealed partial class GitRuntimePanelView : UserControl
     public GitRuntimePanelView()
     {
         InitializeComponent();
+        // Resolve the exact row before the standard menu controller opens the
+        // popup in the bubble phase, including keyboard context gestures.
+        CommitHistory.AddHandler(ContextRequestedEvent, OnHistoryContextRequested,
+            RoutingStrategies.Tunnel);
         DataContextChanged += OnDataContextChanged;
         GitSidebar.PropertyChanged += OnSidebarPropertyChanged;
     }
@@ -31,6 +35,7 @@ public sealed partial class GitRuntimePanelView : UserControl
         _observedViewModel = ViewModel;
         _observedViewModel?.PropertyChanged += OnViewModelPropertyChanged;
         PresentChangeSelection();
+        PresentHistorySelection();
         PresentSidebarCollapse();
     }
 
@@ -60,6 +65,10 @@ public sealed partial class GitRuntimePanelView : UserControl
         if (string.Equals(e.PropertyName, nameof(GitRuntimePanelViewModel.SelectedChange), StringComparison.Ordinal))
         {
             PresentChangeSelection();
+        }
+        else if (string.Equals(e.PropertyName, nameof(GitRuntimePanelViewModel.SelectedCommits), StringComparison.Ordinal))
+        {
+            PresentHistorySelection();
         }
     }
 
@@ -229,12 +238,12 @@ public sealed partial class GitRuntimePanelView : UserControl
         }
     }
 
-    private void OnParentShaClick(object? sender, RoutedEventArgs e)
+    private async void OnParentShaClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
         if (sender is Button { DataContext: string sha } && ViewModel is { } viewModel)
         {
-            viewModel.SelectCommitBySha(sha);
+            await viewModel.SelectCommitByShaAsync(sha);
         }
     }
 

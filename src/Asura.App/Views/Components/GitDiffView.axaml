@@ -4,6 +4,7 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:components="using:Asura.App.Views.Components"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia">
   <UserControl.Styles>
@@ -19,7 +20,7 @@
       <Setter Property="MinHeight" Value="0" />
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-      <Setter Property="Focusable" Value="False" />
+      <Setter Property="Focusable" Value="True" />
     </Style>
     <Style Selector="ListBox.GitDiffLines ListBoxItem:selected /template/ ContentPresenter">
       <Setter Property="Background" Value="Transparent" />
@@ -59,7 +60,7 @@
     </Style>
   </UserControl.Styles>
 
-  <Grid RowDefinitions="Auto,*">
+  <Grid RowDefinitions="Auto,Auto,Auto,*">
     <Border
         Classes="PanelToolbar"
         Padding="{controls:Inset Horizontal=Md, Vertical=Xs}"
@@ -100,21 +101,48 @@
       </Grid>
     </Border>
 
+    <WrapPanel Grid.Row="1" ItemSpacing="{DynamicResource ShellSpaceXs}" LineSpacing="{DynamicResource ShellSpaceXs}" Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" IsVisible="{Binding IsLocalChangesSection}">
+      <Button Content="Stage selection" Tag="Stage" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding !SelectedChange.IsStaged}" />
+      <Button Content="Unstage selection" Tag="Unstage" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding SelectedChange.IsStaged}" />
+      <Button Content="Discard selection…" Tag="Discard" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding !SelectedChange.IsStaged}" />
+    </WrapPanel>
+
+    <WrapPanel Grid.Row="2" ItemSpacing="{DynamicResource ShellSpaceSm}" LineSpacing="{DynamicResource ShellSpaceXs}" Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}">
+      <TextBox Text="{Binding DiffSearch}" PlaceholderText="Find in diff" Width="150" AutomationProperties.Name="Find in diff" />
+      <Button Content="Previous" Tag="Previous" Click="OnDiffNavigate" />
+      <Button Content="Next" Tag="Next" Click="OnDiffNavigate" />
+      <Button Content="Previous change" Tag="PreviousChange" Click="OnDiffNavigate" />
+      <Button Content="Next change" Tag="NextChange" Click="OnDiffNavigate" />
+      <CheckBox Content="Wrap" IsChecked="{Binding DiffWrap}" />
+      <CheckBox Content="Invisible characters" IsChecked="{Binding DiffShowsInvisibles}" />
+      <CheckBox Content="Word changes" IsChecked="{Binding DiffHighlightsWords}" />
+      <CheckBox Content="Whole file" IsChecked="{Binding DiffWholeFile}" />
+    </WrapPanel>
+    <components:GitImageDiffView Grid.Row="3" ImagePair="{Binding DiffImages}" IsVisible="{Binding HasDiffImages}" />
     <ListBox
-        Grid.Row="1"
+        x:Name="UnifiedLines"
+        Grid.Row="3"
+        SelectionMode="Multiple,Toggle"
+        SelectionChanged="OnDiffSelection"
+        SelectedItem="{Binding DiffSearchMatch}"
         Classes="GitDiffLines"
         Background="Transparent"
         BorderThickness="0"
         Padding="0"
         ItemsSource="{Binding DiffLines}"
-        ScrollViewer.HorizontalScrollBarVisibility="Auto"
-        IsVisible="{Binding !DiffIsSplit}"
+        ScrollViewer.HorizontalScrollBarVisibility="{Binding DiffHorizontalScrollBarVisibility}"
+        IsVisible="{Binding ShowsUnifiedDiff}"
         AutomationProperties.Name="Diff lines">
       <ListBox.ItemsPanel>
         <ItemsPanelTemplate>
           <VirtualizingStackPanel />
         </ItemsPanelTemplate>
       </ListBox.ItemsPanel>
+      <ListBox.ItemContainerTheme>
+        <ControlTheme TargetType="ListBoxItem" x:DataType="vm:GitDiffLineViewModel" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+          <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleSummary}" />
+        </ControlTheme>
+      </ListBox.ItemContainerTheme>
       <ListBox.ItemTemplate>
         <DataTemplate>
           <Border
@@ -122,6 +150,12 @@
               Classes.added="{Binding IsAdded}"
               Classes.removed="{Binding IsRemoved}"
               Classes.hunk="{Binding IsHunkHeader}">
+            <Border.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="Stage hunk" Tag="Stage" Click="OnHunkAction" />
+                <MenuItem Header="Unstage hunk" Tag="Unstage" Click="OnHunkAction" />
+              </ContextMenu>
+            </Border.ContextMenu>
             <Grid ColumnDefinitions="44,44,18,*">
               <TextBlock Classes="GitDiffNumber" Text="{Binding OldNumberText}" />
               <TextBlock Grid.Column="1" Classes="GitDiffNumber" Text="{Binding NewNumberText}" />
@@ -130,7 +164,7 @@
                   Classes="GitDiffMarker"
                   TextAlignment="Center"
                   Text="{Binding MarkerText}" />
-              <TextBlock Grid.Column="3" Text="{Binding Text}" />
+              <components:GitDiffTextBlock Grid.Column="3" SyntaxText="{Binding Text}" PeerText="{Binding PeerText}" FileName="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffFileName}" ShowInvisibles="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffShowsInvisibles}" HighlightWords="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffHighlightsWords}" TextWrapping="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffTextWrapping}" />
             </Grid>
           </Border>
         </DataTemplate>
@@ -140,20 +174,27 @@
     <!-- The side-by-side rendering of the same parse: removals left,
          additions right, change blocks paired row by row. -->
     <ListBox
-        Grid.Row="1"
+        x:Name="SplitLines"
+        Grid.Row="3"
         Classes="GitDiffLines"
         Background="Transparent"
         BorderThickness="0"
         Padding="0"
         ItemsSource="{Binding DiffSplitRows}"
-        ScrollViewer.HorizontalScrollBarVisibility="Auto"
-        IsVisible="{Binding DiffIsSplit}"
+        SelectedItem="{Binding DiffSearchSplitMatch, Mode=OneWay}"
+        ScrollViewer.HorizontalScrollBarVisibility="{Binding DiffHorizontalScrollBarVisibility}"
+        IsVisible="{Binding ShowsSplitDiff}"
         AutomationProperties.Name="Side-by-side diff lines">
       <ListBox.ItemsPanel>
         <ItemsPanelTemplate>
           <VirtualizingStackPanel />
         </ItemsPanelTemplate>
       </ListBox.ItemsPanel>
+      <ListBox.ItemContainerTheme>
+        <ControlTheme TargetType="ListBoxItem" x:DataType="vm:GitDiffSplitRowViewModel" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+          <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleSummary}" />
+        </ControlTheme>
+      </ListBox.ItemContainerTheme>
       <ListBox.ItemTemplate>
         <DataTemplate>
           <Panel>
@@ -169,7 +210,7 @@
                       Classes="GitDiffMarker"
                       TextAlignment="Center"
                       Text="{Binding LeftMarkerText}" />
-                  <TextBlock Grid.Column="2" Text="{Binding LeftText}" />
+                  <components:GitDiffTextBlock Grid.Column="2" SyntaxText="{Binding LeftText}" PeerText="{Binding RightText}" FileName="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffFileName}" ShowInvisibles="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffShowsInvisibles}" HighlightWords="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffHighlightsWords}" TextWrapping="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffTextWrapping}" />
                 </Grid>
               </Border>
               <Border
@@ -185,7 +226,7 @@
                       Classes="GitDiffMarker"
                       TextAlignment="Center"
                       Text="{Binding RightMarkerText}" />
-                  <TextBlock Grid.Column="2" Text="{Binding RightText}" />
+                  <components:GitDiffTextBlock Grid.Column="2" SyntaxText="{Binding RightText}" PeerText="{Binding LeftText}" FileName="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffFileName}" ShowInvisibles="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffShowsInvisibles}" HighlightWords="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffHighlightsWords}" TextWrapping="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffTextWrapping}" />
                 </Grid>
               </Border>
             </Grid>
@@ -195,21 +236,21 @@
     </ListBox>
 
     <controls:StateOverlay
-        Grid.Row="1"
+        Grid.Row="3"
         Kind="Empty"
         Heading="No diff selected"
         Body="Choose a change to compare its versions."
         IsVisible="{Binding ShowsDiffEmptyState}" />
     <controls:Callout
-        Grid.Row="1"
+        Grid.Row="3"
         Margin="{controls:Inset Md}"
         VerticalAlignment="Top"
         Tone="Default"
         Title="Binary file"
         Text="This change has no line-by-line comparison."
-        IsVisible="{Binding DiffIsBinary}" />
+        IsVisible="{Binding ShowsBinaryDiffPlaceholder}" />
     <controls:StateOverlay
-        Grid.Row="1"
+        Grid.Row="3"
         Kind="Loading"
         Heading="Reading diff…"
         IsVisible="{Binding IsDiffLoading}" />

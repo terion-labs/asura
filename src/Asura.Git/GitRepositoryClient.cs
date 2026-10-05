@@ -15,7 +15,8 @@ public sealed partial class GitRepositoryClient(
     IWorkspaceNetworkConnector? networkConnector = null,
     IGitCredentialPrompt? credentialPrompt = null,
     ISecretVault? secretVault = null,
-    WorkspaceId? credentialWorkspaceId = null)
+    WorkspaceId? credentialWorkspaceId = null,
+    Func<ConnectionProfile, HttpMessageHandler>? hostingHttpHandlerFactory = null)
     : IGitRepositoryClient
 {
     private const string GitExecutable = "git";
@@ -43,13 +44,20 @@ public sealed partial class GitRepositoryClient(
         "--branch", "--untracked-files=all",
     ];
 
-    public async ValueTask<GitResult<GitRepositoryHandle>> OpenRepositoryAsync(
+    public ValueTask<GitResult<GitRepositoryHandle>> OpenRepositoryAsync(
         ConnectionProfile connection,
         string path,
+        CancellationToken cancellationToken) => OpenRepositoryWithExecutableAsync(connection, path, GitExecutable, cancellationToken);
+
+    public async ValueTask<GitResult<GitRepositoryHandle>> OpenRepositoryWithExecutableAsync(
+        ConnectionProfile connection,
+        string path,
+        string executable,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentException.ThrowIfNullOrWhiteSpace(executable);
         if (!Supports(connection))
         {
             return Failure<GitRepositoryHandle>(
@@ -62,7 +70,7 @@ public sealed partial class GitRepositoryClient(
             ["-C", path, "rev-parse", "--show-toplevel"],
             ReadTimeout,
             ReadOutputLimit,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken, executable: executable).ConfigureAwait(false);
         if (result is GitResult<CommandOutput>.Failure failure)
         {
             // An ownership refusal on a root connection first tries the
@@ -70,7 +78,7 @@ public sealed partial class GitRepositoryClient(
             // that cannot be established does the refusal surface, so the
             // trust-exception flow stays the fallback.
             if (failure.Error.Code == GitErrorCode.OwnershipUntrusted
-                && await TryOpenAsOwnerAsync(connection, path, cancellationToken)
+                && await TryOpenAsOwnerAsync(connection, path, cancellationToken, executable)
                     .ConfigureAwait(false) is { } impersonated)
             {
                 return new GitResult<GitRepositoryHandle>.Success(impersonated);
@@ -80,7 +88,7 @@ public sealed partial class GitRepositoryClient(
         }
 
         return new GitResult<GitRepositoryHandle>.Success(
-            new GitRepositoryHandle(connection, Value(result).Text.TrimEnd('\n', '\r')));
+            new GitRepositoryHandle(connection, Value(result).Text.TrimEnd('\n', '\r')) { Executable = executable });
     }
 
     /// <summary>
@@ -93,7 +101,8 @@ public sealed partial class GitRepositoryClient(
     private async ValueTask<GitRepositoryHandle?> TryOpenAsOwnerAsync(
         ConnectionProfile connection,
         string path,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string executable)
     {
         var user = await ReadPlainAsync(connection, "id", ["-un"], cancellationToken)
             .ConfigureAwait(false);
@@ -112,7 +121,7 @@ public sealed partial class GitRepositoryClient(
             return null;
         }
 
-        var probe = new GitRepositoryHandle(connection, path, owner);
+        var probe = new GitRepositoryHandle(connection, path, owner) { Executable = executable };
         var result = await ExecuteAsync(
             probe,
             ["rev-parse", "--show-toplevel"],
@@ -120,7 +129,7 @@ public sealed partial class GitRepositoryClient(
             ReadOutputLimit,
             cancellationToken).ConfigureAwait(false);
         return result is GitResult<CommandOutput>.Success success
-            ? new GitRepositoryHandle(connection, success.Value.Text.TrimEnd('\n', '\r'), owner)
+            ? new GitRepositoryHandle(connection, success.Value.Text.TrimEnd('\n', '\r'), owner) { Executable = executable }
             : null;
     }
 
@@ -142,9 +151,15 @@ public sealed partial class GitRepositoryClient(
             : null;
     }
 
-    public async ValueTask<GitResult<GitUnit>> TrustRepositoryAsync(
+    public ValueTask<GitResult<GitUnit>> TrustRepositoryAsync(
         ConnectionProfile connection,
         string path,
+        CancellationToken cancellationToken) => TrustRepositoryWithExecutableAsync(connection, path, GitExecutable, cancellationToken);
+
+    public async ValueTask<GitResult<GitUnit>> TrustRepositoryWithExecutableAsync(
+        ConnectionProfile connection,
+        string path,
+        string executable,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(connection);
@@ -164,7 +179,7 @@ public sealed partial class GitRepositoryClient(
             ["config", "--global", "--add", "safe.directory", path.Trim()],
             MutationTimeout,
             ReadOutputLimit,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken, executable: executable).ConfigureAwait(false);
         return result switch
         {
             GitResult<CommandOutput>.Failure failure => new GitResult<GitUnit>.Failure(failure.Error),
@@ -681,6 +696,26 @@ public sealed partial class GitRepositoryClient(
         // "-w" rides immediately after the subcommand in every variant, so
         // whitespace-only changes disappear from the comparison uniformly.
         IReadOnlyList<string> whitespace = request.IgnoreWhitespace ? ["-w"] : [];
+        if (request.IncludeBinary)
+        {
+            whitespace = [.. whitespace, "--binary", "--full-index"];
+        }
+        if (request.ContextLines != 3)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(request.ContextLines);
+            whitespace = [.. whitespace, $"--unified={request.ContextLines}"];
+        }
+        if (request.Area == GitDiffArea.Commit && request.BaseRevision is { } baseRevision && request.CommitSha is { } targetRevision)
+        {
+            ValidateRevision(baseRevision);
+            ValidateRevision(targetRevision);
+            return ["diff", "--no-color", "-M", .. whitespace, baseRevision, targetRevision, "--", request.Path];
+        }
+        if (request.Area == GitDiffArea.Worktree && request.BaseRevision is { } worktreeBase)
+        {
+            ValidateRevision(worktreeBase);
+            return ["diff", "--no-color", "-M", .. whitespace, worktreeBase, "--", request.Path];
+        }
         return request.Area switch
         {
             GitDiffArea.Worktree when request.IsUntracked =>
@@ -814,31 +849,19 @@ public sealed partial class GitRepositoryClient(
         ArgumentException.ThrowIfNullOrWhiteSpace(branch);
         return AsRetryable(await MutateAsync(
             repository,
-            ["push", remote, branch],
+            ["push", "--recurse-submodules=check", remote, branch],
             cancellationToken,
             NetworkTimeout).ConfigureAwait(false));
     }
 
-    public async ValueTask<GitResult<GitUnit>> RebaseAsync(
+    public ValueTask<GitResult<GitUnit>> RebaseAsync(
         GitRepositoryHandle repository,
         string onto,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(onto);
-        var result = await MutateAsync(repository, ["rebase", onto], cancellationToken, CommitTimeout)
-            .ConfigureAwait(false);
-        if (result is not GitResult<GitUnit>.Failure { Error.Code: GitErrorCode.CommandFailed } failure)
-        {
-            return result;
-        }
-
-        // A conflicted rebase would strand the worktree mid-rebase behind a
-        // panel gesture; abort it and surface the original refusal.
-        await MutateAsync(repository, ["rebase", "--abort"], cancellationToken).ConfigureAwait(false);
-        return new GitResult<GitUnit>.Failure(failure.Error with
-        {
-            Message = $"{failure.Error.Message} (rebase aborted)",
-        });
+        ValidateRevision(onto);
+        return MutateAsync(repository, ["-c", "core.editor=true", "rebase", onto], cancellationToken, CommitTimeout);
     }
 
     public ValueTask<GitResult<GitUnit>> CreateTagAsync(
@@ -977,7 +1000,7 @@ public sealed partial class GitRepositoryClient(
     public ValueTask<GitResult<GitUnit>> PushAsync(
         GitRepositoryHandle repository,
         CancellationToken cancellationToken) =>
-        MutateAsync(repository, ["push"], cancellationToken, NetworkTimeout);
+        MutateAsync(repository, ["push", "--recurse-submodules=check"], cancellationToken, NetworkTimeout);
 
     public ValueTask<GitResult<GitUnit>> StashPushAsync(
         GitRepositoryHandle repository,
@@ -986,8 +1009,8 @@ public sealed partial class GitRepositoryClient(
         MutateAsync(
             repository,
             string.IsNullOrEmpty(message)
-                ? ["stash", "push"]
-                : ["stash", "push", "-m", message],
+                ? ["--no-literal-pathspecs", "stash", "push"]
+                : ["--no-literal-pathspecs", "stash", "push", "-m", message],
             cancellationToken);
 
     public ValueTask<GitResult<GitUnit>> StashApplyAsync(
@@ -1081,7 +1104,7 @@ public sealed partial class GitRepositoryClient(
                 "sudo",
                 [
                     "-n", "-u", owner, "-H", .. WorkspaceSudoEnvironment(repository),
-                    "--", GitExecutable, "--literal-pathspecs",
+                    "--", ValidateGitExecutable(repository.Executable), "--literal-pathspecs",
                     "-C", repository.WorkingTreeRoot, .. arguments,
                 ],
                 timeout,
@@ -1096,7 +1119,8 @@ public sealed partial class GitRepositoryClient(
                 outputLimit,
                 cancellationToken,
                 acceptExitOne,
-                allowTruncated);
+                allowTruncated,
+                repository.Executable);
 
     private ValueTask<GitResult<CommandOutput>> ExecuteAsync(
         ConnectionProfile connection,
@@ -1105,18 +1129,30 @@ public sealed partial class GitRepositoryClient(
         int outputLimit,
         CancellationToken cancellationToken,
         bool acceptExitOne = false,
-        bool allowTruncated = false) =>
+        bool allowTruncated = false,
+        string executable = GitExecutable) =>
         // Literal pathspecs keep '*' and friends in file names from acting as
         // globs when they come back around as arguments.
         ExecuteCoreAsync(
             connection,
-            GitExecutable,
+            ValidateGitExecutable(executable),
             ["--literal-pathspecs", .. arguments],
             timeout,
             outputLimit,
             cancellationToken,
             acceptExitOne,
             allowTruncated);
+
+    private static string ValidateGitExecutable(string executable)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(executable);
+        if (executable.StartsWith('-') || executable.Contains('\0', StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Choose a Git executable name or path, without options or NUL characters.", nameof(executable));
+        }
+
+        return executable;
+    }
 
     private async ValueTask<GitResult<CommandOutput>> ExecuteCoreAsync(
         ConnectionProfile connection,
