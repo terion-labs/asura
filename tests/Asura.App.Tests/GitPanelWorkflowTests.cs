@@ -313,6 +313,41 @@ public sealed class GitPanelWorkflowTests
     }
 
     [Fact]
+    public async Task RefreshingAWorkingTreeComparisonKeepsItsBaseAndUpdatesTheChangedFiles()
+    {
+        var (client, recorder) = CreateClient();
+        var baseSha = new string('a', 40);
+        var changes = new List<GitFileChange>
+        {
+            new("local-only.txt", null, GitChangeKind.Modified, GitChangeArea.Unstaged),
+        };
+        recorder.Comparison = (baseRevision, targetRevision) => new(baseRevision, targetRevision, [.. changes]);
+        using var panel = CreatePanel(client);
+        await panel.OpenRepositoryAsync("/repo");
+
+        await panel.CompareAsync(baseSha, null);
+        await panel.DiffLoading;
+
+        Assert.Contains("local changes", panel.ComparisonLabel, StringComparison.Ordinal);
+        Assert.Equal("local-only.txt", Assert.Single(panel.CommitChanges).Path);
+        Assert.Equal(GitDiffArea.Worktree, recorder.DiffRequests[^1].Area);
+        Assert.Equal(baseSha, recorder.DiffRequests[^1].BaseRevision);
+        Assert.Null(recorder.DiffRequests[^1].CommitSha);
+        changes.Add(new("newly-staged.txt", null, GitChangeKind.Added, GitChangeArea.Staged));
+
+        await panel.RefreshAsync();
+        await panel.DiffLoading;
+        await panel.CreateBranchAsync("new-branch");
+        await panel.DetailLoading;
+
+        Assert.Equal(GitPanelSection.AllCommits, panel.Section);
+        Assert.Contains(baseSha, panel.ComparisonLabel, StringComparison.Ordinal);
+        Assert.Null(panel.CommitDetail);
+        Assert.Equal(["local-only.txt", "newly-staged.txt"], panel.CommitChanges.Select(change => change.Path), StringComparer.Ordinal);
+        Assert.Equal(baseSha, recorder.DiffRequests[^1].BaseRevision);
+    }
+
+    [Fact]
     public async Task NewHistoryFilterCanCompleteBeforeTheSupersededReadReturns()
     {
         var (client, recorder) = CreateClient();
@@ -436,7 +471,9 @@ public sealed class GitPanelWorkflowTests
         internal List<GitCommitRequest> CommitAttempts { get; } = [];
         internal List<GitPatchRequest> PartialPatches { get; } = [];
         internal List<(GitHistoryQuery Query, int Offset)> HistoryRequests { get; } = [];
+        internal List<GitDiffRequest> DiffRequests { get; } = [];
         internal Func<GitHistoryQuery, int, CancellationToken, Task<GitCommitPage>>? History { get; set; }
+        internal Func<string, string?, GitComparison>? Comparison { get; set; }
         internal Func<string, GitCommitDetail>? Detail { get; set; }
         internal Func<GitRepositoryHandle, GitDiffRequest, CancellationToken, Task<GitImagePair>>? Images { get; set; }
         internal GitError? CommitFailure { get; set; }
@@ -484,7 +521,11 @@ public sealed class GitPanelWorkflowTests
                 case nameof(IGitRepositoryClient.ReadCommitDetailAsync) when Detail is not null:
                     return ValueTask.FromResult<GitResult<GitCommitDetail>>(new GitResult<GitCommitDetail>.Success(Detail((string)args[1]!)));
                 case nameof(IGitRepositoryClient.ReadDiffAsync):
+                    DiffRequests.Add((GitDiffRequest)args[1]!);
                     return ReadDiffAsync((GitRepositoryHandle)args[0]!, (GitDiffRequest)args[1]!, (CancellationToken)args[2]!);
+                case nameof(IGitRepositoryClient.ReadComparisonAsync) when Comparison is not null:
+                    return ValueTask.FromResult<GitResult<GitComparison>>(new GitResult<GitComparison>.Success(
+                        Comparison((string)args[1]!, (string?)args[2])));
                 case nameof(IGitRepositoryClient.ReadImagesAsync) when Images is not null:
                     return ReadImagesAsync((GitRepositoryHandle)args[0]!, (GitDiffRequest)args[1]!, (CancellationToken)args[2]!);
                 case nameof(IGitRepositoryClient.ApplyPartialPatchAsync):

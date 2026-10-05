@@ -275,6 +275,50 @@ public sealed class GitAdvancedWorkflowTests
     }
 
     [Fact]
+    public async Task WorkingComparisonIncludesCommittedStagedAndUnstagedChangesAgainstTheChosenBase()
+    {
+        await using var repo = await Repository.CreateAsync();
+        var original = (await repo.GitAsync("rev-parse", "HEAD")).Trim();
+        await repo.WriteAsync("committed.txt", "committed after base\n");
+        await repo.CommitAsync("Later commit");
+        await repo.WriteAsync("staged.txt", "staged after base\n");
+        await repo.GitAsync("add", "staged.txt");
+        await repo.WriteAsync("file.txt", "unstaged after base\n");
+
+        var comparison = Success(await repo.Client.ReadComparisonAsync(repo.Handle, original, null, CancellationToken.None));
+
+        Assert.Equal(original, comparison.BaseRevision);
+        Assert.Null(comparison.TargetRevision);
+        Assert.Equal(["committed.txt", "file.txt", "staged.txt"], comparison.Changes.Select(change => change.Path).Order(StringComparer.Ordinal), StringComparer.Ordinal);
+        var diff = Success(await repo.Client.ReadDiffAsync(repo.Handle,
+            new(GitDiffArea.Worktree, "file.txt", BaseRevision: comparison.BaseRevision), CancellationToken.None));
+        Assert.Contains(diff.Hunks.SelectMany(hunk => hunk.Lines), line => line.Kind == GitDiffLineKind.Removed && line.Text == "base");
+        Assert.Contains(diff.Hunks.SelectMany(hunk => hunk.Lines), line => line.Kind == GitDiffLineKind.Added && line.Text == "unstaged after base");
+    }
+
+    [Fact]
+    public async Task WholeCommitPatchRestoresEveryFileIncludingBinaryContent()
+    {
+        await using var repo = await Repository.CreateAsync();
+        var before = (await repo.GitAsync("rev-parse", "HEAD")).Trim();
+        await repo.WriteAsync("first.txt", "first content\n");
+        await repo.WriteAsync("second.txt", "second content\n");
+        byte[] binary = [0, 255, 10, 128, 0, 42];
+        await File.WriteAllBytesAsync(Path.Combine(repo.Root, "data.bin"), binary);
+        await repo.CommitAsync("Several files");
+        var commit = (await repo.GitAsync("rev-parse", "HEAD")).Trim();
+        var patch = Success(await repo.Client.ReadDiffAsync(repo.Handle,
+            new(GitDiffArea.Commit, ".", CommitSha: commit, BaseRevision: before, IncludeBinary: true), CancellationToken.None));
+        Assert.False(patch.IsTruncated);
+        await repo.GitAsync("reset", "--hard", before);
+        await repo.GitWithInputAsync(patch.RawPatch, "apply", "--index", "-");
+        Assert.Equal("first content\n", await repo.TextAsync("first.txt"));
+        Assert.Equal("second content\n", await repo.TextAsync("second.txt"));
+        Assert.Equal(binary, await File.ReadAllBytesAsync(Path.Combine(repo.Root, "data.bin")));
+        Assert.Equal("", await repo.GitAsync("diff", commit, "--"));
+    }
+
+    [Fact]
     public async Task ComparisonPinsBranchNamesToReviewedCommitsBeforeAHeadMovement()
     {
         await using var repo = await Repository.CreateAsync();

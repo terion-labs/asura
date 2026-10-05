@@ -696,6 +696,10 @@ public sealed partial class GitRepositoryClient(
         // "-w" rides immediately after the subcommand in every variant, so
         // whitespace-only changes disappear from the comparison uniformly.
         IReadOnlyList<string> whitespace = request.IgnoreWhitespace ? ["-w"] : [];
+        if (request.IncludeBinary)
+        {
+            whitespace = [.. whitespace, "--binary", "--full-index"];
+        }
         if (request.ContextLines != 3)
         {
             ArgumentOutOfRangeException.ThrowIfNegative(request.ContextLines);
@@ -706,6 +710,11 @@ public sealed partial class GitRepositoryClient(
             ValidateRevision(baseRevision);
             ValidateRevision(targetRevision);
             return ["diff", "--no-color", "-M", .. whitespace, baseRevision, targetRevision, "--", request.Path];
+        }
+        if (request.Area == GitDiffArea.Worktree && request.BaseRevision is { } worktreeBase)
+        {
+            ValidateRevision(worktreeBase);
+            return ["diff", "--no-color", "-M", .. whitespace, worktreeBase, "--", request.Path];
         }
         return request.Area switch
         {

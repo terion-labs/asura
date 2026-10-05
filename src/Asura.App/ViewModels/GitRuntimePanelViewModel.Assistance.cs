@@ -5,8 +5,8 @@ namespace Asura.App.ViewModels;
 
 public sealed partial class GitRuntimePanelViewModel
 {
-    public string? ReviewScope => _comparisonTarget is not null
-        ? $"the changes between {_comparisonBase} and {_comparisonTarget}"
+    public string? ReviewScope => _comparisonBase is not null
+        ? $"the changes between {_comparisonBase} and {_comparisonTarget ?? "local changes"}"
         : SelectedCommits.Count > 1 ? "commits " + string.Join(", ", SelectedCommits.Select(item => item.Commit.Sha))
         : SelectedCommit is { } commit ? "commit " + commit.Commit.Sha : null;
 

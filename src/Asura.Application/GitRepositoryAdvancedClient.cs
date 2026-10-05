@@ -28,7 +28,7 @@ public partial interface IGitRepositoryClient
         CancellationToken cancellationToken) => Unsupported<GitImagePair>();
 
     ValueTask<GitResult<GitComparison>> ReadComparisonAsync(GitRepositoryHandle repository, string baseRevision,
-        string targetRevision, CancellationToken cancellationToken) => Unsupported<GitComparison>();
+        string? targetRevision, CancellationToken cancellationToken) => Unsupported<GitComparison>();
 
     ValueTask<GitResult<GitUnit>> InteractiveRebaseAsync(GitRepositoryHandle repository, GitInteractiveRebaseRequest request,
         CancellationToken cancellationToken) => Unsupported<GitUnit>();

@@ -10,7 +10,7 @@ public sealed partial class GitRuntimePanelViewModel
     {
         var signature = await _client.ReadSignatureAsync(repository, sha, cancellationToken);
         if (!_disposed && !cancellationToken.IsCancellationRequested && ReferenceEquals(repository, _repository)
-            && _comparisonTarget is null && string.Equals(SelectedCommit?.Commit.Sha, sha, StringComparison.Ordinal))
+            && _comparisonBase is null && string.Equals(SelectedCommit?.Commit.Sha, sha, StringComparison.Ordinal))
         {
             CommitSignatureSummary = signature is GitResult<GitSignature>.Success success ? success.Value.Summary : "Signature verification unavailable";
         }

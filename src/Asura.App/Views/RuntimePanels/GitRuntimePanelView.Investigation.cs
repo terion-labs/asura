@@ -121,12 +121,22 @@ public sealed partial class GitRuntimePanelView
             return;
         }
 
+        await SaveGitPatchAsync(patch, "changes.patch");
+    }
+
+    private async Task SaveGitPatchAsync(string patch, string fileName)
+    {
+        if (OwnerWindow is not { } window)
+        {
+            return;
+        }
+
         try
         {
             var destination = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title = "Save patch",
-                SuggestedFileName = "changes.patch",
+                SuggestedFileName = fileName,
             });
             if (destination is null)
             {

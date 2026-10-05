@@ -5,25 +5,30 @@ namespace Asura.Git;
 public sealed partial class GitRepositoryClient
 {
     public async ValueTask<GitResult<GitComparison>> ReadComparisonAsync(
-        GitRepositoryHandle repository, string baseRevision, string targetRevision, CancellationToken cancellationToken)
+        GitRepositoryHandle repository, string baseRevision, string? targetRevision, CancellationToken cancellationToken)
     {
         ValidateRevision(baseRevision);
-        ValidateRevision(targetRevision);
         var resolvedBase = await ResolveComparisonRevisionAsync(repository, baseRevision, cancellationToken).ConfigureAwait(false);
         if (resolvedBase is GitResult<string>.Failure baseFailure)
         {
             return new GitResult<GitComparison>.Failure(baseFailure.Error);
         }
 
-        var resolvedTarget = await ResolveComparisonRevisionAsync(repository, targetRevision, cancellationToken).ConfigureAwait(false);
-        if (resolvedTarget is GitResult<string>.Failure targetFailure)
+        string? pinnedTarget = null;
+        if (targetRevision is not null)
         {
-            return new GitResult<GitComparison>.Failure(targetFailure.Error);
+            ValidateRevision(targetRevision);
+            var resolvedTarget = await ResolveComparisonRevisionAsync(repository, targetRevision, cancellationToken).ConfigureAwait(false);
+            if (resolvedTarget is GitResult<string>.Failure targetFailure)
+            {
+                return new GitResult<GitComparison>.Failure(targetFailure.Error);
+            }
+            pinnedTarget = ((GitResult<string>.Success)resolvedTarget).Value;
         }
 
         var pinnedBase = ((GitResult<string>.Success)resolvedBase).Value;
-        var pinnedTarget = ((GitResult<string>.Success)resolvedTarget).Value;
-        var result = await ExecuteAsync(repository, ["diff", "--name-status", "-z", "-M", pinnedBase, pinnedTarget, "--"],
+        IReadOnlyList<string> targets = pinnedTarget is null ? [pinnedBase] : [pinnedBase, pinnedTarget];
+        var result = await ExecuteAsync(repository, ["diff", "--name-status", "-z", "-M", .. targets, "--"],
             DiffTimeout, ReadOutputLimit, cancellationToken).ConfigureAwait(false);
         if (result is GitResult<CommandOutput>.Failure failure)
         {

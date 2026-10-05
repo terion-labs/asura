@@ -15,7 +15,7 @@ public sealed partial class GitRuntimePanelViewModel
 
     public string? ReviewedRebaseHead { get; private set; }
     private CancellationTokenSource? _comparisonCancellation;
-    public string ComparisonLabel => _comparisonTarget is null ? "" : $"Comparing {_comparisonBase} → {_comparisonTarget}";
+    public string ComparisonLabel => _comparisonBase is null ? "" : $"Comparing {_comparisonBase} → {_comparisonTarget ?? "local changes"}";
 
     public async Task<GitFlowSettings?> ReadGitFlowSettingsAsync()
     {
@@ -106,7 +106,7 @@ public sealed partial class GitRuntimePanelViewModel
         }
     }
 
-    public async Task CompareAsync(string baseRevision, string targetRevision)
+    public async Task CompareAsync(string baseRevision, string? targetRevision)
     {
         if (_disposed || _repository is not { } repository)
         {
