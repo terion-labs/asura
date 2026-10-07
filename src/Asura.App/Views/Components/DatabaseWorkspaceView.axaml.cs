@@ -160,60 +160,11 @@ public sealed partial class DatabaseWorkspaceView : UserControl
         OpenInViewerRequested?.Invoke(this, e);
     }
 
-    private void SyncEmbeddedModeButtons()
-    {
-        var panel = _observedPanel;
-        EmbeddedDataModeButton.IsChecked = panel?.SelectedMode == DatabaseWorkspaceMode.Data;
-        EmbeddedStructureModeButton.IsChecked =
-            panel?.SelectedMode == DatabaseWorkspaceMode.Structure;
-        EmbeddedIndexesModeButton.IsChecked =
-            panel?.SelectedMode == DatabaseWorkspaceMode.Indexes;
-        var hasObject = panel?.SelectedObject is not null;
-        EmbeddedStructureModeButton.IsEnabled = hasObject;
-        EmbeddedIndexesModeButton.IsEnabled = hasObject;
-        EmbeddedObjectsOverviewButton.IsChecked = panel?.IsDatabaseObjectsOverview == true;
-        EmbeddedDiagramOverviewButton.IsChecked = panel?.IsDatabaseDiagramOverview == true;
-    }
-
-    private void OnEmbeddedDataModeClick(object? sender, RoutedEventArgs e) =>
-        SetEmbeddedMode(DatabaseWorkspaceMode.Data);
-
-    private void OnEmbeddedStructureModeClick(object? sender, RoutedEventArgs e) =>
-        SetEmbeddedMode(DatabaseWorkspaceMode.Structure);
-
-    private void OnEmbeddedIndexesModeClick(object? sender, RoutedEventArgs e) =>
-        SetEmbeddedMode(DatabaseWorkspaceMode.Indexes);
-
-    private void SetEmbeddedMode(DatabaseWorkspaceMode mode)
-    {
-        Panel?.SetMode(mode);
-        // Clicking an already-selected ToggleButton tries to uncheck it. The
-        // workspace mode is exclusive, so restore all three from source state.
-        SyncEmbeddedModeButtons();
-    }
-
-    private void OnEmbeddedObjectsOverviewClick(object? sender, RoutedEventArgs e)
+    private void OnEmbeddedDiagramShown(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        Panel?.ShowDatabaseOverview();
-        SyncEmbeddedModeButtons();
-    }
-
-    private async void OnEmbeddedDiagramOverviewClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (Panel is { } panel)
-        {
-            await panel.ShowDatabaseDiagramAsync();
-        }
-
-        SyncEmbeddedModeButtons();
-        if (Panel?.IsDatabaseDiagramOverview == true)
-        {
-            FocusDiagram();
-        }
+        FocusDiagram();
     }
 
     internal void FocusDiagram() => MermaidDiagramRenderer.Focus();
@@ -229,7 +180,6 @@ public sealed partial class DatabaseWorkspaceView : UserControl
 
         RebuildResultColumns();
         SyncSelectedRow();
-        SyncEmbeddedModeButtons();
     }
 
     private void OnPanelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -242,15 +192,6 @@ public sealed partial class DatabaseWorkspaceView : UserControl
         {
             InvalidateDatabaseContextMenu(closePopup: true);
             CloseCellExpandEditor();
-        }
-
-        if (e.PropertyName is null
-            or nameof(DatabaseRuntimePanelViewModel.SelectedMode)
-            or nameof(DatabaseRuntimePanelViewModel.SelectedObject)
-            or nameof(DatabaseRuntimePanelViewModel.SelectedDatabaseOverviewMode)
-            or nameof(DatabaseRuntimePanelViewModel.IsDatabaseOverview))
-        {
-            SyncEmbeddedModeButtons();
         }
 
         if (e.PropertyName is null or nameof(DatabaseRuntimePanelViewModel.ResultColumns))
@@ -325,7 +266,14 @@ public sealed partial class DatabaseWorkspaceView : UserControl
         _syncingSelection = true;
         try
         {
-            ResultDataGrid.SelectedItem = _observedPanel?.SelectedRow;
+            // A row already in an extended selection is left as it is:
+            // assigning SelectedItem would collapse the selection to it.
+            if (_observedPanel?.SelectedRow is not { } selected
+                || !ResultDataGrid.SelectedItems.Contains(selected))
+            {
+                ResultDataGrid.SelectedItem = _observedPanel?.SelectedRow;
+            }
+
             if (_observedPanel is { SelectedRow: { } row } panel)
             {
                 // ResultRows and SelectedRow are published back-to-back when a
@@ -488,11 +436,16 @@ public sealed partial class DatabaseWorkspaceView : UserControl
             return;
         }
 
+        // The inspector follows the row the grid reports as its selected
+        // item; the rest of an extended selection rides along for Copy and
+        // Delete.
         var selected = ResultDataGrid.SelectedItem as DatabaseResultRowViewModel;
         if (!ReferenceEquals(panel.SelectedRow, selected))
         {
             panel.SelectRow(selected);
         }
+
+        panel.SelectRows(ResultDataGrid.SelectedItems.OfType<DatabaseResultRowViewModel>());
     }
 
     private void OnResultSorting(object? sender, DataGridColumnEventArgs e)

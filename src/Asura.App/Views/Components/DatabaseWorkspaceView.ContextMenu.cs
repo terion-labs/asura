@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Text;
 using Asura.App.ViewModels;
 using Asura.Application;
@@ -19,8 +20,8 @@ public sealed partial class DatabaseWorkspaceView
 {
     private const int MaximumContextFileBytes = 16 * 1024 * 1024;
     private const int MaximumQuickFilterLabelCharacters = 48;
-    private const double QuickLookPreferredWidth = 620;
-    private const double QuickLookPreferredHeight = 420;
+    private const double CellEditorPreferredWidth = 620;
+    private const double CellEditorPreferredHeight = 420;
 
     private static readonly UTF8Encoding StrictUtf8 = new(
         encoderShouldEmitUTF8Identifier: false,
@@ -54,10 +55,10 @@ public sealed partial class DatabaseWorkspaceView
             RoutingStrategies.Tunnel);
 
         var accelerator = AcceleratorModifier;
-        QuickLookMenuItem.InputGesture = new KeyGesture(Key.Enter, accelerator);
+        CellEditorMenuItem.InputGesture = new KeyGesture(Key.Enter, accelerator);
         RefreshTableMenuItem.InputGesture = new KeyGesture(Key.R, RefreshModifier);
         PasteCellMenuItem.InputGesture = new KeyGesture(Key.V, accelerator);
-        AddRowMenuItem.InputGesture = new KeyGesture(Key.I, accelerator);
+        AddRowMenuItem.InputGesture = AddRowGesture;
         DuplicateRowMenuItem.InputGesture = new KeyGesture(Key.D, accelerator);
         CopyRowMenuItem.InputGesture = new KeyGesture(Key.C, accelerator);
         CopyCellMenuItem.InputGesture = new KeyGesture(
@@ -69,6 +70,16 @@ public sealed partial class DatabaseWorkspaceView
     private static KeyModifiers AcceleratorModifier => OperatingSystem.IsMacOS()
         ? KeyModifiers.Meta
         : KeyModifiers.Control;
+
+    /// <summary>
+    /// Add Row is ⌥⌘N on a Mac. ⌘I is Get Info everywhere else on the
+    /// platform, and a new row is a new thing, which is what N means; the
+    /// Option keeps it clear of New Window. Elsewhere it is Ctrl+Shift+N:
+    /// Ctrl+Alt is AltGr on many layouts and types a character.
+    /// </summary>
+    internal static KeyGesture AddRowGesture { get; } = OperatingSystem.IsMacOS()
+        ? new KeyGesture(Key.N, KeyModifiers.Meta | KeyModifiers.Alt)
+        : new KeyGesture(Key.N, KeyModifiers.Control | KeyModifiers.Shift);
 
     private static KeyModifiers RefreshModifier => OperatingSystem.IsMacOS()
         ? KeyModifiers.Meta | KeyModifiers.Alt
@@ -108,7 +119,25 @@ public sealed partial class DatabaseWorkspaceView
         }
 
         CommitGridEdit();
-        ResultDataGrid.SelectedItem = target.Row;
+        if (ResultDataGrid.SelectedItems.Count > 1
+            && ResultDataGrid.SelectedItems.Contains(target.Row)
+            && Panel is { } panel)
+        {
+            // Right-clicking inside a selection keeps it, as a Mac table
+            // does; the clicked row becomes the one the menu and the
+            // inspector speak about.
+            if (!ReferenceEquals(panel.SelectedRow, target.Row))
+            {
+                panel.SelectRow(target.Row);
+            }
+
+            panel.SelectRows(ResultDataGrid.SelectedItems.OfType<DatabaseResultRowViewModel>());
+        }
+        else
+        {
+            ResultDataGrid.SelectedItem = target.Row;
+        }
+
         ResultDataGrid.CurrentColumn = e.Column;
         _contextCellTarget = target;
         _pointerContextMiss = false;
@@ -116,7 +145,7 @@ public sealed partial class DatabaseWorkspaceView
         if (properties.IsMiddleButtonPressed)
         {
             e.PointerPressedEventArgs.Handled = true;
-            ShowQuickLook(target);
+            ShowCellEditor(target);
         }
     }
 
@@ -203,9 +232,12 @@ public sealed partial class DatabaseWorkspaceView
 
     private DatabaseGridCellTarget? ResolveCurrentCellTarget()
     {
+        // The row is the inspected one rather than the grid's SelectedItem:
+        // in an extended selection the two can differ, and the menu acts on
+        // the row the inspector shows.
         var gridColumn = ResultDataGrid.CurrentColumn;
         var ordinal = gridColumn?.DisplayIndex ?? -1;
-        if (ResultDataGrid.SelectedItem is not DatabaseResultRowViewModel row
+        if (Panel?.SelectedRow is not { } row
             || gridColumn?.Tag is not DatabaseResultColumnViewModel column
             || ordinal < 0
             || ordinal >= row.Cells.Count)
@@ -255,8 +287,23 @@ public sealed partial class DatabaseWorkspaceView
             "oracle",
             StringComparison.Ordinal);
 
-        QuickLookMenuItem.IsEnabled = true;
+        CellEditorMenuItem.IsEnabled = true;
         RefreshTableMenuItem.IsEnabled = panel.CanRefreshTable;
+
+        CopyRowMenuItem.IsEnabled = true;
+        CopyCellMenuItem.IsEnabled = true;
+        CopyColumnMenuItem.IsEnabled = panel.ResultRows.Count > 0;
+        CopyRowAsMenuItem.IsEnabled = true;
+        CopyRowInsertMenuItem.IsEnabled = panel.CanCopySelectedRowAsInsert;
+        ToolTip.SetTip(
+            CopyRowInsertMenuItem,
+            panel.CanCopySelectedRowAsInsert
+                ? "Copy an executable INSERT for the active database."
+                : "INSERT copy requires a physical table result.");
+
+        BuildQuickFilterMenu(panel, target);
+        QuickFilterMenuItem.IsVisible = panel.CanFilterTable;
+        ExportPageMenuItem.IsEnabled = panel.HasResults && storage?.CanSave == true;
 
         MutationMenuSeparator.IsVisible = showMutationActions;
         PasteCellMenuItem.IsVisible = showMutationActions;
@@ -281,17 +328,10 @@ public sealed partial class DatabaseWorkspaceView
         SetFileMenuItem.IsEnabled = panel.CanMutateRows
             && target.Cell.CanSetBinary
             && storage?.CanOpen == true;
-        var hasNullOrDefaultAction = SetNullContextMenuItem.IsVisible
-            || SetDefaultContextMenuItem.IsVisible;
-        SetNullMenuSeparator.IsVisible = SetEmptyMenuItem.IsVisible
-            && hasNullOrDefaultAction;
-        SetFileMenuSeparator.IsVisible = hasNullOrDefaultAction
-            && SetFileMenuItem.IsVisible;
-        var hasSetValueAction = SetEmptyMenuItem.IsVisible
-            || SetNullContextMenuItem.IsVisible
-            || SetDefaultContextMenuItem.IsVisible
-            || SetFileMenuItem.IsVisible;
-        SetValueMenuSeparator.IsVisible = showMutationActions;
+        SetFileMenuSeparator.IsVisible = SetFileMenuItem.IsVisible
+            && (SetEmptyMenuItem.IsVisible
+                || SetNullContextMenuItem.IsVisible
+                || SetDefaultContextMenuItem.IsVisible);
         SetValueMenuItem.IsVisible = showMutationActions;
         SetValueMenuItem.IsEnabled = SetEmptyMenuItem.IsEnabled
             || SetNullContextMenuItem.IsEnabled
@@ -299,30 +339,16 @@ public sealed partial class DatabaseWorkspaceView
             || SetFileMenuItem.IsEnabled;
         ToolTip.SetTip(SetValueMenuItem, mutationUnavailableReason);
 
-        CopyRowMenuItem.IsEnabled = true;
-        CopyCellMenuItem.IsEnabled = true;
-        CopyColumnMenuItem.IsEnabled = panel.ResultRows.Count > 0;
-        CopyRowAsMenuItem.IsEnabled = true;
-        CopyRowInsertMenuItem.IsEnabled = panel.CanCopySelectedRowAsInsert;
-        ToolTip.SetTip(
-            CopyRowInsertMenuItem,
-            panel.CanCopySelectedRowAsInsert
-                ? "Copy an executable INSERT for the active database."
-                : "INSERT copy requires a physical table result.");
-
-        BuildQuickFilterMenu(panel, target);
-        QuickFilterMenuSeparator.IsVisible = panel.CanFilterTable;
-        QuickFilterMenuItem.IsVisible = panel.CanFilterTable;
-
         ImportMenuItem.IsVisible = showMutationActions;
-        ImportCsvMenuItem.IsEnabled = panel.CanMutateRows && storage?.CanOpen == true;
-        ImportMenuItem.IsEnabled = ImportCsvMenuItem.IsEnabled;
+        ImportMenuItem.IsEnabled = panel.CanMutateRows && storage?.CanOpen == true;
         ToolTip.SetTip(ImportMenuItem, mutationUnavailableReason);
-        ExportPageMenuItem.IsEnabled = panel.HasResults && storage?.CanSave == true;
 
         DeleteMenuSeparator.IsVisible = showMutationActions;
         DeleteRowMenuItem.IsVisible = showMutationActions;
         DeleteRowMenuItem.IsEnabled = panel.CanDeleteSelectedRow;
+        DeleteRowMenuItem.Header = panel.SelectedRows.Count > 1
+            ? $"Delete {panel.SelectedRows.Count.ToString(CultureInfo.CurrentCulture)} Rows"
+            : "Delete Row";
         ToolTip.SetTip(DeleteRowMenuItem, mutationUnavailableReason);
     }
 
@@ -450,19 +476,19 @@ public sealed partial class DatabaseWorkspaceView
         return $"'{oneLine}'";
     }
 
-    private void OnQuickLookClick(object? sender, RoutedEventArgs e)
+    private void OnCellEditorClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
         if ((_contextCellTarget ?? ResolveCurrentCellTarget()) is { } target)
         {
-            ShowQuickLook(target);
+            ShowCellEditor(target);
         }
     }
 
-    private void ShowQuickLook(DatabaseGridCellTarget target) => _ = ShowQuickLookAsync(target);
+    private void ShowCellEditor(DatabaseGridCellTarget target) => _ = ShowCellEditorAsync(target);
 
-    private async Task ShowQuickLookAsync(DatabaseGridCellTarget target)
+    private async Task ShowCellEditorAsync(DatabaseGridCellTarget target)
     {
         if (Panel is not { } panel || !IsTargetCurrent(panel, target))
         {
@@ -477,18 +503,18 @@ public sealed partial class DatabaseWorkspaceView
 
         if (ReferenceEquals(Panel, panel) && IsTargetCurrent(panel, target))
         {
-            ShowLoadedQuickLook(target);
+            ShowLoadedCellEditor(target);
         }
     }
 
-    private void ShowLoadedQuickLook(DatabaseGridCellTarget target)
+    private void ShowLoadedCellEditor(DatabaseGridCellTarget target)
     {
         var canEdit = Panel is { CanMutateRows: true }
             && target.Cell.CanSetText;
         var initialState = target.Cell.State;
         var initialEditText = target.Cell.EditText;
-        var smallSpace = QuickLookThemeSpace("ShellSpaceSm", fallback: 8);
-        var mediumSpace = QuickLookThemeSpace("ShellSpaceMd", fallback: 12);
+        var smallSpace = CellEditorThemeSpace("ShellSpaceSm", fallback: 8);
+        var mediumSpace = CellEditorThemeSpace("ShellSpaceMd", fallback: 12);
         var editor = new TextBox
         {
             MinWidth = 0,
@@ -497,7 +523,7 @@ public sealed partial class DatabaseWorkspaceView
             VerticalAlignment = VerticalAlignment.Stretch,
             AcceptsReturn = true,
             // Display text is intentionally compact and may contain an
-            // ellipsis. Only read-only Quick Look uses it; editable cells must
+            // ellipsis. Only a read-only cell editor uses it; editable cells must
             // start with the complete provider-neutral edit representation.
             Text = canEdit ? initialEditText : target.Cell.Text,
             IsReadOnly = !canEdit,
@@ -509,12 +535,13 @@ public sealed partial class DatabaseWorkspaceView
         ScrollViewer.SetVerticalScrollBarVisibility(
             editor,
             Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
-        AutomationProperties.SetName(editor, $"Quick Look value for {target.Column.Name}");
+        AutomationProperties.SetName(editor, $"Cell editor value for {target.Column.Name}");
 
         var header = new StackPanel { Spacing = 2 };
         header.Children.Add(new TextBlock
         {
-            Text = "Quick Look Editor",
+            // Not "Quick Look": that is the system's preview, and this edits.
+            Text = "Cell Editor",
             FontWeight = Avalonia.Media.FontWeight.SemiBold,
         });
         header.Children.Add(new TextBlock
@@ -532,7 +559,7 @@ public sealed partial class DatabaseWorkspaceView
             LineSpacing = smallSpace,
         };
         var close = new Button { Content = canEdit ? "Cancel" : "Close" };
-        AutomationProperties.SetName(close, "Close the database cell Quick Look");
+        AutomationProperties.SetName(close, "Close the database cell editor");
         var flyout = new Flyout
         {
             Placement = PlacementMode.Center,
@@ -562,7 +589,7 @@ public sealed partial class DatabaseWorkspaceView
         {
             var apply = new Button { Content = "Apply" };
             apply.Classes.Add("PrimaryButton");
-            AutomationProperties.SetName(apply, "Apply the Quick Look database cell value");
+            AutomationProperties.SetName(apply, "Apply the database cell editor value");
             apply.Click += (_, _) => ApplyAndClose();
             actions.Children.Add(apply);
         }
@@ -600,7 +627,7 @@ public sealed partial class DatabaseWorkspaceView
             RowDefinitions = new RowDefinitions("Auto,*,Auto"),
             RowSpacing = mediumSpace,
         };
-        AutomationProperties.SetName(content, "Database cell Quick Look dialog");
+        AutomationProperties.SetName(content, "Database cell editor dialog");
         content.Children.Add(header);
         Grid.SetRow(editor, 1);
         content.Children.Add(editor);
@@ -609,7 +636,7 @@ public sealed partial class DatabaseWorkspaceView
         flyout.Content = content;
 
         // Opening a second popup while the context menu is closing can be
-        // ignored by native popup hosts. Posting starts Quick Look afterward.
+        // ignored by native popup hosts. Posting opens the editor afterward.
         Dispatcher.UIThread.Post(() =>
         {
             if (VisualRoot is null
@@ -619,7 +646,7 @@ public sealed partial class DatabaseWorkspaceView
                 return;
             }
 
-            var contentSize = QuickLookContentSize(mediumSpace);
+            var contentSize = CellEditorContentSize(mediumSpace);
             content.Width = contentSize.Width;
             content.Height = contentSize.Height;
             content.MaxWidth = contentSize.Width;
@@ -630,7 +657,7 @@ public sealed partial class DatabaseWorkspaceView
         });
     }
 
-    private Size QuickLookContentSize(double viewportInset)
+    private Size CellEditorContentSize(double viewportInset)
     {
         var width = SmallestPositive(
             ResultDataGrid.Bounds.Width,
@@ -642,14 +669,14 @@ public sealed partial class DatabaseWorkspaceView
             TopLevel.GetTopLevel(this)?.Bounds.Height ?? 0);
         var contentWidth = Math.Max(
             1,
-            Math.Min(QuickLookPreferredWidth, width - (viewportInset * 2)));
+            Math.Min(CellEditorPreferredWidth, width - (viewportInset * 2)));
         var contentHeight = Math.Max(
             1,
-            Math.Min(QuickLookPreferredHeight, height - (viewportInset * 2)));
+            Math.Min(CellEditorPreferredHeight, height - (viewportInset * 2)));
         return new Size(contentWidth, contentHeight);
     }
 
-    private double QuickLookThemeSpace(string key, double fallback) =>
+    private double CellEditorThemeSpace(string key, double fallback) =>
         this.TryFindResource(key, ActualThemeVariant, out var value) && value is double space
             ? space
             : fallback;
@@ -853,10 +880,19 @@ public sealed partial class DatabaseWorkspaceView
         _ = sender;
         _ = e;
         var target = _contextCellTarget ?? ResolveCurrentCellTarget();
-        await CopyTargetTextAsync(
-            target,
-            static (panel, cellTarget) => panel.BuildRowTsvAsync(cellTarget.Row));
+        await CopyTargetTextAsync(target, BuildSelectedRowsTsvAsync);
     }
+
+    /// <summary>
+    /// Copy takes the whole selection when the row it was asked about is part
+    /// of one, and that row alone otherwise.
+    /// </summary>
+    private static Task<(string Text, long Revision)> BuildSelectedRowsTsvAsync(
+        DatabaseRuntimePanelViewModel panel,
+        DatabaseGridCellTarget target) =>
+        panel.SelectedRows.Count > 1 && panel.SelectedRows.Contains(target.Row)
+            ? panel.BuildRowsTsvAsync(panel.SelectedRows)
+            : panel.BuildRowTsvAsync(target.Row);
 
     private async void OnCopyCellClick(object? sender, RoutedEventArgs e)
     {
@@ -1110,7 +1146,7 @@ public sealed partial class DatabaseWorkspaceView
         if (e.KeyModifiers == accelerator && e.Key == Key.Enter && target is not null)
         {
             e.Handled = true;
-            ShowQuickLook(target);
+            ShowCellEditor(target);
             return;
         }
 
@@ -1134,8 +1170,7 @@ public sealed partial class DatabaseWorkspaceView
             return;
         }
 
-        if (e.KeyModifiers == accelerator
-            && e.Key == Key.I
+        if (AddRowGesture.Matches(e)
             && Panel is { CanMutateRows: true } addPanel)
         {
             e.Handled = true;
@@ -1171,9 +1206,7 @@ public sealed partial class DatabaseWorkspaceView
             }
             else
             {
-                await CopyTargetTextAsync(
-                    target,
-                    static (panel, cellTarget) => panel.BuildRowTsvAsync(cellTarget.Row));
+                await CopyTargetTextAsync(target, BuildSelectedRowsTsvAsync);
             }
 
             return;

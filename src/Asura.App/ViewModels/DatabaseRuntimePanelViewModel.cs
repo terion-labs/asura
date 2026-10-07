@@ -85,6 +85,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     private IReadOnlyList<DatabaseResultColumnViewModel> _resultColumns = [];
     private IReadOnlyList<DatabaseResultRowViewModel> _resultRows = [];
     private DatabaseResultRowViewModel? _selectedRow;
+    private IReadOnlyList<DatabaseResultRowViewModel> _selectedRows = [];
     private IReadOnlyList<DatabaseRowFieldViewModel> _selectedRowFields = [];
     private DatabaseTableItemViewModel? _selectedObject;
     private DatabaseObjectDetails? _selectedObjectDetails;
@@ -720,6 +721,18 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
 
     public bool CanDeleteSelectedRow => CanMutateRows && SelectedRow is not null;
 
+    /// <summary>
+    /// The Add Row button's tooltip, naming its key as the context menu does:
+    /// ⌥⌘N on a Mac, Ctrl+Shift+N elsewhere.
+    /// </summary>
+    public static string AddRowTip { get; } = KeySequenceDisplay.WithShortcut(
+        "Add a row",
+        new KeyStroke(
+            "N",
+            HostPlatform.Current == HostOperatingSystem.MacOS
+                ? KeyModifiers.Alt | KeyModifiers.Meta
+                : KeyModifiers.Control | KeyModifiers.Shift));
+
     public bool CanDuplicateSelectedRow => CanMutateRows && SelectedRow?.IsValid == true;
 
     public bool CanCopySelectedRowAsInsert => _selectedObjectDetails?.Object.Kind
@@ -819,7 +832,13 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
 
     public long TotalRows => _totalRows;
 
-    public string TotalRowsText => TotalRows.ToString(CultureInfo.InvariantCulture);
+    /// <summary>
+    /// The matching-row count as the pager states it: "6 rows", in the reader's
+    /// own digit grouping.
+    /// </summary>
+    public string TotalRowsText => TotalRows == 1
+        ? "1 row"
+        : $"{TotalRows.ToString("N0", CultureInfo.CurrentCulture)} rows";
 
     public string PageLimitText
     {
@@ -1024,6 +1043,13 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             {
                 OnPropertyChanged(nameof(HasResults));
                 OnPropertyChanged(nameof(ShowEmptyHint));
+                // A selection is of rows on this page; a row the page no
+                // longer holds is no longer selected.
+                if (_selectedRows.Count > 0)
+                {
+                    var onPage = value.ToHashSet(ReferenceEqualityComparer.Instance);
+                    PublishSelectedRows([.. _selectedRows.Where(onPage.Contains)]);
+                }
             }
         }
     }
@@ -1036,7 +1062,19 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
 
     public bool HasSelectedRow => _selectedRow is not null;
 
-    public string SelectedRowTitle => _selectedRow is { } row ? $"Row {row.Number}" : string.Empty;
+    /// <summary>
+    /// Every row the grid has selected, in page order. The SQL result grid
+    /// selects the way a Mac table does — Shift and Command extend it — so
+    /// Copy and Delete act on all of them, while <see cref="SelectedRow"/>
+    /// is the one the inspector shows.
+    /// </summary>
+    public IReadOnlyList<DatabaseResultRowViewModel> SelectedRows => _selectedRows;
+
+    public string SelectedRowTitle => _selectedRow is not { } row
+        ? string.Empty
+        : _selectedRows.Count > 1
+            ? $"Row {row.Number} · {_selectedRows.Count.ToString(CultureInfo.CurrentCulture)} selected"
+            : $"Row {row.Number}";
 
     public IReadOnlyList<DatabaseRowFieldViewModel> SelectedRowFields
     {
@@ -1059,12 +1097,42 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
 
         _selectedRow = row;
         row?.IsSelected = true;
+        _selectedRows = row is null ? [] : [row];
 
         RefreshSelectedRowFields();
         OnPropertyChanged(nameof(SelectedRow));
         OnPropertyChanged(nameof(HasSelectedRow));
         OnPropertyChanged(nameof(SelectedRowTitle));
+        OnPropertyChanged(nameof(SelectedRows));
         PublishInteractionStates();
+    }
+
+    /// <summary>
+    /// Takes the grid's whole selection. Rows that are not on this page are
+    /// ignored, and the inspected row stays part of the selection.
+    /// </summary>
+    public void SelectRows(IEnumerable<DatabaseResultRowViewModel> rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        var chosen = rows.ToHashSet(ReferenceEqualityComparer.Instance);
+        if (_selectedRow is { } inspected)
+        {
+            chosen.Add(inspected);
+        }
+
+        PublishSelectedRows([.. ResultRows.Where(chosen.Contains)]);
+    }
+
+    private void PublishSelectedRows(IReadOnlyList<DatabaseResultRowViewModel> rows)
+    {
+        if (rows.SequenceEqual(_selectedRows, ReferenceEqualityComparer.Instance))
+        {
+            return;
+        }
+
+        _selectedRows = rows;
+        OnPropertyChanged(nameof(SelectedRows));
+        OnPropertyChanged(nameof(SelectedRowTitle));
     }
 
     private void RefreshSelectedRowFields()
@@ -1242,7 +1310,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
 
             if (_tunnelConnection is { } tunnel)
             {
-                facts.Add($"SSH:{tunnel.Name}");
+                facts.Add($"SSH {tunnel.Name}");
             }
 
             if (details.Username is { } user)
@@ -1261,7 +1329,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                 facts.Add(selected.Name);
             }
 
-            return string.Join(" : ", facts);
+            // The middle dot is the status bar's one separator in every panel.
+            return string.Join(" · ", facts);
         }
     }
 
@@ -2107,6 +2176,10 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         return true;
     }
 
+    /// <summary>
+    /// Stages the deletion of every selected row: one press for one row or
+    /// for a Shift-selected run of them.
+    /// </summary>
     public void DeleteSelectedRow()
     {
         if (!CanDeleteSelectedRow || SelectedRow is not { } row)
@@ -2114,12 +2187,19 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             return;
         }
 
-        if (!row.IsNew)
+        var doomed = _selectedRows.Count > 0
+            ? _selectedRows.ToHashSet(ReferenceEqualityComparer.Instance)
+            : [row];
+        doomed.Add(row);
+        foreach (var candidate in ResultRows.Where(doomed.Contains))
         {
-            _deletedRows.Add(row);
+            if (!candidate.IsNew)
+            {
+                _deletedRows.Add(candidate);
+            }
         }
 
-        ResultRows = [.. ResultRows.Where(candidate => !ReferenceEquals(candidate, row))];
+        ResultRows = [.. ResultRows.Where(candidate => !doomed.Contains(candidate))];
         SelectRow(null);
         PublishPendingChanges();
     }
@@ -2252,7 +2332,9 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             }
 
             AcceptCommittedChanges();
-            ResultSummary = $"Saved {result.TotalAffected} change(s).";
+            ResultSummary = result.TotalAffected == 1
+                ? "Saved 1 change"
+                : $"Saved {result.TotalAffected.ToString("N0", CultureInfo.CurrentCulture)} changes";
             await ReloadResultsWithinOperationAsync(cancellationToken);
         });
     }
@@ -2895,7 +2977,9 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             ClearSelectedObject();
             var elapsed = result.Elapsed.TotalMilliseconds
                 .ToString("0", CultureInfo.InvariantCulture);
-            ResultSummary = $"{result.RowsAffected} row(s) affected · {elapsed} ms";
+            ResultSummary = result.RowsAffected == 1
+                ? $"1 row affected · {elapsed} ms"
+                : $"{result.RowsAffected.ToString("N0", CultureInfo.CurrentCulture)} rows affected · {elapsed} ms";
             return;
         }
 
@@ -3537,6 +3621,33 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     {
         ValidateRowWidth(row);
         return BuildClipboardSnapshotAsync((writer, _) => DatabaseGridExport.WriteRowTsv(writer, row), [.. row.Cells]);
+    }
+
+    /// <summary>Several selected rows as tab-separated lines, in page order.</summary>
+    internal Task<(string Text, long Revision)> BuildRowsTsvAsync(IReadOnlyList<DatabaseResultRowViewModel> rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        foreach (var row in rows)
+        {
+            ValidateRowWidth(row);
+        }
+
+        var snapshot = rows.ToArray();
+        return BuildClipboardSnapshotAsync(
+            (writer, token) =>
+            {
+                for (var index = 0; index < snapshot.Length; index++)
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (index > 0)
+                    {
+                        writer.Write(Environment.NewLine);
+                    }
+
+                    DatabaseGridExport.WriteRowTsv(writer, snapshot[index]);
+                }
+            },
+            [.. snapshot.SelectMany(row => row.Cells)]);
     }
 
     internal Task<(string Text, long Revision)> BuildColumnValuesAsync(int ordinal)
