@@ -82,7 +82,9 @@ public sealed class AppearanceSettingsOwnershipTests
             "ViewModels",
             "AppearanceSettingsViewModel.cs"));
 
-        Assert.Contains("SetActiveWorkspaceAccent", root, StringComparison.Ordinal);
+        // A workspace's colours are identity marks; nothing announces them as
+        // an accent for the shell to wear.
+        Assert.DoesNotContain("WorkspaceAccentChanged", root, StringComparison.Ordinal);
         Assert.Contains("nameof(HasWorkspaceAttention)", root, StringComparison.Ordinal);
         Assert.DoesNotContain("RuntimeWorkspace", owner, StringComparison.Ordinal);
         Assert.DoesNotContain("HasWorkspaceAttention", owner, StringComparison.Ordinal);

@@ -685,10 +685,11 @@ public sealed partial class App : Avalonia.Application
         // window — so it can afford to be translucent while the blur beneath
         // keeps the conversation legible. With transparency reduced, contrast
         // increased, or translucency turned off, it is solid and the blur goes.
+        var overlay = ShellOverlayOpacity.For(ResolveStoredTheme(), StoredOpacityAlpha);
         Publish(
             "ShellSidebarOverlayBrush",
-            WithAlpha(resources.SidebarSurface, WindowIsTranslucent ? (byte)0xCC : byte.MaxValue));
-        Publish("ShellBlurBehindEnabled", WindowIsTranslucent);
+            WithAlpha(resources.SidebarSurface, overlay.SidebarOverlay));
+        Publish("ShellBlurBehindEnabled", overlay.BlurBehind);
         Publish("ShellSidebarBorderBrush", Brush(resources.SidebarBorder));
         Publish("ShellSidebarSelectionBrush", Brush(resources.SidebarSelectionSurface));
         Publish("ShellSurfaceBrush", Content(resources.Surface));
@@ -706,9 +707,7 @@ public sealed partial class App : Avalonia.Application
         // reads best, and it is not one of the surfaces that switch governs.
         Publish(
             "ShellSurfaceOverlayBrush",
-            WithAlpha(
-                resources.RaisedSurface,
-                WindowIsTranslucent ? StoredOpacityAlpha : byte.MaxValue));
+            WithAlpha(resources.RaisedSurface, overlay.SurfaceOverlay));
         // A veil is glass over the app's own content: a translucent wash of the
         // background tone, weighted toward black so it reads as a distinct
         // darker band even over its own colour. Without translucency it is the
@@ -716,7 +715,7 @@ public sealed partial class App : Avalonia.Application
         Publish(
             "ShellVeilBrush",
             new SolidColorBrush(Color.FromArgb(
-                WindowIsTranslucent ? (byte)0xA8 : byte.MaxValue,
+                overlay.Veil,
                 (byte)(resources.Background.R / 2),
                 (byte)(resources.Background.G / 2),
                 (byte)(resources.Background.B / 2))));

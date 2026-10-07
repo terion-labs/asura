@@ -124,6 +124,23 @@ public sealed record ThemePreference : IDurableDefinition
                 overridesBackdropOpacity: false)
             : Default;
 
+    /// <summary>
+    /// The macOS first-run theme older releases seeded, which put the content
+    /// panels on glass. Kept only so a stored copy nobody edited can be
+    /// recognised and moved to the current default; nothing seeds it.
+    /// </summary>
+    public static ThemePreference LegacyMacOsDefault { get; } = new(
+        Default.Id,
+        Default.Name,
+        Default.Appearance,
+        Default.PlatformProfile,
+        Default.Accent,
+        density: InterfaceDensity.Cozy,
+        isTranslucent: true,
+        backdropOpacityPercent: DefaultBackdropOpacityPercent,
+        hasGlassPanels: true,
+        overridesBackdropOpacity: false);
+
     public ThemePreference(
         ThemePreferenceId id,
         string name,
@@ -299,7 +316,8 @@ public sealed record ThemePreference : IDurableDefinition
             WorkspacePanelPlacement,
             materialDisposition,
             PlatformProfile,
-            host.DifferentiateWithoutColor);
+            host.DifferentiateWithoutColor,
+            materialDisposition == MaterialDisposition.Enabled && HasGlassPanels);
     }
 
     private PlatformProfile ResolvePlatformProfile(HostAppearance host)

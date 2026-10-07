@@ -195,6 +195,52 @@ public sealed class DefinitionCatalogTests
     }
 
     [Fact]
+    public async Task Initialize_moves_the_untouched_legacy_macos_theme_off_glass_panels()
+    {
+        var fixture = new CatalogFixture(ThemePreference.DefaultFor(HostOperatingSystem.MacOS));
+        fixture.Themes.Add(ThemePreference.LegacyMacOsDefault, revision: 3);
+
+        var result = await fixture.Catalog.InitializeAsync(CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        var stored = Assert.Single(result.Value!.Themes);
+        Assert.False(stored.Value.HasGlassPanels);
+        Assert.Equal(ThemePreference.DefaultFor(HostOperatingSystem.MacOS), stored.Value);
+        Assert.NotEqual(3, stored.Revision);
+
+        var attempts = fixture.TotalSaveAttempts;
+        var again = await fixture.Catalog.InitializeAsync(CancellationToken.None);
+        Assert.True(again.IsSuccess, again.Error?.Message);
+        Assert.Equal(attempts, fixture.TotalSaveAttempts);
+    }
+
+    [Fact]
+    public async Task Initialize_keeps_glass_panels_on_a_theme_the_user_edited()
+    {
+        var legacy = ThemePreference.LegacyMacOsDefault;
+        var edited = new ThemePreference(
+            legacy.Id,
+            legacy.Name,
+            AppearanceMode.Dark,
+            legacy.PlatformProfile,
+            legacy.Accent,
+            density: legacy.Density,
+            isTranslucent: legacy.IsTranslucent,
+            backdropOpacityPercent: legacy.BackdropOpacityPercent,
+            hasGlassPanels: true,
+            overridesBackdropOpacity: legacy.OverridesBackdropOpacity);
+        var fixture = new CatalogFixture(ThemePreference.DefaultFor(HostOperatingSystem.MacOS));
+        fixture.Themes.Add(edited, revision: 5);
+
+        var result = await fixture.Catalog.InitializeAsync(CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        var stored = Assert.Single(result.Value!.Themes);
+        Assert.Equal(edited, stored.Value);
+        Assert.Equal(5, stored.Revision);
+    }
+
+    [Fact]
     public async Task Initialize_loads_persisted_definitions_and_is_idempotent()
     {
         var fixture = new CatalogFixture();

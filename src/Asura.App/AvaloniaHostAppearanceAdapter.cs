@@ -319,6 +319,12 @@ internal static class EffectiveAppearanceResourceMapper
     /// <summary>What a non-text mark — a status dot, an accent fill — has to clear.</summary>
     internal const double GraphicContrast = 3.0;
 
+    /// <summary>
+    /// How far a push button's hover moves from its resting fill toward the
+    /// label colour when the resting fill comes from AppKit.
+    /// </summary>
+    private const double ControlHoverStep = 0.08;
+
     public static EffectiveAppearanceResources Map(EffectiveTheme theme) => Map(theme, null);
 
     public static EffectiveAppearanceResources Map(
@@ -432,6 +438,11 @@ internal static class EffectiveAppearanceResourceMapper
             border = Over(host.Separator, background);
             sidebarBorder = border;
             controlSurface = Over(host.Control, background);
+            // AppKit has no hover colour for a push button; the literal hover
+            // was tuned against the literal control and could land on the
+            // wrong side of AppKit's. One step toward the label keeps hover
+            // visibly lifted off whatever surface AppKit reports.
+            controlHover = Blend(text, controlSurface, ControlHoverStep);
             // A sidebar selection is the platform's unemphasized selection, a
             // plain gray plate, not an accent wash a few per cent strong.
             sidebarSelection = Opaque(host.UnemphasizedSelectedContentBackground);
@@ -499,11 +510,17 @@ internal static class EffectiveAppearanceResourceMapper
             ? Colors.Black
             : Colors.White;
 
+        var accentSoft = Blend(accent, background, theme.HighContrast ? 0.24 : 0.18);
+
         // The accent as text is held to the text standard on every plate it
         // appears on, which the fill above is not: a fill only has to be told
-        // apart from its surroundings.
-        var accentText = EnsureContrast(accent, readingSurfaces, TextContrast, text);
-        var accentSoft = Blend(accent, background, theme.HighContrast ? 0.24 : 0.18);
+        // apart from its surroundings. A selected row is drawn on the soft
+        // accent tint and a hovered one on the hover fill, so those count too.
+        var accentText = EnsureContrast(
+            accent,
+            [.. readingSurfaces, accentSoft, hover],
+            TextContrast,
+            text);
 
         // Muted text is read on hover and selection fills as well as on the
         // plates, and those are where it used to slip under 4.5:1.
@@ -669,11 +686,16 @@ internal static class EffectiveAppearanceResourceMapper
             (theme.HighContrast ? " · High contrast" : string.Empty);
     }
 
+    /// <summary>
+    /// What the window material is doing, in the words of what is on screen:
+    /// the Liquid Glass profile turns the sidebar and rail to glass, and glass
+    /// panels — and only they — put the content on it too.
+    /// </summary>
     private static string MaterialStatus(EffectiveTheme theme) => theme.MaterialDisposition switch
     {
         MaterialDisposition.Enabled when theme.PlatformProfile == PlatformProfile.MacOsLiquidGlass =>
-            "Window material: glass sidebar and title bar · content opaque",
-        MaterialDisposition.Enabled => "Window material: active · content opaque",
+            $"Window material: glass sidebar and rail · {ContentMaterial(theme)}",
+        MaterialDisposition.Enabled => $"Window material: active · {ContentMaterial(theme)}",
         MaterialDisposition.NotRequested => "Window material: off",
         MaterialDisposition.DisabledByHighContrast =>
             "Window material: opaque fallback (high contrast)",
@@ -681,6 +703,9 @@ internal static class EffectiveAppearanceResourceMapper
             "Window material: opaque fallback (reduced transparency)",
         _ => "Window material: opaque fallback (unsupported by this host)",
     };
+
+    private static string ContentMaterial(EffectiveTheme theme) =>
+        theme.ContentIsGlass ? "content glass" : "content opaque";
 
     /// <summary>
     /// Density scales the padding and minimum height the platform profile asks
@@ -824,7 +849,7 @@ internal static class EffectiveAppearanceResourceMapper
                 16,
                 10),
             // Liquid Glass is a layering, not only a set of radii: the
-            // sidebar and title band are glass over the content, which stays
+            // sidebar and rail are glass over the content, which stays
             // opaque, and toolbar controls group into capsules.
             PlatformProfile.MacOsLiquidGlass => new(
                 "SF Pro Text, Inter, sans-serif",

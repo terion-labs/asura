@@ -1432,6 +1432,13 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
             }
         }
 
+        var migratedTheme = await MigrateLegacyMacOsDefaultThemeAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (!migratedTheme.IsSuccess)
+        {
+            return migratedTheme;
+        }
+
         if (Snapshot.TerminalProfiles.Count == 0)
         {
             var terminal = CreateDefaultTerminalProfile();
@@ -1659,6 +1666,34 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                 workspace.Name,
                 WorkspaceDefinition.LegacyDefaultWorkspaceName,
                 StringComparison.Ordinal));
+
+    /// <summary>
+    /// Moves the built-in theme off glass content panels when it still holds
+    /// exactly what older macOS releases seeded.
+    ///
+    /// The theme is seeded once and never refreshed, so without this every
+    /// upgrading Mac keeps terminal output and grids on blurred wallpaper. A
+    /// theme that differs from the old seed in any field was edited, and the
+    /// edit is the user's to keep.
+    /// </summary>
+    private async ValueTask<DefinitionStoreResult<Unit>>
+        MigrateLegacyMacOsDefaultThemeAsync(CancellationToken cancellationToken)
+    {
+        var stored = Snapshot.Themes.FirstOrDefault(item => item.Value.Id == ThemePreference.Default.Id);
+        if (stored is null || !stored.Value.Equals(ThemePreference.LegacyMacOsDefault))
+        {
+            return DefinitionStoreResult<Unit>.Success(Unit.Value);
+        }
+
+        var saved = await _themes.SaveAsync(
+                ThemePreference.DefaultFor(HostOperatingSystem.MacOS),
+                stored.Revision,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return saved.IsSuccess
+            ? DefinitionStoreResult<Unit>.Success(Unit.Value)
+            : DefinitionStoreResult<Unit>.Failure(saved.Error!);
+    }
 
     private async ValueTask<DefinitionStoreResult<Unit>>
         MigrateLegacyDefaultTerminalPaletteAsync(CancellationToken cancellationToken)

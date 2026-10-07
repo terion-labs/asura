@@ -944,14 +944,14 @@ public sealed partial class MarkdownPreviewView : UserControl
                 inline.FontFamily = mono;
             }
 
-            Tint(inline, "ShellAccentBrush");
+            Tint(inline, "ShellAccentTextBrush");
         }
 
         if (run.LinkTarget is not null)
         {
             // Shown as a link and copyable as text; a preview does not open
             // things on the user's behalf.
-            Tint(inline, "ShellAccentBrush");
+            Tint(inline, "ShellAccentTextBrush");
             inline.TextDecorations = TextDecorations.Underline;
         }
 

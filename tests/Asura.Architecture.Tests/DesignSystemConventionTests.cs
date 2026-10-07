@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using Asura.Testing;
 
 namespace Asura.Architecture.Tests;
@@ -111,6 +112,96 @@ public sealed partial class DesignSystemConventionTests
                 "FontSize=\"\\{DynamicResource ShellFontSize(8|9|10)\\}\"",
                 line.Value);
         }
+    }
+
+    /// <summary>
+    /// Elements whose foreground is read as text. An icon only has to clear
+    /// 3:1, which the raw accent promises against the window; text has to
+    /// clear 4.5:1 on whatever it sits on, which only the accent-text token
+    /// promises.
+    /// </summary>
+    private static readonly HashSet<string> TextForegroundTargets = new(StringComparer.Ordinal)
+    {
+        "AccessText",
+        "Button",
+        "CheckBox",
+        "ContentPresenter",
+        "HyperlinkButton",
+        "Label",
+        "ListBoxItem",
+        "MenuItem",
+        "RadioButton",
+        "Run",
+        "SelectableTextBlock",
+        "TabItem",
+        "TextBlock",
+        "TextBox",
+        "ToggleButton",
+    };
+
+    /// <summary>
+    /// Text never takes the raw accent as its colour. The accent fill is held
+    /// to 3:1 against the window; on its own soft tint — a selected row — it
+    /// fell to about 3.2:1. Accent-coloured text uses ShellAccentTextBrush,
+    /// which is held to 4.5:1 on every plate and fill it is read on. Icon-only
+    /// buttons and glyphs may keep the raw accent.
+    /// </summary>
+    [Fact]
+    public void Text_never_takes_the_raw_accent_as_its_colour()
+    {
+        const string rawAccent = "{DynamicResource ShellAccentBrush}";
+        var appRoot = Path.Combine(ApplicationViews.RepositoryRoot, "src", "Asura.App");
+        var violations = new List<string>();
+        foreach (var path in Directory
+                     .EnumerateFiles(appRoot, "*.axaml", SearchOption.AllDirectories)
+                     .Order(StringComparer.Ordinal))
+        {
+            var relative = Path.GetRelativePath(ApplicationViews.RepositoryRoot, path);
+            foreach (var element in XDocument.Load(path).Descendants())
+            {
+                if (TextForegroundTargets.Contains(element.Name.LocalName)
+                    && string.Equals(
+                        (string?)element.Attribute("Foreground"),
+                        rawAccent,
+                        StringComparison.Ordinal))
+                {
+                    violations.Add($"{relative}: <{element.Name.LocalName}> Foreground");
+                }
+
+                if (!string.Equals(element.Name.LocalName, "Style", StringComparison.Ordinal)
+                    || !element.Elements().Any(setter =>
+                        string.Equals(setter.Name.LocalName, "Setter", StringComparison.Ordinal)
+                        && string.Equals((string?)setter.Attribute("Property"), "Foreground", StringComparison.Ordinal)
+                        && string.Equals((string?)setter.Attribute("Value"), rawAccent, StringComparison.Ordinal)))
+                {
+                    continue;
+                }
+
+                foreach (var selector in ((string?)element.Attribute("Selector") ?? string.Empty)
+                             .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (TargetsText(selector))
+                    {
+                        violations.Add($"{relative}: Style \"{selector}\"");
+                    }
+                }
+            }
+        }
+
+        Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));
+    }
+
+    private static bool TargetsText(string selector)
+    {
+        if (selector.Contains(".IconButton", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var target = SelectorSegment().Split(selector)[^1];
+        var type = TypeSeparator().Split(target)[0];
+        var unqualified = type[(type.IndexOf('|', StringComparison.Ordinal) + 1)..];
+        return TextForegroundTargets.Contains(unqualified);
     }
 
     [Fact]
@@ -442,4 +533,16 @@ public sealed partial class DesignSystemConventionTests
         RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
         matchTimeoutMilliseconds: 1_000)]
     private static partial Regex SecondaryLineTextBlock();
+
+    [GeneratedRegex(
+        "[\\s>]+",
+        RegexOptions.CultureInvariant,
+        matchTimeoutMilliseconds: 1_000)]
+    private static partial Regex SelectorSegment();
+
+    [GeneratedRegex(
+        "[.:#/\\[]",
+        RegexOptions.CultureInvariant,
+        matchTimeoutMilliseconds: 1_000)]
+    private static partial Regex TypeSeparator();
 }

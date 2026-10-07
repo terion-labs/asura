@@ -38,4 +38,5 @@ public sealed record EffectiveTheme(
     WorkspacePanelPlacement WorkspacePanelPlacement = WorkspacePanelPlacement.Left,
     MaterialDisposition MaterialDisposition = MaterialDisposition.Enabled,
     PlatformProfile RequestedPlatformProfile = PlatformProfile.Automatic,
-    bool DifferentiateWithoutColor = false);
+    bool DifferentiateWithoutColor = false,
+    bool ContentIsGlass = false);

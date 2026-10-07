@@ -108,7 +108,7 @@ public sealed class DockerResourceItemViewModel : ObservableObject
         string subtitle,
         string tertiary,
         Symbol icon,
-        StatusTone statusTone,
+        StatusTone? statusTone,
         bool isContainer,
         bool isRunning,
         bool isPaused,
@@ -137,10 +137,16 @@ public sealed class DockerResourceItemViewModel : ObservableObject
     public Symbol Icon { get; }
 
     /// <summary>
-    /// A container's state, or neutral for the kinds that have none — an
-    /// image, a volume, a network — whose glyph already says what they are.
+    /// A container's state, or nothing for the kinds that have none — an
+    /// image, a volume, a network — whose tile is tinted by kind instead.
     /// </summary>
-    public StatusTone StatusTone { get; }
+    public StatusTone? StatusTone { get; }
+
+    public bool IsImage => Resource.Kind == DockerResourceKind.Image;
+
+    public bool IsVolume => Resource.Kind == DockerResourceKind.Volume;
+
+    public bool IsNetwork => Resource.Kind == DockerResourceKind.Network;
 
     public bool IsContainer { get; }
 
@@ -165,13 +171,16 @@ public sealed class DockerResourceItemViewModel : ObservableObject
         container.Image,
         container.Status,
         Symbol.Box,
-        container.IsRunning
-            ? StatusTone.Success
-            : container.IsPaused ? StatusTone.Warning : StatusTone.Neutral,
+        ContainerTone(container),
         true,
         container.IsRunning,
         container.IsPaused,
         container);
+
+    private static ViewModels.StatusTone ContainerTone(DockerContainerSummary container) =>
+        container.IsRunning
+            ? ViewModels.StatusTone.Success
+            : container.IsPaused ? ViewModels.StatusTone.Warning : ViewModels.StatusTone.Neutral;
 
     public static DockerResourceItemViewModel From(DockerImageSummary image) => new(
         new DockerResourceReference(
@@ -182,7 +191,7 @@ public sealed class DockerResourceItemViewModel : ObservableObject
         image.Size,
         image.Created,
         Symbol.Archive,
-        StatusTone.Neutral,
+        null,
         false,
         false,
         false,
@@ -197,7 +206,7 @@ public sealed class DockerResourceItemViewModel : ObservableObject
         volume.Size,
         $"{volume.Driver} · {volume.Scope}",
         Symbol.HardDrive,
-        StatusTone.Neutral,
+        null,
         false,
         false,
         false,
@@ -212,7 +221,7 @@ public sealed class DockerResourceItemViewModel : ObservableObject
         network.Driver,
         network.Scope,
         Symbol.Globe,
-        StatusTone.Neutral,
+        null,
         false,
         false,
         false,

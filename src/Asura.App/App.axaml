@@ -224,6 +224,12 @@
       <SolidColorBrush x:Key="ShellSlotBadgeBlueBrush" Color="#3B82F6" />
       <SolidColorBrush x:Key="ShellSlotBadgeGreenBrush" Color="#22C55E" />
       <SolidColorBrush x:Key="ShellSlotBadgePinkBrush" Color="#EC4899" />
+      <!-- What a Docker image, volume, and network are, so a mixed list can be
+           scanned by kind. Identity, not status: these have no state to
+           report, and a container's tile takes its status tone instead. -->
+      <SolidColorBrush x:Key="ShellDockerImageBrush" Color="#6F8FE7" />
+      <SolidColorBrush x:Key="ShellDockerVolumeBrush" Color="#AE7AD9" />
+      <SolidColorBrush x:Key="ShellDockerNetworkBrush" Color="#54A7A0" />
       <!-- The three widths an overlay opens at. Content decides which of the
            three it needs; nothing else about an overlay's size is a choice. -->
       <x:Double x:Key="ShellOverlayWidthSm">680</x:Double>

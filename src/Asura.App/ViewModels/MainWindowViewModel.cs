@@ -1116,11 +1116,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 _activation?.Mark("bindings");
                 StopRuntimeGraphWatch();
                 _activation?.Mark("graph stop");
-                // One announcement, from the one place that knows what is in
-                // front. Scattered across the open paths it was missing from
-                // every other way of arriving — restore among them.
-                SetActiveWorkspaceAccent(ShellAccentOf(value));
-                _activation?.Mark("accent");
 
                 AgentWorkspaceScope.StopTracking(previous);
                 StopTrackingRecovery(previous);
@@ -1716,21 +1711,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     }
 
     /// <summary>
-    /// The accent the open workspace asks the shell to wear, or null to go back
-    /// to the application's own. Raised rather than applied here: retinting the
-    /// shell means republishing application resources, which is the host's job.
-    /// </summary>
-    public event EventHandler<string?>? WorkspaceAccentChanged;
-
-    private string? _activeWorkspaceAccent;
-
-    /// <summary>
-    /// The accent the open workspace is asking the shell to wear, for anything
-    /// that starts listening after it was announced.
-    /// </summary>
-    public string? ActiveWorkspaceAccent => _activeWorkspaceAccent;
-
-    /// <summary>
     /// Says which part of bringing a workspace forward cost the time, when any
     /// of it did. Under the budget it says nothing; a switch that is not felt
     /// is not worth a line.
@@ -1822,18 +1802,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 canvas.CanvasDepth = 0;
             },
             Avalonia.Threading.DispatcherPriority.Background);
-    }
-
-    private void SetActiveWorkspaceAccent(string? accent)
-    {
-        var next = string.IsNullOrWhiteSpace(accent) ? null : accent;
-        if (string.Equals(_activeWorkspaceAccent, next, StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        _activeWorkspaceAccent = next;
-        WorkspaceAccentChanged?.Invoke(this, next);
     }
 
     public string NewItemLauncherTitle => HasRuntimeWorkspace ? "New Tab" : "New Session";
@@ -8816,10 +8784,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         // revision — which is exactly what autosave does every time a tab is
         // added — and the rail forgot which workspace you were in.
         RefreshWorkspaceRuntimeFlags(snapshot);
-        // The active runtime does not change when its backing definition is
-        // edited. Re-resolve its shell accent from this newly published
-        // snapshot so an accent save retints the open workspace immediately.
-        SetActiveWorkspaceAccent(ShellAccentOf(RuntimeWorkspace, snapshot));
         FileProviderSettings.ApplyCatalog(snapshot);
         AiProviderSettings.ApplyCatalog(snapshot);
         RefreshMcpServerDefinitions(snapshot);
@@ -9918,34 +9882,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             tab.DisposePanels();
             throw;
         }
-    }
-
-    /// <summary>
-    /// The shell accent a restored workspace should come up wearing.
-    ///
-    /// The snapshot does not carry it — it records the colour the workspace is
-    /// recognised by, which is a different field — so it is read back from the
-    /// definition the restored workspace came from. A workspace with no
-    /// definition behind it, or one whose definition is gone, leaves the shell
-    /// wearing its own accent, which is what it would have done anyway.
-    /// </summary>
-    private string? ShellAccentOf(RuntimeWorkspaceViewModel? runtime) =>
-        ShellAccentOf(runtime, _catalog.Snapshot);
-
-    private string? ShellAccentOf(
-        RuntimeWorkspaceViewModel? runtime,
-        DefinitionCatalogSnapshot snapshot)
-    {
-        if (runtime is null
-            || !_runtimeSources.TryGetValue(runtime.Id, out var source)
-            || source.SourceDefinition.Kind != WorkspaceDefinition.Kind)
-        {
-            return null;
-        }
-
-        return snapshot.Workspaces
-            .FirstOrDefault(item => string.Equals(item.Value.Id.Value, source.SourceDefinition.Value, StringComparison.Ordinal))
-            ?.Value.Accent;
     }
 
     private RuntimeWorkspaceViewModel RestoreWorkspace(

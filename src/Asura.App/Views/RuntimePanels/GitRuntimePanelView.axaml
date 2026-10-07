@@ -30,7 +30,7 @@
     </Style>
     <Style Selector="Button.GitNav.selected">
       <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
-      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
     </Style>
     <Style Selector="TextBlock.GitSidebarRow">
       <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
@@ -126,7 +126,7 @@
     <Style Selector="Border.GitRefTag TextBlock">
       <Setter Property="FontSize" Value="{DynamicResource ShellFontSize9}" />
       <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight9}" />
-      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
     </Style>
     <Style Selector="Border.GitCountBadge">
       <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />

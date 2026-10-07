@@ -540,6 +540,9 @@ public sealed class AvaloniaHostAppearanceAdapterTests
                          resources.Surface,
                          resources.RaisedSurface,
                          resources.SidebarSurface,
+                         // A selected navigation row is the soft accent tint.
+                         resources.AccentSoft,
+                         resources.HoverSurface,
                      })
             {
                 Assert.True(
@@ -700,6 +703,44 @@ public sealed class AvaloniaHostAppearanceAdapterTests
                 resources.SidebarSelectionSurface) >= 4.5);
     }
 
+    /// <summary>
+    /// AppKit supplies the resting push-button fill but no hover. The hover is
+    /// derived from the resting fill, so it stays visibly apart from it in
+    /// both appearances rather than landing on a literal tuned for another
+    /// control colour.
+    /// </summary>
+    [Theory]
+    [InlineData(EffectiveAppearanceMode.Dark, "#1E1E1E", "#D9FFFFFF", "#40FFFFFF")]
+    [InlineData(EffectiveAppearanceMode.Light, "#ECECEC", "#D9000000", "#FFFFFFFF")]
+    public void Push_button_hover_stays_apart_from_the_hosts_control_color(
+        EffectiveAppearanceMode appearance,
+        string window,
+        string label,
+        string control)
+    {
+        var host = new HostSemanticColors(
+            Color.Parse(window),
+            Color.Parse(label),
+            Color.Parse("#80808080"),
+            Color.Parse("#1A808080"),
+            Color.Parse(control),
+            Color.Parse("#0058D0"),
+            Color.Parse("#DCDCDC"));
+
+        foreach (var profile in new[] { PlatformProfile.MacOsClassic, PlatformProfile.MacOsLiquidGlass })
+        {
+            var resources = EffectiveAppearanceResourceMapper.Map(
+                EffectiveThemeFor(profile, appearance),
+                host);
+
+            Assert.True(
+                EffectiveAppearanceResourceMapper.ContrastRatio(
+                    resources.ControlHoverSurface,
+                    resources.ControlSurface) >= 1.1,
+                $"{profile} {appearance}: hover {resources.ControlHoverSurface} on {resources.ControlSurface}");
+        }
+    }
+
     [Fact]
     public void Host_semantic_colors_never_override_high_contrast_or_the_products_own_profile()
     {
@@ -797,6 +838,70 @@ public sealed class AvaloniaHostAppearanceAdapterTests
         Assert.Equal(new CornerRadius(999), glass.GroupCornerRadius);
         Assert.False(classic.ChromeIsGlass);
         Assert.Equal(classic.ControlCornerRadius, classic.GroupCornerRadius);
+    }
+
+    /// <summary>
+    /// The material line in Settings says what is on screen: the content is
+    /// opaque unless glass panels are on, and Liquid Glass names the chrome it
+    /// actually turns to glass.
+    /// </summary>
+    [Fact]
+    public void Material_status_reports_whether_the_content_is_glass()
+    {
+        var opaque = EffectiveAppearanceResourceMapper.Map(
+            EffectiveThemeFor(PlatformProfile.MacOsLiquidGlass, EffectiveAppearanceMode.Dark));
+        var classic = EffectiveThemeFor(PlatformProfile.MacOsClassic, EffectiveAppearanceMode.Dark);
+        var glass = EffectiveAppearanceResourceMapper.Map(classic with { ContentIsGlass = true });
+
+        Assert.Equal("Window material: glass sidebar and rail · content opaque", opaque.MaterialStatus);
+        Assert.Equal("Window material: active · content glass", glass.MaterialStatus);
+    }
+
+    /// <summary>
+    /// Reduce Transparency, Increase Contrast, and translucency turned off all
+    /// make every overlay opaque and take the blur away; with a material the
+    /// overlays are glass.
+    /// </summary>
+    [Fact]
+    public void Overlays_are_opaque_without_blur_when_the_window_has_no_material()
+    {
+        var preference = ThemePreference.DefaultFor(HostOperatingSystem.MacOS);
+        var turnedOff = new ThemePreference(
+            preference.Id,
+            preference.Name,
+            preference.Appearance,
+            preference.PlatformProfile,
+            preference.Accent,
+            isTranslucent: false);
+        var unavailable = new[]
+        {
+            preference.Resolve(new HostAppearance(
+                HostOperatingSystem.MacOS,
+                HostColorScheme.Dark,
+                accent: null,
+                reducedTransparency: true)),
+            preference.Resolve(new HostAppearance(
+                HostOperatingSystem.MacOS,
+                HostColorScheme.Light,
+                accent: null,
+                highContrast: true)),
+            turnedOff.Resolve(NativeHost),
+        };
+
+        foreach (var theme in unavailable)
+        {
+            var overlay = ShellOverlayOpacity.For(theme, storedOpacityAlpha: 0xC7);
+            Assert.Equal(byte.MaxValue, overlay.SidebarOverlay);
+            Assert.Equal(byte.MaxValue, overlay.SurfaceOverlay);
+            Assert.Equal(byte.MaxValue, overlay.Veil);
+            Assert.False(overlay.BlurBehind, theme.MaterialDisposition.ToString());
+        }
+
+        var glass = ShellOverlayOpacity.For(preference.Resolve(NativeHost), storedOpacityAlpha: 0xC7);
+        Assert.True(glass.BlurBehind);
+        Assert.Equal(0xC7, glass.SurfaceOverlay);
+        Assert.True(glass.SidebarOverlay < byte.MaxValue);
+        Assert.True(glass.Veil < byte.MaxValue);
     }
 
     [Fact]

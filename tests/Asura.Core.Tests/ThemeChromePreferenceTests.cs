@@ -62,6 +62,31 @@ public sealed class ThemeChromePreferenceTests
         Assert.Equal(78, theme.BackdropOpacityPercent);
     }
 
+    /// <summary>
+    /// Content is glass only when glass panels were asked for and the host
+    /// allows a material at all; reduced transparency and increased contrast
+    /// say no the way they do to the base surface.
+    /// </summary>
+    [Fact]
+    public void Content_is_glass_only_with_glass_panels_and_an_enabled_material()
+    {
+        var glassPanels = ThemePreference.LegacyMacOsDefault;
+        var host = new HostAppearance(HostOperatingSystem.MacOS, HostColorScheme.Dark, accent: null);
+
+        Assert.False(ThemePreference.DefaultFor(HostOperatingSystem.MacOS).Resolve(host).ContentIsGlass);
+        Assert.True(glassPanels.Resolve(host).ContentIsGlass);
+        Assert.False(glassPanels.Resolve(new HostAppearance(
+            HostOperatingSystem.MacOS,
+            HostColorScheme.Dark,
+            accent: null,
+            reducedTransparency: true)).ContentIsGlass);
+        Assert.False(glassPanels.Resolve(new HostAppearance(
+            HostOperatingSystem.MacOS,
+            HostColorScheme.Dark,
+            accent: null,
+            highContrast: true)).ContentIsGlass);
+    }
+
     [Theory]
     [InlineData(HostOperatingSystem.Windows)]
     [InlineData(HostOperatingSystem.Linux)]

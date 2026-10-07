@@ -271,7 +271,7 @@
   <Style Selector="Button.SecondaryButton.painting">
     <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
   </Style>
 
   <Style Selector="Button.SecondaryButton.active">
@@ -406,6 +406,15 @@
 
   <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
+  </Style>
+
+  <!--
+    A list that does not have keyboard focus shows its selection the way the
+    platform does: the unemphasized plate rather than the accent tint, so only
+    the focused list wears the accent.
+  -->
+  <Style Selector="ListBox:not(:focus-within) > ListBoxItem:selected /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ShellUnemphasizedSelectionBrush}" />
   </Style>
 
   <!--
@@ -884,8 +893,23 @@
     <Setter Property="Background" Value="{DynamicResource ShellControlHoverBrush}" />
   </Style>
 
+  <!--
+    A selected grid row is the platform's selection, not an accent wash: the
+    strong selected-content colour with its own label colour while the grid
+    has keyboard focus, and the quiet unemphasized plate once focus is
+    elsewhere — so the row that keystrokes act on is the one that looks it.
+  -->
   <Style Selector="DataGrid.DatabaseGrid DataGridRow:selected">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellUnemphasizedSelectionBrush}" />
+  </Style>
+
+  <Style Selector="DataGrid.DatabaseGrid:focus-within DataGridRow:selected">
+    <Setter Property="Background" Value="{DynamicResource ShellSelectedContentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellSelectedContentForegroundBrush}" />
+  </Style>
+
+  <Style Selector="DataGrid.DatabaseGrid:focus-within DataGridRow:selected DataGridCell">
+    <Setter Property="Foreground" Value="{DynamicResource ShellSelectedContentForegroundBrush}" />
   </Style>
 
   <!--
@@ -1022,7 +1046,7 @@
   <Style Selector="Button.IconChoice.selected, ToggleButton.IconChoice:checked">
     <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
   </Style>
 
   <!-- A centred empty state. A StackPanel is only as wide as its widest child, so
