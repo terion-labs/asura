@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using System.Text;
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -20,12 +22,9 @@ namespace Asura.App.Views.Components;
 /// </summary>
 internal sealed class SelectableMarkdownDocument : Control
 {
-    private const double BodyFontSize = 13;
-    private const double BodyLineHeight = 20;
     private const double BlockSpacing = 8;
     private const double ListLevelIndent = 18;
     private const double ListMarkerWidth = 20;
-    private static readonly double[] HeadingSizes = [23, 19, 16, 14, 13, 13];
     private static WeakReference<SelectableMarkdownDocument>? s_selectionOwner;
 
     private readonly ImmutableArray<SourceBlock> _sourceBlocks;
@@ -50,6 +49,9 @@ internal sealed class SelectableMarkdownDocument : Control
         Cursor = new Cursor(StandardCursorType.Ibeam);
         (_sourceBlocks, _plainText) = BuildSource(blocks);
         ActualThemeVariantChanged += (_, _) => InvalidateDocumentLayout();
+        // Type sizes are read from the published ramp at layout time, so a
+        // text-size change has to lay the document out again to reach it.
+        ResourcesChanged += (_, _) => InvalidateDocumentLayout();
     }
 
     internal string Text => _plainText;
@@ -73,6 +75,9 @@ internal sealed class SelectableMarkdownDocument : Control
                 block.Layout.TextLines.Count,
                 [.. block.Layout.TextLines.Skip(1).Select(line => line.Start)]))];
 
+    internal ImmutableArray<FlowDirection> BlockDirections =>
+        [.. _sourceBlocks.Select(block => block.Direction)];
+
     internal int MathFormulaCount =>
         _sourceBlocks.Sum(block =>
             block.Runs.Count(run => run.Style.HasFlag(MarkdownRunStyle.Math)));
@@ -84,6 +89,9 @@ internal sealed class SelectableMarkdownDocument : Control
         _selectionEnd = _plainText.Length;
         InvalidateVisual();
     }
+
+    protected override AutomationPeer OnCreateAutomationPeer() =>
+        new SelectableMarkdownDocumentAutomationPeer(this);
 
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -242,6 +250,8 @@ internal sealed class SelectableMarkdownDocument : Control
         }
 
         _layoutWidth = width;
+        var bodyFontSize = MarkdownTypography.FontSize(this, MarkdownTypography.BodyPoints);
+        var bodyLineHeight = MarkdownTypography.ProseLineHeight(bodyFontSize);
         var blocks = ImmutableArray.CreateBuilder<LayoutBlock>(_sourceBlocks.Length);
         var y = 0d;
         for (var index = 0; index < _sourceBlocks.Length; index++)
@@ -255,16 +265,25 @@ internal sealed class SelectableMarkdownDocument : Control
             var top = TopMargin(source);
             var bottom = BottomMargin(source);
             y += top;
-            var x = ContentOffset(source);
+            var indent = ContentOffset(source);
             var markerWidth = source.Kind == MarkdownBlockKind.ListItem
                 ? ListMarkerWidth
                 : 0;
-            var contentX = x + markerWidth;
-            var contentWidth = Math.Max(1, width - contentX);
-            var fontSize = FontSize(source);
+            var contentWidth = Math.Max(1, width - indent - markerWidth);
+            // A right-to-left paragraph mirrors its indent and list marker
+            // into the right edge, where its reading starts.
+            var direction = source.Direction;
+            var (x, contentX) = direction == FlowDirection.RightToLeft
+                ? (Math.Max(0, width - indent - markerWidth), 0d)
+                : (indent, indent + markerWidth);
+            var fontSize = source.Kind == MarkdownBlockKind.Heading
+                ? MarkdownTypography.FontSize(
+                    this,
+                    MarkdownTypography.HeadingPointsFor(source.Level))
+                : bodyFontSize;
             var lineHeight = source.Kind == MarkdownBlockKind.Heading
-                ? Math.Round(fontSize * 1.3)
-                : BodyLineHeight;
+                ? MarkdownTypography.HeadingLineHeight(fontSize)
+                : bodyLineHeight;
             var layout = CreateTextLayout(source, contentWidth, fontSize, lineHeight);
             TextLayout? marker = null;
             if (source.Kind == MarkdownBlockKind.ListItem)
@@ -272,15 +291,17 @@ internal sealed class SelectableMarkdownDocument : Control
                 marker = new TextLayout(
                     source.Prefix.TrimEnd(),
                     Typeface(FontWeight.Normal),
-                    BodyFontSize,
+                    bodyFontSize,
                     MutedBrush(),
+                    textAlignment: TextAlignment.Start,
                     textWrapping: TextWrapping.NoWrap,
+                    flowDirection: direction,
                     maxWidth: ListMarkerWidth,
-                    lineHeight: BodyLineHeight);
+                    lineHeight: bodyLineHeight);
             }
 
             var height = source.Kind == MarkdownBlockKind.ThematicBreak
-                ? 13
+                ? bodyFontSize
                 : Math.Max(layout.Height, marker?.Height ?? 0);
             blocks.Add(new LayoutBlock(
                 source.Kind,
@@ -322,9 +343,15 @@ internal sealed class SelectableMarkdownDocument : Control
         return new TextLayout(
             textSource,
             new GenericTextParagraphProperties(
+                source.Direction,
+                TextAlignment.Start,
+                firstLineInParagraph: true,
+                alwaysCollapsible: false,
                 defaultProperties,
-                textWrapping: TextWrapping.Wrap,
-                lineHeight: lineHeight),
+                TextWrapping.Wrap,
+                lineHeight,
+                indent: 0,
+                letterSpacing: 0),
             maxWidth: maxWidth,
             maxHeight: double.PositiveInfinity);
     }
@@ -502,7 +529,8 @@ internal sealed class SelectableMarkdownDocument : Control
                 prefix,
                 text,
                 runs,
-                start));
+                start,
+                MarkdownTypography.ParagraphDirection(text)));
             previous = block;
         }
 
@@ -530,10 +558,6 @@ internal sealed class SelectableMarkdownDocument : Control
         MarkdownBlockKind.Quote => 14,
         _ => 0,
     };
-
-    private static double FontSize(SourceBlock block) => block.Kind == MarkdownBlockKind.Heading
-        ? HeadingSizes[Math.Clamp(block.Level, 1, HeadingSizes.Length) - 1]
-        : BodyFontSize;
 
     private static double TopMargin(SourceBlock block) => block.Kind switch
     {
@@ -593,7 +617,34 @@ internal sealed class SelectableMarkdownDocument : Control
         string Prefix,
         string Text,
         ImmutableArray<SourceRun> Runs,
-        int GlobalStart);
+        int GlobalStart,
+        FlowDirection Direction);
+
+    /// <summary>
+    /// The document is drawn, not composed of text controls, so without its own
+    /// peer a screen reader finds a focusable box with nothing in it. It reads
+    /// as one document whose content is the same plain text a copy produces.
+    /// </summary>
+    private sealed class SelectableMarkdownDocumentAutomationPeer(
+        SelectableMarkdownDocument owner) : ControlAutomationPeer(owner)
+    {
+        protected override AutomationControlType GetAutomationControlTypeCore() =>
+            AutomationControlType.Document;
+
+        protected override string GetClassNameCore() => "MarkdownDocument";
+
+        protected override string GetNameCore()
+        {
+            var name = AutomationProperties.GetName(Owner);
+            return string.IsNullOrEmpty(name)
+                ? ((SelectableMarkdownDocument)Owner).Text
+                : name;
+        }
+
+        protected override bool IsContentElementCore() => true;
+
+        protected override bool IsControlElementCore() => true;
+    }
 
     private sealed class MarkdownTextSource : ITextSource
     {
