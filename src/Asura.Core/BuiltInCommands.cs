@@ -88,6 +88,11 @@ public static class BuiltInCommands
     public static CommandId GitPull { get; } = new("git.pull");
     public static CommandId GitPush { get; } = new("git.push");
     public static CommandId GitSync { get; } = new("git.sync");
+    public static CommandId GitFetch { get; } = new("git.fetch");
+    public static CommandId GitNewBranch { get; } = new("git.new-branch");
+    public static CommandId GitMerge { get; } = new("git.merge");
+    public static CommandId GitRebase { get; } = new("git.rebase");
+    public static CommandId GitStash { get; } = new("git.stash");
 
     public static CommandId ShowHelp { get; } = new("help.asura");
     public static CommandId ShowKeyboardShortcuts { get; } = new("help.keyboard-shortcuts");
@@ -115,6 +120,11 @@ public static class BuiltInCommands
         GitPull,
         GitPush,
         GitSync,
+        GitFetch,
+        GitNewBranch,
+        GitMerge,
+        GitRebase,
+        GitStash,
         ShowHelp,
         ShowKeyboardShortcuts,
         ShowReleaseNotes,
@@ -287,6 +297,11 @@ public static class BuiltInCommands
             DefinePanelCommand(GitPull, "Pull", "Git"),
             DefinePanelCommand(GitPush, "Push", "Git"),
             DefinePanelCommand(GitSync, "Sync with Remote", "Git"),
+            DefinePanelCommand(GitFetch, "Fetch…", "Git"),
+            DefinePanelCommand(GitNewBranch, "New Branch…", "Git"),
+            DefinePanelCommand(GitMerge, "Merge Branch…", "Git"),
+            DefinePanelCommand(GitRebase, "Rebase Branch…", "Git"),
+            DefinePanelCommand(GitStash, "Stash Changes…", "Git"),
 
             Define(ShowHelp, "Asura Help", "Help", CommandContext.Global),
             Define(ShowKeyboardShortcuts, "Keyboard Shortcuts", "Help", CommandContext.Global),

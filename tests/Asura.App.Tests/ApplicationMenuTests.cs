@@ -37,6 +37,22 @@ public sealed class ApplicationMenuLayoutTests
     }
 
     [Fact]
+    public void Git_menu_mirrors_the_panel_core_commands()
+    {
+        var git = Assert.Single(ApplicationMenuLayout.MenuBar, menu => string.Equals(menu.Title, "Git", StringComparison.Ordinal));
+        Assert.Equal(
+            [
+                "Refresh", "Stage All Changes", "Unstage All Changes", "Commit", "Stash Changes…",
+                "Fetch…", "Pull", "Push", "Sync", "New Branch…", "Merge…", "Rebase…",
+            ],
+            git.Items.OfType<MenuCommandNode>().Select(item => item.Title),
+            StringComparer.Ordinal);
+        Assert.All(
+            git.Items.OfType<MenuCommandNode>(),
+            item => Assert.True(Asura.App.ViewModels.MainWindowViewModel.IsGitCommand(item.Command), item.Title));
+    }
+
+    [Fact]
     public void Every_registry_command_is_reachable_from_the_menu_bar()
     {
         var inMenus = ApplicationMenuLayout.AllCommands()

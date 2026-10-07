@@ -1,5 +1,6 @@
 using Asura.App.Controls;
 using Asura.App.ViewModels;
+using Asura.App.Views;
 using Asura.App.Views.Components;
 using Asura.App.Views.RuntimePanels;
 using Asura.Application;
@@ -111,6 +112,45 @@ public sealed class GitPanelConformanceHeadlessTests
         flyout.Hide();
     }, client);
     }
+
+    [Fact]
+    public async Task Git_menu_requests_wait_for_a_repository_and_a_branch_to_choose()
+    {
+        var client = new FakeGitRepositoryClient
+        {
+            RefsOverride =
+            [
+                new GitRefItem("refs/heads/dev", "dev", GitRefKind.LocalBranch, "0000000000000000000000000000000000000001", IsCurrent: true),
+            ],
+        };
+        using var panel = new GitRuntimePanelViewModel(PanelInstanceId.New(), "Git", client, BuiltInConnections.Local);
+        Assert.False(panel.FetchRequestCommand.CanExecute(null));
+
+        await panel.OpenRepositoryAsync("/repo");
+        var requests = new List<GitPanelRequest>();
+        panel.Requested += (_, request) => requests.Add(request);
+        Assert.True(panel.FetchRequestCommand.CanExecute(null));
+        Assert.True(panel.NewBranchRequestCommand.CanExecute(null));
+        Assert.True(panel.StashRequestCommand.CanExecute(null));
+        // Only the current branch exists, so there is nothing to merge or rebase onto.
+        Assert.False(panel.MergeRequestCommand.CanExecute(null));
+        Assert.False(panel.RebaseRequestCommand.CanExecute(null));
+
+        panel.FetchRequestCommand.Execute(null);
+        panel.StashRequestCommand.Execute(null);
+        Assert.Equal([GitPanelRequest.Fetch, GitPanelRequest.Stash], requests);
+        Assert.Same(panel.FetchRequestCommand, MainWindowViewModel.GitCommand(panel, BuiltInCommands.GitFetch));
+        Assert.Same(panel.MergeRequestCommand, MainWindowViewModel.GitCommand(panel, BuiltInCommands.GitMerge));
+    }
+
+    [Fact]
+    public Task Stash_from_the_Git_menu_opens_the_panel_stash_dialog() => RunPanelAsync(async (view, panel, window) =>
+    {
+        panel.StashRequestCommand.Execute(null);
+        await WaitForAsync(() => window.OwnedWindows.Count > 0);
+        var dialog = Assert.IsType<GitStashPushDialog>(Assert.Single(window.OwnedWindows));
+        dialog.Close();
+    });
 
     [Fact]
     public Task Section_switchers_are_a_source_list_and_segmented_controls_bound_to_the_view_model() => RunPanelAsync((view, panel, window) =>

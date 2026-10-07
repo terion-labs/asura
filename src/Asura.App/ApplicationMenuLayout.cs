@@ -181,6 +181,8 @@ internal static class ApplicationMenuLayout
                     Position(position))),
             ]),
         ]),
+        // The focused Git panel's core commands. Those that ask something
+        // first open the same dialogs as the panel's own buttons and rows.
         new("Git",
         [
             Item("Refresh", BuiltInCommands.GitRefresh),
@@ -188,10 +190,16 @@ internal static class ApplicationMenuLayout
             Item("Stage All Changes", BuiltInCommands.GitStageAll),
             Item("Unstage All Changes", BuiltInCommands.GitUnstageAll),
             Item("Commit", BuiltInCommands.GitCommit),
+            Item("Stash Changes…", BuiltInCommands.GitStash),
             MenuSeparatorNode.Instance,
+            Item("Fetch…", BuiltInCommands.GitFetch),
             Item("Pull", BuiltInCommands.GitPull),
             Item("Push", BuiltInCommands.GitPush),
             Item("Sync", BuiltInCommands.GitSync),
+            MenuSeparatorNode.Instance,
+            Item("New Branch…", BuiltInCommands.GitNewBranch),
+            Item("Merge…", BuiltInCommands.GitMerge),
+            Item("Rebase…", BuiltInCommands.GitRebase),
         ]),
         new(WindowMenuTitle,
         [

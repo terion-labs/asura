@@ -42,6 +42,7 @@ public sealed partial class GitRuntimePanelView : UserControl
         _observedViewModel?.PropertyChanged -= OnViewModelPropertyChanged;
         _observedViewModel = ViewModel;
         _observedViewModel?.PropertyChanged += OnViewModelPropertyChanged;
+        FollowRequests();
         PresentChangeSelection();
         PresentHistorySelection();
         PresentSidebarCollapse();
