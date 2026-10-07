@@ -35,8 +35,14 @@ public sealed partial class CodeEditBox
         if (!AcceptsFileDrop(e))
         {
             EndFileDragFeedback(restoreCaret: true);
-            e.DragEffects = DragDropEffects.None;
-            e.Handled = true;
+            // Files over an editor that cannot take them are refused; any
+            // other drag is the text area's to decide.
+            if (e.DataTransfer.Contains(DataFormat.File))
+            {
+                e.DragEffects = DragDropEffects.None;
+                e.Handled = true;
+            }
+
             return;
         }
 
@@ -80,7 +86,6 @@ public sealed partial class CodeEditBox
         EndFileDragFeedback(restoreCaret: false);
         if (paths is not { Length: > 0 })
         {
-            e.DragEffects = DragDropEffects.None;
             return;
         }
 

@@ -2111,8 +2111,12 @@ public sealed partial class DatabaseViewerConformanceTests
         public ItemsControl ObjectsList =>
             RowsObjectButton.GetVisualAncestors().OfType<ItemsControl>().First();
 
+        // The one connection button is named by what it would do, Connect or
+        // Disconnect, so it is found by its control name.
         public Button ConnectButton =>
-            NamedControl<Button>("Connect to the database");
+            View.FindControl<Button>("ConnectionButton")
+            ?? throw new InvalidOperationException(
+                "The real database viewer did not render its connection button.");
 
         public static HeadlessViewFixture Create(
             DatabaseRuntimePanelViewModel panel,
