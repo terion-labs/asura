@@ -240,7 +240,7 @@
             <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
               <TextBlock Classes="SectionHeading" Text="Local filesystem" />
               <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="The adapter is confined to this existing directory and does not follow links outside it." />
-              <TextBox Text="{Binding LocalRoot}" PlaceholderText="Absolute directory path" />
+              <TextBox Text="{Binding LocalRoot}" PlaceholderText="Absolute directory path" AutomationProperties.Name="Local folder" />
             </StackPanel>
           </controls:SurfaceCard>
 
@@ -338,7 +338,7 @@
             <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
               <TextBlock Classes="SectionHeading" Text="OS-vault credential" />
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding SecretOptions}" SelectedItem="{Binding SelectedCredential}"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+                <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding SecretOptions}" SelectedItem="{Binding SelectedCredential}" AutomationProperties.Name="Credential"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
                 <Button Grid.Column="1" Classes="SecondaryButton" Click="OnAddFileCredentialClick" Content="Add new…" AutomationProperties.Name="Add file connection credential" />
               </Grid>
               <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="Choose a credential saved for this connection. S3 credentials use JSON fields accessKeyId, secretAccessKey, and optional sessionToken." TextWrapping="Wrap" />

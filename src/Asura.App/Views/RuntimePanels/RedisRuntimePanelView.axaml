@@ -561,16 +561,19 @@
                                     Width="120"
                                     Text="{Binding Field, Mode=TwoWay}"
                                     PlaceholderText="{Binding $parent[ItemsControl].DataContext.MutationForm.FieldLabel}"
+                                    AutomationProperties.Name="{Binding $parent[ItemsControl].DataContext.MutationForm.FieldLabel}"
                                     IsVisible="{Binding $parent[ItemsControl].DataContext.MutationForm.HasField}" />
                                 <TextBox
                                     Grid.Column="1"
                                     Text="{Binding Value, Mode=TwoWay}"
-                                    PlaceholderText="{Binding $parent[ItemsControl].DataContext.MutationForm.ValueLabel}" />
+                                    PlaceholderText="{Binding $parent[ItemsControl].DataContext.MutationForm.ValueLabel}"
+                                    AutomationProperties.Name="{Binding $parent[ItemsControl].DataContext.MutationForm.ValueLabel}" />
                                 <TextBox
                                     Grid.Column="2"
                                     Width="72"
                                     Text="{Binding Score, Mode=TwoWay}"
                                     PlaceholderText="{Binding $parent[ItemsControl].DataContext.MutationForm.ScoreLabel}"
+                                    AutomationProperties.Name="{Binding $parent[ItemsControl].DataContext.MutationForm.ScoreLabel}"
                                     IsVisible="{Binding $parent[ItemsControl].DataContext.MutationForm.HasScore}" />
                                 <Button
                                     Grid.Column="3"

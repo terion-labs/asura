@@ -90,6 +90,7 @@
           <TextBlock Classes="SectionHeading" Text="Authentication" />
           <ComboBox
               x:Name="AuthenticationSelector"
+              AutomationProperties.Name="Authentication"
               IsVisible="{Binding HasMultipleAuthenticationOptions}"
               ItemsSource="{Binding AuthenticationOptions}"
               SelectedItem="{Binding SelectedAuthentication}">

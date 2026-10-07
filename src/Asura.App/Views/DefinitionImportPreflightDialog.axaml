@@ -59,7 +59,7 @@
           <DataTemplate x:DataType="application:DefinitionExecutionReviewItem">
             <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
               <TextBlock Text="{Binding Heading}" FontWeight="SemiBold" TextWrapping="Wrap" />
-              <TextBox Text="{Binding Details}" IsReadOnly="True" AcceptsReturn="True" MaxHeight="160" TextWrapping="Wrap" />
+              <TextBox Text="{Binding Details}" IsReadOnly="True" AcceptsReturn="True" MaxHeight="160" TextWrapping="Wrap" AutomationProperties.Name="{Binding Heading}" />
             </StackPanel>
           </DataTemplate>
         </ListBox.ItemTemplate>
