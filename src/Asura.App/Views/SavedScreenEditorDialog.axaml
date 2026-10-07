@@ -119,7 +119,7 @@
               AutomationProperties.Name="Override the AI agent policy for this saved screen" />
           <TextBlock
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize9}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               Text="Off, Ask, and Auto are saved with this screen. Full access can be changed from the agent."
               TextWrapping="Wrap" />
           <Grid
@@ -193,7 +193,7 @@
           </Grid>
           <controls:LiveRegionTextBlock
               Foreground="{DynamicResource ShellDangerBrush}"
-              FontSize="{DynamicResource ShellFontSize9}"
+              FontSize="{DynamicResource ShellFontSize10}"
               IsVisible="{Binding !AgentPolicy.IsValid}"
               Text="Choose an available, enabled provider profile and enter a valid model identifier."
               TextWrapping="Wrap"
@@ -207,7 +207,7 @@
                 <Grid Margin="{controls:Inset Vertical=Sm}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
                   <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
                     <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" TextWrapping="Wrap" />
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Description}" TextWrapping="Wrap" />
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Description}" TextWrapping="Wrap" />
                   </StackPanel>
                   <Border Grid.Column="1" VerticalAlignment="Center" Classes="Segmented">
                     <Grid ColumnDefinitions="60,60,60">
@@ -239,7 +239,7 @@
                   </Border>
                   <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
                     <TextBlock Classes="Eyebrow" Text="{Binding PanelLabel}" />
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Panel identity follows this layout slot." />
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Panel identity follows this layout slot." />
                   </StackPanel>
                   <controls:LabeledField Grid.Column="2" Label="Panel type">
                     <ComboBox
@@ -296,7 +296,7 @@
                         AutomationProperties.Name="{Binding PanelLabel, StringFormat=Startup location for {0}}" />
                     <controls:LiveRegionTextBlock
                         Foreground="{DynamicResource ShellDangerBrush}"
-                        FontSize="{DynamicResource ShellFontSize9}"
+                        FontSize="{DynamicResource ShellFontSize10}"
                         IsVisible="{Binding HasInvalidBrowserAddress}"
                         Text="Enter a complete HTTP or HTTPS URL, or leave this empty for about:blank."
                         TextWrapping="Wrap"

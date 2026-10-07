@@ -308,6 +308,28 @@ internal sealed class WorkspaceRailTile : TemplatedControl
         PseudoClasses.Set(":keyboard-focus-within", false);
     }
 
+    /// <summary>
+    /// Shift+F10 and the Menu key open the tile's menu from the keyboard, as
+    /// a right-click does with the pointer.
+    /// </summary>
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if (!e.Handled
+            && ContextMenu is { } menu
+            && IsContextMenuGesture(e.Key, e.KeyModifiers))
+        {
+            e.Handled = true;
+            menu.Open(this);
+            return;
+        }
+
+        base.OnKeyDown(e);
+    }
+
+    internal static bool IsContextMenuGesture(Key key, KeyModifiers modifiers) =>
+        key == Key.Apps
+        || (key == Key.F10 && modifiers == KeyModifiers.Shift);
+
     private void OnOpenClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
@@ -348,15 +370,20 @@ internal sealed class WorkspaceRailTile : TemplatedControl
         MarkBrush = new SolidColorBrush(Ink(accent));
     }
 
+    /// <summary>The dark ink a light fill takes.</summary>
+    internal static readonly Color DarkInk = Color.FromRgb(0x11, 0x11, 0x11);
+
     /// <summary>
-    /// Ink or paper, whichever stands out on a fill. The threshold is the
-    /// perceptual midpoint rather than 128, which would put white text on
-    /// mid-greens.
+    /// Ink or paper, whichever has the higher measured contrast with the fill.
+    /// A brightness threshold put white on mid-greens and teals, where it
+    /// reached barely 2.5:1; measuring keeps every mark above the 3:1 a
+    /// non-text element needs.
     /// </summary>
-    private static Color Ink(Color fill) =>
-        (0.2126 * fill.R) + (0.7152 * fill.G) + (0.0722 * fill.B) > 150
-            ? Color.FromRgb(0x14, 0x14, 0x16)
-            : Colors.White;
+    internal static Color Ink(Color fill) =>
+        EffectiveAppearanceResourceMapper.ContrastRatio(fill, Colors.White)
+            >= EffectiveAppearanceResourceMapper.ContrastRatio(fill, DarkInk)
+            ? Colors.White
+            : DarkInk;
 
     /// <summary>
     /// Pulls a colour toward the grey of its own brightness, then dims it.

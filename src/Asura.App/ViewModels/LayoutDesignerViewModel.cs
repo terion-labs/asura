@@ -146,6 +146,13 @@ public sealed class LayoutDesignerViewModel : ObservableObject
         || !_matchesOriginal
         || !StringComparer.Ordinal.Equals(_name, _original.Name);
 
+    /// <summary>
+    /// Whether anything was changed since the designer opened. A new layout
+    /// is never saved yet, but one closed untouched has nothing to ask about.
+    /// </summary>
+    public bool HasChanges => !_matchesOriginal
+        || !StringComparer.Ordinal.Equals(_name, _original.Name);
+
     public string DirtyStatus => IsNew
         ? "Unsaved new layout"
         : IsDirty
@@ -329,7 +336,11 @@ public sealed class LayoutDesignerViewModel : ObservableObject
         PublishState();
     }
 
-    public LayoutDesignerCancelDisposition RequestCancel() => IsDirty
+    /// <summary>
+    /// Whether closing the designer has to ask first. A new layout nobody
+    /// touched has nothing to lose, so it closes like a saved one.
+    /// </summary>
+    public LayoutDesignerCancelDisposition RequestCancel() => HasChanges
         ? LayoutDesignerCancelDisposition.ConfirmDiscard
         : LayoutDesignerCancelDisposition.Close;
 

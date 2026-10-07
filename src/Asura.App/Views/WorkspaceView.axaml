@@ -80,7 +80,7 @@
       <Setter Property="Foreground" Value="{DynamicResource ShellSuccessBrush}" />
     </Style>
     <Style Selector="icons|SymbolIcon.NetworkMark.busy">
-      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellInfoBrush}" />
     </Style>
     <Style Selector="icons|SymbolIcon.NetworkMark.degraded">
       <Setter Property="Foreground" Value="{DynamicResource ShellDangerBrush}" />
@@ -111,7 +111,7 @@
             Tag="{Binding Workspaces}"
             AutomationProperties.Name="{Binding WorkspacesMenuName}">
           <Panel>
-            <icons:SymbolIcon Symbol="CalendarWeekNumbers" FontSize="15" />
+            <icons:SymbolIcon Symbol="CalendarWeekNumbers" FontSize="{DynamicResource ShellIconSizeMd}" />
             <controls:SignalDot
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"
@@ -163,6 +163,7 @@
           <Button
               x:Name="WorkspaceNetworkButton"
               Classes="TextButton"
+              Tag="{Binding WorkspaceNetwork}"
               MinHeight="24"
               Padding="{controls:Inset Horizontal=Sm, Vertical=Xs}"
               IsVisible="{Binding IsWorkspaceNetworkControlVisible}"
@@ -175,91 +176,22 @@
                   Classes.connected="{Binding WorkspaceNetwork.IsConnected}"
                   Classes.busy="{Binding WorkspaceNetwork.IsConnecting}"
                   Classes.degraded="{Binding WorkspaceNetwork.IsDegraded}"
-                  FontSize="13"
+                  FontSize="{DynamicResource ShellIconSizeSm}"
                   Symbol="{Binding WorkspaceNetwork.RouteSymbol}"
                   AutomationProperties.AccessibilityView="Raw" />
               <TextBlock
                   VerticalAlignment="Center"
-                  FontSize="{DynamicResource ShellFontSize9}"
+                  FontSize="{DynamicResource ShellFontSize10}"
                   FontWeight="Medium"
                   Text="{Binding WorkspaceNetwork.RouteLabel}" />
             </StackPanel>
+            <!-- A menu, not a popover of buttons: the offered connections are
+                 radio items with the route in use checked, so arrow keys and
+                 type-select walk them and VoiceOver hears which is chosen.
+                 The items are built as the menu opens; see
+                 WorkspaceView.NetworkMenu.cs. -->
             <Button.Flyout>
-              <Flyout Placement="BottomEdgeAlignedRight" FlyoutPresenterClasses="SavedConnectionMenu">
-                <StackPanel MinWidth="300" MaxWidth="380" Spacing="{DynamicResource ShellSpaceSm}">
-                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <controls:StatusChip
-                        VerticalAlignment="Top"
-                        Classes.Neutral="{Binding WorkspaceNetwork.IsDirect}"
-                        Classes.Notice="{Binding WorkspaceNetwork.IsConnecting}"
-                        Classes.Danger="{Binding WorkspaceNetwork.IsFailed}"
-                        Classes.Warning="{Binding WorkspaceNetwork.IsBlocked}"
-                        Content="{Binding WorkspaceNetwork.StateLabel}" />
-                    <TextBlock
-                        x:Name="WorkspaceNetworkStatus"
-                        Grid.Column="1"
-                        VerticalAlignment="Center"
-                        Classes="Muted"
-                        FontSize="{DynamicResource ShellFontSize10}"
-                        Text="{Binding WorkspaceNetwork.StatusText}"
-                        TextWrapping="Wrap"
-                        AutomationProperties.Name="Workspace network status" />
-                  </Grid>
-                  <ProgressBar
-                      Height="2"
-                      IsIndeterminate="True"
-                      IsVisible="{Binding WorkspaceNetwork.IsConnecting}"
-                      AutomationProperties.Name="Connecting workspace network" />
-                  <Border Height="1" Background="{DynamicResource ShellBorderBrush}" />
-                  <ItemsControl ItemsSource="{Binding WorkspaceNetwork.Connections}">
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate x:DataType="vm:WorkspaceNetworkConnectionOptionViewModel">
-                        <Button
-                            Classes="FlyoutMenuItem"
-                            Click="OnWorkspaceNetworkConnectionClick"
-                            AutomationProperties.Name="{Binding Name, StringFormat=Use network connection {0}}">
-                          <controls:ListItem Title="{Binding Name}" Detail="{Binding Kind}">
-                            <controls:ListItem.Trailing>
-                              <icons:SymbolIcon
-                                  FontSize="12"
-                                  Foreground="{DynamicResource ShellAccentBrush}"
-                                  IsVisible="{Binding IsSelected}"
-                                  Symbol="Checkmark" />
-                            </controls:ListItem.Trailing>
-                          </controls:ListItem>
-                        </Button>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                  <TextBlock
-                      Classes="Muted"
-                      Text="No network connections are offered to this workspace."
-                      TextWrapping="Wrap"
-                      IsVisible="{Binding !WorkspaceNetwork.HasConnections}" />
-                  <Border Height="1" Background="{DynamicResource ShellBorderBrush}" />
-                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
-                      <controls:StatusChip
-                          Tone="Warning"
-                          Content="Kill switch on"
-                          ToolTip.Tip="Traffic stays blocked if the selected connection fails."
-                          IsVisible="{Binding WorkspaceNetwork.IsKillSwitchEnabled}" />
-                      <Button
-                          Classes="TextButton"
-                          Click="OnNetworkingSettingsClick"
-                          Content="Manage connections…"
-                          AutomationProperties.Name="Open networking settings" />
-                    </StackPanel>
-                    <Button
-                        Grid.Column="1"
-                        Classes="SecondaryButton"
-                        Click="OnWorkspaceNetworkToggleClick"
-                        Content="{Binding WorkspaceNetwork.ToggleAction}"
-                        IsEnabled="{Binding WorkspaceNetwork.CanToggle}"
-                        AutomationProperties.Name="{Binding WorkspaceNetwork.ToggleAction, StringFormat={}{0} workspace networking}" />
-                  </Grid>
-                </StackPanel>
-              </Flyout>
+              <MenuFlyout Placement="BottomEdgeAlignedRight" Opening="OnWorkspaceNetworkMenuOpening" />
             </Button.Flyout>
           </Button>
           <Button
@@ -270,32 +202,34 @@
               AutomationProperties.Name="Toggle AI agent panel">
             <Grid>
               <icons:SymbolIcon
-                  FontSize="15"
+                  FontSize="{DynamicResource ShellIconSizeMd}"
                   Foreground="{DynamicResource ShellForegroundBrush}"
                   Symbol="Bot" />
               <icons:SymbolIcon
                   x:Name="AgentToolbarActivityPulseIcon"
                   Classes="AgentToolbarActivityPulse"
                   Classes.running="{Binding HasRunningAgent}"
-                  FontSize="15"
+                  FontSize="{DynamicResource ShellIconSizeMd}"
                   Foreground="{DynamicResource ShellAccentBrush}"
                   Opacity="0"
                   Symbol="Bot" />
             </Grid>
           </Button>
           <!--
-            Where before what. The plus asks which edge the panel goes against, and
-            the panel itself then asks what to open — rather than a modal asking
-            what to open and the layout deciding where it lands.
+            Where before what. The plus asks which edge the panel goes against,
+            then what to open there in a popover anchored to the plus itself —
+            rather than a modal asking what to open and the layout deciding
+            where it lands. Add Panel… from the menu bar opens the same popover
+            here.
           -->
-          <Button Classes="IconButton" ToolTip.Tip="{x:Static vm:ShortcutTips.AddPanel}" AutomationProperties.Name="Add panel">
-            <icons:SymbolIcon Symbol="LayoutColumnTwoSplitRight" FontSize="15" />
+          <Button x:Name="AddPanelButton" Classes="IconButton" ToolTip.Tip="{x:Static vm:ShortcutTips.AddPanel}" AutomationProperties.Name="Add panel">
+            <icons:SymbolIcon Symbol="LayoutColumnTwoSplitRight" FontSize="{DynamicResource ShellIconSizeMd}" />
             <Button.Flyout>
               <MenuFlyout Placement="Bottom">
-                <MenuItem Click="OnAddPanelLeftClick" Header="Add to the left" />
-                <MenuItem Click="OnAddPanelRightClick" Header="Add to the right" />
-                <MenuItem Click="OnAddPanelTopClick" Header="Add above" />
-                <MenuItem Click="OnAddPanelBottomClick" Header="Add below" />
+                <MenuItem Click="OnAddPanelLeftClick" Header="Add to the Left" />
+                <MenuItem Click="OnAddPanelRightClick" Header="Add to the Right" />
+                <MenuItem Click="OnAddPanelTopClick" Header="Add Above" />
+                <MenuItem Click="OnAddPanelBottomClick" Header="Add Below" />
               </MenuFlyout>
             </Button.Flyout>
           </Button>
@@ -319,11 +253,11 @@
               <icons:SymbolIcon
                   VerticalAlignment="Center"
                   Symbol="ArrowSort"
-                  FontSize="10"
-                  Foreground="{DynamicResource ShellAccentBrush}" />
+                  FontSize="{DynamicResource ShellIconSizeXs}"
+                  Foreground="{DynamicResource ShellInfoBrush}" />
               <controls:LiveRegionTextBlock
                   VerticalAlignment="Center"
-                  FontSize="{DynamicResource ShellFontSize9}"
+                  FontSize="{DynamicResource ShellFontSize10}"
                   FontWeight="Medium"
                   Text="{Binding FileTransferStatusText}"
                   AutomationProperties.LiveSetting="Polite" />
@@ -334,16 +268,16 @@
                connection is opened from the launcher that a new panel already
                shows — so search keeps its place here rather than losing its
                only visible affordance with it. -->
-          <Button Classes="IconButton" Click="OnShowCommandPaletteClick" ToolTip.Tip="{Binding CommandPaletteAction}" AutomationProperties.Name="Search commands, connections, screens, workspaces, and session history"><icons:SymbolIcon Symbol="Search" FontSize="15" /></Button>
-          <Button Classes="IconButton" Click="OnShowSettingsClick" ToolTip.Tip="Settings" AutomationProperties.Name="Settings" IsVisible="{x:Static views:WorkspaceView.ShowsSettingsButton}"><icons:SymbolIcon Symbol="Settings" FontSize="15" /></Button>
-          <Button Classes="IconButton" Click="OnLockShellClick" ToolTip.Tip="Lock Asura" AutomationProperties.Name="Lock Asura" IsVisible="{Binding ApplicationSecurityEditor.IsProtectionEnabled}"><icons:SymbolIcon Symbol="LockClosed" FontSize="15" /></Button>
+          <Button Classes="IconButton" Click="OnShowCommandPaletteClick" ToolTip.Tip="{Binding CommandPaletteAction}" AutomationProperties.Name="Search commands, connections, screens, workspaces, and session history"><icons:SymbolIcon Symbol="Search" FontSize="{DynamicResource ShellIconSizeMd}" /></Button>
+          <Button Classes="IconButton" Click="OnShowSettingsClick" ToolTip.Tip="Settings" AutomationProperties.Name="Settings" IsVisible="{x:Static views:WorkspaceView.ShowsSettingsButton}"><icons:SymbolIcon Symbol="Settings" FontSize="{DynamicResource ShellIconSizeMd}" /></Button>
+          <Button Classes="IconButton" Click="OnLockShellClick" ToolTip.Tip="Lock Asura" AutomationProperties.Name="Lock Asura" IsVisible="{Binding ApplicationSecurityEditor.IsProtectionEnabled}"><icons:SymbolIcon Symbol="LockClosed" FontSize="{DynamicResource ShellIconSizeMd}" /></Button>
         </StackPanel>
       </Grid>
     </Border>
 
     <Border
         Grid.Row="2"
-        Height="30"
+        MinHeight="{controls:TextScaled 30}"
         Background="Transparent"
         BorderBrush="{DynamicResource ShellBorderBrush}"
         BorderThickness="0,1,0,0"
@@ -430,8 +364,22 @@
                     OpenRequested="OnOpenWorkspaceClick"
                     CloseRequested="OnCloseWorkspaceClick"
                     ToolTip.Tip="{Binding Name}"
-                    AutomationProperties.HelpText="Drag to reorder workspaces. Alt+Up or Alt+Down moves the focused workspace."
-                    AutomationProperties.Name="{Binding Name}" />
+                    AutomationProperties.HelpText="Drag to reorder workspaces. Alt+Up or Alt+Down moves the focused workspace. Shift+F10 opens its menu."
+                    AutomationProperties.Name="{Binding Name}">
+                  <!-- What the tile can do, in one place a right-click, Shift+F10
+                       or the Menu key reaches: the tile's own hover actions are
+                       there too, and ending the workspace sits last, behind a
+                       separator, worded as the Workspaces menu words it. -->
+                  <controls:WorkspaceRailTile.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="Open" Click="OnOpenWorkspaceClick" />
+                      <MenuItem Header="Edit Workspace…" Click="OnEditWorkspaceClick" />
+                      <MenuItem Header="Save Layout" Click="OnSaveWorkspaceLayoutClick" IsEnabled="{Binding CanSaveLayout}" />
+                      <Separator />
+                      <MenuItem Header="Terminate Workspace…" Click="OnRailTerminateWorkspaceClick" IsEnabled="{Binding CanClose}" />
+                    </ContextMenu>
+                  </controls:WorkspaceRailTile.ContextMenu>
+                </controls:WorkspaceRailTile>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
@@ -450,7 +398,7 @@
               Click="OnCreateWorkspaceClick"
               ToolTip.Tip="New workspace"
               AutomationProperties.Name="Create a new workspace">
-            <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Add" FontSize="14" />
+            <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
           </Button>
         </StackPanel>
       </Border>
@@ -536,14 +484,14 @@
                     </MultiBinding>
                   </AutomationProperties.Name>
                   <Panel>
-                    <icons:SymbolIcon Symbol="{Binding IconSymbol}" FontSize="18" />
+                    <icons:SymbolIcon Symbol="{Binding IconSymbol}" FontSize="{controls:TextScaled 18}" />
                     <controls:SignalDot
                         HorizontalAlignment="Right" VerticalAlignment="Top"
                         IsVisible="{Binding HasAttention}" />
                     <icons:SymbolIcon
-                        Symbol="Bot" FontSize="10"
+                        Symbol="Bot" FontSize="{DynamicResource ShellIconSizeXs}"
                         HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                        Foreground="{DynamicResource ShellAccentBrush}"
+                        Foreground="{DynamicResource ShellInfoBrush}"
                         AutomationProperties.AccessibilityView="Raw"
                         IsVisible="{Binding IsAgentActive}" />
                   </Panel>
@@ -589,7 +537,7 @@
             IsVisible="{Binding IsCanvasShown}"
             ZIndex="{Binding CanvasDepth}"
             RuntimeTab="{Binding ActiveTab}"
-            IsDockingEnabled="{Binding $parent[ItemsControl].DataContext.IsLayoutDesignerVisible, Converter={x:Static BoolConverters.Not}}"
+            IsDockingEnabled="{Binding $parent[ItemsControl].DataContext.IsWorkspaceDockingEnabled}"
             InitializeFactory="True"
             InitializeLayout="False">
           <components:RuntimeDockControl.Styles>
@@ -610,14 +558,14 @@
                     <Grid x:DataType="dockCore:IDockable" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                       <TextBlock
                           VerticalAlignment="Center"
+                          Classes="MiddleTruncated"
                           FontWeight="SemiBold"
-                        Text="{Binding Title}"
-                          TextTrimming="CharacterEllipsis" />
+                          Text="{Binding Title}" />
                       <TextBlock
                           Grid.Column="1"
                           VerticalAlignment="Center"
                           Classes="Muted"
-                          FontSize="{DynamicResource ShellFontSize9}"
+                          FontSize="{DynamicResource ShellSecondaryFontSize}"
                           Text="{TemplateBinding Status}" />
                     </Grid>
                   </Border>
@@ -809,7 +757,7 @@
             <TextBlock FontSize="{DynamicResource ShellFontSize11}" FontWeight="SemiBold" Text="File transfers" />
             <TextBlock
                 Classes="Muted"
-                FontSize="{DynamicResource ShellFontSize9}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
                 Text="Transfers stream through this computer between file providers."
                 TextWrapping="Wrap" />
           </StackPanel>
@@ -824,7 +772,7 @@
               Click="OnToggleFileTransferManagerClick"
               ToolTip.Tip="Close transfer manager"
               AutomationProperties.Name="Close transfer manager">
-            <icons:SymbolIcon Symbol="Dismiss" FontSize="11" />
+            <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeXs}" />
           </Button>
         </Grid>
         <ScrollViewer Grid.Row="1" MaxHeight="310" VerticalScrollBarVisibility="Auto">
@@ -838,19 +786,19 @@
                   <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                     <StackPanel MinWidth="0" Spacing="{DynamicResource ShellSpaceXs}">
                       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                        <TextBlock FontSize="{DynamicResource ShellFontSize9}" FontWeight="SemiBold" Text="{Binding Operation}" />
-                        <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Stage}" />
+                        <TextBlock FontSize="{DynamicResource ShellFontSize10}" FontWeight="SemiBold" Text="{Binding Operation}" />
+                        <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Stage}" />
                       </StackPanel>
-                      <TextBlock FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Source}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Classes="Path" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Source}" />
                       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                        <icons:SymbolIcon Symbol="ArrowRight" FontSize="9" Foreground="{DynamicResource ShellMutedBrush}" />
-                        <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Destination}" TextTrimming="CharacterEllipsis" />
+                        <icons:SymbolIcon Symbol="ArrowRight" FontSize="{DynamicResource ShellIconSizeXs}" Foreground="{DynamicResource ShellMutedBrush}" />
+                        <TextBlock Classes="Muted Path" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Destination}" />
                       </StackPanel>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
                       <controls:StatusChip Content="{Binding State}" />
-                      <Button Classes="IconButton" Click="OnCancelFileTransferClick" IsVisible="{Binding CanCancel}" ToolTip.Tip="Cancel transfer" AutomationProperties.Name="Cancel file transfer"><icons:SymbolIcon Symbol="Dismiss" FontSize="11" /></Button>
-                      <Button Classes="IconButton" Click="OnRetryFileTransferClick" IsVisible="{Binding CanRetry}" ToolTip.Tip="Retry transfer" AutomationProperties.Name="Retry file transfer"><icons:SymbolIcon Symbol="ArrowClockwise" FontSize="11" /></Button>
+                      <Button Classes="IconButton" Click="OnCancelFileTransferClick" IsVisible="{Binding CanCancel}" ToolTip.Tip="Cancel transfer" AutomationProperties.Name="Cancel file transfer"><icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeXs}" /></Button>
+                      <Button Classes="IconButton" Click="OnRetryFileTransferClick" IsVisible="{Binding CanRetry}" ToolTip.Tip="Retry transfer" AutomationProperties.Name="Retry file transfer"><icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellIconSizeXs}" /></Button>
                     </StackPanel>
                     <ProgressBar
                         Grid.Row="1"

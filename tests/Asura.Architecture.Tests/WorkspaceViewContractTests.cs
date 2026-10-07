@@ -87,18 +87,22 @@ public sealed class WorkspaceViewContractTests
     }
 
     [Fact]
-    public void Workspace_network_status_avoids_Avalonia_macOS_empty_live_region_crash()
+    public void Workspace_network_route_is_a_menu_built_as_it_opens()
     {
         var root = Assert.IsType<XElement>(LoadView("WorkspaceView").Root);
-        var status = FindNamedElement(root, "WorkspaceNetworkStatus");
+        var button = FindNamedElement(root, "WorkspaceNetworkButton");
 
-        Assert.Equal(
-            "{Binding WorkspaceNetwork.StatusText}",
-            AttributeValue(status, "Text"));
-        Assert.Equal(
-            "Workspace network status",
-            AttributeValue(status, "AutomationProperties.Name"));
-        Assert.Null(AttributeValue(status, "AutomationProperties.LiveSetting"));
+        // A menu of radio items rather than a popover of button rows, and no
+        // live region inside it: an empty one crashes Avalonia's macOS peer.
+        var menu = Assert.Single(
+            button.Descendants(),
+            element => string.Equals(element.Name.LocalName, "MenuFlyout", StringComparison.Ordinal));
+        Assert.Equal("OnWorkspaceNetworkMenuOpening", AttributeValue(menu, "Opening"));
+        Assert.Equal("{Binding WorkspaceNetwork}", AttributeValue(button, "Tag"));
+        Assert.DoesNotContain(
+            button.Descendants(),
+            element => string.Equals(element.Name.LocalName, "Flyout", StringComparison.Ordinal)
+                || AttributeValue(element, "AutomationProperties.LiveSetting") is not null);
     }
 
     [Fact]
@@ -456,13 +460,13 @@ public sealed class WorkspaceViewContractTests
         // dock control builds only what it is showing.
         Assert.Equal("{Binding IsCanvasShown}", AttributeValue(dockControl, "IsVisible"));
         Assert.Equal("{Binding CanvasDepth}", AttributeValue(dockControl, "ZIndex"));
-        // Docking pauses while the layout designer overlay is open: Dock resolves
-        // drop targets across every registered DockControl, and the designer's
-        // canvas must not be able to dock a slot into the live workspace beneath.
-        Assert.Contains(
-            "IsLayoutDesignerVisible",
-            AttributeValue(dockControl, "IsDockingEnabled") ?? string.Empty,
-            StringComparison.Ordinal);
+        // Docking pauses only while a slot is held in the Layout Designer
+        // window: Dock resolves drop targets across every registered
+        // DockControl, and a designer slot must not land in the live workspace.
+        // The rest of the time the workspace docks as usual beside the designer.
+        Assert.Equal(
+            "{Binding $parent[ItemsControl].DataContext.IsWorkspaceDockingEnabled}",
+            AttributeValue(dockControl, "IsDockingEnabled"));
         Assert.Equal("True", AttributeValue(dockControl, "InitializeFactory"));
         Assert.Equal("False", AttributeValue(dockControl, "InitializeLayout"));
         // Dock windows are real platform windows. The managed-window layer would

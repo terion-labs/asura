@@ -9,21 +9,15 @@
     xmlns:icons="using:FluentIcons.Avalonia"
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch">
-  <controls:SurfaceCard Elevation="Overlay" Padding="0"
-      Width="900"
-      HorizontalAlignment="Center"
-      VerticalAlignment="Center"
-      KeyboardNavigation.TabNavigation="Cycle">
-    <StackPanel Margin="{controls:Inset Xl}" Spacing="{DynamicResource ShellSpaceLg}">
-      <Grid ColumnDefinitions="*,Auto">
-        <StackPanel>
-          <TextBlock FontSize="{DynamicResource ShellFontSize20}" FontWeight="SemiBold" Text="Add a Panel" />
-          <TextBlock Classes="Muted" Text="Choose a panel type" />
-        </StackPanel>
-        <Button Grid.Column="1" Classes="IconButton" Click="OnCloseClick" AutomationProperties.Name="Close panel chooser">
-          <icons:SymbolIcon Symbol="Dismiss" FontSize="14" />
-        </Button>
-      </Grid>
+  <!-- A popover on the "+" that asked for it, not a card over a blacked-out
+       window: it is as wide as the window allows, scrolls when the window is
+       short, and closes on Esc or a click anywhere else. -->
+  <ScrollViewer
+      x:Name="ChooserScroll"
+      HorizontalScrollBarVisibility="Disabled"
+      VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceLg}">
+      <TextBlock Classes="Title2" Text="Add Panel" />
       <controls:CardGridPanel MinItemWidth="128" Spacing="{DynamicResource ShellSpaceSm}">
         <controls:ChooserTile x:Name="NewPanelTerminalButton" Icon="WindowConsole" Title="{x:Static vm:PanelTypes.Terminal}" Description="{x:Static vm:PanelTypes.TerminalDescription}" Click="OnAddTerminalPanelClick" />
         <controls:ChooserTile Icon="Globe" Title="{x:Static vm:PanelTypes.Browser}" Description="{x:Static vm:PanelTypes.BrowserDescription}" Click="OnAddBrowserPanelClick" IsEnabled="{Binding CanCreateBrowserPanel}" UnavailableReason="{Binding BrowserPanelUnavailableReason}" />
@@ -111,7 +105,7 @@
                           Title="{Binding Name}"
                           Detail="{Binding Summary}">
                         <controls:ListItem.Leading>
-                          <Border Width="26" Height="26" Classes="IconTile Neutral"><icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Grid" FontSize="12" /></Border>
+                          <Border Width="26" Height="26" Classes="IconTile Neutral"><icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Grid" FontSize="{DynamicResource ShellIconSizeSm}" /></Border>
                         </controls:ListItem.Leading>
                         <controls:ListItem.Trailing>
                           <components:CountPill Value="{Binding PanelCount, StringFormat={}{0} panels}" />
@@ -128,5 +122,5 @@
 
       <Button Classes="TextButton Accent" Click="OnShowLayoutDesignerClick" Content="Open Layout Designer…" />
     </StackPanel>
-  </controls:SurfaceCard>
+  </ScrollViewer>
 </UserControl>

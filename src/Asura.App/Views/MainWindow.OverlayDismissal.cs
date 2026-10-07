@@ -8,14 +8,13 @@ namespace Asura.App.Views;
 public sealed partial class MainWindow
 {
     /// <summary>
-    /// Closes the command palette or the Add Panel chooser when the press
-    /// lands on the scrim rather than on the overlay's card. The layout
-    /// designer and the workspace editor hold edits, so they keep asking
-    /// through Cancel and Escape instead.
+    /// Closes the command palette when the press lands on the scrim rather
+    /// than on its card. Add Panel is a popover, which closes on an outside
+    /// click by itself, and the editors have windows of their own.
     /// </summary>
     private async void OnOverlayScrimPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if ((!ViewModel.IsCommandPaletteVisible && !ViewModel.IsNewPanelVisible)
+        if (!ViewModel.IsCommandPaletteVisible
             || !e.GetCurrentPoint(sender as Control).Properties.IsLeftButtonPressed
             || !IsOnOverlayScrim(e.Source))
         {

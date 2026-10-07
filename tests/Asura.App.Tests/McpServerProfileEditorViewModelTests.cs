@@ -884,6 +884,13 @@ public sealed class McpServerProfileEditorViewModelTests
             "Found 2 tools",
             tested.StatusDetail,
             StringComparison.Ordinal);
+        // The completion time reads in the reader's own date style, not as
+        // an ISO stamp in UTC.
+        Assert.Contains(
+            $"Tested {DisplayDates.Format(DateTimeOffset.UnixEpoch)}.",
+            tested.StatusDetail,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("UTC", tested.StatusDetail, StringComparison.Ordinal);
         Assert.True(tested.CanTest);
         Assert.False(tested.IsTesting);
         Assert.Equal(1, diagnosticsProxy.CallCount);

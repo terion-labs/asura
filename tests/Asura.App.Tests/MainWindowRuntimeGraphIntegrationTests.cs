@@ -5654,7 +5654,9 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(1, VisibleRouteCount(viewModel));
         Assert.True(viewModel.IsWorkspaceVisible);
 
-        foreach (var overlay in Enum.GetValues<ShellOverlay>())
+        // The workspace editor and the Layout Designer are windows of their
+        // own now, not overlays; only the transient overlays are counted.
+        foreach (var overlay in new[] { ShellOverlay.None, ShellOverlay.CommandPalette, ShellOverlay.NewPanel })
         {
             viewModel.ShowOverlay(overlay);
 
@@ -5740,7 +5742,8 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.True(editor.IsDirty);
         Assert.Same(editor, viewModel.LayoutDesignerEditor);
         Assert.Equal(ShellRoute.Workspace, viewModel.Route);
-        Assert.Equal(ShellOverlay.LayoutDesigner, viewModel.Overlay);
+        Assert.True(viewModel.IsLayoutDesignerVisible);
+        Assert.False(viewModel.HasOverlay);
         Assert.True(viewModel.IsSettingsVisible);
     }
 
@@ -6108,7 +6111,9 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal("Secondary local", runtime.ActiveTab?.Title);
         Assert.Same(editor, viewModel.WorkspaceEditor);
         Assert.True(editor.IsDirty);
-        Assert.Equal(ShellOverlay.DefinitionEditor, viewModel.Overlay);
+        // The editor is a window of its own: the palette the append began
+        // from closes, and the editor and its edits stay.
+        Assert.Equal(ShellOverlay.None, viewModel.Overlay);
         Assert.True(viewModel.IsDefinitionEditorVisible);
     }
 
@@ -6140,7 +6145,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal("Operations screen", runtime.ActiveTab?.Title);
         Assert.Same(designer, viewModel.LayoutDesignerEditor);
         Assert.True(designer.IsDirty);
-        Assert.Equal(ShellOverlay.LayoutDesigner, viewModel.Overlay);
+        Assert.Equal(ShellOverlay.None, viewModel.Overlay);
         Assert.True(viewModel.IsLayoutDesignerVisible);
     }
 
@@ -9016,8 +9021,6 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         {
             viewModel.IsCommandPaletteVisible,
             viewModel.IsNewPanelVisible,
-            viewModel.IsLayoutDesignerVisible,
-            viewModel.IsDefinitionEditorVisible,
         }.Count(isVisible => isVisible);
 
     // Window lifecycle in a real headless window. The view-model side of the

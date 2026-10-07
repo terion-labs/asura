@@ -35,7 +35,7 @@ public sealed partial class LayoutDesignerView : UserControl
     private void OnLayoutAddSlotClick(object? sender, RoutedEventArgs e) =>
         AddSlotRequested?.Invoke(sender, e);
 
-    private void OnCloseOverlayClick(object? sender, RoutedEventArgs e) =>
+    private void OnLayoutDesignerCancelClick(object? sender, RoutedEventArgs e) =>
         CloseRequested?.Invoke(sender, e);
 
     private void OnEditLayoutClick(object? sender, RoutedEventArgs e) =>

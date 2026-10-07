@@ -36,7 +36,7 @@
           x:Name="FallbackGlyph"
           HorizontalAlignment="Center"
           VerticalAlignment="Center"
-          FontSize="40"
+          FontSize="{DynamicResource ShellIconSizeXl}"
           Foreground="{DynamicResource ShellAccentBrush}"
           Symbol="Info"
           IsVisible="False" />
@@ -53,7 +53,7 @@
             x:Name="CautionGlyph"
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
-            FontSize="22"
+            FontSize="{controls:TextScaled 22}"
             Foreground="{DynamicResource ShellWarningBrush}"
             IconVariant="Filled"
             Symbol="Warning" />
@@ -94,6 +94,16 @@
           Content="{Binding SuppressionLabel}"
           IsChecked="{Binding IsSuppressionChecked}"
           IsVisible="{Binding HasSuppression}" />
+      <!-- Don't Save sits apart from Save and Cancel, on the leading edge,
+           as it does in every Mac save alert. -->
+      <Button
+          x:Name="AlternateButton"
+          MinWidth="88"
+          HorizontalAlignment="Left"
+          Classes="SecondaryButton"
+          Click="OnAlternateClick"
+          Content="{Binding AlternateLabel}"
+          IsVisible="{Binding HasAlternate}" />
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
         <Button
             x:Name="CancelButton"

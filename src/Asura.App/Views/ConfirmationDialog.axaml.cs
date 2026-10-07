@@ -31,6 +31,16 @@ internal enum ConfirmationIntent
     Acknowledge,
 }
 
+/// <summary>Which of an alert's buttons answered it.</summary>
+internal enum ConfirmationAnswer
+{
+    Cancel,
+    Confirm,
+
+    /// <summary>The leading-edge third button, such as Don't Save.</summary>
+    Alternate,
+}
+
 /// <summary>
 /// Everything a confirmation can vary in. The window owns everything else.
 /// </summary>
@@ -50,6 +60,12 @@ internal sealed record ConfirmationDialogOptions
     public required string ConfirmLabel { get; init; }
 
     public string CancelLabel { get; init; } = "Cancel";
+
+    /// <summary>
+    /// A third answer on the leading edge, apart from Cancel and the confirm
+    /// button: Don't Save beside Save. Null for a two-button alert.
+    /// </summary>
+    public string? AlternateLabel { get; init; }
 
     /// <summary>An error acknowledgement has nothing to cancel.</summary>
     public bool ShowsCancel { get; init; } = true;
@@ -95,6 +111,9 @@ public sealed partial class ConfirmationDialog : DialogWindow
         ConfirmLabel = options.ConfirmLabel.Trim();
         CancelLabel = options.CancelLabel.Trim();
         ShowsCancel = options.ShowsCancel;
+        AlternateLabel = string.IsNullOrWhiteSpace(options.AlternateLabel)
+            ? null
+            : options.AlternateLabel.Trim();
         SuppressionLabel = string.IsNullOrWhiteSpace(options.SuppressionLabel)
             ? null
             : options.SuppressionLabel.Trim();
@@ -137,6 +156,13 @@ public sealed partial class ConfirmationDialog : DialogWindow
 
     public bool ShowsCancel { get; }
 
+    public string? AlternateLabel { get; }
+
+    public bool HasAlternate => AlternateLabel is not null;
+
+    /// <summary>The button that closed the alert.</summary>
+    internal ConfirmationAnswer Answer { get; private set; }
+
     public string? SuppressionLabel { get; }
 
     public bool HasSuppression => SuppressionLabel is not null;
@@ -166,6 +192,16 @@ public sealed partial class ConfirmationDialog : DialogWindow
     }
 
     private bool _confirmed;
+
+    /// <summary>
+    /// Asks a three-way question — Save, Don't Save, Cancel — over
+    /// <paramref name="owner"/> and says which was chosen.
+    /// </summary>
+    internal async Task<ConfirmationAnswer> AskAsync(Window owner)
+    {
+        _ = await ShowDialog<bool>(owner);
+        return Answer;
+    }
 
     /// <summary>
     /// The app's icon, as the host's alerts carry it; a destructive question
@@ -206,7 +242,16 @@ public sealed partial class ConfirmationDialog : DialogWindow
         _ = sender;
         _ = e;
         _confirmed = true;
+        Answer = ConfirmationAnswer.Confirm;
         Close(true);
+    }
+
+    private void OnAlternateClick(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        Answer = ConfirmationAnswer.Alternate;
+        Close(false);
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);

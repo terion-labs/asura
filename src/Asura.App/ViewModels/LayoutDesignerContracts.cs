@@ -8,6 +8,17 @@ public enum LayoutDesignerCancelDisposition
     ConfirmDiscard,
 }
 
+/// <summary>
+/// Where a panel is being held for docking, if anywhere: the workspace or the
+/// Layout Designer beside it.
+/// </summary>
+public enum DockDragOrigin
+{
+    None,
+    Workspace,
+    LayoutDesigner,
+}
+
 /// <summary>The two split gestures a slot offers, matching the runtime workspace.</summary>
 public enum LayoutDesignerSplitDirection
 {

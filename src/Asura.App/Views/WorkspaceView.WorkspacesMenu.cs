@@ -130,10 +130,11 @@ public sealed partial class WorkspaceView
         var agent = new SymbolIcon
         {
             Symbol = Symbol.Bot,
-            FontSize = 11,
             VerticalAlignment = VerticalAlignment.Center,
             Classes = { "PanelAgentActivity" },
         };
+        // The icon ramp's smallest step, as the rail tile's agent mark.
+        agent.Bind(SymbolIcon.FontSizeProperty, agent.GetResourceObservable("ShellIconSizeXs"));
         AutomationProperties.SetAccessibilityView(agent, AccessibilityView.Raw);
         row.Children.Add(agent);
         return row;

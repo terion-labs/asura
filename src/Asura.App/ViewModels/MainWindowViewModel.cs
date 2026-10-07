@@ -255,6 +255,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             () => _aiProviderRuntime?.Profiles ?? []);
         _connectionRuntime = connectionRuntime ?? throw new ArgumentNullException(nameof(connectionRuntime));
         _secretVault = secretVault ?? throw new ArgumentNullException(nameof(secretVault));
+        DefinitionDeleteUndo = new DefinitionDeleteUndoViewModel(_catalog, _secretVault);
         _filePanelClient = filePanelClient ?? throw new ArgumentNullException(nameof(filePanelClient));
         _fileTransferQueue = fileTransferQueue
             ?? throw new ArgumentNullException(nameof(fileTransferQueue));
@@ -592,6 +593,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public SavedScreenDeleteUndoViewModel SavedScreenDeleteUndo =>
         SavedScreenSettings.DeleteUndo;
+
+    /// <summary>Undo for the last deleted saved connection or workspace.</summary>
+    public DefinitionDeleteUndoViewModel DefinitionDeleteUndo { get; }
 
     public ClientId ClientId { get; }
 
@@ -1098,6 +1102,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     internal ShellNotificationCenter Notifications { get; }
 
     private readonly ObservableCollection<RuntimeWorkspaceViewModel> _openWorkspaces = [];
+    private bool _isLayoutDesignerOpen;
+    private DockDragOrigin _dockDragOrigin;
+    private bool _isWorkspaceEditorOpen;
 
     /// <summary>
     /// What each open workspace was opened from. The active one's is
@@ -2251,9 +2258,57 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public bool IsNewPanelVisible => _navigation.IsNewPanelVisible;
 
-    public bool IsLayoutDesignerVisible => _navigation.IsLayoutDesignerVisible;
+    /// <summary>
+    /// Whether this window's Layout Designer window is open: a layout is being
+    /// designed. It is a window of its own beside the workspace now, not an
+    /// overlay over it, so the workspace stays live and usable meanwhile.
+    /// </summary>
+    public bool IsLayoutDesignerVisible
+    {
+        get => _isLayoutDesignerOpen;
+        private set => SetProperty(ref _isLayoutDesignerOpen, value);
+    }
 
-    public bool IsDefinitionEditorVisible => _navigation.IsDefinitionEditorVisible;
+    /// <summary>
+    /// Whether the workspace's panels can be docked: always, except while a
+    /// panel is held in the Layout Designer. Dock resolves drop targets across
+    /// every dock control, so a designer slot could otherwise land in the live
+    /// workspace.
+    /// </summary>
+    public bool IsWorkspaceDockingEnabled => _dockDragOrigin != DockDragOrigin.LayoutDesigner;
+
+    /// <summary>
+    /// Whether the designer's slots can be docked: always, except while a live
+    /// panel is held in the workspace, which must not land in the designer.
+    /// </summary>
+    public bool IsLayoutDesignerDockingEnabled => _dockDragOrigin != DockDragOrigin.Workspace;
+
+    /// <summary>
+    /// A panel is pressed in the workspace or the designer, or let go. Only
+    /// the other one stops taking drops meanwhile; both stay usable otherwise.
+    /// </summary>
+    public void SetDockDragOrigin(DockDragOrigin origin)
+    {
+        if (_dockDragOrigin == origin)
+        {
+            return;
+        }
+
+        _dockDragOrigin = origin;
+        OnPropertyChanged(nameof(IsWorkspaceDockingEnabled));
+        OnPropertyChanged(nameof(IsLayoutDesignerDockingEnabled));
+    }
+
+    /// <summary>
+    /// Whether this window's workspace editor window is open: a workspace is
+    /// being edited or created. Like the designer, it no longer covers the
+    /// workspace.
+    /// </summary>
+    public bool IsDefinitionEditorVisible
+    {
+        get => _isWorkspaceEditorOpen;
+        private set => SetProperty(ref _isWorkspaceEditorOpen, value);
+    }
 
     public string EditorTitle => DefinitionEdit.EditorTitle;
 
@@ -2589,24 +2644,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public void ShowOverlay(ShellOverlay overlay)
     {
-        if (Overlay == ShellOverlay.LayoutDesigner
-            && overlay != ShellOverlay.LayoutDesigner
-            && LayoutDesignerEditor?.RequestCancel()
-                == LayoutDesignerCancelDisposition.ConfirmDiscard)
-        {
-            SetError("Save or discard the layout changes before opening another overlay.");
-            return;
-        }
-
-        if (Overlay == ShellOverlay.DefinitionEditor
-            && overlay != ShellOverlay.DefinitionEditor
-            && WorkspaceEditor?.RequestCancel()
-                == WorkspaceEditorCancelDisposition.ConfirmDiscard)
-        {
-            SetError("Save or discard the workspace changes before opening another overlay.");
-            return;
-        }
-
         Overlay = overlay;
         if (overlay == ShellOverlay.CommandPalette)
         {
@@ -2621,10 +2658,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     {
         WorkspaceSettings.Dismiss();
         DefinitionEdit.Clear();
-        if (Overlay == ShellOverlay.DefinitionEditor)
-        {
-            Overlay = ShellOverlay.None;
-        }
+        IsDefinitionEditorVisible = false;
     }
 
     public void BeginCreateLayout()
@@ -2636,28 +2670,36 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
 
         ClearError();
-        Overlay = ShellOverlay.LayoutDesigner;
+        IsLayoutDesignerVisible = true;
     }
 
-    public void BeginEditLayout(LayoutId id)
+    /// <param name="replaceCurrent">
+    /// The layout being designed is replaced even with unsaved edits: the
+    /// person has already chosen to discard them.
+    /// </param>
+    public void BeginEditLayout(LayoutId id, bool replaceCurrent = false)
     {
+        if (replaceCurrent)
+        {
+            DefinitionSettings.DismissLayoutDesigner();
+        }
+
         if (!DefinitionSettings.TryBeginEditLayout(id, out var error))
         {
+            IsLayoutDesignerVisible = LayoutDesignerEditor is not null;
             SetError(error!);
             return;
         }
 
         ClearError();
-        Overlay = ShellOverlay.LayoutDesigner;
+        IsLayoutDesignerVisible = true;
     }
 
     public void DismissLayoutDesigner()
     {
         DefinitionSettings.DismissLayoutDesigner();
-        if (Overlay == ShellOverlay.LayoutDesigner)
-        {
-            Overlay = ShellOverlay.None;
-        }
+        IsLayoutDesignerVisible = false;
+        SetDockDragOrigin(DockDragOrigin.None);
     }
 
     public async ValueTask<DefinitionStoreResult<StoredDefinition<LayoutDefinition>>>
@@ -2719,7 +2761,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             identity.Name,
             identity.Description);
         ClearError();
-        Overlay = ShellOverlay.DefinitionEditor;
+        IsDefinitionEditorVisible = true;
     }
 
     public bool TryGetWorkspaceDefinitionId(
@@ -2755,7 +2797,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             identity.Name,
             identity.Description);
         ClearError();
-        Overlay = ShellOverlay.DefinitionEditor;
+        IsDefinitionEditorVisible = true;
     }
 
     public async ValueTask<DefinitionStoreResult<StoredDefinition<WorkspaceDefinition>>>
@@ -2816,18 +2858,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 _workspaceTerminalMultiplexingModes.Remove(runtime.Id);
             }
         }
-    }
-
-    public void BeginEditScreen(ScreenId id)
-    {
-        var stored = _catalog.Snapshot.Screens.SingleOrDefault(item => item.Value.Id == id);
-        if (stored is null)
-        {
-            SetError("That saved screen no longer exists.");
-            return;
-        }
-
-        BeginEdit(stored.Value.Key, stored.Revision, stored.Value.Name, stored.Value.Description);
     }
 
     public void ToggleAgentPanel() => IsAgentPanelVisible = !IsAgentPanelVisible;
@@ -5083,6 +5113,54 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public void DismissSavedScreenDeleteUndo() =>
         SavedScreenSettings.DismissDeleteUndo();
+
+    /// <summary>
+    /// Deletes a saved connection at once and leaves Undo in its place. Its
+    /// credentials stay until the Undo is gone.
+    /// </summary>
+    public async ValueTask<DefinitionStoreResult<Unit>> DeleteConnectionWithUndoAsync(
+        DefinitionKey key,
+        long revision,
+        CancellationToken cancellationToken)
+    {
+        ClearError();
+        var result = await DefinitionDeleteUndo.DeleteConnectionAsync(key, revision, cancellationToken);
+        ApplyError(result.Error);
+        return result;
+    }
+
+    /// <summary>
+    /// Deletes a saved workspace at once and leaves Undo in its place. An open
+    /// workspace's tabs keep running; an isolate is never deleted.
+    /// </summary>
+    public async ValueTask<DefinitionStoreResult<Unit>> DeleteWorkspaceWithUndoAsync(
+        WorkspaceId id,
+        long revision,
+        CancellationToken cancellationToken)
+    {
+        ClearError();
+        var result = await DefinitionDeleteUndo.DeleteWorkspaceAsync(
+            id,
+            revision,
+            IsDefinitionOpen(new DefinitionKey(WorkspaceDefinition.Kind, id.Value))
+                || _openWorkspaces.Any(workspace =>
+                    TryGetWorkspaceDefinitionId(workspace.Id, out var open) && open == id),
+            cancellationToken);
+        ApplyError(result.Error);
+        return result;
+    }
+
+    public async ValueTask<DefinitionStoreResult<Unit>> UndoDefinitionDeleteAsync(
+        CancellationToken cancellationToken)
+    {
+        ClearError();
+        var result = await DefinitionDeleteUndo.UndoAsync(cancellationToken);
+        ApplyError(result.Error);
+        return result;
+    }
+
+    public ValueTask DismissDefinitionDeleteUndoAsync() =>
+        DefinitionDeleteUndo.DismissAsync();
 
     public bool IsDefinitionOpen(DefinitionKey key) =>
         RuntimeWorkspace is not null && _runtimeHistorySource?.SourceDefinition == key;
@@ -8780,35 +8858,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, null),
         };
 
-    private void BeginEdit(
-        DefinitionKey key,
-        long revision,
-        string name,
-        string? description)
-    {
-        DefinitionEdit.Begin(key, revision, name, description);
-        ShowOverlay(ShellOverlay.DefinitionEditor);
-    }
-
+    /// <summary>
+    /// Leaving for the workspace closes the transient overlay. The workspace
+    /// editor and the Layout Designer are windows beside this one now, so
+    /// using the workspace leaves them, and their edits, alone.
+    /// </summary>
     private bool TryDismissOverlayForNavigation()
     {
-        if (LayoutDesignerEditor?.RequestCancel()
-            == LayoutDesignerCancelDisposition.ConfirmDiscard)
-        {
-            SetError("Save or discard the layout changes before leaving this view.");
-            return false;
-        }
-
-        if (WorkspaceEditor?.RequestCancel()
-            == WorkspaceEditorCancelDisposition.ConfirmDiscard)
-        {
-            SetError("Save or discard the workspace changes before leaving this view.");
-            return false;
-        }
-
-        DefinitionSettings.DismissLayoutDesigner();
-        WorkspaceSettings.Dismiss();
-        DefinitionEdit.Clear();
         Overlay = ShellOverlay.None;
         return true;
     }
@@ -9482,9 +9538,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var eligibility = report.EnabledToolCount == 0
                 ? " No tools are enabled for agent runs."
                 : string.Empty;
-        var completed = report.CompletedAtUtc.ToString(
-            "yyyy-MM-dd HH:mm:ss 'UTC'",
-            System.Globalization.CultureInfo.InvariantCulture);
+        // In the reader's own time and date style, like every other date
+        // the app shows.
+        var completed = DisplayDates.Format(report.CompletedAtUtc);
         return new McpServerTestPresentation(
             stored.Revision,
             McpServerTestPresentationState.Succeeded,
@@ -12721,6 +12777,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     {
         try
         {
+            // A delete still waiting for Undo is final once the window goes.
+            await DefinitionDeleteUndo.CommitPendingAsync();
+
             await DefaultAgentPolicySettings.QuiesceAsync().ConfigureAwait(false);
 
             if (_agentRuntimeFactory is null)

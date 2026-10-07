@@ -560,8 +560,9 @@ public sealed partial class MainWindow
     }
 
     /// <summary>
-    /// Places an empty panel against an edge of the canvas. It asks what to open
-    /// once it is there, so the choice happens in the space the panel will fill.
+    /// Places an empty panel against an edge of the canvas, then asks what to
+    /// open in it from the Add Panel popover on the "+". Dismissing the popover
+    /// leaves the empty panel, which asks the same question itself.
     /// </summary>
     private async void OnAddPanelToSideRequested(object? sender, PanelSide side)
     {
@@ -570,7 +571,8 @@ public sealed partial class MainWindow
         {
             if (await ViewModel.AddPlaceholderPanelAsync(side, _lifetime.Token))
             {
-                FocusActivePanel();
+                // Then what goes there, in a popover on the "+" that asked.
+                ShowNewPanelChooser(AddPanelButton());
             }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
@@ -1930,10 +1932,7 @@ public sealed partial class MainWindow
     {
         _ = sender;
         _ = e;
-        if (await ViewModel.AddLocalTerminalPanelAsync(_lifetime.Token))
-        {
-            FocusActivePanel();
-        }
+        await AddPanelFromChooserAsync(() => ViewModel.AddLocalTerminalPanelAsync(_lifetime.Token));
     }
 
     private async void OnAddConnectionPanelClick(object? sender, RoutedEventArgs e)
@@ -1944,20 +1943,15 @@ public sealed partial class MainWindow
             return;
         }
 
-        if (await ViewModel.AddConnectionPanelAsync(connection.Id, _lifetime.Token))
-        {
-            FocusActivePanel();
-        }
+        await AddPanelFromChooserAsync(() =>
+            ViewModel.AddConnectionPanelAsync(connection.Id, _lifetime.Token));
     }
 
     private async void OnAddFilePanelClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        if (await ViewModel.AddFilePanelAsync(_lifetime.Token))
-        {
-            FocusActivePanel();
-        }
+        await AddPanelFromChooserAsync(() => ViewModel.AddFilePanelAsync(_lifetime.Token));
     }
 
     private async void OnAddBrowserPanelClick(object? sender, RoutedEventArgs e)
@@ -1965,60 +1959,43 @@ public sealed partial class MainWindow
         _ = sender;
         _ = e;
         var profileId = ViewModel.SelectedBrowserPanelProfile?.Id;
-        if (await ViewModel.AddBrowserPanelAsync(profileId, _lifetime.Token))
-        {
-            FocusActivePanel();
-        }
+        await AddPanelFromChooserAsync(() =>
+            ViewModel.AddBrowserPanelAsync(profileId, _lifetime.Token));
     }
 
     private async void OnAddStatisticsPanelClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        if (await ViewModel.AddStatisticsPanelAsync(_lifetime.Token))
-        {
-            FocusActivePanel();
-        }
+        await AddPanelFromChooserAsync(() => ViewModel.AddStatisticsPanelAsync(_lifetime.Token));
     }
 
     private async void OnAddProcessMonitorPanelClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        if (await ViewModel.AddProcessMonitorPanelAsync(_lifetime.Token))
-        {
-            FocusActivePanel();
-        }
+        await AddPanelFromChooserAsync(() => ViewModel.AddProcessMonitorPanelAsync(_lifetime.Token));
     }
 
     private async void OnAddDatabasePanelClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        if (await ViewModel.AddDatabasePanelAsync(_lifetime.Token))
-        {
-            FocusActivePanel();
-        }
+        await AddPanelFromChooserAsync(() => ViewModel.AddDatabasePanelAsync(_lifetime.Token));
     }
 
     private async void OnAddDockerPanelClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        if (await ViewModel.AddDockerPanelAsync(_lifetime.Token))
-        {
-            FocusActivePanel();
-        }
+        await AddPanelFromChooserAsync(() => ViewModel.AddDockerPanelAsync(_lifetime.Token));
     }
 
     private async void OnAddGitPanelClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        if (await ViewModel.AddGitPanelAsync(_lifetime.Token))
-        {
-            FocusActivePanel();
-        }
+        await AddPanelFromChooserAsync(() => ViewModel.AddGitPanelAsync(_lifetime.Token));
     }
 
     private async Task CloseActivePanelAsync()

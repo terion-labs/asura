@@ -71,13 +71,15 @@ public sealed class WorkspaceChromeHeadlessTests
             await window.ShowNewPanelChooserAsync();
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
-            Assert.True(viewModel.IsNewPanelVisible);
+            // A popover, not an overlay: nothing covers the workspace.
+            Assert.True(window.IsAddPanelChooserOpen);
+            Assert.False(viewModel.HasOverlay);
 
             var outside = new Point(24, window.Bounds.Height - 24);
             window.MouseDown(outside, MouseButton.Left);
             window.MouseUp(outside, MouseButton.Left);
             Dispatcher.UIThread.RunJobs();
-            Assert.False(viewModel.IsNewPanelVisible);
+            Assert.False(window.IsAddPanelChooserOpen);
         });
 
     [Fact]
