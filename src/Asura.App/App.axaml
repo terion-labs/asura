@@ -5,21 +5,8 @@
     xmlns:dockThemes="using:Dock.Avalonia.Themes.Fluent"
     Name="Asura"
     RequestedThemeVariant="Default">
-  <NativeMenu.Menu>
-    <NativeMenu>
-      <NativeMenuItem
-          Header="About Asura…"
-          Click="OnAboutMenuClick" />
-      <NativeMenuItem
-          Header="Check for Updates…"
-          Click="OnCheckForUpdatesMenuClick" />
-      <NativeMenuItemSeparator />
-      <NativeMenuItem
-          Header="Settings…"
-          Gesture="Meta+OemComma"
-          Click="OnSettingsMenuClick" />
-    </NativeMenu>
-  </NativeMenu.Menu>
+  <!-- The application menu and every window's menu bar are built from the
+       command registry in App.Menus.cs and ApplicationMenuLayout.cs. -->
   <Application.Resources>
     <ResourceDictionary>
       <ResourceDictionary.ThemeDictionaries>

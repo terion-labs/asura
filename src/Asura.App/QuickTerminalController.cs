@@ -96,6 +96,9 @@ public sealed class QuickTerminalController : IDisposable
 
     public QuickTerminalViewModel ViewModel => _viewModel;
 
+    /// <summary>The configured global hotkey, which the View menu displays.</summary>
+    public KeyStroke Hotkey => _settings.Hotkey;
+
     public bool IsVisible => _transition.State != QuickTerminalVisibilityState.Hidden
         && _quickWindow?.IsVisible == true;
 

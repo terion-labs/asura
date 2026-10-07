@@ -369,38 +369,6 @@ public sealed partial class MainWindow
         }
     }
 
-    public async Task RequestClosePanelAsync()
-    {
-        if (ViewModel.HasOverlay)
-        {
-            _ = await TryCloseOverlayAsync();
-            return;
-        }
-
-        if (!ViewModel.IsWorkspaceVisible)
-        {
-            return;
-        }
-
-        await ExecuteCommandAsync(BuiltInCommands.ClosePanel);
-    }
-
-    public async Task RequestCloseTabAsync()
-    {
-        if (ViewModel.HasOverlay)
-        {
-            _ = await TryCloseOverlayAsync();
-            return;
-        }
-
-        if (!ViewModel.IsWorkspaceVisible)
-        {
-            return;
-        }
-
-        await ExecuteCommandAsync(BuiltInCommands.CloseTab);
-    }
-
     private async Task OpenDefaultLocalTerminalAsync()
     {
         var connection = ViewModel.Connections.FirstOrDefault(item =>

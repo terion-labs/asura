@@ -1,6 +1,18 @@
+using Asura.App.Controls;
+using Asura.App.ViewModels;
+using Asura.Core;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
+
 namespace Asura.App.Views;
 
-public sealed partial class MainWindow
+/// <summary>
+/// The main window's side of the menu bar and of the shared command
+/// executor. Menu items, keymap shortcuts and the command palette all run
+/// through <see cref="ShellCommands"/>.
+/// </summary>
+public sealed partial class MainWindow : IShellCommandPresentation, IApplicationMenuHost
 {
     private ShellCommandExecutor? _shellCommands;
 
@@ -9,119 +21,194 @@ public sealed partial class MainWindow
 
     private ShellCommandExecutor ShellCommands => _shellCommands ??= new(
         ViewModel,
-        new ApplicationCommandPresentation(
-            ShowNewItemLauncherAsync,
-            FocusNavigator.FocusActivePanel,
-            CloseActivePanelAsync,
-            RenameActiveTabAsync,
-            CloseActiveTabAsync,
-            position => OpenRuntimeWorkspaceAsync(token =>
-                ViewModel.SelectWorkspaceAtPositionAsync(position, token)),
-            SendLiteralPrefixAsync),
-        new NativeMenuCommandActions(
-            AsuraApplication.OpenNewWindow,
-            () => AsuraApplication.OpenNewTabAsync(this),
-            RequestNewTerminalAsync,
-            () => AsuraApplication.CloseTabAsync(this),
-            ShowCommandPalette,
-            NavigateToLauncherAsync,
-            AsuraApplication.ToggleQuickTerminal,
-            ToggleAgentPanel,
-            ShowNewPanelChooserAsync,
-            ShowLayoutDesignerAsync,
-            () => SelectRelativeTabAsync(-1),
-            () => SelectRelativeTabAsync(1),
-            RequestClosePanelAsync),
+        this,
         _lifetime.Token);
 
-    private async void OnNewWindowMenuClick(object? sender, EventArgs e)
+    public CommandInvocation CaptureInvocation(IReadOnlyDictionary<string, string> arguments)
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.NewWindow);
+        var state = new List<KeyValuePair<string, bool>>(ViewModel.ActiveCommandState)
+        {
+            new(CommandStates.IsQuickTerminalVisible, AsuraApplication.IsQuickTerminalVisible),
+            new(CommandStates.IsFullScreen, WindowState == WindowState.FullScreen),
+        };
+        var edit = FocusedEditTarget();
+        FocusedCommandTargets.AddState(state, edit, FocusedFindTarget());
+        var contexts = ViewModel.ActiveCommandContexts;
+        if (FocusManager?.GetFocusedElement() is TextBox)
+        {
+            contexts |= CommandContext.TextEditing;
+        }
+
+        return new CommandInvocation(contexts, arguments, state);
     }
 
-    private async void OnNewTabMenuClick(object? sender, EventArgs e)
+    /// <summary>
+    /// While the shell is locked only editing in the unlock field, help and
+    /// the window frame stay available: no command may act behind the veil.
+    /// While an overlay is open, the workspace behind it is out of reach
+    /// except for closing what is in front.
+    /// </summary>
+    bool IApplicationMenuHost.CanExecute(CommandId command, IReadOnlyDictionary<string, string> arguments)
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.NewTab);
+        if (ViewModel.ApplicationSecurityEditor.IsLocked)
+        {
+            return FocusedCommandTargets.IsEditCommand(command)
+                || command == BuiltInCommands.About
+                || command == BuiltInCommands.ShowHelp
+                || WindowFrameCommands.Handles(command);
+        }
+
+        if (command == BuiltInCommands.CloseTab && ViewModel.IsSettingsVisible)
+        {
+            return true;
+        }
+
+        if (WindowFrameCommands.Handles(command))
+        {
+            return WindowFrameCommands.CanExecute(this, command);
+        }
+
+        if (ViewModel.HasOverlay
+            && !ApplicationCommandRouter.IsApplicationCommand(command)
+            && !FocusedCommandTargets.IsEditCommand(command)
+            && command != BuiltInCommands.CloseTab
+            && command != BuiltInCommands.ClosePanel
+            && command != BuiltInCommands.CloseWindow)
+        {
+            return false;
+        }
+
+        return ViewModel.IsCommandAvailable(command, arguments);
     }
 
-    private async void OnNewTerminalMenuClick(object? sender, EventArgs e)
+    async Task IApplicationMenuHost.ExecuteAsync(CommandId command, IReadOnlyDictionary<string, string> arguments)
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.NewTerminal);
+        if (command == BuiltInCommands.CloseTab && ViewModel.IsSettingsVisible)
+        {
+            OnSettingsBackClick(this, new RoutedEventArgs());
+            return;
+        }
+
+        await ShellCommands.ExecuteAsync(command, arguments);
     }
 
-    private async void OnCloseTabMenuClick(object? sender, EventArgs e)
+    MenuShortcutResolver IApplicationMenuHost.CreateShortcutResolver() =>
+        AsuraApplication.CreateShortcutResolver(ViewModel);
+
+    async Task IShellCommandPresentation.OpenNewTerminalTabAsync()
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.CloseTab);
+        await RequestNewTerminalAsync();
     }
 
-    private async void OnCommandPaletteMenuClick(object? sender, EventArgs e)
+    void IShellCommandPresentation.FocusActivePanel() => FocusNavigator.FocusActivePanel();
+
+    async Task IShellCommandPresentation.CloseActivePanelAsync()
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.CommandPalette);
+        if (ViewModel.HasOverlay)
+        {
+            _ = await TryCloseOverlayAsync();
+            return;
+        }
+
+        await CloseActivePanelAsync();
     }
 
-    private async void OnLauncherMenuClick(object? sender, EventArgs e)
+    Task IShellCommandPresentation.ShowAddPanelAsync() => ShowNewPanelChooserAsync();
+
+    Task IShellCommandPresentation.RenameActiveTabAsync() => RenameActiveTabAsync();
+
+    async Task IShellCommandPresentation.CloseActiveTabAsync()
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.Launcher);
+        if (ViewModel.HasOverlay)
+        {
+            _ = await TryCloseOverlayAsync();
+            return;
+        }
+
+        await CloseActiveTabAsync();
     }
 
-    private async void OnQuickTerminalMenuClick(object? sender, EventArgs e)
+    void IShellCommandPresentation.CloseWindow() => Close();
+
+    Task IShellCommandPresentation.SelectWorkspaceAsync(int position) =>
+        OpenRuntimeWorkspaceAsync(token =>
+            ViewModel.SelectWorkspaceAtPositionAsync(position, token));
+
+    Task IShellCommandPresentation.SendLiteralPrefixAsync() => SendLiteralPrefixAsync();
+
+    void IShellCommandPresentation.ToggleSidebar() =>
+        ViewModel.ShowWorkspacesPanel = !ViewModel.ShowWorkspacesPanel;
+
+    async Task IShellCommandPresentation.ExecuteTerminalCommandAsync(CommandId command)
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.QuickTerminal);
+        if (ActiveTerminalSurface() is not { } terminal)
+        {
+            ViewModel.SetError("The active panel is not a terminal.");
+            return;
+        }
+
+        _ = await terminal.ExecuteCommandAsync(command, _lifetime.Token);
     }
 
-    private async void OnToggleAgentMenuClick(object? sender, EventArgs e)
+    Task IShellCommandPresentation.ExecuteEditCommandAsync(CommandId command) =>
+        FocusedCommandTargets.ExecuteAsync(command, FocusedEditTarget(), FocusedFindTarget());
+
+    void IShellCommandPresentation.ExecuteWindowCommand(CommandId command) =>
+        WindowFrameCommands.Execute(this, command);
+
+    Task IShellCommandPresentation.ExecuteApplicationCommandAsync(CommandId command) =>
+        AsuraApplication.ExecuteAsync(command, this);
+
+    void IShellCommandPresentation.ExecuteGitCommand(CommandId command)
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.ToggleAgent);
+        if (ViewModel.ActiveGitCommand(command) is { } git && git.CanExecute(null))
+        {
+            git.Execute(null);
+        }
     }
 
-    private async void OnAddPanelMenuClick(object? sender, EventArgs e)
+    /// <summary>
+    /// The focused editable element, or the active terminal when focus sits on
+    /// window chrome such as the tab strip.
+    /// </summary>
+    private IEditTarget? FocusedEditTarget() =>
+        FocusedCommandTargets.EditTargetFor(FocusManager?.GetFocusedElement(), _lifetime.Token)
+        ?? (ActiveTerminalSurface() is { } terminal
+            ? FocusedCommandTargets.TerminalEdit(terminal, _lifetime.Token)
+            : null);
+
+    /// <summary>
+    /// The focused panel's find target, or the active panel's when focus is
+    /// elsewhere in the window, for example in the agent panel.
+    /// </summary>
+    private IFindTarget? FocusedFindTarget()
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.AddPanel);
+        if (FocusedCommandTargets.FindTargetFor(FocusManager?.GetFocusedElement(), _lifetime.Token) is { } focused)
+        {
+            return focused;
+        }
+
+        if (ViewModel.ActivePanel is not { } activePanel || !ViewModel.IsWorkspaceVisible)
+        {
+            return null;
+        }
+
+        if (ActiveTerminalSurface() is { } terminal)
+        {
+            return FocusedCommandTargets.TerminalFind(terminal, _lifetime.Token);
+        }
+
+        return this.GetVisualDescendants()
+            .OfType<Control>()
+            .FirstOrDefault(control =>
+                control is IFindTarget && ReferenceEquals(control.DataContext, activePanel))
+            as IFindTarget;
     }
 
-    private async void OnLayoutDesignerMenuClick(object? sender, EventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.LayoutDesigner);
-    }
-
-    private async void OnPreviousTabMenuClick(object? sender, EventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.PreviousTab);
-    }
-
-    private async void OnNextTabMenuClick(object? sender, EventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.NextTab);
-    }
-
-    private async void OnClosePanelMenuClick(object? sender, EventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.ClosePanel);
-    }
+    private ManagedTerminalSurface? ActiveTerminalSurface() =>
+        (FocusManager?.GetFocusedElement() as Avalonia.Visual)?
+            .GetSelfAndVisualAncestors()
+            .OfType<ManagedTerminalSurface>()
+            .FirstOrDefault()
+        ?? (FindActiveTerminalHost()?.Presentation as ManagedTerminalSessionHost)?.Surface;
 }
