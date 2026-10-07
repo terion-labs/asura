@@ -24,4 +24,15 @@ internal static class DisplayDates
     /// <summary>A time of day with seconds, for "captured at" readings.</summary>
     public static string FormatTime(DateTimeOffset value) =>
         value.ToLocalTime().ToString("T", CultureInfo.CurrentCulture);
+
+    /// <summary>The same, or a word for a moment nobody recorded.</summary>
+    public static string FormatTime(DateTimeOffset? value, string missing) =>
+        value is { } moment ? FormatTime(moment) : missing;
+
+    /// <summary>
+    /// A time of day without seconds, for the ends of a span such as the
+    /// hour a chart covers.
+    /// </summary>
+    public static string FormatShortTime(DateTimeOffset value) =>
+        value.ToLocalTime().ToString("t", CultureInfo.CurrentCulture);
 }

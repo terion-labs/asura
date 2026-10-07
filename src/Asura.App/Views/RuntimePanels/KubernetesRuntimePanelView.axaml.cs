@@ -25,6 +25,8 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
 {
     private const int ManifestEditMode = 0;
     private const int ManifestReviewMode = 1;
+    private readonly TypeSelectBuffer _navigationTypeSelect = new();
+    private readonly TypeSelectBuffer _resourceTypeSelect = new();
     private KubernetesRuntimePanelViewModel? _observed;
     private bool _resizingNavigator;
     private double _resizeOriginX;
@@ -40,6 +42,8 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
             finally { Inspector.Classes.Remove("resizing"); }
         };
         DataContextChanged += OnDataContextChanged;
+        NavigationList.AddHandler(TextInputEvent, OnNavigationTextInput, RoutingStrategies.Tunnel);
+        ResourceList.AddHandler(TextInputEvent, OnResourceTextInput, RoutingStrategies.Tunnel);
     }
 
     public event EventHandler<KubernetesForwardViewModel>? ForwardBrowserRequested;
@@ -126,6 +130,62 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
         ResourcesTab.IsSelected = true;
         InspectorView = KubernetesInspectorView.Overview;
         _observed?.CompleteNavigation();
+    }
+
+    /// <summary>
+    /// Typing a name in the navigator shows the first resource type, among
+    /// the families that are open, whose name starts with it, and keeps focus
+    /// on its row so the next letters keep narrowing — type-to-select, as in a
+    /// Finder sidebar or any Mac list.
+    /// </summary>
+    private void OnNavigationTextInput(object? sender, TextInputEventArgs e)
+    {
+        _ = sender;
+        if (_observed is not { } model
+            || _navigationTypeSelect.Append(e.Text, DateTimeOffset.UtcNow) is not { } prefix
+            || TypeSelectBuffer.FindMatch(
+                model.NavigationGroups
+                    .Where(group => group.IsOpen)
+                    .SelectMany(group => group.Items)
+                    .Where(item => item.IsVisible),
+                item => item.Title,
+                prefix) is not { } match)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        ResourcesTab.IsSelected = true;
+        InspectorView = KubernetesInspectorView.Overview;
+        match.SelectCommand.Execute(null);
+        if (NavigationList.GetVisualDescendants()
+            .OfType<Button>()
+            .FirstOrDefault(row => ReferenceEquals(row.DataContext, match)) is { } row)
+        {
+            row.Focus(NavigationMethod.Directional);
+            row.BringIntoView();
+        }
+    }
+
+    /// <summary>
+    /// Typing a name in the table selects the first row, in the order the
+    /// table is showing, whose name starts with it.
+    /// </summary>
+    private void OnResourceTextInput(object? sender, TextInputEventArgs e)
+    {
+        _ = sender;
+        var rows = ResourceList.CollectionView?.OfType<KubernetesResourceRow>()
+            ?? _observed?.Rows
+            ?? [];
+        if (_resourceTypeSelect.Append(e.Text, DateTimeOffset.UtcNow) is not { } prefix
+            || TypeSelectBuffer.FindMatch(rows, row => row.Name, prefix) is not { } match)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        ResourceList.SelectedItem = match;
+        ResourceList.ScrollIntoView(match, null);
     }
 
     private void OnNavigatorResizePressed(object? sender, PointerPressedEventArgs e)

@@ -53,7 +53,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             if (_disposed || _inspection?.Reference != request.Node || request.Options != new KubernetesDrainOptions(AllowUnmanagedPods, DeleteEmptyDirData)) { return; }
             _drainReview = review;
             DrainPods = review.Pods;
-            NodeStatus = $"Drain {ContextName}/{review.Node.Name}. Preview expires {review.ExpiresAt:HH:mm:ss} UTC. Drain cordons the node and evicts pods; it can complete partially and respects disruption budgets.";
+            NodeStatus = $"Drain {ContextName}/{review.Node.Name}. Preview expires {DisplayDates.FormatTime(review.ExpiresAt)}. Drain cordons the node and evicts pods; it can complete partially and respects disruption budgets.";
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (KubernetesRequestException exception) { PresentError(exception); }

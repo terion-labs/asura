@@ -26,6 +26,7 @@ public sealed partial class DockerRuntimePanelView : UserControl
         Patterns = ["*.log", "*.txt"],
         MimeTypes = ["text/plain"],
     };
+    private readonly TypeSelectBuffer _containerTypeSelect = new();
     private ScrollViewer? _logScrollViewer;
     private DockerRuntimePanelViewModel? _observedViewModel;
     private bool _isLoadingOlderLogs;
@@ -38,6 +39,7 @@ public sealed partial class DockerRuntimePanelView : UserControl
     {
         InitializeComponent();
         DockerDetailHeader.SizeChanged += OnDetailHeaderSizeChanged;
+        ContainerStackList.AddHandler(TextInputEvent, OnContainerTextInput, RoutingStrategies.Tunnel);
         LogList.AddHandler(
             PointerWheelChangedEvent,
             OnLogPointerWheelChanged,
@@ -499,6 +501,39 @@ public sealed partial class DockerRuntimePanelView : UserControl
         }
 
         SelectResource(panel, resource);
+    }
+
+    /// <summary>
+    /// Typing a name selects the first container, among the stacks that are
+    /// open, whose name starts with it, and moves focus to its row — the
+    /// type-to-select every Mac list has. The other resource types are a list
+    /// box, which does the same on its own.
+    /// </summary>
+    private void OnContainerTextInput(object? sender, TextInputEventArgs e)
+    {
+        _ = sender;
+        if (ViewModel is not { } panel
+            || _containerTypeSelect.Append(e.Text, DateTimeOffset.UtcNow) is not { } prefix
+            || TypeSelectBuffer.FindMatch(
+                panel.ContainerStacks
+                    .Where(stack => stack.IsExpanded)
+                    .SelectMany(stack => stack.Containers),
+                container => container.Title,
+                prefix) is not { } match)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        SelectResource(panel, match);
+        if (ContainerStackList.GetVisualDescendants()
+            .OfType<Button>()
+            .FirstOrDefault(row => row.Classes.Contains("DockerResourceRow")
+                && ReferenceEquals(row.DataContext, match)) is { } row)
+        {
+            row.Focus(NavigationMethod.Directional);
+            row.BringIntoView();
+        }
     }
 
     private void SelectResource(

@@ -47,7 +47,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             MetricHistory = [.. history.Series.Select(series => KubernetesHistoryRow.Create(series, start, metric))];
             HistoryStatus = history.Availability switch
             {
-                KubernetesDataAvailability.Available when history.Series.Count > 0 => $"{start:HH:mm}–{end:HH:mm} UTC · 1-minute samples · May include earlier pods with this name.",
+                KubernetesDataAvailability.Available when history.Series.Count > 0 => $"{DisplayDates.FormatShortTime(start)}–{DisplayDates.FormatShortTime(end)} · 1-minute samples · May include earlier pods with this name.",
                 KubernetesDataAvailability.Forbidden => "History access denied for this service.",
                 _ => "No history available from this service for this pod.",
             };
@@ -59,15 +59,25 @@ public sealed partial class KubernetesRuntimePanelViewModel
 
 }
 
+/// <summary>
+/// One container's series over the past hour. Memory is charted in megabytes
+/// and its scale is written by the application's one size formatter.
+/// </summary>
 public sealed record KubernetesHistoryRow(string Container, IReadOnlyList<double?> Values, double Maximum, string Unit)
 {
-    public string Scale => $"0–{Maximum.ToString("0.###", CultureInfo.InvariantCulture)} {Unit}";
+    private const double BytesPerMegabyte = 1024 * 1024;
+
+    public string Scale => string.Equals(Unit, MemoryUnit, StringComparison.Ordinal)
+        ? $"0–{ByteSize.Format((long)Math.Min(Math.Round(Maximum * BytesPerMegabyte), long.MaxValue))}"
+        : $"0–{Maximum.ToString("0.###", CultureInfo.InvariantCulture)} {Unit}";
+
+    internal const string MemoryUnit = "MB";
     public static KubernetesHistoryRow Create(KubernetesMetricSeries series, DateTimeOffset start, KubernetesHistoryMetric metric)
     {
         var byTime = series.Samples.GroupBy(item => item.Timestamp.ToUnixTimeSeconds()).ToDictionary(group => group.Key, group => group.Last().Value);
         var values = Enumerable.Range(0, 61).Select(index => byTime.GetValueOrDefault(start.AddMinutes(index).ToUnixTimeSeconds())).ToArray();
-        if (metric == KubernetesHistoryMetric.MemoryBytes) { values = [.. values.Select(value => value / (1024 * 1024))]; }
+        if (metric == KubernetesHistoryMetric.MemoryBytes) { values = [.. values.Select(value => value / BytesPerMegabyte)]; }
         var maximum = Math.Max(0.001, values.OfType<double>().DefaultIfEmpty(1).Max() * 1.1);
-        return new(series.Container, values, maximum, metric == KubernetesHistoryMetric.MemoryBytes ? "MiB" : "cores");
+        return new(series.Container, values, maximum, metric == KubernetesHistoryMetric.MemoryBytes ? MemoryUnit : "cores");
     }
 }

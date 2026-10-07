@@ -83,7 +83,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             Usage = [.. snapshot.Entries.Select(entry => new KubernetesUsageRow(entry))];
             MetricsStatus = snapshot.Availability switch
             {
-                KubernetesDataAvailability.Available when snapshot.Entries.Count > 0 => $"{source} · {snapshot.Entries.Max(entry => entry.Timestamp)?.ToString("HH:mm:ss", CultureInfo.InvariantCulture) ?? "Time unknown"} UTC",
+                KubernetesDataAvailability.Available when snapshot.Entries.Count > 0 => $"{source} · {DisplayDates.FormatTime(snapshot.Entries.Max(entry => entry.Timestamp), "Time unknown")}",
                 KubernetesDataAvailability.Forbidden => "Metrics access denied. Resource browsing remains available.",
                 _ => nodes && provider is not null ? "Node usage unavailable. The metrics service needs node-exporter samples linked to Kubernetes nodes."
                     : "Current usage unavailable. " + (apiFailure ?? MetricsProviderStatus),
@@ -149,7 +149,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
 public sealed record KubernetesUsageRow(KubernetesUsageEntry Entry)
 {
     public string Identity => $"{Entry.Namespace}/{Entry.Name}{(Entry.Container is null ? "" : $" · {Entry.Container}")}";
-    public string Usage => $"CPU {Format(Entry.CpuCores)} cores · Memory {Format(Entry.MemoryBytes / (1024 * 1024))} MiB";
-    public string Sample => $"{Entry.Timestamp?.ToString("u", CultureInfo.InvariantCulture) ?? "Timestamp unavailable"} · Window {Entry.Window}";
+    public string Usage => $"CPU {Format(Entry.CpuCores)} cores · Memory {(Entry.MemoryBytes is { } bytes ? KubernetesResourceRow.FormatBytes(bytes) : "unavailable")}";
+    public string Sample => $"{DisplayDates.Format(Entry.Timestamp, "Timestamp unavailable")} · Window {Entry.Window}";
     private static string Format(decimal? value) => value?.ToString("0.###", CultureInfo.InvariantCulture) ?? "unavailable";
 }

@@ -1256,26 +1256,10 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
 
 internal static class MonitorPanelPresentation
 {
-    public static string FormatBytes(long? bytes)
-    {
-        if (bytes is null)
-        {
-            return "Unavailable";
-        }
-
-        string[] units = ["B", "KiB", "MiB", "GiB", "TiB"];
-        var value = Math.Max(0, (double)bytes.Value);
-        var unit = 0;
-        while (value >= 1024 && unit < units.Length - 1)
-        {
-            value /= 1024;
-            unit++;
-        }
-
-        return unit == 0
-            ? $"{value.ToString("0", CultureInfo.InvariantCulture)} {units[unit]}"
-            : $"{value.ToString("0.0", CultureInfo.InvariantCulture)} {units[unit]}";
-    }
+    // Sizes and rates are written by the application's one size formatter, so
+    // a process's memory reads in the same units as a file in the Files panel.
+    public static string FormatBytes(long? bytes) =>
+        bytes is { } value ? ByteSize.Format(Math.Max(0, value)) : "Unavailable";
 
     public static string FormatDuration(TimeSpan duration)
     {
@@ -1292,18 +1276,8 @@ internal static class MonitorPanelPresentation
             return "Unavailable";
         }
 
-        string[] units = ["B/s", "KiB/s", "MiB/s", "GiB/s", "TiB/s"];
-        var value = Math.Max(0, rate);
-        var unit = 0;
-        while (value >= 1024 && unit < units.Length - 1)
-        {
-            value /= 1024;
-            unit++;
-        }
-
-        return unit == 0
-            ? $"{value.ToString("0", CultureInfo.InvariantCulture)} {units[unit]}"
-            : $"{value.ToString("0.0", CultureInfo.InvariantCulture)} {units[unit]}";
+        var bytes = (long)Math.Min(Math.Round(Math.Max(0, rate)), long.MaxValue);
+        return $"{ByteSize.Format(bytes)}/s";
     }
 
     public static string AccessiblePercent(double? value) => value is { } percent

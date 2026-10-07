@@ -83,9 +83,9 @@ public sealed class SystemMonitorRuntimePanelViewModelTests
         Assert.True(panel.HasHostedSession);
         Assert.Equal(SystemMonitorPanelState.Live, panel.State);
         Assert.Equal("37.5%", panel.CpuText);
-        Assert.Equal("2.0 KiB", panel.MemoryText);
-        Assert.Equal("1.5 KiB/s", panel.NetworkReceivedText);
-        Assert.Equal("3.0 KiB/s", panel.NetworkSentText);
+        Assert.Equal("2 KB", panel.MemoryText);
+        Assert.Equal("1.5 KB/s", panel.NetworkReceivedText);
+        Assert.Equal("3 KB/s", panel.NetworkSentText);
         Assert.Equal("9", panel.ProcessCountText);
         Assert.Equal("Resource details available for 7 of 9", panel.ProcessDetailText);
         Assert.Equal("1d 2h 3m", panel.UptimeText);
@@ -178,7 +178,7 @@ public sealed class SystemMonitorRuntimePanelViewModelTests
         Assert.Equal(77, process.ProcessId);
         Assert.Equal("dotnet helper", process.Name);
         Assert.Equal("8.5%", process.Cpu);
-        Assert.Equal("2.0 KiB", process.Memory);
+        Assert.Equal("2 KB", process.Memory);
         // How many are in the list, and nothing about how the sample was taken
         // — that belongs in the settings that bound it, not in every reading.
         Assert.Equal("1 process", panel.ShowingText);

@@ -190,29 +190,20 @@ public sealed class RuntimePanelViewContractTests
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "IsVisible")
 , "{Binding SelectedResource.IsPaused}", StringComparison.Ordinal));
 
-        var lifecycleSurface = Assert.Single(
+        // The lifecycle actions are one toolbar group — a capsule around the
+        // icons, as a Mac toolbar groups related items — not separately
+        // bordered squares, each with its own surface.
+        var group = Assert.IsType<XElement>(actions.Parent);
+        Assert.Equal("Border", group.Name.LocalName);
+        Assert.True(HasClass(group, "ToolbarGroup"));
+        Assert.Equal("{Binding SelectedResource.IsContainer}", AttributeValue(group, "IsVisible"));
+        Assert.All(
+            actions.Descendants().Where(element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal)),
+            button => Assert.True(HasClass(button, "ToolbarGroupAction")));
+        Assert.DoesNotContain(
             root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "Style"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Selector")
-, "Button.IconButton.DockerToolbarAction /template/ ContentPresenter", StringComparison.Ordinal));
-        Assert.Contains(
-            lifecycleSurface.Elements(),
-            element => string.Equals(element.Name.LocalName, "Setter"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Property"), "Background"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Value")
-, "{DynamicResource ShellControlSurfaceBrush}", StringComparison.Ordinal));
-
-        var disabledLifecycleSurface = Assert.Single(
-            root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "Style"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Selector")
-, "Button.IconButton.DockerToolbarAction:disabled /template/ ContentPresenter", StringComparison.Ordinal));
-        Assert.Contains(
-            disabledLifecycleSurface.Elements(),
-            element => string.Equals(element.Name.LocalName, "Setter"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Property"), "Background"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Value")
-, "{DynamicResource ShellControlSurfaceBrush}", StringComparison.Ordinal));
+            element => string.Equals(element.Name.LocalName, "Style", StringComparison.Ordinal)
+                && AttributeValue(element, "Selector")?.Contains("DockerToolbarAction", StringComparison.Ordinal) == true);
 
         // "Shell" is named once, as a view. The toolbar keeps only the move of
         // that shell into a tab of its own, as a plain icon shown with the

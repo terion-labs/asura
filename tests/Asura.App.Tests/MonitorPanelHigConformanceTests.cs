@@ -27,7 +27,7 @@ public sealed class MonitorPanelHigConformanceTests
     [Theory]
     [InlineData(100d, TimeSeriesUnit.Percent, "100%")]
     [InlineData(5.5d, TimeSeriesUnit.Percent, "5.5%")]
-    [InlineData(2147483648d, TimeSeriesUnit.Bytes, "2.0 GiB")]
+    [InlineData(2147483648d, TimeSeriesUnit.Bytes, "2 GB")]
     [InlineData(512d, TimeSeriesUnit.BytesPerSecond, "512 B/s")]
     public void Chart_values_are_written_with_their_unit(double value, TimeSeriesUnit unit, string expected)
     {
@@ -73,10 +73,10 @@ public sealed class MonitorPanelHigConformanceTests
         };
 
         Assert.Equal(
-            "Latest 900.0 MiB, lowest 512.0 MiB, highest 900.0 MiB, rising",
+            "Latest 900 MB, lowest 512 MB, highest 900 MB, rising",
             AutomationProperties.GetItemStatus(chart));
-        Assert.Equal("Scale from 0 to 1.0 GiB", AutomationProperties.GetHelpText(chart));
-        Assert.Equal("1.0 GiB", chart.CeilingLabel);
+        Assert.Equal("Scale from 0 to 1 GB", AutomationProperties.GetHelpText(chart));
+        Assert.Equal("1 GB", chart.CeilingLabel);
 
         chart.Maximum = 100;
         chart.Unit = TimeSeriesUnit.Percent;
@@ -220,7 +220,7 @@ public sealed class MonitorPanelHigConformanceTests
         var text = ProcessMonitorRuntimePanelView.RowsText(rows);
 
         Assert.Equal(
-            $"42\tsshd\t1.5%\t2.0 KiB\t{DisplayDates.Format(started)}\n7\tlaunchd\t—\tUnavailable\tUnknown\n",
+            $"42\tsshd\t1.5%\t2 KB\t{DisplayDates.Format(started)}\n7\tlaunchd\t—\tUnavailable\tUnknown\n",
             text);
         Assert.Null(ProcessMonitorRuntimePanelView.RowsText([]));
     }

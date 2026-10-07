@@ -149,7 +149,7 @@ public sealed class KubernetesResourceBrowserTests
         Assert.Equal("2/2", row.Ready);
         Assert.Equal("4", row.Restarts);
         Assert.Equal("0.135", row.Cpu);
-        Assert.Equal("160 MiB", row.Memory);
+        Assert.Equal("160 MB", row.Memory);
         Assert.Equal("ReplicaSet", row.Owner);
         Assert.Equal("node-a", row.Node);
         Assert.Equal("Burstable", row.Qos);
@@ -189,7 +189,7 @@ public sealed class KubernetesResourceBrowserTests
             [new("api", "team", null, null, "30s", 0.5m, 1024m, 25 * 1024 * 1024 * 1024m, 100 * 1024 * 1024 * 1024m)]);
         Assert.Equal("25%", row.Disk);
         Assert.Equal(25m, row.DiskPercentValue);
-        Assert.Equal("25 GiB / 100 GiB used · Root filesystem (/)", row.DiskDetail);
+        Assert.Equal("25 GB / 100 GB used · Root filesystem (/)", row.DiskDetail);
         Assert.Equal("0.5", row.Cpu);
     }
 
