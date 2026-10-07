@@ -5,13 +5,16 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
-    Width="760" Height="650" MinWidth="600" MinHeight="400" Title="Saved connections">
-  <controls:DialogShell Title="Saved connections" Subtitle="Browse and edit your terminal, file, database, and Kubernetes connections.">
+    Width="760" Height="650" MinWidth="600" MinHeight="400" Presentation="Inspector">
+  <!-- A window people keep open while they work, not a question: it does not
+       block the window it came from, and an editor opened from it is the one
+       sheet on top of it rather than a modal on a modal. ⌘W or Escape closes. -->
+  <controls:DialogShell Title="Saved Connections" Subtitle="Browse and edit your terminal, file, database, and Kubernetes connections.">
     <controls:DialogShell.Footer>
-      <Button Classes="PrimaryButton" Click="OnAddClick" Content="Add connection" />
+      <Button Classes="PrimaryButton" Click="OnAddClick" Content="Add Connection…" />
     </controls:DialogShell.Footer>
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-      <TextBox Text="{Binding ConnectionSearchQuery}" PlaceholderText="Search connections…" AutomationProperties.Name="Search saved connections" />
+      <controls:SearchField Text="{Binding ConnectionSearchQuery}" PlaceholderText="Search connections" AutomationProperties.Name="Search saved connections" />
       <TextBlock Classes="Muted" Text="{Binding TotalConnectionCount, StringFormat={}{0} saved connections}" />
       <TextBlock Classes="Muted" Text="No connections match your search." IsVisible="{Binding HasNoFilteredConnections}" />
       <ItemsControl ItemsSource="{Binding FilteredConnections}" Classes="StretchItems">

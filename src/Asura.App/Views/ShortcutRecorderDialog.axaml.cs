@@ -43,16 +43,18 @@ public sealed partial class ShortcutRecorderDialog : DialogWindow
         Refresh();
     }
 
+    /// <summary>
+    /// Escape cancels everywhere, as the status line says. ⌘. is a chord
+    /// people bind, so while the capture area has focus it is recorded rather
+    /// than taken as cancel.
+    /// </summary>
+    protected override bool LetsCancelGestureThrough(KeyEventArgs e) =>
+        e.KeyModifiers == Avalonia.Input.KeyModifiers.Meta
+        && this.FindControl<SurfaceCard>("CaptureArea") is { IsKeyboardFocusWithin: true };
+
     private void OnCaptureKeyDown(object? sender, KeyEventArgs e)
     {
         _ = sender;
-        if (e.Key == Key.Escape)
-        {
-            Close(null);
-            e.Handled = true;
-            return;
-        }
-
         if (IsModifierKey(e.Key))
         {
             this.FindControl<TextBlock>("RecorderStatusText")!.Text =

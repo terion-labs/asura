@@ -152,7 +152,12 @@ public sealed partial class McpServerProfileEditorDialog : DialogWindow
         catch (Exception exception) when (
             exception is ArgumentException or InvalidOperationException)
         {
-            ShowValidationError(exception.Message);
+            // Under the field it is about, with everything typed kept; a
+            // failure about the whole server goes to the list at the top.
+            if (!FieldValidation.Present(this, exception))
+            {
+                ShowValidationError(exception.Message);
+            }
         }
     }
 

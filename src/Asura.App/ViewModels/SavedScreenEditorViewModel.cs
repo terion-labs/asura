@@ -210,9 +210,9 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
 
     public bool IsNew => ExpectedRevision is null;
 
-    public string EditorTitle => IsNew ? "Create saved screen" : "Edit saved screen";
+    public string EditorTitle => IsNew ? "New Saved Screen" : "Edit Saved Screen";
 
-    public string PrimaryActionLabel => IsNew ? "Create screen" : "Save screen";
+    public string PrimaryActionLabel => IsNew ? "Create Screen" : "Save Screen";
 
     public bool CanDuplicate => !IsNew;
 

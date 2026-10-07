@@ -15,15 +15,11 @@
   -->
   <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-      <TextBox
+      <controls:SearchField
           x:Name="SearchInput"
           Text="{Binding SearchText, ElementName=Root, Mode=TwoWay}"
-          PlaceholderText="Search all icons…"
-          AutomationProperties.Name="Search icons">
-        <TextBox.InnerLeftContent>
-          <icons:SymbolIcon Margin="{controls:Inset Left=Sm}" Symbol="Search" FontSize="13" Foreground="{DynamicResource ShellMutedBrush}" />
-        </TextBox.InnerLeftContent>
-      </TextBox>
+          PlaceholderText="Search all icons"
+          AutomationProperties.Name="Search icons" />
       <TextBlock
           Grid.Column="1"
           VerticalAlignment="Center"

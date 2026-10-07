@@ -5,8 +5,6 @@
     xmlns:views="using:Asura.App.Views"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
-    xmlns:icons="using:FluentIcons.Avalonia"
-    Title="Add a tab"
     Width="560"
     Height="620"
     CanResize="False">
@@ -18,23 +16,19 @@
   -->
   <controls:DialogShell
       Chrome="Utility"
-      Title="Add a tab"
+      Title="Add Tab"
       Subtitle="A tab opens one connection or one screen."
       Scrolls="False"
       Padding="{controls:Inset None}">
     <!-- The list scrolls itself and the options band bleeds to the window's
          edges, so the body keeps no inset of its own. -->
     <Grid RowDefinitions="Auto,*,Auto">
-      <TextBox
+      <controls:SearchField
           x:Name="SearchInput"
           Margin="{controls:Inset Horizontal=Lg, Top=Md}"
-          PlaceholderText="Search connections and screens…"
+          PlaceholderText="Search connections and screens"
           TextChanged="OnSearchChanged"
-          AutomationProperties.Name="Search connections and screens">
-        <TextBox.InnerLeftContent>
-          <icons:SymbolIcon Margin="{controls:Inset Left=Sm}" Symbol="Search" FontSize="13" Foreground="{DynamicResource ShellMutedBrush}" />
-        </TextBox.InnerLeftContent>
-      </TextBox>
+          AutomationProperties.Name="Search connections and screens" />
 
       <ListBox
           x:Name="SourceList"
@@ -108,13 +102,14 @@
 
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" />
+        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
         <Button
             x:Name="ConfirmButton"
             MinWidth="110"
             Classes="PrimaryButton"
             Click="OnConfirmClick"
-            Content="Add tab"
+            Content="Add Tab"
+            IsDefault="True"
             IsEnabled="False" />
       </StackPanel>
     </controls:DialogShell.Footer>

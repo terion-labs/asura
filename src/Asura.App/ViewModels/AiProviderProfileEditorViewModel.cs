@@ -168,7 +168,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
 
     public bool IsEditing => ExpectedRevision is not null;
 
-    public string EditorTitle => IsEditing ? "Edit AI provider" : "New AI provider";
+    public string EditorTitle => IsEditing ? "Edit AI Provider" : "New AI Provider";
 
     public string ProfileId => _id.Value;
 

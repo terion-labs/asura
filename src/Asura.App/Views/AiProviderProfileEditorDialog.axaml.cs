@@ -105,11 +105,20 @@ public sealed partial class AiProviderProfileEditorDialog : DialogWindow
         }
         catch (Exception exception) when (exception is ArgumentException or UriFormatException)
         {
-            ShowValidationError(exception.Message);
+            // Under the field it is about, with everything typed kept; a
+            // failure about the whole provider goes to the list at the top.
+            if (!FieldValidation.Present(this, exception))
+            {
+                ShowValidationError(exception.Message);
+            }
         }
     }
 
-    private void ShowValidationError(string message) => ViewModel.ErrorNotices.Report(message);
+    private void ShowValidationError(string message)
+    {
+        ViewModel.ErrorNotices.Report(message);
+        this.FindControl<Control>("FormErrors")?.BringIntoView();
+    }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 }

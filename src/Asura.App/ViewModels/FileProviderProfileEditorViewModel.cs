@@ -99,7 +99,7 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
 
     public bool IsEditing => ExpectedRevision is not null;
 
-    public string EditorTitle => IsEditing ? "Edit file connection" : "New file connection";
+    public string EditorTitle => IsEditing ? "Edit File Connection" : "New File Connection";
 
     public string ProfileId => _id.Value;
 

@@ -463,7 +463,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
 
     public bool IsEditing => ExpectedRevision is not null;
 
-    public string EditorTitle => IsEditing ? "Edit MCP server" : "New MCP server";
+    public string EditorTitle => IsEditing ? "Edit MCP Server" : "New MCP Server";
 
     public string ProfileId => _id.Value;
 

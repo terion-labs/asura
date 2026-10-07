@@ -157,7 +157,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
 
     public bool IsEditing => ExpectedRevision is not null;
 
-    public string EditorTitle => IsEditing ? "Edit connection" : "New connection";
+    public string EditorTitle => IsEditing ? "Edit Connection" : "New Connection";
 
     public IReadOnlyList<ConnectionKind> ConnectionKinds { get; }
 

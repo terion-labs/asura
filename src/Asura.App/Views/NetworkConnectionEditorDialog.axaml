@@ -6,7 +6,6 @@
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:components="using:Asura.App.Views.Components"
-    Title="Network connection"
     Width="720"
     Height="720"
     MinWidth="620"
@@ -20,7 +19,7 @@
   -->
   <controls:DialogShell
       Title="{Binding ProfileEditor.EditorTitle}"
-      Subtitle="The connection stores references to credentials; the values stay in the operating-system vault."
+      Subtitle="{Binding Source={x:Static vm:SecretStoreName.Current}, StringFormat={}The connection stores references to credentials; the values stay in {0}.}"
       Chrome="Editor"
       FooterHint="{Binding ProfileEditor.FooterHint}">
     <controls:DialogShell.Footer>
@@ -31,12 +30,13 @@
             Content="{Binding ProfileTestActionLabel}"
             IsEnabled="{Binding CanTestProfile}"
             AutomationProperties.Name="Test the network connection" />
-        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" />
+        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
         <Button
             Classes="PrimaryButton"
             Click="OnSaveProfileClick"
-            Content="Save connection"
-            IsEnabled="{Binding ProfileEditor.CanSave}" />
+            Content="Save Connection"
+            IsDefault="True"
+            IsEnabled="{Binding ProfileEditor.IsDirty}" />
       </StackPanel>
     </controls:DialogShell.Footer>
 
@@ -58,7 +58,7 @@
         <!-- Every kind starts the same way: a name and a type. -->
         <controls:SurfaceCard>
           <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-            <controls:LabeledField Label="Name">
+            <controls:LabeledField Label="Name" controls:FieldValidation.For="Name">
               <TextBox
                   Text="{Binding Name, Mode=TwoWay}"
                   PlaceholderText="Office VPN"
@@ -97,13 +97,13 @@
                   </ComboBox.ItemTemplate>
                 </ComboBox>
               </controls:LabeledField>
-              <controls:LabeledField Grid.Column="1" Label="Host">
+              <controls:LabeledField Grid.Column="1" Label="Host" controls:FieldValidation.For="Host">
                 <TextBox
                     Text="{Binding Host, Mode=TwoWay}"
                     PlaceholderText="proxy.example.com"
                     AutomationProperties.Name="Proxy host" />
               </controls:LabeledField>
-              <controls:LabeledField Grid.Column="2" Label="Port">
+              <controls:LabeledField Grid.Column="2" Label="Port" controls:FieldValidation.For="Port">
                 <TextBox
                     Text="{Binding Port, Mode=TwoWay}"
                     PlaceholderText="1080"
@@ -160,7 +160,7 @@
         <controls:SurfaceCard IsVisible="{Binding IsAnyConnect}">
           <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
             <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-              <controls:LabeledField Label="Gateway" Hint="Absolute HTTPS URL.">
+              <controls:LabeledField Label="Gateway" Hint="Absolute HTTPS URL." controls:FieldValidation.For="Gateway">
                 <TextBox
                     Text="{Binding Gateway, Mode=TwoWay}"
                     PlaceholderText="https://vpn.example.com"
@@ -197,13 +197,13 @@
         <controls:SurfaceCard IsVisible="{Binding IsTailscale}">
           <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
             <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-              <controls:LabeledField Label="Exit node">
+              <controls:LabeledField Label="Exit node" controls:FieldValidation.For="ExitNode">
                 <TextBox
                     Text="{Binding ExitNode, Mode=TwoWay}"
                     PlaceholderText="exit-node-name"
                     AutomationProperties.Name="Tailscale exit node" />
               </controls:LabeledField>
-              <controls:LabeledField Grid.Column="1" Label="Control server" Hint="Optional HTTPS URL for Headscale or another control server.">
+              <controls:LabeledField Grid.Column="1" Label="Control server" Hint="Optional HTTPS URL for Headscale or another control server." controls:FieldValidation.For="ControlServer">
                 <TextBox
                     Text="{Binding ControlServer, Mode=TwoWay}"
                     PlaceholderText="https://headscale.example.com"
@@ -229,7 +229,7 @@
               Spacing="{DynamicResource ShellSpaceMd}">
             <components:SectionHeader
                 Heading="{Binding Title}"
-                Description="The value is held in memory until the connection is saved, then stored in the operating-system vault and cleared from this form." />
+                Description="The value is held in memory until the connection is saved, then stored and cleared from this form." />
             <controls:LabeledField Label="Label" Hint="How this credential is listed here and in Security &amp; secrets.">
               <TextBox
                   Text="{Binding Label, Mode=TwoWay}"
@@ -260,7 +260,7 @@
               <Button
                   Classes="PrimaryButton"
                   Click="OnStoreCredentialClick"
-                  Content="Add to connection"
+                  Content="Add to Connection"
                   IsEnabled="{Binding CanStore}"
                   AutomationProperties.Name="Add the credential to the connection" />
               <Button

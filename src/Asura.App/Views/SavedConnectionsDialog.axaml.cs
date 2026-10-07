@@ -21,6 +21,4 @@ public sealed partial class SavedConnectionsDialog : DialogWindow
     }
 
     private void OnAddClick(object? sender, RoutedEventArgs e) => AddRequested?.Invoke(this, EventArgs.Empty);
-
-    private void OnCloseClick(object? sender, RoutedEventArgs e) => Close();
 }

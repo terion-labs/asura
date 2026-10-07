@@ -179,7 +179,7 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
 
     public bool IsNew => ExpectedRevision is null;
 
-    public string EditorTitle => IsNew ? "New network connection" : "Edit network connection";
+    public string EditorTitle => IsNew ? "New Network Connection" : "Edit Network Connection";
 
     /// <summary>
     /// Whether the draft for one credential slot is open. It opens from the
@@ -549,10 +549,21 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
         {
             profile = null;
             error = FriendlyValidationMessage(exception);
-            field = InvalidField.Of(exception);
+            field = InvalidField.Of(exception) ?? FieldFor((exception as ArgumentException)?.ParamName);
             return false;
         }
     }
+
+    /// <summary>The editor property a profile constructor's parameter comes from.</summary>
+    private static string? FieldFor(string? parameter) => parameter switch
+    {
+        "name" => nameof(Name),
+        "port" => nameof(Port),
+        "gateway" => nameof(Gateway),
+        "exitNode" => nameof(ExitNode),
+        "controlServer" => nameof(ControlServer),
+        _ => null,
+    };
 
     private NetworkConnectionConfiguration BuildConfiguration() => SelectedKind.Kind switch
     {

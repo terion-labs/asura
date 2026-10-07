@@ -36,9 +36,12 @@
     </controls:DialogShell.Footer>
 
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
+      <!-- A failure about one field is shown under that field; what is left
+           is read here, at the top, where the dialog scrolls to it. -->
+      <components:ErrorNoticesView x:Name="ValidationError" DataContext="{Binding ErrorNotices}" Focusable="True" AutomationProperties.Name="MCP server validation errors" />
       <controls:SurfaceCard>
         <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-          <controls:LabeledField Label="Name">
+          <controls:LabeledField Label="Name" controls:FieldValidation.For="Name">
             <TextBox
                 x:Name="McpServerNameInput"
                 Text="{Binding Name}"
@@ -66,23 +69,25 @@
           <StackPanel IsVisible="{Binding IsStdio}" Spacing="{DynamicResource ShellSpaceMd}">
             <controls:LabeledField
                 Label="Executable"
-                Hint="Enter one fully qualified executable path. Asura launches it directly; this field is not a shell command.">
+                Hint="Enter one fully qualified executable path. Asura launches it directly; this field is not a shell command."
+                controls:FieldValidation.For="Executable">
               <TextBox
                   Text="{Binding Executable}"
                   PlaceholderText="/absolute/path/to/server"
                   AutomationProperties.Name="MCP server executable path" />
             </controls:LabeledField>
-            <controls:LabeledField Label="Working directory">
+            <controls:LabeledField Label="Working folder" controls:FieldValidation.For="WorkingDirectory">
               <TextBox
                   Text="{Binding WorkingDirectory}"
-                  PlaceholderText="Optional absolute directory"
+                  PlaceholderText="Optional absolute folder path"
                   AutomationProperties.Name="MCP server working directory" />
             </controls:LabeledField>
           </StackPanel>
           <StackPanel IsVisible="{Binding IsStreamableHttp}" Spacing="{DynamicResource ShellSpaceMd}">
             <controls:LabeledField
                 Label="Streamable HTTP endpoint"
-                Hint="Use HTTPS. Plaintext HTTP is accepted only for localhost or an exact loopback IP address.">
+                Hint="Use HTTPS. Plaintext HTTP is accepted only for localhost or an exact loopback IP address."
+                controls:FieldValidation.For="Endpoint">
               <TextBox
                   Text="{Binding Endpoint}"
                   PlaceholderText="https://mcp.example.com/mcp"
@@ -111,7 +116,7 @@
                 Grid.Column="1"
                 Classes="SecondaryButton"
                 Click="OnAddArgumentClick"
-                Content="Add argument"
+                Content="Add Argument"
                 AutomationProperties.Name="Add MCP server argument" />
           </Grid>
           <ItemsControl ItemsSource="{Binding Arguments}">
@@ -174,7 +179,7 @@
                 Grid.Column="1"
                 Classes="SecondaryButton"
                 Click="OnAddEnvironmentBindingClick"
-                Content="Add binding"
+                Content="Add Binding"
                 AutomationProperties.Name="Add MCP environment binding" />
           </Grid>
           <ItemsControl ItemsSource="{Binding Environment}">
@@ -221,7 +226,7 @@
                 Grid.Column="1"
                 Classes="SecondaryButton"
                 Click="OnAddHttpHeaderBindingClick"
-                Content="Add header"
+                Content="Add Header"
                 AutomationProperties.Name="Add MCP HTTP header binding" />
           </Grid>
           <ItemsControl ItemsSource="{Binding HttpHeaders}">
@@ -268,7 +273,7 @@
                 Grid.Column="1"
                 Classes="SecondaryButton"
                 Click="OnAddEnabledToolClick"
-                Content="Add tool"
+                Content="Add Tool"
                 AutomationProperties.Name="Add enabled MCP tool" />
           </Grid>
           <ItemsControl ItemsSource="{Binding EnabledTools}">
@@ -294,7 +299,6 @@
         </StackPanel>
       </controls:SurfaceCard>
 
-      <components:ErrorNoticesView x:Name="ValidationError" DataContext="{Binding ErrorNotices}" Focusable="True" AutomationProperties.Name="MCP server validation errors" />
     </StackPanel>
   </controls:DialogShell>
 </controls:DialogWindow>

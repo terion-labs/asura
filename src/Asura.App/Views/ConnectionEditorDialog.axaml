@@ -112,7 +112,7 @@
                         </DataTemplate>
                       </ComboBox.ItemTemplate>
                     </ComboBox>
-                    <Button Grid.Column="1" Classes="SecondaryButton" Click="OnAddCredentialClick" Content="Add new…" AutomationProperties.Name="Add connection credential" />
+                    <Button Grid.Column="1" Classes="SecondaryButton" Click="OnAddCredentialClick" Content="Add New…" AutomationProperties.Name="Add connection credential" />
                   </Grid>
                 </controls:LabeledField>
                 <controls:LabeledField Label="Passphrase (optional)" IsVisible="{Binding UsesPassphraseReference}">
@@ -125,7 +125,7 @@
                         </DataTemplate>
                       </ComboBox.ItemTemplate>
                     </ComboBox>
-                    <Button Grid.Column="1" Classes="SecondaryButton" Click="OnAddPassphraseClick" Content="Add new…" AutomationProperties.Name="Add private key passphrase" />
+                    <Button Grid.Column="1" Classes="SecondaryButton" Click="OnAddPassphraseClick" Content="Add New…" AutomationProperties.Name="Add private key passphrase" />
                   </Grid>
                 </controls:LabeledField>
                 <components:ConnectionCredentialDraftView
@@ -370,7 +370,7 @@
               <TextBlock Classes="SectionHeading" Text="OS-vault credential" />
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                 <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding SecretOptions}" SelectedItem="{Binding SelectedCredential}" AutomationProperties.Name="Credential"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
-                <Button Grid.Column="1" Classes="SecondaryButton" Click="OnAddFileCredentialClick" Content="Add new…" AutomationProperties.Name="Add file connection credential" />
+                <Button Grid.Column="1" Classes="SecondaryButton" Click="OnAddFileCredentialClick" Content="Add New…" AutomationProperties.Name="Add file connection credential" />
               </Grid>
               <components:ConnectionCredentialDraftView
                   x:Name="FileCredentialDraft"
@@ -388,7 +388,7 @@
       <StackPanel IsVisible="{Binding IsKubernetes}" Spacing="{DynamicResource ShellSpaceMd}">
         <StackPanel DataContext="{Binding Kubernetes}" Spacing="{DynamicResource ShellSpaceMd}">
           <controls:LabeledField Label="Kubeconfig file"><TextBox Text="{Binding KubeconfigPath}" PlaceholderText="~/.kube/config" AutomationProperties.Name="Kubeconfig file" /></controls:LabeledField>
-          <Button Content="Review configuration" Command="{Binding ReviewCommand}" HorizontalAlignment="Left" />
+          <Button Content="Review Configuration" Command="{Binding ReviewCommand}" HorizontalAlignment="Left" />
           <TextBlock Classes="Muted" Text="{Binding ReviewStatus}" TextWrapping="Wrap" />
           <ComboBox ItemsSource="{Binding Contexts}" SelectedItem="{Binding SelectedContext}" HorizontalAlignment="Stretch" AutomationProperties.Name="Discovered Kubernetes contexts">
             <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding ContextName}" /></DataTemplate></ComboBox.ItemTemplate>

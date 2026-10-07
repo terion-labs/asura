@@ -1,4 +1,5 @@
 using Asura.App.Controls;
+using Asura.App.ViewModels;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -20,7 +21,7 @@ public sealed partial class DatabasePasswordPromptDialog : DialogWindow
     public DatabasePasswordPromptDialog(
         string connectionName,
         bool canSavePassword = false,
-        string passwordStoreLabel = "Save in system credential store",
+        string? passwordStoreLabel = null,
         string? description = null)
         : this()
     {
@@ -30,7 +31,7 @@ public sealed partial class DatabasePasswordPromptDialog : DialogWindow
         {
             PromptDescription.Text =
                 "Use this password for the current session, or save it securely for future connections.";
-            SavePasswordCheckBox.Content = passwordStoreLabel;
+            SavePasswordCheckBox.Content = passwordStoreLabel ?? $"Save in {SecretStoreName.Current}";
             SavePasswordCheckBox.IsVisible = true;
         }
 

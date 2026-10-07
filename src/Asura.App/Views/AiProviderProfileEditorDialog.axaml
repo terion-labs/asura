@@ -6,7 +6,6 @@
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
-    Title="AI provider"
     Width="780"
     Height="720"
     MinWidth="680"
@@ -20,19 +19,22 @@
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
         <Button Classes="SecondaryButton" Click="OnTestClick" Content="Test" IsEnabled="{Binding CanTest}" />
-        <Button Click="OnCancelClick" Content="Cancel" IsCancel="True" />
-        <Button Classes="PrimaryButton" Click="OnSaveClick" Content="Save provider" IsDefault="True" IsEnabled="{Binding CanTest}" />
+        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
+        <Button Classes="PrimaryButton" Click="OnSaveClick" Content="Save Provider" IsDefault="True" IsEnabled="{Binding CanTest}" />
       </StackPanel>
     </controls:DialogShell.Footer>
 
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}" IsEnabled="{Binding !IsStoringCredential}">
+      <!-- A failure about one field is shown under that field; what is left
+           is read here, at the top, where the dialog scrolls to it. -->
+      <components:ErrorNoticesView x:Name="FormErrors" DataContext="{Binding ErrorNotices}" />
       <controls:SurfaceCard>
         <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
           <Grid
               x:Name="IdentityFields"
               ColumnDefinitions="*,*"
               ColumnSpacing="{DynamicResource ShellSpaceSm}">
-            <controls:LabeledField Label="Name">
+            <controls:LabeledField Label="Name" controls:FieldValidation.For="Name">
               <TextBox Text="{Binding Name}" PlaceholderText="Production OpenAI" />
             </controls:LabeledField>
             <controls:LabeledField Grid.Column="1" Label="Provider">
@@ -60,7 +62,8 @@
               TextWrapping="Wrap" />
           <controls:LabeledField
               Label="API base endpoint"
-              Hint="{Binding EndpointPolicy}">
+              Hint="{Binding EndpointPolicy}"
+              controls:FieldValidation.For="Endpoint">
             <TextBox IsEnabled="{Binding IsEndpointEditable}" Text="{Binding Endpoint}" PlaceholderText="https://api.example.com/v1/" />
           </controls:LabeledField>
           <Grid
@@ -135,7 +138,7 @@
                 </Grid>
               </Grid>
             </controls:LabeledField>
-            <controls:LabeledField Label="New API key">
+            <controls:LabeledField Label="New API key" controls:FieldValidation.For="ApiKeyValue">
               <TextBox
                   x:Name="ApiKeyInput"
                   Text="{Binding ApiKeyValue, Mode=TwoWay}"
@@ -148,10 +151,10 @@
                 Classes="SecondaryButton"
                 HorizontalAlignment="Left"
                 Click="OnStoreApiKeyClick"
-                Content="Store API key"
+                Content="Store API Key"
                 IsEnabled="{Binding CanStoreCredential}"
-                AutomationProperties.Name="Store API key in system keychain" />
-            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="Store, Test, or Save writes the entered key to the system keychain and selects it here. Stored keys remain in the keychain if you cancel; existing keys are not overwritten." TextWrapping="Wrap" />
+                AutomationProperties.Name="{Binding Source={x:Static vm:SecretStoreName.Current}, StringFormat={}Store the API key in {0}}" />
+            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Source={x:Static vm:SecretStoreName.Current}, StringFormat='Store, Test, or Save writes the entered key to {0} and selects it here. A stored key stays in {0} if you cancel; existing keys are not overwritten.'}" TextWrapping="Wrap" />
             <controls:LiveRegionTextBlock Text="{Binding CredentialStatus}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
           </StackPanel>
           <StackPanel
@@ -203,7 +206,6 @@
         </StackPanel>
       </controls:SurfaceCard>
 
-      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
     </StackPanel>
   </controls:DialogShell>
 </controls:DialogWindow>

@@ -100,10 +100,22 @@ public sealed partial class NetworkConnectionEditorDialog : DialogWindow
     {
         _ = sender;
         _ = e;
-        if (ViewModel is { } viewModel)
+        if (ViewModel is not { } viewModel)
         {
-            await viewModel.SaveProfileAsync(CancellationToken.None);
+            return;
         }
+
+        // Checked here, in the form, so the message lands under the field it
+        // is about and everything typed stays where it was.
+        FieldValidation.Clear(this);
+        if (viewModel.ProfileEditor is { IsValid: false, InvalidFieldName: { } field } editor
+            && FieldValidation.Show(this, field, editor.ValidationMessage))
+        {
+            return;
+        }
+
+        // A failure that names no field on screen is reported by the save.
+        await viewModel.SaveProfileAsync(CancellationToken.None);
     }
 
     private async void OnTestProfileClick(object? sender, RoutedEventArgs e)

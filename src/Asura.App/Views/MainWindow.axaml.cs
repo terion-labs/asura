@@ -963,12 +963,21 @@ public sealed partial class MainWindow : Window
         await ShowConnectionEditorAsync(null);
     }
 
-    private async void OnManageConnectionsClick(object? sender, RoutedEventArgs e)
+    private void OnManageConnectionsClick(object? sender, RoutedEventArgs e)
     {
+        _ = sender;
+        _ = e;
+        // One window, kept beside this one rather than blocking it.
+        if (OwnedWindows.OfType<SavedConnectionsDialog>().FirstOrDefault() is { } open)
+        {
+            open.Activate();
+            return;
+        }
+
         var dialog = new SavedConnectionsDialog { DataContext = ViewModel.Launcher };
         dialog.EditRequested += async (_, connection) => await ShowConnectionEditorAsync(connection, dialog);
         dialog.AddRequested += async (_, _) => await ShowConnectionEditorAsync(null, dialog);
-        await dialog.ShowDialog(this);
+        dialog.Show(this);
     }
 
     private async void OnEditConnectionClick(object? sender, RoutedEventArgs e)
@@ -1640,13 +1649,13 @@ public sealed partial class MainWindow : Window
                         ? $"“{workspace.Name}” will be removed, while its running tabs and sessions remain alive until they close."
                         : $"“{workspace.Name}” will be permanently removed from this profile.",
                     "This does not delete the persistent isolate or its installed packages. Remove the isolate with the platform runtime until Asura adds reset and delete controls.",
-                    "Delete workspace")
+                    "Delete Workspace")
                 : isOpen
                 ? Confirmations.DefinitionDelete(
                     "Delete the open workspace definition?",
                     $"“{workspace.Name}” is currently open. Its running tabs and sessions will remain alive, but this saved workspace can no longer be reopened after they close.",
-                    "Close this dialog if you want to keep the definition or save a replacement before deleting it.",
-                    "Delete and keep running")
+                    "Asura cannot undo this deletion.",
+                    "Delete Workspace")
                 : Confirmations.DefinitionDelete("workspace", workspace.Name);
             var confirmed = await dialog
                 .ShowDialog<bool>(this);
@@ -1667,13 +1676,9 @@ public sealed partial class MainWindow : Window
         _ = e;
         if (sender is Control { DataContext: LauncherScreenViewModel screen })
         {
-            var confirmed = await Confirmations.DefinitionDelete("saved screen", screen.Name)
-                .ShowDialog<bool>(this);
-            if (!confirmed)
-            {
-                return;
-            }
-
+            // No question first: the delete can be undone from the notice it
+            // leaves, and asking about an undoable action only teaches people
+            // to stop reading the questions that matter.
             var result = await ViewModel.DeleteSavedScreenAsync(
                 new DefinitionKey(ScreenDefinition.Kind, screen.Id.Value),
                 screen.Revision,

@@ -22,7 +22,9 @@ public sealed partial class FileAccessControlDialog : DialogWindow
     {
         ArgumentNullException.ThrowIfNull(editor);
         DataContext = editor;
-        Title = $"Permissions — {editor.ItemName}";
+        // The header names what is being changed; the window is titled with
+        // the same words.
+        this.FindControl<DialogShell>("Shell")!.Title = $"Permissions for “{editor.ItemName}”";
     }
 
     private void OnCancelClick(object? sender, RoutedEventArgs e)
