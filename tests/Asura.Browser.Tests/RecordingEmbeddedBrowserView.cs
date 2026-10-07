@@ -60,6 +60,8 @@ internal sealed class RecordingEmbeddedBrowserView : IEmbeddedBrowserView
 
     public int DeveloperToolsOpenCount { get; private set; }
 
+    public List<BrowserEditCommand> EditCommands { get; } = [];
+
     public string? LastFindText { get; private set; }
 
     public BrowserFindDirection? LastFindDirection { get; private set; }
@@ -283,6 +285,12 @@ internal sealed class RecordingEmbeddedBrowserView : IEmbeddedBrowserView
     {
         DeveloperToolsOpenCount++;
         return AcceptDeveloperTools;
+    }
+
+    public bool ExecuteEditCommand(BrowserEditCommand command)
+    {
+        EditCommands.Add(command);
+        return true;
     }
 
     public bool StartFind(string searchText)

@@ -241,6 +241,41 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         return true;
     }
 
+    public bool ExecuteEditCommand(BrowserEditCommand command)
+    {
+        ThrowIfDisposed();
+        if (_browser is not { IsInitialized: true } browser)
+        {
+            return false;
+        }
+
+        switch (command)
+        {
+            case BrowserEditCommand.Undo:
+                browser.Undo();
+                break;
+            case BrowserEditCommand.Redo:
+                browser.Redo();
+                break;
+            case BrowserEditCommand.Cut:
+                browser.Cut();
+                break;
+            case BrowserEditCommand.Copy:
+                browser.Copy();
+                break;
+            case BrowserEditCommand.Paste:
+                browser.Paste();
+                break;
+            case BrowserEditCommand.SelectAll:
+                browser.SelectAll();
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(command), command, null);
+        }
+
+        return true;
+    }
+
     public async Task<NativeBrowserSnapshotResult> CaptureSnapshotAsync(
         BrowserSnapshotQuery? query = null)
     {

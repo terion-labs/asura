@@ -77,6 +77,8 @@ internal interface IEmbeddedBrowserView : IDisposable
 
     bool OpenDeveloperTools();
 
+    bool ExecuteEditCommand(BrowserEditCommand command);
+
     bool StartFind(string searchText);
 
     bool FindNext(BrowserFindDirection direction);

@@ -74,6 +74,33 @@ public sealed class BrowserSurfaceTests
     }
 
     [Fact]
+    public void EditMenuCommandsPassThroughThePhysicalInputGate()
+    {
+        var nativeView = new RecordingEmbeddedBrowserView();
+        var surface = Surface(nativeView);
+        var admitted = new List<NativeRendererPhysicalInputKind>();
+
+        Assert.False(surface.ExecuteEditCommand(BrowserEditCommand.Copy));
+        Assert.Empty(nativeView.EditCommands);
+
+        surface.BindPhysicalInputGate(input =>
+        {
+            admitted.Add(input.Kind);
+            return true;
+        });
+        Assert.True(surface.ExecuteEditCommand(BrowserEditCommand.Copy));
+        Assert.True(surface.ExecuteEditCommand(BrowserEditCommand.Paste));
+
+        surface.BindPhysicalInputGate(_ => false);
+        Assert.False(surface.ExecuteEditCommand(BrowserEditCommand.SelectAll));
+
+        Assert.Equal([BrowserEditCommand.Copy, BrowserEditCommand.Paste], nativeView.EditCommands);
+        Assert.Equal(
+            [NativeRendererPhysicalInputKind.KeyDown, NativeRendererPhysicalInputKind.Paste],
+            admitted);
+    }
+
+    [Fact]
     public void NativePopupRequestIsPromotedToANewShellTabRequest()
     {
         var nativeView = new RecordingEmbeddedBrowserView();

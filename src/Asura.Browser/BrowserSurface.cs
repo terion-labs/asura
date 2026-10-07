@@ -18,6 +18,7 @@ public sealed partial class BrowserSurface :
     IBrowserNewTabRequestSource,
     IBrowserProductEventSource,
     IBrowserFindController,
+    IBrowserEditCommandTarget,
     IBrowserElementReferenceRegistry,
     IBrowserPhysicalInputBarrier,
     IDisposable
@@ -270,6 +271,20 @@ public sealed partial class BrowserSurface :
         return _nativeView.OpenDeveloperTools();
     }
 
+    /// <summary>
+    /// An Edit menu command is the user's keyboard input arriving by another
+    /// route, so it passes through the same physical-input gate as a key press.
+    /// </summary>
+    public bool ExecuteEditCommand(BrowserEditCommand command)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var kind = command == BrowserEditCommand.Paste
+            ? NativeRendererPhysicalInputKind.Paste
+            : NativeRendererPhysicalInputKind.KeyDown;
+        return AdmitPhysicalInput(kind)
+            && _nativeView.ExecuteEditCommand(command);
+    }
+
     public bool StartFind(string searchText)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -398,28 +413,35 @@ public sealed partial class BrowserSurface :
         RoutedEventArgs args,
         NativeRendererPhysicalInputKind kind)
     {
+        if (!AdmitPhysicalInput(kind))
+        {
+            args.Handled = true;
+        }
+    }
+
+    private bool AdmitPhysicalInput(NativeRendererPhysicalInputKind kind)
+    {
         var gate = Volatile.Read(ref _physicalInputGate);
         if (gate is null)
         {
-            args.Handled = true;
-            return;
+            return false;
         }
 
         try
         {
             if (!gate(new NativeRendererPhysicalInput(kind)))
             {
-                args.Handled = true;
-                return;
+                return false;
             }
 
             AdvanceInputEpoch();
+            return true;
         }
         catch
         {
             // A renderer callback is a security boundary. Input cannot reach
             // CEF if the authoritative session gate is unavailable.
-            args.Handled = true;
+            return false;
         }
     }
 
