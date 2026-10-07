@@ -88,10 +88,20 @@ internal sealed class ShellFocusNavigator(
         var current = window.FocusManager?.GetFocusedElement() is Visual focused
             ? areas.FindIndex(area => area.Contains(focused))
             : -1;
-        var next = current < 0
-            ? direction >= 0 ? 0 : areas.Count - 1
-            : (current + Math.Sign(direction) + areas.Count) % areas.Count;
-        areas[next].Focus();
+        areas[AdjacentAreaIndex(current, areas.Count, direction)].Focus();
+    }
+
+    /// <summary>
+    /// The area after (or before) <paramref name="current"/>, wrapping at both
+    /// ends. With focus outside every area, forward starts at the first area
+    /// and backward at the last.
+    /// </summary>
+    internal static int AdjacentAreaIndex(int current, int count, int direction)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
+        return current < 0 || current >= count
+            ? direction >= 0 ? 0 : count - 1
+            : (current + (direction >= 0 ? 1 : -1) + count) % count;
     }
 
     public TerminalPresentationHost? FindActiveTerminalHost()

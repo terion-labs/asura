@@ -82,4 +82,21 @@ public sealed class KeySequenceDisplayTests
             KeySequenceDisplay.WithShortcut("Close tab", stroke));
         Assert.Equal("Close tab", KeySequenceDisplay.WithShortcut("Close tab", null));
     }
+
+    [Fact]
+    public void Toolbar_tooltips_name_their_menu_shortcut_on_a_mac()
+    {
+        if (HostPlatform.Current == HostOperatingSystem.MacOS)
+        {
+            Assert.Equal("Close tab (⌘W)", ShortcutTips.CloseTab);
+            Assert.Equal("New tab (⌥⌘T)", ShortcutTips.NewTab);
+            Assert.Equal("Toggle agent panel (⌃⌘A)", ShortcutTips.ToggleAgentPanel);
+            Assert.Equal("Add panel (⇧⌘D)", ShortcutTips.AddPanel);
+        }
+        else
+        {
+            Assert.Equal("Close tab", ShortcutTips.CloseTab);
+            Assert.Equal("New tab", ShortcutTips.NewTab);
+        }
+    }
 }

@@ -53,6 +53,7 @@ internal static class MacOsQuickTerminalReveal
             CanJoinAllSpaces | FullScreenAuxiliary | IgnoresCycle | Transient);
         return true;
     }
+
     public static bool TryClearWindowBacking(Window window)
     {
         if (!TryGetNativeWindow(window, out var nsWindow))

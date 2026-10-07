@@ -13,6 +13,10 @@ public static class ShortcutTips
         "New tab",
         new KeyStroke("T", KeyModifiers.Alt | KeyModifiers.Meta));
 
+    public static string CloseTab { get; } = Tip(
+        "Close tab",
+        new KeyStroke("W", KeyModifiers.Meta));
+
     public static string ToggleAgentPanel { get; } = Tip(
         "Toggle agent panel",
         new KeyStroke("A", KeyModifiers.Control | KeyModifiers.Meta));
