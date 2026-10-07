@@ -248,4 +248,52 @@ public sealed class CloseLifecycleTests
         Assert.Equal(0, harness.Factory[harness.SessionId].CloseCount);
         Assert.Equal(0, harness.Factory[secondSession].CloseCount);
     }
+
+    [Fact]
+    public async Task WindowInspectionListsActiveSessionsWithoutClosingAnything()
+    {
+        await using var harness = new SessionHostTestHarness();
+        await harness.OpenAsync();
+        var busySession = new SessionId("session-busy");
+        await harness.OpenAsync(
+            sessionId: busySession,
+            panelId: new PanelInstanceId("panel-busy"));
+        harness.Factory[busySession].HasActiveWork = true;
+
+        var inspected = (await harness.Client.InspectCloseAsync(
+            CloseScopeKind.Window,
+            harness.WindowId.Value,
+            harness.HumanContext(),
+            CancellationToken.None)).Value();
+
+        var active = Assert.Single(inspected);
+        Assert.Equal(busySession, active.SessionId);
+        Assert.Equal(0, harness.Factory[harness.SessionId].CloseCount);
+        Assert.Equal(0, harness.Factory[busySession].CloseCount);
+        Assert.False(harness.Factory[harness.SessionId].IsClosed);
+    }
+
+    [Fact]
+    public async Task IdleWindowInspectionReportsNothingAndLeavesSessionsOpen()
+    {
+        await using var harness = new SessionHostTestHarness();
+        await harness.OpenAsync();
+
+        var inspected = (await harness.Client.InspectCloseAsync(
+            CloseScopeKind.Window,
+            harness.WindowId.Value,
+            harness.HumanContext(),
+            CancellationToken.None)).Value();
+
+        Assert.Empty(inspected);
+        Assert.False(harness.Factory[harness.SessionId].IsClosed);
+
+        // A later close still sees the session it would have closed.
+        var requested = (await harness.Client.CloseAsync(
+            CloseScopeRequest.Window(harness.WindowId, CloseDecision.Request),
+            harness.HumanContext(),
+            CancellationToken.None)).Value();
+        var completed = Assert.IsType<CloseScopeResult.Completed>(requested);
+        Assert.Equal(SessionCloseOutcome.GracefullyClosed, Assert.Single(completed.Sessions).Outcome);
+    }
 }

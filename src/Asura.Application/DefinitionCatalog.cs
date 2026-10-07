@@ -1694,7 +1694,8 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
             imeEnabled: profile.ImeEnabled,
             shellIntegration: profile.ShellIntegration,
             bellMode: profile.BellMode,
-            compatibility: profile.Compatibility);
+            compatibility: profile.Compatibility,
+            askBeforeClosing: profile.AskBeforeClosing);
         var saved = await _terminalProfiles.SaveAsync(
                 migrated,
                 stored.Revision,

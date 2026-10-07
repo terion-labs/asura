@@ -39,6 +39,7 @@ public sealed record TerminalProfile : IDurableDefinition
             && Compatibility == other.Compatibility
             && string.Equals(Name, other.Name, StringComparison.Ordinal)
             && string.Equals(FontFamily, other.FontFamily, StringComparison.Ordinal)
+            && AskBeforeClosing == other.AskBeforeClosing
             && string.Equals(Palette.Name, other.Palette.Name, StringComparison.Ordinal)
             && Palette.Matches(other.Palette)
             && Equals(ClipboardPolicy, other.ClipboardPolicy);
@@ -60,7 +61,8 @@ public sealed record TerminalProfile : IDurableDefinition
         bool imeEnabled = true,
         TerminalShellIntegrationMode shellIntegration = TerminalShellIntegrationMode.Detect,
         TerminalBellMode bellMode = TerminalBellMode.Visual,
-        TerminalCompatibilityProfile compatibility = TerminalCompatibilityProfile.Ghostty)
+        TerminalCompatibilityProfile compatibility = TerminalCompatibilityProfile.Ghostty,
+        bool askBeforeClosing = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(fontFamily);
@@ -136,6 +138,7 @@ public sealed record TerminalProfile : IDurableDefinition
         ShellIntegration = shellIntegration;
         BellMode = bellMode;
         Compatibility = compatibility;
+        AskBeforeClosing = askBeforeClosing;
     }
 
     public static DefinitionKind Kind => DefinitionKind.TerminalProfile;
@@ -173,6 +176,14 @@ public sealed record TerminalProfile : IDurableDefinition
     public TerminalBellMode BellMode { get; }
 
     public TerminalCompatibilityProfile Compatibility { get; }
+
+    /// <summary>
+    /// Whether closing a tab, window, or the app asks first when a session
+    /// still has work running — Terminal's "Ask before closing". The close
+    /// alert's "Don't ask again" turns it off; Settings turns it back on.
+    /// Profiles stored before the setting existed read as asking.
+    /// </summary>
+    public bool AskBeforeClosing { get; init; }
 
     [JsonIgnore]
     public DefinitionKey Key => new(Kind, Id.Value);

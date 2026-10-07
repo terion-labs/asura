@@ -427,6 +427,20 @@ public interface ISessionHostClient
         OperationContext context,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Lists the sessions in a close scope that still have active work without
+    /// closing, marking, or reserving anything. Quitting asks every window this
+    /// before it closes any of them, so cancelling the one alert leaves every
+    /// window and session as it was.
+    /// </summary>
+    ValueTask<HostResult<IReadOnlyList<ActiveSessionSummary>>> InspectCloseAsync(
+        CloseScopeKind scope,
+        string targetId,
+        OperationContext context,
+        CancellationToken cancellationToken) =>
+        Unsupported<IReadOnlyList<ActiveSessionSummary>>(
+            "Close inspection is not implemented by this client.");
+
     ValueTask<HostResult<Unit>> DisconnectClientAsync(
         ClientId clientId,
         OperationContext context,

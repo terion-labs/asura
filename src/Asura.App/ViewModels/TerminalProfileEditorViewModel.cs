@@ -493,7 +493,9 @@ public sealed class TerminalProfileEditorViewModel : ObservableObject
                 ImeEnabled,
                 ShellIntegration,
                 BellMode,
-                Compatibility),
+                Compatibility,
+                // Not edited here: the close alert owns it until Settings does.
+                _original.AskBeforeClosing),
             ExpectedRevision);
     }
 

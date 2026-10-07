@@ -168,8 +168,10 @@ internal sealed class WorkspaceBootAssets(string descriptorPath, string cacheRoo
             var percent = (int)(total * 100 / size);
             if (percent != lastPercent)
             {
-                progress?.Report(new WorkspaceIsolationProgress(string.Create(CultureInfo.InvariantCulture,
-                    $"Downloading workspace boot images… {percent}%")));
+                progress?.Report(new WorkspaceIsolationProgress(
+                    string.Create(CultureInfo.InvariantCulture,
+                        $"Downloading workspace boot images… {percent}%"),
+                    Math.Clamp(percent / 100.0, 0, 1)));
                 lastPercent = percent;
             }
         }
