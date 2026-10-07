@@ -17,7 +17,7 @@ public enum SystemMonitorPanelState
 
 internal static class SystemMonitorPolling
 {
-    private static readonly TimeSpan NormalInterval = TimeSpan.FromSeconds(2);
+    internal static readonly TimeSpan NormalInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan MaximumRemoteBackoff = TimeSpan.FromSeconds(30);
 
     public static TimeSpan Delay(
@@ -279,8 +279,14 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
         : "Unavailable";
 
     public string CapturedAtText => Snapshot is { } snapshot
-        ? $"Captured {snapshot.CapturedAtUtc.ToLocalTime():T}"
+        ? $"Captured {DisplayDates.FormatTime(snapshot.CapturedAtUtc)}"
         : "No sample captured";
+
+    /// <summary>
+    /// How far apart the history's samples are, so a chart can say how long
+    /// ago the one under the pointer was taken.
+    /// </summary>
+    public TimeSpan SampleInterval => SystemMonitorPolling.NormalInterval;
 
     public IReadOnlyList<double?> CpuHistory => _cpuHistory;
 
@@ -582,11 +588,14 @@ public sealed class ProcessMonitorEntryViewModel : ObservableObject
 
     public string Memory => MonitorPanelPresentation.FormatBytes(Entry.WorkingSetBytes);
 
-    public string Started => Entry.StartedAtUtc?.ToLocalTime().ToString("g", System.Globalization.CultureInfo.InvariantCulture) ?? "Unknown";
+    public string Started => DisplayDates.Format(Entry.StartedAtUtc);
 
     public string AccessibleSummary =>
         $"PID {ProcessId}, {Name}, CPU {MonitorPanelPresentation.AccessiblePercent(Entry.CpuPercent)}, "
         + $"memory {Memory}, started {Started}.";
+
+    /// <summary>Type-to-select and plain copies read a process as its name.</summary>
+    public override string ToString() => Name;
 
     internal void Update(ProcessMonitorEntry entry)
     {
@@ -874,7 +883,7 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
     };
 
     public string CapturedAtText => Snapshot is { } snapshot
-        ? $"Captured {snapshot.CapturedAtUtc.ToLocalTime():T}"
+        ? $"Captured {DisplayDates.FormatTime(snapshot.CapturedAtUtc)}"
         : "No sample captured";
 
     /// <summary>

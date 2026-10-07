@@ -102,6 +102,10 @@ internal static class FocusedCommandTargets
                     return new SelectableTextEditTarget(text);
                 case SelectableMarkdownDocument document:
                     return new MarkdownDocumentEditTarget(document);
+                // A panel whose list answers the Edit menu itself: the Files
+                // panel copies, pastes and moves to the Trash its selection.
+                case IEditTarget target:
+                    return target;
                 default:
                     break;
             }

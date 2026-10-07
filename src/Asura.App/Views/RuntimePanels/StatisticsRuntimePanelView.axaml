@@ -25,7 +25,7 @@
       SplitRequested="OnSplitRequested"
       Title="{Binding Title}">
     <controls:PanelChrome.Status>
-      <Border Classes="StatusDot" controls:StatusToneBrush.Background="{Binding StatusTone}" />
+      <controls:StatusMark Tone="{Binding StatusTone}" Description="{Binding StatusText}" />
     </controls:PanelChrome.Status>
 
     <controls:PanelChrome.Leading>
@@ -50,7 +50,7 @@
             Command="{Binding RefreshCommand}"
             ToolTip.Tip="Refresh statistics"
             AutomationProperties.Name="Refresh statistics">
-          <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellFontSize12}" />
+          <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellIconSizeMd}" />
         </Button>
       </StackPanel>
     </controls:PanelChrome.Actions>
@@ -62,7 +62,12 @@
     </controls:PanelChrome.Footer>
 
     <Grid>
-        <ScrollViewer Margin="{controls:Inset Lg}" IsVisible="{Binding ShowContent}">
+        <!-- One of three fills this area: the charts, the wait for the
+             first sample, or the failure that replaced them. A state never
+             floats over the charts; a later failure while charts are on
+             screen is reported under the header, where the panel's notices
+             live, and by the status mark. -->
+        <ScrollViewer Margin="{controls:Inset Lg}" IsVisible="{Binding ShowContent, FallbackValue=False}">
           <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
             <controls:CardGridPanel MinItemWidth="236" MaxColumns="2" Spacing="{DynamicResource ShellSpaceMd}">
               <controls:SurfaceCard Padding="{DynamicResource ShellRowPadding}">
@@ -74,6 +79,11 @@
                       Grid.Row="3"
                       Margin="{controls:Inset Top=Md}"
                       Values="{Binding CpuHistory}"
+                      Unit="Percent"
+                      SampleInterval="{Binding SampleInterval}"
+                      LabelBrush="{DynamicResource ShellMutedBrush}"
+                      ReadoutBackground="{DynamicResource ShellSurfaceBrush}"
+                      LabelFontSize="{DynamicResource ShellFontSize9}"
                       Maximum="100"
                       LineBrush="{DynamicResource ShellAccentBrush}"
                       AreaBrush="{DynamicResource ShellAccentSoftBrush}"
@@ -81,7 +91,7 @@
                       AutomationProperties.Name="CPU usage history over the last two minutes" />
                   <Grid Grid.Row="4" Margin="{controls:Inset Top=Xs}" ColumnDefinitions="*,Auto">
                     <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Last 2 min" />
-                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Now · 100% max" />
+                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Now" />
                   </Grid>
                 </Grid>
               </controls:SurfaceCard>
@@ -94,13 +104,18 @@
                       Grid.Row="3"
                       Margin="{controls:Inset Top=Md}"
                       Values="{Binding MemoryHistory}"
+                      Unit="Bytes"
+                      SampleInterval="{Binding SampleInterval}"
+                      LabelBrush="{DynamicResource ShellMutedBrush}"
+                      ReadoutBackground="{DynamicResource ShellSurfaceBrush}"
+                      LabelFontSize="{DynamicResource ShellFontSize9}"
                       LineBrush="{DynamicResource ShellSuccessBrush}"
                       AreaBrush="{DynamicResource ShellSuccessSoftBrush}"
                       GridBrush="{DynamicResource ShellBorderBrush}"
                       AutomationProperties.Name="Process memory history over the last two minutes" />
                   <Grid Grid.Row="4" Margin="{controls:Inset Top=Xs}" ColumnDefinitions="*,Auto">
                     <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Last 2 min" />
-                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Now · auto scale" />
+                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Now" />
                   </Grid>
                 </Grid>
               </controls:SurfaceCard>
@@ -113,13 +128,18 @@
                       Grid.Row="3"
                       Margin="{controls:Inset Top=Md}"
                       Values="{Binding NetworkReceivedHistory}"
+                      Unit="BytesPerSecond"
+                      SampleInterval="{Binding SampleInterval}"
+                      LabelBrush="{DynamicResource ShellMutedBrush}"
+                      ReadoutBackground="{DynamicResource ShellSurfaceBrush}"
+                      LabelFontSize="{DynamicResource ShellFontSize9}"
                       LineBrush="{DynamicResource ShellAccentBrush}"
                       AreaBrush="{DynamicResource ShellAccentSoftBrush}"
                       GridBrush="{DynamicResource ShellBorderBrush}"
                       AutomationProperties.Name="Network receive history over the last two minutes" />
                   <Grid Grid.Row="4" Margin="{controls:Inset Top=Xs}" ColumnDefinitions="*,Auto">
                     <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Last 2 min" />
-                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Now · auto scale" />
+                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Now" />
                   </Grid>
                 </Grid>
               </controls:SurfaceCard>
@@ -132,13 +152,18 @@
                       Grid.Row="3"
                       Margin="{controls:Inset Top=Md}"
                       Values="{Binding NetworkSentHistory}"
+                      Unit="BytesPerSecond"
+                      SampleInterval="{Binding SampleInterval}"
+                      LabelBrush="{DynamicResource ShellMutedBrush}"
+                      ReadoutBackground="{DynamicResource ShellSurfaceBrush}"
+                      LabelFontSize="{DynamicResource ShellFontSize9}"
                       LineBrush="{DynamicResource ShellSuccessBrush}"
                       AreaBrush="{DynamicResource ShellSuccessSoftBrush}"
                       GridBrush="{DynamicResource ShellBorderBrush}"
                       AutomationProperties.Name="Network send history over the last two minutes" />
                   <Grid Grid.Row="4" Margin="{controls:Inset Top=Xs}" ColumnDefinitions="*,Auto">
                     <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Last 2 min" />
-                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Now · auto scale" />
+                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Now" />
                   </Grid>
                 </Grid>
               </controls:SurfaceCard>
@@ -168,7 +193,7 @@
             Kind="Loading"
             Heading="Waiting for first sample…"
             Body="Collecting resource statistics…"
-            IsVisible="{Binding ShowLoading}"
+            IsVisible="{Binding ShowLoading, FallbackValue=False}"
             AutomationProperties.LiveSetting="Polite"
             AutomationProperties.Name="Statistics loading" />
 
@@ -179,7 +204,8 @@
             Body="Use Retry to request the current state."
             ActionLabel="Retry"
             ActionCommand="{Binding RefreshCommand}"
-            IsVisible="{Binding ShowTerminalError}"
+            Background="{DynamicResource ShellSurfaceBrush}"
+            IsVisible="{Binding ShowTerminalError, FallbackValue=False}"
             AutomationProperties.LiveSetting="Assertive"
             AutomationProperties.Name="Statistics unavailable" />
     </Grid>

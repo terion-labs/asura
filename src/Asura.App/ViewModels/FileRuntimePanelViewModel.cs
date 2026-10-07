@@ -13,9 +13,16 @@ namespace Asura.App.ViewModels;
 
 public sealed class FileEntryViewModel
 {
-    public FileEntryViewModel(FilePanelEntry entry)
+    private readonly Func<FilePanelEntry, Bitmap?>? _iconSource;
+    private Bitmap? _icon;
+    private bool _iconResolved;
+
+    public FileEntryViewModel(
+        FilePanelEntry entry,
+        Func<FilePanelEntry, Bitmap?>? iconSource = null)
     {
         Entry = entry ?? throw new ArgumentNullException(nameof(entry));
+        _iconSource = iconSource;
     }
 
     public FilePanelEntry Entry { get; }
@@ -28,11 +35,43 @@ public sealed class FileEntryViewModel
         ? "Folder"
         : FormatSize(Entry.Size);
 
-    public string Modified => Entry.LastModifiedAt?.ToLocalTime().ToString("g", System.Globalization.CultureInfo.InvariantCulture) ?? "Unknown";
+    public string Modified => DisplayDates.Format(Entry.LastModifiedAt);
 
     public bool IsDirectory => Entry.Kind == FilePanelEntryKind.Directory;
 
     public bool IsLink => Entry.Kind == FilePanelEntryKind.Link;
+
+    /// <summary>
+    /// The system's icon for this item, asked for the first time a row shows
+    /// it rather than for every entry a listing reads.
+    /// </summary>
+    public Bitmap? Icon
+    {
+        get
+        {
+            if (!_iconResolved)
+            {
+                _iconResolved = true;
+                _icon = _iconSource?.Invoke(Entry);
+            }
+
+            return _icon;
+        }
+    }
+
+    public bool HasIcon => Icon is not null;
+
+    /// <summary>A folder glyph stands in, tinted as folders are.</summary>
+    public bool ShowsFolderGlyph => !HasIcon && IsDirectory;
+
+    /// <summary>A file glyph chosen by kind stands in.</summary>
+    public bool ShowsFileGlyph => !HasIcon && !IsDirectory;
+
+    /// <summary>The glyph shown where the system has no icon to give.</summary>
+    public FluentIcons.Common.Symbol Glyph => FileTypeIcons.FallbackSymbol(Entry);
+
+    /// <summary>Type-to-select reads an item's text, which for a file is its name.</summary>
+    public override string ToString() => Name;
 
     internal static string FormatSize(long? size)
     {
@@ -45,7 +84,7 @@ public sealed class FileEntryViewModel
     }
 }
 
-public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNotificationSource
+public sealed partial class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNotificationSource
 {
     private static readonly TimeSpan SearchDebounce = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan ObservationInterval = TimeSpan.FromSeconds(2);
@@ -54,6 +93,12 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
     private const int DefaultPreviewBytes = 256 * 1024;
     private const int MaximumFormattedBinaryBytes = 16 * 1024;
     private readonly IFilePanelClient _client;
+
+    /// <summary>
+    /// The system Trash for local deletes, or null to keep every delete a
+    /// confirmed permanent one.
+    /// </summary>
+    private readonly IFileTrash? _trash;
     private readonly ConnectionProfile _connection;
     private readonly IHostedFilePanelClient? _hostedClient;
     private readonly IFileTransferQueueClient? _transferQueue;
@@ -200,10 +245,12 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
         IFilePreviewPreferences? previewPreferences = null,
         FileTransferClipboard? clipboard = null,
         FileProviderProfileId? recoveryProfileId = null,
-        KubernetesFileTarget? kubernetesTarget = null)
+        KubernetesFileTarget? kubernetesTarget = null,
+        IFileTrash? trash = null)
         : base(id, PanelKind.FileViewer, title, "Files")
     {
         KubernetesTarget = kubernetesTarget;
+        _trash = trash;
         _clipboard = clipboard;
         _recoveryProfileId = recoveryProfileId;
         _clipboard?.Changed += OnTransferClipboardChanged;
@@ -724,7 +771,7 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
     /// <summary>
     /// The same count with the words taken out, for when the toolbar has no
     /// room for them. A number in a pill beside a folder path is already
-    /// unambiguous; "item(s)" is what goes when something has to.
+    /// unambiguous; the noun is what goes when something has to.
     /// </summary>
     public string ShortStatus
     {
@@ -1157,8 +1204,11 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
 
     private void RebuildActions()
     {
+        // In the catalog's order within each band, and the bands in menu
+        // order: what removes data comes last, under its own rule.
         var states = FilePanelActionCatalog.Resolve(ActionContext)
             .Where(state => state.IsAvailable)
+            .OrderBy(state => FilePanelActionPresentation.Band(state.Action))
             .ToArray();
         _menuActions = Dress(states);
         _toolbarActions = Dress([.. states.Where(state => ToolbarPrimaryActions.Contains(state.Action))]);
@@ -1174,22 +1224,26 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
 
     private FileActionViewModel[] Dress(IReadOnlyList<FilePanelActionState> states)
     {
+        var movesToTrash = CanMoveToTrash;
         var dressed = new FileActionViewModel[states.Count];
         for (var index = 0; index < states.Count; index++)
         {
             var state = states[index];
             dressed[index] = new FileActionViewModel(
                 state,
-                FilePanelActionPresentation.Label(state.Action),
+                FilePanelActionPresentation.Label(state.Action, movesToTrash),
                 // What downloading will actually pull is worth saying: a person
                 // about to take a folder tree over a network should be told so.
                 state.Action == FilePanelAction.Download
                     ? DownloadLabel
-                    : FilePanelActionPresentation.Description(state.Action),
+                    : FilePanelActionPresentation.Description(state.Action, movesToTrash),
                 FilePanelActionPresentation.Glyph(state.Action),
                 FilePanelActionPresentation.Gesture(state.Action),
-                startsGroup: index > 0 && states[index - 1].Group != state.Group,
-                RequestAction);
+                startsGroup: index > 0
+                    && FilePanelActionPresentation.Band(states[index - 1].Action)
+                        != FilePanelActionPresentation.Band(state.Action),
+                RequestAction,
+                isDestructive: state.Action == FilePanelAction.Delete && !movesToTrash);
         }
 
         return dressed;
@@ -1219,8 +1273,34 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
     /// </summary>
     public event EventHandler<FilePanelAction>? ActionRequested;
 
-    private void RequestAction(FilePanelAction action) =>
+    private void RequestAction(FilePanelAction action)
+    {
+        // Moving to the Trash needs nothing from the window — no picker, no
+        // confirmation — so the panel does it itself, wherever it is hosted.
+        if (action == FilePanelAction.Delete && CanMoveToTrash)
+        {
+            _ = MoveSelectionToTrashAsync();
+            return;
+        }
+
         ActionRequested?.Invoke(this, action);
+    }
+
+    /// <summary>
+    /// Asks for an action from the keyboard, the same way a menu row or a
+    /// toolbar button does, and only when it is possible right now.
+    /// </summary>
+    /// <returns>Whether the action was possible and was asked for.</returns>
+    public bool RequestActionIfEnabled(FilePanelAction action)
+    {
+        if (!IsActionEnabled(action))
+        {
+            return false;
+        }
+
+        RequestAction(action);
+        return true;
+    }
 
     /// <summary>
     /// Who can read or change the selected item, as this connection describes
@@ -2372,7 +2452,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
                 _hasLoadedListing = true;
                 OnPropertyChanged(nameof(HasListingSummary));
                 ApplyFilter();
-                Status = $"{_allEntries.Count.ToString(CultureInfo.InvariantCulture)} items loaded…";
+                Status = $"{CountOf(_allEntries.Count, "item")} loaded…";
                 ShortStatus = $"{_allEntries.Count.ToString(CultureInfo.InvariantCulture)}+";
                 OnPropertyChanged(nameof(HasMore));
 
@@ -3039,7 +3119,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             .OrderBy(item => item, Comparer<FilePanelEntry>.Create(CompareEntries))
             .Select(item => selected is not null && ReferenceEquals(selected.Entry, item)
                 ? selected
-                : new FileEntryViewModel(item))
+                : new FileEntryViewModel(item, ResolveIcon))
             .ToArray();
         Replace(Entries, visible);
         if (selected is not null && !visible.Contains(selected))
@@ -3069,19 +3149,19 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             && SelectedProfile?.Capabilities.HasFlag(FilePanelCapability.Search) == true;
         if (usesProviderSearch)
         {
-            var resultCount = Entries.Count.ToString(CultureInfo.InvariantCulture);
+            var resultCount = Entries.Count.ToString("N0", CultureInfo.CurrentCulture);
             Status = IsSearchLoading
-                ? $"{resultCount} search result(s) found…"
-                : $"{resultCount} search result(s)";
+                ? $"{CountOf(Entries.Count, "search result")} found…"
+                : CountOf(Entries.Count, "search result");
             ShortStatus = resultCount + (IsSearchLoading ? "+" : string.Empty);
             return;
         }
 
-        var loadedCount = _allEntries.Count.ToString(CultureInfo.InvariantCulture);
+        var loadedCount = _allEntries.Count.ToString("N0", CultureInfo.CurrentCulture);
         var loadedLabel = HasMore
-            ? $"{loadedCount} loaded item(s)"
-            : $"{loadedCount} item(s)";
-        var shownCount = Entries.Count.ToString(CultureInfo.InvariantCulture);
+            ? $"{CountOf(_allEntries.Count, "item")} loaded"
+            : CountOf(_allEntries.Count, "item");
+        var shownCount = Entries.Count.ToString("N0", CultureInfo.CurrentCulture);
         var unfiltered = string.IsNullOrWhiteSpace(Filter);
         Status = unfiltered
             ? loadedLabel
@@ -3091,6 +3171,15 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         ShortStatus = (unfiltered ? loadedCount : $"{shownCount}/{loadedCount}")
             + (HasMore ? "+" : string.Empty);
     }
+
+    /// <summary>
+    /// A count with its noun in the right number: "1 item", "5 items". The
+    /// "item(s)" it replaces made every reader do the grammar.
+    /// </summary>
+    internal static string CountOf(int count, string noun) =>
+        string.Create(
+            CultureInfo.CurrentCulture,
+            $"{count:N0} {(count == 1 ? noun : noun + "s")}");
 
     private int CompareEntries(FilePanelEntry? left, FilePanelEntry? right)
     {
@@ -3905,6 +3994,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         OnPropertyChanged(nameof(ShowErrorState));
         OnPropertyChanged(nameof(CanRetryContentState));
         OnPropertyChanged(nameof(ShowEmptyState));
+        NotifyStatusMarkChanged();
         _retryCommand.RaiseCanExecuteChanged();
     }
 

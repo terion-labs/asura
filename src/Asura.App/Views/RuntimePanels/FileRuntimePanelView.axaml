@@ -39,6 +39,25 @@
         <Setter Property="Width" Value="110" />
       </Style>
     </ContainerQuery>
+    <!-- A row's icon is sized from the icon ramp, so it grows with the text
+         beside it: the list size in rows, the tile size in the grid. The
+         system icon and the stand-in glyph share one box. -->
+    <Style Selector="Panel.FileEntryIcon">
+      <Setter Property="Width" Value="{DynamicResource ShellIconSizeMd}" />
+      <Setter Property="Height" Value="{DynamicResource ShellIconSizeMd}" />
+    </Style>
+    <Style Selector="Panel.FileEntryIcon.large">
+      <Setter Property="Width" Value="{DynamicResource ShellIconSizeLg}" />
+      <Setter Property="Height" Value="{DynamicResource ShellIconSizeLg}" />
+    </Style>
+    <Style Selector="Panel.FileEntryIcon icons|SymbolIcon">
+      <Setter Property="FontSize" Value="{DynamicResource ShellIconSizeMd}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Panel.FileEntryIcon.large icons|SymbolIcon">
+      <Setter Property="FontSize" Value="{DynamicResource ShellIconSizeLg}" />
+    </Style>
     <Style Selector="ListBoxItem.transferDropTarget /template/ ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
     </Style>
@@ -106,7 +125,7 @@
       SplitRequested="OnSplitRequested"
       Title="{Binding Title}">
     <controls:PanelChrome.Status>
-      <Border Classes="StatusDot" Background="{DynamicResource ShellSuccessBrush}" />
+      <controls:StatusMark Tone="{Binding StatusTone}" Description="{Binding StatusDescription}" />
     </controls:PanelChrome.Status>
 
     <controls:PanelChrome.Leading>
@@ -132,11 +151,11 @@
               <Button Classes="SecondaryButton" Content="Next page"
                   Command="{Binding NextPageCommand}" IsVisible="{Binding HasNextPage}" />
               <Button Classes="IconButton FileToolbarAction" Click="OnNavigateUpClick" IsEnabled="{Binding CanNavigateUp}" ToolTip.Tip="Parent folder" AutomationProperties.Name="Parent folder">
-                <icons:SymbolIcon Symbol="ArrowUp" FontSize="14" />
+                <icons:SymbolIcon Symbol="ArrowUp" FontSize="{DynamicResource ShellIconSizeMd}" />
               </Button>
               <Border Width="1" Margin="{DynamicResource ShellToolbarSeparatorMargin}" Background="{DynamicResource ShellBorderBrush}" />
               <Button Classes="IconButton FileToolbarAction" Click="OnRefreshClick" ToolTip.Tip="Refresh location" AutomationProperties.Name="Refresh files">
-                <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="14" />
+                <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellIconSizeMd}" />
               </Button>
             </StackPanel>
           </Border>
@@ -170,7 +189,7 @@
                   Classes="IconButton FileToolbarAction"
                   ToolTip.Tip="Sort and view options"
                   AutomationProperties.Name="Open file sort and view options">
-                <icons:SymbolIcon Symbol="Grid" FontSize="14" />
+                <icons:SymbolIcon Symbol="Grid" FontSize="{DynamicResource ShellIconSizeMd}" />
                 <Button.Flyout>
                   <Flyout Placement="Bottom">
                     <StackPanel Width="250" Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceSm}">
@@ -195,7 +214,7 @@
                   ToolTip.Tip="Show or hide preview"
                   AutomationProperties.Name="Toggle file preview"
                   AutomationProperties.ItemStatus="{Binding PreviewVisibilityStatus}">
-                <icons:SymbolIcon Symbol="PanelRight" FontSize="14" />
+                <icons:SymbolIcon Symbol="PanelRight" FontSize="{DynamicResource ShellIconSizeMd}" />
               </Button>
               <!-- The actions themselves are data, and this strip is one of the
                    three places that data is shown. When the panel narrows the
@@ -222,7 +241,7 @@
                           IsEnabled="{Binding IsEnabled}"
                           ToolTip.Tip="{Binding Description}"
                           AutomationProperties.Name="{Binding Description}">
-                        <icons:SymbolIcon Symbol="{Binding Symbol}" FontSize="14" />
+                        <icons:SymbolIcon Symbol="{Binding Symbol}" FontSize="{DynamicResource ShellIconSizeMd}" />
                       </Button>
                     </StackPanel>
                   </DataTemplate>
@@ -231,7 +250,7 @@
               </StackPanel>
               <Border Width="1" Margin="{DynamicResource ShellToolbarSeparatorMargin}" Background="{DynamicResource ShellBorderBrush}" />
               <Button x:Name="FileActionsOverflowButton" Classes="IconButton FileToolbarAction" ToolTip.Tip="More file actions" AutomationProperties.Name="Open more file actions">
-                <icons:SymbolIcon Symbol="MoreVertical" FontSize="14" />
+                <icons:SymbolIcon Symbol="MoreCircle" FontSize="{DynamicResource ShellIconSizeMd}" />
                 <Button.Flyout>
                   <MenuFlyout Placement="Bottom">
                     <MenuFlyout.ItemContainerTheme>
@@ -243,7 +262,7 @@
                     <MenuFlyout.ItemTemplate>
                       <DataTemplate DataType="vm:FileActionViewModel">
                         <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                          <icons:SymbolIcon VerticalAlignment="Center" Symbol="{Binding Symbol}" FontSize="14" />
+                          <icons:SymbolIcon VerticalAlignment="Center" Symbol="{Binding Symbol}" FontSize="{DynamicResource ShellIconSizeSm}" />
                           <TextBlock VerticalAlignment="Center" Text="{Binding Label}" />
                         </StackPanel>
                       </DataTemplate>
@@ -253,7 +272,13 @@
               </Button>
             </StackPanel>
           </Border>
-          <TextBox x:Name="FileFilterBox" Grid.Column="3" Width="180" Text="{Binding Filter}" PlaceholderText="Search files" AutomationProperties.Name="Filter file items" />
+          <controls:SearchField
+              x:Name="FileFilterBox"
+              Grid.Column="3"
+              Width="180"
+              Text="{Binding Filter}"
+              PlaceholderText="{Binding FilterPlaceholder}"
+              AutomationProperties.Name="{Binding FilterAccessibleName}" />
         </Grid>
       </Border>
 
@@ -287,7 +312,7 @@
                 <ContextMenu.ItemTemplate>
                   <DataTemplate DataType="vm:FileActionViewModel">
                     <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                      <icons:SymbolIcon VerticalAlignment="Center" Symbol="{Binding Symbol}" FontSize="14" />
+                      <icons:SymbolIcon VerticalAlignment="Center" Symbol="{Binding Symbol}" FontSize="{DynamicResource ShellIconSizeSm}" />
                       <TextBlock VerticalAlignment="Center" Text="{Binding Label}" />
                     </StackPanel>
                   </DataTemplate>
@@ -319,13 +344,13 @@
                     <TextBlock Classes="Eyebrow" Text="Name" />
                     <icons:SymbolIcon
                         Classes="FileSortIndicator FileSortAscending"
-                        FontSize="10"
+                        FontSize="{DynamicResource ShellIconSizeXs}"
                         IsHitTestVisible="False"
                         Symbol="ArrowUp"
                         AutomationProperties.Name="Sorted ascending" />
                     <icons:SymbolIcon
                         Classes="FileSortIndicator FileSortDescending"
-                        FontSize="10"
+                        FontSize="{DynamicResource ShellIconSizeXs}"
                         IsHitTestVisible="False"
                         Symbol="ArrowDown"
                         AutomationProperties.Name="Sorted descending" />
@@ -354,13 +379,13 @@
                     <TextBlock Classes="Eyebrow" Text="Size" />
                     <icons:SymbolIcon
                         Classes="FileSortIndicator FileSortAscending"
-                        FontSize="10"
+                        FontSize="{DynamicResource ShellIconSizeXs}"
                         IsHitTestVisible="False"
                         Symbol="ArrowUp"
                         AutomationProperties.Name="Sorted ascending" />
                     <icons:SymbolIcon
                         Classes="FileSortIndicator FileSortDescending"
-                        FontSize="10"
+                        FontSize="{DynamicResource ShellIconSizeXs}"
                         IsHitTestVisible="False"
                         Symbol="ArrowDown"
                         AutomationProperties.Name="Sorted descending" />
@@ -389,13 +414,13 @@
                     <TextBlock Classes="Eyebrow" Text="Modified" />
                     <icons:SymbolIcon
                         Classes="FileSortIndicator FileSortAscending"
-                        FontSize="10"
+                        FontSize="{DynamicResource ShellIconSizeXs}"
                         IsHitTestVisible="False"
                         Symbol="ArrowUp"
                         AutomationProperties.Name="Sorted ascending" />
                     <icons:SymbolIcon
                         Classes="FileSortIndicator FileSortDescending"
-                        FontSize="10"
+                        FontSize="{DynamicResource ShellIconSizeXs}"
                         IsHitTestVisible="False"
                         Symbol="ArrowDown"
                         AutomationProperties.Name="Sorted descending" />
@@ -410,6 +435,7 @@
                 ItemsSource="{Binding Entries}"
                 SelectedItem="{Binding SelectedEntry}"
                 SelectionMode="Multiple"
+                IsTextSearchEnabled="True"
                 SelectionChanged="OnEntrySelectionChanged"
                 DoubleTapped="OnEntryDoubleTapped"
                 IsVisible="{Binding IsDetailsView}"
@@ -432,8 +458,11 @@
                       <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileModifiedColumnWidth}" MinWidth="112" />
                     </Grid.ColumnDefinitions>
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                      <icons:SymbolIcon VerticalAlignment="Center" Symbol="Folder" FontSize="13" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding IsDirectory}" />
-                      <icons:SymbolIcon VerticalAlignment="Center" Symbol="Code" FontSize="13" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding !IsDirectory}" />
+                      <Panel Classes="FileEntryIcon" VerticalAlignment="Center">
+                        <Image Source="{Binding Icon}" IsVisible="{Binding HasIcon}" />
+                        <icons:SymbolIcon Symbol="Folder" IconVariant="Filled" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding ShowsFolderGlyph}" />
+                        <icons:SymbolIcon Symbol="{Binding Glyph}" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding ShowsFileGlyph}" />
+                      </Panel>
                       <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize10}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
                     </Grid>
                     <TextBlock Grid.Column="2" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Size}" />
@@ -450,6 +479,7 @@
                 ItemsSource="{Binding Entries}"
                 SelectedItem="{Binding SelectedEntry}"
                 SelectionMode="Multiple"
+                IsTextSearchEnabled="True"
                 SelectionChanged="OnEntrySelectionChanged"
                 DoubleTapped="OnEntryDoubleTapped"
                 IsVisible="{Binding IsListView}"
@@ -460,8 +490,11 @@
               <ListBox.ItemTemplate>
                 <DataTemplate>
                   <Grid MinHeight="30" Margin="{controls:Inset Horizontal=Md}" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="Folder" FontSize="13" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding IsDirectory}" />
-                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="Code" FontSize="13" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding !IsDirectory}" />
+                    <Panel Classes="FileEntryIcon" VerticalAlignment="Center">
+                      <Image Source="{Binding Icon}" IsVisible="{Binding HasIcon}" />
+                      <icons:SymbolIcon Symbol="Folder" IconVariant="Filled" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding ShowsFolderGlyph}" />
+                      <icons:SymbolIcon Symbol="{Binding Glyph}" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding ShowsFileGlyph}" />
+                    </Panel>
                     <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize10}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
                     <TextBlock Grid.Column="2" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Size}" />
                   </Grid>
@@ -477,6 +510,7 @@
                 ItemsSource="{Binding Entries}"
                 SelectedItem="{Binding SelectedEntry}"
                 SelectionMode="Multiple"
+                IsTextSearchEnabled="True"
                 SelectionChanged="OnEntrySelectionChanged"
                 DoubleTapped="OnEntryDoubleTapped"
                 IsVisible="{Binding IsGridView}"
@@ -490,8 +524,11 @@
                 <DataTemplate>
                   <controls:SurfaceCard Padding="0" Width="142" Height="88" Margin="{controls:Inset Xs}">
                     <StackPanel Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceXs}">
-                      <icons:SymbolIcon Symbol="Folder" FontSize="20" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding IsDirectory}" />
-                      <icons:SymbolIcon Symbol="Code" FontSize="20" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding !IsDirectory}" />
+                      <Panel Classes="FileEntryIcon large" HorizontalAlignment="Left">
+                        <Image Source="{Binding Icon}" IsVisible="{Binding HasIcon}" />
+                        <icons:SymbolIcon Symbol="Folder" IconVariant="Filled" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding ShowsFolderGlyph}" />
+                        <icons:SymbolIcon Symbol="{Binding Glyph}" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding ShowsFileGlyph}" />
+                      </Panel>
                       <TextBlock FontSize="{DynamicResource ShellFontSize10}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
                       <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Size}" />
                     </StackPanel>
@@ -578,13 +615,10 @@
                     VerticalAlignment="Center"
                     Spacing="{DynamicResource ShellSpaceSm}"
                     IsVisible="{Binding RequiresHostTransferForPreview}">
-                  <TextBlock
+                  <CheckBox
                       VerticalAlignment="Center"
-                      Classes="Muted"
-                      FontSize="{DynamicResource ShellFontSize9}"
-                      Text="{Binding AutoDownloadPreviewLabel}" />
-                  <ToggleSwitch
-                      VerticalAlignment="Center"
+                      FontSize="{DynamicResource ShellFontSize10}"
+                      Content="{Binding AutoDownloadPreviewLabel}"
                       IsChecked="{Binding AutoDownloadPreviews, Mode=TwoWay}"
                       AutomationProperties.Name="Automatically preview files under the size threshold" />
                 </StackPanel>
@@ -615,17 +649,15 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
-                        <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                          <ToggleSwitch
-                              VerticalAlignment="Center"
-                              IsChecked="{Binding IsOn, Mode=TwoWay}"
-                              AutomationProperties.Name="{Binding Label}" />
-                          <TextBlock
-                              VerticalAlignment="Center"
-                              Classes="Muted"
-                              FontSize="{DynamicResource ShellFontSize9}"
-                              Text="{Binding Label}" />
-                        </StackPanel>
+                        <!-- Independent options for how one preview is shown:
+                             checkboxes, which is what minor options are, not
+                             switches. -->
+                        <CheckBox
+                            VerticalAlignment="Center"
+                            FontSize="{DynamicResource ShellFontSize10}"
+                            Content="{Binding Label}"
+                            IsChecked="{Binding IsOn, Mode=TwoWay}"
+                            AutomationProperties.Name="{Binding Label}" />
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
@@ -658,7 +690,7 @@
                   IsVisible="{Binding HasBinaryPreview}">
                 <icons:SymbolIcon
                     HorizontalAlignment="Center"
-                    FontSize="40"
+                    FontSize="{DynamicResource ShellIconSizeXl}"
                     Foreground="{DynamicResource ShellMutedBrush}"
                     Symbol="{Binding PreviewBinary.Symbol}" />
                 <TextBlock
@@ -736,7 +768,7 @@
                       IsEnabled="{Binding CanTurnPdfPageBack}"
                       ToolTip.Tip="Previous page"
                       AutomationProperties.Name="Previous PDF page">
-                    <icons:SymbolIcon Symbol="ChevronLeft" FontSize="12" />
+                    <icons:SymbolIcon Symbol="ChevronLeft" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                   <controls:LiveRegionTextBlock
                       VerticalAlignment="Center"
@@ -750,7 +782,7 @@
                       IsEnabled="{Binding CanTurnPdfPageForward}"
                       ToolTip.Tip="Next page"
                       AutomationProperties.Name="Next PDF page">
-                    <icons:SymbolIcon Symbol="ChevronRight" FontSize="12" />
+                    <icons:SymbolIcon Symbol="ChevronRight" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                 </StackPanel>
               </Border>
@@ -796,7 +828,7 @@
                     Click="OnPreviewDownloadClick"
                     ToolTip.Tip="Download and preview (Space)"
                     AutomationProperties.Name="Download this file and preview it">
-                  <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Eye" FontSize="22" />
+                  <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Eye" FontSize="{DynamicResource ShellIconSizeLg}" />
                 </Button>
                 <TextBlock
                     MaxWidth="260"
