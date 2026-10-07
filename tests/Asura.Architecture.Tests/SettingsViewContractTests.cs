@@ -484,7 +484,7 @@ public sealed class SettingsViewContractTests
             element => string.Equals(element.Name.LocalName, "SettingsPageHeader", StringComparison.Ordinal));
         Assert.Equal("Appearance", AttributeValue(header, "Heading"));
         Assert.Equal(
-            "Customize how the app looks — colour scheme, accent, and window chrome.",
+            "Customize how the app looks — color scheme, accent, and window chrome.",
             AttributeValue(header, "Description"));
 
         foreach (var controlName in AppearanceControlNames)
@@ -504,7 +504,7 @@ public sealed class SettingsViewContractTests
                      ("AppearanceModeLight", "Color mode Light"),
                      ("PlatformProfilePicker", "Platform profile"),
                      ("AccentModePicker", "Accent mode"),
-                     ("CustomAccentText", "Custom accent colour"),
+                     ("CustomAccentText", "Custom accent color"),
                      ("ApplicationTextScalePicker", "Application text size"),
                  })
         {
@@ -515,11 +515,16 @@ public sealed class SettingsViewContractTests
                     "AutomationProperties.Name"));
         }
 
-        // The colour-mode tiles are the control: one exclusive group, so the
-        // preview a user clicks is the same element that carries the choice.
-        // Their shared parent scopes the group to this page, even while detached.
-        var appearanceModeParent = FindNamedElement(root, "AppearanceModeSystem").Parent;
-        Assert.NotNull(appearanceModeParent);
+        // The colour-mode tiles are the control, so the preview a user clicks
+        // is the same element that carries the choice. System is the visible
+        // default; Dark and Light are overrides under one disclosure. No group
+        // name, so a detached page cannot reach another page's tiles; the page
+        // keeps the three exclusive itself.
+        var overrideDisclosure = FindNamedElement(root, "AppearanceOverrideExpander");
+        Assert.Equal("Expander", overrideDisclosure.Name.LocalName);
+        Assert.Equal("Override System Appearance", AttributeValue(overrideDisclosure, "Header"));
+        var overrideParent = FindNamedElement(root, "AppearanceModeDark").Parent;
+        Assert.NotNull(overrideParent);
         foreach (var tileName in new[]
                  {
                      "AppearanceModeSystem",
@@ -530,9 +535,14 @@ public sealed class SettingsViewContractTests
             var tile = FindNamedElement(root, tileName);
             Assert.Equal("RadioButton", tile.Name.LocalName);
             Assert.Null(AttributeValue(tile, "GroupName"));
-            Assert.Same(appearanceModeParent, tile.Parent);
             Assert.Equal("PresetCard", AttributeValue(tile, "Classes"));
+            Assert.Equal("OnAppearanceModeChanged", AttributeValue(tile, "IsCheckedChanged"));
+            Assert.Equal(
+                !string.Equals(tileName, "AppearanceModeSystem", StringComparison.Ordinal),
+                tile.Ancestors().Contains(overrideDisclosure));
         }
+
+        Assert.Same(overrideParent, FindNamedElement(root, "AppearanceModeLight").Parent);
 
         var accentMode = FindNamedElement(root, "AccentModePicker");
         Assert.Equal(

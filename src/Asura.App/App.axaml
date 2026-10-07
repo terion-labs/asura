@@ -148,6 +148,10 @@
       <FontFamily x:Key="ContentControlThemeFontFamily">$Default</FontFamily>
       <x:Double x:Key="ControlContentThemeFontSize">13</x:Double>
       <x:Double x:Key="ShellSurfaceOpacity">1</x:Double>
+      <!-- A terminal's own background opacity: opaque unless the person asked
+           for a translucent terminal and the window can be translucent. -->
+      <x:Double x:Key="ShellTerminalSurfaceOpacity">1</x:Double>
+      <x:Boolean x:Key="ShellTerminalTranslucencyAvailable">False</x:Boolean>
       <!-- The Theme tiles in Settings: each mode as the mapper renders it.
            Republished with the live profile, contrast and host colours. -->
       <SolidColorBrush x:Key="ShellThemePreviewDarkBackgroundBrush" Color="#1B1B1B" />

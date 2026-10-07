@@ -1635,11 +1635,13 @@
     <Setter Property="MinHeight" Value="26" />
   </Style>
 
-  <!-- The agent panel is a panel like any other: it shares the workspaces-panel
-       surface so cards and messages float on it. -->
+  <!-- The agent panel is a panel like any other, and what it holds is content:
+       a conversation, diffs, code. It stands on the opaque content surface the
+       runtime panels use, not on the sidebar's chrome glass, so the transcript
+       reads the same whatever the desktop picture behind the window is. -->
   <Style Selector="Border.AgentPanel">
-    <Setter Property="Background" Value="{DynamicResource ShellSidebarBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource ShellSidebarBorderBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{DynamicResource ShellCardCornerRadius}" />
   </Style>

@@ -1308,7 +1308,8 @@ public sealed partial class MainWindow
             selection.IsTranslucent,
             selection.BackdropOpacityPercent,
             selection.HasGlassPanels,
-            selection.OverridesBackdropOpacity);
+            selection.OverridesBackdropOpacity,
+            selection.HasTranslucentTerminal);
     }
 
     private static string AppearanceContrastStatus(

@@ -495,6 +495,41 @@ public sealed partial class App : Avalonia.Application
     /// </summary>
     private double SurfaceOpacity => ContentAlpha / (double)byte.MaxValue;
 
+    /// <summary>
+    /// How solid a terminal's background is drawn: the stored backdrop
+    /// opacity when the person asked for a translucent terminal and the
+    /// window's material is actually on, and fully solid otherwise — under
+    /// Reduce Transparency, Increase Contrast, or a window that is not
+    /// translucent there is nothing behind the terminal worth seeing.
+    /// </summary>
+    internal static double TerminalSurfaceOpacity(
+        bool hasTranslucentTerminal,
+        MaterialDisposition material,
+        int backdropOpacityPercent) =>
+        hasTranslucentTerminal && material == MaterialDisposition.Enabled
+            ? Math.Clamp(
+                (int)Math.Round(backdropOpacityPercent * byte.MaxValue / 100.0),
+                0,
+                byte.MaxValue) / (double)byte.MaxValue
+            : 1.0;
+
+    /// <summary>
+    /// The sentence under the translucent-terminal setting: what it does, or
+    /// why it cannot do it right now.
+    /// </summary>
+    internal static string TerminalTranslucencyStatus(MaterialDisposition material) => material switch
+    {
+        MaterialDisposition.Enabled =>
+            "Let the window's material show through terminals, at the background opacity.",
+        MaterialDisposition.NotRequested =>
+            "Unavailable while window translucency is off.",
+        MaterialDisposition.DisabledByHighContrast =>
+            "Unavailable while Increase Contrast is on.",
+        MaterialDisposition.DisabledByReducedTransparency =>
+            "Unavailable while Reduce Transparency is on.",
+        _ => "Unavailable because this system does not offer window translucency.",
+    };
+
     private static SolidColorBrush WithAlpha(Color color, byte alpha) =>
         new(Color.FromArgb(alpha, color.R, color.G, color.B));
 
@@ -853,6 +888,21 @@ public sealed partial class App : Avalonia.Application
 
         Publish("ShellControlMinHeight", resources.ControlMinHeight);
         Publish("ShellSurfaceOpacity", SurfaceOpacity);
+        // The terminal's own opacity, which the terminal views paint their
+        // background with. Opaque unless the person asked for a translucent
+        // terminal and the window can be translucent at all — glass panels
+        // have no say in it, and Quick Terminal keeps its own setting.
+        var material = ResolveStoredTheme().MaterialDisposition;
+        Publish(
+            "ShellTerminalSurfaceOpacity",
+            TerminalSurfaceOpacity(
+                StoredTheme.HasTranslucentTerminal,
+                material,
+                StoredTheme.BackdropOpacityPercent));
+        Publish(
+            "ShellTerminalTranslucencyAvailable",
+            material == MaterialDisposition.Enabled);
+        Publish("ShellTerminalTranslucencyStatus", TerminalTranslucencyStatus(material));
 
         // The three sizes a mark is drawn at — in a row, beside a name, and as
         // the subject of the page. Derived from the control height rather than
