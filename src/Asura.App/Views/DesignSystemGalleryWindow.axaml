@@ -81,8 +81,39 @@
       </StackPanel>
 
       <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
+        <TextBlock Classes="SectionHeading" Text="Type" />
+        <TextBlock
+            Classes="Muted"
+            FontSize="{DynamicResource ShellFontSize10}"
+            Text="Headings name their role; size and weight follow from it and from the text-size setting. Paths lose their middle, not their file name."
+            TextWrapping="Wrap" />
+        <controls:SurfaceCard>
+          <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+            <TextBlock Classes="LargeTitle" Text="Large Title" />
+            <TextBlock Classes="Title1" Text="Title 1" />
+            <TextBlock Classes="Title2" Text="Title 2" />
+            <TextBlock Classes="Title3" Text="Title 3" />
+            <TextBlock Classes="Headline" Text="Headline" />
+            <TextBlock Text="Body text reads at the base size." />
+            <TextBlock
+                MaxWidth="260"
+                HorizontalAlignment="Left"
+                Classes="Muted Path"
+                Text="/Users/someone/Projects/asura/src/Asura.App/Styles/DesignSystem.axaml" />
+            <TextBlock
+                MaxWidth="200"
+                HorizontalAlignment="Left"
+                Classes="Muted MiddleTruncated"
+                Text="feature/hig-conformance-focus-ring-and-selection" />
+          </StackPanel>
+        </controls:SurfaceCard>
+      </StackPanel>
+
+      <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
         <TextBlock Classes="SectionHeading" Text="Status" />
-        <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+        <!-- Wraps rather than running on: at a large text size one row of
+             chips is wider than the page. -->
+        <WrapPanel ItemSpacing="{DynamicResource ShellSpaceSm}" LineSpacing="{DynamicResource ShellSpaceSm}">
           <controls:StatusChip Content="Connected" />
           <controls:StatusChip Tone="Warning" Content="Needs attention" />
           <controls:StatusChip Tone="Danger" Content="Full access enabled" />
@@ -94,7 +125,7 @@
           <Border Classes="StatusDot available" />
           <Border Classes="Keycap"><TextBlock Text="⌘K" /></Border>
           <Button Classes="Chip" Content="Run scope · This tab" />
-        </StackPanel>
+        </WrapPanel>
       </StackPanel>
 
       <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
@@ -260,18 +291,28 @@
 
       <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
         <TextBlock Classes="SectionHeading" Text="Pickers" />
-        <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceMd}">
-          <Border VerticalAlignment="Center" Classes="Segmented">
-            <UniformGrid Columns="3">
-              <ToggleButton Classes="Segment" IsChecked="True" Content="Data" />
-              <ToggleButton Classes="Segment" Content="Structure" />
-              <ToggleButton Classes="Segment" Content="Indexes" />
-            </UniformGrid>
-          </Border>
+        <TextBlock
+            Classes="Muted"
+            FontSize="{DynamicResource ShellFontSize10}"
+            Text="A segmented control switches between two to five stable views; a segment that does not apply is dimmed, never removed. A search field clears with its button or Escape."
+            TextWrapping="Wrap" />
+        <WrapPanel ItemSpacing="{DynamicResource ShellSpaceMd}" LineSpacing="{DynamicResource ShellSpaceMd}">
+          <controls:SegmentedControl
+              SelectedIndex="0"
+              AutomationProperties.Name="Result view">
+            <RadioButton Content="Data" />
+            <RadioButton Content="Structure" />
+            <RadioButton Content="Indexes" />
+            <RadioButton Content="Triggers" IsEnabled="False" />
+          </controls:SegmentedControl>
+          <controls:SearchField Width="220" PlaceholderText="Filter connections" Text="prod" />
           <controls:SurfaceCard Tone="Raised" VerticalAlignment="Center" Padding="{DynamicResource ShellCardPaddingCompact}" MinWidth="280">
-            <controls:ToggleField Label="Keep the session alive" IsChecked="True" />
+            <controls:ToggleField
+                Label="Keep the session alive"
+                Description="The shell keeps running after the panel closes."
+                IsChecked="True" />
           </controls:SurfaceCard>
-        </StackPanel>
+        </WrapPanel>
       </StackPanel>
 
       <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
@@ -379,6 +420,40 @@
             </controls:LabeledField>
           </controls:SurfaceCard>
         </UniformGrid>
+        <!-- A field that refused its value says why right under it, and keeps
+             what was typed. -->
+        <UniformGrid Columns="3" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+          <controls:SurfaceCard Tone="Raised">
+            <controls:LabeledField
+                Label="Port"
+                Hint="The port the server listens on."
+                Error="Enter a port between 1 and 65535.">
+              <TextBox Text="70000" />
+            </controls:LabeledField>
+          </controls:SurfaceCard>
+        </UniformGrid>
+      </StackPanel>
+
+      <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
+        <TextBlock Classes="SectionHeading" Text="Selection" />
+        <TextBlock
+            Classes="Muted"
+            FontSize="{DynamicResource ShellFontSize10}"
+            Text="The selection of the list you are working in is the accent with its own text colour; in any other list it is gray. The pointer only washes a row."
+            TextWrapping="Wrap" />
+        <controls:SurfaceCard Padding="{DynamicResource ShellInsetXs}">
+          <ListBox Classes="Rows" SelectedIndex="1" AutomationProperties.Name="Selection sample">
+            <ListBoxItem>
+              <controls:ListItem ContentPadding="{DynamicResource ShellListRowPadding}" Title="staging-db" Detail="Postgres · 3 schemas" />
+            </ListBoxItem>
+            <ListBoxItem>
+              <controls:ListItem ContentPadding="{DynamicResource ShellListRowPadding}" Title="production-db" Detail="Postgres · read-only" />
+            </ListBoxItem>
+            <ListBoxItem>
+              <controls:ListItem ContentPadding="{DynamicResource ShellListRowPadding}" Title="analytics.sqlite" Detail="Local file" />
+            </ListBoxItem>
+          </ListBox>
+        </controls:SurfaceCard>
       </StackPanel>
 
       <StackPanel Spacing="{DynamicResource ShellSpaceMd}">

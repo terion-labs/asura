@@ -581,7 +581,7 @@
                       <Grid Grid.Row="1" MinHeight="22" Margin="{controls:Inset Horizontal=Md, Vertical=Xs}" ColumnDefinitions="150,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                         <TextBlock
                             Classes="Muted"
-                            FontFamily="avares://Asura.App/Assets/Fonts/JetBrainsMono#JetBrains Mono"
+                            FontFamily="{DynamicResource ShellDataFontFamily}"
                             FontSize="{DynamicResource ShellFontSize9}"
                             LineHeight="{DynamicResource ShellLineHeight9}"
                             Text="{Binding DisplayTimestamp}" />
@@ -597,7 +597,7 @@
                             <DataTemplate>
                               <Border Classes="DockerLogMessageSegment" Classes.match="{Binding IsMatch}">
                                 <TextBlock
-                                    FontFamily="avares://Asura.App/Assets/Fonts/JetBrainsMono#JetBrains Mono"
+                                    FontFamily="{DynamicResource ShellDataFontFamily}"
                                     FontSize="{DynamicResource ShellFontSize10}"
                                     LineHeight="{DynamicResource ShellLineHeight10}"
                                     Text="{Binding Text}" />

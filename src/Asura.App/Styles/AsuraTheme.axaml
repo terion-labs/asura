@@ -67,28 +67,12 @@
   <!--
     Avalonia draws a hard high-contrast rectangle outside the control by default.
     It ignores the control's shape and reads as damage on dark chrome, so the
-    shell suppresses it and expresses focus as an accent ring on the control
-    itself, which still satisfies visible-focus requirements.
+    shell suppresses it and draws the host's focus ring instead: one accent
+    halo, the same on every control. The ring itself is the last section of
+    this file, where no style above it can take it away.
   -->
-  <Style Selector="Button, ToggleButton, CheckBox, RadioButton, ComboBox, TextBox, NumericUpDown, ListBoxItem, TabItem">
+  <Style Selector="Button, ToggleButton, CheckBox, RadioButton, ComboBox, TextBox, NumericUpDown, ListBoxItem, TabItem, ToggleSwitch, Slider">
     <Setter Property="FocusAdorner" Value="{x:Null}" />
-  </Style>
-
-  <Style Selector="Button:focus-visible">
-    <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
-    <Setter Property="BorderThickness" Value="1" />
-  </Style>
-
-  <Style Selector="Button.IconButton:focus-visible">
-    <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
-    <Setter Property="BorderThickness" Value="2" />
-  </Style>
-
-  <Style Selector="Button.IconButton:focus-visible /template/ ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
-    <Setter Property="BorderThickness" Value="2" />
-    <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
   </Style>
 
   <Style Selector="Button:disabled">
@@ -120,13 +104,15 @@
   </Style>
 
   <!-- For a run of actions that belong together and sit in a header rather than
-       a toolbar: a panel's float, split, split and close. Four of these take the
-       width three plain icon buttons did, and the header has that width to spend
-       on what the panel itself puts there. Still 24 square, which is the smallest
-       a pointer target should be when it sits inside a 36-tall row. -->
+       a toolbar: a panel's float, split, split and close. They touch rather
+       than spacing apart, so the run reads as one set. They are the host's
+       default 28-point target: the header is taller than that at every
+       density, and these were 24, the size a target shrinks to only when
+       nothing larger fits. When the header is short of width it hands the run
+       to its overflow strip instead of shrinking the targets. -->
   <Style Selector="Button.IconButton.Compact">
-    <Setter Property="Width" Value="24" />
-    <Setter Property="Height" Value="24" />
+    <Setter Property="Width" Value="28" />
+    <Setter Property="Height" Value="28" />
   </Style>
 
   <!-- A panel's toolbar band: the strip under the chrome header that holds a
@@ -173,20 +159,6 @@
     <Setter Property="Margin" Value="{DynamicResource ShellInsetXs}" />
     <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
     <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
-  </Style>
-
-  <!-- Title-bar navigation keeps keyboard focus visible without drawing a heavy
-       control ring beside the native traffic lights. -->
-  <Style Selector="Button.IconButton.ChromeNavigation:focus-visible">
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
-    <Setter Property="BorderBrush" Value="Transparent" />
-    <Setter Property="BorderThickness" Value="0" />
-  </Style>
-
-  <Style Selector="Button.IconButton.ChromeNavigation:focus-visible /template/ ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
-    <Setter Property="BorderBrush" Value="Transparent" />
-    <Setter Property="BorderThickness" Value="0" />
   </Style>
 
   <!-- Flyouts, menu flyouts, and ComboBox popups are the same transient surface.
@@ -302,11 +274,6 @@
     <Setter Property="Background" Value="{DynamicResource ShellDangerSoftBrush}" />
   </Style>
 
-  <Style Selector="Button.IconButton.Danger:focus-visible">
-    <Setter Property="BorderBrush" Value="{DynamicResource ShellDangerBrush}" />
-    <Setter Property="BorderThickness" Value="2" />
-  </Style>
-
   <!--
     A destructive action is an ordinary push button whose label carries the
     danger — the host convention — rather than a red-outlined box that reads as
@@ -399,12 +366,54 @@
     <Setter Property="Margin" Value="{controls:Inset Horizontal=Sm}" />
   </Style>
 
-  <Style Selector="ListBox.Rows ListBoxItem:pointerover /template/ ContentPresenter">
+  <!--
+    Selection, as the host draws it. The selected row of the list you are
+    working in is filled with the accent and its text turns to the accent's own
+    foreground; the selection of a list you are not working in steps back to a
+    neutral gray, so there is only ever one accent selection on screen. The
+    selection was an 18% accent blend in every state, about 1.1:1 against the
+    panel — a row you had to already know was selected to find.
+
+    Hover is a faint neutral wash, the quietest fill the palette has, so that
+    the pointer resting on a row never looks like a selection.
+  -->
+  <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ShellSidebarSelectionBrush}" />
+  </Style>
+
+  <Style Selector="ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
   </Style>
 
-  <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
+  <Style Selector="ListBox:focus-within ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+  </Style>
+
+  <!-- Every TextBlock takes the text colour by style, so the row's foreground
+       never reaches its text by inheritance. Secondary text turns with the
+       primary, as it does in a selected Finder row: muted gray on accent is
+       the one combination that reads worse than either. -->
+  <Style Selector="ListBox:not(.NeutralSelection):focus-within ListBoxItem:selected TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+  </Style>
+
+  <Style Selector="ListBox:not(.NeutralSelection):focus-within ListBoxItem:selected icons|SymbolIcon">
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+  </Style>
+
+  <!-- Trees — the Git sidebar, previews — take the same hover and gray
+       selection in place of Fluent's accent tints, so a selected row is a full
+       step off the sidebar and the pointer only washes. A tree keeps the gray
+       while it has focus as well: a selected branch's text colour would also
+       reach every row nested under it, and gray carries the row's own text at
+       full contrast. -->
+  <Style Selector="TreeViewItem /template/ Border#PART_LayoutRoot:pointerover">
+    <Setter Property="Background" Value="{DynamicResource ShellSidebarSelectionBrush}" />
+  </Style>
+
+  <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot, TreeViewItem:selected /template/ Border#PART_LayoutRoot:pointerover">
+    <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
   </Style>
 
   <!--
@@ -418,12 +427,9 @@
     <Setter Property="Padding" Value="{DynamicResource ShellPillPadding}" />
   </Style>
 
-  <Style Selector="ListBox.NeutralSelection > ListBoxItem:selected /template/ ContentPresenter">
+  <Style Selector="ListBox.NeutralSelection > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter, ListBox.NeutralSelection:focus-within > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
-  </Style>
-
-  <Style Selector="ListBox.NeutralSelection > ListBoxItem:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
   </Style>
 
   <Style Selector="Button.NavButton">
@@ -438,8 +444,11 @@
     <Setter Property="AutomationProperties.ItemStatus" Value="" />
   </Style>
 
+  <!-- The current page is a gray fill a full step above the sidebar, and the
+       pointer is only the faint wash: the two used to be the same 5% wash, so
+       the text colour alone said which row was the page you were on. -->
   <Style Selector="Button.NavButton.active">
-    <Setter Property="Background" Value="{DynamicResource ShellSidebarSelectionBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
     <Setter Property="FontWeight" Value="Medium" />
     <Setter Property="AutomationProperties.ItemStatus" Value="Current page" />
@@ -450,7 +459,7 @@
   </Style>
 
   <Style Selector="Button.NavButton.active /template/ ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource ShellSidebarSelectionBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
   </Style>
 
   <Style Selector="Button.NavButton.active TextBlock">
@@ -686,6 +695,58 @@
     <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
   </Style>
 
+  <!--
+    Heading roles, named after the host's text styles and sized as they are:
+    Large Title 26, Title 1 22, Title 2 17, Title 3 15 — all regular — and
+    Headline, body size in bold. Headings were set at eight different sizes,
+    nearly all of them semibold, which made weight carry no information. A
+    heading names its role; the size, weight and leading follow from it and
+    move with the text-size setting.
+  -->
+  <Style Selector="TextBlock.LargeTitle">
+    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize26}" />
+    <Setter Property="FontWeight" Value="Normal" />
+    <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight26}" />
+  </Style>
+
+  <Style Selector="TextBlock.Title1">
+    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize22}" />
+    <Setter Property="FontWeight" Value="Normal" />
+    <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight22}" />
+  </Style>
+
+  <Style Selector="TextBlock.Title2">
+    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize17}" />
+    <Setter Property="FontWeight" Value="Normal" />
+    <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight17}" />
+  </Style>
+
+  <Style Selector="TextBlock.Title3">
+    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize15}" />
+    <Setter Property="FontWeight" Value="Normal" />
+    <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight15}" />
+  </Style>
+
+  <Style Selector="TextBlock.Headline">
+    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize13}" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight13}" />
+  </Style>
+
+  <!--
+    Truncation that keeps what identifies the thing. A path loses its middle
+    segments and keeps its file name, as Finder truncates; a reference — a
+    branch, an image tag, a key — keeps both ends around a middle ellipsis.
+    Cutting either at the end hid exactly the part that told two rows apart.
+  -->
+  <Style Selector="TextBlock.Path">
+    <Setter Property="TextTrimming" Value="{x:Static TextTrimming.PathSegmentEllipsis}" />
+  </Style>
+
+  <Style Selector="TextBlock.MiddleTruncated">
+    <Setter Property="TextTrimming" Value="{x:Static TextTrimming.PrefixCharacterEllipsis}" />
+  </Style>
+
   <!-- An eyebrow that labels a region rather than a single value. Small caps
        tracked apart read as a heading at a size where sentence case reads as
        body text; the text itself is written capitalised so a screen reader is
@@ -825,12 +886,16 @@
   </Style>
 
   <!-- Dense control rows: filter bars and data toolbars. "Dense", not
-       "Compact": the design system already spends Compact on the 24-square
-       icon buttons of a panel's chrome, and a generic Button.Compact quietly
-       restyled every one of them. -->
+       "Compact": the design system already spends Compact on the icon buttons
+       of a panel's chrome, and a generic Button.Compact quietly restyled every
+       one of them.
+
+       24 is a floor, not a height. A fixed height held at every text size, so
+       at a large text-size setting the label outgrew the control and was cut
+       through the middle; as a minimum it is the same 24 at the default size
+       and grows with its text. -->
   <Style Selector="Button.Dense">
     <Setter Property="MinHeight" Value="24" />
-    <Setter Property="Height" Value="24" />
     <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
@@ -838,14 +903,12 @@
 
   <Style Selector="ComboBox.Dense">
     <Setter Property="MinHeight" Value="24" />
-    <Setter Property="Height" Value="24" />
     <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
     <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
   </Style>
 
   <Style Selector="TextBox.Dense">
     <Setter Property="MinHeight" Value="24" />
-    <Setter Property="Height" Value="24" />
     <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
@@ -855,17 +918,29 @@
        cell and header carry it explicitly because the DataGrid theme sets its
        own font size, which beats inheritance from the grid. The chrome lives
        here too, so every value table in the shell — SQL results, Redis
-       entries, message logs — is the same hairline table. -->
+       entries, message logs — is the same table.
+
+       That table is a Mac table: rows told apart by alternating bands rather
+       than a ruled grid, no fill under the pointer, and the selection drawn
+       the way a list's is. The full grid of hairlines read as a spreadsheet,
+       and the hover wash was easily taken for the selection. -->
   <Style Selector="DataGrid.DatabaseGrid">
     <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
-    <Setter Property="GridLinesVisibility" Value="All" />
+    <Setter Property="GridLinesVisibility" Value="None" />
     <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource ShellBorderBrush}" />
     <Setter Property="VerticalGridLinesBrush" Value="{DynamicResource ShellBorderBrush}" />
     <Setter Property="RowBackground" Value="Transparent" />
     <Setter Property="ColumnHeaderHeight" Value="28" />
     <Setter Property="RowHeight" Value="30" />
+  </Style>
+
+  <!-- Every other row carries the faint neutral band. The grid reports each
+       row's position to the style system, so the band follows the data as it
+       scrolls rather than the recycled row that happens to show it. -->
+  <Style Selector="DataGrid.DatabaseGrid DataGridRow:nth-child(2n)">
+    <Setter Property="Background" Value="{DynamicResource ShellSidebarSelectionBrush}" />
   </Style>
 
   <Style Selector="DataGrid.DatabaseGrid DataGridCell">
@@ -879,12 +954,25 @@
     <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
   </Style>
 
-  <Style Selector="DataGrid.DatabaseGrid DataGridRow:pointerover">
-    <Setter Property="Background" Value="{DynamicResource ShellControlHoverBrush}" />
+  <!-- The row theme paints hover and selection on a rectangle inside the row,
+       above the row's own band, so that rectangle is what these answer. -->
+  <Style Selector="DataGrid.DatabaseGrid DataGridRow /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="Transparent" />
+    <Setter Property="Opacity" Value="1" />
   </Style>
 
-  <Style Selector="DataGrid.DatabaseGrid DataGridRow:selected">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
+  <Style Selector="DataGrid.DatabaseGrid DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="{DynamicResource ShellSurfaceHoverBrush}" />
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <Style Selector="DataGrid.DatabaseGrid:focus-within DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <Style Selector="DataGrid.DatabaseGrid:focus-within DataGridRow:selected TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
   </Style>
 
   <!--
@@ -960,11 +1048,6 @@
     <Setter Property="BorderThickness" Value="2" />
   </Style>
 
-  <Style Selector="RadioButton.PresetCard:focus-visible /template/ Border#PresetRoot">
-    <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
-    <Setter Property="BorderThickness" Value="2" />
-  </Style>
-
   <!-- The name turns accent on the selected tile, and its check appears. -->
   <Style Selector="RadioButton.PresetCard TextBlock.PresetName">
     <Setter Property="FontSize" Value="{DynamicResource ShellFontSize12}" />
@@ -1032,9 +1115,14 @@
        status text these rows already carry, and Fluent's geometry — hollow off
        track, undersized knob — is not the host's. This is the macOS switch: a
        38 × 22 filled track whose white knob slides between its 2 DIP insets,
-       accent when on, control-surface gray when off, focus halo on keyboard
-       focus. Toggling is ToggleButton behavior, so the template stays purely
-       presentational. -->
+       accent when on, focus halo on keyboard focus. Toggling is ToggleButton
+       behavior, so the template stays purely presentational.
+
+       Off, the track is the hover gray inside a hairline, and the knob carries
+       a small contact shadow, as NSSwitch draws it. It used to be the control
+       surface with no edge, which on a light card is white on near-white: the
+       off switch read as a blank pill at about 1.1:1. The hairline plus a
+       one-point inset keep the knob's travel at the 2 DIPs it had. -->
   <Style Selector="ToggleSwitch">
     <Setter Property="OnContent" Value="" />
     <Setter Property="OffContent" Value="" />
@@ -1045,8 +1133,10 @@
             Name="SwitchTrack"
             Width="38"
             Height="22"
-            Padding="{DynamicResource ShellHairlineInset}"
-            Background="{DynamicResource ShellControlSurfaceBrush}"
+            Padding="{DynamicResource ShellHairline}"
+            Background="{DynamicResource ShellSurfaceHoverBrush}"
+            BorderBrush="{DynamicResource ShellControlBorderBrush}"
+            BorderThickness="1"
             CornerRadius="{DynamicResource ShellPillCornerRadius}">
           <Panel>
             <!-- The control demands its knob-slide parts, but it positions them
@@ -1056,13 +1146,17 @@
             <Panel Name="PART_SwitchKnob" Width="0" Height="0" IsVisible="False">
               <Panel Name="PART_MovingKnobs" />
             </Panel>
-            <Ellipse
+            <!-- Paper-white in every theme, like the host's knob, so the shadow
+                 is what separates it from a light track. -->
+            <Border
                 Name="SwitchKnob"
                 Width="18"
                 Height="18"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Center"
-                Fill="White" />
+                Background="White"
+                BoxShadow="0 1 2 0 #40000000, 0 0 0 0.5 #26000000"
+                CornerRadius="{DynamicResource ShellPillCornerRadius}" />
           </Panel>
         </Border>
       </ControlTemplate>
@@ -1076,24 +1170,13 @@
     <Setter Property="HorizontalAlignment" Value="Right" />
   </Style>
 
-  <Style Selector="ToggleSwitch:pointerover /template/ Border#SwitchTrack">
-    <Setter Property="Background" Value="{DynamicResource ShellControlHoverBrush}" />
-  </Style>
-
   <Style Selector="ToggleSwitch:checked /template/ Border#SwitchTrack">
     <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
   </Style>
 
-  <Style Selector="ToggleSwitch:checked:pointerover /template/ Border#SwitchTrack">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
-  </Style>
-
-  <Style Selector="ToggleSwitch:checked /template/ Ellipse#SwitchKnob">
+  <Style Selector="ToggleSwitch:checked /template/ Border#SwitchKnob">
     <Setter Property="HorizontalAlignment" Value="Right" />
-  </Style>
-
-  <Style Selector="ToggleSwitch:focus-visible /template/ Border#SwitchTrack">
-    <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
   </Style>
 
   <Style Selector="ToggleSwitch:disabled /template/ Border#SwitchTrack">
@@ -1230,15 +1313,22 @@
     <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="VerticalAlignment" Value="Stretch" />
+    <!-- Square, so the segment's own button is not taken for the shape its
+         corners answer to: that is the track around it. -->
+    <Setter Property="CornerRadius" Value="0" />
     <Setter Property="Template">
       <ControlTemplate>
-        <!-- Inner radius, not the control radius: the segment sits inside the
-             track's own rounded frame, and two equal radii separated by the
-             track's inset read as corners that miss each other. -->
+        <!-- Concentric with the track: the track's radius less its hairline
+             and its inset, worked out from where the segment actually sits.
+             The fixed inner radius was the control radius less two, which on
+             the Liquid Glass profile drew 8 inside a 10-point track six points
+             away — corners that visibly missed each other. The inner radius
+             stays as the answer wherever the rule does not apply. -->
         <Border
             Name="SegmentRoot"
             Background="Transparent"
             CornerRadius="{DynamicResource ShellInnerCornerRadius}"
+            controls:Concentric.IsEnabled="True"
             Padding="{TemplateBinding Padding}">
           <ContentPresenter
               Content="{TemplateBinding Content}"
@@ -1262,9 +1352,10 @@
     <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
   </Style>
 
-  <Style Selector="ToggleButton.Segment:focus-visible /template/ Border#SegmentRoot, RadioButton.Segment:focus-visible /template/ Border#SegmentRoot">
-    <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
-    <Setter Property="BorderThickness" Value="2" />
+  <!-- A segment that does not apply stays where it is, dimmed: segments that
+       came and went moved every other segment under the pointer. -->
+  <Style Selector="ToggleButton.Segment:disabled, RadioButton.Segment:disabled">
+    <Setter Property="Opacity" Value="0.48" />
   </Style>
 
   <!--
@@ -1317,12 +1408,15 @@
     <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
     <Setter Property="FontWeight" Value="Normal" />
     <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+    <Setter Property="CornerRadius" Value="0" />
     <Setter Property="Template">
       <ControlTemplate>
+        <!-- Concentric with the track, as the segmented picker's segments are. -->
         <Border
             Name="SegmentRoot"
             Background="Transparent"
             CornerRadius="{DynamicResource ShellInnerCornerRadius}"
+            controls:Concentric.IsEnabled="True"
             Padding="{TemplateBinding Padding}">
           <ContentPresenter
               Content="{TemplateBinding Header}"
@@ -1345,11 +1439,6 @@
 
   <Style Selector="TabControl.Segmented > TabItem:selected /template/ Border#SegmentRoot">
     <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
-  </Style>
-
-  <Style Selector="TabControl.Segmented > TabItem:focus-visible /template/ Border#SegmentRoot">
-    <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
-    <Setter Property="BorderThickness" Value="2" />
   </Style>
 
   <!-- Tabs whose picker lives elsewhere — a segmented toggle in the panel's
@@ -1409,11 +1498,6 @@
 
   <Style Selector="ToggleButton.SectionDisclosure:checked /template/ icons|SymbolIcon#Expanded">
     <Setter Property="IsVisible" Value="True" />
-  </Style>
-
-  <Style Selector="ToggleButton.SectionDisclosure:focus-visible /template/ Border#DisclosureRoot">
-    <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
-    <Setter Property="BorderThickness" Value="1" />
   </Style>
 
   <!-- Sliders track the accent so a value reads at a glance. -->
@@ -1513,8 +1597,11 @@
     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
   </Style>
 
+  <!-- The pointer is the faint wash, as on a list's own rows; the full hover
+       gray is what a selected row wears, and a row under the pointer must not
+       look like one. -->
   <Style Selector="Button.ListRow:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellSidebarSelectionBrush}" />
   </Style>
 
   <!-- Rows that sit flush inside a clipped card lose the inset-and-rounded
@@ -1525,9 +1612,16 @@
     <Setter Property="CornerRadius" Value="0" />
   </Style>
 
-  <!-- The row the workspace is showing wears the soft accent. -->
+  <!-- The row the workspace is showing. A list of buttons has no focus of its
+       own to be selected in, so this is the selection of a list you are not
+       typing in: the neutral gray, a full step off the surface. The soft
+       accent it wore measured about 1.1:1 against the card. -->
   <Style Selector="Button.ListRow.selected">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
+  </Style>
+
+  <Style Selector="Button.ListRow.selected:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
   </Style>
 
   <Style Selector="Border.ChooserIconTile">
@@ -1588,9 +1682,84 @@
     <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
   </Style>
 
+  <!--
+    A search field. The glyph leads in the muted tone and takes no input, so a
+    click on it still lands in the text; the clear button is a small circled
+    cross that appears with the first character. Both are drawn by the
+    SearchField control, which is a TextBox in every other respect.
+  -->
+  <Style Selector="TextBox.SearchField icons|SymbolIcon.SearchFieldGlyph">
+    <Setter Property="Margin" Value="{controls:Inset Left=Sm}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize12}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+  </Style>
 
+  <Style Selector="TextBox.SearchField Button.SearchFieldClear">
+    <Setter Property="Width" Value="22" />
+    <Setter Property="Height" Value="22" />
+    <Setter Property="Margin" Value="{controls:Inset Right=Xs}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+  </Style>
 
+  <Style Selector="TextBox.SearchField Button.SearchFieldClear icons|SymbolIcon">
+    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize12}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+  </Style>
 
+  <Style Selector="TextBox.SearchField Button.SearchFieldClear:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
 
+  <Style Selector="TextBox.SearchField Button.SearchFieldClear:pointerover icons|SymbolIcon">
+    <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
+  </Style>
 
+  <!--
+    A field showing an error says so with its frame as well as the sentence
+    under it. Stated here, after the focus and hover rules for text fields, so
+    neither of them can paint over it.
+  -->
+  <Style Selector="controls|LabeledField:error > TextBox, controls|LabeledField:error > ComboBox, controls|LabeledField:error > NumericUpDown">
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellDangerBrush}" />
+  </Style>
+
+  <Style Selector="controls|LabeledField:error > TextBox /template/ Border#PART_BorderElement">
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellDangerBrush}" />
+  </Style>
+
+  <!--
+    Focus. One ring for every control a keyboard can reach: the host's accent
+    halo, ShellFocusRingShadow, drawn around the control's own shape when focus
+    arrived from the keyboard. Each rule targets the template part that owns
+    the shape, so the ring follows its corners.
+
+    It is the last thing in the file on purpose. Focus was invisible on many
+    controls because a later style undid it: a primary button's zero border, a
+    text button's transparent chrome, a list row's own background all came
+    after the border colour that stood for focus. A shadow is independent of
+    the border, and nothing after this section sets one, so the ring shows on
+    an accent-filled button as plainly as on a borderless row.
+  -->
+  <Style Selector="Button:focus-visible /template/ ContentPresenter#PART_ContentPresenter, ToggleButton:focus-visible /template/ ContentPresenter#PART_ContentPresenter, RepeatButton:focus-visible /template/ ContentPresenter#PART_ContentPresenter, ListBoxItem:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
+  </Style>
+
+  <Style Selector="CheckBox:focus-visible /template/ Border#NormalRectangle, RadioButton:focus-visible /template/ Border#RootBorder, TabItem:focus-visible /template/ Border#PART_LayoutRoot, ComboBox:focus-visible /template/ Border#Background, Expander /template/ ToggleButton:focus-visible /template/ Border#ToggleButtonBackground, Slider:focus-visible /template/ Thumb /template/ Border">
+    <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
+  </Style>
+
+  <!-- A number field is one rounded surface around an inner text box, and it
+       is the surface that wears the ring — on any focus, as a text field does. -->
+  <Style Selector="NumericUpDown:focus-within /template/ ButtonSpinner#PART_Spinner /template/ Border">
+    <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
+  </Style>
+
+  <!-- The shell's own templates name their shape part differently; the ring is
+       the same. A segment's ring fits the track's inset, which is never less
+       than the ring is wide, so the clipping track does not cut it. -->
+  <Style Selector="ToggleButton.Segment:focus-visible /template/ Border#SegmentRoot, RadioButton.Segment:focus-visible /template/ Border#SegmentRoot, TabControl.Segmented > TabItem:focus-visible /template/ Border#SegmentRoot, ToggleButton.SectionDisclosure:focus-visible /template/ Border#DisclosureRoot, RadioButton.PresetCard:focus-visible /template/ Border#PresetRoot, ToggleSwitch:focus-visible /template/ Border#SwitchTrack">
+    <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
+  </Style>
 </Styles>

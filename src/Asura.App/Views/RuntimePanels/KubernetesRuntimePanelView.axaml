@@ -126,15 +126,6 @@
       <Setter Property="TextDecorations" Value="Underline" />
     </Style>
 
-    <!-- The Fluent row paints a saturated accent rectangle over the row's own
-         background; the shell's selected row is the soft accent underneath. -->
-    <Style Selector="DataGrid.KubernetesTable">
-      <Setter Property="GridLinesVisibility" Value="Horizontal" />
-    </Style>
-    <Style Selector="DataGrid.KubernetesTable DataGridRow /template/ Rectangle#BackgroundRectangle">
-      <Setter Property="Fill" Value="Transparent" />
-    </Style>
-
     <!-- Logs are a flat reading surface; the toolbar above owns the border. -->
     <Style Selector="TextBox.LogOutput /template/ Border#PART_BorderElement">
       <Setter Property="Background" Value="Transparent" />

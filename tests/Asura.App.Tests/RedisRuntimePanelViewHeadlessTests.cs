@@ -88,7 +88,7 @@ public sealed class RedisRuntimePanelViewHeadlessTests
                     Assert.Contains("DatabaseGrid", grid.Classes, StringComparer.Ordinal);
                     Assert.Equal(28, grid.ColumnHeaderHeight);
                     Assert.Equal(30, grid.RowHeight);
-                    Assert.Equal(DataGridGridLinesVisibility.All, grid.GridLinesVisibility);
+                    Assert.Equal(DataGridGridLinesVisibility.None, grid.GridLinesVisibility);
                 }
             }
             finally
@@ -180,6 +180,18 @@ public sealed class RedisRuntimePanelViewHeadlessTests
                     Assert.True(
                         field.Bounds.Width > 0 && field.Bounds.Height > 0,
                         $"The {field.Label} field was not laid out: {field.Bounds}.");
+
+                    // Every input is named for a screen reader: asked of the
+                    // control's own peer, not inferred from where it sits in
+                    // the markup. The field's label is the name unless the
+                    // view gave the control a fuller one of its own.
+                    var input = Assert.IsAssignableFrom<Control>(field.LabelledControl);
+                    var name = Avalonia.Automation.Peers.ControlAutomationPeer.CreatePeerForElement(input).GetName();
+                    Assert.False(string.IsNullOrWhiteSpace(name), $"The {field.Label} input has no accessible name.");
+                    if (string.IsNullOrWhiteSpace(Avalonia.Automation.AutomationProperties.GetName(input)))
+                    {
+                        Assert.Equal(field.Label, name);
+                    }
                 }
 
                 var create = Assert.Single(
