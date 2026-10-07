@@ -309,6 +309,12 @@ public sealed class TimeSeriesChart : Control
         {
             AutomationProperties.SetItemStatus(this, Describe(Values, Unit));
             AutomationProperties.SetHelpText(this, $"Scale from 0 to {CeilingLabel}");
+            RefreshHoverTip();
+            InvalidateVisual();
+        }
+        else if (change.Property == SampleIntervalProperty)
+        {
+            RefreshHoverTip();
             InvalidateVisual();
         }
         else if (change.Property == LineBrushProperty
@@ -316,8 +322,7 @@ public sealed class TimeSeriesChart : Control
             || change.Property == GridBrushProperty
             || change.Property == LabelBrushProperty
             || change.Property == ReadoutBackgroundProperty
-            || change.Property == LabelFontSizeProperty
-            || change.Property == SampleIntervalProperty)
+            || change.Property == LabelFontSizeProperty)
         {
             InvalidateVisual();
         }
@@ -362,6 +367,18 @@ public sealed class TimeSeriesChart : Control
         _hoverIndex = index;
         ToolTip.SetTip(this, HoverReadout);
         InvalidateVisual();
+    }
+
+    /// <summary>
+    /// New samples arrive while the pointer rests on the chart; the tooltip
+    /// follows them, so it never shows another value than the drawn readout.
+    /// </summary>
+    private void RefreshHoverTip()
+    {
+        if (_hoverIndex is not null)
+        {
+            ToolTip.SetTip(this, HoverReadout);
+        }
     }
 
     private string Readout(IReadOnlyList<double?> values, int index)

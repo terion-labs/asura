@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Globalization;
 using Asura.App.Controls;
 using Asura.App.ViewModels;
@@ -5,6 +6,7 @@ using Asura.App.Views.RuntimePanels;
 using Asura.Application;
 using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
@@ -109,6 +111,10 @@ public sealed class MonitorPanelHigConformanceTests
             window.MouseMove(new Point(299, 50));
             Assert.Equal("40% · now", chart.HoverReadout);
             Assert.Equal("40% · now", ToolTip.GetTip(chart));
+
+            chart.Values = [20d, 30d, 40d, 55d];
+            Assert.Equal("55% · now", chart.HoverReadout);
+            Assert.Equal("55% · now", ToolTip.GetTip(chart));
         }
         finally
         {
@@ -119,11 +125,11 @@ public sealed class MonitorPanelHigConformanceTests
     [Theory]
     [InlineData(StatusTone.Success, Symbol.CheckmarkCircle)]
     [InlineData(StatusTone.Warning, Symbol.Warning)]
-    [InlineData(StatusTone.Danger, Symbol.DismissCircle)]
+    [InlineData(StatusTone.Danger, Symbol.ErrorCircle)]
     [InlineData(StatusTone.Neutral, Symbol.Circle)]
     public void Every_status_tone_has_its_own_shape(StatusTone tone, Symbol expected)
     {
-        Assert.Equal(expected, StatusMark.GlyphFor(tone));
+        Assert.Equal(expected, StatusToneGlyph.For(tone));
     }
 
     [Fact]
@@ -146,7 +152,7 @@ public sealed class MonitorPanelHigConformanceTests
             Assert.True(mark.ShowsGlyph);
             Assert.False(mark.Dot.IsVisible);
             Assert.True(mark.Glyph.IsVisible);
-            Assert.Equal(Symbol.DismissCircle, mark.Glyph.Symbol);
+            Assert.Equal(Symbol.ErrorCircle, mark.Glyph.Symbol);
 
             mark.Tone = StatusTone.Success;
             Assert.Equal(Symbol.CheckmarkCircle, mark.Glyph.Symbol);
@@ -231,6 +237,46 @@ public sealed class MonitorPanelHigConformanceTests
             started.ToLocalTime().ToString("g", CultureInfo.GetCultureInfo("de-DE")),
             row.Started);
         Assert.Equal("sshd", row.ToString());
+    }
+
+    [Fact]
+    public Task VoiceOver_reads_each_process_column_header_by_title_and_sort_order() => RunAsync(() =>
+    {
+        var processes = new ProcessMonitorRuntimePanelView();
+        var window = new Window { Width = 900, Height = 400, Content = processes };
+        window.Show();
+        try
+        {
+            var grid = processes.FindControl<DataGrid>("ProcessGrid");
+            Assert.NotNull(grid);
+            grid.IsVisible = true;
+            window.UpdateLayout();
+
+            var names = grid.GetVisualDescendants()
+                .OfType<DataGridColumnHeader>()
+                .Where(header => header.Content is ProcessColumnHeader)
+                .Select(header => ControlAutomationPeer.CreatePeerForElement(header).GetName())
+                .ToArray();
+
+            Assert.Contains("CPU, sorted descending", names, StringComparer.Ordinal);
+            Assert.Contains("PID", names, StringComparer.Ordinal);
+            Assert.Contains("Name", names, StringComparer.Ordinal);
+            Assert.Contains("Memory", names, StringComparer.Ordinal);
+            Assert.DoesNotContain(names, name => name.Contains("Avalonia", StringComparison.Ordinal));
+        }
+        finally
+        {
+            window.Close();
+        }
+    });
+
+    [Theory]
+    [InlineData(ListSortDirection.Ascending, "Name, sorted ascending")]
+    [InlineData(ListSortDirection.Descending, "Name, sorted descending")]
+    [InlineData(null, "Name")]
+    public void A_process_column_header_states_its_sort_order(ListSortDirection? direction, string expected)
+    {
+        Assert.Equal(expected, new ProcessColumnHeader("Name", direction).ToString());
     }
 
     [Fact]

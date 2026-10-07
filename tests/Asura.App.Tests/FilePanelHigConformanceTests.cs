@@ -411,6 +411,36 @@ public sealed class FilePanelHigConformanceTests
     }
 
     [Fact]
+    public void The_freedesktop_Trash_only_renames_and_leaves_an_item_it_cannot_move()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var root = Directory.CreateTempSubdirectory("asura-trash-");
+        try
+        {
+            var file = Path.Combine(root.FullName, "notes.txt");
+            File.WriteAllText(file, "stay");
+
+            Assert.Throws<IOException>(() => FreedesktopFileTrash.Rename(
+                file,
+                Path.Combine(root.FullName, "missing", "notes.txt")));
+            Assert.Equal("stay", File.ReadAllText(file));
+
+            var moved = Path.Combine(root.FullName, "moved.txt");
+            FreedesktopFileTrash.Rename(file, moved);
+            Assert.False(File.Exists(file));
+            Assert.Equal("stay", File.ReadAllText(moved));
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
     public void The_macOS_Trash_takes_a_file_and_gives_it_back()
     {
         if (!OperatingSystem.IsMacOS() || FileTrash.ForThisMachine is not { } trash)
@@ -464,6 +494,7 @@ public sealed class FilePanelHigConformanceTests
             byte[]?[] icons =
             [
                 Views.MacOsFileTypeIcons.Png(Entry(client, "notes.txt"), file),
+                Views.MacOsFileTypeIcons.Png(Entry(client, "asura-icons", FilePanelEntryKind.Directory), root.FullName),
                 Views.MacOsFileTypeIcons.Png(Entry(client, "config.json"), localPath: null),
                 Views.MacOsFileTypeIcons.Png(Entry(client, "src", FilePanelEntryKind.Directory), localPath: null),
             ];
@@ -481,6 +512,27 @@ public sealed class FilePanelHigConformanceTests
         {
             root.Delete(recursive: true);
         }
+    }
+
+    [Fact]
+    public void A_file_icon_is_remembered_by_what_it_was_asked_for_with()
+    {
+        var client = new StubFilePanelClient();
+
+        // Files are asked for by content type, local or not, so one
+        // extensionless file cannot pick the icon for the next.
+        Assert.Equal(
+            Views.MacOsFileTypeIcons.CacheKey(Entry(client, "LICENSE"), "/tmp/LICENSE"),
+            Views.MacOsFileTypeIcons.CacheKey(Entry(client, "Makefile"), "/usr/local/bin/Makefile"));
+        Assert.Equal(
+            Views.MacOsFileTypeIcons.CacheKey(Entry(client, "a.json"), "/tmp/a.json"),
+            Views.MacOsFileTypeIcons.CacheKey(Entry(client, "b.json"), localPath: null));
+
+        // A local folder may carry its own icon, so it is kept by path.
+        Assert.NotEqual(
+            Views.MacOsFileTypeIcons.CacheKey(Entry(client, "One", FilePanelEntryKind.Directory), "/tmp/One"),
+            Views.MacOsFileTypeIcons.CacheKey(Entry(client, "Two", FilePanelEntryKind.Directory), "/tmp/Two"),
+            StringComparer.Ordinal);
     }
 
     private static FilePanelEntry Entry(

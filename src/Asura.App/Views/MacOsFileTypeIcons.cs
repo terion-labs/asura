@@ -8,10 +8,12 @@ namespace Asura.App.Views;
 /// <summary>
 /// File icons from <c>NSWorkspace</c>, rendered once per kind and kept.
 ///
-/// A local file is asked for by path, so a bundle or a folder with a custom
-/// icon shows that icon; files are then remembered by extension, since asking
-/// the disk again for every ".json" in a long listing buys nothing. A remote
-/// item has no path on this machine and is asked for by its content type.
+/// A local folder is asked for by path, so a bundle or a folder with a custom
+/// icon shows that icon, and is remembered by that path. Every file, local or
+/// remote, is asked for by the content type its extension names and is
+/// remembered by that extension: the icon then depends only on what the cache
+/// is keyed by, so the first "LICENSE" or ".json" in a listing cannot decide
+/// how every later one looks.
 /// </summary>
 internal static class MacOsFileTypeIcons
 {
@@ -36,14 +38,7 @@ internal static class MacOsFileTypeIcons
 
     public static Bitmap? For(FilePanelEntry entry, string? localPath)
     {
-        var isDirectory = entry.Kind == FilePanelEntryKind.Directory;
-        var extension = PreviewText.Extension(entry.Name);
-        var key = (localPath, isDirectory) switch
-        {
-            ({ } path, true) => "path:" + path,
-            (_, true) => "folder",
-            _ => "type:" + extension,
-        };
+        var key = CacheKey(entry, localPath);
         if (Cache.TryGetValue(key, out var cached))
         {
             return cached;
@@ -74,6 +69,21 @@ internal static class MacOsFileTypeIcons
     }
 
     /// <summary>
+    /// What an icon is remembered by. It names exactly what the icon was asked
+    /// for with: a local folder's path, or the content type of anything else.
+    /// </summary>
+    internal static string CacheKey(FilePanelEntry entry, string? localPath)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        return (localPath, entry.Kind == FilePanelEntryKind.Directory) switch
+        {
+            ({ } path, true) => "path:" + path,
+            (_, true) => "folder",
+            _ => "type:" + PreviewText.Extension(entry.Name),
+        };
+    }
+
+    /// <summary>
     /// The icon as PNG bytes, or null where the system has none to give.
     /// Uncached: <see cref="For"/> keeps what it decodes.
     /// </summary>
@@ -89,7 +99,7 @@ internal static class MacOsFileTypeIcons
         var pool = objc_autoreleasePoolPush();
         try
         {
-            return RenderPng(localPath is not null
+            return RenderPng(localPath is not null && isDirectory
                 ? IconForFile(localPath)
                 : IconForType(isDirectory ? null : PreviewText.Extension(entry.Name)));
         }

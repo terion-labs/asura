@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Asura.App;
@@ -108,10 +109,17 @@ public static class FileTrash
 ///
 /// Only the home Trash is used. An item on another file system cannot be
 /// renamed into it, and is refused rather than copied: copying a large tree
-/// across devices is a transfer, not a delete.
+/// across devices is a transfer, not a delete, and could fill the home
+/// volume. The move is therefore a bare <c>rename(2)</c>; <see cref="File.Move(string, string)"/>
+/// would quietly fall back to copy-and-delete across devices.
 /// </summary>
 internal sealed class FreedesktopFileTrash : IFileTrash
 {
+    // The same numbers on Linux and macOS.
+    private const int ErrorPermission = 1;
+    private const int ErrorAccess = 13;
+    private const int ErrorCrossDevice = 18;
+
     private readonly string _files;
     private readonly string _info;
     private readonly Func<DateTime> _now;
@@ -159,14 +167,7 @@ internal sealed class FreedesktopFileTrash : IFileTrash
         var destination = Path.Combine(_files, name);
         try
         {
-            if (isDirectory)
-            {
-                Directory.Move(source, destination);
-            }
-            else
-            {
-                File.Move(source, destination);
-            }
+            Rename(source, destination);
         }
         catch
         {
@@ -175,6 +176,32 @@ internal sealed class FreedesktopFileTrash : IFileTrash
         }
 
         return new TrashedItem(source, destination);
+    }
+
+    /// <summary>
+    /// Renames within one file system and nothing more. An item on another
+    /// device fails with <c>EXDEV</c>, which becomes an <see cref="IOException"/>
+    /// saying so; the item stays where it was.
+    /// </summary>
+    internal static void Rename(string source, string destination)
+    {
+        if (rename(NativePath(source), NativePath(destination)) == 0)
+        {
+            return;
+        }
+
+        var error = Marshal.GetLastPInvokeError();
+        var name = Path.GetFileName(source);
+        throw error switch
+        {
+            ErrorCrossDevice => new IOException(
+                $"“{name}” is on another disk than the Trash, so it was not moved."),
+            ErrorPermission or ErrorAccess => new UnauthorizedAccessException(
+                $"“{name}” could not be moved to the Trash: {Marshal.GetPInvokeErrorMessage(error)}."),
+            _ => new IOException(
+                $"“{name}” could not be moved to the Trash: {Marshal.GetPInvokeErrorMessage(error)}.",
+                error),
+        };
     }
 
     public void PutBack(TrashedItem item)
@@ -232,4 +259,10 @@ internal sealed class FreedesktopFileTrash : IFileTrash
         string.Join(
             '/',
             path.Split('/').Select(Uri.EscapeDataString));
+
+    /// <summary>A path as the C library takes it: UTF-8, ending in a zero byte.</summary>
+    private static byte[] NativePath(string path) => Encoding.UTF8.GetBytes(path + "\0");
+
+    [DllImport("libc", SetLastError = true)]
+    private static extern int rename(byte[] oldPath, byte[] newPath);
 }

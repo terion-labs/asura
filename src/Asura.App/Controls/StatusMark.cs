@@ -82,15 +82,6 @@ internal sealed class StatusMark : Panel
         set => SetValue(ShowsGlyphProperty, value);
     }
 
-    /// <summary>The shape that carries a tone when colour cannot.</summary>
-    internal static Symbol GlyphFor(StatusTone tone) => tone switch
-    {
-        StatusTone.Success => Symbol.CheckmarkCircle,
-        StatusTone.Warning => Symbol.Warning,
-        StatusTone.Danger => Symbol.DismissCircle,
-        _ => Symbol.Circle,
-    };
-
     internal SymbolIcon Glyph => _glyph;
 
     internal Border Dot => _dot;
@@ -119,7 +110,7 @@ internal sealed class StatusMark : Panel
     private void ApplyTone(StatusTone tone)
     {
         StatusToneBrush.SetBackground(_dot, tone);
-        _glyph.Symbol = GlyphFor(tone);
+        _glyph.Symbol = StatusToneGlyph.For(tone);
         // An empty ring says "nothing to report" by its shape; filled, it
         // would read as one more dot.
         _glyph.IconVariant = tone == StatusTone.Neutral

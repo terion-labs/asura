@@ -6,8 +6,8 @@ using Asura.App.ViewModels;
 using Asura.App.Views.Components;
 using Asura.Application;
 using Avalonia;
-using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
@@ -188,7 +188,9 @@ public sealed partial class ProcessMonitorRuntimePanelView : UserControl, IEditT
 
     /// <summary>
     /// Each header names its column and, on the sorted one, carries the
-    /// chevron a Mac table header shows; its accessible name says the same.
+    /// chevron a Mac table header shows. The header's content is a
+    /// <see cref="ProcessColumnHeader"/>: the template draws it, and the
+    /// column header's automation peer names itself from its text.
     /// </summary>
     private void UpdateSortHeaders()
     {
@@ -196,43 +198,44 @@ public sealed partial class ProcessMonitorRuntimePanelView : UserControl, IEditT
         foreach (var column in ProcessGrid.Columns)
         {
             var key = column.Tag as string;
-            var title = key switch
-            {
-                "ProcessId" => "PID",
-                "Name" => "Name",
-                "Cpu" => "CPU",
-                "Memory" => "Memory",
-                _ => "Started",
-            };
-            var direction = DirectionFor(key, sort);
-            var header = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 4,
-                Children = { new TextBlock { Text = title, VerticalAlignment = VerticalAlignment.Center } },
-            };
-            if (direction is { } sorted)
-            {
-                var chevron = new SymbolIcon
-                {
-                    Symbol = sorted == ListSortDirection.Ascending ? Symbol.ChevronUp : Symbol.ChevronDown,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    IsHitTestVisible = false,
-                };
-                chevron.Bind(SymbolIcon.FontSizeProperty, chevron.GetResourceObservable("ShellIconSizeXs"));
-                header.Children.Add(chevron);
-            }
-
-            AutomationProperties.SetName(
-                header,
-                direction switch
-                {
-                    ListSortDirection.Ascending => $"{title}, sorted ascending",
-                    ListSortDirection.Descending => $"{title}, sorted descending",
-                    _ => title,
-                });
-            column.Header = header;
+            column.HeaderTemplate = ColumnHeaderTemplate;
+            column.Header = new ProcessColumnHeader(TitleFor(key), DirectionFor(key, sort));
         }
+    }
+
+    internal static string TitleFor(string? column) => column switch
+    {
+        "ProcessId" => "PID",
+        "Name" => "Name",
+        "Cpu" => "CPU",
+        "Memory" => "Memory",
+        _ => "Started",
+    };
+
+    private static readonly FuncDataTemplate<ProcessColumnHeader> ColumnHeaderTemplate =
+        new((header, _) => BuildColumnHeader(header));
+
+    private static StackPanel BuildColumnHeader(ProcessColumnHeader? header)
+    {
+        var panel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 4,
+            Children = { new TextBlock { Text = header?.Title, VerticalAlignment = VerticalAlignment.Center } },
+        };
+        if (header?.Direction is { } sorted)
+        {
+            var chevron = new SymbolIcon
+            {
+                Symbol = sorted == ListSortDirection.Ascending ? Symbol.ChevronUp : Symbol.ChevronDown,
+                VerticalAlignment = VerticalAlignment.Center,
+                IsHitTestVisible = false,
+            };
+            chevron.Bind(SymbolIcon.FontSizeProperty, chevron.GetResourceObservable("ShellIconSizeXs"));
+            panel.Children.Add(chevron);
+        }
+
+        return panel;
     }
 
     private void UpdateStartedColumn(double panelWidth)
@@ -354,4 +357,19 @@ public sealed partial class ProcessMonitorRuntimePanelView : UserControl, IEditT
 
         return Task.CompletedTask;
     }
+}
+
+/// <summary>
+/// What a process column header shows: its title and, when the table is
+/// sorted by it, which way. The text is what VoiceOver reads for the header,
+/// because a column header names itself from its content.
+/// </summary>
+internal sealed record ProcessColumnHeader(string Title, ListSortDirection? Direction)
+{
+    public override string ToString() => Direction switch
+    {
+        ListSortDirection.Ascending => $"{Title}, sorted ascending",
+        ListSortDirection.Descending => $"{Title}, sorted descending",
+        _ => Title,
+    };
 }
