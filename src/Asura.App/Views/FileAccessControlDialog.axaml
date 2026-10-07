@@ -46,7 +46,7 @@
                 <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock
                       Classes="MiddleTruncated"
-                      FontSize="{DynamicResource ShellFontSize10}"
+                      FontSize="{DynamicResource ShellFontSize12}"
                       Text="{Binding Name}"
                       ToolTip.Tip="{Binding Name}" />
                   <TextBlock

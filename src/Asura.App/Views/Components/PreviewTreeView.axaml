@@ -20,19 +20,20 @@
           <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
             <icons:SymbolIcon
                 VerticalAlignment="Center"
-                FontSize="12"
-                Foreground="{DynamicResource ShellAccentBrush}"
+                FontSize="{DynamicResource ShellIconSizeSm}"
+                Foreground="{DynamicResource ShellWarningBrush}"
+                IconVariant="Filled"
                 Symbol="Folder"
                 IsVisible="{Binding IsContainer}" />
             <icons:SymbolIcon
                 VerticalAlignment="Center"
-                FontSize="12"
+                FontSize="{DynamicResource ShellIconSizeSm}"
                 Foreground="{DynamicResource ShellMutedBrush}"
                 Symbol="Document"
                 IsVisible="{Binding !IsContainer}" />
             <TextBlock
                 VerticalAlignment="Center"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellFontSize12}"
                 Text="{Binding Name}" />
             <TextBlock
                 VerticalAlignment="Center"

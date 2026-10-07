@@ -388,7 +388,10 @@ public sealed partial class QuickTerminalWindow : Window
     internal Func<Window, bool> PanelConfigurator { get; init; } =
         MacOsQuickTerminalReveal.TryConfigurePanelBehavior;
 
-    /// <summary>Whether the native window already behaves as a panel.</summary>
+    /// <summary>
+    /// Whether the native window has been given the panel behavior at least
+    /// once.
+    /// </summary>
     internal bool IsConfiguredAsPanel => _isConfiguredAsPanel;
 
     /// <summary>
@@ -398,21 +401,23 @@ public sealed partial class QuickTerminalWindow : Window
     ///
     /// It has to happen before the window is first shown: a window ordered in
     /// without the behavior is placed on the desktop's Space and takes the
-    /// person there, out of the full-screen app they summoned it over. It runs
-    /// once; a platform with no native window yet leaves it to the next call.
+    /// person there, out of the full-screen app they summoned it over. Setting
+    /// the behavior again is harmless, so every call applies it; a platform
+    /// with no native window yet leaves it to the next call.
     /// </summary>
     public void ConfigureAsPanel()
     {
-        if (!_isConfiguredAsPanel)
+        if (PanelConfigurator(this))
         {
-            _isConfiguredAsPanel = PanelConfigurator(this);
+            _isConfiguredAsPanel = true;
         }
     }
 
     /// <summary>
     /// Shows the window for a reveal that starts at <paramref name="progress"/>,
     /// or moves an open one there. The panel behavior is set before the first
-    /// show, and the backdrop is applied before the first visible frame.
+    /// show and again after every show, and the backdrop is applied before the
+    /// first visible frame.
     /// </summary>
     internal void ShowForReveal(double progress)
     {
@@ -428,7 +433,9 @@ public sealed partial class QuickTerminalWindow : Window
             SetRevealProgress(progress);
         }
 
-        // A platform that creates its native window on show is configured now.
+        // Applied again after the show: a platform that creates its native
+        // window on show is configured now, and a show cannot leave the
+        // window without the panel behavior.
         ConfigureAsPanel();
         ApplyBackdrop();
         if (!wasVisible)

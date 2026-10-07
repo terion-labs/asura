@@ -13,7 +13,7 @@ namespace Asura.App.Tests;
 public sealed class QuickTerminalRevealHeadlessTests
 {
     [Fact]
-    public Task The_panel_behavior_is_set_before_the_first_show_and_only_once() =>
+    public Task The_panel_behavior_is_set_before_the_first_show_and_after_every_show() =>
         RunHeadlessAsync(() =>
         {
             var visibleWhenConfigured = new List<bool>();
@@ -29,15 +29,19 @@ public sealed class QuickTerminalRevealHeadlessTests
             {
                 window.ShowForReveal(0);
                 Assert.True(window.IsVisible);
-                Assert.Equal([false], visibleWhenConfigured);
+                // The first call happens while the window is still hidden;
+                // the second re-applies it once the window is on screen.
+                Assert.Equal([false, true], visibleWhenConfigured);
                 Assert.True(window.IsConfiguredAsPanel);
 
-                // Showing again, or a later reveal, does not configure again.
-                window.ShowForReveal(0.5);
+                // Every later show applies the behavior again, before and
+                // after, and calling it directly is safe.
                 window.Hide();
+                visibleWhenConfigured.Clear();
                 window.ShowForReveal(0);
+                Assert.Equal([false, true], visibleWhenConfigured);
                 window.ConfigureAsPanel();
-                Assert.Equal([false], visibleWhenConfigured);
+                Assert.True(window.IsConfiguredAsPanel);
             }
             finally
             {

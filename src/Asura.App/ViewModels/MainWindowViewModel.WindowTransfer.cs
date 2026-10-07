@@ -12,29 +12,38 @@ namespace Asura.App.ViewModels;
 public sealed partial class MainWindowViewModel
 {
     /// <summary>
-    /// Opens the workspace a tab moved from another window lands in. It has
-    /// no saved definition behind it, like a local browser or monitor
-    /// workspace, and is named and coloured after the workspace the tab
-    /// leaves. A workspace cannot be empty, so it starts with the launcher
-    /// tab, which the move replaces.
+    /// Opens the workspace a tab moved from another window lands in. It is
+    /// not the saved workspace itself, which stays open where it was, but it
+    /// carries that workspace's name, colour, connections, terminal
+    /// multiplexing and agent policy lineage. The moved tab keeps the lineage
+    /// it adopted, and recovery refuses a workspace whose tabs contradict its
+    /// own. A workspace cannot be empty, so it starts with the launcher tab,
+    /// which the move replaces.
     /// </summary>
     internal async Task<RuntimeWorkspaceViewModel?> OpenTabTransferWorkspaceAsync(
-        string name,
-        string accent,
+        RuntimeWorkspaceViewModel source,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        ArgumentException.ThrowIfNullOrWhiteSpace(accent);
+        ArgumentNullException.ThrowIfNull(source);
         ClearError();
+        var connectionIds = source.Connections
+            .Select(connection => connection.Id)
+            .ToHashSet();
         var runtime = new RuntimeWorkspaceViewModel(
             WorkspaceInstanceId.New(),
-            name,
-            accent,
-            [],
-            CurrentAgentPolicyProvenance());
+            source.Name,
+            source.Accent,
+            [.. Connections.Where(connection => connectionIds.Contains(connection.Id))],
+            source.AgentPolicy,
+            source.TerminalMultiplexingMode);
         try
         {
             RegisterWorkspaceConnectionRuntime(runtime);
+            if (runtime.TerminalMultiplexingMode is { } multiplexingMode)
+            {
+                _workspaceTerminalMultiplexingModes[runtime.Id] = multiplexingMode;
+            }
+
             var launcher = CreateLauncherTab();
             runtime.Tabs.Add(launcher);
             runtime.ActiveTab = launcher;
@@ -84,8 +93,7 @@ public sealed partial class MainWindowViewModel
         }
 
         var destination = await window.OpenTabTransferWorkspaceAsync(
-            source.Name,
-            source.Accent,
+            source,
             cancellationToken);
         if (destination?.ActiveTab is not { } launcher)
         {
@@ -218,29 +226,44 @@ public sealed partial class MainWindowViewModel
                 movedTab.Id),
             () =>
             {
-                foreach (var panel in movedTab.Panels)
+                // Each window's recovery follows its own workspace: the tab
+                // and its panels stop queueing this window's snapshot and
+                // start queueing the new window's. Tracking stops for the
+                // whole workspace, not just the moved panels, so the tab's
+                // own layout handler leaves with it, as a panel move does.
+                StopTrackingRecovery(source);
+                window.StopTrackingRecovery(destination);
+                try
                 {
-                    StopTrackingRecovery(panel);
-                    _recentSessionIds.Remove(panel.Id);
-                    if (panel is BrowserRuntimePanelViewModel browser)
+                    foreach (var panel in movedTab.Panels)
                     {
-                        // A link the page opens in a new tab opens in the
-                        // window the page is now in.
-                        browser.NewTabRequested -= OnBrowserNewTabRequested;
-                        browser.NewTabRequested += window.OnBrowserNewTabRequested;
+                        _recentSessionIds.Remove(panel.Id);
+                        if (panel is BrowserRuntimePanelViewModel browser)
+                        {
+                            // A link the page opens in a new tab opens in the
+                            // window the page is now in.
+                            browser.NewTabRequested -= OnBrowserNewTabRequested;
+                            browser.NewTabRequested += window.OnBrowserNewTabRequested;
+                        }
                     }
-                }
 
-                source.Tabs.Remove(movedTab);
-                if (ReferenceEquals(source.ActiveTab, movedTab))
+                    source.Tabs.Remove(movedTab);
+                    if (ReferenceEquals(source.ActiveTab, movedTab))
+                    {
+                        source.ActiveTab = source.Tabs[
+                            Math.Min(sourceIndex, source.Tabs.Count - 1)];
+                    }
+
+                    ReownTabSessions(movedTab, window.WindowId, destination.Id);
+                    destination.Tabs.Add(movedTab);
+                    destination.ActiveTab = movedTab;
+                }
+                finally
                 {
-                    source.ActiveTab = source.Tabs[
-                        Math.Min(sourceIndex, source.Tabs.Count - 1)];
+                    StartTrackingRecovery(source);
+                    window.StartTrackingRecovery(destination);
                 }
 
-                ReownTabSessions(movedTab, window.WindowId, destination.Id);
-                destination.Tabs.Add(movedTab);
-                destination.ActiveTab = movedTab;
                 window.TrackRecentSessions(movedTab.Panels);
                 WorkspaceTransferStatus =
                     $"Moved tab “{movedTab.Title}” from “{source.Name}” to a new window.";

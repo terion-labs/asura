@@ -243,13 +243,13 @@
                   AutomationProperties.Name="Toggle AI agent panel">
                 <Grid>
                   <icons:SymbolIcon
-                      FontSize="13"
+                      FontSize="{DynamicResource ShellIconSizeSm}"
                       Foreground="{DynamicResource ShellForegroundBrush}"
                       Symbol="Bot" />
                   <icons:SymbolIcon
                       Classes="AgentToolbarActivityPulse"
                       Classes.running="{Binding AgentChat.IsBusy}"
-                      FontSize="13"
+                      FontSize="{DynamicResource ShellIconSizeSm}"
                       Foreground="{DynamicResource ShellAccentBrush}"
                       Opacity="0"
                       Symbol="Bot" />
