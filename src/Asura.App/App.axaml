@@ -172,6 +172,10 @@
       <x:Double x:Key="ShellPillFontSize">10</x:Double>
       <CornerRadius x:Key="ShellPanelBottomCornerRadius">0,0,9,9</CornerRadius>
       <CornerRadius x:Key="ShellInnerCornerRadius">5</CornerRadius>
+      <!-- The corner of a status mark that is meant to read as square — a
+           warning or a danger mark with Differentiate Without Color on.
+           Fixed: the mark is drawn at a fixed size, like the dot it replaces. -->
+      <CornerRadius x:Key="ShellMarkCornerRadius">1</CornerRadius>
       <!-- Every runtime panel wears the same header, so how tall it is belongs to
            the token set rather than to each of the eight views that draw one. It
            used to be 36 in six of them and 40 in two, which read as two panel

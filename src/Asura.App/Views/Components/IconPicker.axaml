@@ -44,7 +44,7 @@
                   ToolTip.Tip="{Binding Name}"
                   Classes.selected="{Binding IsSelected}"
                   AutomationProperties.Name="{Binding Name}">
-                <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="{Binding Symbol}" FontSize="16" />
+                <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="{Binding Symbol}" FontSize="{DynamicResource ShellIconSizeMd}" />
               </Button>
             </DataTemplate>
           </ItemsControl.ItemTemplate>

@@ -16,6 +16,13 @@ namespace Asura.App.Controls;
 /// cleared contrast in light mode. A mark now names its tone and takes the
 /// matching appearance token, bound live so a theme change repaints it:
 /// <c>controls:StatusToneBrush.Fill="{Binding Status}"</c>.
+///
+/// The colour is bound as a local value, so no style can repaint the mark —
+/// which is also why Differentiate Without Color could not reach it. The mark
+/// therefore states its tone as a pseudo-class as well (<c>:tone-success</c>,
+/// <c>:tone-warning</c>, <c>:tone-danger</c>, <c>:tone-neutral</c>), and the
+/// theme gives each tone its own shape through properties the brush leaves
+/// alone.
 /// </summary>
 internal static class StatusToneBrush
 {
@@ -77,8 +84,23 @@ internal static class StatusToneBrush
         _ => "ShellStatusNeutralBrush",
     };
 
+    /// <summary>The pseudo-class a tone is stated with, for the theme's shapes.</summary>
+    internal static string PseudoClass(StatusTone tone) => tone switch
+    {
+        StatusTone.Success => ":tone-success",
+        StatusTone.Warning => ":tone-warning",
+        StatusTone.Danger => ":tone-danger",
+        _ => ":tone-neutral",
+    };
+
     private static void BindTone(Control control, StyledProperty<IBrush?> property, StatusTone? tone)
     {
+        IPseudoClasses pseudoClasses = control.Classes;
+        foreach (var each in Enum.GetValues<StatusTone>())
+        {
+            pseudoClasses.Set(PseudoClass(each), each == tone);
+        }
+
         if (tone is not { } value)
         {
             control.ClearValue(property);

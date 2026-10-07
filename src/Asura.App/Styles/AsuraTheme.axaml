@@ -10,6 +10,14 @@
     <converters:EnumDisplayConverter x:Key="EnumDisplayConverter" />
     <converters:HexColorBrushConverter x:Key="HexColorBrushConverter" />
     <converters:OnOffConverter x:Key="OnOffConverter" />
+    <!-- An opacity mask, not a colour: it keeps the outer band of whatever it
+         masks and drops the middle, which turns a filled dot into a ring. -->
+    <RadialGradientBrush x:Key="ShellRingMask">
+      <GradientStop Offset="0" Color="Transparent" />
+      <GradientStop Offset="0.55" Color="Transparent" />
+      <GradientStop Offset="0.6" Color="Black" />
+      <GradientStop Offset="1" Color="Black" />
+    </RadialGradientBrush>
   </Styles.Resources>
 
   <Style Selector="Window">
@@ -238,6 +246,7 @@
   <Style Selector="Button.SecondaryButton">
     <Setter Property="Background" Value="{DynamicResource ShellControlSurfaceBrush}" />
     <Setter Property="Padding" Value="{DynamicResource ShellButtonPadding}" />
+    <Setter Property="AutomationProperties.ItemStatus" Value="" />
   </Style>
 
   <Style Selector="Button.SecondaryButton.painting">
@@ -246,9 +255,13 @@
     <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
   </Style>
 
+  <!-- A pressed-in secondary button is a choice that is on. The state is said
+       in the same style that draws it, as the Settings sidebar says which page
+       is current, so VoiceOver hears what the eye sees. -->
   <Style Selector="Button.SecondaryButton.active">
     <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="AutomationProperties.ItemStatus" Value="Selected" />
   </Style>
 
   <!--
@@ -888,12 +901,42 @@
     <Setter Property="IsVisible" Value="True" />
   </Style>
 
-  <!-- With Differentiate Without Color on, the two states differ in shape as
-       well: available stays a disc, anything else becomes a ring. -->
-  <Style Selector="Window.differentiate-without-color Border.StatusDot:not(.available)">
+  <!-- With Differentiate Without Color on, the two states of a dot that only
+       knows available or not differ in shape as well: available stays a
+       disc, anything else becomes a ring. -->
+  <Style Selector="Window.differentiate-without-color Border.StatusDot:not(.available):not(:tone-success):not(:tone-warning):not(:tone-danger):not(:tone-neutral)">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellMutedBrush}" />
     <Setter Property="BorderThickness" Value="1.5" />
+  </Style>
+
+  <!--
+    A dot painted from a status tone holds its colour as a local value, so a
+    style cannot hollow it by clearing the fill. Each tone instead takes a
+    shape of its own through what the brush leaves alone — the corner, the
+    size, the frame and a mask — so success, warning, danger and nothing to
+    report read apart in grayscale:
+
+      success   a disc, as it always was;
+      warning   a square;
+      danger    a diamond;
+      neutral   a ring, its middle masked away.
+  -->
+  <Style Selector="Window.differentiate-without-color Border.StatusDot:tone-warning">
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellMarkCornerRadius}" />
+  </Style>
+
+  <Style Selector="Window.differentiate-without-color Border.StatusDot:tone-danger">
+    <Setter Property="Width" Value="7" />
+    <Setter Property="Height" Value="7" />
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellMarkCornerRadius}" />
+    <Setter Property="RenderTransform" Value="rotate(45deg)" />
+  </Style>
+
+  <Style Selector="Window.differentiate-without-color Border.StatusDot:tone-neutral">
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellStatusNeutralBrush}" />
+    <Setter Property="BorderThickness" Value="1.5" />
+    <Setter Property="OpacityMask" Value="{StaticResource ShellRingMask}" />
   </Style>
 
   <!--
@@ -1110,12 +1153,14 @@
     <Setter Property="CornerRadius" Value="{DynamicResource ShellPillCornerRadius}" />
     <Setter Property="BorderThickness" Value="2" />
     <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="AutomationProperties.ItemStatus" Value="" />
   </Style>
   <Style Selector="Button.AccentSwatch:pointerover">
     <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
   </Style>
   <Style Selector="Button.AccentSwatch.selected">
     <Setter Property="BorderBrush" Value="{DynamicResource ShellTextBrush}" />
+    <Setter Property="AutomationProperties.ItemStatus" Value="Selected" />
   </Style>
 
   <!-- One tile in the workspace icon grid. -->
@@ -1128,6 +1173,7 @@
     <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
+    <Setter Property="AutomationProperties.ItemStatus" Value="" />
   </Style>
   <Style Selector="Button.IconChoice:pointerover, ToggleButton.IconChoice:pointerover">
     <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
@@ -1136,6 +1182,7 @@
     <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
+    <Setter Property="AutomationProperties.ItemStatus" Value="Selected" />
   </Style>
 
   <!-- A centred empty state. A StackPanel is only as wide as its widest child, so
@@ -1626,6 +1673,7 @@
     <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="AutomationProperties.ItemStatus" Value="" />
   </Style>
 
   <!-- The pointer is the faint wash, as on a list's own rows; the full hover
@@ -1649,6 +1697,7 @@
        accent it wore measured about 1.1:1 against the card. -->
   <Style Selector="Button.ListRow.selected">
     <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
+    <Setter Property="AutomationProperties.ItemStatus" Value="Selected" />
   </Style>
 
   <Style Selector="Button.ListRow.selected:pointerover /template/ ContentPresenter">
