@@ -28,13 +28,13 @@
         <icons:SymbolIcon
             VerticalAlignment="Center"
             Symbol="Shield"
-            FontSize="15"
-            Foreground="{DynamicResource ShellAccentBrush}" />
+            FontSize="{DynamicResource ShellIconSizeMd}"
+            Foreground="{DynamicResource ShellMutedBrush}" />
         <TextBlock
             Grid.Column="1"
             VerticalAlignment="Center"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize10}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="Permission request" />
         <controls:StatusChip Grid.Column="2" VerticalAlignment="Center" Classes.Warning="True" Content="Off → Ask" />
       </Grid>
@@ -47,14 +47,14 @@
             ToolTip.Tip="{Binding AgentChat.PendingCapabilityRequest.CapabilityToken}" />
         <TextBlock
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize10}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding AgentChat.PendingCapabilityRequest.TargetTitle}"
             TextWrapping="Wrap" />
       </StackPanel>
       <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
         <TextBlock
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize10}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="Allows asking to:" />
         <ItemsControl ItemsSource="{Binding AgentChat.PendingCapabilityRequest.AffectedToolTitles}">
           <ItemsControl.ItemTemplate>
@@ -72,12 +72,12 @@
       <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
         <TextBlock
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding AgentChat.PendingCapabilityRequest.ExactTarget}"
             TextWrapping="Wrap" />
         <TextBlock
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding AgentChat.PendingCapabilityRequest.ExpiresAt, StringFormat={}Expires {0}}"
             TextWrapping="Wrap" />
       </StackPanel>

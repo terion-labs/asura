@@ -3173,7 +3173,7 @@ public sealed partial class AgentChatViewModelTests
         await viewModel.SelectFullAccessAsync(CancellationToken.None);
 
         Assert.True(viewModel.CanDisableYolo);
-        Assert.Equal("Full access", viewModel.AccessModeLabel);
+        Assert.Equal("Full Access", viewModel.AccessModeLabel);
         Assert.Equal(0, runtime.EnableFullAccessCount);
 
         viewModel.Prompt = "Inspect the terminal.";
@@ -3209,7 +3209,7 @@ public sealed partial class AgentChatViewModelTests
 
         await viewModel.SelectFullAccessAsync(CancellationToken.None);
 
-        Assert.Equal("Full access", viewModel.AccessModeLabel);
+        Assert.Equal("Full Access", viewModel.AccessModeLabel);
         Assert.Equal(0, runtime.EnableFullAccessCount);
 
         viewModel.Prompt = "Continue with full access.";
@@ -3267,7 +3267,7 @@ public sealed partial class AgentChatViewModelTests
 
         await viewModel.SelectFullAccessAsync(CancellationToken.None);
 
-        Assert.Equal("Full access", viewModel.AccessModeLabel);
+        Assert.Equal("Full Access", viewModel.AccessModeLabel);
         Assert.Equal(1, runtime.EnableFullAccessCount);
     }
 
@@ -3295,7 +3295,7 @@ public sealed partial class AgentChatViewModelTests
 
         await viewModel.SelectFullAccessAsync(CancellationToken.None);
 
-        Assert.Equal("Full access", viewModel.AccessModeLabel);
+        Assert.Equal("Full Access", viewModel.AccessModeLabel);
         Assert.Equal(1, runtime.EnableFullAccessCount);
     }
 

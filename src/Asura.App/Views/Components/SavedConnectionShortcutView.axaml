@@ -20,11 +20,13 @@
         AutomationProperties.Name="{Binding Name}">
       <Button.ContextMenu>
         <ContextMenu>
-          <MenuItem Header="Edit connection…" Click="OnEditClick" />
-          <MenuItem Header="Delete connection" Click="OnDeleteClick" />
+          <MenuItem Header="Edit Connection…" Click="OnEditClick" />
+          <Separator />
+          <MenuItem Header="Delete Connection" Click="OnDeleteClick" />
         </ContextMenu>
       </Button.ContextMenu>
       <controls:ListItem
+          Classes="MiddleTruncatedDetail"
           ContentPadding="{controls:Inset Horizontal=Md, Vertical=Sm}"
           Title="{Binding Name}"
           Detail="{Binding Detail}">
@@ -38,7 +40,7 @@
     </Button>
     <Button Grid.Column="1" Classes="IconButton" Click="OnEditClick"
         ToolTip.Tip="Edit connection" AutomationProperties.Name="{Binding Name, StringFormat=Edit {0}}">
-      <icons:SymbolIcon Symbol="Edit" FontSize="14" />
+      <icons:SymbolIcon Symbol="Edit" FontSize="{DynamicResource ShellIconSizeSm}" />
     </Button>
     <Button
         x:Name="ShortcutMenuButton"
@@ -47,29 +49,9 @@
         Classes="IconButton"
         ToolTip.Tip="Connection actions"
         AutomationProperties.Name="{Binding Name, StringFormat={}Actions for {0}}">
-      <icons:SymbolIcon Symbol="ChevronDown" FontSize="12" />
+      <icons:SymbolIcon Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeSm}" />
       <Button.Flyout>
-        <Flyout Placement="Bottom" FlyoutPresenterClasses="SavedConnectionMenu">
-          <StackPanel>
-            <ItemsControl ItemsSource="{Binding AlternativeLaunches}" IsEnabled="{Binding CanOpen}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                  <Button
-                      Classes="FlyoutMenuItem"
-                      Click="OnAlternativeClick"
-                      AutomationProperties.Name="{Binding Label}">
-                    <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                      <icons:SymbolIcon VerticalAlignment="Center" Symbol="{Binding Icon}" FontSize="14" />
-                      <TextBlock VerticalAlignment="Center" Text="{Binding Label}" />
-                    </StackPanel>
-                  </Button>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-            <Button Classes="FlyoutMenuItem" Click="OnEditClick" Content="Edit connection…" />
-            <Button Classes="FlyoutMenuItem" Click="OnDeleteClick" Content="Delete connection" />
-          </StackPanel>
-        </Flyout>
+        <MenuFlyout Placement="BottomEdgeAlignedRight" />
       </Button.Flyout>
     </Button>
   </Grid>

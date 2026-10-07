@@ -31,7 +31,6 @@ public sealed class AgentWorkspaceViewContractTests
             ["DeleteAgentConversationRequested"] = "OnDeleteConversationClick",
             ["CopyAgentMessageRequested"] = "OnCopyAgentMessageClick",
             ["ForkAgentConversationRequested"] = "OnForkAgentConversationClick",
-            ["SelectAgentModelRequested"] = "OnSelectModelClick",
             ["ToggleAgentModelFavoriteRequested"] =
                 "OnToggleFavoriteModelClick",
             ["RefreshAgentModelsRequested"] = "OnRefreshModelsClick",
@@ -144,19 +143,28 @@ public sealed class AgentWorkspaceViewContractTests
                 "AgentContextDetailsButton",
                 StringComparison.Ordinal));
 
-        var providerSettings = Assert.Single(
-            root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "Button"
-, StringComparison.Ordinal) && string.Equals(
-                    AttributeValue(element, "Content"),
-                    "Open AI settings",
-                    StringComparison.Ordinal));
-        Assert.Equal("PrimaryButton", AttributeValue(providerSettings, "Classes"));
+        // One label for the one action, with the ellipsis of a button that
+        // opens a window: "Configure AI", "Open AI settings" and "Provider
+        // settings" all opened AI settings.
+        var aiSettingsButtons = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Click"), "OnShowAgentSettingsClick", StringComparison.Ordinal))
+            .ToArray();
+        Assert.Equal(3, aiSettingsButtons.Length);
+        Assert.All(aiSettingsButtons, button =>
+        {
+            Assert.Equal("AI Settings…", AttributeValue(button, "Content"));
+            Assert.Equal("AI Settings…", AttributeValue(button, "AutomationProperties.Name"));
+        });
+        // The empty states lead with it; after a failed turn the retry leads
+        // and settings is the quieter way out.
         Assert.Equal(
-            "Open AI settings",
-            AttributeValue(providerSettings, "AutomationProperties.Name"));
-        Assert.False(string.IsNullOrWhiteSpace(
-            AttributeValue(providerSettings, "AutomationProperties.HelpText")));
+            ["PrimaryButton", "PrimaryButton", "TextButton"],
+            aiSettingsButtons.Select(button => AttributeValue(button, "Classes")),
+            StringComparer.Ordinal);
+        Assert.Contains(
+            aiSettingsButtons,
+            button => !string.IsNullOrWhiteSpace(AttributeValue(button, "AutomationProperties.HelpText")));
 
         var footerStatus = Assert.Single(
             root.Descendants(),
@@ -175,8 +183,10 @@ public sealed class AgentWorkspaceViewContractTests
             element => string.Equals(element.Name.LocalName, "Button"
 , StringComparison.Ordinal) && string.Equals(
                     AttributeValue(element, "Content"),
-                    "Clear agent session",
+                    "Clear Agent Session",
                     StringComparison.Ordinal));
+        // Clearing throws the retained session away, so it says so in red.
+        Assert.Equal("DestructiveButton", AttributeValue(clearRetainedSession, "Classes"));
         Assert.Equal(
             "{Binding AgentChat.CanClear}",
             AttributeValue(clearRetainedSession, "IsVisible"));
@@ -207,7 +217,10 @@ public sealed class AgentWorkspaceViewContractTests
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "AutomationProperties.Name")
 , "{Binding AgentChat.ContextWindowUsageLabel}", StringComparison.Ordinal));
         Assert.Null(AttributeValue(contextUsage, "Content"));
-        Assert.Equal("26", AttributeValue(contextUsage, "Width"));
+        // Sized for 13 pt text and grown with the text-size setting.
+        Assert.Null(AttributeValue(contextUsage, "Width"));
+        Assert.Equal("{controls:TextScaled 26}", AttributeValue(contextUsage, "MinWidth"));
+        Assert.Equal("{controls:TextScaled 26}", AttributeValue(contextUsage, "MinHeight"));
         Assert.Equal("3", AttributeValue(contextUsage, "Grid.Column"));
         Assert.Equal("4", AttributeValue(contextUsage.Ancestors().First(element => string.Equals(element.Name.LocalName, "Border", StringComparison.Ordinal)), "Grid.Row"));
         Assert.Contains("ComposerControl", AttributeValue(contextUsage, "Classes"), StringComparison.Ordinal);
@@ -400,28 +413,49 @@ public sealed class AgentWorkspaceViewContractTests
             picker.Descendants(),
             element => string.Equals(element.Name.LocalName, "Flyout", StringComparison.Ordinal));
         Assert.Equal("AgentModelMenu", AttributeValue(flyout, "FlyoutPresenterClasses"));
+        Assert.Equal("OnModelMenuOpened", AttributeValue(flyout, "Opened"));
 
         var layout = Assert.Single(
             flyout.Elements(),
             element => string.Equals(element.Name.LocalName, "Grid", StringComparison.Ordinal));
         Assert.Equal("Auto,*,Auto", AttributeValue(layout, "RowDefinitions"));
 
+        // A menu that filters: the shared search field above a list with a
+        // selection role, where Return chooses.
+        Assert.DoesNotContain(
+            layout.Descendants(),
+            element => string.Equals(element.Name.LocalName, "TextBox", StringComparison.Ordinal));
         var filter = Assert.Single(
             layout.Descendants(),
-            element => string.Equals(element.Name.LocalName, "TextBox"
+            element => string.Equals(element.Name.LocalName, "SearchField"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "PlaceholderText"), "Filter models", StringComparison.Ordinal));
         Assert.Equal(
             "{Binding AgentChat.ModelSearch, Mode=TwoWay}",
             AttributeValue(filter, "Text"));
+        Assert.Equal("OnModelFilterKeyDown", AttributeValue(filter, "KeyDown"));
 
         var modelList = Assert.Single(
             layout.Descendants(),
-            element => string.Equals(element.Name.LocalName, "ItemsControl"
+            element => string.Equals(element.Name.LocalName, "ListBox"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "ItemsSource")
 , "{Binding AgentChat.FilteredModels}", StringComparison.Ordinal));
+        Assert.Equal("AgentModelList", AttributeValue(modelList, "Name"));
+        Assert.Equal("Single", AttributeValue(modelList, "SelectionMode"));
+        Assert.Equal("OnModelListKeyDown", AttributeValue(modelList, "KeyDown"));
         Assert.Equal(
             "1",
-            AttributeValue(modelList.Ancestors().First(element => string.Equals(element.Name.LocalName, "ScrollViewer", StringComparison.Ordinal)), "Grid.Row"));
+            AttributeValue(modelList.Ancestors().First(element => string.Equals(element.Name.LocalName, "Grid", StringComparison.Ordinal)), "Grid.Row"));
+        Assert.DoesNotContain(
+            layout.Descendants(),
+            element => HasClass(element, "FlyoutMenuItem"));
+        var mark = Assert.Single(
+            modelList.Descendants(),
+            element => string.Equals(AttributeValue(element, "Name"), "CurrentModelMark", StringComparison.Ordinal));
+        Assert.Equal("Checkmark", AttributeValue(mark, "Symbol"));
+        Assert.Equal("{Binding IsCurrent}", AttributeValue(mark, "IsVisible"));
+        Assert.Contains(
+            modelList.Descendants(),
+            element => string.Equals(AttributeValue(element, "Tag"), "{Binding Model}", StringComparison.Ordinal));
         Assert.Contains(
             modelList.Descendants(),
             element => string.Equals(element.Name.LocalName, "TextBlock"
@@ -439,6 +473,11 @@ public sealed class AgentWorkspaceViewContractTests
         Assert.Equal(
             "{Binding FavoriteAccessibleName}",
             AttributeValue(favorite, "AutomationProperties.Name"));
+
+        // The chosen model reaches the host from the row that carries it.
+        var codeBehind = ApplicationViews.FindUniqueCodeBehindSourceContaining(
+            "public sealed partial class AgentWorkspaceView");
+        Assert.Contains("SelectAgentModelRequested?.Invoke(carrier,", codeBehind, StringComparison.Ordinal);
 
         var footer = Assert.Single(
             layout.Elements(),
@@ -485,7 +524,7 @@ public sealed class AgentWorkspaceViewContractTests
 
         var filter = Assert.Single(
             layout.Descendants(),
-            element => string.Equals(element.Name.LocalName, "TextBox"
+            element => string.Equals(element.Name.LocalName, "SearchField"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "PlaceholderText")
 , "Filter conversations", StringComparison.Ordinal));
         Assert.Equal(
@@ -518,11 +557,29 @@ public sealed class AgentWorkspaceViewContractTests
     public void Full_access_is_a_normal_run_scoped_agent_option()
     {
         var root = Assert.IsType<XElement>(LoadView().Root);
-        var fullAccess = Assert.Single(
-            root.Descendants(),
-                element => string.Equals(element.Name.LocalName, "Button"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Content")
-, "Full access for agent actions", StringComparison.Ordinal));
+        var access = FindNamedElement(root, "AgentAccessModeButton");
+        var menu = Assert.Single(
+            access.Descendants(),
+            element => string.Equals(element.Name.LocalName, "MenuFlyout", StringComparison.Ordinal));
+        var modes = menu.Elements()
+            .Where(element => string.Equals(element.Name.LocalName, "MenuItem", StringComparison.Ordinal))
+            .ToArray();
+        Assert.Equal(
+            ["Ask for Approval", "Full Access"],
+            modes.Select(element => AttributeValue(element, "Header")),
+            StringComparer.Ordinal);
+        Assert.All(modes, element =>
+        {
+            Assert.Equal("Radio", AttributeValue(element, "ToggleType"));
+            Assert.Equal("AgentApprovalMode", AttributeValue(element, "GroupName"));
+        });
+        Assert.Equal(
+            "{Binding AgentChat.IsAskForApprovalSelected, Mode=OneWay, FallbackValue=False}",
+            AttributeValue(modes[0], "IsChecked"));
+        Assert.Equal(
+            "{Binding AgentChat.IsFullAccessSelected, Mode=OneWay, FallbackValue=False}",
+            AttributeValue(modes[1], "IsChecked"));
+        var fullAccess = modes[1];
 
         Assert.Null(AttributeValue(fullAccess, "IsEnabled"));
         Assert.DoesNotContain(

@@ -17,23 +17,23 @@
       AutomationProperties.HelpText="Review the action, where it runs, and its arguments before choosing. Exact identifiers are under Details. Approval applies once to this exact action.">
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
       <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-        <icons:SymbolIcon Symbol="Shield" FontSize="{DynamicResource ShellFontSize13}"
-            Foreground="{DynamicResource ShellAccentBrush}" VerticalAlignment="Center" />
+        <icons:SymbolIcon Symbol="Shield" FontSize="{DynamicResource ShellIconSizeSm}"
+            Foreground="{DynamicResource ShellMutedBrush}" VerticalAlignment="Center" />
         <TextBlock Grid.Column="1" Classes="Muted" Text="Approval required"
-            FontSize="{DynamicResource ShellFontSize10}" VerticalAlignment="Center" />
+            FontSize="{DynamicResource ShellSecondaryFontSize}" VerticalAlignment="Center" />
         <controls:StatusChip Grid.Column="2" Classes.Warning="True"
             IsVisible="{Binding AgentChat.PendingApproval.IsHighRisk}"
             Content="{Binding AgentChat.PendingApproval.Risk}" />
       </Grid>
       <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-        <TextBlock FontSize="{DynamicResource ShellFontSize15}" FontWeight="SemiBold"
+        <TextBlock Classes="Title3"
             Text="{Binding AgentChat.PendingApproval.ToolTitle}" TextWrapping="Wrap" />
-        <SelectableTextBlock FontSize="{DynamicResource ShellFontSize10}"
+        <SelectableTextBlock FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding AgentChat.PendingApproval.TargetDisplayTitle, StringFormat={}In {0}}" TextWrapping="Wrap" />
-        <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}"
+        <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding AgentChat.PendingApproval.Host}" TextWrapping="Wrap"
             IsVisible="{Binding AgentChat.PendingApproval.HasHost}" />
-        <SelectableTextBlock FontSize="{DynamicResource ShellFontSize10}"
+        <SelectableTextBlock FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding AgentChat.PendingApproval.WorkingDirectory}" TextWrapping="Wrap"
             IsVisible="{Binding AgentChat.PendingApproval.HasWorkingDirectory}" />
       </StackPanel>
@@ -46,7 +46,7 @@
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:AgentApprovalArgumentViewModel">
               <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding DisplayName}" />
+                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding DisplayName}" />
                 <SelectableTextBlock FontSize="{DynamicResource ShellFontSize12}"
                     Text="{Binding DisplayValue}" TextWrapping="Wrap" />
               </StackPanel>
@@ -88,7 +88,7 @@
           Glyph="Warning"
           Text="{Binding AgentChat.PendingApproval.InputYieldWarning}"
           IsVisible="{Binding AgentChat.PendingApproval.TemporarilyYieldsTerminalInput}" />
-      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}"
+      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}"
           Text="Approval applies to this action only." TextWrapping="Wrap" />
       <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
         <Button

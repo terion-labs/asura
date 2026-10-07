@@ -31,7 +31,7 @@
       <icons:SymbolIcon
           Grid.Column="1"
           VerticalAlignment="Center"
-          FontSize="10"
+          FontSize="{DynamicResource ShellIconSizeXs}"
           Symbol="ChevronDown" />
     </Grid>
     <Button.Flyout>
@@ -39,7 +39,7 @@
           Placement="BottomEdgeAlignedLeft"
           Opened="OnFlyoutOpened">
         <Grid Width="310" RowDefinitions="Auto,Auto,Auto" RowSpacing="{DynamicResource ShellSpaceSm}">
-          <TextBox
+          <controls:SearchField
               x:Name="FilterBox"
               TextChanged="OnFilterTextChanged"
               PlaceholderText="Filter connections"
@@ -64,13 +64,14 @@
                         IsEnabled="{Binding CanOpen}"
                         AutomationProperties.Name="{Binding Name, StringFormat={}Use connection {0}}">
                       <controls:ListItem
+                          Classes="MiddleTruncatedDetail"
                           Title="{Binding Name}"
                           Detail="{Binding Detail}">
                         <controls:ListItem.Trailing>
                           <TextBlock
                               VerticalAlignment="Center"
                               Classes="Eyebrow"
-                              FontSize="{DynamicResource ShellFontSize9}"
+                              FontSize="{DynamicResource ShellFontSize10}"
                               Text="{Binding Kind}" />
                         </controls:ListItem.Trailing>
                       </controls:ListItem>
@@ -81,7 +82,7 @@
               <TextBlock
                   Margin="{controls:Inset Sm}"
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize9}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
                   IsVisible="{Binding HasNoMatches, ElementName=Root}"
                   Text="No matching saved connections." />
             </StackPanel>
@@ -98,8 +99,8 @@
                 Click="OnNewConnectionClick"
                 AutomationProperties.Name="Create and connect a new connection">
               <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                <icons:SymbolIcon VerticalAlignment="Center" FontSize="12" Symbol="Add" />
-                <TextBlock VerticalAlignment="Center" Text="New connection" />
+                <icons:SymbolIcon VerticalAlignment="Center" FontSize="{DynamicResource ShellIconSizeSm}" Symbol="Add" />
+                <TextBlock VerticalAlignment="Center" Text="New Connection…" />
               </StackPanel>
             </Button>
           </Border>

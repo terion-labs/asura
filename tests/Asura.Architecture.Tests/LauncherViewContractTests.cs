@@ -50,20 +50,20 @@ public sealed class LauncherViewContractTests
             element => string.Equals(AttributeValue(element, "Name"), "ShortcutMenuButton", StringComparison.Ordinal));
         Assert.Equal("{Binding HasAlternatives}", AttributeValue(chevron, "IsVisible"));
 
-        var flyout = Assert.Single(
+        // A menu, not a popover of buttons: its items are built from the row
+        // (SavedConnectionShortcutView.BuildShortcutMenu), so arrow keys walk
+        // them and VoiceOver hears menu items.
+        Assert.DoesNotContain(
             root.Descendants(),
             element => string.Equals(element.Name.LocalName, "Flyout", StringComparison.Ordinal));
-        Assert.Equal(
-            "SavedConnectionMenu",
-            AttributeValue(flyout, "FlyoutPresenterClasses"));
+        var menu = Assert.Single(
+            chevron.Descendants(),
+            element => string.Equals(element.Name.LocalName, "MenuFlyout", StringComparison.Ordinal));
+        Assert.Empty(menu.Elements());
         Assert.DoesNotContain(
-            flyout.Elements(),
-            element => string.Equals(element.Name.LocalName, "Border", StringComparison.Ordinal));
-        Assert.All(
-            flyout.Descendants().Where(element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal)),
-            element => Assert.Equal(
-                "FlyoutMenuItem",
-                AttributeValue(element, "Classes")));
+            root.Descendants(),
+            element => (AttributeValue(element, "Classes") ?? string.Empty)
+                .Contains("FlyoutMenuItem", StringComparison.Ordinal));
     }
 
     /// <summary>

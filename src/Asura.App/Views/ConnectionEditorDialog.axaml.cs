@@ -5,6 +5,7 @@ using Asura.Application;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform.Storage;
 
 namespace Asura.App.Views;
 
@@ -121,6 +122,17 @@ public sealed partial class ConnectionEditorDialog : DialogWindow
     {
         _ = sender;
         _ = e;
+        if (ViewModel.Terminal.UsesSystemFolderPicker
+            && StorageProvider is { CanPickFolder: true } storage)
+        {
+            if (await PickLocalFolderAsync(storage, ViewModel.Terminal.RepositoryPath) is { } chosen)
+            {
+                ViewModel.Terminal.RepositoryPath = chosen;
+            }
+
+            return;
+        }
+
         GitRepositoryPickerViewModel picker;
         try
         {
@@ -142,6 +154,27 @@ public sealed partial class ConnectionEditorDialog : DialogWindow
         UpdateDefaultButton();
         browser.BringIntoView();
         await picker.LoadInitialAsync();
+    }
+
+    /// <summary>
+    /// One folder from the system's Open panel, starting at
+    /// <paramref name="startPath"/> when it names a folder that exists.
+    /// </summary>
+    private static async Task<string?> PickLocalFolderAsync(IStorageProvider storage, string? startPath)
+    {
+        IStorageFolder? start = null;
+        if (!string.IsNullOrWhiteSpace(startPath) && Directory.Exists(startPath))
+        {
+            start = await storage.TryGetFolderFromPathAsync(startPath);
+        }
+
+        var picked = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Choose Repository",
+            AllowMultiple = false,
+            SuggestedStartLocation = start,
+        });
+        return picked.Count > 0 ? picked[0].TryGetLocalPath() : null;
     }
 
     private void OnRepositoryChosen(object? sender, string path)

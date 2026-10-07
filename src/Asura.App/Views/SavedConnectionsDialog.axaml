@@ -21,7 +21,7 @@
         <ItemsControl.ItemTemplate>
           <DataTemplate>
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}" Margin="{controls:Inset Vertical=Sm}">
-              <controls:ListItem Title="{Binding Name}" Detail="{Binding Detail}">
+              <controls:ListItem Classes="MiddleTruncatedDetail" Title="{Binding Name}" Detail="{Binding Detail}">
                 <controls:ListItem.Trailing><TextBlock Text="{Binding Kind}" /></controls:ListItem.Trailing>
               </controls:ListItem>
               <Button Grid.Column="1" Classes="SecondaryButton" Click="OnEditClick" Content="Edit…" AutomationProperties.Name="{Binding Name, StringFormat=Edit {0}}" />
