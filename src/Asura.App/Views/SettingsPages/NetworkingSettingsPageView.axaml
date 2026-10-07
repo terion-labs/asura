@@ -53,7 +53,7 @@
       <controls:SettingRow
           Label="Kill switch"
           Description="Block Asura-routed traffic when the connection fails instead of falling back to a direct route. Host programs can ignore proxy settings; isolate a workspace when every process must be held.">
-        <ToggleSwitch
+        <CheckBox
             IsChecked="{Binding Policy.KillSwitchEnabled, Mode=TwoWay}"
             AutomationProperties.Name="Application network kill switch" />
       </controls:SettingRow>
@@ -74,7 +74,7 @@
               Grid.Column="2"
               Classes="PrimaryButton"
               Click="OnSavePolicyClick"
-              Content="Save"
+              Content="Save Route"
               IsEnabled="{Binding Policy.CanSave}"
               AutomationProperties.Name="Save application networking" />
         </Grid>
@@ -89,9 +89,9 @@
         <Button
             Grid.Column="1"
             VerticalAlignment="Center"
-            Classes="PrimaryButton"
+            Classes="SecondaryButton"
             Click="OnAddProfileClick"
-            Content="New connection"
+            Content="New Connection…"
             AutomationProperties.Name="Create a network connection" />
       </Grid>
 
@@ -131,7 +131,7 @@
                     <Button
                         Classes="SecondaryButton"
                         Click="OnEditProfileClick"
-                        Content="Edit"
+                        Content="Edit…"
                         AutomationProperties.Name="{Binding Name, StringFormat=Edit {0}}" />
                     <Button
                         Classes="IconButton Danger"

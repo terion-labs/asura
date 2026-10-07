@@ -21,7 +21,6 @@ public sealed class SettingsViewContractTests
             ["BrowserProfileEnabledChangedRequested"] = "OnBrowserProfileEnabledChanged",
             ["DeleteBrowserProfileRequested"] = "OnDeleteBrowserProfileClick",
             ["ClearKeybindingPrefixRequested"] = "OnClearKeybindingPrefixClick",
-            ["CheckForUpdatesRequested"] = "OnCheckForUpdatesClick",
             ["CloneKeybindingPresetRequested"] = "OnCloneKeybindingPresetClick",
             ["CreateAiProviderSecretRequested"] = "OnCreateAiProviderSecretClick",
             ["CreateConnectionSecretRequested"] = "OnCreateConnectionSecretClick",
@@ -34,7 +33,6 @@ public sealed class SettingsViewContractTests
             ["DeleteSecretRequested"] = "OnDeleteSecretClick",
             ["DeleteWorkspaceRequested"] = "OnDeleteWorkspaceClick",
             ["DiagnosticsSettingsRequested"] = "OnDiagnosticsSettingsClick",
-            ["DownloadUpdateRequested"] = "OnDownloadUpdateClick",
             ["DismissSavedScreenDeleteUndoRequested"] =
                 "OnDismissSavedScreenDeleteUndoClick",
             ["EditAiProviderRequested"] = "OnEditAiProviderClick",
@@ -57,7 +55,6 @@ public sealed class SettingsViewContractTests
             ["KeybindingSettingsRequested"] = "OnKeybindingSettingsClick",
             ["McpSettingsRequested"] = "OnMcpSettingsClick",
             ["NetworkingSettingsRequested"] = "OnNetworkingSettingsClick",
-            ["OpenThirdPartyNoticesRequested"] = "OnOpenThirdPartyNoticesClick",
             ["QuickTerminalSettingsRequested"] = "OnQuickTerminalSettingsClick",
             ["RecordKeybindingPrefixRequested"] = "OnRecordKeybindingPrefixClick",
             ["RecordKeybindingRequested"] = "OnRecordKeybindingClick",
@@ -65,7 +62,6 @@ public sealed class SettingsViewContractTests
             ["ResetKeybindingRequested"] = "OnResetKeybindingClick",
             ["ReviewHistoryPrivacyRequested"] = "OnReviewHistoryPrivacyClick",
             ["ReviewOnboardingRequested"] = "OnReviewOnboardingClick",
-            ["RestartToApplyUpdateRequested"] = "OnRestartToApplyUpdateClick",
             ["RestoreSessionsOnStartChangedRequested"] =
                 "OnRestoreSessionsOnStartChanged",
             ["ApplicationAppearanceChangedRequested"] =
@@ -73,23 +69,22 @@ public sealed class SettingsViewContractTests
             ["TerminalAppearanceChangedRequested"] = "OnTerminalAppearanceChanged",
             ["PickColorRequested"] = "OnPickColorRequested",
             ["SaveKeybindingsRequested"] = "OnSaveKeybindingsClick",
-            ["SaveQuickTerminalSettingsRequested"] =
-                "OnSaveQuickTerminalSettingsClick",
-            ["SaveDefaultAgentPolicyRequested"] =
-                "OnSaveDefaultAgentPolicyClick",
-            ["SaveTerminalProfileRequested"] = "OnSaveTerminalProfileClick",
             ["SecretsSettingsRequested"] = "OnSecretsSettingsClick",
             ["SelectTerminalPaletteRequested"] = "OnSelectTerminalPaletteClick",
-            ["SettingsBackRequested"] = "OnSettingsBackClick",
-            ["ShowCommandPaletteRequested"] = "OnShowCommandPaletteClick",
             ["ShowLayoutDesignerRequested"] = "OnShowLayoutDesignerClick",
-            ["ShowNewItemRequested"] = "OnShowNewItemClick",
             ["TerminalSettingsRequested"] = "OnTerminalSettingsClick",
             ["TestMcpServerRequested"] = "OnTestMcpServerClick",
             ["UnbindKeybindingRequested"] = "OnUnbindKeybindingClick",
             ["UndoDeletedSavedScreenRequested"] =
                 "OnUndoDeletedSavedScreenClick",
             ["WorkspaceSettingsRequested"] = "OnWorkspaceSettingsClick",
+            ["CreateWorkspaceRequested"] = "OnCreateWorkspaceClick",
+            ["CreateScreenRequested"] = "OnCreateScreenClick",
+            ["NotificationSettingsRequested"] = "OnNotificationSettingsClick",
+            ["OpenNotificationSystemSettingsRequested"] = "OnOpenNotificationSystemSettingsClick",
+            ["HistoryRetentionSelectionChangedRequested"] = "OnHistoryRetentionSelectionChanged",
+            ["AgentHistoryRetentionSelectionChangedRequested"] =
+                "OnAgentHistoryRetentionSelectionChanged",
         };
 
     [Fact]
@@ -111,8 +106,13 @@ public sealed class SettingsViewContractTests
         Assert.DoesNotContain(expander, model.Ancestors());
     }
 
+    /// <summary>
+    /// Settings content is built from the main window's template but shown in
+    /// the Settings window: nothing in the main window hosts it, so opening
+    /// Settings never covers the workspace.
+    /// </summary>
     [Fact]
-    public void Main_window_defers_the_settings_route_behind_one_named_host()
+    public void Main_window_builds_settings_content_for_the_settings_window_without_hosting_it()
     {
         var mainWindow = LoadView("MainWindow");
         var settings = Assert.Single(
@@ -122,13 +122,17 @@ public sealed class SettingsViewContractTests
 
         Assert.Equal("DataTemplate", template.Name.LocalName);
         Assert.Equal("SettingsRouteTemplate", AttributeValue(template, "Key"));
-        var host = Assert.Single(
+        Assert.DoesNotContain(
             mainWindow.Descendants(),
             element => AttributeValue(element, "Name") == "SettingsRouteHost");
-        Assert.Equal(
-            "{Binding IsSettingsVisible}",
-            AttributeValue(host, "IsVisible"));
-        Assert.Empty(host.Elements());
+
+        var settingsWindow = LoadView("SettingsWindow");
+        var root = Assert.IsType<XElement>(settingsWindow.Root);
+        Assert.Equal("False", AttributeValue(root, "CanMinimize"));
+        Assert.Equal("False", AttributeValue(root, "CanMaximize"));
+        Assert.Single(
+            root.Descendants(),
+            element => AttributeValue(element, "Name") == "SettingsHost");
 
         foreach (var (interaction, handler) in ShellInteractions)
         {
@@ -202,53 +206,20 @@ public sealed class SettingsViewContractTests
                 StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// The About page shows the same About content as the About window, so the
+    /// version, update controls, and notices are written once.
+    /// </summary>
     [Fact]
-    public void About_exposes_source_aware_update_controls()
+    public void About_page_embeds_the_shared_about_content()
     {
         var settings = LoadView("SettingsView");
-        var about = Assert.Single(
-            settings.Descendants(),
-            element => string.Equals(
-                AttributeValue(element, "Heading"),
-                "About Asura",
-                StringComparison.Ordinal))
-            .Parent!;
-        var visibleText = about
-            .Descendants()
-            .Select(element => AttributeValue(element, "Text"))
-            .Where(text => text is not null)
-            .ToArray();
+        var about = FindNamedElement(settings.Root!, "AboutSettingsPage");
 
-        Assert.Contains(
-            visibleText,
-            text => string.Equals(
-                text,
-                "{Binding ApplicationUpdates.Channel}",
-                StringComparison.Ordinal));
-        Assert.Contains(
-            visibleText,
-            text => string.Equals(
-                text,
-                "{Binding ApplicationUpdates.Status}",
-                StringComparison.Ordinal));
-        Assert.Contains(
+        Assert.Equal("{Binding IsAboutSettingsVisible}", AttributeValue(about, "IsVisible"));
+        Assert.Single(
             about.Descendants(),
-            element => string.Equals(
-                AttributeValue(element, "Content"),
-                "Check for updates",
-                StringComparison.Ordinal));
-        Assert.Contains(
-            about.Descendants(),
-            element => string.Equals(
-                AttributeValue(element, "Content"),
-                "Download update",
-                StringComparison.Ordinal));
-        Assert.Contains(
-            about.Descendants(),
-            element => string.Equals(
-                AttributeValue(element, "Content"),
-                "Restart to update",
-                StringComparison.Ordinal));
+            element => string.Equals(element.Name.LocalName, "AboutAsuraView", StringComparison.Ordinal));
 
         var viewModel = File.ReadAllText(Path.Combine(
             ApplicationViews.RepositoryRoot,
@@ -268,7 +239,7 @@ public sealed class SettingsViewContractTests
             settings.Descendants(),
             element => string.Equals(element.Name.LocalName, "ShellNavigationItem"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Label"), "AI", StringComparison.Ordinal));
-        Assert.Equal("AI settings", AttributeValue(aiNavigation, "AutomationName"));
+        Assert.Equal("AI", AttributeValue(aiNavigation, "AutomationName"));
         Assert.DoesNotContain(
             settings.Descendants(),
             element => string.Equals(element.Name.LocalName, "ShellNavigationItem"
@@ -352,41 +323,19 @@ public sealed class SettingsViewContractTests
     {
         var settings = LoadView("SettingsView");
         var root = Assert.IsType<XElement>(settings.Root);
-        var surface = Assert.Single(
+        var body = Assert.Single(
             root.Elements(),
             element => string.Equals(element.Name.LocalName, "Grid", StringComparison.Ordinal));
 
-        Assert.Equal("Auto,*", AttributeValue(surface, "RowDefinitions"));
         Assert.Equal("Stretch", AttributeValue(root, "HorizontalContentAlignment"));
         Assert.Equal("Stretch", AttributeValue(root, "VerticalContentAlignment"));
-        var titleBar = Assert.Single(
+        // The Settings window's own title bar names the page: no chrome band,
+        // no Back button, and no "Preferences" header in the sidebar.
+        Assert.DoesNotContain(
             root.Descendants(),
-            element => string.Equals(
-                AttributeValue(element, "Classes"),
-                "TopChrome",
-                StringComparison.Ordinal));
-        Assert.Equal(
-            "TitleBar",
-            AttributeValue(titleBar, "WindowDecorationProperties.ElementRole"));
-        Assert.Null(AttributeValue(titleBar, "PointerPressed"));
-        Assert.Equal(
-            "{Binding $parent[views:MainWindow].TitleBarChromeHeight}",
-            AttributeValue(titleBar, "MinHeight"));
-        Assert.Equal(
-            "User",
-            AttributeValue(
-                FindNamedElement(root, "SettingsBackButton"),
-                "WindowDecorationProperties.ElementRole"));
-        Assert.Contains(
-            "ChromeNavigation",
-            AttributeValue(FindNamedElement(root, "SettingsBackButton"), "Classes")
-                ?.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                ?? [], StringComparer.Ordinal);
-
-        var body = Assert.Single(
-            surface.Elements(),
-            element => string.Equals(element.Name.LocalName, "Grid"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Grid.Row"), "1", StringComparison.Ordinal));
+            element => string.Equals(AttributeValue(element, "Classes"), "TopChrome", StringComparison.Ordinal)
+                || string.Equals(AttributeValue(element, "Name"), "SettingsBackButton", StringComparison.Ordinal)
+                || string.Equals(AttributeValue(element, "Text"), "Preferences", StringComparison.Ordinal));
         Assert.Equal("244,*", AttributeValue(body, "ColumnDefinitions"));
         Assert.Contains(
             body.Elements(),
@@ -395,6 +344,10 @@ public sealed class SettingsViewContractTests
                     AttributeValue(element, "Classes"),
                     "FloatingSidebar",
                     StringComparison.Ordinal));
+        var search = FindNamedElement(root, "SettingsSearch");
+        Assert.Equal("SearchField", search.Name.LocalName);
+        Assert.Equal("Search settings", AttributeValue(search, "AutomationProperties.Name"));
+        Assert.Null(AttributeValue(search, "Click"));
 
         var appearancePage = Assert.Single(
             root.Descendants(),
@@ -424,9 +377,8 @@ public sealed class SettingsViewContractTests
         Assert.Equal(
             "{Binding IsQuickTerminalSettingsVisible}",
             AttributeValue(quickTerminalPage, "IsVisible"));
-        Assert.Equal(
-            "OnQuickTerminalSettingsSaveRequested",
-            AttributeValue(quickTerminalPage, "SaveRequested"));
+        // Quick Terminal applies each setting as it changes.
+        Assert.Null(AttributeValue(quickTerminalPage, "SaveRequested"));
 
         var networkingPage = FindNamedElement(root, "NetworkingSettingsPage");
         Assert.Equal(
@@ -661,7 +613,7 @@ public sealed class SettingsViewContractTests
     }
 
     [Fact]
-    public void Quick_terminal_settings_page_owns_layout_and_save_relay()
+    public void Quick_terminal_settings_page_owns_layout_and_applies_as_it_changes()
     {
         var quickTerminal = LoadSettingsPage("QuickTerminalSettingsPageView");
         var root = Assert.IsType<XElement>(quickTerminal.Root);
@@ -689,17 +641,11 @@ public sealed class SettingsViewContractTests
             "A global drop-down terminal that stays one keystroke away. Configure where it appears and how it behaves.",
             AttributeValue(header, "Description"));
 
-        Assert.Contains(
+        // Every setting on the page applies as it changes; there is no Save.
+        Assert.DoesNotContain(
             root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "Button"
-, StringComparison.Ordinal) && string.Equals(
-                    AttributeValue(element, "Content"),
-                    "Save settings",
-                    StringComparison.Ordinal)
-                && string.Equals(
-                    AttributeValue(element, "Click"),
-                    "OnSaveQuickTerminalSettingsClick",
-                    StringComparison.Ordinal));
+            element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal)
+                && (AttributeValue(element, "Content") ?? string.Empty).Contains("Save", StringComparison.Ordinal));
 
         foreach (var automationName in QuickTerminalAutomationNames)
         {
@@ -752,8 +698,12 @@ public sealed class SettingsViewContractTests
                     "Active window follows whichever app is in front and falls back to Asura where unsupported. Asura window follows this app; Primary always uses the OS primary display.",
                     StringComparison.Ordinal));
 
+        // Minor options of the drop-down are checkboxes, not switches.
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal));
         var toggles = root.Descendants()
-            .Where(element => string.Equals(element.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal))
+            .Where(element => string.Equals(element.Name.LocalName, "CheckBox", StringComparison.Ordinal))
             .ToArray();
         Assert.Equal(7, toggles.Length);
         Assert.Equal(
@@ -784,10 +734,7 @@ public sealed class SettingsViewContractTests
 
         var codeBehind = ApplicationViews.FindUniqueCodeBehindSourceContaining(
             "public sealed partial class QuickTerminalSettingsPageView");
-        Assert.Contains(
-            "SaveRequested?.Invoke(sender, e);",
-            codeBehind,
-            StringComparison.Ordinal);
+        Assert.DoesNotContain("SaveRequested", codeBehind, StringComparison.Ordinal);
         Assert.Contains(
             "RecordHotkeyRequested?.Invoke(sender, e);",
             codeBehind,
@@ -877,12 +824,12 @@ public sealed class SettingsViewContractTests
             Assert.Contains(typedCall, mainWindowCode, StringComparison.Ordinal);
         }
 
+        Assert.Contains("\"SettingsRouteTemplate\"", mainWindowCode, StringComparison.Ordinal);
         Assert.Contains(
-            "MaterializeRoute<SettingsView>(",
+            "SettingsWindow.Present(this, viewModel, SettingsRoute)",
             mainWindowCode,
             StringComparison.Ordinal);
-        Assert.Contains("\"SettingsRouteTemplate\"", mainWindowCode, StringComparison.Ordinal);
-        Assert.Contains("\"SettingsRouteHost\"", mainWindowCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"SettingsRouteHost\"", mainWindowCode, StringComparison.Ordinal);
 
         foreach (var extractedName in ExtractedControlNames)
         {
@@ -901,7 +848,7 @@ public sealed class SettingsViewContractTests
         }
 
         Assert.Contains(
-            "new AvaloniaDiagnosticsBundleDestinationPicker(this)",
+            "new AvaloniaDiagnosticsBundleDestinationPicker(() => SettingsDialogOwner)",
             mainWindowCode,
             StringComparison.Ordinal);
         Assert.Contains("_recoveryDataControlViewModel.Start();", mainWindowCode);
@@ -970,6 +917,7 @@ public sealed class SettingsViewContractTests
         "IsAgentSettingsVisible",
         "IsDiagnosticsSettingsVisible",
         "IsAboutSettingsVisible",
+        "IsNotificationSettingsVisible",
     ];
 
     private static readonly string[] AppearanceControlNames =
@@ -985,7 +933,6 @@ public sealed class SettingsViewContractTests
 
     private static readonly string[] QuickTerminalAutomationNames =
     [
-        "Save Quick Terminal settings",
         "Quick Terminal global hotkey",
         "Record Quick Terminal global hotkey",
         "Quick Terminal display",
@@ -1019,7 +966,6 @@ public sealed class SettingsViewContractTests
         "CaptureAiProviderSecretForm()",
         "CaptureMcpServerSecretForm()",
         "BindOperationalViewModels(",
-        "FocusBackButton()",
         "FocusSavedScreenUndo()",
     ];
 
@@ -1041,7 +987,6 @@ public sealed class SettingsViewContractTests
         "SettingsRoute.CaptureFileProviderSecretForm()",
         "SettingsRoute.CaptureAiProviderSecretForm()",
         "SettingsRoute.CaptureMcpServerSecretForm()",
-        "FocusNavigator.FocusSettingsBackButton()",
         "FocusNavigator.FocusSavedScreenUndo()",
     ];
 
@@ -1070,7 +1015,7 @@ public sealed class SettingsViewContractTests
         "SecretKindPicker",
         "SecretLabelInput",
         "SecretValueInput",
-        "SettingsBackButton",
+        "SettingsSearch",
         "UndoDeletedSavedScreenButton",
     ];
 

@@ -38,7 +38,8 @@ internal static class NativeNotificationServiceSelector
     }
 
     private sealed class UnavailableNativeNotificationService :
-        INativeNotificationService
+        INativeNotificationService,
+        INativeNotificationAuthorizationSource
     {
         public static UnavailableNativeNotificationService Instance { get; } = new();
 
@@ -55,6 +56,16 @@ internal static class NativeNotificationServiceSelector
             ArgumentNullException.ThrowIfNull(notification);
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.CompletedTask;
+        }
+
+        public bool CanOpenSystemSettings => false;
+
+        public ValueTask<NotificationAuthorization> ReadAuthorizationAsync(
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(NotificationAuthorization.Unavailable);
+
+        public void OpenSystemSettings()
+        {
         }
     }
 }

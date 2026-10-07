@@ -7,7 +7,7 @@ namespace Asura.App;
 /// Uses the platform save picker, then writes through a same-directory temporary file so a
 /// cancelled or failed export never leaves a partially published diagnostics archive.
 /// </summary>
-public sealed class AvaloniaDiagnosticsBundleDestinationPicker(Window owner)
+public sealed class AvaloniaDiagnosticsBundleDestinationPicker(Func<Window> owner)
     : IDiagnosticsBundleDestinationPicker
 {
     private static readonly FilePickerFileType BundleFileType = new("Asura diagnostics bundle")
@@ -17,12 +17,14 @@ public sealed class AvaloniaDiagnosticsBundleDestinationPicker(Window owner)
         AppleUniformTypeIdentifiers = ["public.zip-archive"],
     };
 
-    private readonly Window _owner = owner ?? throw new ArgumentNullException(nameof(owner));
+    // Asked when the picker opens: the dialog attaches to the window the
+    // request came from, which may be Settings rather than the main window.
+    private readonly Func<Window> _owner = owner ?? throw new ArgumentNullException(nameof(owner));
 
     public async ValueTask<IDiagnosticsBundleDestination?> PickAsync(string suggestedFileName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(suggestedFileName);
-        var selected = await _owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        var selected = await _owner().StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "Export Asura diagnostics",
             SuggestedFileName = suggestedFileName,

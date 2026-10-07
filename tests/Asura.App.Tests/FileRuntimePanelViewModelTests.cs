@@ -966,7 +966,7 @@ public sealed class FileRuntimePanelViewModelTests
                 Assert.Equal(
                     PanelNotificationEffects.Visual | PanelNotificationEffects.System,
                     completed.Effects);
-                Assert.Equal("File transfer completed", completed.Title);
+                Assert.Equal("File Transfer Completed", completed.Title);
                 Assert.Equal("/source.txt → /copy.txt", completed.Body);
                 Assert.Equal(completedAt, completed.TimestampUtc);
             },
@@ -977,7 +977,7 @@ public sealed class FileRuntimePanelViewModelTests
                 Assert.Equal(
                     PanelNotificationEffects.Visual | PanelNotificationEffects.System,
                     failed.Effects);
-                Assert.Equal("File transfer failed", failed.Title);
+                Assert.Equal("File Transfer Failed", failed.Title);
                 Assert.Contains("/source.txt → /backup.txt", failed.Body);
                 Assert.Contains("went offline", failed.Body);
                 Assert.Equal(failedAt, failed.TimestampUtc);

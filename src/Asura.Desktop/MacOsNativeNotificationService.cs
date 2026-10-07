@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.Versioning;
 using Asura.Application;
 
@@ -10,6 +11,7 @@ namespace Asura.Desktop;
 [SupportedOSPlatform("macos10.14")]
 internal sealed class MacOsNativeNotificationService :
     INativeNotificationService,
+    INativeNotificationAuthorizationSource,
     IDisposable
 {
     private readonly MacOsUserNotificationCenter _notificationCenter;
@@ -63,6 +65,39 @@ internal sealed class MacOsNativeNotificationService :
         await _notificationCenter
             .AddAsync(notification, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    public bool CanOpenSystemSettings => true;
+
+    public ValueTask<NotificationAuthorization> ReadAuthorizationAsync(
+        CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _notificationCenter.ReadAuthorizationAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Opens System Settings › Notifications at Asura's entry, the only place
+    /// a denial can be undone.
+    /// </summary>
+    public void OpenSystemSettings()
+    {
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo(
+                "/usr/bin/open",
+                [$"x-apple.systempreferences:com.apple.Notifications-Settings.extension?id={ProductIdentity.BundleIdentifier}"])
+            {
+                UseShellExecute = false,
+            });
+        }
+        catch (Exception exception) when (exception is InvalidOperationException
+            or System.ComponentModel.Win32Exception)
+        {
+            Asura.Application.SecretSafeDiagnosticProjection.WriteStandardError(
+                "notifications.macos-settings.open-failed",
+                exception);
+        }
     }
 
     public void Dispose()

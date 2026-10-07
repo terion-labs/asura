@@ -114,9 +114,11 @@
         <components:SectionHeader
             Heading="Terminal palette"
             Description="Pick a preset or start from a custom palette." />
-        <Button Grid.Column="1" Click="OnResetTerminalPaletteClick" Content="Reset" />
-        <Button Grid.Column="2" Click="OnCancelTerminalClick" Content="Cancel" />
-        <Button Grid.Column="3" Classes="PrimaryButton" Click="OnApplyTerminalClick" Content="Apply terminal" />
+        <!-- The palette is a draft: previewed live, applied with Apply
+             Terminal, and never dropped without asking. -->
+        <Button Grid.Column="1" Classes="SecondaryButton" Click="OnResetTerminalPaletteClick" Content="Reset Palette" />
+        <Button Grid.Column="2" Classes="SecondaryButton" Click="OnCancelTerminalClick" Content="Cancel" />
+        <Button Grid.Column="3" Classes="PrimaryButton" Click="OnApplyTerminalClick" Content="Apply Terminal" />
         <controls:StatusChip Shape="Rounded" Tone="Default" IsOutlined="False" Grid.Column="4" VerticalAlignment="Center" Content="{Binding TerminalSettingsEditor.PaletteName}" />
       </Grid>
       <ItemsControl x:Name="TerminalPalettePresets" ItemsSource="{Binding TerminalSettingsEditor.PalettePresets}">
@@ -457,7 +459,7 @@
             <controls:LabeledField
                 Label="Translucency"
                 Hint="Sit the shell on the platform's own material, so the desktop shows through it.">
-              <ToggleSwitch
+              <CheckBox
                   x:Name="TranslucencyToggle"
                   IsCheckedChanged="OnAppearanceChanged"
                   AutomationProperties.Name="Translucency" />
@@ -466,7 +468,7 @@
                 Grid.Column="1"
                 Label="Glass panels"
                 Hint="Carry the material through the panels, so the shell reads as one sheet rather than slabs standing on it.">
-              <ToggleSwitch
+              <CheckBox
                   x:Name="GlassPanelsToggle"
                   IsEnabled="{Binding #TranslucencyToggle.IsChecked}"
                   IsCheckedChanged="OnAppearanceChanged"
@@ -481,7 +483,7 @@
               Label="Background opacity"
               Hint="Off leaves the material's own translucency alone. On paints the shell's colour over it: lower lets more of the desktop through, at full it reads as a frame around the panels rather than as glass.">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-              <ToggleSwitch
+              <CheckBox
                   x:Name="OverrideOpacityToggle"
                   VerticalAlignment="Center"
                   IsEnabled="{Binding #TranslucencyToggle.IsChecked}"
@@ -510,10 +512,10 @@
       </Grid>
       <controls:SettingsGroup>
         <controls:SettingRow Label="Show tab bar">
-          <ToggleSwitch x:Name="ShowTabBarSwitch" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Show tab bar" />
+          <CheckBox x:Name="ShowTabBarSwitch" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Show tab bar" />
         </controls:SettingRow>
         <controls:SettingRow Label="Blink cursor">
-          <ToggleSwitch IsChecked="{Binding TerminalSettingsEditor.CursorBlink}" IsCheckedChanged="OnTerminalAppearanceChanged" AutomationProperties.Name="Blink cursor" />
+          <CheckBox IsChecked="{Binding TerminalSettingsEditor.CursorBlink}" IsCheckedChanged="OnTerminalAppearanceChanged" AutomationProperties.Name="Blink cursor" />
         </controls:SettingRow>
       </controls:SettingsGroup>
       <Grid ColumnDefinitions="*,*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
@@ -534,7 +536,7 @@
           Description="Where the tab strip sits, plus how the workspaces panel is arranged." />
       <controls:SettingsGroup>
         <controls:SettingRow Label="Show workspaces panel">
-          <ToggleSwitch x:Name="ShowWorkspacesPanelSwitch" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Show workspaces panel" />
+          <CheckBox x:Name="ShowWorkspacesPanelSwitch" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Show workspaces panel" />
         </controls:SettingRow>
       </controls:SettingsGroup>
       <controls:SurfaceCard Tone="Raised">
@@ -711,11 +713,11 @@
               FontSize="{DynamicResource ShellFontSize11}"
               IsVisible="False" />
           <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-            <Button Click="OnImportClick" Content="Import…" />
-            <Button Click="OnExportClick" Content="Export…" />
-            <Button Click="OnResetClick" Content="Reset app defaults" />
-            <Button Click="OnCancelClick" Content="Discard unsaved app changes" IsVisible="{Binding CanRetryAppearanceSave}" />
-            <Button Classes="PrimaryButton" Click="OnApplyClick" Content="Retry saving app changes" IsVisible="{Binding CanRetryAppearanceSave}" />
+            <Button Classes="SecondaryButton" Click="OnImportClick" Content="Import…" />
+            <Button Classes="SecondaryButton" Click="OnExportClick" Content="Export…" />
+            <Button Classes="DestructiveButton" Click="OnResetClick" Content="Reset App Defaults" AutomationProperties.Name="Reset application appearance to defaults" />
+            <Button Classes="DestructiveButton" Click="OnCancelClick" Content="Discard Changes" IsVisible="{Binding CanRetryAppearanceSave}" AutomationProperties.Name="Discard unsaved application appearance changes" />
+            <Button Classes="PrimaryButton" Click="OnApplyClick" Content="Try Again" IsVisible="{Binding CanRetryAppearanceSave}" AutomationProperties.Name="Retry saving application appearance changes" />
           </StackPanel>
         </StackPanel>
       </Grid>

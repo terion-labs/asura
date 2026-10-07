@@ -51,19 +51,17 @@ public sealed class WindowLifecyclePolicyTests
     }
 
     [Theory]
-    [InlineData(null, null, false, null, "Asura")]
-    [InlineData("Main", null, false, null, "Main")]
-    [InlineData("Main", "zsh", false, null, "Main · zsh")]
-    [InlineData("Main", "zsh", true, null, "Settings")]
-    [InlineData("Main", "zsh", false, "Recovery Workspace", "Main · zsh — Recovery Workspace")]
+    [InlineData(null, null, null, "Asura")]
+    [InlineData("Main", null, null, "Main")]
+    [InlineData("Main", "zsh", null, "Main · zsh")]
+    [InlineData("Main", "zsh", "Recovery Workspace", "Main · zsh — Recovery Workspace")]
     public void Window_titles_name_the_workspace_and_tab(
         string? workspace,
         string? tab,
-        bool settings,
         string? qualifier,
         string expected)
     {
-        Assert.Equal(expected, ShellWindowTitle.Compose(workspace, tab, settings, qualifier));
+        Assert.Equal(expected, ShellWindowTitle.Compose(workspace, tab, qualifier));
     }
 
     [Fact]

@@ -355,6 +355,9 @@ public sealed class MainWindowSettingsSaveFacadeTests
             uiThreadDispatcher: new SettingsSaveImmediateDispatcher());
     }
 
+    internal static MainWindowViewModel CreateSettingsViewModel(IDefinitionCatalog catalog) =>
+        CreateViewModel(catalog);
+
     internal static MainWindowViewModel CreateAgentHistorySettings(
         IGovernedAgentRuntime? agentChatRuntime, IAiProviderProfileRuntime profiles) =>
         CreateViewModel(new RecordingDefinitionCatalog(SettingsSnapshot()),

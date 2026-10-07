@@ -1,10 +1,14 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
+using Asura.App.Views.Components;
 using Asura.App.Views.SettingsPages;
 using Asura.Application;
 using Asura.Core;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
+using Avalonia.VisualTree;
 
 namespace Asura.App.Views;
 
@@ -41,6 +45,10 @@ public sealed partial class SettingsView : UserControl
     public SettingsView()
     {
         InitializeComponent();
+        foreach (var (_, _, content) in Pages())
+        {
+            content.PropertyChanged += OnPageContentPropertyChanged;
+        }
     }
 
     public event EventHandler<RoutedEventArgs>? AboutSettingsRequested;
@@ -53,15 +61,11 @@ public sealed partial class SettingsView : UserControl
 
     public event EventHandler<RoutedEventArgs>? AgentSettingsRequested;
 
-    public event EventHandler<RoutedEventArgs>? ApplyAgentHistoryRetentionRequested;
-
     public event EventHandler<RoutedEventArgs>? ExportAgentHistoryRequested;
 
     public event EventHandler<RoutedEventArgs>? AppearanceSettingsRequested;
 
     public event EventHandler<RoutedEventArgs>? ClearKeybindingPrefixRequested;
-
-    public event EventHandler<RoutedEventArgs>? CheckForUpdatesRequested;
 
     public event EventHandler<RoutedEventArgs>?
         ClearMcpServerDiagnosticHistoryRequested;
@@ -90,8 +94,6 @@ public sealed partial class SettingsView : UserControl
 
     public event EventHandler<RoutedEventArgs>? DiagnosticsSettingsRequested;
 
-    public event EventHandler<RoutedEventArgs>? DownloadUpdateRequested;
-
     public event EventHandler<RoutedEventArgs>? DismissSavedScreenDeleteUndoRequested;
 
     public event EventHandler<RoutedEventArgs>? EditAiProviderRequested;
@@ -107,6 +109,8 @@ public sealed partial class SettingsView : UserControl
     public event EventHandler<RoutedEventArgs>? EditSecretRequested;
 
     public event EventHandler<RoutedEventArgs>? CreateWorkspaceRequested;
+
+    public event EventHandler<RoutedEventArgs>? CreateScreenRequested;
 
     public event EventHandler<RoutedEventArgs>? EditWorkspaceRequested;
 
@@ -137,8 +141,6 @@ public sealed partial class SettingsView : UserControl
 
     public event EventHandler<RoutedEventArgs>? NetworkingSettingsRequested;
 
-    public event EventHandler<RoutedEventArgs>? OpenThirdPartyNoticesRequested;
-
     public event EventHandler<RoutedEventArgs>? QuickTerminalSettingsRequested;
 
     public event EventHandler<RoutedEventArgs>? RecordKeybindingPrefixRequested;
@@ -154,8 +156,6 @@ public sealed partial class SettingsView : UserControl
     public event EventHandler<RoutedEventArgs>? ReviewHistoryPrivacyRequested;
 
     public event EventHandler<RoutedEventArgs>? ReviewOnboardingRequested;
-
-    public event EventHandler<RoutedEventArgs>? RestartToApplyUpdateRequested;
 
     public event EventHandler<RoutedEventArgs>?
         RestoreSessionsOnStartChangedRequested;
@@ -190,23 +190,11 @@ public sealed partial class SettingsView : UserControl
 
     public event EventHandler<RoutedEventArgs>? SaveKeybindingsRequested;
 
-    public event EventHandler<RoutedEventArgs>? SaveQuickTerminalSettingsRequested;
-
-    public event EventHandler<RoutedEventArgs>? SaveTerminalProfileRequested;
-
-    public event EventHandler<RoutedEventArgs>? SaveDefaultAgentPolicyRequested;
-
     public event EventHandler<RoutedEventArgs>? SelectTerminalPaletteRequested;
 
     public event EventHandler<RoutedEventArgs>? SecretsSettingsRequested;
 
-    public event EventHandler<RoutedEventArgs>? SettingsBackRequested;
-
-    public event EventHandler<RoutedEventArgs>? ShowCommandPaletteRequested;
-
     public event EventHandler<RoutedEventArgs>? ShowLayoutDesignerRequested;
-
-    public event EventHandler<RoutedEventArgs>? SaveHistoryRetentionRequested;
 
     public event EventHandler<RoutedEventArgs>? RetryRecentSessionHistoryRequested;
 
@@ -218,8 +206,6 @@ public sealed partial class SettingsView : UserControl
 
     public event EventHandler<RoutedEventArgs>? ResetRecentSessionHistoryRequested;
 
-    public event EventHandler<RoutedEventArgs>? ShowNewItemRequested;
-
     public event EventHandler<RoutedEventArgs>? TerminalSettingsRequested;
 
     public event EventHandler<RoutedEventArgs>? TestMcpServerRequested;
@@ -229,6 +215,17 @@ public sealed partial class SettingsView : UserControl
     public event EventHandler<RoutedEventArgs>? UndoDeletedSavedScreenRequested;
 
     public event EventHandler<RoutedEventArgs>? WorkspaceSettingsRequested;
+
+    public event EventHandler<RoutedEventArgs>? NotificationSettingsRequested;
+
+    public event EventHandler<RoutedEventArgs>? OpenNotificationSystemSettingsRequested;
+
+    public event EventHandler<SelectionChangedEventArgs>? HistoryRetentionSelectionChangedRequested;
+
+    public event EventHandler<SelectionChangedEventArgs>? AgentHistoryRetentionSelectionChangedRequested;
+
+    /// <summary>Return in the search field: open this page, the first that matches.</summary>
+    public event EventHandler<SettingsPage>? SettingsSearchSubmitted;
 
     internal void ConfigureAppearanceControls(
         IReadOnlyList<PlatformProfile> platformProfiles,
@@ -331,9 +328,6 @@ public sealed partial class SettingsView : UserControl
             ?? throw new ArgumentNullException(nameof(diagnosticsExport));
     }
 
-    internal void FocusBackButton() =>
-        SettingsBackButton.Focus(NavigationMethod.Tab);
-
     internal void FocusSavedScreenUndo() =>
         UndoDeletedSavedScreenButton.Focus(NavigationMethod.Tab);
 
@@ -388,17 +382,11 @@ public sealed partial class SettingsView : UserControl
     private void OnAddMcpServerClick(object? sender, RoutedEventArgs e) =>
         AddMcpServerRequested?.Invoke(sender, e);
 
-    private void OnApplyAgentHistoryRetentionClick(object? sender, RoutedEventArgs e) =>
-        ApplyAgentHistoryRetentionRequested?.Invoke(sender, e);
-
     private void OnExportAgentHistoryClick(object? sender, RoutedEventArgs e) =>
         ExportAgentHistoryRequested?.Invoke(sender, e);
 
     private void OnAgentSettingsClick(object? sender, RoutedEventArgs e) =>
         AgentSettingsRequested?.Invoke(sender, e);
-
-    private void OnSaveDefaultAgentPolicyClick(object? sender, RoutedEventArgs e) =>
-        SaveDefaultAgentPolicyRequested?.Invoke(sender, e);
 
     private void OnAppearanceSettingsClick(object? sender, RoutedEventArgs e) =>
         AppearanceSettingsRequested?.Invoke(sender, e);
@@ -471,6 +459,9 @@ public sealed partial class SettingsView : UserControl
     private void OnCreateWorkspaceClick(object? sender, RoutedEventArgs e) =>
         CreateWorkspaceRequested?.Invoke(sender, e);
 
+    private void OnCreateScreenClick(object? sender, RoutedEventArgs e) =>
+        CreateScreenRequested?.Invoke(sender, e);
+
     private void OnEditWorkspaceClick(object? sender, RoutedEventArgs e) =>
         EditWorkspaceRequested?.Invoke(sender, e);
 
@@ -499,12 +490,6 @@ public sealed partial class SettingsView : UserControl
     private void OnDeleteBrowserProfileClick(object? sender, RoutedEventArgs e) =>
         DeleteBrowserProfileRequested?.Invoke(sender, e);
 
-    private void OnCheckForUpdatesClick(object? sender, RoutedEventArgs e) =>
-        CheckForUpdatesRequested?.Invoke(sender, e);
-
-    private void OnDownloadUpdateClick(object? sender, RoutedEventArgs e) =>
-        DownloadUpdateRequested?.Invoke(sender, e);
-
     private void OnLockNowClick(object? sender, RoutedEventArgs e) =>
         LockNowRequested?.Invoke(sender, e);
 
@@ -528,9 +513,6 @@ public sealed partial class SettingsView : UserControl
     private void OnMcpSettingsClick(object? sender, RoutedEventArgs e) =>
         McpSettingsRequested?.Invoke(sender, e);
 
-    private void OnOpenThirdPartyNoticesClick(object? sender, RoutedEventArgs e) =>
-        OpenThirdPartyNoticesRequested?.Invoke(sender, e);
-
     private void OnQuickTerminalSettingsClick(object? sender, RoutedEventArgs e) =>
         QuickTerminalSettingsRequested?.Invoke(sender, e);
 
@@ -552,9 +534,6 @@ public sealed partial class SettingsView : UserControl
     private void OnReviewOnboardingClick(object? sender, RoutedEventArgs e) =>
         ReviewOnboardingRequested?.Invoke(sender, e);
 
-    private void OnRestartToApplyUpdateClick(object? sender, RoutedEventArgs e) =>
-        RestartToApplyUpdateRequested?.Invoke(sender, e);
-
     private void OnRestoreSessionsOnStartChanged(object? sender, RoutedEventArgs e) =>
         RestoreSessionsOnStartChangedRequested?.Invoke(sender, e);
 
@@ -570,14 +549,8 @@ public sealed partial class SettingsView : UserControl
     private void OnSaveKeybindingsClick(object? sender, RoutedEventArgs e) =>
         SaveKeybindingsRequested?.Invoke(sender, e);
 
-    private void OnQuickTerminalSettingsSaveRequested(object? sender, RoutedEventArgs e) =>
-        SaveQuickTerminalSettingsRequested?.Invoke(sender, e);
-
     private void OnQuickTerminalHotkeyRecordRequested(object? sender, RoutedEventArgs e) =>
         RecordQuickTerminalHotkeyRequested?.Invoke(sender, e);
-
-    private void OnSaveTerminalProfileClick(object? sender, RoutedEventArgs e) =>
-        SaveTerminalProfileRequested?.Invoke(sender, e);
 
     private void OnSelectTerminalPaletteClick(object? sender, RoutedEventArgs e) =>
         SelectTerminalPaletteRequested?.Invoke(sender, e);
@@ -585,20 +558,8 @@ public sealed partial class SettingsView : UserControl
     private void OnSecretsSettingsClick(object? sender, RoutedEventArgs e) =>
         SecretsSettingsRequested?.Invoke(sender, e);
 
-    private void OnSettingsBackClick(object? sender, RoutedEventArgs e) =>
-        SettingsBackRequested?.Invoke(sender, e);
-
-    private void OnShowCommandPaletteClick(object? sender, RoutedEventArgs e) =>
-        ShowCommandPaletteRequested?.Invoke(sender, e);
-
     private void OnShowLayoutDesignerClick(object? sender, RoutedEventArgs e) =>
         ShowLayoutDesignerRequested?.Invoke(sender, e);
-
-    private void OnShowNewItemClick(object? sender, RoutedEventArgs e) =>
-        ShowNewItemRequested?.Invoke(sender, e);
-
-    private void OnSaveHistoryRetentionClick(object? sender, RoutedEventArgs e) =>
-        SaveHistoryRetentionRequested?.Invoke(sender, e);
 
     private void OnRetryRecentSessionHistoryClick(object? sender, RoutedEventArgs e) =>
         RetryRecentSessionHistoryRequested?.Invoke(sender, e);
@@ -632,4 +593,370 @@ public sealed partial class SettingsView : UserControl
 
     private void OnNetworkingSettingsClick(object? sender, RoutedEventArgs e) =>
         NetworkingSettingsRequested?.Invoke(sender, e);
+
+    private void OnNotificationSettingsClick(object? sender, RoutedEventArgs e) =>
+        NotificationSettingsRequested?.Invoke(sender, e);
+
+    private void OnOpenNotificationSystemSettingsClick(object? sender, RoutedEventArgs e) =>
+        OpenNotificationSystemSettingsRequested?.Invoke(sender, e);
+
+    // ---- Workspaces and saved screens: select, then "–" or the context menu ----
+
+    private void OnWorkspaceListSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        _ = e;
+        var selected = (sender as ListBox)?.SelectedItem as LauncherWorkspaceViewModel;
+        DeleteWorkspaceButton.DataContext = selected;
+        DeleteWorkspaceButton.IsEnabled = selected is { CanDelete: true };
+    }
+
+    private void OnScreenListSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        _ = e;
+        var selected = (sender as ListBox)?.SelectedItem as LauncherScreenViewModel;
+        DeleteScreenButton.DataContext = selected;
+        DeleteScreenButton.IsEnabled = selected is not null;
+    }
+
+    /// <summary>Delete or Backspace on a selected row asks to delete it, as "–" does.</summary>
+    private void OnWorkspaceListKeyDown(object? sender, KeyEventArgs e)
+    {
+        _ = sender;
+        if (IsDeleteKey(e) && DeleteWorkspaceButton.IsEnabled)
+        {
+            e.Handled = true;
+            DeleteWorkspaceRequested?.Invoke(DeleteWorkspaceButton, new RoutedEventArgs());
+        }
+    }
+
+    private void OnScreenListKeyDown(object? sender, KeyEventArgs e)
+    {
+        _ = sender;
+        if (IsDeleteKey(e) && DeleteScreenButton.IsEnabled)
+        {
+            e.Handled = true;
+            DeleteScreenRequested?.Invoke(DeleteScreenButton, new RoutedEventArgs());
+        }
+    }
+
+    private static bool IsDeleteKey(KeyEventArgs e) =>
+        e.KeyModifiers is Avalonia.Input.KeyModifiers.None or Avalonia.Input.KeyModifiers.Meta
+        && e.Key is Key.Delete or Key.Back;
+
+    // ---- Search ----
+
+    private SettingsSearchIndex? _searchIndex;
+    private readonly List<Control> _hiddenBySearch = [];
+
+    /// <summary>What the search field holds, for tests and the window.</summary>
+    internal string SearchQuery
+    {
+        get => SettingsSearch.Text ?? string.Empty;
+        set => SettingsSearch.Text = value;
+    }
+
+    /// <summary>
+    /// The pages and their content, so the search can list a page and hide
+    /// what on it does not match.
+    /// </summary>
+    private IEnumerable<(SettingsPage Page, Control Navigation, Control Content)> Pages()
+    {
+        yield return (SettingsPage.Appearance, AppearanceNavigationItem, AppearanceSettingsPage);
+        yield return (SettingsPage.Workspaces, WorkspacesNavigationItem, WorkspacesSettingsPage);
+        yield return (SettingsPage.Networking, NetworkingNavigationItem, NetworkingSettingsPage);
+        yield return (SettingsPage.Keybindings, KeybindingsNavigationItem, KeybindingsSettingsPage);
+        yield return (SettingsPage.Files, FilesNavigationItem, FilesSettingsPage);
+        yield return (SettingsPage.Browser, BrowserNavigationItem, BrowserSettingsPage);
+        yield return (SettingsPage.Terminal, TerminalNavigationItem, TerminalSettingsPage);
+        yield return (SettingsPage.QuickTerminal, QuickTerminalNavigationItem, QuickTerminalSettingsPage);
+        yield return (SettingsPage.Notifications, NotificationsNavigationItem, NotificationsSettingsPage);
+        yield return (SettingsPage.Secrets, SecretsNavigationItem, SecretsSettingsPage);
+        yield return (SettingsPage.Diagnostics, DiagnosticsNavigationItem, DiagnosticsSettingsPage);
+        yield return (SettingsPage.Agent, AgentNavigationItem, AiSettingsPage);
+        yield return (SettingsPage.About, AboutNavigationItem, AboutSettingsPage);
+    }
+
+    /// <summary>
+    /// The index is built from the pages themselves the first time someone
+    /// searches, so a row added to a page is searchable without a list to
+    /// keep in step.
+    /// </summary>
+    private SettingsSearchIndex SearchIndex
+    {
+        get
+        {
+            if (_searchIndex is null)
+            {
+                _searchIndex = new SettingsSearchIndex();
+                foreach (var (page, _, content) in Pages())
+                {
+                    foreach (var text in SearchableText(content))
+                    {
+                        _searchIndex.Add(page, text);
+                    }
+                }
+            }
+
+            return _searchIndex;
+        }
+    }
+
+    private void OnSettingsSearchTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        ApplySearch();
+    }
+
+    private void OnSettingsSearchKeyDown(object? sender, KeyEventArgs e)
+    {
+        _ = sender;
+        if (e.Key != Key.Enter || e.KeyModifiers != Avalonia.Input.KeyModifiers.None)
+        {
+            return;
+        }
+
+        var matches = MatchingPages(SearchQuery);
+        if (matches.Count > 0)
+        {
+            e.Handled = true;
+            SettingsSearchSubmitted?.Invoke(this, matches[0]);
+        }
+    }
+
+    /// <summary>
+    /// A page coming into view while a search is in progress gets the same
+    /// filtering as the one it replaced.
+    /// </summary>
+    private void OnPageContentPropertyChanged(object? sender, Avalonia.AvaloniaPropertyChangedEventArgs e)
+    {
+        _ = sender;
+        if (e.Property == IsVisibleProperty
+            && e.NewValue is true
+            && !string.IsNullOrWhiteSpace(SearchQuery))
+        {
+            // After the page being left has hidden itself too.
+            Avalonia.Threading.Dispatcher.UIThread.Post(ApplySearch);
+        }
+    }
+
+    /// <summary>The page on show: the one whose content is visible.</summary>
+    private SettingsPage? CurrentPage =>
+        Pages()
+            .Where(page => page.Content.IsVisible)
+            .Select(page => (SettingsPage?)page.Page)
+            .FirstOrDefault();
+
+    /// <summary>
+    /// The pages that match, in sidebar order: by what the index holds, or by
+    /// a list on the page — a saved workspace, a shortcut's command — whose
+    /// rows are made from data rather than written into the page.
+    /// </summary>
+    private List<SettingsPage> MatchingPages(string query)
+    {
+        var indexed = SearchIndex.Match(query);
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return [.. indexed];
+        }
+
+        return
+        [
+            .. Pages()
+                .Where(page => indexed.Contains(page.Page)
+                    || ListText(page.Content).Any(text => SettingsSearchIndex.Matches(text, query)))
+                .Select(page => page.Page),
+        ];
+    }
+
+    /// <summary>
+    /// Lists only the pages that match, and on the page in view hides the
+    /// sections and rows that don't — unless the page itself is what was
+    /// asked for, when all of it stays. A page left with nothing that
+    /// matches says so rather than going blank.
+    /// </summary>
+    private void ApplySearch()
+    {
+        foreach (var control in _hiddenBySearch)
+        {
+            control.ClearValue(IsVisibleProperty);
+        }
+
+        _hiddenBySearch.Clear();
+        SettingsPageNoResults.IsVisible = false;
+        var query = SearchQuery;
+        var matches = MatchingPages(query);
+        foreach (var (page, navigation, _) in Pages())
+        {
+            if (!matches.Contains(page))
+            {
+                Hide(navigation);
+            }
+        }
+
+        SettingsSearchNoResults.IsVisible = matches.Count == 0;
+        if (string.IsNullOrWhiteSpace(query)
+            || CurrentPage is not { } current)
+        {
+            return;
+        }
+
+        if (SettingsSearchIndex.MatchesPage(current, query)
+            || SectionPanel(Pages().FirstOrDefault(page => page.Page == current).Content) is not { } content)
+        {
+            return;
+        }
+
+        var sections = content.Children
+            .OfType<Control>()
+            .Where(section => section is not SettingsPageHeader)
+            .ToArray();
+        foreach (var section in sections)
+        {
+            if (!SearchableText(section)
+                    .Concat(ListText(section))
+                    .Any(text => SettingsSearchIndex.Matches(text, query)))
+            {
+                Hide(section);
+                continue;
+            }
+
+            foreach (var group in section.GetSelfAndLogicalDescendants().OfType<SettingsGroup>())
+            {
+                if (SettingsSearchIndex.Matches(group.Heading, query)
+                    || SettingsSearchIndex.Matches(group.Description, query))
+                {
+                    continue;
+                }
+
+                foreach (var row in group.Items.OfType<SettingRow>())
+                {
+                    if (!SettingsSearchIndex.Matches($"{row.Label} {row.Description}", query))
+                    {
+                        Hide(row);
+                    }
+                }
+            }
+        }
+
+        if (sections.Length > 0 && sections.All(section => !section.IsVisible))
+        {
+            ShowPageNoResults(content.Children.OfType<SettingsPageHeader>().FirstOrDefault());
+        }
+    }
+
+    /// <summary>Places the page's "No Results" a section's space below its heading.</summary>
+    private void ShowPageNoResults(SettingsPageHeader? header)
+    {
+        var spacing = this.TryFindResource("ShellSpaceXxl", ActualThemeVariant, out var value)
+            && value is double space
+                ? space
+                : 0;
+        var top = header is not null
+            && SettingsPageNoResults.GetVisualParent() is { } host
+            && Avalonia.VisualExtensions.TranslatePoint(header, new Avalonia.Point(0, header.Bounds.Height), host) is { } bottom
+                ? bottom.Y
+                : 0;
+        SettingsPageNoResults.Margin = new Avalonia.Thickness(0, top + spacing, 0, 0);
+        SettingsPageNoResults.IsVisible = true;
+    }
+
+    /// <summary>
+    /// The text of the rows a page's lists show. Those rows come from data,
+    /// so they are read as drawn; a list the page has not drawn yet is found
+    /// once it has been shown.
+    /// </summary>
+    private static IEnumerable<string> ListText(Control root)
+    {
+        foreach (var list in root.GetSelfAndLogicalDescendants().OfType<ItemsControl>())
+        {
+            if (list is ComboBox)
+            {
+                continue;
+            }
+
+            foreach (var block in list.GetVisualDescendants().OfType<TextBlock>())
+            {
+                if (!string.IsNullOrWhiteSpace(block.Text))
+                {
+                    yield return block.Text;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// The panel a page stacks its sections in, looking through the wrappers
+    /// a page of its own is hosted in.
+    /// </summary>
+    private static Panel? SectionPanel(Control? page)
+    {
+        for (var depth = 0; page is not null && depth < 4; depth++)
+        {
+            switch (page)
+            {
+                case Panel { Children.Count: > 1 } sections:
+                    return sections;
+                case Panel { Children.Count: 1 } single:
+                    page = single.Children[0];
+                    break;
+                case ContentControl { Content: Control content }:
+                    page = content;
+                    break;
+                case Decorator { Child: { } child }:
+                    page = child;
+                    break;
+                default:
+                    return null;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Hides a control for the search, unless something else already decides
+    /// whether it shows: a bound visibility belongs to the page, and the
+    /// search must not overwrite it.
+    /// </summary>
+    private void Hide(Control control)
+    {
+        if (control.IsSet(IsVisibleProperty))
+        {
+            return;
+        }
+
+        control.IsVisible = false;
+        _hiddenBySearch.Add(control);
+    }
+
+    /// <summary>The words a person would search for on part of a page.</summary>
+    private static IEnumerable<string> SearchableText(Control root)
+    {
+        foreach (var node in root.GetSelfAndLogicalDescendants())
+        {
+            var text = node switch
+            {
+                SettingRow row => $"{row.Label} {row.Description}",
+                SettingsGroup group => $"{group.Heading} {group.Description}",
+                SettingsPageHeader header => $"{header.Heading} {header.Description}",
+                SectionHeader header => $"{header.Heading} {header.Description}",
+                LabeledField field => field.Label,
+                CheckBox { Content: string label } => label,
+                Button { Content: string label } => label,
+                TextBlock block when block.Classes.Contains("SectionHeading") => block.Text,
+                _ => null,
+            };
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                yield return text;
+            }
+        }
+    }
+
+    private void OnHistoryRetentionSelectionChanged(object? sender, SelectionChangedEventArgs e) =>
+        HistoryRetentionSelectionChangedRequested?.Invoke(sender, e);
+
+    private void OnAgentHistoryRetentionSelectionChanged(object? sender, SelectionChangedEventArgs e) =>
+        AgentHistoryRetentionSelectionChangedRequested?.Invoke(sender, e);
 }

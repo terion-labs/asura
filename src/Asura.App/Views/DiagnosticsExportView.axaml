@@ -44,7 +44,7 @@
               MinWidth="138"
               Classes="PrimaryButton"
               Click="OnExportClick"
-              Content="Create bundle…"
+              Content="Create Bundle…"
               IsEnabled="{Binding CanExport}"
               AutomationProperties.Name="Create diagnostics bundle" />
           <Button
@@ -97,7 +97,7 @@
             VerticalAlignment="Center"
             Classes="SecondaryButton"
             Click="OnRevealClick"
-            Content="Show in folder"
+            Content="Show in Folder"
             IsEnabled="{Binding CanRevealArtifact}"
             AutomationProperties.Name="Reveal last diagnostics bundle in file manager" />
       </Grid>

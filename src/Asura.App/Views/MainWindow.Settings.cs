@@ -1,4 +1,4 @@
-using System.Diagnostics;
+using System.ComponentModel;
 using System.Globalization;
 using System.Text.Json;
 using Asura.App;
@@ -6,9 +6,13 @@ using Asura.App.ViewModels;
 using Asura.App.Views.SettingsPages;
 using Asura.Application;
 using Asura.Core;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 
@@ -35,6 +39,57 @@ public sealed partial class MainWindow
 
     private SettingsView SettingsRoute => EnsureSettingsRoute();
 
+    private MainWindowViewModel? _settingsPresentationViewModel;
+
+    /// <summary>
+    /// The window a Settings action's dialogs and pickers belong to: the
+    /// Settings window while it shows this window's settings, this window
+    /// otherwise.
+    /// </summary>
+    internal Window SettingsDialogOwner =>
+        SettingsWindow.Current is { } settings && ReferenceEquals(settings.Host, this)
+            ? settings
+            : this;
+
+    /// <summary>
+    /// The window a dialog asked for by <paramref name="sender"/> belongs to:
+    /// the one the button or menu item sits in. A context menu's item sits in
+    /// a popup, so its owner is the window of the control the menu belongs to.
+    /// </summary>
+    internal Window DialogOwnerFor(object? sender)
+    {
+        if (sender is ILogical logical)
+        {
+            foreach (var node in logical.GetSelfAndLogicalAncestors())
+            {
+                if (node is Visual visual && TopLevel.GetTopLevel(visual) is Window window)
+                {
+                    return window;
+                }
+            }
+        }
+
+        return this;
+    }
+
+    /// <summary>
+    /// An editor Settings opens — the workspace editor, the layout designer —
+    /// lives in this window, so this window comes in front of Settings.
+    /// </summary>
+    private void BringForwardForEditor()
+    {
+        if (SettingsWindow.Current is { IsActive: true } settings
+            && ReferenceEquals(settings.Host, this))
+        {
+            Activate();
+        }
+    }
+
+    /// <summary>
+    /// Builds this window's Settings content once. It is shown in the Settings
+    /// window, not in this one, and is kept between openings so a page keeps
+    /// its scroll position and its controls their state.
+    /// </summary>
     private SettingsView EnsureSettingsRoute()
     {
         if (_settingsRoute is { } existing)
@@ -42,10 +97,30 @@ public sealed partial class MainWindow
             return existing;
         }
 
-        var settings = MaterializeRoute<SettingsView>(
-            "SettingsRouteTemplate",
-            "SettingsRouteHost");
+        if (!Resources.TryGetResource("SettingsRouteTemplate", ActualThemeVariant, out var resource)
+            || resource is not IDataTemplate template
+            || template.Build(ViewModel) is not SettingsView settings)
+        {
+            throw new InvalidOperationException(
+                "The Settings content template is unavailable.");
+        }
+
+        // The content is kept before it is bound: binding it publishes the
+        // stored appearance into the controls, which raises their change
+        // events, and those must find this content rather than build another.
+        // Those values come from the profile, not from the person, so they
+        // are not edits either.
         _settingsRoute = settings;
+        _applyingAppearanceControls = true;
+        try
+        {
+            settings.DataContext = ViewModel;
+        }
+        finally
+        {
+            _applyingAppearanceControls = false;
+        }
+
         settings.ConfigureAppearanceControls(
             AppearancePlatformProfiles,
             AppearanceTextScaleOptions);
@@ -56,7 +131,7 @@ public sealed partial class MainWindow
         {
             _definitionBundles = new DefinitionBundleController(
                 _definitionBundleStore,
-                new AvaloniaDefinitionBundlePathPicker(this),
+                new AvaloniaDefinitionBundlePathPicker(() => SettingsDialogOwner),
                 new DefinitionCatalogImportRefresh(_definitionCatalog),
                 _workspaceDefinitionOccupancy);
         }
@@ -65,7 +140,7 @@ public sealed partial class MainWindow
         {
             _historyExport = new RecentSessionHistoryExportController(
                 _recentSessionHistoryExporter,
-                new AvaloniaRecentSessionHistoryPathPicker(this));
+                new AvaloniaRecentSessionHistoryPathPicker(() => SettingsDialogOwner));
         }
 
         if (_diagnosticsExporter is not null
@@ -77,7 +152,7 @@ public sealed partial class MainWindow
             var diagnostics = new DiagnosticsExportViewModel(
                 _diagnosticsExporter,
                 _diagnosticsRequestSource,
-                new AvaloniaDiagnosticsBundleDestinationPicker(this),
+                new AvaloniaDiagnosticsBundleDestinationPicker(() => SettingsDialogOwner),
                 _diagnosticsArtifactPresenter,
                 TimeProvider.System);
             settings.BindOperationalViewModels(
@@ -92,44 +167,256 @@ public sealed partial class MainWindow
         return settings;
     }
 
-    public void NavigateToSettings(SettingsPage page = SettingsPage.Appearance)
+    /// <summary>
+    /// Settings…: opens the Settings window on <paramref name="page"/>, or on
+    /// the page it was last left on. When the Settings window is already open
+    /// for another main window it comes forward instead, showing the page
+    /// asked for. Moving off a page that holds a draft asks first.
+    /// <paramref name="agentHistoryOwner"/> is the agent whose history the AI
+    /// page shows, when Quick Terminal asks for it.
+    /// </summary>
+    public void NavigateToSettings(
+        SettingsPage? page = null,
+        AgentChatViewModel? agentHistoryOwner = null)
     {
+        if (SettingsWindow.Current is { Host: { } owner } open
+            && !ReferenceEquals(owner, this))
+        {
+            if (page is { } requested)
+            {
+                _ = owner.RequestSettingsPageAsync(requested, agentHistoryOwner);
+            }
+
+            open.BringForward();
+            return;
+        }
+
+        if (ViewModel.IsSettingsVisible)
+        {
+            if (page is { } requested)
+            {
+                _ = RequestSettingsPageAsync(requested, agentHistoryOwner);
+            }
+
+            PresentSettingsWindow();
+            return;
+        }
+
+        var target = page ?? SettingsWindow.RememberedPage ?? ViewModel.SettingsPage;
         _ = SettingsRoute;
-        ViewModel.ShowSettings(page);
-        if (page == SettingsPage.Appearance)
+        ViewModel.ShowSettings(target, agentHistoryOwner);
+        if (target == SettingsPage.Appearance)
         {
             RefreshAppearanceControlsFromStoredProfile();
         }
 
-        if (ViewModel.IsSettingsVisible && !ViewModel.HasOverlay)
+        PresentSettingsWindow();
+    }
+
+    /// <summary>
+    /// Follows the view model's Settings state, so Settings opened by anything
+    /// — a menu, a palette command, Quick Terminal — appears as the window.
+    /// </summary>
+    private void AttachSettingsPresentation()
+    {
+        if (DataContext is not MainWindowViewModel viewModel
+            || ReferenceEquals(_settingsPresentationViewModel, viewModel))
         {
-            FocusNavigator.FocusSettingsBackButton();
+            return;
+        }
+
+        DetachSettingsPresentation();
+        if (!s_openMainWindows.Contains(this))
+        {
+            s_openMainWindows.Add(this);
+        }
+
+        _settingsPresentationViewModel = viewModel;
+        viewModel.PropertyChanged += OnSettingsPresentationPropertyChanged;
+        if (viewModel.IsSettingsVisible)
+        {
+            PresentSettingsWindow();
         }
     }
 
-    private void OnSettingsBackClick(object? sender, RoutedEventArgs e)
+    private void DetachSettingsPresentation()
+    {
+        _settingsPresentationViewModel?.PropertyChanged -= OnSettingsPresentationPropertyChanged;
+        _settingsPresentationViewModel = null;
+    }
+
+    private void OnSettingsPresentationPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         _ = sender;
-        _ = e;
-        if (ViewModel.HasRuntimeWorkspace)
+        // A page asked for from elsewhere — Quick Terminal's agent settings —
+        // brings the window forward as well as opening it.
+        if (e.PropertyName is nameof(MainWindowViewModel.IsSettingsVisible)
+                or nameof(MainWindowViewModel.SettingsPage)
+            && _settingsPresentationViewModel is { IsSettingsVisible: true })
         {
-            ViewModel.ShowWorkspace();
-            FocusNavigator.FocusActivePanel();
+            PresentSettingsWindow();
         }
-        else
+    }
+
+    private void PresentSettingsWindow()
+    {
+        if (_adoptingSettingsWindow
+            || DataContext is not MainWindowViewModel viewModel
+            || !viewModel.IsSettingsVisible
+            || !IsVisible)
         {
-            _ = NavigateToLauncherAsync();
+            return;
         }
+
+        if (SettingsWindow.Current is { Host: { } owner } open
+            && !ReferenceEquals(owner, this))
+        {
+            // One Settings window serves every main window: this window's
+            // request goes to the one already open.
+            var page = viewModel.SettingsPage;
+            var agentHistoryOwner = viewModel.SettingsAgentHistoryOwner;
+            viewModel.HideSettings();
+            _ = owner.RequestSettingsPageAsync(page, agentHistoryOwner);
+            open.BringForward();
+            return;
+        }
+
+        SettingsWindow.Present(this, viewModel, SettingsRoute);
+    }
+
+    /// <summary>
+    /// This window is closing. When another main window is open, the Settings
+    /// window stays where it is and shows that window's Settings on the same
+    /// page; otherwise, or while Asura quits, it closes with this one.
+    /// </summary>
+    private void HandOffSettingsWindow()
+    {
+        _ = s_openMainWindows.Remove(this);
+        DetachSettingsPresentation();
+        if (SettingsWindow.Current is not { } open || !ReferenceEquals(open.Host, this))
+        {
+            return;
+        }
+
+        var viewModel = DataContext as MainWindowViewModel;
+        var next = Avalonia.Application.Current is App { IsQuitting: true }
+            ? null
+            : OpenMainWindows().FirstOrDefault(window => !ReferenceEquals(window, this)
+                && window.IsVisible
+                && window.DataContext is MainWindowViewModel);
+        if (next is null)
+        {
+            open.CloseForHost();
+            return;
+        }
+
+        next.AdoptSettingsWindow(
+            open,
+            viewModel?.SettingsPage,
+            viewModel?.SettingsAgentHistoryOwner);
+    }
+
+    private bool _adoptingSettingsWindow;
+
+    private static readonly List<MainWindow> s_openMainWindows = [];
+
+    /// <summary>
+    /// The main windows open on this UI thread, in the order they opened —
+    /// the ones the Settings window can be handed to.
+    /// </summary>
+    private static IEnumerable<MainWindow> OpenMainWindows()
+    {
+        _ = s_openMainWindows.RemoveAll(window => !window.CheckAccess());
+        return [.. s_openMainWindows];
+    }
+
+    /// <summary>Takes over the open Settings window from a main window that is closing.</summary>
+    private void AdoptSettingsWindow(
+        SettingsWindow open,
+        SettingsPage? page,
+        AgentChatViewModel? agentHistoryOwner)
+    {
+        var target = page ?? ViewModel.SettingsPage;
+        open.Retarget(this, ViewModel, SettingsRoute);
+        // The window is already on screen: showing the page must not bring
+        // it forward over whatever the person turns to next.
+        _adoptingSettingsWindow = true;
+        try
+        {
+            SetSettingsPage(target, agentHistoryOwner);
+        }
+        finally
+        {
+            _adoptingSettingsWindow = false;
+        }
+    }
+
+    /// <summary>Whether the Settings page on show holds a draft that leaving it would lose.</summary>
+    internal bool HasPendingSettingsDraft =>
+        DataContext is MainWindowViewModel viewModel
+        && viewModel.PendingSettingsDraft(viewModel.SettingsPage) is not null;
+
+    /// <summary>
+    /// Asks before leaving a Settings page that holds a draft — a previewed
+    /// terminal palette, unsaved shortcuts, an unsaved network route — and
+    /// discards it only on a yes. Everything else on a page has already been
+    /// applied, so leaving it needs no question.
+    /// </summary>
+    internal async Task<bool> ConfirmLeavingSettingsPageAsync(Window owner)
+    {
+        if (DataContext is not MainWindowViewModel viewModel
+            || viewModel.PendingSettingsDraft(viewModel.SettingsPage) is not { } draft)
+        {
+            return true;
+        }
+
+        if (!await Confirmations.DiscardChanges(draft.Heading, draft.Detail)
+                .ShowDialog<bool>(owner))
+        {
+            return false;
+        }
+
+        viewModel.DiscardSettingsDraft(draft.Page);
+        if (draft.Page == SettingsPage.Appearance)
+        {
+            RefreshAppearanceControlsFromStoredProfile();
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Shows another Settings page, after asking about a draft on the one
+    /// being left.
+    /// </summary>
+    internal async Task<bool> RequestSettingsPageAsync(
+        SettingsPage page,
+        AgentChatViewModel? agentHistoryOwner = null)
+    {
+        if (DataContext is not MainWindowViewModel viewModel)
+        {
+            return false;
+        }
+
+        if (viewModel.IsSettingsVisible
+            && SettingsPanes.SidebarPage(page) != SettingsPanes.SidebarPage(viewModel.SettingsPage)
+            && !await ConfirmLeavingSettingsPageAsync(SettingsDialogOwner))
+        {
+            return false;
+        }
+
+        SetSettingsPage(page, agentHistoryOwner);
+        return true;
     }
 
     private void OnAppearanceSettingsClick(object? sender, RoutedEventArgs e) =>
-        SetSettingsPage(SettingsPage.Appearance);
+        _ = RequestSettingsPageAsync(SettingsPage.Appearance);
 
     private void OnWorkspaceSettingsClick(object? sender, RoutedEventArgs e) =>
-        SetSettingsPage(SettingsPage.Workspaces);
+        _ = RequestSettingsPageAsync(SettingsPage.Workspaces);
 
     private void OnNetworkingSettingsClick(object? sender, RoutedEventArgs e) =>
-        SetSettingsPage(SettingsPage.Networking);
+        _ = RequestSettingsPageAsync(SettingsPage.Networking);
 
     private void OnInstallWorkspaceIsolationRuntimeClick(
         object? sender,
@@ -145,7 +432,7 @@ public sealed partial class MainWindow
         RoutedEventArgs e)
     {
         _ = e;
-        if (sender is not ToggleSwitch toggle
+        if (sender is not ToggleButton toggle
             || !ViewModel.CanChangeRestoreSessionsOnStart)
         {
             return;
@@ -161,7 +448,7 @@ public sealed partial class MainWindow
         RoutedEventArgs e)
     {
         _ = e;
-        if (sender is not ToggleSwitch toggle
+        if (sender is not ToggleButton toggle
             || !ViewModel.CanChangeTerminalMultiplexing)
         {
             return;
@@ -195,13 +482,13 @@ public sealed partial class MainWindow
     }
 
     private void OnKeybindingSettingsClick(object? sender, RoutedEventArgs e) =>
-        SetSettingsPage(SettingsPage.Keybindings);
+        _ = RequestSettingsPageAsync(SettingsPage.Keybindings);
 
     private void OnFilesSettingsClick(object? sender, RoutedEventArgs e) =>
-        SetSettingsPage(SettingsPage.Files);
+        _ = RequestSettingsPageAsync(SettingsPage.Files);
 
     private void OnBrowserSettingsClick(object? sender, RoutedEventArgs e) =>
-        SetSettingsPage(SettingsPage.Browser);
+        _ = RequestSettingsPageAsync(SettingsPage.Browser);
 
     // The profile editor's commands act on its selected profile. A row's own
     // switch and delete select that row first, so the command reads the row
@@ -209,7 +496,7 @@ public sealed partial class MainWindow
     private void OnBrowserProfileEnabledChanged(object? sender, RoutedEventArgs e)
     {
         _ = e;
-        if (sender is not ToggleSwitch { DataContext: BrowserProfileItemViewModel profile } toggle
+        if (sender is not ToggleButton { DataContext: BrowserProfileItemViewModel profile } toggle
             || (toggle.IsChecked == true) == profile.IsEnabled)
         {
             return;
@@ -239,7 +526,7 @@ public sealed partial class MainWindow
         editor.SelectedProfile = profile;
         if (!editor.DeleteCommand.CanExecute(null)
             || !await Confirmations.DefinitionDelete("browser profile", profile.Name)
-                .ShowDialog<bool>(this))
+                .ShowDialog<bool>(SettingsDialogOwner))
         {
             return;
         }
@@ -247,13 +534,9 @@ public sealed partial class MainWindow
         editor.DeleteCommand.Execute(null);
     }
 
-    private async void OnCheckForUpdatesClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        await CheckForUpdatesAsync();
-    }
-
+    /// <summary>
+    /// Check for Updates…: the About page shows the answer, so it opens there.
+    /// </summary>
     internal async Task CheckForUpdatesAsync()
     {
         NavigateToSettings(SettingsPage.About);
@@ -264,26 +547,6 @@ public sealed partial class MainWindow
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
         {
         }
-    }
-
-    private async void OnDownloadUpdateClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        try
-        {
-            await ViewModel.ApplicationUpdates.DownloadAsync(_lifetime.Token);
-        }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
-        {
-        }
-    }
-
-    private async void OnRestartToApplyUpdateClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        await ViewModel.ApplicationUpdates.RestartToApplyAsync();
     }
 
     private void OnEnableStartupProtectionClick(object? sender, RoutedEventArgs e)
@@ -315,28 +578,19 @@ public sealed partial class MainWindow
     }
 
     private void OnTerminalSettingsClick(object? sender, RoutedEventArgs e) =>
-        SetSettingsPage(SettingsPage.Terminal);
+        _ = RequestSettingsPageAsync(SettingsPage.Terminal);
 
     private void OnQuickTerminalSettingsClick(object? sender, RoutedEventArgs e) =>
-        SetSettingsPage(SettingsPage.QuickTerminal);
+        _ = RequestSettingsPageAsync(SettingsPage.QuickTerminal);
 
     private void OnSecretsSettingsClick(object? sender, RoutedEventArgs e) =>
-        SetSettingsPage(SettingsPage.Secrets);
+        _ = RequestSettingsPageAsync(SettingsPage.Secrets);
 
     private void OnDiagnosticsSettingsClick(object? sender, RoutedEventArgs e) =>
-        SetSettingsPage(SettingsPage.Diagnostics);
+        _ = RequestSettingsPageAsync(SettingsPage.Diagnostics);
 
     private void OnAgentSettingsClick(object? sender, RoutedEventArgs e) =>
-        SetSettingsPage(SettingsPage.Agent);
-
-    private async void OnSaveDefaultAgentPolicyClick(
-        object? sender,
-        RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        await ViewModel.SaveDefaultAgentPolicyAsync(CancellationToken.None);
-    }
+        _ = RequestSettingsPageAsync(SettingsPage.Agent);
 
     private async void OnMcpSettingsClick(object? sender, RoutedEventArgs e)
     {
@@ -356,49 +610,84 @@ public sealed partial class MainWindow
     }
 
     private void OnAboutSettingsClick(object? sender, RoutedEventArgs e) =>
-        SetSettingsPage(SettingsPage.About);
+        _ = RequestSettingsPageAsync(SettingsPage.About);
 
-    private void SetSettingsPage(SettingsPage page)
+    private void SetSettingsPage(
+        SettingsPage page,
+        AgentChatViewModel? agentHistoryOwner = null)
     {
-        ViewModel.SettingsPage = page;
-        ViewModel.ShowSettings(page);
+        ViewModel.ShowSettings(page, agentHistoryOwner);
         if (page == SettingsPage.Appearance)
         {
             RefreshAppearanceControlsFromStoredProfile();
         }
     }
 
-    private void OnOpenThirdPartyNoticesClick(object? sender, RoutedEventArgs e)
+    private void OnNotificationSettingsClick(object? sender, RoutedEventArgs e) =>
+        _ = RequestSettingsPageAsync(SettingsPage.Notifications);
+
+    private void OnOpenNotificationSystemSettingsClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        var path = ProductDocumentLocator.FindThirdPartyNotices();
-        if (path is null)
+        ViewModel.NotificationSettings.OpenSystemSettings();
+    }
+
+    private void OnSettingsSearchSubmitted(object? sender, SettingsPage page) =>
+        _ = RequestSettingsPageAsync(page);
+
+    /// <summary>
+    /// Session history keeps what is chosen as soon as it is chosen. Keeping
+    /// less removes history, so that asks first, and a No puts the previous
+    /// choice back.
+    /// </summary>
+    private async void OnHistoryRetentionSelectionChanged(
+        object? sender,
+        SelectionChangedEventArgs e)
+    {
+        if (ViewModel is not { CanApplyHistoryRetention: true, SelectedHistoryRetentionOption: { } selected } viewModel)
         {
-            ViewModel.SetError(
-                "The bundled third-party notices could not be found. Reinstall this build.");
             return;
         }
 
-        try
+        if (viewModel.RequiresHistoryRetentionConfirmation
+            && !await Confirmations.HistoryRetentionChange(selected)
+                .ShowDialog<bool>(DialogOwnerFor(sender)))
         {
-            var process = Process.Start(new ProcessStartInfo
+            if (e.RemovedItems.OfType<HistoryRetentionOption>().FirstOrDefault() is { } previous)
             {
-                FileName = path,
-                UseShellExecute = true,
-            });
-            if (process is null)
-            {
-                ViewModel.SetError(
-                    "The operating system did not provide an application for the notices file.");
+                viewModel.SelectedHistoryRetentionOption = previous;
             }
+
+            return;
         }
-        catch (Exception exception) when (exception is InvalidOperationException
-            or System.ComponentModel.Win32Exception)
+
+        _ = await viewModel.SaveHistoryRetentionAsync(_lifetime.Token);
+    }
+
+    /// <summary>Agent history retention applies on choice too, after the same question.</summary>
+    private async void OnAgentHistoryRetentionSelectionChanged(
+        object? sender,
+        SelectionChangedEventArgs e)
+    {
+        if (ViewModel.AgentHistoryOwner is not { CanApplyHistoryRetention: true } agent)
         {
-            ViewModel.SetError(
-                "The operating system could not open the bundled third-party notices.");
+            return;
         }
+
+        if (!await Confirmations
+                .AgentHistoryRetentionChange(agent.SelectedHistoryRetentionOption)
+                .ShowDialog<bool>(DialogOwnerFor(sender)))
+        {
+            if (e.RemovedItems.OfType<AgentHistoryRetentionOption>().FirstOrDefault() is { } previous)
+            {
+                agent.SelectedHistoryRetentionOption = previous;
+            }
+
+            return;
+        }
+
+        await agent.ApplyHistoryRetentionAsync(_lifetime.Token);
     }
 
     internal void RefreshAppearanceControlsFromStoredProfile()
@@ -455,7 +744,7 @@ public sealed partial class MainWindow
             && !await Confirmations.DiscardChanges(
                     "Discard keybinding changes?",
                     "The unsaved shortcuts, prefix, and conflict resolutions will be lost.")
-                .ShowDialog<bool>(this))
+                .ShowDialog<bool>(SettingsDialogOwner))
         {
             _changingKeybindingProfile = true;
             selector.SelectedItem = ViewModel.SelectedKeybindingProfile;
@@ -486,7 +775,7 @@ public sealed partial class MainWindow
             ? 1
             : ShortcutRecorderDialog.DefaultMaximumStrokes;
         var sequence = await new ShortcutRecorderDialog(row.Row.Sequence, maximumStrokes)
-            .ShowDialog<KeySequence?>(this);
+            .ShowDialog<KeySequence?>(SettingsDialogOwner);
         if (sequence is not null)
         {
             editor.RecordShortcut(row.Id, sequence.Strokes);
@@ -521,7 +810,7 @@ public sealed partial class MainWindow
         }
 
         var recorded = await new ShortcutRecorderDialog(initial: null, maximumStrokes: 1)
-            .ShowDialog<KeySequence?>(this);
+            .ShowDialog<KeySequence?>(SettingsDialogOwner);
         if (recorded is null)
         {
             return;
@@ -606,7 +895,7 @@ public sealed partial class MainWindow
         }
 
         var confirmed = await Confirmations.DefinitionDelete("file provider", profile.Name)
-            .ShowDialog<bool>(this);
+            .ShowDialog<bool>(SettingsDialogOwner);
         if (!confirmed)
         {
             return;
@@ -628,7 +917,7 @@ public sealed partial class MainWindow
                 fileProfileId: profileId,
                 initialFamily: SavedConnectionFamily.Files);
             var result = await new ConnectionEditorDialog(editor)
-                .ShowDialog<UnifiedConnectionEditorResult?>(this);
+                .ShowDialog<UnifiedConnectionEditorResult?>(SettingsDialogOwner);
             if (result is UnifiedConnectionEditorResult.Files files)
             {
                 _ = await ViewModel.SaveFileProviderProfileAsync(files.Request, _lifetime.Token);
@@ -665,7 +954,7 @@ public sealed partial class MainWindow
         }
 
         var confirmed = await Confirmations.DefinitionDelete("AI provider", profile.Name)
-            .ShowDialog<bool>(this);
+            .ShowDialog<bool>(SettingsDialogOwner);
         if (!confirmed)
         {
             return;
@@ -684,7 +973,7 @@ public sealed partial class MainWindow
             await ViewModel.RefreshSecretsAsync(_lifetime.Token);
             var editor = ViewModel.CreateAiProviderEditor(profileId);
             var request = await new AiProviderProfileEditorDialog(editor)
-                .ShowDialog<AiProviderProfileSaveRequest?>(this);
+                .ShowDialog<AiProviderProfileSaveRequest?>(SettingsDialogOwner);
             await ViewModel.RefreshSecretsAsync(_lifetime.Token);
             if (request is not null)
             {
@@ -744,7 +1033,7 @@ public sealed partial class MainWindow
         var confirmed = await Confirmations.DefinitionDelete(
                 "MCP server",
                 profile.Name)
-            .ShowDialog<bool>(this);
+            .ShowDialog<bool>(SettingsDialogOwner);
         if (!confirmed)
         {
             return;
@@ -763,7 +1052,7 @@ public sealed partial class MainWindow
             await ViewModel.RefreshSecretsAsync(_lifetime.Token);
             var editor = ViewModel.CreateMcpServerEditor(profileId);
             var request = await new McpServerProfileEditorDialog(editor)
-                .ShowDialog<McpServerProfileSaveRequest?>(this);
+                .ShowDialog<McpServerProfileSaveRequest?>(SettingsDialogOwner);
             if (request is not null)
             {
                 _ = await ViewModel.SaveMcpServerProfileAsync(
@@ -1213,7 +1502,7 @@ public sealed partial class MainWindow
                 return;
             }
 
-            var destination = await StorageProvider.SaveFilePickerAsync(
+            var destination = await SettingsDialogOwner.StorageProvider.SaveFilePickerAsync(
                 new FilePickerSaveOptions
                 {
                     Title = "Export Asura appearance",
@@ -1254,7 +1543,7 @@ public sealed partial class MainWindow
         _ = e;
         try
         {
-            var selected = await StorageProvider.OpenFilePickerAsync(
+            var selected = await SettingsDialogOwner.StorageProvider.OpenFilePickerAsync(
                 new FilePickerOpenOptions
                 {
                     Title = "Import Asura appearance",
@@ -1342,20 +1631,6 @@ public sealed partial class MainWindow
         }
     }
 
-    private async void OnSaveTerminalProfileClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        _ = await ViewModel.SaveTerminalProfileAsync(_lifetime.Token);
-    }
-
-    private async void OnSaveQuickTerminalSettingsClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        _ = await ViewModel.SaveQuickTerminalSettingsAsync(_lifetime.Token);
-    }
-
     private async void OnRecordQuickTerminalHotkeyClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
@@ -1376,7 +1651,7 @@ public sealed partial class MainWindow
         }
 
         var recorded = await new ShortcutRecorderDialog(initial, maximumStrokes: 1)
-            .ShowDialog<KeySequence?>(this);
+            .ShowDialog<KeySequence?>(SettingsDialogOwner);
         if (recorded is { Count: 1 })
         {
             editor.HotkeyText = QuickTerminalHotkeyText.Format(recorded[0]);
@@ -1487,7 +1762,7 @@ public sealed partial class MainWindow
         }
 
         var confirmed = await Confirmations.DefinitionDelete("credential", secret.Label)
-            .ShowDialog<bool>(this);
+            .ShowDialog<bool>(SettingsDialogOwner);
         if (confirmed)
         {
             _ = await ViewModel.DeleteSecretAsync(secret, _lifetime.Token);
@@ -1503,7 +1778,7 @@ public sealed partial class MainWindow
         }
 
         var request = await new SecretEditorDialog(new SecretEditorViewModel(secret))
-            .ShowDialog<SecretEditRequest?>(this);
+            .ShowDialog<SecretEditRequest?>(SettingsDialogOwner);
         if (request is null)
         {
             return;

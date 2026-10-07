@@ -122,7 +122,8 @@ public sealed partial class App : Avalonia.Application
         IHostAccessibilityPreferencesSource hostAccessibilityPreferences,
         IScreenColorSampler screenColorSampler,
         AppearancePreviewCoordinator? appearancePreview = null,
-        IWindowPlacementStore? windowPlacements = null)
+        IWindowPlacementStore? windowPlacements = null,
+        ISettingsWindowStateStore? settingsWindowState = null)
     {
         ArgumentNullException.ThrowIfNull(mainWindowViewModel);
         ArgumentNullException.ThrowIfNull(mainWindowViewModelFactory);
@@ -156,6 +157,9 @@ public sealed partial class App : Avalonia.Application
         _screenColorSampler = screenColorSampler;
         _appearancePreview = appearancePreview ?? new AppearancePreviewCoordinator();
         _windowPlacements = windowPlacements;
+        // One Settings window serves every main window, so where it was and
+        // which page it showed belong to the application.
+        SettingsWindow.StateStore = settingsWindowState;
     }
 
     public override void Initialize()

@@ -30,7 +30,7 @@
             Grid.Column="2"
             Classes="DestructiveButton"
             Click="OnClearAllClick"
-            Content="Clear all previous"
+            Content="Clear All Previous"
             IsEnabled="{Binding CanClearAll}"
             AutomationProperties.Name="Clear all previous crash recovery data" />
       </Grid>

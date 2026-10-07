@@ -4,8 +4,8 @@ using Asura.App.ViewModels;
 namespace Asura.App.Views;
 
 /// <summary>
-/// Keeps a main window's title saying which window it is — "Workspace · Tab",
-/// or "Settings" — so Mission Control, the Window menu, ⌘` and the VoiceOver
+/// Keeps a main window's title saying which window it is — "Workspace · Tab"
+/// — so Mission Control, the Window menu, ⌘` and the VoiceOver
 /// window chooser can tell windows apart. The title is not drawn in the
 /// window itself; the tab strip already shows it there.
 /// </summary>
@@ -39,16 +39,13 @@ internal sealed class ShellWindowTitle : IDisposable
     public static string Compose(
         string? workspace,
         string? tab,
-        bool isSettings,
         string? qualifier = null)
     {
-        var title = isSettings
-            ? "Settings"
-            : string.IsNullOrWhiteSpace(workspace)
-                ? ApplicationName
-                : string.IsNullOrWhiteSpace(tab)
-                    ? workspace.Trim()
-                    : $"{workspace.Trim()} · {tab.Trim()}";
+        var title = string.IsNullOrWhiteSpace(workspace)
+            ? ApplicationName
+            : string.IsNullOrWhiteSpace(tab)
+                ? workspace.Trim()
+                : $"{workspace.Trim()} · {tab.Trim()}";
         return string.IsNullOrWhiteSpace(qualifier)
             ? title
             : $"{title} — {qualifier.Trim()}";
@@ -67,7 +64,6 @@ internal sealed class ShellWindowTitle : IDisposable
         _apply(Compose(
             starting ?? _workspace?.Name,
             starting is null ? _tab?.Title : null,
-            _viewModel.IsSettingsVisible,
             _qualifier()));
     }
 
@@ -115,7 +111,6 @@ internal sealed class ShellWindowTitle : IDisposable
             case nameof(MainWindowViewModel.RuntimeWorkspace):
                 Follow(_viewModel.RuntimeWorkspace);
                 break;
-            case nameof(MainWindowViewModel.IsSettingsVisible):
             case nameof(MainWindowViewModel.IsWorkspaceVisible):
             case nameof(MainWindowViewModel.WorkspaceIsolationProgressTitle):
                 Refresh();

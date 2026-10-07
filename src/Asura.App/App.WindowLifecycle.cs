@@ -30,6 +30,9 @@ public sealed partial class App
     private bool _quitInProgress;
     private bool _quitApproved;
 
+    /// <summary>Whether Asura is quitting, so closing windows are not replaced or handed on.</summary>
+    internal bool IsQuitting => _quitInProgress || _quitApproved || _desktopExitStarted;
+
     /// <summary>
     /// On a Mac the app outlives its windows: closing the last one leaves the
     /// Quick Terminal hotkey and background sessions running, and the Dock

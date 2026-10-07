@@ -583,11 +583,12 @@ public sealed class TransientOverlayViewContractTests
     }
 
     /// <summary>
-    /// Creating a screen closes whatever opened the editor and hands focus back to
-    /// the route, rather than leaving the shell focused on a dismissed overlay.
+    /// New Saved Screen… is asked for from the Settings window, so its editor
+    /// opens over that window and leaves whatever the main window shows alone:
+    /// an editor open there is not the one that asked.
     /// </summary>
     [Fact]
-    public void Main_window_restores_route_focus_after_successful_new_item_creation()
+    public void New_saved_screen_opens_over_the_window_that_asked_and_leaves_overlays_alone()
     {
         var createScreen = ExtractMethod(
             ApplicationViews.FindPartialClassSources("MainWindow"),
@@ -595,8 +596,9 @@ public sealed class TransientOverlayViewContractTests
 
         AssertOccursInOrder(
             createScreen,
-            "ViewModel.CloseOverlay();",
-            "FocusCurrentRoute();");
+            "new SavedScreenEditorDialog(",
+            ".ShowDialog<bool>(DialogOwnerFor(sender))");
+        Assert.DoesNotContain("ViewModel.CloseOverlay();", createScreen, StringComparison.Ordinal);
     }
 
     private static string ExtractMethod(string source, string signature)

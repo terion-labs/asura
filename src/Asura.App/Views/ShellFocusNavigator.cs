@@ -34,16 +34,9 @@ internal sealed class ShellFocusNavigator(
         {
             FocusActivePanel();
         }
-        else if (viewModel.IsSettingsVisible)
-        {
-            FocusSettingsBackButton();
-        }
     }
 
     public void FocusActivePanel() => FocusActivePanel(PanelFocusAttempts);
-
-    public void FocusSettingsBackButton() => Post(() =>
-        settingsRoute().FocusBackButton());
 
     public void FocusSavedScreenUndo() => Post(() =>
         settingsRoute().FocusSavedScreenUndo());

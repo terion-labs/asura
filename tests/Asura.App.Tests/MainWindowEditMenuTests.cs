@@ -81,12 +81,15 @@ public sealed class MainWindowEditMenuTests
 
                 Assert.True(EditItem(bar, "Find…").IsEnabled);
 
+                // Settings opens in a window of its own and covers nothing
+                // here, so the active panel keeps Find.
                 viewModel.ShowSettings();
                 window.UpdateLayout();
                 Dispatcher.UIThread.RunJobs();
                 bar.Refresh();
 
-                Assert.False(EditItem(bar, "Find…").IsEnabled);
+                Assert.True(viewModel.IsSettingsVisible);
+                Assert.True(EditItem(bar, "Find…").IsEnabled);
                 return true;
             }
             finally

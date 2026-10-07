@@ -56,6 +56,8 @@
         </ScrollViewer>
       </controls:SurfaceCard>
     </DataTemplate>
+    <!-- This window's Settings content, built once on first use and shown in
+         the Settings window rather than in place of the workspace. -->
     <DataTemplate x:Key="SettingsRouteTemplate" x:DataType="vm:MainWindowViewModel">
       <views:SettingsView
           AboutSettingsRequested="OnAboutSettingsClick"
@@ -63,11 +65,9 @@
           AddFileProviderRequested="OnAddFileProviderClick"
           AddMcpServerRequested="OnAddMcpServerClick"
           AgentSettingsRequested="OnAgentSettingsClick"
-          ApplyAgentHistoryRetentionRequested="OnApplyAgentHistoryRetentionClick"
           ExportAgentHistoryRequested="OnExportAgentHistoryClick"
           AppearanceSettingsRequested="OnAppearanceSettingsClick"
           ClearKeybindingPrefixRequested="OnClearKeybindingPrefixClick"
-          CheckForUpdatesRequested="OnCheckForUpdatesClick"
           ClearMcpServerDiagnosticHistoryRequested="OnClearMcpServerDiagnosticHistoryClick"
           CloneKeybindingPresetRequested="OnCloneKeybindingPresetClick"
           CreateAiProviderSecretRequested="OnCreateAiProviderSecretClick"
@@ -81,7 +81,6 @@
           DeleteSecretRequested="OnDeleteSecretClick"
           DeleteWorkspaceRequested="OnDeleteWorkspaceClick"
           DiagnosticsSettingsRequested="OnDiagnosticsSettingsClick"
-          DownloadUpdateRequested="OnDownloadUpdateClick"
           DismissSavedScreenDeleteUndoRequested="OnDismissSavedScreenDeleteUndoClick"
           EditAiProviderRequested="OnEditAiProviderClick"
           EditFileProviderRequested="OnEditFileProviderClick"
@@ -90,6 +89,7 @@
           EditScreenRequested="OnEditScreenClick"
           EditSecretRequested="OnEditSecretClick"
           CreateWorkspaceRequested="OnCreateWorkspaceClick"
+          CreateScreenRequested="OnCreateScreenClick"
           EditWorkspaceRequested="OnEditWorkspaceClick"
           ExportDefinitionsRequested="OnExportDefinitionsClick"
           DisableStartupProtectionRequested="OnDisableStartupProtectionClick"
@@ -105,14 +105,12 @@
           KeybindingProfileSelectionChangedRequested="OnKeybindingProfileSelectionChanged"
           KeybindingSettingsRequested="OnKeybindingSettingsClick"
           McpSettingsRequested="OnMcpSettingsClick"
-          OpenThirdPartyNoticesRequested="OnOpenThirdPartyNoticesClick"
           QuickTerminalSettingsRequested="OnQuickTerminalSettingsClick"
           RecordKeybindingPrefixRequested="OnRecordKeybindingPrefixClick"
           RecordKeybindingRequested="OnRecordKeybindingClick"
           ResetAllKeybindingsRequested="OnResetAllKeybindingsClick"
           ResetKeybindingRequested="OnResetKeybindingClick"
           ReviewOnboardingRequested="OnReviewOnboardingClick"
-          RestartToApplyUpdateRequested="OnRestartToApplyUpdateClick"
           RestoreSessionsOnStartChangedRequested="OnRestoreSessionsOnStartChanged"
           TerminalMultiplexingChangedRequested="OnTerminalMultiplexingChanged"
           TerminateManagedRemoteSessionRequested="OnTerminateManagedRemoteSessionClick"
@@ -130,16 +128,9 @@
           PickColorRequested="OnPickColorRequested"
           RecordQuickTerminalHotkeyRequested="OnRecordQuickTerminalHotkeyClick"
           SaveKeybindingsRequested="OnSaveKeybindingsClick"
-          SaveQuickTerminalSettingsRequested="OnSaveQuickTerminalSettingsClick"
-          SaveTerminalProfileRequested="OnSaveTerminalProfileClick"
-          SaveDefaultAgentPolicyRequested="OnSaveDefaultAgentPolicyClick"
           SelectTerminalPaletteRequested="OnSelectTerminalPaletteClick"
           SecretsSettingsRequested="OnSecretsSettingsClick"
-          SettingsBackRequested="OnSettingsBackClick"
-          ShowCommandPaletteRequested="OnShowCommandPaletteClick"
           ShowLayoutDesignerRequested="OnShowLayoutDesignerClick"
-          ShowNewItemRequested="OnShowNewItemClick"
-          SaveHistoryRetentionRequested="OnSaveHistoryRetentionClick"
           ReviewHistoryPrivacyRequested="OnReviewHistoryPrivacyClick"
           RetryRecentSessionHistoryRequested="OnRetryRecentSessionHistoryClick"
           ExportAllHistoryRequested="OnExportAllHistoryClick"
@@ -151,7 +142,12 @@
           UnbindKeybindingRequested="OnUnbindKeybindingClick"
           UndoDeletedSavedScreenRequested="OnUndoDeletedSavedScreenClick"
           WorkspaceSettingsRequested="OnWorkspaceSettingsClick"
-          NetworkingSettingsRequested="OnNetworkingSettingsClick" />
+          NetworkingSettingsRequested="OnNetworkingSettingsClick"
+          NotificationSettingsRequested="OnNotificationSettingsClick"
+          OpenNotificationSystemSettingsRequested="OnOpenNotificationSystemSettingsClick"
+          SettingsSearchSubmitted="OnSettingsSearchSubmitted"
+          HistoryRetentionSelectionChangedRequested="OnHistoryRetentionSelectionChanged"
+          AgentHistoryRetentionSelectionChangedRequested="OnAgentHistoryRetentionSelectionChanged" />
     </DataTemplate>
 
     <DataTemplate x:Key="CommandPaletteOverlayTemplate" x:DataType="vm:MainWindowViewModel">
@@ -506,11 +502,6 @@
         WorkspaceNetworkConnectionSelected="OnWorkspaceNetworkConnectionSelected"
         WorkspaceNetworkToggleRequested="OnWorkspaceNetworkToggleRequested"
         NetworkingSettingsRequested="OnNetworkingSettingsClick" />
-
-    <!-- The host is cheap. Its template is built once, on first navigation. -->
-    <ContentControl
-        x:Name="SettingsRouteHost"
-        IsVisible="{Binding IsSettingsVisible}" />
 
     <!-- Docked overlays. Runtime native views are hidden while these are open. -->
     <Grid IsVisible="{Binding HasOverlay}" Background="{DynamicResource ShellScrimBrush}">

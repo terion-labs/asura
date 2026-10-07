@@ -311,6 +311,11 @@ internal sealed class QaApplication : Avalonia.Application
     private static readonly QaDockerEngineClient Docker = new();
     private static readonly QaGitRepositoryClient Git = new();
 
+    /// <summary>The Settings window's size when a route does not ask for more.</summary>
+    private const int SettingsCaptureWidth = 980;
+    private const int SettingsCaptureHeight = 720;
+    private const int DefaultCaptureHeight = 900;
+
     private static readonly RouteCapture[] Routes =
     [
         new("settings-security", vm => vm.ShowSettings(SettingsPage.Secrets)),
@@ -336,6 +341,7 @@ internal sealed class QaApplication : Avalonia.Application
         new("settings-secrets", vm => vm.ShowSettings(SettingsPage.Secrets)),
         new("settings-diagnostics", vm => vm.ShowSettings(SettingsPage.Diagnostics)),
         new("settings-about", vm => vm.ShowSettings(SettingsPage.About)),
+        new("settings-notifications", vm => vm.ShowSettings(SettingsPage.Notifications)),
         new("overlay-command-palette", vm =>
         {
             vm.ShowWorkspace();
@@ -827,7 +833,7 @@ internal sealed class QaApplication : Avalonia.Application
             PrepareCapture: SelectDataInTheRail),
         // Keyboard focus has its own visuals; capturing it keeps the focus ring
         // reviewable instead of only reachable by hand.
-        new("settings-appearance-focused", vm => vm.ShowSettings(SettingsPage.Appearance), FocusFirst: "Leave settings"),
+        new("settings-appearance-focused", vm => vm.ShowSettings(SettingsPage.Appearance), FocusFirst: "Search settings"),
         // The whole settings-apply-immediately loop, end to end: the click
         // commits the theme, the catalog change re-publishes the resources, and
         // the capture must visibly densify against plain settings-appearance.
@@ -962,7 +968,8 @@ internal sealed class QaApplication : Avalonia.Application
     /// </summary>
     private static void ScrollSettingsToMcp(MainWindow window)
     {
-        var section = window.GetVisualDescendants()
+        Window root = (Window?)SettingsWindow.Current ?? window;
+        var section = root.GetVisualDescendants()
             .OfType<Control>()
             .First(control => string.Equals(control.Name, "McpSettingsSection", StringComparison.Ordinal));
         var scroll = section.GetVisualAncestors().OfType<ScrollViewer>().First();
@@ -2432,7 +2439,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 "Asura.App.EffectiveAppearanceResourceMapper",
                 throwOnError: true)!;
         var mapped = mapper
-            .GetMethod("Map", BindingFlags.Public | BindingFlags.Static)!
+            .GetMethod("Map", BindingFlags.Public | BindingFlags.Static, [effectiveTheme.GetType()])!
             .Invoke(null, [effectiveTheme]);
 
         typeof(Asura.App.App)
@@ -4200,6 +4207,10 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 viewModel.DismissWorkspaceEditor();
                 viewModel.DismissLayoutDesigner();
                 viewModel.CloseOverlay();
+                // Settings is a window of its own; one a route opened closes
+                // before the next route, or every later capture would wear it.
+                SettingsWindow.Current?.CloseForHost();
+                Dispatcher.UIThread.RunJobs();
                 if (viewModel.IsAgentPanelVisible)
                 {
                     viewModel.ToggleAgentPanel();
@@ -4222,9 +4233,17 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 window.UpdateLayout();
                 await Task.Delay(120);
 
+                // A settings route renders the Settings window, which is where
+                // Settings is shown; an editor Settings opened lives in the
+                // main window and is captured there.
+                var settingsWindow = viewModel.IsSettingsVisible && !viewModel.HasOverlay && route.Dialog is null
+                    ? SettingsWindow.Current
+                    : null;
+                Window captureRoot = (Window?)settingsWindow ?? window;
+
                 if (route.FocusFirst is { } focusTarget)
                 {
-                    var control = window.GetVisualDescendants()
+                    var control = captureRoot.GetVisualDescendants()
                         .OfType<Control>()
                         .FirstOrDefault(candidate =>
                             string.Equals(candidate.Name, focusTarget, StringComparison.Ordinal)
@@ -4252,7 +4271,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
 
                 if (route.ClickFirst is { } clickTarget)
                 {
-                    var button = window.GetVisualDescendants()
+                    var button = captureRoot.GetVisualDescendants()
                         .OfType<Button>()
                         .FirstOrDefault(candidate =>
                             string.Equals(
@@ -4267,22 +4286,26 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                     // theme commit re-publishes the resources.
                     await Task.Delay(500);
                     Dispatcher.UIThread.RunJobs();
-                    window.UpdateLayout();
+                    captureRoot.UpdateLayout();
                 }
 
                 var captureWidth = Program.IsWebsiteExport
                     ? WebsiteScreenshotExport.LogicalWidth
-                    : route.Width;
+                    : settingsWindow is not null
+                        ? SettingsCaptureWidth
+                        : route.Width;
                 var captureHeight = Program.IsWebsiteExport
                     ? WebsiteScreenshotExport.LogicalHeight
-                    : route.Height;
-                if (window.Width != captureWidth || window.Height != captureHeight)
+                    : settingsWindow is not null && route.Height == DefaultCaptureHeight
+                        ? SettingsCaptureHeight
+                        : route.Height;
+                if (captureRoot.Width != captureWidth || captureRoot.Height != captureHeight)
                 {
-                    window.Width = captureWidth;
-                    window.Height = captureHeight;
+                    captureRoot.Width = captureWidth;
+                    captureRoot.Height = captureHeight;
                     await Task.Delay(200);
                     Dispatcher.UIThread.RunJobs();
-                    window.UpdateLayout();
+                    captureRoot.UpdateLayout();
                     await Task.Delay(120);
                 }
 
@@ -4291,11 +4314,11 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                     prepareCapture(window);
                     await Task.Delay(140);
                     Dispatcher.UIThread.RunJobs();
-                    window.UpdateLayout();
+                    captureRoot.UpdateLayout();
                 }
 
                 await SettleDeferredPresentationAsync(window);
-                FreezeNondeterministicPresentation(window);
+                FreezeNondeterministicPresentation(captureRoot);
 
                 var path = Path.Combine(Program.OutputDirectory, $"{route.Name}.png");
 
@@ -4341,7 +4364,19 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
 
                 if (Program.IsWebsiteExport)
                 {
-                    WebsiteScreenshotExport.WriteFrame(window, path);
+                    if (settingsWindow is not null)
+                    {
+                        WebsiteScreenshotExport.WriteDialogFrame(
+                            window,
+                            settingsWindow,
+                            new PixelSize((int)settingsWindow.Width, (int)settingsWindow.Height),
+                            path);
+                    }
+                    else
+                    {
+                        WebsiteScreenshotExport.WriteFrame(window, path);
+                    }
+
                     Console.WriteLine($"CAPTURE {route.Name} -> {path}");
                     continue;
                 }
@@ -4350,7 +4385,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 var bitmapDpi = new Vector(96, 96);
                 using (var bitmap = new RenderTargetBitmap(bitmapSize, bitmapDpi))
                 {
-                    bitmap.Render(window);
+                    bitmap.Render(captureRoot);
                     bitmap.Save(path);
                 }
 
