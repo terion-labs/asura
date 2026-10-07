@@ -217,7 +217,10 @@ public sealed class QuickTerminalPresentationContractTests
 
         Assert.True(toggle.Success);
         Assert.Contains("window.PlaceAt(workingArea.Position, scale)", controller, StringComparison.Ordinal);
-        Assert.Contains("CompletePreparedReveal", controller, StringComparison.Ordinal);
+        // The window shows itself for a reveal: panel behavior first, then
+        // the prepared, invisible show, then the first visible frame.
+        Assert.Contains("window.ShowForReveal(progress)", toggle.Groups["body"].Value, StringComparison.Ordinal);
+        Assert.Contains("CompletePreparedReveal", window, StringComparison.Ordinal);
         Assert.Contains("AnimateReveal", controller, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "ApplySettings",

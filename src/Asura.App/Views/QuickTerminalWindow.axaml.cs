@@ -28,6 +28,7 @@ public sealed partial class QuickTerminalWindow : Window
         WindowTransparencyLevel.Transparent,
     ];
     private bool _allowClose;
+    private bool _isConfiguredAsPanel;
     private QuickTerminalSettings _settings = QuickTerminalSettings.Default;
     private HostAccessibilityPreferences _hostPreferences =
         HostAccessibilityPreferences.Default;
@@ -351,7 +352,11 @@ public sealed partial class QuickTerminalWindow : Window
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         _ = sender;
-        if (e.Key != Key.Escape || e.KeyModifiers != Avalonia.Input.KeyModifiers.None)
+        // A search field with a query clears it on this Escape; only the
+        // next one is the window's.
+        if (e.Key != Key.Escape
+            || e.KeyModifiers != Avalonia.Input.KeyModifiers.None
+            || Asura.App.Controls.SearchField.ClaimsEscape(e))
         {
             return;
         }
@@ -377,11 +382,60 @@ public sealed partial class QuickTerminalWindow : Window
     }
 
     /// <summary>
+    /// Sets the native panel behavior. AppKit by default; a test passes a fake
+    /// that records when it ran.
+    /// </summary>
+    internal Func<Window, bool> PanelConfigurator { get; init; } =
+        MacOsQuickTerminalReveal.TryConfigurePanelBehavior;
+
+    /// <summary>Whether the native window already behaves as a panel.</summary>
+    internal bool IsConfiguredAsPanel => _isConfiguredAsPanel;
+
+    /// <summary>
     /// Makes the window behave as a panel: it joins whichever Space is
     /// current, including another app's full-screen Space, and stays out of
     /// window cycling and Mission Control.
+    ///
+    /// It has to happen before the window is first shown: a window ordered in
+    /// without the behavior is placed on the desktop's Space and takes the
+    /// person there, out of the full-screen app they summoned it over. It runs
+    /// once; a platform with no native window yet leaves it to the next call.
     /// </summary>
-    public void ConfigureAsPanel() => _ = MacOsQuickTerminalReveal.TryConfigurePanelBehavior(this);
+    public void ConfigureAsPanel()
+    {
+        if (!_isConfiguredAsPanel)
+        {
+            _isConfiguredAsPanel = PanelConfigurator(this);
+        }
+    }
+
+    /// <summary>
+    /// Shows the window for a reveal that starts at <paramref name="progress"/>,
+    /// or moves an open one there. The panel behavior is set before the first
+    /// show, and the backdrop is applied before the first visible frame.
+    /// </summary>
+    internal void ShowForReveal(double progress)
+    {
+        ConfigureAsPanel();
+        var wasVisible = IsVisible;
+        if (!wasVisible)
+        {
+            PrepareReveal(progress);
+            Show();
+        }
+        else
+        {
+            SetRevealProgress(progress);
+        }
+
+        // A platform that creates its native window on show is configured now.
+        ConfigureAsPanel();
+        ApplyBackdrop();
+        if (!wasVisible)
+        {
+            CompletePreparedReveal();
+        }
+    }
 
     private void OnHideClick(object? sender, RoutedEventArgs e)
     {
