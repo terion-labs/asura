@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 
 namespace Asura.App.Views.RuntimePanels;
 
@@ -25,6 +26,12 @@ public sealed partial class GitRuntimePanelView : UserControl
             RoutingStrategies.Tunnel);
         DataContextChanged += OnDataContextChanged;
         GitSidebar.PropertyChanged += OnSidebarPropertyChanged;
+        // The status-read benchmark measures Asura rather than the
+        // repository, so only builds made for developing Asura offer it.
+        if (!GitRuntimePanelViewModel.IsDiagnosticsBuild && GitToolsMenuButton.Flyout is MenuFlyout tools)
+        {
+            tools.Items.Remove(GitBenchmarkMenuItem);
+        }
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -87,10 +94,41 @@ public sealed partial class GitRuntimePanelView : UserControl
             var selected = ViewModel?.SelectedChange;
             UnstagedList.SelectedItem = selected is { IsStaged: false } ? selected : null;
             StagedList.SelectedItem = selected is { IsStaged: true } ? selected : null;
+            if (selected is not null)
+            {
+                (selected.IsStaged ? StagedList : UnstagedList).ScrollIntoView(selected);
+                PresentTreeSelection(selected);
+            }
         }
         finally
         {
             _isSyncingSelection = false;
+        }
+    }
+
+    // A directory picked in a tree anchors no diff, so only a file moves the
+    // tree selection; clearing it there would undo the person's own pick.
+    private void PresentTreeSelection(GitChangeItemViewModel selected)
+    {
+        if (ViewModel is not { } viewModel)
+        {
+            return;
+        }
+
+        var (tree, other, roots) = selected.IsStaged
+            ? (StagedTree, UnstagedTree, viewModel.StagedTreeRoots)
+            : (UnstagedTree, StagedTree, viewModel.UnstagedTreeRoots);
+        if (!tree.IsVisible
+            || (tree.SelectedItem is GitChangeTreeNodeViewModel { IsDirectory: false } current
+                && string.Equals(current.RelativePath, selected.Path, StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        if (RevealConflictNode(roots, selected.Path) is { } node)
+        {
+            tree.SelectedItem = node;
+            other.SelectedItem = null;
         }
     }
 
@@ -128,116 +166,6 @@ public sealed partial class GitRuntimePanelView : UserControl
         NewConnectionRequested?.Invoke(this, e);
     }
 
-    private void OnToggleBranchesSection(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (ViewModel is { } viewModel)
-        {
-            viewModel.IsBranchesSectionExpanded = !viewModel.IsBranchesSectionExpanded;
-        }
-    }
-
-    private void OnToggleRemotesSection(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (ViewModel is { } viewModel)
-        {
-            viewModel.IsRemotesSectionExpanded = !viewModel.IsRemotesSectionExpanded;
-        }
-    }
-
-    private void OnToggleTagsSection(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (ViewModel is { } viewModel)
-        {
-            viewModel.IsTagsSectionExpanded = !viewModel.IsTagsSectionExpanded;
-        }
-    }
-
-    private void OnToggleStashesSection(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (ViewModel is { } viewModel)
-        {
-            viewModel.IsStashesSectionExpanded = !viewModel.IsStashesSectionExpanded;
-        }
-    }
-
-    private void OnToggleWorktreesSection(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (ViewModel is { } viewModel)
-        {
-            viewModel.IsWorktreesSectionExpanded = !viewModel.IsWorktreesSectionExpanded;
-        }
-    }
-
-    private void OnToggleSubmodulesSection(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (ViewModel is { } viewModel)
-        {
-            viewModel.IsSubmodulesSectionExpanded = !viewModel.IsSubmodulesSectionExpanded;
-        }
-    }
-
-    private void OnLocalChangesClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (ViewModel is { } viewModel)
-        {
-            viewModel.Section = GitPanelSection.LocalChanges;
-        }
-    }
-
-    private void OnAllCommitsClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (ViewModel is { } viewModel)
-        {
-            viewModel.Section = GitPanelSection.AllCommits;
-        }
-    }
-
-    private void OnCommitTabClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (ViewModel is { } viewModel)
-        {
-            viewModel.DetailTab = GitCommitDetailTab.Commit;
-        }
-    }
-
-    private void OnChangesTabClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (ViewModel is { } viewModel)
-        {
-            viewModel.DetailTab = GitCommitDetailTab.Changes;
-        }
-    }
-
-    private void OnFileTreeTabClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (ViewModel is { } viewModel)
-        {
-            viewModel.DetailTab = GitCommitDetailTab.FileTree;
-        }
-    }
-
     private async void OnParentShaClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
@@ -267,11 +195,68 @@ public sealed partial class GitRuntimePanelView : UserControl
             return;
         }
 
-        // Asura's own picker, browsing the panel's connection target, so
-        // choosing a repository works over SSH exactly as it does locally.
-        var path = await new GitRepositoryPickerDialog(viewModel.CreateRepositoryPicker())
-            .ShowDialog<string?>(window);
+        // A repository on this Mac is a folder on this Mac, so the system's
+        // Open panel chooses it, with its sidebar, recents and search. A
+        // repository over SSH lives where the system panel cannot see, so
+        // Asura's own picker browses the connection's target instead.
+        var path = SystemFolderPicker(window) is { } storage && viewModel.UsesSystemFolderPicker
+            ? await PickLocalFolderAsync(storage, "Open Repository", viewModel.RepositoryPathInput)
+            : await new GitRepositoryPickerDialog(viewModel.CreateRepositoryPicker())
+                .ShowDialog<string?>(window);
         if (path is not null)
+        {
+            viewModel.RepositoryPathInput = path;
+            await viewModel.OpenRepositoryAsync(path);
+        }
+    }
+
+    private static IStorageProvider? SystemFolderPicker(TopLevel topLevel) =>
+        topLevel.StorageProvider is { CanPickFolder: true } storage ? storage : null;
+
+    /// <summary>
+    /// One folder from the system's Open panel, starting beside
+    /// <paramref name="startPath"/> when it names a folder that exists.
+    /// </summary>
+    private static async Task<string?> PickLocalFolderAsync(IStorageProvider storage, string title, string? startPath)
+    {
+        IStorageFolder? start = null;
+        if (!string.IsNullOrWhiteSpace(startPath) && Directory.Exists(startPath))
+        {
+            start = await storage.TryGetFolderFromPathAsync(startPath);
+        }
+
+        var picked = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = title,
+            AllowMultiple = false,
+            SuggestedStartLocation = start,
+        });
+        return picked.Count > 0 ? picked[0].TryGetLocalPath() : null;
+    }
+
+    private void OnRecentRepositoriesMenuOpening(object? sender, EventArgs e)
+    {
+        _ = e;
+        if (sender is not MenuFlyout menu || ViewModel is not { } viewModel)
+        {
+            return;
+        }
+
+        // A command per repository, rebuilt as the menu opens so it always
+        // matches the stored list.
+        menu.Items.Clear();
+        foreach (var path in viewModel.RecentRepositories)
+        {
+            var item = new MenuItem { Header = path, Tag = path };
+            item.Click += OnOpenRecentRepositoryClick;
+            menu.Items.Add(item);
+        }
+    }
+
+    private async void OnOpenRecentRepositoryClick(object? sender, RoutedEventArgs e)
+    {
+        _ = e;
+        if (sender is MenuItem { Tag: string path } && ViewModel is { } viewModel)
         {
             viewModel.RepositoryPathInput = path;
             await viewModel.OpenRepositoryAsync(path);
@@ -502,19 +487,46 @@ public sealed partial class GitRuntimePanelView : UserControl
             return;
         }
 
-        // Prefill a sibling of the repository root named after the branch.
-        var prefill = $"{viewModel.RepositoryRoot.TrimEnd('/')}-{item.Name.Replace('/', '-')}";
-        var path = await new FileNameDialog(
-                "Checkout as worktree",
-                "Create worktree",
-                prefill,
-                $"“{item.Name}” is checked out into a new linked worktree at this path.")
-            .ShowDialog<string?>(window);
+        // A sibling of the repository root named after the branch.
+        var folderName = $"{viewModel.RepositoryName}-{item.Name.Replace('/', '-')}";
+        string? path;
+        if (SystemFolderPicker(window) is { } storage && viewModel.UsesSystemFolderPicker)
+        {
+            // The Open panel chooses where the worktree goes. An empty folder,
+            // such as one made with its New Folder button, becomes the
+            // worktree; any other folder receives a new one named after the
+            // branch, which is what Git needs.
+            var location = await PickLocalFolderAsync(
+                storage,
+                $"Choose a Folder for “{item.Name}”",
+                Path.GetDirectoryName(viewModel.RepositoryRoot.TrimEnd('/')));
+            path = location is null ? null : WorktreeDestination(location, folderName);
+        }
+        else
+        {
+            var prefill = $"{viewModel.RepositoryRoot.TrimEnd('/')}-{item.Name.Replace('/', '-')}";
+            path = await new FileNameDialog(
+                    "Check Out as Worktree",
+                    "Create Worktree",
+                    prefill,
+                    $"“{item.Name}” is checked out into a new linked worktree at this path.")
+                .ShowDialog<string?>(window);
+        }
+
         if (path is not null)
         {
             await viewModel.CheckoutAsWorktreeAsync(path, item.Name);
         }
     }
+
+    /// <summary>
+    /// Where a worktree chosen in the Open panel goes: the chosen folder
+    /// itself when it is empty, otherwise a new folder inside it.
+    /// </summary>
+    internal static string WorktreeDestination(string chosenFolder, string folderName) =>
+        Directory.Exists(chosenFolder) && !Directory.EnumerateFileSystemEntries(chosenFolder).Any()
+            ? chosenFolder
+            : Path.Combine(chosenFolder, folderName);
 
     private async void OnFastForwardBranchClick(object? sender, RoutedEventArgs e)
     {

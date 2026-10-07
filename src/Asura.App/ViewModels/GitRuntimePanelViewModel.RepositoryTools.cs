@@ -80,8 +80,25 @@ public sealed partial class GitRuntimePanelViewModel
     public Task SaveStashAsync(GitStashRequest request) => RepositoryActionAsync(repository =>
         _client.SaveStashAsync(repository, request, ActionToken));
 
+    /// <summary>
+    /// Tasks that only read the repository. They stay available while another
+    /// operation runs — looking up a signature or a line's history should not
+    /// wait for a fetch to finish — so they skip the mutation gate and the
+    /// refresh that follows a change.
+    /// </summary>
+    public static bool IsReadOnlyTask(GitRepositoryTask task) => task is GitRepositoryTask.Statistics
+        or GitRepositoryTask.Blame or GitRepositoryTask.RangeHistory or GitRepositoryTask.Signature
+        or GitRepositoryTask.ConflictForecast or GitRepositoryTask.Benchmark or GitRepositoryTask.ExportPatch
+        or GitRepositoryTask.LfsStatus;
+
     public async Task<string?> RunRepositoryTaskAsync(GitRepositoryTaskRequest request)
     {
+        ArgumentNullException.ThrowIfNull(request);
+        if (IsReadOnlyTask(request.Task))
+        {
+            return await ReadRepositoryTaskAsync(request);
+        }
+
         string? output = null;
         await RepositoryActionAsync(async repository =>
         {
@@ -95,6 +112,37 @@ public sealed partial class GitRuntimePanelViewModel
             return new GitResult<GitUnit>.Success(GitUnit.Value);
         });
         return output;
+    }
+
+    private async Task<string?> ReadRepositoryTaskAsync(GitRepositoryTaskRequest request)
+    {
+        if (_disposed || _repository is not { } repository)
+        {
+            return null;
+        }
+
+        var started = DateTimeOffset.UtcNow;
+        try
+        {
+            var result = await _client.RunRepositoryTaskAsync(repository, request, _lifetime.Token);
+            if (result is GitResult<GitTaskOutput>.Failure failure)
+            {
+                RecordActivity(started, new GitResult<GitUnit>.Failure(failure.Error));
+                PresentFailure(failure.Error, "Git operation failed");
+                return null;
+            }
+
+            return ((GitResult<GitTaskOutput>.Success)result).Value.Text;
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        {
+            return null;
+        }
+        catch (ArgumentException exception)
+        {
+            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Invalid Git request");
+            return null;
+        }
     }
 
     public async Task<GitIdentitySettings?> ReadIdentityAsync()

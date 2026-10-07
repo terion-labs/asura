@@ -1,3 +1,5 @@
+using System.Globalization;
+using Asura.App.ViewModels;
 using Asura.Git;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -15,7 +17,7 @@ public sealed partial class GitRuntimePanelView
             return;
         }
 
-        var output = string.Join("\n\n", viewModel.Activity.Select(item => $"{item.StartedAt.LocalDateTime:g} · {item.Outcome}\n{item.Detail}"));
+        var output = string.Join("\n\n", viewModel.Activity.Select(item => $"{GitDateText.Format(item.StartedAt, CultureInfo.CurrentCulture)} · {item.Outcome}\n{item.Detail}"));
         await new GitOutputDialog("Git activity", output.Length == 0 ? "No operations in this panel yet." : output).ShowDialog(window);
     }
     private async void OnRepositoryTask(object? sender, RoutedEventArgs e)

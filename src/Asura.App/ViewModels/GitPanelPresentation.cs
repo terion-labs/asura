@@ -381,8 +381,7 @@ public sealed class GitCommitItemViewModel(GitCommitItem commit)
 
     public bool HasRefs => Commit.RefNames.Count > 0;
 
-    public string AuthoredAtText =>
-        Commit.AuthoredAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
+    public string AuthoredAtText => GitDateText.Format(Commit.AuthoredAt, CultureInfo.CurrentCulture);
 
     public string AccessibleSummary => $"{Subject} by {AuthorName}, {AuthoredAtText}, {ShortSha}";
 }
@@ -585,11 +584,11 @@ public sealed class GitRefItemViewModel(
 
     // Menu labels live here so the markup can bind them: a DataTemplate has
     // no place to compose "merge X into Y" from two sources.
-    public string CheckoutLabel => $"Checkout “{Name}”";
+    public string CheckoutLabel => $"Check Out “{Name}”";
 
     public string MergeLabel => $"Merge “{Name}” into “{currentBranchName}”…";
 
-    public string RebaseLabel => $"Rebase “{currentBranchName}” on “{Name}”…";
+    public string RebaseLabel => $"Rebase “{currentBranchName}” onto “{Name}”…";
 
     public string FetchLabel => $"Fetch “{RemoteName}”";
 
