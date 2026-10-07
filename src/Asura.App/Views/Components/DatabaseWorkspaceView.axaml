@@ -99,15 +99,15 @@
               <icons:SymbolIcon
                   VerticalAlignment="Center"
                   Symbol="Database"
-                  FontSize="12"
-                  Foreground="{DynamicResource ShellAccentBrush}" />
+                  FontSize="{DynamicResource ShellIconSizeSm}"
+                  Foreground="{DynamicResource ShellMutedBrush}" />
               <TextBlock
                   Grid.Column="1"
                   VerticalAlignment="Center"
                   FontSize="{DynamicResource ShellFontSize11}"
                   FontWeight="SemiBold"
-                  Text="{Binding CurrentDatabaseLabel}"
-                  TextTrimming="CharacterEllipsis" />
+                  Classes="MiddleTruncated"
+                  Text="{Binding CurrentDatabaseLabel}" />
             </Grid>
           </Button>
           <controls:SearchField
@@ -161,21 +161,21 @@
                       <icons:SymbolIcon
                           VerticalAlignment="Center"
                           Symbol="Table"
-                          FontSize="12"
-                          Foreground="{DynamicResource ShellAccentBrush}"
+                          FontSize="{DynamicResource ShellIconSizeSm}"
+                          Foreground="{DynamicResource ShellMutedBrush}"
                           IsVisible="{Binding !IsView}" />
                       <icons:SymbolIcon
                           VerticalAlignment="Center"
                           Symbol="Eye"
-                          FontSize="12"
+                          FontSize="{DynamicResource ShellIconSizeSm}"
                           Foreground="{DynamicResource ShellMutedBrush}"
                           IsVisible="{Binding IsView}" />
                       <TextBlock
                           Grid.Column="1"
                           VerticalAlignment="Center"
                           FontSize="{DynamicResource ShellFontSize11}"
-                          Text="{Binding Name}"
-                          TextTrimming="CharacterEllipsis" />
+                          Classes="MiddleTruncated"
+                          Text="{Binding Name}" />
                     </Grid>
                   </Button>
                 </DataTemplate>
@@ -224,7 +224,7 @@
                 ToolTip.Tip="Open this database in a full viewer tab"
                 AutomationProperties.Name="Open this database in the database viewer">
               <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                <icons:SymbolIcon Symbol="Open" FontSize="11" />
+                <icons:SymbolIcon Symbol="Open" FontSize="{DynamicResource ShellIconSizeXs}" />
                 <TextBlock Text="Open in Viewer" />
               </StackPanel>
             </Button>
@@ -260,12 +260,12 @@
                     VerticalAlignment="Center"
                     FontSize="{DynamicResource ShellFontSize10}"
                     FontWeight="SemiBold"
-                    Text="{Binding ObjectPickerLabel}"
-                    TextTrimming="CharacterEllipsis" />
+                    Classes="MiddleTruncated"
+                    Text="{Binding ObjectPickerLabel}" />
                 <icons:SymbolIcon
                     Grid.Column="1"
                     VerticalAlignment="Center"
-                    FontSize="10"
+                    FontSize="{DynamicResource ShellIconSizeXs}"
                     Symbol="ChevronDown" />
               </Grid>
               <Button.Flyout>
@@ -298,21 +298,21 @@
                                 <icons:SymbolIcon
                                     VerticalAlignment="Center"
                                     Symbol="Table"
-                                    FontSize="12"
-                                    Foreground="{DynamicResource ShellAccentBrush}"
+                                    FontSize="{DynamicResource ShellIconSizeSm}"
+                                    Foreground="{DynamicResource ShellMutedBrush}"
                                     IsVisible="{Binding !IsView}" />
                                 <icons:SymbolIcon
                                     VerticalAlignment="Center"
                                     Symbol="Eye"
-                                    FontSize="12"
+                                    FontSize="{DynamicResource ShellIconSizeSm}"
                                     Foreground="{DynamicResource ShellMutedBrush}"
                                     IsVisible="{Binding IsView}" />
                                 <TextBlock
                                     Grid.Column="1"
                                     VerticalAlignment="Center"
                                     FontSize="{DynamicResource ShellFontSize11}"
-                                    Text="{Binding Name}"
-                                    TextTrimming="CharacterEllipsis" />
+                                    Classes="MiddleTruncated"
+                                    Text="{Binding Name}" />
                               </Grid>
                             </Button>
                           </DataTemplate>
@@ -340,6 +340,7 @@
                 x:Name="QueryEditorBox"
                 MinHeight="58"
                 MaxHeight="132"
+                AcceptsFileDrop="True"
                 GrammarExtension=".sql"
                 SqlCompletionContext="{CompiledBinding #DatabaseWorkspaceRoot.((vm:ISqlQueryEditorHost)DataContext).SqlLanguageCompletionContext}"
                 SqlLanguageSession="{CompiledBinding #DatabaseWorkspaceRoot.((vm:ISqlQueryEditorHost)DataContext).SqlLanguageSession}"
@@ -359,7 +360,7 @@
                 AutomationProperties.Name="Run the SQL statement">
               <icons:SymbolIcon
                   Symbol="Play"
-                  FontSize="14"
+                  FontSize="{DynamicResource ShellIconSizeSm}"
                   Foreground="{DynamicResource ShellAccentBrush}" />
             </Button>
           </Grid>
@@ -469,7 +470,7 @@
                               AutomationProperties.Name="Apply the table filter">
                             <Panel>
                               <TextBlock Classes="rowActionLabel" Text="Apply" />
-                              <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Checkmark" FontSize="12" />
+                              <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
                             </Panel>
                           </Button>
                           <Button
@@ -479,7 +480,7 @@
                               Click="OnRemoveFilterRowClick"
                               ToolTip.Tip="Remove this condition"
                               AutomationProperties.Name="Remove this filter condition">
-                            <icons:SymbolIcon Symbol="Subtract" FontSize="11" />
+                            <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeXs}" />
                           </Button>
                           <Button
                               Grid.Column="6"
@@ -488,7 +489,7 @@
                               Click="OnAddFilterRowClick"
                               ToolTip.Tip="Add a condition"
                               AutomationProperties.Name="Add a filter condition">
-                            <icons:SymbolIcon Symbol="Add" FontSize="11" />
+                            <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeXs}" />
                           </Button>
                         </Grid>
                       </DataTemplate>
@@ -504,7 +505,7 @@
                       AutomationProperties.Name="Clear the table filter">
                     <Panel>
                       <TextBlock Classes="rowActionLabel" Text="Clear" />
-                      <icons:SymbolIcon Classes="rowActionGlyph" Symbol="FilterDismiss" FontSize="12" />
+                      <icons:SymbolIcon Classes="rowActionGlyph" Symbol="FilterDismiss" FontSize="{DynamicResource ShellIconSizeSm}" />
                     </Panel>
                   </Button>
                 </Grid>
@@ -528,7 +529,7 @@
                           AutomationProperties.Name="Add a database row">
                         <Panel>
                           <TextBlock Classes="rowActionLabel" Text="Add Row" />
-                          <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Add" FontSize="12" />
+                          <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                         </Panel>
                       </Button>
                       <Button
@@ -539,7 +540,7 @@
                           AutomationProperties.Name="Delete the selected database rows">
                         <Panel>
                           <TextBlock Classes="rowActionLabel" Text="Delete" />
-                          <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Delete" FontSize="12" />
+                          <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Delete" FontSize="{DynamicResource ShellIconSizeSm}" />
                         </Panel>
                       </Button>
                       <Button
@@ -550,7 +551,7 @@
                           AutomationProperties.Name="Revert unsaved database changes">
                         <Panel>
                           <TextBlock Classes="rowActionLabel" Text="Revert" />
-                          <icons:SymbolIcon Classes="rowActionGlyph" Symbol="ArrowUndo" FontSize="12" />
+                          <icons:SymbolIcon Classes="rowActionGlyph" Symbol="ArrowUndo" FontSize="{DynamicResource ShellIconSizeSm}" />
                         </Panel>
                       </Button>
                       <Button
@@ -561,13 +562,13 @@
                           AutomationProperties.Name="Save database changes">
                         <Panel>
                           <TextBlock Classes="rowActionLabel" Text="Save" />
-                          <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Save" FontSize="12" />
+                          <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Save" FontSize="{DynamicResource ShellIconSizeSm}" />
                         </Panel>
                       </Button>
                       <TextBlock
                           VerticalAlignment="Center"
                           Classes="Muted adaptiveHint"
-                          FontSize="{DynamicResource ShellFontSize9}"
+                          FontSize="{DynamicResource ShellSecondaryFontSize}"
                           Text="{Binding ReadOnlyReason}"
                           IsVisible="{Binding HasReadOnlyReason}"
                           TextTrimming="CharacterEllipsis"
@@ -584,7 +585,7 @@
                         IsEnabled="{Binding CanGoToPreviousPage}"
                         ToolTip.Tip="Previous page"
                         AutomationProperties.Name="Show the previous database page">
-                      <icons:SymbolIcon Symbol="ChevronLeft" FontSize="11" />
+                      <icons:SymbolIcon Symbol="ChevronLeft" FontSize="{DynamicResource ShellIconSizeXs}" />
                     </Button>
                     <!-- "Rows per page: 200 · 6 rows". A bare "200 / 6" read
                          as page 200 of 6. -->
@@ -595,7 +596,7 @@
                       <TextBlock
                           VerticalAlignment="Center"
                           Classes="Muted"
-                          FontSize="{DynamicResource ShellFontSize9}"
+                          FontSize="{DynamicResource ShellSecondaryFontSize}"
                           Text="Rows per page:" />
                       <TextBox
                           Width="52"
@@ -610,13 +611,13 @@
                       <TextBlock
                           VerticalAlignment="Center"
                           Classes="Muted"
-                          FontSize="{DynamicResource ShellFontSize9}"
+                          FontSize="{DynamicResource ShellSecondaryFontSize}"
                           Text="·" />
                       <TextBlock
                           MinWidth="28"
                           VerticalAlignment="Center"
                           Classes="Muted"
-                          FontSize="{DynamicResource ShellFontSize9}"
+                          FontSize="{DynamicResource ShellSecondaryFontSize}"
                           Text="{Binding TotalRowsText}"
                           AutomationProperties.Name="Total matching database rows" />
                     </StackPanel>
@@ -626,7 +627,7 @@
                         IsEnabled="{Binding CanGoToNextPage}"
                         ToolTip.Tip="Next page"
                         AutomationProperties.Name="Show the next database page">
-                      <icons:SymbolIcon Symbol="ChevronRight" FontSize="11" />
+                      <icons:SymbolIcon Symbol="ChevronRight" FontSize="{DynamicResource ShellIconSizeXs}" />
                     </Button>
                   </StackPanel>
                 </Grid>
@@ -675,7 +676,7 @@
                         Click="OnCopyRowClick"
                         Header="Copy"
                         AutomationProperties.Name="Copy the selected database row">
-                      <MenuItem.Icon><icons:SymbolIcon Symbol="Copy" FontSize="14" /></MenuItem.Icon>
+                      <MenuItem.Icon><icons:SymbolIcon Symbol="Copy" FontSize="{DynamicResource ShellIconSizeSm}" /></MenuItem.Icon>
                     </MenuItem>
                     <MenuItem
                         x:Name="CopyCellMenuItem"
@@ -719,7 +720,7 @@
                         Click="OnRefreshTableClick"
                         Header="Refresh"
                         AutomationProperties.Name="Refresh the current database page">
-                      <MenuItem.Icon><icons:SymbolIcon Symbol="ArrowClockwise" FontSize="14" /></MenuItem.Icon>
+                      <MenuItem.Icon><icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellIconSizeSm}" /></MenuItem.Icon>
                     </MenuItem>
 
                     <Separator x:Name="MutationMenuSeparator" />
@@ -728,7 +729,7 @@
                         Click="OnPasteCellClick"
                         Header="Paste"
                         AutomationProperties.Name="Paste a database cell value from the clipboard">
-                      <MenuItem.Icon><icons:SymbolIcon Symbol="ClipboardPaste" FontSize="14" /></MenuItem.Icon>
+                      <MenuItem.Icon><icons:SymbolIcon Symbol="ClipboardPaste" FontSize="{DynamicResource ShellIconSizeSm}" /></MenuItem.Icon>
                     </MenuItem>
                     <MenuItem
                         x:Name="SetValueMenuItem"
@@ -779,7 +780,7 @@
                         Header="Delete Row"
                         Foreground="{DynamicResource ShellDangerBrush}"
                         AutomationProperties.Name="Delete the selected database row from the context menu">
-                      <MenuItem.Icon><icons:SymbolIcon Symbol="Delete" FontSize="14" /></MenuItem.Icon>
+                      <MenuItem.Icon><icons:SymbolIcon Symbol="Delete" FontSize="{DynamicResource ShellIconSizeSm}" /></MenuItem.Icon>
                     </MenuItem>
                   </ContextMenu>
                 </DataGrid.ContextMenu>
@@ -821,7 +822,7 @@
                 <icons:SymbolIcon
                     HorizontalAlignment="Center"
                     Symbol="Database"
-                    FontSize="24"
+                    FontSize="{controls:TextScaled 24}"
                     Foreground="{DynamicResource ShellMutedBrush}" />
                 <TextBlock
                     Classes="Muted"
@@ -862,7 +863,7 @@
                             Click="OnDismissInspectorClick"
                             ToolTip.Tip="Close row inspector"
                             AutomationProperties.Name="Close the row inspector">
-                          <icons:SymbolIcon Symbol="Dismiss" FontSize="11" />
+                          <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeXs}" />
                         </Button>
                       </Grid>
                     </Border>
@@ -877,13 +878,13 @@
                         <Button Classes="TextButton Accent CopyAction" Click="OnCopyRowJsonClick" AutomationProperties.Name="Copy the row as JSON">
                           <Panel>
                             <TextBlock Classes="CopyLabel" Text="JSON" />
-                            <icons:SymbolIcon Classes="CopyCheck" HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Checkmark" FontSize="12" />
+                            <icons:SymbolIcon Classes="CopyCheck" HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
                           </Panel>
                         </Button>
                         <Button Classes="TextButton Accent CopyAction" Click="OnCopyRowCsvClick" AutomationProperties.Name="Copy the row as CSV">
                           <Panel>
                             <TextBlock Classes="CopyLabel" Text="CSV" />
-                            <icons:SymbolIcon Classes="CopyCheck" HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Checkmark" FontSize="12" />
+                            <icons:SymbolIcon Classes="CopyCheck" HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
                           </Panel>
                         </Button>
                         <Button
@@ -894,7 +895,7 @@
                             AutomationProperties.Name="Copy the row as INSERT">
                           <Panel>
                             <TextBlock Classes="CopyLabel" Text="INSERT" />
-                            <icons:SymbolIcon Classes="CopyCheck" HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Checkmark" FontSize="12" />
+                            <icons:SymbolIcon Classes="CopyCheck" HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
                           </Panel>
                         </Button>
                       </StackPanel>
@@ -915,13 +916,13 @@
                                       VerticalAlignment="Center"
                                       FontSize="{DynamicResource ShellFontSize10}"
                                       FontWeight="SemiBold"
-                                      Text="{Binding Name}"
-                                      TextTrimming="CharacterEllipsis" />
+                                      Classes="MiddleTruncated"
+                                      Text="{Binding Name}" />
                                   <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
                                     <TextBlock
                                         VerticalAlignment="Center"
                                         Classes="Muted"
-                                        FontSize="{DynamicResource ShellFontSize9}"
+                                        FontSize="{DynamicResource ShellSecondaryFontSize}"
                                         IsVisible="{Binding !IsEditing}"
                                         Text="{Binding DataTypeName}" />
                                     <Button
@@ -930,7 +931,7 @@
                                         IsVisible="{Binding ShowsEditAction}"
                                         ToolTip.Tip="Edit this value"
                                         AutomationProperties.Name="{Binding Name, StringFormat=Edit {0}}">
-                                      <icons:SymbolIcon Symbol="Edit" FontSize="11" />
+                                      <icons:SymbolIcon Symbol="Edit" FontSize="{DynamicResource ShellIconSizeXs}" />
                                     </Button>
                                     <Button
                                         Classes="IconButton"
@@ -938,7 +939,7 @@
                                         IsVisible="{Binding IsEditing}"
                                         ToolTip.Tip="Apply (stages the change; Save commits the row)"
                                         AutomationProperties.Name="{Binding Name, StringFormat=Apply {0}}">
-                                      <icons:SymbolIcon Symbol="Checkmark" FontSize="11" Foreground="{DynamicResource ShellSuccessBrush}" />
+                                      <icons:SymbolIcon Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeXs}" Foreground="{DynamicResource ShellSuccessBrush}" />
                                     </Button>
                                     <Button
                                         Classes="IconButton"
@@ -946,7 +947,7 @@
                                         IsVisible="{Binding IsEditing}"
                                         ToolTip.Tip="Revert this edit"
                                         AutomationProperties.Name="{Binding Name, StringFormat=Revert {0}}">
-                                      <icons:SymbolIcon Symbol="Dismiss" FontSize="11" />
+                                      <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeXs}" />
                                     </Button>
                                   </StackPanel>
                                 </Grid>
@@ -998,7 +999,7 @@
                                     AutomationProperties.Name="{Binding Name, StringFormat=Draft value for {0}}" />
                                 <TextBlock
                                     Classes="Muted"
-                                    FontSize="{DynamicResource ShellFontSize9}"
+                                    FontSize="{DynamicResource ShellSecondaryFontSize}"
                                     Foreground="{DynamicResource ShellDangerBrush}"
                                     IsVisible="{Binding HasValidationError}"
                                     Text="{Binding ValidationError}"
@@ -1115,7 +1116,7 @@
         <TextBlock
             VerticalAlignment="Center"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding ResultSummary}" />
         <!-- The session, never the connection string: engine and version,
              transport security, route, principal, database, object. -->
@@ -1123,7 +1124,7 @@
             Grid.Column="1"
             VerticalAlignment="Center"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding ConnectionSummary}"
             TextTrimming="CharacterEllipsis"
             AutomationProperties.Name="Connection summary" />

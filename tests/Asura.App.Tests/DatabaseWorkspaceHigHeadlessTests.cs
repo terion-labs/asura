@@ -171,13 +171,23 @@ public sealed class DatabaseWorkspaceHigHeadlessTests
 
             // Add Row is ⌥⌘N on a Mac: ⌘I is Get Info.
             var add = Assert.Single(Flatten(menu), item => Equals(item.Header, "Add Row"));
-            Assert.Equal(DatabaseWorkspaceView.AddRowGesture, add.InputGesture);
-            Assert.Equal(Key.N, DatabaseWorkspaceView.AddRowGesture.Key);
+            var addRowGesture = DatabaseGridShortcuts.GestureFor(DatabaseGridShortcuts.GridCommand.AddRow);
+            Assert.NotNull(addRowGesture);
+            Assert.Equal(addRowGesture, add.InputGesture);
+            Assert.Equal(Key.N, addRowGesture.Key);
             Assert.Equal(
                 OperatingSystem.IsMacOS()
                     ? Avalonia.Input.KeyModifiers.Meta | Avalonia.Input.KeyModifiers.Alt
                     : Avalonia.Input.KeyModifiers.Control | Avalonia.Input.KeyModifiers.Shift,
-                DatabaseWorkspaceView.AddRowGesture.KeyModifiers);
+                addRowGesture.KeyModifiers);
+
+            // ⌘D is Panel ▸ Split Right on a Mac, so Duplicate Row shows no key there.
+            var duplicate = Assert.Single(Flatten(menu), item => Equals(item.Header, "Duplicate Row"));
+            Assert.Equal(DatabaseGridShortcuts.GestureFor(DatabaseGridShortcuts.GridCommand.DuplicateRow), duplicate.InputGesture);
+            if (OperatingSystem.IsMacOS())
+            {
+                Assert.Null(duplicate.InputGesture);
+            }
             await Task.CompletedTask;
         });
 

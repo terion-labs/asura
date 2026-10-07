@@ -16,6 +16,15 @@
         VerticalScrollBarVisibility="Auto"
         ShowLineNumbers="False"
         WordWrap="True" />
+    <!-- Lit while files are dragged over an editable editor: the drop
+         lands at the caret drawn under the pointer. -->
+    <Border
+        x:Name="FileDropHighlight"
+        BorderBrush="{DynamicResource ShellAccentBrush}"
+        BorderThickness="2"
+        CornerRadius="{DynamicResource ShellInnerCornerRadius}"
+        IsHitTestVisible="False"
+        IsVisible="False" />
     <TextBlock
         x:Name="WatermarkText"
         Margin="{controls:Inset Horizontal=Xs}"
@@ -36,7 +45,7 @@
       <controls:LiveRegionTextBlock
           x:Name="DiagnosticStatusText"
           Classes="Eyebrow"
-          FontSize="{DynamicResource ShellFontSize9}"
+          FontSize="{DynamicResource ShellFontSize10}"
           AutomationProperties.Name="SQL diagnostics"
           AutomationProperties.LiveSetting="Polite" />
     </Border>

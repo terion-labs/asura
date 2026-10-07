@@ -86,15 +86,10 @@ public sealed class RedisKeyItemViewModel : ObservableObject
     public void Tick() => OnPropertyChanged(nameof(Ttl));
 
     /// <summary>
-    /// A memory figure in the reader's own number format, the way every other
-    /// size on this screen is written.
+    /// A memory figure written the way every other size in the app is: one
+    /// formatter, so a key's size never reads "2,1 KB" beside a file's "2.1 KB".
     /// </summary>
-    internal static string FormatBytes(long bytes) => bytes switch
-    {
-        < 1024 => $"{RedisCounts.Format(bytes)} B",
-        < 1024 * 1024 => $"{(bytes / 1024d).ToString("0.#", CultureInfo.CurrentCulture)} KB",
-        _ => $"{(bytes / (1024d * 1024d)).ToString("0.#", CultureInfo.CurrentCulture)} MB",
-    };
+    internal static string FormatBytes(long bytes) => ByteSize.Format(bytes);
 }
 
 /// <summary>
@@ -261,7 +256,8 @@ public sealed record RedisValueEntryViewModel(RedisValueEntry Entry)
 
 public sealed record RedisPubSubMessageViewModel(RedisPubSubMessage Message)
 {
-    public string Time => Message.ReceivedAt.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture);
+    /// <summary>When the message arrived, as the reader's clock writes a time.</summary>
+    public string Time => DisplayDates.FormatTime(Message.ReceivedAt);
     public string Channel => Message.Channel;
     public string Payload => Message.Payload;
     public string Kind => Message.Subscription.Kind.ToString();
@@ -305,6 +301,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     private bool _initializationStarted;
     private bool _persistedConnection;
     private bool _isBusy;
+    private RedisConnectionProblem _connectionProblem;
     private string _statusText = "Disconnected";
     private string? _errorMessage;
     private string _scanPattern = string.Empty;
@@ -506,6 +503,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             if (SetProperty(ref _isBusy, value))
             {
                 RaiseCommands();
+                PublishConnectionStatus();
             }
         }
     }
@@ -918,6 +916,39 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     public string ConnectionActionDescription => IsConnected
         ? "Disconnect from Redis"
         : "Connect to Redis";
+
+    /// <summary>
+    /// The header's status mark: what the connection is doing, as a tone the
+    /// dot draws and, with Differentiate Without Color, a glyph.
+    /// </summary>
+    public StatusTone ConnectionStatusTone => IsConnected
+        ? StatusTone.Success
+        : _connectionProblem switch
+        {
+            RedisConnectionProblem.Failed => StatusTone.Danger,
+            RedisConnectionProblem.PasswordRequired => StatusTone.Warning,
+            _ when IsConnecting => StatusTone.Warning,
+            _ => StatusTone.Neutral,
+        };
+
+    /// <summary>
+    /// A connection attempt is in flight: drawn as progress, not as the idle
+    /// "not connected" ring.
+    /// </summary>
+    private bool IsConnecting => !IsConnected && IsBusy && HasConnectionTarget;
+
+    /// <summary>The same state in words, for the mark's tooltip and VoiceOver.</summary>
+    public string ConnectionStatusLabel => IsConnected
+        ? $"Connected to {ConnectionDisplayName}"
+        : _connectionProblem switch
+        {
+            RedisConnectionProblem.Failed => $"Could not connect to {ConnectionDisplayName}",
+            RedisConnectionProblem.PasswordRequired => $"{ConnectionDisplayName} needs a password",
+            _ when IsConnecting => $"Connecting to {ConnectionDisplayName}",
+            _ when HasConnectionTarget => "Not connected",
+            _ => "No connection",
+        };
+
     public AsyncActionCommand ScanCommand { get; }
     public AsyncActionCommand LoadMoreCommand { get; }
     public AsyncActionCommand CreateKeyCommand { get; }
@@ -946,6 +977,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
 
         IsBusy = true;
         ErrorMessage = null;
+        _connectionProblem = RedisConnectionProblem.None;
         StatusText = "Connecting";
         try
         {
@@ -955,6 +987,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             var connectionString = await ResolveConnectionStringAsync(_lifetime.Token).ConfigureAwait(true);
             if (connectionString is null)
             {
+                _connectionProblem = RedisConnectionProblem.PasswordRequired;
                 StatusText = "Password required";
                 PasswordRequested?.Invoke(this, EventArgs.Empty);
                 return;
@@ -990,6 +1023,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         catch (Exception exception) when (IsAuthenticationFailure(exception))
         {
             ErrorMessage = null;
+            _connectionProblem = RedisConnectionProblem.PasswordRequired;
             StatusText = "Password required";
             await DisconnectCoreAsync().ConfigureAwait(true);
             PasswordRequested?.Invoke(this, EventArgs.Empty);
@@ -997,6 +1031,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         catch (Exception exception)
         {
             ErrorMessage = exception.Message;
+            _connectionProblem = RedisConnectionProblem.Failed;
             StatusText = "Connection failed";
             await DisconnectCoreAsync().ConfigureAwait(true);
         }
@@ -1057,6 +1092,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         OnPropertyChanged(nameof(SavedConnectionId));
         OnPropertyChanged(nameof(SavedConnectionName));
         OnPropertyChanged(nameof(ConnectionDisplayName));
+        PublishConnectionStatus();
         OnPropertyChanged(nameof(RecoveryTarget));
         OnPropertyChanged(nameof(TunnelConnectionId));
         _ = ConnectAsync();
@@ -1208,6 +1244,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     {
         await DisconnectCoreAsync().ConfigureAwait(true);
         InvalidateHostedSession();
+        _connectionProblem = RedisConnectionProblem.None;
         StatusText = "Disconnected";
         OnConnectionChanged();
     }
@@ -1816,11 +1853,18 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         return false;
     }
 
+    private void PublishConnectionStatus()
+    {
+        OnPropertyChanged(nameof(ConnectionStatusTone));
+        OnPropertyChanged(nameof(ConnectionStatusLabel));
+    }
+
     private void OnConnectionChanged()
     {
         OnPropertyChanged(nameof(IsConnected));
         OnPropertyChanged(nameof(ConnectionActionLabel));
         OnPropertyChanged(nameof(ConnectionActionDescription));
+        PublishConnectionStatus();
         OnPropertyChanged(nameof(Facts));
         OnPropertyChanged(nameof(ServerFactsText));
         OnPropertyChanged(nameof(SearchAvailable));
@@ -1886,4 +1930,12 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         RefreshIndexesCommand.RaiseCanExecuteChanged();
         SearchCommand.RaiseCanExecuteChanged();
     }
+}
+
+/// <summary>Why the last connection attempt left the panel without a session.</summary>
+internal enum RedisConnectionProblem
+{
+    None,
+    PasswordRequired,
+    Failed,
 }

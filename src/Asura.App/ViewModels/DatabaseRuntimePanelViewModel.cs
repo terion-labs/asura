@@ -77,6 +77,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     private string _queryText = string.Empty;
     private bool _isBusy;
     private bool _isConnected;
+    private bool _connectionFailed;
     private string? _errorMessage;
     private string? _interchangeNotice;
     private string _resultSummary = string.Empty;
@@ -200,6 +201,21 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                 return Task.CompletedTask;
             },
             () => IsConnected && CanChangeConnection);
+        ToggleConnectionCommand = new AsyncActionCommand(
+            () =>
+            {
+                if (!IsConnected)
+                {
+                    return ConnectAsync();
+                }
+
+                Disconnect();
+                return Task.CompletedTask;
+            },
+            () => CanChangeConnection && (IsConnected || HasConnectionTarget));
+        ReconnectCommand = new AsyncActionCommand(
+            ConnectAsync,
+            () => IsConnected && CanChangeConnection && HasConnectionTarget);
         RunQueryCommand = new AsyncActionCommand(
             RunQueryAsync,
             () => !IsBusy && IsConnected && !HasPendingChanges);
@@ -315,6 +331,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         OnPropertyChanged(nameof(RecoveryTarget));
         OnPropertyChanged(nameof(TunnelConnectionId));
         OnPropertyChanged(nameof(ConnectionDisplayName));
+        PublishConnectionStatus();
         _ = ConnectAsync();
     }
 
@@ -419,6 +436,19 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     public ICommand ConnectCommand { get; }
 
     public ICommand DisconnectCommand { get; }
+
+    /// <summary>
+    /// The toolbar's one connection button: it connects without a session and
+    /// disconnects with one. Connect and Disconnect side by side, both
+    /// enabled while connected, asked people to work out which applied.
+    /// </summary>
+    public ICommand ToggleConnectionCommand { get; }
+
+    /// <summary>
+    /// Opens the session again on the same target. A secondary action, so it
+    /// lives in the connection button's context menu, not beside it.
+    /// </summary>
+    public ICommand ReconnectCommand { get; }
 
     public ICommand RunQueryCommand { get; }
 
@@ -902,8 +932,11 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                 InvalidateHostedBinding();
                 SetConnected(false);
                 ClearSelectedObject();
+                _connectionFailed = false;
                 OnPropertyChanged(nameof(MaskedConnectionString));
                 OnPropertyChanged(nameof(AddressBarText));
+                PublishConnectionStatus();
+                RaiseCommandStates();
             }
         }
     }
@@ -980,6 +1013,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             {
                 RaiseCommandStates();
                 PublishInteractionStates();
+                PublishConnectionStatus();
             }
         }
     }
@@ -1255,7 +1289,36 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     public bool HasConnectionTarget => !string.IsNullOrWhiteSpace(ConnectionString);
 
     /// <summary>One button reads as the action it would perform.</summary>
-    public string ConnectButtonLabel => IsConnected ? "Reconnect" : "Connect";
+    public string ConnectionActionLabel => IsConnected ? "Disconnect" : "Connect";
+
+    /// <summary>
+    /// The header's status mark: what the connection is doing, as a tone the
+    /// dot draws and, with Differentiate Without Color, a glyph.
+    /// </summary>
+    public StatusTone ConnectionStatusTone => IsConnected
+        ? StatusTone.Success
+        : _connectionFailed
+            ? StatusTone.Danger
+            : IsConnecting
+                ? StatusTone.Warning
+                : StatusTone.Neutral;
+
+    /// <summary>
+    /// A connection attempt is in flight: not yet connected or failed, with a
+    /// target to reach and the panel busy reaching it.
+    /// </summary>
+    private bool IsConnecting => !IsConnected && IsBusy && HasConnectionTarget;
+
+    /// <summary>The same state in words, for the mark's tooltip and VoiceOver.</summary>
+    public string ConnectionStatusLabel => IsConnected
+        ? $"Connected to {ConnectionDisplayName}"
+        : _connectionFailed
+            ? $"Could not connect to {ConnectionDisplayName}"
+            : IsConnecting
+                ? $"Connecting to {ConnectionDisplayName}"
+                : HasConnectionTarget
+                    ? "Not connected"
+                    : "No connection";
 
     /// <summary>Session facts read after connecting; empty when unknown.</summary>
     public DatabaseSessionInfo SessionInfo
@@ -1628,6 +1691,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         SetDatabases([]);
         SessionInfo = new DatabaseSessionInfo();
         ErrorMessage = null;
+        _connectionFailed = false;
+        PublishConnectionStatus();
         InvalidateHostedSession();
     }
 
@@ -1654,6 +1719,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         InvalidateHostedBinding();
         OnPropertyChanged(nameof(TunnelConnectionId));
         OnPropertyChanged(nameof(ConnectionDisplayName));
+        PublishConnectionStatus();
         SetConnected(false);
         ClearSelectedObject();
         if (!string.IsNullOrWhiteSpace(ConnectionString))
@@ -1682,6 +1748,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             return;
         }
 
+        // A new attempt is in flight, not the last one's failure.
+        _connectionFailed = false;
         await RunGuardedAsync(async cancellationToken =>
         {
             _latestResolvedRecoveryBinding = null;
@@ -1709,6 +1777,10 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             QueueHostedSessionEnsure(connectionString);
         });
 
+        // An attempt that ended without a session and with an error failed;
+        // the mark says so until the next attempt or a disconnect.
+        _connectionFailed = !IsConnected && HasError;
+        PublishConnectionStatus();
         if (IsConnected)
         {
             BeginSqlLanguageInitialization();
@@ -4399,11 +4471,23 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             ResetSqlLanguageSession();
             ResetDatabaseDiagram();
         }
+        if (value)
+        {
+            _connectionFailed = false;
+        }
+
         OnPropertyChanged(nameof(IsConnected));
         OnPropertyChanged(nameof(StatusText));
-        OnPropertyChanged(nameof(ConnectButtonLabel));
+        OnPropertyChanged(nameof(ConnectionActionLabel));
         OnPropertyChanged(nameof(ConnectionSummary));
+        PublishConnectionStatus();
         RaiseCommandStates();
+    }
+
+    private void PublishConnectionStatus()
+    {
+        OnPropertyChanged(nameof(ConnectionStatusTone));
+        OnPropertyChanged(nameof(ConnectionStatusLabel));
     }
 
     private void ResetDatabaseDiagram()
@@ -4431,6 +4515,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     {
         (ConnectCommand as AsyncActionCommand)?.RaiseCanExecuteChanged();
         (DisconnectCommand as AsyncActionCommand)?.RaiseCanExecuteChanged();
+        (ToggleConnectionCommand as AsyncActionCommand)?.RaiseCanExecuteChanged();
+        (ReconnectCommand as AsyncActionCommand)?.RaiseCanExecuteChanged();
         (RunQueryCommand as AsyncActionCommand)?.RaiseCanExecuteChanged();
     }
 }

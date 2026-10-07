@@ -13,6 +13,7 @@ using Avalonia.Layout;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using GridCommand = Asura.App.Views.Components.DatabaseGridShortcuts.GridCommand;
 
 namespace Asura.App.Views.Components;
 
@@ -54,35 +55,26 @@ public sealed partial class DatabaseWorkspaceView
             OnResultGridPointerPressedTunnel,
             RoutingStrategies.Tunnel);
 
-        var accelerator = AcceleratorModifier;
-        CellEditorMenuItem.InputGesture = new KeyGesture(Key.Enter, accelerator);
-        RefreshTableMenuItem.InputGesture = new KeyGesture(Key.R, RefreshModifier);
-        PasteCellMenuItem.InputGesture = new KeyGesture(Key.V, accelerator);
-        AddRowMenuItem.InputGesture = AddRowGesture;
-        DuplicateRowMenuItem.InputGesture = new KeyGesture(Key.D, accelerator);
-        CopyRowMenuItem.InputGesture = new KeyGesture(Key.C, accelerator);
-        CopyCellMenuItem.InputGesture = new KeyGesture(
-            Key.C,
-            accelerator | KeyModifiers.Shift);
-        DeleteRowMenuItem.InputGesture = new KeyGesture(Key.Delete);
+        // Every key the menu shows comes from the grid's one shortcut table,
+        // the same one the key handler below answers to.
+        CellEditorMenuItem.InputGesture = GridGesture(GridCommand.OpenCellEditor);
+        RefreshTableMenuItem.InputGesture = GridGesture(GridCommand.RefreshPage);
+        PasteCellMenuItem.InputGesture = GridGesture(GridCommand.PasteCell);
+        AddRowMenuItem.InputGesture = GridGesture(GridCommand.AddRow);
+        DuplicateRowMenuItem.InputGesture = GridGesture(GridCommand.DuplicateRow);
+        CopyRowMenuItem.InputGesture = GridGesture(GridCommand.CopyRow);
+        CopyCellMenuItem.InputGesture = GridGesture(GridCommand.CopyCell);
+        DeleteRowMenuItem.InputGesture = GridGesture(GridCommand.DeleteRow);
     }
+
+    private static KeyGesture? GridGesture(GridCommand command) =>
+        DatabaseGridShortcuts.GestureFor(command);
+
+    private static bool IsGridKey(GridCommand command, KeyEventArgs e) =>
+        DatabaseGridShortcuts.Matches(command, e);
 
     private static KeyModifiers AcceleratorModifier => OperatingSystem.IsMacOS()
         ? KeyModifiers.Meta
-        : KeyModifiers.Control;
-
-    /// <summary>
-    /// Add Row is ⌥⌘N on a Mac. ⌘I is Get Info everywhere else on the
-    /// platform, and a new row is a new thing, which is what N means; the
-    /// Option keeps it clear of New Window. Elsewhere it is Ctrl+Shift+N:
-    /// Ctrl+Alt is AltGr on many layouts and types a character.
-    /// </summary>
-    internal static KeyGesture AddRowGesture { get; } = OperatingSystem.IsMacOS()
-        ? new KeyGesture(Key.N, KeyModifiers.Meta | KeyModifiers.Alt)
-        : new KeyGesture(Key.N, KeyModifiers.Control | KeyModifiers.Shift);
-
-    private static KeyModifiers RefreshModifier => OperatingSystem.IsMacOS()
-        ? KeyModifiers.Meta | KeyModifiers.Alt
         : KeyModifiers.Control;
 
     /// <summary>
@@ -1149,16 +1141,14 @@ public sealed partial class DatabaseWorkspaceView
         }
 
         var target = ResolveCurrentCellTarget();
-        var accelerator = AcceleratorModifier;
-        if (e.KeyModifiers == accelerator && e.Key == Key.Enter && target is not null)
+        if (IsGridKey(GridCommand.OpenCellEditor, e) && target is not null)
         {
             e.Handled = true;
             ShowCellEditor(target);
             return;
         }
 
-        if (e.KeyModifiers == RefreshModifier
-            && e.Key == Key.R
+        if (IsGridKey(GridCommand.RefreshPage, e)
             && Panel is { CanRefreshTable: true } refreshPanel)
         {
             e.Handled = true;
@@ -1167,8 +1157,7 @@ public sealed partial class DatabaseWorkspaceView
             return;
         }
 
-        if (e.KeyModifiers == accelerator
-            && e.Key == Key.V
+        if (IsGridKey(GridCommand.PasteCell, e)
             && target is { Cell.CanSetText: true }
             && Panel is { CanMutateRows: true })
         {
@@ -1177,7 +1166,7 @@ public sealed partial class DatabaseWorkspaceView
             return;
         }
 
-        if (AddRowGesture.Matches(e)
+        if (IsGridKey(GridCommand.AddRow, e)
             && Panel is { CanMutateRows: true } addPanel)
         {
             e.Handled = true;
@@ -1186,8 +1175,9 @@ public sealed partial class DatabaseWorkspaceView
             return;
         }
 
-        if (e.KeyModifiers == accelerator
-            && e.Key == Key.D
+        // On a Mac Duplicate Row has no key: ⌘D goes on, unhandled, to
+        // Panel ▸ Split Right.
+        if (IsGridKey(GridCommand.DuplicateRow, e)
             && target is not null
             && Panel is { CanDuplicateSelectedRow: true } duplicatePanel)
         {
@@ -1201,13 +1191,11 @@ public sealed partial class DatabaseWorkspaceView
             return;
         }
 
-        var isCopyGesture = e.Key == Key.C
-            && (e.KeyModifiers == accelerator
-                || e.KeyModifiers == (accelerator | KeyModifiers.Shift));
-        if (isCopyGesture && target is not null)
+        var copiesCell = IsGridKey(GridCommand.CopyCell, e);
+        if ((copiesCell || IsGridKey(GridCommand.CopyRow, e)) && target is not null)
         {
             e.Handled = true;
-            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+            if (copiesCell)
             {
                 await CopyCellAsync(target);
             }
@@ -1219,9 +1207,7 @@ public sealed partial class DatabaseWorkspaceView
             return;
         }
 
-        var deleteKey = e.Key is Key.Delete or Key.Back;
-        if (deleteKey
-            && e.KeyModifiers == KeyModifiers.None
+        if (IsGridKey(GridCommand.DeleteRow, e)
             && target is not null
             && Panel is { CanDeleteSelectedRow: true } deletePanel)
         {

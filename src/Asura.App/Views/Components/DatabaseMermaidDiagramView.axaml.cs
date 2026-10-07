@@ -1,12 +1,16 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Platform;
 using Avalonia.Svg.Skia;
 using Avalonia.VisualTree;
 using Mermaider;
+using SkiaSharp;
+using Svg.Skia.TypefaceProviders;
 using DiagramTypes = Mermaider.Models.DiagramTypes;
 using RenderOptions = Mermaider.Models.RenderOptions;
 using SanitizeMode = Mermaider.Models.SanitizeMode;
@@ -134,7 +138,7 @@ public sealed partial class DatabaseMermaidDiagramView : UserControl
                 () => MermaidRenderer.RenderSvg(source, options),
                 cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
-            var svgSource = SvgSource.LoadFromSvg(renderedSvg);
+            var svgSource = MermaidDiagramTypefaces.LoadSvg(renderedSvg);
             if (svgSource.Picture is null)
             {
                 svgSource.Dispose();
@@ -181,7 +185,7 @@ public sealed partial class DatabaseMermaidDiagramView : UserControl
         Border = ThemeColor("ShellBorderBrush", "#383838"),
         Line = ThemeColor("ShellMutedBrush", "#B8B9B6"),
         Font = "Inter",
-        MonoFont = "JetBrains Mono",
+        MonoFont = MermaidDiagramTypefaces.MonoFamily,
         FontSize = "13px",
         Padding = 32,
         NodeSpacing = 36,
@@ -389,4 +393,94 @@ internal enum DatabaseDiagramKeyboardAction
     ZoomIn,
     ZoomOut,
     Fit,
+}
+
+/// <summary>
+/// The faces a rendered Mermaid diagram draws its text with.
+///
+/// The SVG renderer asks Skia's system font manager for a family by name, and
+/// the app's monospace face is bundled, not installed: "JetBrains Mono"
+/// resolved to Times on a stock Mac. Every diagram source loads through here,
+/// so a name the diagram asks for in the data face finds the bundled files
+/// first.
+/// </summary>
+public static class MermaidDiagramTypefaces
+{
+    private static readonly Lazy<BundledMonospaceTypefaceProvider> Provider =
+        new(() => new BundledMonospaceTypefaceProvider(), LazyThreadSafetyMode.ExecutionAndPublication);
+
+    /// <summary>The family a diagram names for code, keys and column types.</summary>
+    public static string MonoFamily => AsuraTerminalFontCollection.FamilyName;
+
+    /// <summary>Loads rendered SVG text with the bundled faces in front of the system's.</summary>
+    public static SvgSource LoadSvg(string svg)
+    {
+        var source = SvgSource.LoadFromSvg(svg);
+        if (source.Svg?.Settings.TypefaceProviders is { } providers)
+        {
+            providers.Insert(0, Provider.Value);
+            source.RebuildFromModel();
+        }
+
+        return source;
+    }
+
+    /// <summary>The bundled face a diagram's request for <paramref name="familyName"/> gets, or null.</summary>
+    internal static SKTypeface? Resolve(
+        string familyName,
+        SKFontStyleWeight weight = SKFontStyleWeight.Normal,
+        SKFontStyleSlant slant = SKFontStyleSlant.Upright) =>
+        Provider.Value.FromFamilyName(familyName, weight, SKFontStyleWidth.Normal, slant);
+
+    /// <summary>
+    /// The four bundled JetBrains Mono files behind one family name. Read with
+    /// the standard asset loader, which needs no running platform: the
+    /// diagram worker renders before any Avalonia application exists.
+    /// </summary>
+    private sealed class BundledMonospaceTypefaceProvider : ITypefaceProvider
+    {
+        private const string FontFolder = "avares://Asura.App/Assets/Fonts/JetBrainsMono/";
+
+        private readonly SKTypeface? _regular = Load("JetBrainsMono-Regular.ttf");
+        private readonly SKTypeface? _bold = Load("JetBrainsMono-Bold.ttf");
+        private readonly SKTypeface? _italic = Load("JetBrainsMono-Italic.ttf");
+        private readonly SKTypeface? _boldItalic = Load("JetBrainsMono-BoldItalic.ttf");
+
+        public SKTypeface? FromFamilyName(
+            string fontFamily,
+            SKFontStyleWeight fontWeight,
+            SKFontStyleWidth fontWidth,
+            SKFontStyleSlant fontStyle)
+        {
+            _ = fontWidth;
+            if (!fontFamily.Trim().Trim('\'', '"').Equals(MonoFamily, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var bold = fontWeight >= SKFontStyleWeight.SemiBold;
+            var italic = fontStyle != SKFontStyleSlant.Upright;
+            return (bold, italic) switch
+            {
+                (true, true) => _boldItalic ?? _bold ?? _regular,
+                (true, false) => _bold ?? _regular,
+                (false, true) => _italic ?? _regular,
+                _ => _regular,
+            };
+        }
+
+        private static SKTypeface? Load(string fileName)
+        {
+            try
+            {
+                using var stream = new StandardAssetLoader().Open(new Uri(FontFolder + fileName));
+                using var data = SKData.Create(stream);
+                return data is null ? null : SKFontManager.Default.CreateTypeface(data);
+            }
+            catch (FileNotFoundException)
+            {
+                return null;
+            }
+        }
+    }
 }
