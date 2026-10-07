@@ -84,16 +84,25 @@ public sealed partial class GitRuntimePanelView
             path = fields?.GetValueOrDefault("path");
         }
 
-        if (path is null || viewModel.CreateFileInvestigation(path, sender is Control { DataContext: GitTreeNodeViewModel { IsDirectory: true } or GitChangeTreeNodeViewModel { IsDirectory: true } }) is not { } investigation)
+        if (path is null)
         {
             return;
         }
 
         // An inspector: it stays open beside the panel while the person keeps
         // working, and opening a commit from it selects that commit here.
-        var history = new GitFileHistoryDialog(investigation);
-        history.CommitRequested += (_, sha) => viewModel.SelectCommitBySha(sha);
-        history.Show(window);
+        var isDirectory = sender is Control { DataContext: GitTreeNodeViewModel { IsDirectory: true } or GitChangeTreeNodeViewModel { IsDirectory: true } };
+        ShowInspector("history\n" + path, window, () =>
+        {
+            if (viewModel.CreateFileInvestigation(path, isDirectory) is not { } investigation)
+            {
+                return null;
+            }
+
+            var history = new GitFileHistoryDialog(investigation);
+            history.CommitRequested += (_, sha) => viewModel.SelectCommitBySha(sha);
+            return history;
+        });
     }
 
     private async void OnSelectedExternalDiff(object? sender, RoutedEventArgs e)

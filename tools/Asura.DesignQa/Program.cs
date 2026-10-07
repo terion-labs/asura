@@ -2239,10 +2239,6 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         {
             DataContext = CreateViewModel().Launcher,
         }, null),
-        ("dialog-connection-secret", () => new ConnectionSecretEditorDialog(
-            new ConnectionSecretEditorViewModel(new MemoryOnlySecretVault(),
-                new SecretScope(SecretScopeKind.Connection, "qa-connection"),
-                SecretKind.Password, "Production SSH password")), null),
         ("dialog-connection-password", () =>
         {
             var editor = CreateQaConnectionEditor();

@@ -21,9 +21,8 @@ public sealed class AvaloniaNetworkPasswordPrompt : INetworkPasswordPrompt
         {
             Heading = $"Update the stored password for {request.ConnectionName}?",
             Detail = "The replacement password worked.",
-            Notice = "If you don't update it, this connection keeps using the replacement until it disconnects, and the stored password stays unchanged.",
+            Notice = "The stored password otherwise stays as it is, and this connection uses the replacement until it disconnects.",
             ConfirmLabel = "Update Password",
-            CancelLabel = "Don't Update",
             Intent = ConfirmationIntent.Confirm,
         }, cancellationToken);
 

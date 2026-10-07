@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
 using Avalonia.Controls;
+using Avalonia.Controls.Chrome;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
@@ -185,9 +186,9 @@ public class DialogWindow : Window
     /// </summary>
     private void PlaceUnderTitleBar(Window owner)
     {
-        var ownerTopLeft = owner.PointToScreen(new Point(0, owner.WindowDecorationMargin.Top));
-        var ownerTopRight = owner.PointToScreen(
-            new Point(owner.ClientSize.Width, owner.WindowDecorationMargin.Top));
+        var band = TitleBandHeight(owner);
+        var ownerTopLeft = owner.PointToScreen(new Point(0, band));
+        var ownerTopRight = owner.PointToScreen(new Point(owner.ClientSize.Width, band));
         var width = (int)Math.Round((FrameSize?.Width ?? ClientSize.Width) * DesktopScaling);
         var height = (int)Math.Round((FrameSize?.Height ?? ClientSize.Height) * DesktopScaling);
         var x = ownerTopLeft.X + ((ownerTopRight.X - ownerTopLeft.X - width) / 2);
@@ -199,5 +200,30 @@ public class DialogWindow : Window
         }
 
         Position = new PixelPoint(x, y);
+    }
+
+    /// <summary>
+    /// How far the owner's title band reaches. A window that draws its own
+    /// band into the title bar — the main window's, with its tabs and
+    /// controls — marks it with the <c>TitleBar</c> decoration role, and that
+    /// band can be taller than the platform's own title bar; a sheet hangs
+    /// from whichever is lower, so it never covers the owner's chrome.
+    /// </summary>
+    internal static double TitleBandHeight(Window owner)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        var band = owner.WindowDecorationMargin.Top;
+        foreach (var visual in owner.GetVisualDescendants())
+        {
+            if (visual is Control { IsEffectivelyVisible: true } control
+                && WindowDecorationProperties.GetElementRole(control) == WindowDecorationsElementRole.TitleBar
+                && control.TranslatePoint(new Point(0, control.Bounds.Height), owner) is { } bottom)
+            {
+                band = Math.Max(band, bottom.Y);
+            }
+        }
+
+        // A title band is a strip, never most of the window.
+        return Math.Clamp(band, 0, owner.ClientSize.Height / 2);
     }
 }

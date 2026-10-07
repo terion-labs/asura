@@ -1,5 +1,7 @@
 using Asura.App.Controls;
 using Asura.App.Views;
+using Asura.Application;
+using Asura.Core;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
@@ -56,6 +58,68 @@ public sealed class DialogContractHeadlessTests
             await Idle();
 
             Assert.True(closed);
+        });
+    }
+
+    [Fact]
+    public async Task Command_w_closes_an_inspector_on_macos()
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            var inspector = new SavedConnectionsDialog();
+            var closed = false;
+            inspector.Closed += (_, _) => closed = true;
+            inspector.Show();
+            await Idle();
+
+            inspector.KeyPress(Key.W, RawInputModifiers.Meta, PhysicalKey.W, "w");
+            await Idle();
+
+            Assert.True(closed);
+        });
+    }
+
+    [Fact]
+    public async Task Command_w_leaves_a_sheet_to_its_buttons()
+    {
+        await RunAsync(async () =>
+        {
+            var sheet = new GitStashPushDialog();
+            var closed = false;
+            sheet.Closed += (_, _) => closed = true;
+            sheet.Show();
+            await Idle();
+
+            sheet.KeyPress(Key.W, RawInputModifiers.Meta, PhysicalKey.W, "w");
+            await Idle();
+
+            Assert.False(closed);
+            sheet.Close();
+        });
+    }
+
+    [Fact]
+    public async Task A_sheet_hangs_below_the_owners_drawn_title_band()
+    {
+        await RunAsync(async () =>
+        {
+            var band = new Border { Height = 72, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top };
+            Avalonia.Controls.Chrome.WindowDecorationProperties.SetElementRole(band, WindowDecorationsElementRole.TitleBar);
+            var owner = new Window { Width = 800, Height = 600, Content = new Panel { Children = { band } } };
+            owner.Show();
+            await Idle();
+
+            Assert.True(DialogWindow.TitleBandHeight(owner) >= 72);
+
+            band.IsVisible = false;
+            await Idle();
+            Assert.True(DialogWindow.TitleBandHeight(owner) < 72);
+            owner.Close();
         });
     }
 
@@ -152,6 +216,48 @@ public sealed class DialogContractHeadlessTests
             Assert.Equal("Merge “feature” into “main”?", dialog.Title);
             Assert.True(dialog.FindControl<Button>("CancelButton")!.IsCancel);
             return Task.CompletedTask;
+        });
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_changed_host_key_is_never_replaced_by_return(bool changed)
+    {
+        await RunAsync(async () =>
+        {
+            var presented = new SshHostKeyIdentity("ssh-ed25519", $"SHA256:{new string('A', 43)}");
+            var review = new SshHostKeyReview(
+                SshHostKeyReviewId.New(),
+                new ConnectionId("host"),
+                "host.example:22",
+                changed ? SshHostKeyDisposition.Changed : SshHostKeyDisposition.Unknown,
+                presented,
+                changed ? new SshHostKeyIdentity("ssh-ed25519", $"SHA256:{new string('B', 43)}") : null,
+                DateTimeOffset.UtcNow.AddMinutes(5));
+            Assert.Equal(changed, review.RequiresExplicitReplacement);
+            var dialog = new SshHostKeyReviewDialog(review);
+            var closed = false;
+            dialog.Closed += (_, _) => closed = true;
+            dialog.Show();
+            await Idle();
+            var confirm = dialog.FindControl<Button>("ConfirmButton")!;
+
+            Assert.Equal(changed ? "Replace Trusted Key" : "Trust Host Key", confirm.Content);
+            Assert.Equal(!changed, confirm.IsDefault);
+            Assert.Contains(changed ? "DestructiveButton" : "PrimaryButton", confirm.Classes, StringComparer.Ordinal);
+            Assert.DoesNotContain(changed ? "PrimaryButton" : "DestructiveButton", confirm.Classes, StringComparer.Ordinal);
+
+            dialog.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            await Idle();
+
+            // A first-seen key may be trusted from the keyboard; a changed one
+            // has to be clicked.
+            Assert.Equal(!changed, closed);
+            if (!closed)
+            {
+                dialog.Close();
+            }
         });
     }
 

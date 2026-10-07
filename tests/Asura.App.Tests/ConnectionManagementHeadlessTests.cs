@@ -7,6 +7,7 @@ using Asura.Core;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -198,6 +199,64 @@ public sealed class ConnectionManagementHeadlessTests
                 Assert.Empty(((VaultProxy)(object)vault).CreateRequests);
                 Assert.True(dialog.IsVisible);
                 Assert.True(dialog.FindControl<Button>("SubmitButton")!.IsDefault);
+            }
+            finally
+            {
+                dialog.Close();
+            }
+
+            return true;
+        }, timeout.Token);
+    }
+
+    [Fact]
+    public async Task Return_in_the_folder_browser_chooses_the_folder_instead_of_saving()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await session.Dispatch(async () =>
+        {
+            var terminal = new ConnectionEditorViewModel(
+                DispatchProxy.Create<IConnectionRuntime, UnusedRuntimeProxy>(),
+                gitClient: new FakeGitRepositoryClient());
+            var editor = new UnifiedConnectionEditorViewModel(terminal, null, null);
+            editor.SelectedType = editor.TypeOptions.Single(option =>
+                option.TerminalKind == ConnectionKind.Local && option.GitRepository);
+            editor.Name = "Asura repo";
+            var dialog = new ConnectionEditorDialog(editor);
+            var closed = false;
+            dialog.Closed += (_, _) => closed = true;
+            try
+            {
+                dialog.Show();
+                await Idle();
+                dialog.GetVisualDescendants().OfType<Button>()
+                    .Single(button => button.Content is "Browse…")
+                    .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await Idle();
+
+                var submit = dialog.FindControl<Button>("SubmitButton")!;
+                var use = dialog.FindControl<Button>("UseRepositoryButton")!;
+                Assert.False(submit.IsDefault);
+                Assert.True(use.IsDefault);
+
+                var folders = dialog.FindControl<GitRepositoryBrowserView>("RepositoryBrowserView")!
+                    .GetVisualDescendants().OfType<ListBox>().Single();
+                var picker = Assert.IsType<GitRepositoryPickerViewModel>(folders.DataContext);
+                picker.SelectedDirectory = picker.Directories.Single(entry => entry.IsRepository);
+                folders.Focus();
+                await Idle();
+
+                dialog.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+                await Idle();
+
+                // Return used the folder; it did not save or close the editor,
+                // and with the browser put away Return is the editor's again.
+                Assert.False(closed);
+                Assert.EndsWith("asura", terminal.RepositoryPath, StringComparison.Ordinal);
+                Assert.False(dialog.FindControl<Control>("RepositoryBrowser")!.IsVisible);
+                Assert.True(submit.IsDefault);
+                Assert.False(use.IsDefault);
             }
             finally
             {

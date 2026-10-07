@@ -29,11 +29,16 @@ public sealed partial class GitRuntimePanelView
         var selection = viewModel.SelectedChange?.Path ?? viewModel.SelectedCommitChange?.Path ?? "";
         if (task == GitRepositoryTask.Statistics)
         {
+            if (TryActivateInspector(StatisticsInspector))
+            {
+                return;
+            }
+
             var statistics = await viewModel.ReadStatisticsAsync();
             if (statistics is not null)
             {
                 // Consulted, not answered: it opens beside the panel.
-                new GitStatisticsDialog(statistics).Show(window);
+                ShowInspector(StatisticsInspector, window, () => new GitStatisticsDialog(statistics));
             }
 
             return;

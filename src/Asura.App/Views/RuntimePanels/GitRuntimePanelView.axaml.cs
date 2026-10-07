@@ -31,6 +31,7 @@ public sealed partial class GitRuntimePanelView : UserControl
     {
         _ = sender;
         _ = e;
+        CloseInspectors();
         _observedViewModel?.PropertyChanged -= OnViewModelPropertyChanged;
         _observedViewModel = ViewModel;
         _observedViewModel?.PropertyChanged += OnViewModelPropertyChanged;
@@ -69,6 +70,10 @@ public sealed partial class GitRuntimePanelView : UserControl
         else if (string.Equals(e.PropertyName, nameof(GitRuntimePanelViewModel.SelectedCommits), StringComparison.Ordinal))
         {
             PresentHistorySelection();
+        }
+        else if (string.Equals(e.PropertyName, nameof(GitRuntimePanelViewModel.RepositoryRoot), StringComparison.Ordinal))
+        {
+            CloseInspectorsIfRepositoryChanged();
         }
     }
 

@@ -5,8 +5,10 @@ using Avalonia.Platform;
 namespace Asura.App.Views;
 
 /// <summary>
-/// Hides a dialog's native title text on macOS and lets its title bar take the
-/// window's background, so the dialog's own header is the one title on screen.
+/// Hides a dialog's native title text on macOS, so the dialog's own header is
+/// the one title on screen. The title bar itself stays the standard opaque
+/// one: made transparent without a full-size content view it would show the
+/// native window colour, a strip that does not match the dialog's surface.
 ///
 /// A sheet carries no title bar, and an alert's message is its title. A dialog
 /// that showed the platform title above a header repeating it read its name
@@ -33,7 +35,6 @@ internal static class MacOsDialogTitleBar
         try
         {
             SendNInt(handle.NSWindow, sel_registerName("setTitleVisibility:"), TitleHidden);
-            SendBool(handle.NSWindow, sel_registerName("setTitlebarAppearsTransparent:"), true);
         }
         catch (Exception exception) when (exception is DllNotFoundException
             or EntryPointNotFoundException
@@ -50,9 +51,4 @@ internal static class MacOsDialogTitleBar
     [DllImport(ObjectiveCLibrary, EntryPoint = "objc_msgSend")]
     private static extern void SendNInt(nint receiver, nint selector, nint value);
 
-    [DllImport(ObjectiveCLibrary, EntryPoint = "objc_msgSend")]
-    private static extern void SendBool(
-        nint receiver,
-        nint selector,
-        [MarshalAs(UnmanagedType.I1)] bool value);
 }

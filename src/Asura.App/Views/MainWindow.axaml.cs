@@ -1604,7 +1604,7 @@ public sealed partial class MainWindow : Window
         {
             if (!await Confirmations.DiscardChanges(
                     "Discard workspace changes?",
-                    "These changes cannot be saved yet. Discard them to switch workspaces, or keep editing.\n\n"
+                    "These changes cannot be saved yet, and switching workspaces loses them.\n\n"
                     + editor.ValidationSummary).ShowDialog<bool>(this))
             {
                 return false;

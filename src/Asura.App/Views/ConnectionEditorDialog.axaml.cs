@@ -139,6 +139,7 @@ public sealed partial class ConnectionEditorDialog : DialogWindow
         var browser = this.FindControl<GitRepositoryBrowserView>("RepositoryBrowserView")!;
         browser.DataContext = picker;
         this.FindControl<Control>("RepositoryBrowser")!.IsVisible = true;
+        UpdateDefaultButton();
         browser.BringIntoView();
         await picker.LoadInitialAsync();
     }
@@ -173,6 +174,24 @@ public sealed partial class ConnectionEditorDialog : DialogWindow
     {
         this.FindControl<Control>("RepositoryBrowser")!.IsVisible = false;
         this.FindControl<GitRepositoryBrowserView>("RepositoryBrowserView")!.DataContext = null;
+        UpdateDefaultButton();
+    }
+
+    /// <summary>
+    /// Return belongs to whatever is open in place: a credential draft stores
+    /// the credential, the folder browser uses the selected folder, and only
+    /// when neither is open does it save or connect.
+    /// </summary>
+    private void UpdateDefaultButton()
+    {
+        var browserOpen = this.FindControl<Control>("RepositoryBrowser")?.IsVisible == true;
+        if (_openDraft is { } draft)
+        {
+            draft.IsSaveDefault = true;
+        }
+
+        this.FindControl<Button>("UseRepositoryButton")!.IsDefault = _openDraft is null && browserOpen;
+        this.FindControl<Button>("SubmitButton")!.IsDefault = _openDraft is null && !browserOpen;
     }
 
     private async void OnTrustHostKeyClick(object? sender, RoutedEventArgs e)
@@ -283,10 +302,9 @@ public sealed partial class ConnectionEditorDialog : DialogWindow
         view.DataContext = draft;
         view.Lifetime = _lifetime.Token;
         view.IsVisible = true;
-        view.IsSaveDefault = true;
-        this.FindControl<Button>("SubmitButton")!.IsDefault = false;
         _openDraft = view;
         _applyDraft = apply;
+        UpdateDefaultButton();
         view.BringIntoView();
         view.FocusFirstField();
     }
@@ -317,7 +335,7 @@ public sealed partial class ConnectionEditorDialog : DialogWindow
         view.DataContext = null;
         _openDraft = null;
         _applyDraft = null;
-        this.FindControl<Button>("SubmitButton")!.IsDefault = true;
+        UpdateDefaultButton();
     }
 
     private void OnSubmitClick(object? sender, RoutedEventArgs e)

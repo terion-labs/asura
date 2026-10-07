@@ -64,10 +64,8 @@ internal static class Confirmations
             Heading = heading,
             Detail = detail,
             ConfirmLabel = "Discard Changes",
-            CancelLabel = "Keep Editing",
             Intent = ConfirmationIntent.Destructive,
             ConfirmAutomationName = "Discard unsaved changes",
-            CancelAutomationName = "Keep editing",
         });
 
     public static ConfirmationDialog WorkspaceIsolationRestart(

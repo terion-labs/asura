@@ -1,4 +1,5 @@
 using Asura.Git;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
@@ -7,11 +8,81 @@ namespace Asura.App.Views.RuntimePanels;
 public sealed partial class GitRuntimePanelView
 {
     /// <summary>
-    /// LFS locks are consulted while working, so the browser opens beside the
-    /// panel rather than blocking it, and a second request brings the open one
-    /// forward instead of stacking another.
+    /// Inspectors this panel opened beside itself — LFS, a submodule, a file's
+    /// history, statistics — keyed by what each shows. Asking again brings the
+    /// open one forward instead of stacking another, and they all close when
+    /// the panel leaves the window, changes view model, or opens another
+    /// repository, so none acts on a repository the panel no longer shows.
     /// </summary>
-    private GitLfsDialog? _lfsInspector;
+    private readonly Dictionary<string, Window> _inspectors = new(StringComparer.Ordinal);
+    private string? _inspectedRepositoryRoot;
+
+    private const string StatisticsInspector = "statistics";
+
+    private bool TryActivateInspector(string key)
+    {
+        if (!_inspectors.TryGetValue(key, out var open))
+        {
+            return false;
+        }
+
+        open.Activate();
+        return true;
+    }
+
+    private void ShowInspector(string key, Window owner, Func<Window?> create)
+    {
+        if (TryActivateInspector(key))
+        {
+            return;
+        }
+
+        if (create() is not { } inspector)
+        {
+            return;
+        }
+
+        if (_inspectors.Count == 0)
+        {
+            _inspectedRepositoryRoot = ViewModel?.RepositoryRoot;
+        }
+
+        _inspectors[key] = inspector;
+        inspector.Closed += (_, _) =>
+        {
+            if (_inspectors.TryGetValue(key, out var current) && ReferenceEquals(current, inspector))
+            {
+                _inspectors.Remove(key);
+            }
+        };
+        inspector.Show(owner);
+    }
+
+    private void CloseInspectors()
+    {
+        var open = _inspectors.Values.ToArray();
+        _inspectors.Clear();
+        _inspectedRepositoryRoot = null;
+        foreach (var inspector in open)
+        {
+            inspector.Close();
+        }
+    }
+
+    private void CloseInspectorsIfRepositoryChanged()
+    {
+        if (_inspectors.Count > 0
+            && !string.Equals(_inspectedRepositoryRoot, ViewModel?.RepositoryRoot, StringComparison.Ordinal))
+        {
+            CloseInspectors();
+        }
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        CloseInspectors();
+        base.OnDetachedFromVisualTree(e);
+    }
 
     private void OnLfsBrowser(object? sender, RoutedEventArgs e)
     {
@@ -20,24 +91,18 @@ public sealed partial class GitRuntimePanelView
             return;
         }
 
-        if (_lfsInspector is { } open)
-        {
-            open.Activate();
-            return;
-        }
-
-        var inspector = new GitLfsDialog(panel);
-        inspector.Closed += (_, _) => _lfsInspector = null;
-        _lfsInspector = inspector;
-        inspector.Show(window);
+        ShowInspector("lfs", window, () => new GitLfsDialog(panel));
     }
 
     private void OnSubmoduleDetails(object? sender, RoutedEventArgs e)
     {
         if (ViewModel is not { } panel || OwnerWindow is not { } window || sender is not Control { DataContext: GitSubmoduleItem item }) { return; }
-        var inspector = new GitSubmoduleDialog(panel, item);
-        inspector.RepositoryOpened += async (_, opened) => await panel.OpenRepositoryAsync(opened.WorkingTreeRoot);
-        inspector.Show(window);
+        ShowInspector("submodule\n" + item.Path, window, () =>
+        {
+            var inspector = new GitSubmoduleDialog(panel, item);
+            inspector.RepositoryOpened += async (_, opened) => await panel.OpenRepositoryAsync(opened.WorkingTreeRoot);
+            return inspector;
+        });
     }
 
     private async void OnOpenSubmodule(object? sender, RoutedEventArgs e)
