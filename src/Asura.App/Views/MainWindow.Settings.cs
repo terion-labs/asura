@@ -125,6 +125,10 @@ public sealed partial class MainWindow
             AppearancePlatformProfiles,
             AppearanceTextScaleOptions);
 
+        // Subscribed in code rather than in the route template's markup, so
+        // the Git page stays within the Settings files.
+        settings.GitSettingsRequested += OnGitSettingsClick;
+
         if (_definitionBundleStore is not null
             && _definitionCatalog is not null
             && _workspaceDefinitionOccupancy is not null)
@@ -582,6 +586,9 @@ public sealed partial class MainWindow
 
     private void OnQuickTerminalSettingsClick(object? sender, RoutedEventArgs e) =>
         _ = RequestSettingsPageAsync(SettingsPage.QuickTerminal);
+
+    private void OnGitSettingsClick(object? sender, RoutedEventArgs e) =>
+        _ = RequestSettingsPageAsync(SettingsPage.Git);
 
     private void OnSecretsSettingsClick(object? sender, RoutedEventArgs e) =>
         _ = RequestSettingsPageAsync(SettingsPage.Secrets);

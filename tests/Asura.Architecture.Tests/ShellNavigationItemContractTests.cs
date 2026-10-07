@@ -11,7 +11,7 @@ public sealed class ShellNavigationItemContractTests
     [Fact]
     public void Settings_uses_the_concrete_navigation_item()
     {
-        Assert.Equal(13, CountItems("SettingsView"));
+        Assert.Equal(14, CountItems("SettingsView"));
     }
 
     [Fact]

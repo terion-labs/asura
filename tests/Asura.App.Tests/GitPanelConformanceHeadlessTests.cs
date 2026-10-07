@@ -60,12 +60,23 @@ public sealed class GitPanelConformanceHeadlessTests
             }
         }
 
-        var tools = ((MenuFlyout)view.FindControl<Button>("GitToolsMenuButton")!.Flyout!).Items.OfType<MenuItem>().ToArray();
-        Assert.Contains(tools, item => Equals(item.Header, "Git Panel Settings…"));
-        Assert.Contains(tools, item => Equals(item.Header, "Identity and Signing…"));
-        Assert.DoesNotContain(tools, item => (item.Header as string)?.Contains("preferences", StringComparison.OrdinalIgnoreCase) == true);
+        // Tools keeps seven entries at the top. The choices every Git panel
+        // shares moved to Settings, which Git Settings… opens; the
+        // repository's own identity stays with the repository.
+        var toolsFlyout = (MenuFlyout)view.FindControl<Button>("GitToolsMenuButton")!.Flyout!;
+        var tools = toolsFlyout.Items.OfType<MenuItem>().ToArray();
+        Assert.InRange(tools.Length, 1, 7);
+        Assert.Equal(
+            ["Investigate", "Patches", "Repository", "Submodules", "Git LFS", "Open In", "Git Settings…"],
+            tools.Select(item => item.Header as string),
+            StringComparer.Ordinal);
+        var everyItem = tools.SelectMany(item => item.Items.OfType<MenuItem>().Prepend(item)).ToArray();
+        Assert.DoesNotContain(everyItem, item => (item.Header as string)?.Contains("Panel Settings", StringComparison.Ordinal) == true);
+        Assert.DoesNotContain(everyItem, item => (item.Header as string)?.Contains("preferences", StringComparison.OrdinalIgnoreCase) == true);
+        var repository = Assert.Single(tools, item => Equals(item.Header, "Repository"));
+        Assert.Contains(repository.Items.OfType<MenuItem>(), item => Equals(item.Header, "Repository Identity and Signing…"));
         var benchmark = view.FindControl<MenuItem>("GitBenchmarkMenuItem")!;
-        Assert.Equal(GitRuntimePanelViewModel.IsDiagnosticsBuild, tools.Contains(benchmark));
+        Assert.Equal(GitRuntimePanelViewModel.IsDiagnosticsBuild, everyItem.Contains(benchmark));
         return Task.CompletedTask;
     });
 
@@ -92,7 +103,8 @@ public sealed class GitPanelConformanceHeadlessTests
         Assert.True(Item(flyout.Items, "Activity Log…").IsEnabled);
         Assert.True(Item(flyout.Items, "File History and Blame…").IsEnabled);
         Assert.False(ignore.IsEnabled);
-        Assert.False(Item(flyout.Items, "Identity and Signing…").IsEnabled);
+        Assert.False(Item(flyout.Items, "Repository Identity and Signing…").IsEnabled);
+        Assert.True(Item(flyout.Items, "Git Settings…").IsEnabled);
 
         client.StageGate.SetResult();
         await WaitForAsync(() => !panel.IsMutating);

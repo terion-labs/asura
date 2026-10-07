@@ -28,9 +28,9 @@ public sealed partial class GitRuntimePanelView : UserControl
         GitSidebar.PropertyChanged += OnSidebarPropertyChanged;
         // The status-read benchmark measures Asura rather than the
         // repository, so only builds made for developing Asura offer it.
-        if (!GitRuntimePanelViewModel.IsDiagnosticsBuild && GitToolsMenuButton.Flyout is MenuFlyout tools)
+        if (!GitRuntimePanelViewModel.IsDiagnosticsBuild)
         {
-            tools.Items.Remove(GitBenchmarkMenuItem);
+            GitInvestigateMenu.Items.Remove(GitBenchmarkMenuItem);
         }
     }
 

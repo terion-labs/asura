@@ -401,15 +401,23 @@
               <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="9" />
             </StackPanel>
             <Button.Flyout>
+              <!-- Seven entries at the top and one submenu level: reading
+                   the history, patches, this repository's own setup, its
+                   submodules and LFS, and opening it in other tools. Each
+                   item keeps its own enablement. The choices every Git panel
+                   shares are in Settings, which the last item opens. -->
               <MenuFlyout Placement="BottomEdgeAlignedLeft">
-                <MenuItem Header="File History and Blame…" Click="OnFileHistory" IsEnabled="{Binding CanReadRepository}" />
-                <MenuItem Header="Line History…" Tag="RangeHistory" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
-                <MenuItem Header="Commit Signature…" Tag="Signature" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
-                <MenuItem Header="Preview Merge Conflicts…" Tag="ConflictForecast" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
-                <MenuItem Header="Repository Statistics…" Tag="Statistics" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
-                <MenuItem Header="Activity Log…" Click="OnActivityLog" IsEnabled="{Binding CanReadRepository}" />
-                <MenuItem x:Name="GitBenchmarkMenuItem" Header="Benchmark Status Read…" Tag="Benchmark" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
-                <Separator />
+                <MenuItem x:Name="GitInvestigateMenu" Header="Investigate">
+                  <MenuItem Header="File History and Blame…" Click="OnFileHistory" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem Header="Line History…" Tag="RangeHistory" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem Header="Commit Signature…" Tag="Signature" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem Header="Preview Merge Conflicts…" Tag="ConflictForecast" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem Header="Review Selection with Agent" Click="OnReviewSelection" IsEnabled="{Binding CanReadRepository}" />
+                  <Separator />
+                  <MenuItem Header="Repository Statistics…" Tag="Statistics" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem Header="Activity Log…" Click="OnActivityLog" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem x:Name="GitBenchmarkMenuItem" Header="Benchmark Status Read…" Tag="Benchmark" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
+                </MenuItem>
                 <MenuItem Header="Patches">
                   <MenuItem Header="Copy Selected Patch" Click="OnCopySelectedPatch" IsEnabled="{Binding CanReadRepository}" />
                   <MenuItem Header="Save Selected Patch…" Click="OnSaveSelectedPatch" IsEnabled="{Binding CanReadRepository}" />
@@ -417,10 +425,13 @@
                   <Separator />
                   <MenuItem Header="Apply Patch…" Tag="ApplyPatch" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
                 </MenuItem>
-                <MenuItem Header="External Tools">
-                  <MenuItem Header="Compare Selection in Diff Tool…" Click="OnSelectedExternalDiff" IsEnabled="{Binding CanMutateRepository}" />
-                  <MenuItem Header="Resolve in Merge Tool…" Tag="ExternalMerge" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
+                <!-- Identity and signing are stored in the repository, so
+                     they stay with it here rather than in Settings. -->
+                <MenuItem x:Name="GitRepositorySetupMenu" Header="Repository">
+                  <MenuItem Header="Add Ignore Pattern…" Tag="IgnorePattern" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
                   <MenuItem Header="Run Custom Command…" Click="OnCustomCommand" IsEnabled="{Binding CanMutateRepository}" />
+                  <Separator />
+                  <MenuItem Header="Repository Identity and Signing…" Click="OnIdentitySettings" IsEnabled="{Binding CanMutateRepository}" />
                 </MenuItem>
                 <MenuItem Header="Submodules">
                   <MenuItem Header="Add Submodule…" Tag="Add" Click="OnSubmoduleTool" IsEnabled="{Binding CanMutateRepository}" />
@@ -441,17 +452,16 @@
                   <MenuItem Header="Lock File…" Tag="LfsLock" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
                   <MenuItem Header="Unlock File…" Tag="LfsUnlock" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
                 </MenuItem>
-                <MenuItem Header="Add Ignore Pattern…" Tag="IgnorePattern" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
-                <MenuItem Header="Review Selection with Agent" Click="OnReviewSelection" IsEnabled="{Binding CanReadRepository}" />
+                <MenuItem Header="Open In">
+                  <MenuItem Header="Terminal" Tag="Terminal" Click="OnOpenGitContext" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem Header="Files" Tag="Files" Click="OnOpenGitContext" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem Header="Selected File" Tag="File" Click="OnOpenGitContext" IsEnabled="{Binding CanReadRepository}" />
+                  <Separator />
+                  <MenuItem Header="Diff Tool…" Click="OnSelectedExternalDiff" IsEnabled="{Binding CanMutateRepository}" ToolTip.Tip="Compare the selection in the configured diff tool" />
+                  <MenuItem Header="Merge Tool…" Tag="ExternalMerge" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" ToolTip.Tip="Resolve the selected conflict in the configured merge tool" />
+                </MenuItem>
                 <Separator />
-                <MenuItem Header="Open in Terminal" Tag="Terminal" Click="OnOpenGitContext" IsEnabled="{Binding CanReadRepository}" />
-                <MenuItem Header="Open in Files" Tag="Files" Click="OnOpenGitContext" IsEnabled="{Binding CanReadRepository}" />
-                <MenuItem Header="Open Selected File" Tag="File" Click="OnOpenGitContext" IsEnabled="{Binding CanReadRepository}" />
-                <Separator />
-                <!-- These choices apply to every Git panel, not this repository;
-                     the label says so until they move to the Settings window. -->
-                <MenuItem Header="Git Panel Settings…" Click="OnGitPreferences" IsEnabled="{Binding CanReadRepository}" ToolTip.Tip="Diff display, Git executable and background fetch for all Git panels" />
-                <MenuItem Header="Identity and Signing…" Click="OnIdentitySettings" IsEnabled="{Binding CanMutateRepository}" />
+                <MenuItem x:Name="GitSettingsMenuItem" Header="Git Settings…" Click="OnGitSettings" ToolTip.Tip="Choices every Git panel shares, in Settings" />
               </MenuFlyout>
             </Button.Flyout>
           </Button>

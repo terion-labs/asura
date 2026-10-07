@@ -143,6 +143,8 @@ public sealed partial class SettingsView : UserControl
 
     public event EventHandler<RoutedEventArgs>? QuickTerminalSettingsRequested;
 
+    public event EventHandler<RoutedEventArgs>? GitSettingsRequested;
+
     public event EventHandler<RoutedEventArgs>? RecordKeybindingPrefixRequested;
 
     public event EventHandler<RoutedEventArgs>? RecordKeybindingRequested;
@@ -516,6 +518,9 @@ public sealed partial class SettingsView : UserControl
     private void OnQuickTerminalSettingsClick(object? sender, RoutedEventArgs e) =>
         QuickTerminalSettingsRequested?.Invoke(sender, e);
 
+    private void OnGitSettingsClick(object? sender, RoutedEventArgs e) =>
+        GitSettingsRequested?.Invoke(sender, e);
+
     private void OnRecordKeybindingPrefixClick(object? sender, RoutedEventArgs e) =>
         RecordKeybindingPrefixRequested?.Invoke(sender, e);
 
@@ -669,6 +674,7 @@ public sealed partial class SettingsView : UserControl
         yield return (SettingsPage.Browser, BrowserNavigationItem, BrowserSettingsPage);
         yield return (SettingsPage.Terminal, TerminalNavigationItem, TerminalSettingsPage);
         yield return (SettingsPage.QuickTerminal, QuickTerminalNavigationItem, QuickTerminalSettingsPage);
+        yield return (SettingsPage.Git, GitNavigationItem, GitSettingsPage);
         yield return (SettingsPage.Notifications, NotificationsNavigationItem, NotificationsSettingsPage);
         yield return (SettingsPage.Secrets, SecretsNavigationItem, SecretsSettingsPage);
         yield return (SettingsPage.Diagnostics, DiagnosticsNavigationItem, DiagnosticsSettingsPage);

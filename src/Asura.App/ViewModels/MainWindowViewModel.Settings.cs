@@ -41,6 +41,16 @@ public sealed partial class MainWindowViewModel
         _ => null,
     };
 
+    private GitSettingsPageViewModel? _gitSettings;
+
+    public bool IsGitSettingsVisible => _navigation.IsGitSettingsVisible;
+
+    /// <summary>
+    /// The Git page: the choices every Git panel shares, kept in the same
+    /// store the panels read, so a change here reaches each open panel at once.
+    /// </summary>
+    public GitSettingsPageViewModel GitSettings => _gitSettings ??= new(_gitPanelPreferences);
+
     private bool _quickTerminalApplyRunning;
     private bool _quickTerminalApplyPending;
     private bool _terminalApplyRunning;

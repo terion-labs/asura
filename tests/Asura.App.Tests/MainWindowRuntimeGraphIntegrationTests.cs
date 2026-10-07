@@ -9004,6 +9004,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             viewModel.IsBrowserSettingsVisible,
             viewModel.IsTerminalSettingsVisible,
             viewModel.IsQuickTerminalSettingsVisible,
+            viewModel.IsGitSettingsVisible,
             viewModel.IsSecretsSettingsVisible,
             viewModel.IsDiagnosticsSettingsVisible,
             viewModel.IsAgentSettingsVisible,

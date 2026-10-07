@@ -95,6 +95,13 @@
                     IsActive="{Binding IsQuickTerminalSettingsVisible}"
                     Label="Quick Terminal" />
                 <components:ShellNavigationItem
+                    x:Name="GitNavigationItem"
+                    AutomationName="Git"
+                    Click="OnGitSettingsClick"
+                    Icon="BranchFork"
+                    IsActive="{Binding IsGitSettingsVisible}"
+                    Label="Git" />
+                <components:ShellNavigationItem
                     x:Name="NotificationsNavigationItem"
                     AutomationName="Notifications"
                     Click="OnNotificationSettingsClick"
@@ -1022,6 +1029,13 @@
                 x:Name="QuickTerminalSettingsPage"
                 IsVisible="{Binding IsQuickTerminalSettingsVisible}"
                 RecordHotkeyRequested="OnQuickTerminalHotkeyRecordRequested" />
+
+            <Grid
+                x:Name="GitSettingsPage"
+                IsVisible="{Binding IsGitSettingsVisible}">
+              <settingsPages:GitSettingsPageView
+                  DataContext="{Binding GitSettings}" />
+            </Grid>
 
             <StackPanel x:Name="SecretsSettingsPage" Spacing="{DynamicResource ShellSpaceLg}" IsVisible="{Binding IsSecretsSettingsVisible}">
               <components:SettingsPageHeader
