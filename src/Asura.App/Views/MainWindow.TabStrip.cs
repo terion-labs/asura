@@ -21,7 +21,9 @@ public sealed partial class MainWindow
         }
 
         ViewModel.ShowWorkspace();
-        if (!WorkspaceRouteView.ShowTabIconPicker(tab))
+        // Looked up by name: this window loads its XAML itself, so the
+        // generated name fields are never assigned.
+        if (this.FindControl<WorkspaceView>("WorkspaceRouteView")?.ShowTabIconPicker(tab) != true)
         {
             ViewModel.SetError("Show the tab bar to change a tab's icon.");
         }

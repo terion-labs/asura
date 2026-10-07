@@ -49,7 +49,7 @@ public sealed class RecentSessionHistoryProjectionTests
             PanelKind.FileViewer,
             RecentSessionOutcome.ForceTerminated);
 
-        Assert.Single(RecentSessionHistoryProjection.Search("File Viewer", [item]));
+        Assert.Single(RecentSessionHistoryProjection.Search("Files", [item]));
         Assert.Single(RecentSessionHistoryProjection.Search("Force terminated", [item]));
     }
 

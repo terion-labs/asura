@@ -46,7 +46,9 @@ public sealed class WorkspaceViewContractTests
             ["ShowLauncherRequested"] = "OnShowLauncherClick",
             ["ShowNewItemRequested"] = "OnShowNewItemClick",
             ["ShowNewPanelRequested"] = "OnShowNewPanelClick",
+            ["ShowSettingsRequested"] = "OnShowSettingsClick",
             ["SubmitAgentQuestionRequested"] = "OnSubmitAgentQuestionClick",
+            ["TerminateWorkspaceRequested"] = "OnTerminateWorkspaceClick",
             ["ToggleAgentRequested"] = "OnToggleAgentClick",
         };
 
@@ -251,11 +253,16 @@ public sealed class WorkspaceViewContractTests
             workspacesMenu.Descendants(),
             element => string.Equals(element.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal));
 
-        // Settings is the app menu's and ⌘,'s, not a title-bar button.
-        Assert.DoesNotContain(
+        // On macOS Settings is the app menu's and ⌘,'s, not a title-bar
+        // button; Windows and Linux draw no menu bar, so the button stays
+        // there and only there.
+        var settingsButton = Assert.Single(
             root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "SymbolIcon", StringComparison.Ordinal)
-                && string.Equals(AttributeValue(element, "Symbol"), "Settings", StringComparison.Ordinal));
+            element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Click"), "OnShowSettingsClick", StringComparison.Ordinal));
+        Assert.Equal(
+            "{x:Static views:WorkspaceView.ShowsSettingsButton}",
+            AttributeValue(settingsButton, "IsVisible"));
 
         // Every edge the setting offers has a host, and each is bound to the
         // stored placement rather than being always visible.

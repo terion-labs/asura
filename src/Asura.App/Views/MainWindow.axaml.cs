@@ -601,6 +601,13 @@ public sealed partial class MainWindow : Window
         ViewModel.HistorySearchQuery = string.Empty;
     }
 
+    private void OnShowSettingsClick(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        NavigateToSettings();
+    }
+
     private void OnShowAgentSettingsClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
@@ -826,8 +833,30 @@ public sealed partial class MainWindow : Window
     private async void OnCloseWorkspaceClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
-        if (sender is not Control { DataContext: LauncherWorkspaceViewModel workspace }
-            || !workspace.CanClose
+        if (sender is Control { DataContext: LauncherWorkspaceViewModel workspace })
+        {
+            await CloseWorkspaceAsync(workspace, confirmFirst: false);
+        }
+    }
+
+    /// <summary>
+    /// Terminate Workspace from the Workspaces menu. Its item ends in an
+    /// ellipsis, so it asks every time — even when nothing in the workspace
+    /// is busy and the rail's close would end it at once — and having asked,
+    /// does not ask the running-session question a second time.
+    /// </summary>
+    private async void OnTerminateWorkspaceClick(object? sender, RoutedEventArgs e)
+    {
+        _ = e;
+        if (sender is Control { DataContext: LauncherWorkspaceViewModel workspace })
+        {
+            await CloseWorkspaceAsync(workspace, confirmFirst: true);
+        }
+    }
+
+    private async Task CloseWorkspaceAsync(LauncherWorkspaceViewModel workspace, bool confirmFirst)
+    {
+        if (!workspace.CanClose
             || ViewModel.OpenWorkspaceInstance(workspace.Id) is not { } instanceId)
         {
             return;
@@ -835,6 +864,14 @@ public sealed partial class MainWindow : Window
 
         var runtime = ViewModel.OpenWorkspaces.FirstOrDefault(candidate =>
             candidate.Id == instanceId);
+        if (confirmFirst
+            && !await Confirmations.TerminateWorkspace(workspace.Name, runtime?.Tabs.Count ?? 0)
+                .ShowDialog<bool>(this))
+        {
+            FocusCurrentRoute();
+            return;
+        }
+
         if (runtime is not null
             && !await ConfirmDiscardDatabaseChangesAsync(runtime.Tabs.SelectMany(tab =>
                 tab.Panels)))
@@ -843,7 +880,10 @@ public sealed partial class MainWindow : Window
         }
 
         if (await RunCloseFlowAsync((decision, cancellationToken) =>
-                ViewModel.CloseWorkspaceAsync(instanceId, decision, cancellationToken)))
+                ViewModel.CloseWorkspaceAsync(
+                    instanceId,
+                    confirmFirst ? CloseDecision.Confirm : decision,
+                    cancellationToken)))
         {
             ViewModel.RemoveRuntimeWorkspace(instanceId);
             FocusCurrentRoute();

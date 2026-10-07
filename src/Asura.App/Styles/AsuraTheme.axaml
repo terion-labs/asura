@@ -880,6 +880,14 @@
     <Setter Property="Background" Value="{DynamicResource ShellSuccessBrush}" />
   </Style>
 
+  <!-- Differentiate Without Color: a rail's current tile is told from the
+       resting ones by saturation, so it also takes the inner ring its
+       template keeps for this — in the workspace rail and the launcher alike.
+       Running tiles already carry their outline. -->
+  <Style Selector="Window.differentiate-without-color controls|WorkspaceRailTile:current /template/ Border#PART_CurrentMark">
+    <Setter Property="IsVisible" Value="True" />
+  </Style>
+
   <!-- With Differentiate Without Color on, the two states differ in shape as
        well: available stays a disc, anything else becomes a ring. -->
   <Style Selector="Window.differentiate-without-color Border.StatusDot:not(.available)">

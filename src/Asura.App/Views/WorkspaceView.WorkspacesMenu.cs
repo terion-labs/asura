@@ -15,7 +15,8 @@ namespace Asura.App.Views;
 
 /// <summary>
 /// The Workspaces menu in the title bar: every workspace, the one in front
-/// checked, and Terminate Workspace… on its own below them.
+/// checked, and a Terminate Workspace submenu on its own below them that
+/// names each workspace that can be ended.
 ///
 /// It used to be a popover of buttons, each row with its own terminate cross
 /// beside Open and a switch for the rail at the bottom. Arrow keys did not
@@ -24,7 +25,7 @@ namespace Asura.App.Views;
 /// </summary>
 public sealed partial class WorkspaceView
 {
-    internal const string TerminateWorkspaceHeader = "Terminate Workspace…";
+    internal const string TerminateWorkspaceHeader = "Terminate Workspace";
 
     /// <summary>The items, built as the menu opens from the workspaces as they are then.</summary>
     private void OnWorkspacesMenuOpening(object? sender, EventArgs e)
@@ -51,12 +52,12 @@ public sealed partial class WorkspaceView
         IEnumerable<LauncherWorkspaceViewModel> workspaces)
     {
         var items = new List<Control>();
-        LauncherWorkspaceViewModel? front = null;
+        var closable = new List<LauncherWorkspaceViewModel>();
         foreach (var workspace in workspaces)
         {
-            if (workspace.IsInFront)
+            if (workspace.CanClose)
             {
-                front = workspace;
+                closable.Add(workspace);
             }
 
             var item = new MenuItem
@@ -80,22 +81,26 @@ public sealed partial class WorkspaceView
             items.Add(new Separator());
         }
 
-        // The workspace in front, by name in the heard label: the Main
-        // workspace and one that is not running have nothing to end.
-        var terminate = new MenuItem
+        // Every workspace that can be ended, the one in front or not, so a
+        // background workspace need not be brought forward first — which,
+        // with the sidebar hidden, was the only way to reach it. Main and the
+        // workspaces that are not running have nothing to end.
+        var terminate = new MenuItem { Header = TerminateWorkspaceHeader };
+        foreach (var workspace in closable)
         {
-            Header = TerminateWorkspaceHeader,
-            DataContext = front,
-            IsEnabled = front is { CanClose: true },
-        };
-        AutomationProperties.SetName(
-            terminate,
-            front is null
-                ? TerminateWorkspaceHeader
-                : string.Create(
-                    CultureInfo.CurrentCulture,
-                    $"Terminate workspace {front.Name}…"));
-        terminate.Click += OnWorkspacesMenuTerminateClick;
+            var target = new MenuItem
+            {
+                Header = workspace.Name + "…",
+                DataContext = workspace,
+            };
+            AutomationProperties.SetName(
+                target,
+                string.Create(CultureInfo.CurrentCulture, $"Terminate {workspace.Name}…"));
+            target.Click += OnWorkspacesMenuTerminateClick;
+            terminate.Items.Add(target);
+        }
+
+        terminate.IsEnabled = terminate.Items.Count > 0;
         items.Add(terminate);
         return items;
     }
@@ -173,6 +178,6 @@ public sealed partial class WorkspaceView
             return;
         }
 
-        CloseWorkspaceRequested?.Invoke(sender, e);
+        TerminateWorkspaceRequested?.Invoke(sender, e);
     }
 }

@@ -38,6 +38,8 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
         string Icon = "terminal",
         Symbol IconSymbol = Symbol.WindowConsole) : IRuntimeTabStripItem
     {
+        public string DisplayTitle => Title;
+
         public string AgentActivity => string.Empty;
 
         public bool HasAgentActivity => false;
@@ -726,6 +728,49 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
             window.Close();
             return Task.CompletedTask;
         });
+
+    [Fact]
+    public Task A_renamed_quick_terminal_tab_relabels_its_strip_tab() =>
+        RunHeadlessAsync(() =>
+        {
+            var tab = new QuickTerminalTabViewModel(null, "Preparing");
+            var strip = new RuntimeTabStripView
+            {
+                Orientation = Orientation.Horizontal,
+                Tabs = new[] { tab },
+            };
+            var window = new Window
+            {
+                Width = 320,
+                Height = 80,
+                Content = strip,
+            };
+            window.Show();
+            window.UpdateLayout();
+
+            // The connection's title replaces the placeholder, then the user
+            // renames the tab; the label, tooltip and spoken name follow both.
+            tab.BeginInitialization(new Asura.Core.ConnectionId("conn.production"), "production-api");
+            window.UpdateLayout();
+            AssertStripReads(strip, "production-api");
+
+            Assert.True(tab.SetIdentity("renamed production", "terminal"));
+            window.UpdateLayout();
+            AssertStripReads(strip, "renamed production");
+            window.Close();
+            return Task.CompletedTask;
+        });
+
+    private static void AssertStripReads(RuntimeTabStripView strip, string expected)
+    {
+        var title = strip.GetVisualDescendants()
+            .OfType<TextBlock>()
+            .Single(candidate => candidate.Classes.Contains("RuntimeTabTitle"));
+        Assert.Equal(expected, title.Text);
+        var button = strip.GetVisualDescendants().OfType<RuntimeTabButton>().Single();
+        Assert.Equal(expected, ToolTip.GetTip(button));
+        Assert.StartsWith(expected, AutomationProperties.GetName(button), StringComparison.Ordinal);
+    }
 
     [Fact]
     public Task A_double_tap_on_the_icon_opens_the_picker_and_reports_the_choice() =>

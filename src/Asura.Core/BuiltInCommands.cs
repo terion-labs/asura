@@ -227,12 +227,12 @@ public static class BuiltInCommands
             Define(ShowSettings, "Settings", "Application", CommandContext.Global),
             Define(CheckForUpdates, "Check for Updates", "Application", CommandContext.Global),
 
-            Define(NewWindow, "New Window", "Windows", CommandContext.Global),
-            Define(CloseWindow, "Close Window", "Windows", CommandContext.Global),
-            Define(MinimizeWindow, "Minimize Window", "Windows", CommandContext.Global),
-            Define(ZoomWindow, "Zoom Window", "Windows", CommandContext.Global),
-            Define(ToggleFullScreen, "Toggle Full Screen", "Windows", CommandContext.Global),
-            Define(BringAllToFront, "Bring All Windows to Front", "Windows", CommandContext.Global),
+            Define(NewWindow, "New Window", "Window", CommandContext.Global),
+            Define(CloseWindow, "Close Window", "Window", CommandContext.Global),
+            Define(MinimizeWindow, "Minimize Window", "Window", CommandContext.Global),
+            Define(ZoomWindow, "Zoom Window", "Window", CommandContext.Global),
+            Define(ToggleFullScreen, "Toggle Full Screen", "Window", CommandContext.Global),
+            Define(BringAllToFront, "Bring All Windows to Front", "Window", CommandContext.Global),
 
             Define(NewTerminalTab, "New Terminal Tab", "Tabs", CommandContext.Global),
             Define(

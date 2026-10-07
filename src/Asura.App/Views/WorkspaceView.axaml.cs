@@ -168,6 +168,12 @@ public sealed partial class WorkspaceView : UserControl
     public event EventHandler<RoutedEventArgs>? OpenWorkspaceRequested;
 
     public event EventHandler<RoutedEventArgs>? CloseWorkspaceRequested;
+
+    /// <summary>
+    /// Terminate Workspace from the Workspaces menu: unlike the rail's close
+    /// button, it always asks first.
+    /// </summary>
+    public event EventHandler<RoutedEventArgs>? TerminateWorkspaceRequested;
     public event EventHandler<RoutedEventArgs>? SaveWorkspaceLayoutRequested;
 
     private void OnSaveWorkspaceLayoutClick(object? sender, RoutedEventArgs e) =>
@@ -244,6 +250,15 @@ public sealed partial class WorkspaceView : UserControl
     public event EventHandler<PanelSide>? AddPanelToSideRequested;
 
     public event EventHandler<RoutedEventArgs>? LockShellRequested;
+
+    public event EventHandler<RoutedEventArgs>? ShowSettingsRequested;
+
+    /// <summary>
+    /// Whether the title bar carries its own Settings button. On macOS the
+    /// app menu and ⌘, are where Settings lives; Windows and Linux draw no
+    /// menu bar, so the button is the pointer's only way in there.
+    /// </summary>
+    public static bool ShowsSettingsButton { get; } = !OperatingSystem.IsMacOS();
 
     public event EventHandler<RoutedEventArgs>? SubmitAgentQuestionRequested;
 
@@ -476,6 +491,9 @@ public sealed partial class WorkspaceView : UserControl
 
     private void OnLockShellClick(object? sender, RoutedEventArgs e) =>
         LockShellRequested?.Invoke(sender, e);
+
+    private void OnShowSettingsClick(object? sender, RoutedEventArgs e) =>
+        ShowSettingsRequested?.Invoke(sender, e);
 
     private void OnSubmitAgentQuestionClick(object? sender, RoutedEventArgs e) =>
         SubmitAgentQuestionRequested?.Invoke(sender, e);

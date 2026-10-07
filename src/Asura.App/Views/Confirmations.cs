@@ -326,6 +326,35 @@ internal static class Confirmations
             CancelAutomationName = "Cancel clearing crash recovery data",
         });
 
+    public static ConfirmationDialog TerminateWorkspace(string workspaceName, int tabCount) =>
+        new(TerminateWorkspaceOptions(workspaceName, tabCount));
+
+    /// <summary>
+    /// Asked every time Terminate Workspace… is chosen, whether or not a
+    /// session in it is busy: the menu item names an act, not a tidy-up, and
+    /// its ellipsis promises the question.
+    /// </summary>
+    internal static ConfirmationDialogOptions TerminateWorkspaceOptions(
+        string workspaceName,
+        int tabCount)
+    {
+        var detail = tabCount switch
+        {
+            0 => "The workspace stops.",
+            1 => "Its tab closes and every session running in it ends.",
+            _ => $"Its {tabCount} tabs close and every session running in them ends.",
+        };
+        return new ConfirmationDialogOptions
+        {
+            Title = "Terminate workspace",
+            Heading = $"Terminate “{workspaceName}”?",
+            Detail = detail + " The workspace stays in the sidebar and can be opened again.",
+            ConfirmLabel = "Terminate",
+            ConfirmAutomationName = "Confirm terminate workspace",
+            CancelAutomationName = "Cancel terminate workspace",
+        };
+    }
+
     public static ConfirmationDialog CloseScope(
         CloseScopeResult.ConfirmationRequired confirmation) =>
         new(CloseScopeOptions(confirmation));

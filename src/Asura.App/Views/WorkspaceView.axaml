@@ -69,12 +69,6 @@
       <Setter Property="BoxShadow" Value="{DynamicResource ShellFlyoutShadow}" />
       <Setter Property="Background" Value="{DynamicResource ShellSidebarOverlayBrush}" />
     </Style>
-    <!-- Differentiate Without Color: the rail's current tile is told from
-         the resting ones by saturation, so it also takes the inner ring its
-         template keeps for this. Running tiles already carry their outline. -->
-    <Style Selector="Window.differentiate-without-color controls|WorkspaceRailTile:current /template/ Border#PART_CurrentMark">
-      <Setter Property="IsVisible" Value="True" />
-    </Style>
     <!-- The route mark reads its state in its glyph — globe, turning globe,
          shielded globe, broken shield, lock — and the colour repeats it:
          quiet when direct, green once a route carries traffic, accent while
@@ -341,6 +335,7 @@
                shows — so search keeps its place here rather than losing its
                only visible affordance with it. -->
           <Button Classes="IconButton" Click="OnShowCommandPaletteClick" ToolTip.Tip="{Binding CommandPaletteAction}" AutomationProperties.Name="Search commands, connections, screens, workspaces, and session history"><icons:SymbolIcon Symbol="Search" FontSize="15" /></Button>
+          <Button Classes="IconButton" Click="OnShowSettingsClick" ToolTip.Tip="Settings" AutomationProperties.Name="Settings" IsVisible="{x:Static views:WorkspaceView.ShowsSettingsButton}"><icons:SymbolIcon Symbol="Settings" FontSize="15" /></Button>
           <Button Classes="IconButton" Click="OnLockShellClick" ToolTip.Tip="Lock Asura" AutomationProperties.Name="Lock Asura" IsVisible="{Binding ApplicationSecurityEditor.IsProtectionEnabled}"><icons:SymbolIcon Symbol="LockClosed" FontSize="15" /></Button>
         </StackPanel>
       </Grid>

@@ -10322,7 +10322,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     PanelInstanceId.New(),
                     PanelKind.ProcessMonitor,
                     recovered.Title,
-                    "Process monitor",
+                    PanelTypes.Processes,
                     "The recovered monitoring connection is no longer available.");
             }
 
@@ -10453,7 +10453,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                             PanelInstanceId.New(),
                             PanelKind.FileViewer,
                             title,
-                            "File viewer",
+                            PanelTypes.Files,
                             "This panel has an invalid startup location. Repair the saved screen with a location supported by its file provider.");
                     }
                 }
@@ -10525,9 +10525,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     PanelInstanceId.New(),
                     PanelKindFromDefinition(panel.Kind),
                     title,
-                    panel.Kind == ScreenPanelKind.Statistics
-                        ? "Statistics"
-                        : "Process monitor",
+                    PanelTypes.Name(panel.Kind),
                     "The connection this panel monitors is no longer in the catalog. "
                     + "Repair the saved screen with a connection that still exists, or remove "
                     + "it from the panel to monitor the local host.");
@@ -10728,8 +10726,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     panelId,
                     PanelKind.FileViewer,
                     title,
-                    // A recovery kind label, read back by PanelKindFromRecovery.
-                    "File Viewer");
+                    PanelTypes.Files);
             }
 
             var workspaceProfile = isolated.FilePanelClient.Profiles.First();
@@ -11068,7 +11065,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 panelId,
                 kind,
                 title,
-                kind == PanelKind.Statistics ? "Statistics" : "Process monitor");
+                PanelTypes.Name(kind));
         }
 
         var owner = new SessionOwner(
@@ -13014,9 +13011,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             "TERMINAL" => PanelKind.Terminal,
             "BROWSER" => PanelKind.Browser,
-            "FILEVIEWER" => PanelKind.FileViewer,
+            // The panel type names, and the labels older snapshots stored.
+            "FILES" or "FILEVIEWER" => PanelKind.FileViewer,
             "STATISTICS" => PanelKind.Statistics,
-            "PROCESSMONITOR" => PanelKind.ProcessMonitor,
+            "PROCESSES" or "PROCESSMONITOR" => PanelKind.ProcessMonitor,
             "DATABASE" or "DATABASEVIEWER" => PanelKind.DatabaseViewer,
             "DOCKER" => PanelKind.Docker,
             "KUBERNETES" => PanelKind.Kubernetes,

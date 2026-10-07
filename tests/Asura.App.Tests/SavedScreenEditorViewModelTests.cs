@@ -72,6 +72,24 @@ public sealed class SavedScreenEditorViewModelTests
     }
 
     [Fact]
+    public void PanelLabelUsesTheSameNounAsTheKindChoice()
+    {
+        var connection = LocalConnection("local");
+        using var editor = Editor(Screen(connection.Id), 3, [connection]);
+        var panel = editor.Panels[0];
+
+        foreach (var option in panel.KindOptions)
+        {
+            panel.SelectedKind = option;
+
+            // The eyebrow above the kind menu names the same type the menu
+            // shows: "Processes · slot", never "Process monitor · slot".
+            Assert.StartsWith($"{option.DisplayName} · ", panel.PanelLabel, StringComparison.Ordinal);
+            Assert.Equal(PanelTypes.Name(option.Kind), option.DisplayName);
+        }
+    }
+
+    [Fact]
     public void AgentPolicyProviderSelectionStoresTheExactProfileIdAndDefaultsItsModel()
     {
         var connection = LocalConnection("local");

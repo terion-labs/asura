@@ -10,9 +10,10 @@ public interface IRuntimeTabStripItem
     /// <summary>
     /// What the strip writes on the tab. The durable title unless the tab
     /// can name itself better — a browser tab nobody renamed reads its
-    /// page's title or host rather than "Browser".
+    /// page's title or host rather than "Browser". Implementers raise a
+    /// change for it whenever <see cref="Title"/> changes.
     /// </summary>
-    string DisplayTitle => Title;
+    string DisplayTitle { get; }
 
     string Icon { get; }
 
