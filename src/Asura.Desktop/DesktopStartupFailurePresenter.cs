@@ -50,7 +50,7 @@ internal static class DesktopStartupFailurePresenter
     {
         public override void Initialize()
         {
-            RequestedThemeVariant = ThemeVariant.Dark;
+            RequestedThemeVariant = ThemeVariant.Default;
             Styles.Add(new FluentTheme());
         }
 
@@ -67,65 +67,94 @@ internal static class DesktopStartupFailurePresenter
 
         internal static Window CreateWindow(string title, string message, string[] arguments)
         {
-            var retryButton = new Button
+            var failureText = new TextBlock
             {
-                Content = "Try again",
-                MinWidth = 96,
+                TextWrapping = TextWrapping.Wrap,
+                IsVisible = false,
             };
-            var recoveryButton = new Button { Content = "Open recovery workspace" };
-            AutomationProperties.SetName(retryButton, "Try opening saved profile again");
-            AutomationProperties.SetName(recoveryButton, "Open a separate recovery workspace");
-            var failureText = new TextBlock { TextWrapping = TextWrapping.Wrap };
+            var buttons = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto"),
+                ColumnSpacing = 8,
+                Margin = new Thickness(0, 6, 0, 0),
+            };
 
             var window = new Window
             {
                 Title = "Asura",
-                Width = 480,
+                Width = 440,
                 SizeToContent = SizeToContent.Height,
                 CanResize = false,
+                CanMinimize = false,
+                CanMaximize = false,
                 WindowStartupLocation = WindowStartupLocation.CenterScreen,
                 Content = new Border
                 {
-                    Padding = new Thickness(24),
+                    Padding = new Thickness(20),
                     Child = new StackPanel
                     {
-                        Spacing = 14,
+                        Spacing = 10,
                         Children =
                         {
                             new TextBlock
                             {
                                 Text = title,
-                                FontSize = 20,
-                                FontWeight = FontWeight.SemiBold,
+                                FontSize = 15,
+                                FontWeight = FontWeight.Bold,
                                 TextWrapping = TextWrapping.Wrap,
                             },
                             new TextBlock
                             {
                                 Text = message,
-                                FontSize = 14,
-                                Opacity = 0.82,
+                                FontSize = 13,
                                 TextWrapping = TextWrapping.Wrap,
                             },
                             new TextBlock
                             {
-                                Text = "Your saved profile is kept. You can retry or use a separate recovery workspace. Work done there is saved separately.",
+                                Text = "Your saved profile is kept. You can try again or use a separate recovery workspace. Work done there is saved separately.",
+                                FontSize = 12,
+                                Opacity = 0.82,
                                 TextWrapping = TextWrapping.Wrap,
                             },
-                            new StackPanel
-                            {
-                                Orientation = Orientation.Horizontal,
-                                Spacing = 10,
-                                Children = { retryButton, recoveryButton },
-                            },
                             failureText,
+                            buttons,
                         },
                     },
                 },
             };
             AutomationProperties.SetName(window, title);
-            retryButton.Click += (_, _) => Launch(arguments);
-            recoveryButton.Click += (_, _) => Launch(DesktopProfileConfiguration.NextRecoveryArguments(arguments));
+            foreach (var action in StartupFailureAlert.Actions)
+            {
+                var button = new Button
+                {
+                    Content = action.Label,
+                    MinWidth = 80,
+                    IsDefault = action.IsDefault,
+                    IsCancel = action.IsCancel,
+                };
+                AutomationProperties.SetName(button, action.AutomationName);
+                Grid.SetColumn(button, action.Column);
+                button.Click += (_, _) => Run(action.Kind);
+                buttons.Children.Add(button);
+            }
+
             return window;
+
+            void Run(StartupFailureActionKind kind)
+            {
+                switch (kind)
+                {
+                    case StartupFailureActionKind.Quit:
+                        window.Close();
+                        break;
+                    case StartupFailureActionKind.TryAgain:
+                        Launch(arguments);
+                        break;
+                    case StartupFailureActionKind.OpenRecoveryWorkspace:
+                        Launch(DesktopProfileConfiguration.NextRecoveryArguments(arguments));
+                        break;
+                }
+            }
 
             void Launch(string[] nextArguments)
             {
@@ -138,6 +167,7 @@ internal static class DesktopStartupFailurePresenter
                 {
                     Asura.Application.SecretSafeDiagnosticProjection.WriteStandardError("desktop.recovery-launch.failed", error);
                     failureText.Text = "Asura could not start another window. You can try again after checking available disk space and access to the app.";
+                    failureText.IsVisible = true;
                 }
             }
         }
@@ -159,4 +189,49 @@ internal static class DesktopStartupFailurePresenter
         }
         return start;
     }
+}
+
+internal enum StartupFailureActionKind
+{
+    Quit,
+    OpenRecoveryWorkspace,
+    TryAgain,
+}
+
+internal sealed record StartupFailureAction(
+    StartupFailureActionKind Kind,
+    string Label,
+    string AutomationName,
+    int Column,
+    bool IsDefault = false,
+    bool IsCancel = false);
+
+/// <summary>
+/// The startup failure is an alert, and its buttons sit where a Mac alert's
+/// do: Quit on the leading edge, where Escape lands; Try Again as the
+/// trailing default, which Return presses; and the recovery workspace as the
+/// alternate beside it.
+/// </summary>
+internal static class StartupFailureAlert
+{
+    public static IReadOnlyList<StartupFailureAction> Actions { get; } =
+    [
+        new(
+            StartupFailureActionKind.Quit,
+            "Quit",
+            "Quit Asura",
+            Column: 0,
+            IsCancel: true),
+        new(
+            StartupFailureActionKind.OpenRecoveryWorkspace,
+            "Open Recovery Workspace",
+            "Open a separate recovery workspace",
+            Column: 2),
+        new(
+            StartupFailureActionKind.TryAgain,
+            "Try Again",
+            "Try opening saved profile again",
+            Column: 3,
+            IsDefault: true),
+    ];
 }

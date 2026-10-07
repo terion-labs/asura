@@ -35,6 +35,16 @@
         IsVisible="{Binding HasNotice}">
       <TextBlock Classes="Muted" Text="{Binding Notice}" TextWrapping="Wrap" />
     </controls:SurfaceCard>
+    <!-- "Don't ask again" shares the button row, on the leading edge, so a
+         confirmation without one keeps exactly the layout it had. -->
+    <CheckBox
+        x:Name="SuppressionCheckBox"
+        Grid.Row="2"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center"
+        Content="{Binding SuppressionLabel}"
+        IsChecked="{Binding IsSuppressionChecked}"
+        IsVisible="{Binding HasSuppression}" />
     <StackPanel Grid.Row="2" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
       <Button
           x:Name="CancelButton"

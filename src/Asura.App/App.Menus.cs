@@ -173,19 +173,25 @@ public sealed partial class App : IApplicationCommandService
         }
         else if (command == BuiltInCommands.ShowSettings)
         {
-            ShowFrontMainWindow().NavigateToSettings();
+            ShowFrontMainWindow()?.NavigateToSettings();
         }
         else if (command == BuiltInCommands.ShowKeyboardShortcuts)
         {
-            ShowFrontMainWindow().NavigateToSettings(SettingsPage.Keybindings);
+            ShowFrontMainWindow()?.NavigateToSettings(SettingsPage.Keybindings);
         }
         else if (command == BuiltInCommands.CheckForUpdates)
         {
-            await ShowFrontMainWindow().CheckForUpdatesAsync();
+            if (ShowFrontMainWindow() is { } window)
+            {
+                await window.CheckForUpdatesAsync();
+            }
         }
         else if (command == BuiltInCommands.NewTerminalTab)
         {
-            await ShowFrontMainWindow().ExecuteCommandAsync(BuiltInCommands.NewTerminalTab);
+            if (ShowFrontMainWindow() is { } window)
+            {
+                await window.ExecuteCommandAsync(BuiltInCommands.NewTerminalTab);
+            }
         }
         else if (command == BuiltInCommands.ShowHelp)
         {
@@ -202,18 +208,17 @@ public sealed partial class App : IApplicationCommandService
     }
 
     /// <summary>
-    /// The frontmost main window, brought forward; a new one when none is open.
+    /// The frontmost main window, brought forward; a new one when every window
+    /// has been closed and Asura kept running. None while Asura is quitting.
     /// </summary>
-    private MainWindow ShowFrontMainWindow()
+    private MainWindow? ShowFrontMainWindow()
     {
-        if (ActiveMainWindow() is null)
+        if (WindowForRequest() is not { } window)
         {
-            OpenNewWindow();
+            return null;
         }
 
-        var window = MainWindow;
-        window.Show();
-        window.Activate();
+        ShowWindow(window);
         return window;
     }
 

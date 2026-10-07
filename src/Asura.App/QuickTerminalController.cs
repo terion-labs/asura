@@ -126,6 +126,18 @@ public sealed class QuickTerminalController : IDisposable
         _mainWindow = mainWindow ?? throw new ArgumentNullException(nameof(mainWindow));
     }
 
+    /// <summary>
+    /// The last main window closed and Asura kept running, as Mac apps do.
+    /// Quick Terminal keeps working without one, and opens a new window when
+    /// it is asked for something only a main window can show.
+    /// </summary>
+    internal void ReleaseMainWindow() => _mainWindow = null;
+
+    /// <summary>Opens a main window when none is left to route a request to.</summary>
+    internal Func<MainWindow?>? MainWindowFactory { get; set; }
+
+    private MainWindow? MainWindowForRequest() => _mainWindow ?? MainWindowFactory?.Invoke();
+
     public void Toggle()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -339,19 +351,22 @@ public sealed class QuickTerminalController : IDisposable
 
     private void PositionAtTopOfWorkingArea(QuickTerminalWindow window)
     {
-        var mainWindow = _mainWindow
-            ?? throw new InvalidOperationException("The Asura main window is unavailable.");
-        var mainWindowScreen = mainWindow.Screens.ScreenFromWindow(mainWindow);
+        // The main window's screen when there is one; with every main window
+        // closed, the screen Quick Terminal itself was last on.
+        WindowBase reference = (WindowBase?)_mainWindow ?? window;
+        var screens = reference.Screens
+            ?? throw new InvalidOperationException("No desktop screen is available for Quick Terminal.");
+        var mainWindowScreen = screens.ScreenFromWindow(reference);
         var activeWindowBounds = _settings.MonitorPolicy ==
             QuickTerminalMonitorPolicy.ActiveWindow
                 ? _activeWindowBounds.TryGetBounds()
                 : null;
         var activeWindowScreen = activeWindowBounds is { } bounds
-            ? mainWindow.Screens.ScreenFromBounds(bounds)
+            ? screens.ScreenFromBounds(bounds)
             : null;
         var screen = QuickTerminalScreenResolver.Resolve(
             mainWindowScreen,
-            mainWindow.Screens.Primary,
+            screens.Primary,
             activeWindowScreen,
             _settings.MonitorPolicy)
           ?? throw new InvalidOperationException("No desktop screen is available for Quick Terminal.");
@@ -792,7 +807,7 @@ public sealed class QuickTerminalController : IDisposable
         _ = sender;
         _ = e;
         Hide(restorePreviousApplication: false);
-        if (_mainWindow is not { } mainWindow)
+        if (MainWindowForRequest() is not { } mainWindow)
         {
             return;
         }
@@ -811,7 +826,7 @@ public sealed class QuickTerminalController : IDisposable
         _ = sender;
         _ = e;
         Hide(restorePreviousApplication: false);
-        if (_mainWindow is not { } mainWindow)
+        if (MainWindowForRequest() is not { } mainWindow)
         {
             return;
         }

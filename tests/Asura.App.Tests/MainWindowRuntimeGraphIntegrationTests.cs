@@ -9008,6 +9008,123 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             viewModel.IsDefinitionEditorVisible,
         }.Count(isVisible => isVisible);
 
+    // Window lifecycle in a real headless window. The view-model side of the
+    // lifecycle lives in MainWindowRuntimeGraphIntegrationTests.WindowLifecycle.cs.
+    [Fact]
+    public async Task A_window_at_its_minimum_size_keeps_the_title_band_on_screen()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            await using var host = new InMemorySessionHostClient(
+                new FakeTerminalSessionFactory(), new DesktopLifecyclePolicy());
+            using var viewModel = CreateViewModel(host, CreateCatalogSnapshot());
+            Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+            Assert.True(await viewModel.AddLocalTerminalTabAsync());
+            var window = new MainWindow { DataContext = viewModel };
+            window.DataTemplates.Insert(0, new Avalonia.Controls.Templates.FuncDataTemplate<TerminalRuntimePanelViewModel>(
+                (panel, _) => new TextBlock { Text = panel!.Title }));
+
+            // Small enough to tile beside another app on a 13-inch display.
+            Assert.InRange(window.MinWidth, 1, 640);
+            Assert.InRange(window.MinHeight, 1, 480);
+            window.Width = window.MinWidth;
+            window.Height = window.MinHeight;
+            window.Show();
+            try
+            {
+                window.UpdateLayout();
+                Assert.True(viewModel.IsCompactWindow);
+                Assert.False(viewModel.IsWorkspaceRailVisible);
+                Assert.True(viewModel.IsAgentPanelFloating);
+
+                Control Named(string name) => window.GetVisualDescendants()
+                    .OfType<Control>()
+                    .Single(control => control.Name == name && control.IsEffectivelyVisible);
+                var actions = Named("WorkspaceTitleBarActions");
+                var actionsRight = actions.TranslatePoint(new Point(actions.Bounds.Width, 0), window)!.Value.X;
+                Assert.InRange(actionsRight, 0, window.ClientSize.Width + 0.5);
+                Assert.True(Named("RuntimeTabStrip").Bounds.Width > 0);
+
+                // The title names the workspace and tab, not just the app.
+                var workspace = viewModel.RuntimeWorkspace!;
+                Assert.Equal($"{workspace.Name} · {workspace.ActiveTab!.Title}", window.Title);
+                return true;
+            }
+            finally
+            {
+                window.Close();
+            }
+        }, timeout.Token));
+    }
+
+    [Fact]
+    public async Task An_isolated_workspace_start_covers_only_its_canvas()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            var provider = new RecordingWorkspaceIsolationProvider
+            {
+                PrepareEntered = new(TaskCreationOptions.RunContinuationsAsynchronously),
+                AllowPrepare = new(TaskCreationOptions.RunContinuationsAsynchronously),
+            };
+            var (host, _) = CreateSessionClient();
+            using var viewModel = CreateViewModel(
+                host,
+                WithWorkspaceIsolation(CreateCatalogSnapshot(), WorkspaceId),
+                workspaceIsolationProvider: provider);
+            var window = new MainWindow { DataContext = viewModel, Width = 1400, Height = 900 };
+            window.DataTemplates.Insert(0, new Avalonia.Controls.Templates.FuncDataTemplate<TerminalRuntimePanelViewModel>(
+                (panel, _) => new TextBlock { Text = panel!.Title }));
+            window.Show();
+            Task<bool>? opening = null;
+            try
+            {
+                opening = viewModel.OpenWorkspaceAsync(WorkspaceId);
+                await provider.PrepareEntered!.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                await Task.Yield();
+                window.UpdateLayout();
+                window.UpdateLayout();
+
+                var progress = window.FindControl<Control>("WorkspaceIsolationProgress")!;
+                Assert.True(progress.IsEffectivelyVisible);
+                var progressTop = progress.TranslatePoint(default, window)!.Value.Y;
+                var progressLeft = progress.TranslatePoint(default, window)!.Value.X;
+                Control Named(string name) => window.GetVisualDescendants()
+                    .OfType<Control>()
+                    .Single(control => control.Name == name && control.IsEffectivelyVisible);
+                var tabStrip = Named("RuntimeTabStrip");
+                var tabStripBottom = tabStrip.TranslatePoint(
+                    new Point(0, tabStrip.Bounds.Height), window)!.Value.Y;
+
+                // The title band and tab strip stay above it, and the rail
+                // beside it, so the window can be dragged and another
+                // workspace chosen while this one starts.
+                Assert.True(progressTop >= tabStripBottom, $"{progressTop} < {tabStripBottom}");
+                Assert.True(progressLeft > 0);
+                Assert.True(progress.Bounds.Width < window.ClientSize.Width);
+                var titleBandPoint = tabStrip.TranslatePoint(
+                    new Point(tabStrip.Bounds.Width / 2, tabStrip.Bounds.Height / 2), window)!.Value;
+                var hit = Avalonia.Input.InputExtensions.InputHitTest(window, titleBandPoint) as Visual;
+                Assert.False(hit is not null && (ReferenceEquals(hit, progress) || hit.GetVisualAncestors().Contains(progress)));
+
+                viewModel.CancelWorkspaceIsolationStartup();
+                Assert.False(await opening.WaitAsync(TimeSpan.FromSeconds(5)));
+                window.UpdateLayout();
+                Assert.False(progress.IsEffectivelyVisible);
+                return true;
+            }
+            finally
+            {
+                provider.AllowPrepare!.TrySetResult(false);
+                window.Close();
+            }
+        }, timeout.Token));
+    }
+
     private static MainWindowViewModel CreateViewModel(
         ISessionHostClient sessionClient,
         DefinitionCatalogSnapshot snapshot,
@@ -10419,6 +10536,22 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
 
         public SessionCloseOutcome? NextWindowCloseOutcome { get; set; }
 
+        /// <summary>What a close inspection reports as still running; null fails it.</summary>
+        public IReadOnlyList<ActiveSessionSummary>? RunningSessions { get; set; } = [];
+
+        public List<string> InspectedCloseTargets { get; } = [];
+
+        private ValueTask<HostResult<IReadOnlyList<ActiveSessionSummary>>> ResolveCloseInspection(
+            string targetId)
+        {
+            InspectedCloseTargets.Add(targetId);
+            return ValueTask.FromResult(RunningSessions is { } running
+                ? HostResult<IReadOnlyList<ActiveSessionSummary>>.Succeed(running, 0)
+                : HostResult<IReadOnlyList<ActiveSessionSummary>>.Fail(
+                    HostError.Create(HostErrorCode.CapabilityNotSupported, "No inspection."),
+                    0));
+        }
+
         public bool AcceptThenCancelNextRegistration { get; set; }
 
         public bool FailNextRegistrationWithTransportError { get; set; }
@@ -10721,6 +10854,9 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
                         OperationContext context,
                         ..
                     ] => ResolveClose(request, context),
+                nameof(ISessionHostClient.InspectCloseAsync)
+                    when args is [CloseScopeKind, string targetId, ..] =>
+                    ResolveCloseInspection(targetId),
                 _ => throw new NotSupportedException(targetMethod?.Name),
             };
 

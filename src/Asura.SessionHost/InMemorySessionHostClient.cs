@@ -2038,6 +2038,84 @@ public sealed partial class InMemorySessionHostClient :
         }
     }
 
+    public async ValueTask<HostResult<IReadOnlyList<ActiveSessionSummary>>> InspectCloseAsync(
+        CloseScopeKind scope,
+        string targetId,
+        OperationContext context,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(targetId);
+        ArgumentNullException.ThrowIfNull(context);
+        var invalid = ValidateContext<IReadOnlyList<ActiveSessionSummary>>(
+            context,
+            cancellationToken,
+            0);
+        if (invalid is not null)
+        {
+            return invalid;
+        }
+
+        try
+        {
+            await _sessionGraphGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return Cancelled<IReadOnlyList<ActiveSessionSummary>>(0);
+        }
+
+        try
+        {
+            ThrowIfDisposed();
+            // The same sessions a close of this scope would act on, refreshed
+            // from their engines the same way, so the answer here is the one
+            // the close itself would reach. Nothing is marked or reserved.
+            var targets = SessionsForScope(
+                new CloseScopeRequest(scope, targetId, CloseDecision.Request));
+            var active = new List<ActiveSessionSummary>();
+            long revision = 0;
+            foreach (var target in targets)
+            {
+                var currentRevision = target.Snapshot().Descriptor.Revision;
+                try
+                {
+                    var engineSnapshot = await target.Engine
+                        .SnapshotAsync(cancellationToken)
+                        .ConfigureAwait(false);
+                    target.ApplyEngineSnapshot(engineSnapshot);
+                }
+                catch (OperationCanceledException)
+                {
+                    return Cancelled<IReadOnlyList<ActiveSessionSummary>>(currentRevision);
+                }
+                catch (Exception exception)
+                {
+                    return EngineFailure<IReadOnlyList<ActiveSessionSummary>>(
+                        exception,
+                        currentRevision);
+                }
+
+                var snapshot = target.Snapshot();
+                revision = Math.Max(revision, snapshot.Descriptor.Revision);
+                if (snapshot.Descriptor.HasActiveWork)
+                {
+                    active.Add(new ActiveSessionSummary(
+                        target.Id,
+                        target.Owner.PanelId,
+                        target.Title,
+                        snapshot.Descriptor.StatusDetail,
+                        snapshot.Descriptor.Revision));
+                }
+            }
+
+            return HostResult<IReadOnlyList<ActiveSessionSummary>>.Succeed(active, revision);
+        }
+        finally
+        {
+            _sessionGraphGate.Release();
+        }
+    }
+
     public async ValueTask<HostResult<Unit>> DisconnectClientAsync(
         ClientId clientId,
         OperationContext context,

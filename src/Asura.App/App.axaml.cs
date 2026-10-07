@@ -121,7 +121,8 @@ public sealed partial class App : Avalonia.Application
         QuickTerminalController quickTerminalController,
         IHostAccessibilityPreferencesSource hostAccessibilityPreferences,
         IScreenColorSampler screenColorSampler,
-        AppearancePreviewCoordinator? appearancePreview = null)
+        AppearancePreviewCoordinator? appearancePreview = null,
+        IWindowPlacementStore? windowPlacements = null)
     {
         ArgumentNullException.ThrowIfNull(mainWindowViewModel);
         ArgumentNullException.ThrowIfNull(mainWindowViewModelFactory);
@@ -154,12 +155,15 @@ public sealed partial class App : Avalonia.Application
         _hostAccessibilityPreferences = hostAccessibilityPreferences;
         _screenColorSampler = screenColorSampler;
         _appearancePreview = appearancePreview ?? new AppearancePreviewCoordinator();
+        _windowPlacements = windowPlacements;
     }
 
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
         CreateApplicationMenu();
+        // After the application menu exists: the windowless menus sit beside it.
+        AttachWindowlessMenuBar();
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -172,6 +176,7 @@ public sealed partial class App : Avalonia.Application
                 ?? throw new InvalidOperationException(
                     "The desktop composition root did not provide the main window view model.");
             var mainWindow = CreateMainWindow(mainWindowViewModel);
+            PlaceStartupWindow(mainWindow, mainWindowViewModel);
             desktop.MainWindow = mainWindow;
             foreach (var hostWindow in desktop.Windows.OfType<RuntimePanelHostWindow>())
             {
@@ -179,18 +184,17 @@ public sealed partial class App : Avalonia.Application
             }
 
             QuickTerminalController.Initialize(mainWindow);
+            QuickTerminalController.MainWindowFactory = WindowForRequest;
             RegisterMainWindow(mainWindow);
             desktop.Exit += OnDesktopExit;
+            desktop.ShutdownRequested += OnShutdownRequested;
+            AttachDock();
             AttachAppearance();
             mainWindow.Opened += OnStartupWindowOpened;
         }
 
         base.OnFrameworkInitializationCompleted();
     }
-
-    private MainWindow MainWindow =>
-        ActiveMainWindow()
-        ?? throw new InvalidOperationException("An Asura window is unavailable.");
 
     private MainWindowViewModel MainWindowViewModel => _mainWindowViewModel
         ?? throw new InvalidOperationException("The main window view model is unavailable.");
@@ -241,23 +245,49 @@ public sealed partial class App : Avalonia.Application
             return null;
         }
 
+        // Only a window that is still open: once the last one has closed and
+        // Asura kept running, the lifetime's MainWindow is a closed window.
         return desktop.Windows.OfType<MainWindow>().FirstOrDefault(window => window.IsActive)
             ?? desktop.Windows.OfType<MainWindow>().FirstOrDefault(window => window.IsVisible)
-            ?? desktop.MainWindow as MainWindow;
+            ?? desktop.Windows.OfType<MainWindow>().FirstOrDefault();
     }
 
     private void RegisterMainWindow(MainWindow window)
     {
         AttachMenuBar(window);
+        _windowlessMenuBar?.SetWindowless(false);
         window.Activated += OnMainWindowActivated;
         window.Closed += OnMainWindowClosed;
+        TrackPlacement(window);
     }
 
     internal void OpenNewWindow()
     {
-        if (_desktopExitStarted)
+        if (!_desktopExitStarted && !_quitApproved)
         {
-            return;
+            _ = OpenWindow(restored: null);
+        }
+    }
+
+    /// <summary>
+    /// The window an app-menu or Quick Terminal request acts on: the one in
+    /// front, or a new one when every window has been closed and Asura kept
+    /// running. None while Asura is quitting.
+    /// </summary>
+    private MainWindow? WindowForRequest() =>
+        ActiveMainWindow()
+        ?? (_desktopExitStarted || _quitApproved ? null : OpenWindow(restored: null));
+
+    /// <summary>
+    /// Opens another main window: where a restored one was, or cascaded one
+    /// title bar from the window in front. A restored window comes back to its
+    /// own workspace; a new one opens the launcher.
+    /// </summary>
+    private MainWindow OpenWindow(WindowPlacement? restored)
+    {
+        if (_desktopExitStarted || _quitApproved)
+        {
+            throw new InvalidOperationException("Asura is quitting.");
         }
 
         var factory = _mainWindowViewModelFactory
@@ -268,10 +298,12 @@ public sealed partial class App : Avalonia.Application
         {
             var window = CreateMainWindow(viewModel);
             _additionalMainWindowViewModels.Add(viewModel);
+            PlaceNewWindow(window, viewModel, restored);
             RegisterMainWindow(window);
             window.Opened += OnAdditionalWindowOpened;
             window.Show();
             window.Activate();
+            return window;
         }
         catch
         {
@@ -1060,6 +1092,8 @@ public sealed partial class App : Avalonia.Application
     /// </summary>
     public async Task PrepareForUpdateRestartAsync(CancellationToken cancellationToken)
     {
+        // The restarted app puts the same windows back where they are now.
+        SaveWindowPlacements();
         _desktopExitStarted = true;
         var additionalViewModels = _additionalMainWindowViewModels.ToArray();
         MainWindowViewModel[] allViewModels = _mainWindowViewModel is { } mainViewModel
@@ -1177,6 +1211,10 @@ public sealed partial class App : Avalonia.Application
         mainWindow.Activated -= OnMainWindowActivated;
         mainWindow.Closed -= OnMainWindowClosed;
         mainWindow.Opened -= OnAdditionalWindowOpened;
+        var replacement = desktop.Windows
+            .OfType<MainWindow>()
+            .FirstOrDefault(window => !ReferenceEquals(window, mainWindow));
+        ForgetClosedWindow(mainWindow, isLastWindow: replacement is null);
         if (!_desktopExitStarted
             && mainWindow.DataContext is MainWindowViewModel viewModel
             && _additionalMainWindowViewModels.Remove(viewModel))
@@ -1185,11 +1223,24 @@ public sealed partial class App : Avalonia.Application
             viewModel.Dispose();
         }
 
-        var replacement = desktop.Windows
-            .OfType<MainWindow>()
-            .FirstOrDefault(window => !ReferenceEquals(window, mainWindow));
         if (replacement is null)
         {
+            // A quit closes every window on its way out and shuts down itself.
+            if (_quitInProgress || _quitApproved || _desktopExitStarted)
+            {
+                return;
+            }
+
+            // On a Mac, closing the last window leaves the app running — the
+            // Quick Terminal hotkey and background sessions with it — and the
+            // Dock icon opens a new window. Elsewhere the last window is the app.
+            if (KeepsRunningWithoutWindows)
+            {
+                QuickTerminalController.ReleaseMainWindow();
+                ShowWindowlessMenuBar();
+                return;
+            }
+
             desktop.Shutdown();
             return;
         }
@@ -1215,6 +1266,11 @@ public sealed partial class App : Avalonia.Application
             || !_additionalMainWindowViewModels.Contains(viewModel))
         {
             return;
+        }
+
+        if (_windowsAwaitingRestore.Remove(viewModel))
+        {
+            _ = await viewModel.RestoreSessionOnStartupAsync(CancellationToken.None);
         }
 
         _ = await viewModel.OpenDefaultLauncherIfIdleAsync(CancellationToken.None);
@@ -1252,6 +1308,13 @@ public sealed partial class App : Avalonia.Application
         // closed database; asked again now, it answers.
         _ = MainWindowViewModel.RetryRecentSessionHistoryAsync(CancellationToken.None);
         _ = await MainWindowViewModel.RestoreSessionOnStartupAsync(CancellationToken.None);
+        // The other windows the last run had open come back too, each to its
+        // own workspace and frame — when sessions are restored at all.
+        if (MainWindowViewModel.RestoreSessionsOnStart && !_desktopExitStarted)
+        {
+            ReopenRestoredWindows();
+        }
+
         // Whatever the restore did or did not find, the window does not come up
         // empty: Main's launcher is always there to come up in.
         _ = await MainWindowViewModel.OpenDefaultLauncherIfIdleAsync(CancellationToken.None);

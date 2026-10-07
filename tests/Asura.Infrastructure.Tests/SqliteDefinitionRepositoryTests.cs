@@ -490,6 +490,50 @@ public sealed class SqliteDefinitionRepositoryTests
     }
 
     [Fact]
+    public async Task TerminalAskBeforeClosingRoundTripsAndDefaultsToAskingForOlderProfiles()
+    {
+        await using var temporary = TemporaryDatabase.Create();
+        var keymaps = new SqliteDefinitionRepository<KeymapProfile>(
+            temporary.Database,
+            TimeProvider.System);
+        var terminals = new SqliteDefinitionRepository<TerminalProfile>(
+            temporary.Database,
+            TimeProvider.System);
+        var keymap = new KeymapProfile(
+            new KeymapProfileId("terminal-map"),
+            "Terminal map",
+            KeymapLayer.Terminal,
+            bindings: []);
+        Assert.True((await keymaps.SaveAsync(keymap, null, CancellationToken.None)).IsSuccess);
+        var asking = Terminal("asking-terminal", keymap.Id);
+        var silent = Terminal("silent-terminal", keymap.Id) with { AskBeforeClosing = false };
+        Assert.True((await terminals.SaveAsync(asking, null, CancellationToken.None)).IsSuccess);
+        Assert.True((await terminals.SaveAsync(silent, null, CancellationToken.None)).IsSuccess);
+
+        await temporary.ReopenAsync();
+        var reopened = new SqliteDefinitionRepository<TerminalProfile>(
+            temporary.Database,
+            TimeProvider.System);
+        var restoredAsking = await reopened.GetAsync(asking.Key, CancellationToken.None);
+        var restoredSilent = await reopened.GetAsync(silent.Key, CancellationToken.None);
+
+        Assert.True(restoredAsking.Value!.Value.AskBeforeClosing);
+        Assert.False(restoredSilent.Value!.Value.AskBeforeClosing);
+        Assert.False(asking.RepresentsSameAs(asking with { AskBeforeClosing = false }));
+
+        // A profile written before the setting existed has no such member.
+        var legacy = System.Text.Json.Nodes.JsonNode.Parse(DefinitionJson.Serialize(silent))!
+            .AsObject();
+        var member = legacy.Select(item => item.Key).Single(key =>
+            string.Equals(key, nameof(TerminalProfile.AskBeforeClosing), StringComparison.OrdinalIgnoreCase));
+        legacy.Remove(member);
+        var upgraded = Assert.IsType<TerminalProfile>(DefinitionJson.Deserialize(
+            DefinitionKind.TerminalProfile,
+            legacy.ToJsonString()));
+        Assert.True(upgraded.AskBeforeClosing);
+    }
+
+    [Fact]
     public async Task ReferencedLayoutCannotBeDeleted()
     {
         await using var temporary = TemporaryDatabase.Create();

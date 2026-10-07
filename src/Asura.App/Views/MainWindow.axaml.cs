@@ -161,6 +161,16 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        // The application is already shutting down — after a confirmed quit or
+        // an update restart has closed this window's sessions — and is closing
+        // windows regardless. Starting this window's own close flow then would
+        // only ask about sessions that have already ended.
+        if (e.CloseReason == WindowCloseReason.ApplicationShutdown && e.IsProgrammatic)
+        {
+            base.OnClosing(e);
+            return;
+        }
+
         if (!CloseCoordinator.IsWindowCloseApproved)
         {
             e.Cancel = true;
@@ -178,6 +188,7 @@ public sealed partial class MainWindow : Window
         // Whether a notification leaves a mark depends on whether anyone was
         // looking, and the window is the only thing that can say.
         Deactivated += OnWindowDeactivated;
+        AttachWindowLifecycle();
         base.OnOpened(e);
         RefreshWindowChromeMetrics();
         Avalonia.Threading.Dispatcher.UIThread.Post(
@@ -297,6 +308,7 @@ public sealed partial class MainWindow : Window
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
+        OnWindowLifecyclePropertyChanged(change);
         if (change.Property == WindowDecorationMarginProperty
             || change.Property == WindowStateProperty)
         {
@@ -327,6 +339,7 @@ public sealed partial class MainWindow : Window
         }
 
         Deactivated -= OnWindowDeactivated;
+        DetachWindowLifecycle();
         ScalingChanged -= OnWindowScalingChanged;
         Screens.Changed -= OnScreensChanged;
         _backingScaleSettledPass?.Dispose();
@@ -360,7 +373,7 @@ public sealed partial class MainWindow : Window
 
     private ShellCloseCoordinator CloseCoordinator => _closeCoordinator ??= new(
         ViewModel,
-        ShellClosePresentation.ForWindow(this, FocusNavigator),
+        ShellClosePresentation.ForWindow(this, FocusNavigator, AskBeforeClosing),
         _lifetime.Token);
 
     private ShellClipboard ClipboardWriter => _clipboardWriter ??= new(

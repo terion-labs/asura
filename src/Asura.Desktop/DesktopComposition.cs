@@ -436,6 +436,13 @@ public static class DesktopComposition
                 provider,
                 MainWindowRole.Additional));
         services.AddSingleton<Asura.App.QuickTerminalController>();
+        // Window frames per recovery slot, beside the profile rather than in
+        // it: the first window is placed before a startup PIN opens the
+        // database. Each window's workspace snapshot is keyed by the same slot.
+        services.AddSingleton<Asura.App.IWindowPlacementStore>(provider =>
+            new FileWindowPlacementStore(Path.Combine(
+                provider.GetRequiredService<AsuraDataPaths>().DataDirectory,
+                "window-placement.json")));
         services.AddSingleton<Asura.App.App>();
         return services.BuildServiceProvider(new ServiceProviderOptions
         {

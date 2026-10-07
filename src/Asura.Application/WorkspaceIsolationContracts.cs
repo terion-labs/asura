@@ -284,7 +284,7 @@ public sealed record WorkspaceIsolationPrepareRequest
 
 public sealed record WorkspaceIsolationProgress
 {
-    public WorkspaceIsolationProgress(string status)
+    public WorkspaceIsolationProgress(string status, double? fraction = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(status);
         if (status.Contains('\0', StringComparison.Ordinal))
@@ -294,10 +294,25 @@ public sealed record WorkspaceIsolationProgress
                 nameof(status));
         }
 
+        if (fraction is { } value && (!double.IsFinite(value) || value is < 0 or > 1))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(fraction),
+                fraction,
+                "A workspace isolation progress fraction must be between 0 and 1.");
+        }
+
         Status = status;
+        Fraction = fraction;
     }
 
     public string Status { get; }
+
+    /// <summary>
+    /// How far the current step has got, from 0 to 1, when the provider can
+    /// measure it — a download knows its size, a container start does not.
+    /// </summary>
+    public double? Fraction { get; }
 }
 
 public sealed record WorkspaceIsolationBinding

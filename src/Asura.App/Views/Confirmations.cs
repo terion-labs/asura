@@ -327,23 +327,32 @@ internal static class Confirmations
         });
 
     public static ConfirmationDialog CloseScope(
+        CloseScopeResult.ConfirmationRequired confirmation) =>
+        new(CloseScopeOptions(confirmation));
+
+    internal static ConfirmationDialogOptions CloseScopeOptions(
         CloseScopeResult.ConfirmationRequired confirmation)
     {
         ArgumentNullException.ThrowIfNull(confirmation);
-        return new ConfirmationDialog(new ConfirmationDialogOptions
+        // Alert headings and buttons are title case, like every other macOS
+        // alert title; the detail under them is a sentence.
+        return new ConfirmationDialogOptions
         {
             Title = "Confirm close",
             Heading = confirmation.Scope switch
             {
-                CloseScopeKind.Panel => "Close this panel?",
-                CloseScopeKind.Tab => "Close this tab?",
+                CloseScopeKind.Panel => "Close This Panel?",
+                CloseScopeKind.Tab => "Close This Tab?",
                 // Terminate, not close: a tab or a window is put away and its
                 // sessions happen to end, while this is asked for in order to
                 // end them. The word should say which one you are doing.
-                CloseScopeKind.Workspace => "Terminate this workspace?",
-                CloseScopeKind.Window => "Close Asura?",
-                CloseScopeKind.Session => "Close this session?",
-                _ => "Close active sessions?",
+                CloseScopeKind.Workspace => "Terminate This Workspace?",
+                // The window, not the app: other windows, Quick Terminal and,
+                // on macOS, the app itself keep running after this one closes.
+                // Quitting asks its own question.
+                CloseScopeKind.Window => "Close This Window?",
+                CloseScopeKind.Session => "Close This Session?",
+                _ => "Close Active Sessions?",
             },
             // Not "has active work" — that claims more than the signal
             // supports; idleness is inferred from prompt shape and can only be
@@ -358,11 +367,42 @@ internal static class Confirmations
                 Environment.NewLine,
                 confirmation.Sessions.Select(item => $"• {item.Title} — {item.Detail}")),
             NoticeTone = SurfaceTone.Warning,
-            ConfirmLabel = "Close anyway",
+            ConfirmLabel = confirmation.Scope == CloseScopeKind.Window
+                ? "Close Window"
+                : "Close Anyway",
             ConfirmAutomationName = "Confirm force close",
             CancelAutomationName = "Cancel close",
-        });
+            SuppressionLabel = DontAskAgain,
+        };
     }
+
+    /// <summary>
+    /// The one question quitting asks, however many windows are open: what is
+    /// still running everywhere, counted together, with Quit and Cancel.
+    /// </summary>
+    public static ConfirmationDialog QuitApplication(RunningSessionCensus census) =>
+        new(QuitApplicationOptions(census));
+
+    internal static ConfirmationDialogOptions QuitApplicationOptions(RunningSessionCensus census)
+    {
+        ArgumentNullException.ThrowIfNull(census);
+        return new ConfirmationDialogOptions
+        {
+            Title = "Quit Asura",
+            Heading = "Quit Asura?",
+            Detail = census.Describe(),
+            Notice = string.Join(
+                Environment.NewLine,
+                census.Sessions.Select(item => $"• {item.Title} — {item.Detail}")),
+            NoticeTone = SurfaceTone.Warning,
+            ConfirmLabel = "Quit",
+            ConfirmAutomationName = "Quit Asura and end running sessions",
+            CancelAutomationName = "Cancel quitting",
+            SuppressionLabel = DontAskAgain,
+        };
+    }
+
+    private const string DontAskAgain = "Don't ask again";
 
     public static ConfirmationDialog OperationError(string message) =>
         new(new ConfirmationDialogOptions
