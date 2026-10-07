@@ -136,6 +136,7 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
         _surface.FocusRequested += OnSurfaceFocusRequested;
         _surface.SetInputReady(false);
         _overlay = new ManagedTerminalOverlay();
+        _surface.FocusScope = this;
         _overlay.Attach(_surface);
         _overlay.SurfaceFocusRequested += OnSurfaceFocusRequested;
         Content = new Panel

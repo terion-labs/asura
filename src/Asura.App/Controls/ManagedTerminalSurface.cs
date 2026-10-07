@@ -143,6 +143,8 @@ public sealed class ManagedTerminalSurface : Control
     private ManagedTerminalSurfaceAutomationPeer? _automationPeer;
     private int _pendingAnnouncedLineCount;
     private bool _rebaselineAccessibleText;
+    private int _viewportMovesInFlight;
+    private bool _viewportMayBeScrolledBack;
     private bool _snapshotIsNewerThanFrame;
     private int _copyCursorRow;
     private int? _copySelectionAnchorRow;
@@ -215,6 +217,12 @@ public sealed class ManagedTerminalSurface : Control
 
     /// <summary>Whether the owner places a new panel when a split is requested.</summary>
     internal bool CanSplit { get; set; }
+
+    /// <summary>
+    /// The element whose keyboard focus means the user is working in this terminal.
+    /// The session host sets itself, so its find bar counts too.
+    /// </summary>
+    internal InputElement? FocusScope { get; set; }
 
     public TerminalRenderProfileSnapshot? Profile
     {
@@ -429,7 +437,7 @@ public sealed class ManagedTerminalSurface : Control
         ArgumentNullException.ThrowIfNull(text);
         // A paste command is an explicit user action. Agent input is authorized
         // independently by the session host, not by a caller-supplied paste flag.
-        return RequireInputSink().PasteAsync(
+        return RequireSessionInputSink().PasteAsync(
             new TerminalPasteInput(text),
             cancellationToken);
     }
@@ -457,15 +465,52 @@ public sealed class ManagedTerminalSurface : Control
     /// Moves the viewport. The rows that change are scrollback coming into view,
     /// not output, so assistive technology re-reads the screen without announcing.
     /// </summary>
-    private async ValueTask ScrollViewportAsync(
+    private ValueTask<bool> ScrollViewportAsync(
         TerminalViewportScrollInput scrollInput,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken) =>
+        MoveViewportAsync(async () =>
+        {
+            await RequireInputSink()
+                .ScrollViewportAsync(scrollInput, cancellationToken)
+                .ConfigureAwait(true);
+            return true;
+        });
+
+    /// <summary>
+    /// Runs something that moves the viewport instead of writing output: a scroll,
+    /// or find bringing a match into view. The screen is re-read without
+    /// announcing it or adding to the scrollback window, both while the move runs
+    /// and on the first update after it.
+    /// </summary>
+    private async ValueTask<T> MoveViewportAsync<T>(Func<ValueTask<T>> move)
     {
-        _rebaselineAccessibleText = true;
-        await RequireInputSink()
-            .ScrollViewportAsync(scrollInput, cancellationToken)
-            .ConfigureAwait(true);
-        _rebaselineAccessibleText = true;
+        _viewportMovesInFlight++;
+        try
+        {
+            return await move().ConfigureAwait(true);
+        }
+        finally
+        {
+            _viewportMovesInFlight--;
+            _rebaselineAccessibleText = true;
+            _viewportMayBeScrolledBack = true;
+        }
+    }
+
+    /// <summary>
+    /// The sink, for input the session reads. Input returns a scrolled-back
+    /// viewport to the bottom, which is a viewport move, not output.
+    /// </summary>
+    private IManagedTerminalInputSink RequireSessionInputSink()
+    {
+        var sink = RequireInputSink();
+        if (_viewportMayBeScrolledBack)
+        {
+            _viewportMayBeScrolledBack = false;
+            _rebaselineAccessibleText = true;
+        }
+
+        return sink;
     }
 
     internal async ValueTask<bool> SubmitSelectionAsync(
@@ -476,6 +521,12 @@ public sealed class ManagedTerminalSurface : Control
         if (!_isInputReady || IsInteractionModalVisible || _snapshot is null)
         {
             return false;
+        }
+
+        if (phase is TerminalSelectionPhase.Start or TerminalSelectionPhase.Clear)
+        {
+            // A pointer selection replaces one made with the copy-mode keys.
+            _copySelectionAnchorRow = null;
         }
 
         var (column, row) = Metrics.CellAt(point);
@@ -694,7 +745,7 @@ public sealed class ManagedTerminalSurface : Control
 
         return text.Length == 0
             ? ValueTask.CompletedTask
-            : RequireInputSink().SendTextAsync(text, cancellationToken);
+            : RequireSessionInputSink().SendTextAsync(text, cancellationToken);
     }
 
     internal void UpdatePreedit(string? text, int? cursor)
@@ -1011,7 +1062,7 @@ public sealed class ManagedTerminalSurface : Control
                 out var scrollInput))
         {
             e.Handled = true;
-            ObserveInputAsync(ScrollViewportAsync(scrollInput!, default));
+            ObserveInputAsync(ScrollViewportAsync(scrollInput!, default).AsValueTask());
             return;
         }
 
@@ -1319,7 +1370,7 @@ public sealed class ManagedTerminalSurface : Control
         TerminalKeyStroke keyStroke,
         CancellationToken cancellationToken)
     {
-        await RequireInputSink().SendKeyAsync(keyStroke, cancellationToken).ConfigureAwait(true);
+        await RequireSessionInputSink().SendKeyAsync(keyStroke, cancellationToken).ConfigureAwait(true);
         return true;
     }
 
@@ -1327,7 +1378,7 @@ public sealed class ManagedTerminalSurface : Control
         TerminalPhysicalKeyEvent keyEvent,
         CancellationToken cancellationToken)
     {
-        await RequireInputSink().SendPhysicalKeyAsync(
+        await RequireSessionInputSink().SendPhysicalKeyAsync(
             keyEvent,
             cancellationToken).ConfigureAwait(true);
         return true;
@@ -1352,7 +1403,7 @@ public sealed class ManagedTerminalSurface : Control
         string text,
         CancellationToken cancellationToken)
     {
-        await RequireInputSink().SendTextAsync(text, cancellationToken).ConfigureAwait(true);
+        await RequireSessionInputSink().SendTextAsync(text, cancellationToken).ConfigureAwait(true);
         return true;
     }
 
@@ -1478,8 +1529,8 @@ public sealed class ManagedTerminalSurface : Control
         }
 
         ResetFind();
-        _ = await RequireInputSink()
-            .FindAsync(new TerminalFindInput(string.Empty), cancellationToken)
+        _ = await MoveViewportAsync(() => RequireInputSink()
+                .FindAsync(new TerminalFindInput(string.Empty), cancellationToken))
             .ConfigureAwait(true);
     }
 
@@ -1589,10 +1640,10 @@ public sealed class ManagedTerminalSurface : Control
         _isFindInFlight = true;
         UpdateFindStatus();
         UpdateAutomationStatus();
-        var result = await RequireInputSink()
-            .FindAsync(
-                new TerminalFindInput(FindQuery, requestedMatchIndex),
-                cancellationToken)
+        // The search scrolls an off-screen match into view.
+        var input = new TerminalFindInput(FindQuery, requestedMatchIndex);
+        var result = await MoveViewportAsync(() => RequireInputSink()
+                .FindAsync(input, cancellationToken))
             .ConfigureAwait(true);
         if (generation != _findGeneration || !IsFindVisible)
         {
@@ -1721,7 +1772,7 @@ public sealed class ManagedTerminalSurface : Control
         }
         else if (CanonicalTerminalEditingText(commandId) is { } text)
         {
-            await RequireInputSink().SendTextAsync(text, cancellationToken);
+            await RequireSessionInputSink().SendTextAsync(text, cancellationToken);
             result = TerminalCommandDispatchResult.Executed(commandId);
         }
         else
@@ -2570,6 +2621,14 @@ public sealed class ManagedTerminalSurface : Control
             return TerminalCommandDispatchResult.NotMatched();
         }
 
+        if (IsCopyMode && WritesToSession(commandId))
+        {
+            // Copy mode exists so nothing reaches the session, as with keys and drops.
+            return await PublishCommandDispatchAsync(TerminalCommandDispatchResult.Unavailable(
+                commandId,
+                "Leave copy mode to type or paste into the terminal.")).ConfigureAwait(true);
+        }
+
         if (IsCopyMode && commandId == BuiltInCommands.Copy)
         {
             // Copy from a menu in copy mode copies the line under the cursor
@@ -2582,6 +2641,15 @@ public sealed class ManagedTerminalSurface : Control
             .ConfigureAwait(true);
     }
 
+    private static bool WritesToSession(CommandId commandId) =>
+        commandId == BuiltInCommands.Paste || CanonicalTerminalEditingText(commandId) is not null;
+
+    /// <summary>
+    /// Only the terminal being worked in speaks its output, as in Terminal and
+    /// iTerm2: a build in another panel must not talk over it.
+    /// </summary>
+    private bool IsUserWorkingHere => (FocusScope ?? this).IsKeyboardFocusWithin;
+
     /// <summary>Announces gathered output now rather than after the throttle delay.</summary>
     internal void FlushOutputAnnouncement()
     {
@@ -2589,6 +2657,13 @@ public sealed class ManagedTerminalSurface : Control
         _automationPeer?.NotifyValueChanged();
         if (_pendingAnnouncedLineCount == 0)
         {
+            return;
+        }
+
+        if (!IsUserWorkingHere)
+        {
+            _pendingAnnouncement.Clear();
+            _pendingAnnouncedLineCount = 0;
             return;
         }
 
@@ -2810,7 +2885,14 @@ public sealed class ManagedTerminalSurface : Control
 
         if (_copySelectionAnchorRow is null)
         {
-            // Nothing selected with the keyboard: copy the line under the cursor.
+            // A selection made with the pointer is copied as it is.
+            if (await CopySelectionAsync(cancellationToken).ConfigureAwait(true))
+            {
+                Announce("Copied");
+                return true;
+            }
+
+            // Nothing selected at all: copy the line under the cursor.
             _copySelectionAnchorRow = _copyCursorRow;
             await SelectCopyLinesAsync(_copyCursorRow, cancellationToken).ConfigureAwait(true);
             InvalidateVisual();
@@ -2889,14 +2971,14 @@ public sealed class ManagedTerminalSurface : Control
             return;
         }
 
-        var rebaseline = _rebaselineAccessibleText;
+        var rebaseline = _rebaselineAccessibleText || _viewportMovesInFlight > 0;
         _rebaselineAccessibleText = false;
         var output = _accessibleText.Update(
             CurrentLines(),
             CurrentCursorPosition().Row,
             _snapshot?.IsAlternateScreen == true,
             rebaseline);
-        if (output.Count > 0)
+        if (output.Count > 0 && IsUserWorkingHere)
         {
             _pendingAnnouncedLineCount += output.Count;
             _pendingAnnouncement.AddRange(output);
@@ -2948,7 +3030,7 @@ public sealed class ManagedTerminalSurface : Control
         var canRead = (Profile?.ClipboardPolicy.ReadAccess
             ?? TerminalClipboardPolicy.Default.ReadAccess) != TerminalClipboardAccess.Deny;
         menu.Items.Add(CommandItem("Copy", BuiltInCommands.Copy, canWrite && HasVisibleSelection()));
-        menu.Items.Add(CommandItem("Paste", BuiltInCommands.Paste, canRead));
+        menu.Items.Add(CommandItem("Paste", BuiltInCommands.Paste, canRead && !IsCopyMode));
         menu.Items.Add(CommandItem("Select All", BuiltInCommands.SelectAll, ViewportRowCount > 0));
         menu.Items.Add(new Separator());
         menu.Items.Add(CommandItem("Find…", BuiltInCommands.Find, isEnabled: true));

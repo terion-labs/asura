@@ -38,7 +38,7 @@
             VerticalAlignment="Center"
             AutomationProperties.LiveSetting="Polite"
             AutomationProperties.Name="Find result"
-            Classes="Muted"
+            Foreground="{DynamicResource ShellMutedBrush}"
             FontSize="{DynamicResource ShellFontSize11}"
             Text="{Binding FindStatusMessage}" />
         <Button

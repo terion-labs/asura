@@ -69,6 +69,7 @@ public sealed class ManagedTerminalAccessibilityTests
         RunHeadlessAsync(() =>
         {
             var surface = CreateSurface(new RecordingSink());
+            using var window = ShowFocused(surface);
             var announcements = new List<string>();
             surface.AnnouncementRequested += (_, text) => announcements.Add(text);
             surface.UpdateRenderFrame(Frame(1, cursorRow: 0, "$ ls", "", "", ""));
@@ -104,10 +105,7 @@ public sealed class ManagedTerminalAccessibilityTests
     public Task Copy_mode_moves_a_line_cursor_selects_with_shift_and_copies() =>
         RunHeadlessAsync(async () =>
         {
-            var sink = new RecordingSink
-            {
-                SelectionText = new TerminalSelectionText("beta\ngamma", true, false),
-            };
+            var sink = new RecordingSink { SelectableText = "beta\ngamma" };
             var clipboard = new RecordingClipboard();
             var surface = CreateSurface(sink);
             surface.Clipboard = clipboard;
@@ -190,6 +188,137 @@ public sealed class ManagedTerminalAccessibilityTests
                 ],
                 sink.Selections);
             Assert.Equal("older", announcements[^1]);
+        });
+
+    [Fact]
+    public Task Only_the_terminal_with_keyboard_focus_announces_its_output() =>
+        RunHeadlessAsync(() =>
+        {
+            var focused = CreateSurface(new RecordingSink());
+            var background = CreateSurface(new RecordingSink());
+            using var window = ShowFocused(focused, background);
+            var announcements = new List<string>();
+            focused.AnnouncementRequested += (_, text) => announcements.Add($"focused: {text}");
+            background.AnnouncementRequested += (_, text) => announcements.Add($"background: {text}");
+            foreach (var surface in new[] { focused, background })
+            {
+                surface.UpdateRenderFrame(Frame(1, cursorRow: 0, "$ make", "", ""));
+                _ = ControlAutomationPeer.CreatePeerForElement(surface);
+                surface.UpdateRenderFrame(Frame(2, cursorRow: 2, "$ make", "building", "$"));
+                surface.FlushOutputAnnouncement();
+            }
+
+            Assert.Equal(["focused: building\n$"], announcements);
+            // The background terminal's text stays current for when it is read.
+            Assert.Contains("building", background.AccessibleText, StringComparison.Ordinal);
+            return Task.CompletedTask;
+        });
+
+    [Fact]
+    public Task Find_scrolling_a_match_into_view_is_not_announced_as_output() =>
+        RunHeadlessAsync(async () =>
+        {
+            var sink = new RecordingSink();
+            var surface = CreateSurface(sink);
+            using var window = ShowFocused(surface);
+            var announcements = new List<string>();
+            surface.AnnouncementRequested += (_, text) => announcements.Add(text);
+            var bottom = new[] { "one", "two", "three", "$" };
+            var scrolledBack = new[] { "error here", "zero", "one", "two" };
+            surface.UpdateRenderFrame(Frame(1, cursorRow: 3, bottom));
+            _ = ControlAutomationPeer.CreatePeerForElement(surface);
+
+            // The native search scrolls to an off-screen match while it runs; a
+            // frame may arrive before the search returns or just after it.
+            var revision = 1L;
+            sink.Finding = input => surface.UpdateRenderFrame(
+                Frame(++revision, cursorRow: 3, input.Query.Length == 0 ? bottom : scrolledBack));
+            Assert.True(await surface.BeginFindAsync());
+            _ = await surface.UpdateFindQueryAsync("error");
+            surface.UpdateRenderFrame(Frame(++revision, cursorRow: 3, scrolledBack));
+            Assert.True(await surface.FindNextAsync(1));
+            await surface.CloseFindAsync();
+            surface.UpdateRenderFrame(Frame(++revision, cursorRow: 3, bottom));
+            surface.FlushOutputAnnouncement();
+
+            Assert.Empty(announcements);
+            Assert.Equal("one\ntwo\nthree\n$", surface.AccessibleText);
+
+            // Real output afterwards is still announced.
+            surface.UpdateRenderFrame(Frame(++revision, cursorRow: 3, "two", "three", "done", "$"));
+            surface.FlushOutputAnnouncement();
+            Assert.Equal(["done\n$"], announcements);
+        });
+
+    [Fact]
+    public Task Typing_after_scrolling_back_returns_to_the_bottom_without_an_announcement() =>
+        RunHeadlessAsync(async () =>
+        {
+            var sink = new RecordingSink();
+            var surface = CreateSurface(sink);
+            using var window = ShowFocused(surface);
+            var announcements = new List<string>();
+            surface.AnnouncementRequested += (_, text) => announcements.Add(text);
+            surface.UpdateSnapshot(ScreenSnapshot(scrollbackAbove: 5, "one", "two", "three", "$"));
+            surface.UpdateRenderFrame(Frame(1, cursorRow: 3, "one", "two", "three", "$"));
+            _ = ControlAutomationPeer.CreatePeerForElement(surface);
+
+            Assert.True(await surface.ScrollViewportAsync(-2));
+            surface.UpdateRenderFrame(Frame(2, cursorRow: 3, "older", "old", "one", "two"));
+            await surface.SubmitTextInputAsync("l");
+            surface.UpdateRenderFrame(Frame(3, cursorRow: 3, "one", "two", "three", "$ l"));
+            surface.FlushOutputAnnouncement();
+
+            Assert.Equal(["l"], sink.Text);
+            Assert.Empty(announcements);
+            Assert.Equal("one\ntwo\nthree\n$ l", surface.AccessibleText);
+        });
+
+    [Fact]
+    public async Task Copy_mode_copies_a_pointer_selection_as_it_is()
+    {
+        var sink = new RecordingSink { SelectableText = "ta\ngam" };
+        var clipboard = new RecordingClipboard();
+        var surface = CreateSurface(sink);
+        surface.Clipboard = clipboard;
+        surface.UpdateSnapshot(ScreenSnapshot(scrollbackAbove: 0, "alpha", "beta", "gamma", "$"));
+        surface.UpdateRenderFrame(Frame(1, cursorRow: 3, "alpha", "beta", "gamma", "$"));
+        surface.IsCopyMode = true;
+
+        var start = surface.Metrics.CellBounds(1, 2).Center;
+        var end = surface.Metrics.CellBounds(2, 2).Center;
+        surface.BeginLocalSelectionGesture(start);
+        Assert.True(await surface.UpdateLocalSelectionGestureAsync(end));
+        Assert.True(await surface.CompleteLocalSelectionGestureAsync(end));
+        var pointerSelections = sink.Selections.ToArray();
+
+        Assert.True(await surface.HandleCopyModeKeyAsync(Key.C, CommandModifier));
+        var copy = await surface.ExecuteCommandAsync(BuiltInCommands.Copy);
+
+        Assert.Equal(TerminalCommandDispatchResult.Outcome.Executed, copy.Status);
+        Assert.Equal(["ta\ngam", "ta\ngam"], clipboard.Writes);
+        // The cursor's line never replaced the pointer selection.
+        Assert.Equal(pointerSelections, sink.Selections);
+        Assert.Null(surface.CopySelectionAnchorRow);
+    }
+
+    [Fact]
+    public Task Copy_mode_refuses_menu_paste_like_typing_and_drops() =>
+        RunHeadlessAsync(async () =>
+        {
+            var sink = new RecordingSink();
+            var surface = CreateSurface(sink);
+            surface.Clipboard = new RecordingClipboard();
+            surface.UpdateRenderFrame(Frame(1, cursorRow: 0, "alpha"));
+            Assert.True(Item(surface.CreateContextMenu(), "Paste").IsEnabled);
+
+            surface.IsCopyMode = true;
+            Assert.False(Item(surface.CreateContextMenu(), "Paste").IsEnabled);
+            var paste = await surface.ExecuteCommandAsync(BuiltInCommands.Paste);
+
+            Assert.Equal(TerminalCommandDispatchResult.Outcome.Unavailable, paste.Status);
+            Assert.Empty(sink.Pastes);
+            Assert.Empty(sink.Text);
         });
 
     [Fact]
@@ -396,6 +525,23 @@ public sealed class ManagedTerminalAccessibilityTests
         return surface;
     }
 
+    /// <summary>Shows the surfaces in a window and gives the first keyboard focus.</summary>
+    private static ClosingWindow ShowFocused(params ManagedTerminalSurface[] surfaces)
+    {
+        var panel = new StackPanel();
+        foreach (var surface in surfaces)
+        {
+            surface.Height = 200;
+            panel.Children.Add(surface);
+        }
+
+        var window = new Window { Width = 400, Height = 200 * surfaces.Length, Content = panel };
+        window.Show();
+        window.UpdateLayout();
+        Assert.True(surfaces[0].Focus());
+        return new ClosingWindow(window);
+    }
+
     private static TerminalRenderFrame Frame(
         long revision,
         int cursorRow,
@@ -497,7 +643,12 @@ public sealed class ManagedTerminalAccessibilityTests
 
         public int ClearScrollbackCount { get; private set; }
 
-        public TerminalSelectionText SelectionText { get; init; } = new(string.Empty, false, false);
+        /// <summary>The text any selection gesture selects; Clear drops the selection.</summary>
+        public string SelectableText { get; init; } = string.Empty;
+
+        public Action<TerminalFindInput>? Finding { get; set; }
+
+        private TerminalSelectionText SelectionText { get; set; } = new(string.Empty, false, false);
 
         public ValueTask SendTextAsync(string text, CancellationToken cancellationToken)
         {
@@ -538,6 +689,7 @@ public sealed class ManagedTerminalAccessibilityTests
             CancellationToken cancellationToken)
         {
             Finds.Add(input);
+            Finding?.Invoke(input);
             return ValueTask.FromResult<TerminalFindResult?>(input.Query.Length == 0
                 ? TerminalFindResult.Empty
                 : new TerminalFindResult(3, (int)(((long)input.RequestedMatchIndex % 3 + 3) % 3), false));
@@ -548,6 +700,9 @@ public sealed class ManagedTerminalAccessibilityTests
             CancellationToken cancellationToken)
         {
             Selections.Add(selectionInput);
+            SelectionText = selectionInput.Phase == TerminalSelectionPhase.Clear
+                ? new TerminalSelectionText(string.Empty, false, false)
+                : new TerminalSelectionText(SelectableText, SelectableText.Length != 0, false);
             return ValueTask.CompletedTask;
         }
 
@@ -565,6 +720,11 @@ public sealed class ManagedTerminalAccessibilityTests
         public ValueTask<TerminalScreenSnapshot?> ReadScreenSnapshotAsync(
             CancellationToken cancellationToken) =>
             ValueTask.FromResult(ScreenSnapshots.TryDequeue(out var snapshot) ? snapshot : null);
+    }
+
+    private sealed class ClosingWindow(Window window) : IDisposable
+    {
+        public void Dispose() => window.Close();
     }
 
     private sealed class RecordingClipboard : IManagedTerminalClipboard
