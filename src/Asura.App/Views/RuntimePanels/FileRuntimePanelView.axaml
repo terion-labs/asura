@@ -257,6 +257,7 @@
                       <ControlTheme TargetType="MenuItem" x:DataType="vm:FileActionViewModel" BasedOn="{StaticResource {x:Type MenuItem}}">
                         <Setter Property="Command" Value="{Binding Command}" />
                         <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
+                        <Setter Property="InputGesture" Value="{Binding Gesture}" />
                       </ControlTheme>
                     </MenuFlyout.ItemContainerTheme>
                     <MenuFlyout.ItemTemplate>

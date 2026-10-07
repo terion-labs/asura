@@ -2066,6 +2066,85 @@ public sealed class RuntimePanelViewContractTests
         Assert.Contains("Running processes", visibleCopy, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The Files panel follows the Mac's list conventions: every listing jumps
+    /// to a typed name, the filter is the shared search field, the header mark
+    /// follows the connection instead of a fixed green dot, the "more" button
+    /// is a horizontal ellipsis, preview options are checkboxes, and icons sit
+    /// on the icon ramp rather than literal sizes.
+    /// </summary>
+    [Fact]
+    public void File_panel_lists_search_status_and_options_follow_mac_conventions()
+    {
+        var root = Assert.IsType<XElement>(LoadRuntimePanelView("FileRuntimePanelView").Root);
+        var listings = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "ListBox", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "ItemsSource"), "{Binding Entries}", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.Equal(3, listings.Length);
+        Assert.All(listings, list => Assert.Equal("True", AttributeValue(list, "IsTextSearchEnabled")));
+
+        var filter = Assert.Single(
+            root.Descendants(),
+            element => string.Equals(AttributeValue(element, "Name"), "FileFilterBox", StringComparison.Ordinal));
+        Assert.Equal("SearchField", filter.Name.LocalName);
+        Assert.Equal("{Binding FilterPlaceholder}", AttributeValue(filter, "PlaceholderText"));
+
+        var status = Assert.Single(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "PanelChrome.Status", StringComparison.Ordinal));
+        var mark = Assert.Single(status.Elements());
+        Assert.Equal("StatusMark", mark.Name.LocalName);
+        Assert.Equal("{Binding StatusTone}", AttributeValue(mark, "Tone"));
+        Assert.Equal("{Binding StatusDescription}", AttributeValue(mark, "Description"));
+
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => string.Equals(AttributeValue(element, "Symbol"), "MoreVertical", StringComparison.Ordinal));
+        Assert.Contains(
+            root.Descendants(),
+            element => string.Equals(AttributeValue(element, "Symbol"), "MoreCircle", StringComparison.Ordinal));
+        Assert.All(
+            root.Descendants().Where(element => string.Equals(element.Name.LocalName, "SymbolIcon", StringComparison.Ordinal)
+                && AttributeValue(element, "FontSize") is not null),
+            icon => Assert.StartsWith(
+                "{DynamicResource ShellIconSize",
+                AttributeValue(icon, "FontSize"),
+                StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Each chart states its unit so it can label the top of its scale, and
+    /// the failure that replaces the charts is opaque and hidden until the
+    /// panel says otherwise, so it never floats over a chart.
+    /// </summary>
+    [Fact]
+    public void Statistics_charts_state_their_units_and_the_failure_replaces_them()
+    {
+        var root = Assert.IsType<XElement>(LoadRuntimePanelView("StatisticsRuntimePanelView").Root);
+        var charts = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "TimeSeriesChart", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.All(charts, chart =>
+        {
+            Assert.NotNull(AttributeValue(chart, "Unit"));
+            Assert.Equal("{Binding SampleInterval}", AttributeValue(chart, "SampleInterval"));
+            Assert.NotNull(AttributeValue(chart, "LabelBrush"));
+        });
+        Assert.DoesNotContain(
+            root.Descendants().Select(element => AttributeValue(element, "Text")),
+            text => text?.Contains("auto scale", StringComparison.Ordinal) == true);
+
+        var unavailable = FindUniqueAccessibleElement(root, "Statistics unavailable");
+        Assert.Equal("{Binding ShowTerminalError, FallbackValue=False}", AttributeValue(unavailable, "IsVisible"));
+        Assert.Equal("{DynamicResource ShellSurfaceBrush}", AttributeValue(unavailable, "Background"));
+    }
+
     private static XElement OverflowMenu(XElement root) => Assert.Single(
         root.Descendants(),
         element => string.Equals(element.Name.LocalName, "MenuFlyout", StringComparison.Ordinal));

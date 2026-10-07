@@ -288,11 +288,13 @@ public sealed class TimeSeriesChart : Control
             var candidate = step * magnitude * scale;
             if (candidate >= target)
             {
-                return candidate;
+                // A binary scale rolls over at 1024, not 1000: "1 GiB" reads
+                // better than "1000 MiB".
+                return binary && candidate >= 1000 * scale ? 1024 * scale : candidate;
             }
         }
 
-        return 10 * magnitude * scale;
+        return binary && 10 * magnitude >= 1000 ? 1024 * scale : 10 * magnitude * scale;
     }
 
     protected override AutomationPeer OnCreateAutomationPeer() =>
