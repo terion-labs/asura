@@ -9482,9 +9482,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var eligibility = report.EnabledToolCount == 0
                 ? " No tools are enabled for agent runs."
                 : string.Empty;
-        var completed = report.CompletedAtUtc.ToString(
-            "yyyy-MM-dd HH:mm:ss 'UTC'",
-            System.Globalization.CultureInfo.InvariantCulture);
+        // In the reader's own time and date style, like every other date
+        // the app shows.
+        var completed = DisplayDates.Format(report.CompletedAtUtc);
         return new McpServerTestPresentation(
             stored.Revision,
             McpServerTestPresentationState.Succeeded,

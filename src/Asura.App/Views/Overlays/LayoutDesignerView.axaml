@@ -61,21 +61,21 @@
                     Click="OnLayoutSplitSlotRightClick"
                     ToolTip.Tip="Split left/right"
                     AutomationProperties.Name="{Binding OrderLabel, StringFormat={}Split {0} left and right}">
-                  <icons:SymbolIcon FontSize="12" Symbol="SplitVertical" />
+                  <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="SplitVertical" />
                 </Button>
                 <Button
                     Classes="IconButton"
                     Click="OnLayoutSplitSlotDownClick"
                     ToolTip.Tip="Split top/bottom"
                     AutomationProperties.Name="{Binding OrderLabel, StringFormat={}Split {0} top and bottom}">
-                  <icons:SymbolIcon FontSize="12" Symbol="SplitHorizontal" />
+                  <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="SplitHorizontal" />
                 </Button>
                 <Button
                     Classes="IconButton"
                     Click="OnLayoutRemoveSlotClick"
                     ToolTip.Tip="Remove panel"
                     AutomationProperties.Name="{Binding OrderLabel, StringFormat={}Remove {0}}">
-                  <icons:SymbolIcon FontSize="12" Symbol="Dismiss" />
+                  <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="Dismiss" />
                 </Button>
               </StackPanel>
             </Grid>
@@ -90,7 +90,7 @@
             <TextBlock
                 HorizontalAlignment="Center"
                 Classes="Muted"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
                 Text="{Binding OrderLabel}" />
           </StackPanel>
         </Grid>
@@ -104,18 +104,18 @@
         <Grid Margin="{controls:Inset Horizontal=Lg}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
           <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceMd}">
             <Border Width="30" Height="30" Background="{DynamicResource ShellAccentSoftBrush}" CornerRadius="{DynamicResource ShellControlCornerRadius}">
-              <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Grid" FontSize="16" Foreground="{DynamicResource ShellAccentBrush}" />
+              <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Grid" FontSize="{DynamicResource ShellIconSizeMd}" Foreground="{DynamicResource ShellAccentBrush}" />
             </Border>
             <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
               <TextBlock FontSize="{DynamicResource ShellFontSize16}" FontWeight="Bold" Text="Design custom layout" />
-              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize11}" Text="Split, drag, and resize panels — the canvas works like the workspace" />
+              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Split, drag, and resize panels — the canvas works like the workspace" />
             </StackPanel>
             <!-- Only news is worth a badge: "saved" is the resting state, and
                  a label saying so was furniture. -->
             <Border Classes="Keycap" IsVisible="{Binding LayoutDesignerEditor.IsDirty}"><TextBlock Text="{Binding LayoutDesignerEditor.DirtyStatus}" /></Border>
           </StackPanel>
           <Button Grid.Column="1" Classes="IconButton" Click="OnCloseOverlayClick" AutomationProperties.Name="Close layout designer">
-            <icons:SymbolIcon Symbol="Dismiss" FontSize="16" />
+            <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeMd}" />
           </Button>
         </Grid>
       </Border>
@@ -123,7 +123,7 @@
       <Border Grid.Row="1" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="0,0,0,1">
         <Grid Margin="{controls:Inset Horizontal=Lg, Vertical=Md}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
           <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize11}" FontWeight="SemiBold" Text="Layout name" />
+            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" FontWeight="SemiBold" Text="Layout name" />
             <TextBox x:Name="NewLayoutName" Text="{Binding LayoutDesignerEditor.Name, Mode=TwoWay}" PlaceholderText="My layout" AutomationProperties.Name="Layout name" />
           </StackPanel>
           <Button Grid.Column="1" VerticalAlignment="Bottom" Classes="SecondaryButton" Click="OnResetLayoutClick" Content="Reset" ToolTip.Tip="Restore the saved layout" />
@@ -200,17 +200,17 @@
                   Click="OnLayoutAddSlotClick"
                   AutomationProperties.Name="Add a panel">
                 <StackPanel HorizontalAlignment="Center" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                  <icons:SymbolIcon Symbol="Add" FontSize="14" />
+                  <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                   <TextBlock Text="Add panel" />
                 </StackPanel>
               </Button>
 
               <controls:SurfaceCard Tone="Notice" Padding="{DynamicResource ShellCardPaddingCompact}">
-                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="Panels are generic regions — assign connections later when you open the screen." TextWrapping="Wrap" />
+                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Panels are generic regions — assign connections later when you open the screen." TextWrapping="Wrap" />
               </controls:SurfaceCard>
 
               <components:ErrorNoticesView DataContext="{Binding LayoutDesignerEditor.ErrorNotices}" />
-              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding LayoutDesignerEditor.ValidationSummary}" TextWrapping="Wrap" />
+              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding LayoutDesignerEditor.ValidationSummary}" TextWrapping="Wrap" />
 
               <TextBlock Classes="SectionHeading" Text="Saved layouts" />
               <ItemsControl ItemsSource="{Binding Layouts}">
@@ -242,7 +242,7 @@
 
       <Border Grid.Row="3" Background="{DynamicResource ShellSurfaceRaisedBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="0,1,0,0">
         <Grid Margin="{controls:Inset Horizontal=Lg}" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-          <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize11}" Text="{Binding LayoutDesignerEditor.GridSummary}" />
+          <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding LayoutDesignerEditor.GridSummary}" />
           <Button Grid.Column="1" VerticalAlignment="Center" Classes="SecondaryButton" Click="OnCloseOverlayClick" Content="Cancel" />
           <Button Grid.Column="2" VerticalAlignment="Center" Classes="PrimaryButton" Click="OnSaveLayoutDesignerClick" Content="Save layout" IsEnabled="{Binding LayoutDesignerEditor.CanSave}" />
         </Grid>

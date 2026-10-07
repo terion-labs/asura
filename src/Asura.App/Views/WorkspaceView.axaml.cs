@@ -176,6 +176,19 @@ public sealed partial class WorkspaceView : UserControl
     public event EventHandler<RoutedEventArgs>? TerminateWorkspaceRequested;
     public event EventHandler<RoutedEventArgs>? SaveWorkspaceLayoutRequested;
 
+    /// <summary>Edit Workspace… from a rail tile's menu; the sender carries the workspace.</summary>
+    public event EventHandler<RoutedEventArgs>? EditWorkspaceRequested;
+
+    private void OnEditWorkspaceClick(object? sender, RoutedEventArgs e) =>
+        EditWorkspaceRequested?.Invoke(sender, e);
+
+    /// <summary>
+    /// Terminate Workspace… from a rail tile's menu: the same request, and the
+    /// same question, as the Workspaces menu's.
+    /// </summary>
+    private void OnRailTerminateWorkspaceClick(object? sender, RoutedEventArgs e) =>
+        OnWorkspacesMenuTerminateClick(sender, e);
+
     private void OnSaveWorkspaceLayoutClick(object? sender, RoutedEventArgs e) =>
         SaveWorkspaceLayoutRequested?.Invoke(sender, e);
 

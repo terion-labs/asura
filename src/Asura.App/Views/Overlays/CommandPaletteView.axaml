@@ -73,11 +73,11 @@
             <Border Padding="{controls:Inset Sm}" Background="Transparent" Tapped="OnActivateSearchResultTapped">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
               <Border Width="34" Height="34" VerticalAlignment="Center" Classes="IconTile">
-                <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="{Binding IconSymbol}" FontSize="14" />
+                <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="{Binding IconSymbol}" FontSize="{DynamicResource ShellIconSizeSm}" />
               </Border>
               <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
                 <TextBlock FontWeight="SemiBold" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
-                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Caption}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Caption}" TextTrimming="CharacterEllipsis" />
               </StackPanel>
               <TextBlock
                   Grid.Column="2"
@@ -99,14 +99,14 @@
           IsVisible="{Binding HasNoLauncherSearchResults}"
           AutomationProperties.LiveSetting="Polite"
           AutomationProperties.Name="Launcher search has no results">
-        <icons:SymbolIcon HorizontalAlignment="Center" Symbol="Search" FontSize="24" />
+        <icons:SymbolIcon HorizontalAlignment="Center" Symbol="Search" FontSize="{controls:TextScaled 24}" />
         <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="No results" />
         <TextBlock MaxWidth="420" HorizontalAlignment="Center" Classes="Muted" TextAlignment="Center" Text="{Binding LauncherSearchEmptyState}" TextWrapping="Wrap" />
       </StackPanel>
       <Border Grid.Row="2" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="0,1,0,0">
         <Grid Margin="{controls:Inset Horizontal=Md}" ColumnDefinitions="*,Auto">
-          <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Dimmed results can't be used right now." />
-          <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="↑↓ to choose · ↩ to open · esc to close" />
+          <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Dimmed results can't be used right now." />
+          <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="↑↓ to choose · ↩ to open · esc to close" />
         </Grid>
       </Border>
     </Grid>

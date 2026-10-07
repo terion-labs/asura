@@ -468,6 +468,7 @@
         CloseWorkspaceRequested="OnCloseWorkspaceClick"
         TerminateWorkspaceRequested="OnTerminateWorkspaceClick"
         SaveWorkspaceLayoutRequested="OnSaveWorkspaceLayoutClick"
+        EditWorkspaceRequested="OnEditWorkspaceClick"
         CreateWorkspaceRequested="OnCreateWorkspaceClick"
         RefreshAgentAuditRequested="OnRefreshAgentAuditClick"
         AuthorizeAgentSavedScreenTargetRequested="OnAuthorizeAgentSavedScreenTargetClick"
@@ -575,7 +576,7 @@
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
           <icons:SymbolIcon
               VerticalAlignment="Center"
-              FontSize="15"
+              FontSize="{DynamicResource ShellIconSizeMd}"
               Foreground="{DynamicResource ShellAccentBrush}"
               Symbol="{Binding Symbol}" />
           <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
@@ -585,7 +586,7 @@
                 Text="{Binding Title}"
                 TextTrimming="CharacterEllipsis" />
             <TextBlock
-                FontSize="{DynamicResource ShellFontSize9}"
+                FontSize="{DynamicResource ShellFontSize10}"
                 Foreground="{DynamicResource ShellMutedBrush}"
                 Text="{Binding Detail}"
                 TextTrimming="CharacterEllipsis" />
@@ -643,7 +644,7 @@
         <TextBlock
             HorizontalAlignment="Center"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize11}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             LineHeight="{DynamicResource ShellLineHeight11}"
             Text="{Binding WorkspaceIsolationStartingBody}"
             TextAlignment="Center"

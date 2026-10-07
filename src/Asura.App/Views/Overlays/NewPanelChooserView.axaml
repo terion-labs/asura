@@ -21,7 +21,7 @@
           <TextBlock Classes="Muted" Text="Choose a panel type" />
         </StackPanel>
         <Button Grid.Column="1" Classes="IconButton" Click="OnCloseClick" AutomationProperties.Name="Close panel chooser">
-          <icons:SymbolIcon Symbol="Dismiss" FontSize="14" />
+          <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeSm}" />
         </Button>
       </Grid>
       <controls:CardGridPanel MinItemWidth="128" Spacing="{DynamicResource ShellSpaceSm}">
@@ -111,7 +111,7 @@
                           Title="{Binding Name}"
                           Detail="{Binding Summary}">
                         <controls:ListItem.Leading>
-                          <Border Width="26" Height="26" Classes="IconTile Neutral"><icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Grid" FontSize="12" /></Border>
+                          <Border Width="26" Height="26" Classes="IconTile Neutral"><icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Grid" FontSize="{DynamicResource ShellIconSizeSm}" /></Border>
                         </controls:ListItem.Leading>
                         <controls:ListItem.Trailing>
                           <components:CountPill Value="{Binding PanelCount, StringFormat={}{0} panels}" />

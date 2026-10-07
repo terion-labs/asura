@@ -23,7 +23,7 @@
     <Border Background="{DynamicResource ShellSidebarBrush}" BorderBrush="{DynamicResource ShellSidebarBorderBrush}" BorderThickness="0,0,1,0">
       <Grid RowDefinitions="Auto,*">
         <Grid Margin="{controls:Inset Lg}" ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-          <TextBlock VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize17}" FontWeight="SemiBold" Text="Workspaces" />
+          <TextBlock VerticalAlignment="Center" Classes="Title2" Text="Workspaces" />
           <components:CountPill Grid.Column="1" Value="{Binding PeerCount}" />
           <Button
               x:Name="CreateWorkspaceButton"
@@ -32,7 +32,7 @@
               Click="OnCreateWorkspaceClick"
               ToolTip.Tip="New workspace"
               AutomationProperties.Name="Create a workspace">
-            <icons:SymbolIcon Symbol="Add" FontSize="14" />
+            <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
           </Button>
         </Grid>
 
@@ -58,7 +58,7 @@
                 <controls:ListItem.Trailing>
                   <icons:SymbolIcon
                       Symbol="Checkmark"
-                      FontSize="14"
+                      FontSize="{DynamicResource ShellIconSizeSm}"
                       Foreground="{DynamicResource ShellAccentBrush}"
                       IsVisible="{Binding IsCurrent}" />
                 </controls:ListItem.Trailing>
@@ -86,7 +86,6 @@
                 <TextBox
                     x:Name="WorkspaceNameInput"
                     FontSize="{DynamicResource ShellFontSize22}"
-                    FontWeight="SemiBold"
                     Text="{Binding Name, Mode=TwoWay}"
                     PlaceholderText="Operations"
                     AutomationProperties.Name="Workspace name" />
@@ -98,7 +97,7 @@
                     Click="OnRenameWorkspaceClick"
                     ToolTip.Tip="Rename this workspace"
                     AutomationProperties.Name="Rename this workspace">
-                  <icons:SymbolIcon Symbol="Edit" FontSize="14" />
+                  <icons:SymbolIcon Symbol="Edit" FontSize="{DynamicResource ShellIconSizeSm}" />
                 </Button>
               </Grid>
             </StackPanel>
@@ -227,13 +226,13 @@
                               Click="OnBrowseIsolationMountHostPathClick"
                               ToolTip.Tip="Choose a host folder"
                               AutomationProperties.Name="Choose a host folder">
-                            <icons:SymbolIcon Symbol="FolderOpen" FontSize="13" />
+                            <icons:SymbolIcon Symbol="FolderOpen" FontSize="{DynamicResource ShellIconSizeSm}" />
                           </Button>
                           <icons:SymbolIcon
                               Grid.Column="2"
                               VerticalAlignment="Center"
                               Symbol="ArrowRight"
-                              FontSize="12"
+                              FontSize="{DynamicResource ShellIconSizeSm}"
                               Foreground="{DynamicResource ShellMutedBrush}" />
                           <TextBox
                               Grid.Column="3"
@@ -257,11 +256,11 @@
                           </Border>
                           <Button
                               Grid.Column="5"
-                              Classes="IconButton Danger"
+                              Classes="IconButton"
                               Click="OnRemoveIsolationMountClick"
                               ToolTip.Tip="Remove this host mount"
                               AutomationProperties.Name="{Binding RemoveAccessibleName}">
-                            <icons:SymbolIcon Symbol="Delete" FontSize="13" />
+                            <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                           </Button>
                         </Grid>
                       </DataTemplate>
@@ -269,7 +268,7 @@
                   </ItemsControl>
                   <TextBlock
                       Classes="Muted"
-                      FontSize="{DynamicResource ShellFontSize10}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
                       Text="No host folders are mounted. The environment uses guest-only storage until you add one."
                       TextWrapping="Wrap"
                       IsVisible="{Binding HasNoIsolationMounts}" />
@@ -284,7 +283,7 @@
                         Grid.Column="1"
                         VerticalAlignment="Center"
                         Classes="Muted"
-                        FontSize="{DynamicResource ShellFontSize9}"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
                         Text="Read &amp; write lets processes in the environment change those host files."
                         TextWrapping="Wrap" />
                   </Grid>
@@ -406,7 +405,7 @@
                 <TextBlock
                     Margin="{controls:Inset Lg}"
                     Classes="Muted"
-                    FontSize="{DynamicResource ShellFontSize10}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
                     Text="This workspace opens empty. Add a connection or a screen below."
                     IsVisible="{Binding HasNoEntries}" />
 
@@ -434,7 +433,7 @@
                                 PointerReleased="OnEntryDragHandleReleased"
                                 ToolTip.Tip="Drag to reorder"
                                 AutomationProperties.Name="Reorder this tab">
-                              <icons:SymbolIcon VerticalAlignment="Center" Symbol="ReOrderDotsVertical" FontSize="13" Foreground="{DynamicResource ShellMutedBrush}" />
+                              <icons:SymbolIcon VerticalAlignment="Center" Symbol="ReOrderDotsVertical" FontSize="{DynamicResource ShellIconSizeSm}" Foreground="{DynamicResource ShellMutedBrush}" />
                             </Border>
                             <controls:IdentityTile
                                 TileSize="Small"
@@ -465,7 +464,7 @@
                                 Click="OnRemoveEntryClick"
                                 ToolTip.Tip="Remove from this workspace"
                                 AutomationProperties.Name="Remove this tab from the workspace">
-                              <icons:SymbolIcon Symbol="Dismiss" FontSize="11" />
+                              <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeXs}" />
                             </Button>
                           </StackPanel>
                         </controls:ListItem.Trailing>
@@ -483,7 +482,7 @@
                       Click="OnAddTabClick"
                       AutomationProperties.Name="Add a tab to this workspace">
                     <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                      <icons:SymbolIcon VerticalAlignment="Center" Symbol="Add" FontSize="13" />
+                      <icons:SymbolIcon VerticalAlignment="Center" Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                       <TextBlock VerticalAlignment="Center" Text="Add tab" />
                     </StackPanel>
                   </Button>
@@ -491,7 +490,7 @@
                       Grid.Column="1"
                       VerticalAlignment="Center"
                       Classes="Muted"
-                      FontSize="{DynamicResource ShellFontSize11}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
                       Text="A saved connection or screen, or a screen that belongs only to this workspace."
                       TextWrapping="Wrap" />
                 </Grid>
@@ -508,7 +507,7 @@
           <TextBlock
               x:Name="SelectTabPrompt"
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize12}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               Text="Select a tab above to set its name, what it opens, and its panels."
               IsVisible="False" />
 
@@ -522,8 +521,8 @@
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                   <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                     <TextBlock Classes="Eyebrow Accent" Text="{Binding KindLabel}" />
-                    <TextBlock FontSize="{DynamicResource ShellFontSize18}" FontWeight="SemiBold" Text="{Binding DisplayName}" TextWrapping="Wrap" />
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Detail}" TextWrapping="Wrap" />
+                    <TextBlock Classes="Title2" Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Detail}" TextWrapping="Wrap" />
                   </StackPanel>
                   <controls:StatusChip Grid.Column="1" VerticalAlignment="Top" Classes.Warning="{Binding HasMissingReference}" Content="{Binding ReferenceStatus}" />
                 </Grid>
@@ -566,7 +565,7 @@
                   <components:SectionHeader
                       Heading="Workspace-only screen"
                       Description="This screen belongs to the workspace. Nothing else opens it." />
-                  <TextBlock Grid.Column="1" Foreground="{DynamicResource ShellDangerBrush}" FontSize="{DynamicResource ShellFontSize9}" IsVisible="{Binding HasMissingDefinition}" Text="Repair required" />
+                  <TextBlock Grid.Column="1" Foreground="{DynamicResource ShellDangerBrush}" FontSize="{DynamicResource ShellFontSize10}" IsVisible="{Binding HasMissingDefinition}" Text="Repair required" />
                 </Grid>
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                   <controls:LabeledField Label="Screen name">
@@ -600,15 +599,15 @@
                       <controls:SurfaceCard Tone="Sunken" ClipsContent="True" Padding="{DynamicResource ShellCardPaddingCompact}" Margin="{controls:Inset Bottom=Sm}">
                         <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                           <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                            <controls:IdentityTile TileSize="Small" Tint="{DynamicResource ShellAccentSoftBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="NumberSymbol" />
+                            <controls:IdentityTile TileSize="Small" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="NumberSymbol" />
                             <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
                               <TextBlock Classes="Eyebrow Accent" Text="{Binding KindLabel}" />
-                              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Id.Value}" TextTrimming="CharacterEllipsis" />
+                              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Id.Value}" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                              <Button Classes="IconButton" Click="OnMovePanelEarlierClick" ToolTip.Tip="Move panel earlier" AutomationProperties.Name="Move panel earlier"><icons:SymbolIcon Symbol="ArrowUp" FontSize="10" /></Button>
-                              <Button Classes="IconButton" Click="OnMovePanelLaterClick" ToolTip.Tip="Move panel later" AutomationProperties.Name="Move panel later"><icons:SymbolIcon Symbol="ArrowDown" FontSize="10" /></Button>
-                              <Button Classes="IconButton" Click="OnRemovePanelClick" ToolTip.Tip="Remove panel" AutomationProperties.Name="Remove panel"><icons:SymbolIcon Symbol="Delete" FontSize="10" Foreground="{DynamicResource ShellDangerBrush}" /></Button>
+                              <Button Classes="IconButton" Click="OnMovePanelEarlierClick" ToolTip.Tip="Move panel earlier" AutomationProperties.Name="Move panel earlier"><icons:SymbolIcon Symbol="ArrowUp" FontSize="{DynamicResource ShellIconSizeXs}" /></Button>
+                              <Button Classes="IconButton" Click="OnMovePanelLaterClick" ToolTip.Tip="Move panel later" AutomationProperties.Name="Move panel later"><icons:SymbolIcon Symbol="ArrowDown" FontSize="{DynamicResource ShellIconSizeXs}" /></Button>
+                              <Button Classes="IconButton" Click="OnRemovePanelClick" ToolTip.Tip="Remove panel" AutomationProperties.Name="Remove panel"><icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeXs}" /></Button>
                             </StackPanel>
                           </Grid>
 
@@ -800,7 +799,7 @@
                 </controls:LabeledField>
                 <TextBlock
                     Classes="Muted"
-                    FontSize="{DynamicResource ShellFontSize9}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
                     Text="These values apply to every tab in this workspace unless a saved screen has a more specific override."
                     TextWrapping="Wrap" />
                 <ItemsControl ItemsSource="{Binding AgentPolicy.Capabilities}">
@@ -809,7 +808,7 @@
                       <Grid Margin="{controls:Inset Vertical=Sm}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
                         <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
                           <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" TextWrapping="Wrap" />
-                          <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Description}" TextWrapping="Wrap" />
+                          <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Description}" TextWrapping="Wrap" />
                         </StackPanel>
                         <Border Grid.Column="1" VerticalAlignment="Center" Classes="Segmented">
                           <Grid ColumnDefinitions="60,60,60">
@@ -824,7 +823,7 @@
                 </ItemsControl>
                 <TextBlock
                     Foreground="{DynamicResource ShellDangerBrush}"
-                    FontSize="{DynamicResource ShellFontSize9}"
+                    FontSize="{DynamicResource ShellFontSize10}"
                     Text="Choose an available, enabled provider profile and enter a valid model."
                     IsVisible="{CompiledBinding !AgentPolicy.IsValid}" />
               </StackPanel>
@@ -897,7 +896,7 @@
               Margin="{controls:Inset Left=Md}"
               VerticalAlignment="Center"
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               Text="{CompiledBinding ValidationSummary}"
               TextWrapping="Wrap"
               ToolTip.Tip="{CompiledBinding ValidationSummary}" />
