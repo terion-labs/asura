@@ -413,7 +413,7 @@
                       ItemsSource="{Binding KeybindingProfiles}"
                       SelectedItem="{Binding SelectedKeybindingProfile, Mode=OneWay}"
                       SelectionChanged="OnKeybindingProfileSelectionChanged"
-                      AutomationProperties.Name="Keybinding profile">
+                      AutomationProperties.Name="Keyboard shortcut profile">
                     <ComboBox.ItemTemplate>
                       <DataTemplate>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
@@ -448,7 +448,7 @@
 
               <controls:StateOverlay
                   Kind="Conflict"
-                  Heading="Keybinding conflicts block saving"
+                  Heading="Shortcut conflicts block saving"
                   Body="Your unsaved shortcuts remain in the editor. Resolve the marked conflicts, then save the same draft."
                   IsVisible="{Binding KeybindingEditorSession.HasConflicts}" />
 
@@ -547,7 +547,7 @@
                   </ItemsControl>
                   <controls:StateOverlay Grid.Row="1" Margin="{controls:Inset Xl}" IsVisible="{Binding KeybindingEditorSession.HasNoResults}"
                       Kind="NoResults"
-                      Heading="No matching keybindings"
+                      Heading="No matching shortcuts"
                       Body="Change the search query or choose another profile." />
                 </Grid>
               </controls:SurfaceCard>
