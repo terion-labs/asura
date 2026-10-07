@@ -25,7 +25,12 @@
       SplitRequested="OnSplitRequested"
       Title="{Binding Title}">
     <controls:PanelChrome.Status>
-      <Border Classes="StatusDot" Classes.available="{Binding IsConnected}" />
+      <!-- The connection's real state, named for the tooltip and VoiceOver;
+           with Differentiate Without Color the dot becomes a glyph. -->
+      <controls:StatusMark
+          x:Name="ConnectionStatusMark"
+          Tone="{Binding ConnectionStatusTone}"
+          Description="{Binding ConnectionStatusLabel}" />
     </controls:PanelChrome.Status>
 
     <controls:PanelChrome.Leading>
@@ -41,7 +46,7 @@
       <controls:LiveRegionTextBlock
           VerticalAlignment="Center"
           Classes="Muted"
-          FontSize="{DynamicResource ShellFontSize9}"
+          FontSize="{DynamicResource ShellSecondaryFontSize}"
           Text="{Binding StatusText}"
           AutomationProperties.LiveSetting="Polite"
           AutomationProperties.Name="Database state" />
@@ -68,39 +73,49 @@
                 ItemsSource="{Binding Databases}"
                 SelectedItem="{Binding SelectedDatabase, Mode=TwoWay}"
                 AutomationProperties.Name="Current database" />
-            <Button
+            <Border
                 VerticalAlignment="Center"
-                Classes="IconButton"
-                Click="OnEditConnectionClick"
-                IsVisible="{Binding IsSavedConnection}"
-                ToolTip.Tip="Edit connection"
-                AutomationProperties.Name="Edit this database connection">
-              <icons:SymbolIcon Symbol="Options" FontSize="13" />
+                Classes="ToolbarGroup"
+                IsVisible="{Binding IsSavedConnection}">
+              <Button
+                  Classes="IconButton ToolbarGroupAction"
+                  Click="OnEditConnectionClick"
+                  ToolTip.Tip="Edit connection…"
+                  AutomationProperties.Name="Edit this database connection">
+                <icons:SymbolIcon Symbol="Options" FontSize="{DynamicResource ShellIconSizeSm}" />
+              </Button>
+            </Border>
+            <!-- One button that says what it will do: Connect without a
+                 session, Disconnect with one. Reconnect is the occasional
+                 act, so it waits in the button's context menu. -->
+            <Button
+                x:Name="ConnectionButton"
+                MinWidth="96"
+                Height="26"
+                Padding="{controls:Inset Horizontal=Md}"
+                VerticalAlignment="Center"
+                VerticalContentAlignment="Center"
+                HorizontalContentAlignment="Center"
+                Classes="SecondaryButton"
+                Command="{Binding ToggleConnectionCommand}"
+                Content="{Binding ConnectionActionLabel}"
+                AutomationProperties.Name="{Binding ConnectionActionLabel}">
+              <Button.ContextMenu>
+                <ContextMenu>
+                  <MenuItem
+                      x:Name="ReconnectMenuItem"
+                      Header="Reconnect"
+                      Command="{Binding ReconnectCommand}" />
+                  <MenuItem
+                      Header="{Binding ConnectionActionLabel}"
+                      Command="{Binding ToggleConnectionCommand}" />
+                </ContextMenu>
+              </Button.ContextMenu>
             </Button>
-            <Button
-                MinWidth="86"
-                Height="26"
-                Padding="{controls:Inset Horizontal=Md}"
-                VerticalAlignment="Center"
-                VerticalContentAlignment="Center"
-                Classes="SecondaryButton"
-                Command="{Binding ConnectCommand}"
-                Content="{Binding ConnectButtonLabel}"
-                AutomationProperties.Name="Connect to the database" />
-            <Button
-                Height="26"
-                Padding="{controls:Inset Horizontal=Md}"
-                VerticalAlignment="Center"
-                VerticalContentAlignment="Center"
-                Classes="SecondaryButton"
-                Command="{Binding DisconnectCommand}"
-                Content="Disconnect"
-                IsVisible="{Binding IsConnected}"
-                AutomationProperties.Name="Disconnect from the database" />
             <TextBlock
                 VerticalAlignment="Center"
                 Classes="Muted"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
                 IsVisible="{Binding !HasConnectionTarget}"
                 Text="No connection — choose one from the connection menu."
                 TextTrimming="CharacterEllipsis" />

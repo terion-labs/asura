@@ -48,6 +48,7 @@ public sealed partial class CodeEditBox : UserControl
     {
         InitializeComponent();
         InitializeSqlIntelligence();
+        InitializeFileDrop();
         ActualThemeVariantChanged += (_, _) =>
         {
             ApplyTheme();

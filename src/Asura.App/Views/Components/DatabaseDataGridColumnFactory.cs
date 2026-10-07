@@ -112,11 +112,16 @@ internal static class DatabaseDataGridColumnFactory
 
         if (column.SortDescending is { } descending)
         {
-            header.Children.Add(new SymbolIcon
+            // Xs on the icon ramp: a sort chevron inside dense data, sized
+            // from the text so it grows with the text-size setting.
+            var sortGlyph = new SymbolIcon
             {
                 Symbol = descending ? Symbol.ArrowDown : Symbol.ArrowUp,
-                FontSize = 10,
-            });
+            };
+            sortGlyph.Bind(
+                SymbolIcon.FontSizeProperty,
+                sortGlyph.GetResourceObservable("ShellIconSizeXs"));
+            header.Children.Add(sortGlyph);
         }
 
         var sortState = column.SortDescending switch

@@ -55,7 +55,7 @@
             Click="OnZoomOutClick"
             ToolTip.Tip="Zoom out"
             AutomationProperties.Name="Zoom out of the ER diagram">
-          <icons:SymbolIcon Symbol="ZoomOut" FontSize="12" />
+          <icons:SymbolIcon Symbol="ZoomOut" FontSize="{DynamicResource ShellIconSizeSm}" />
         </Button>
         <Button
             x:Name="ZoomLevelButton"
@@ -68,7 +68,7 @@
           <TextBlock
               x:Name="ZoomLevelText"
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               Text="Fit" />
         </Button>
         <Button
@@ -76,7 +76,7 @@
             Click="OnZoomInClick"
             ToolTip.Tip="Zoom in"
             AutomationProperties.Name="Zoom into the ER diagram">
-            <icons:SymbolIcon Symbol="ZoomIn" FontSize="12" />
+            <icons:SymbolIcon Symbol="ZoomIn" FontSize="{DynamicResource ShellIconSizeSm}" />
           </Button>
       </StackPanel>
     </Border>

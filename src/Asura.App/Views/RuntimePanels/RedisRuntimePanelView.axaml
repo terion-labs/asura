@@ -47,12 +47,14 @@
          family every other identifier in the shell does. -->
     <Style Selector="controls|ListItem.RedisKeyRow /template/ TextBlock#PART_Title">
       <Setter Property="FontFamily" Value="{DynamicResource ShellDataFontFamily}" />
+      <!-- Keys share prefixes ("user:1042:sessions"), so both ends stay. -->
+      <Setter Property="TextTrimming" Value="{x:Static TextTrimming.PrefixCharacterEllipsis}" />
       <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
       <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
     </Style>
     <Style Selector="controls|ListItem.RedisKeyRow /template/ TextBlock#PART_Detail">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
     </Style>
   </UserControl.Styles>
   <controls:PanelChrome
@@ -66,7 +68,12 @@
       SplitRequested="OnSplitRequested"
       Title="{Binding Title}">
     <controls:PanelChrome.Status>
-      <Border Classes="StatusDot" Classes.available="{Binding IsConnected}" />
+      <!-- The connection's real state, named for the tooltip and VoiceOver;
+           with Differentiate Without Color the dot becomes a glyph. -->
+      <controls:StatusMark
+          x:Name="ConnectionStatusMark"
+          Tone="{Binding ConnectionStatusTone}"
+          Description="{Binding ConnectionStatusLabel}" />
     </controls:PanelChrome.Status>
 
     <controls:PanelChrome.Leading>
@@ -81,7 +88,7 @@
       <controls:LiveRegionTextBlock
           VerticalAlignment="Center"
           Classes="Muted"
-          FontSize="{DynamicResource ShellFontSize9}"
+          FontSize="{DynamicResource ShellSecondaryFontSize}"
           Text="{Binding StatusText}"
           AutomationProperties.LiveSetting="Polite"
           AutomationProperties.Name="Redis state" />
@@ -95,7 +102,7 @@
         <TextBlock
             VerticalAlignment="Center"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding ScanProgressText}"
             IsVisible="{Binding ShowBrowser}"
             AutomationProperties.Name="Redis key scan progress" />
@@ -103,7 +110,7 @@
             Grid.Column="1"
             VerticalAlignment="Center"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding ServerFactsText}"
             TextTrimming="CharacterEllipsis"
             AutomationProperties.Name="Redis server summary" />
@@ -124,15 +131,18 @@
                 SelectedItem="{Binding SelectedDatabase, Mode=TwoWay}"
                 IsEnabled="{Binding IsConnected}"
                 AutomationProperties.Name="Redis logical database" />
-            <Button
-                Classes="IconButton"
+            <Border
                 VerticalAlignment="Center"
-                Click="OnEditConnectionClick"
-                IsVisible="{Binding IsSavedConnection}"
-                ToolTip.Tip="Edit connection"
-                AutomationProperties.Name="Edit Redis connection">
-              <icons:SymbolIcon Symbol="Options" FontSize="{DynamicResource ShellFontSize13}" />
-            </Button>
+                Classes="ToolbarGroup"
+                IsVisible="{Binding IsSavedConnection}">
+              <Button
+                  Classes="IconButton ToolbarGroupAction"
+                  Click="OnEditConnectionClick"
+                  ToolTip.Tip="Edit connection…"
+                  AutomationProperties.Name="Edit Redis connection">
+                <icons:SymbolIcon Symbol="Options" FontSize="{DynamicResource ShellIconSizeSm}" />
+              </Button>
+            </Border>
             <!-- One button that says what it will do: Connect without a
                  session, Disconnect with one. -->
             <Button
@@ -150,7 +160,7 @@
             <TextBlock
                 VerticalAlignment="Center"
                 Classes="Muted"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
                 IsVisible="{Binding !HasConnectionTarget}"
                 Text="No connection — choose one from the connection menu."
                 TextTrimming="CharacterEllipsis" />
@@ -196,7 +206,7 @@
                     Command="{Binding ScanCommand}"
                     ToolTip.Tip="Restart scan"
                     AutomationProperties.Name="Restart Redis key scan">
-                  <icons:SymbolIcon Symbol="ArrowSync" FontSize="{DynamicResource ShellFontSize12}" />
+                  <icons:SymbolIcon Symbol="ArrowSync" FontSize="{DynamicResource ShellIconSizeSm}" />
                 </Button>
                 <!-- Creating a key is an occasional act beside a list you read
                      constantly, so it is an action here rather than a block of
@@ -209,7 +219,7 @@
                     IsEnabled="{Binding IsConnected}"
                     ToolTip.Tip="New key"
                     AutomationProperties.Name="Create a Redis key">
-                  <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellFontSize12}" />
+                  <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                 </Button>
               </Grid>
 
@@ -301,13 +311,13 @@
                         FontSize="{DynamicResource ShellFontSize13}"
                         FontWeight="SemiBold"
                         LineHeight="{DynamicResource ShellLineHeight13}"
+                        Classes="MiddleTruncated"
                         Text="{Binding SelectedKey.Name}"
-                        TextTrimming="CharacterEllipsis"
                         AutomationProperties.Name="Selected Redis key" />
                     <TextBlock
                         Classes="Muted"
-                        FontSize="{DynamicResource ShellFontSize10}"
-                        LineHeight="{DynamicResource ShellLineHeight10}"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
+                        LineHeight="{DynamicResource ShellLineHeight11}"
                         Text="{Binding SelectedKeyMetadata}" />
                   </StackPanel>
                   <StackPanel
@@ -371,7 +381,7 @@
                             Header="{Binding RemoveEntryLabel}"
                             AutomationProperties.Name="Remove the selected Redis entry">
                           <MenuItem.Icon>
-                            <icons:SymbolIcon Symbol="Delete" FontSize="{DynamicResource ShellFontSize12}" />
+                            <icons:SymbolIcon Symbol="Delete" FontSize="{DynamicResource ShellIconSizeSm}" />
                           </MenuItem.Icon>
                         </MenuItem>
                       </ContextMenu>
@@ -563,7 +573,7 @@
                                     Click="OnRemoveMutationEntryClick"
                                     ToolTip.Tip="Remove this row"
                                     AutomationProperties.Name="Remove this entry">
-                                  <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellFontSize10}" />
+                                  <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeXs}" />
                                 </Button>
                               </Grid>
                             </DataTemplate>
@@ -574,7 +584,7 @@
                             Click="OnAddMutationEntryClick"
                             AutomationProperties.Name="Add another entry">
                           <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                            <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellFontSize10}" />
+                            <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeXs}" />
                             <TextBlock Text="Add Row" />
                           </StackPanel>
                         </Button>
@@ -620,7 +630,7 @@
                     <DataTemplate>
                       <!-- Without this the picker showed the record's
                            ToString: "RedisSearchIndex { Name = …". -->
-                      <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Classes="MiddleTruncated" Text="{Binding Name}" />
                     </DataTemplate>
                   </ComboBox.ItemTemplate>
                 </ComboBox>
@@ -833,7 +843,7 @@
                       Click="OnCancelCreateKeyClick"
                       ToolTip.Tip="Close"
                       AutomationProperties.Name="Close the new key sheet">
-                    <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellFontSize10}" />
+                    <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeXs}" />
                   </Button>
                 </Grid>
               </Border>
@@ -921,7 +931,7 @@
                                 Click="OnRemoveNewKeyEntryClick"
                                 ToolTip.Tip="Remove this row"
                                 AutomationProperties.Name="Remove this new key entry">
-                              <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellFontSize10}" />
+                              <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeXs}" />
                             </Button>
                           </Grid>
                         </DataTemplate>
@@ -932,7 +942,7 @@
                         Click="OnAddNewKeyEntryClick"
                         AutomationProperties.Name="Add another new key entry">
                       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                        <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellFontSize10}" />
+                        <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeXs}" />
                         <TextBlock Text="Add Row" />
                       </StackPanel>
                     </Button>

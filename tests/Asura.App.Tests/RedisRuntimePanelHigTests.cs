@@ -65,14 +65,17 @@ public sealed class RedisRuntimePanelHigTests
     }
 
     [Fact]
-    public void SizesAndCountsUseTheCurrentCulture()
+    public void SizesReadAsTheRestOfTheAppAndCountsUseTheCurrentCulture()
     {
         var previous = CultureInfo.CurrentCulture;
         try
         {
+            // A size is written once, the same way everywhere in the app:
+            // never "1,5 KB" in an English interface.
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
-            Assert.Equal("1,5 KB", RedisKeyItemViewModel.FormatBytes(1_536));
-            Assert.Equal("1.000 B", RedisKeyItemViewModel.FormatBytes(1_000));
+            Assert.Equal(Asura.Application.ByteSize.Format(1_536), RedisKeyItemViewModel.FormatBytes(1_536));
+            Assert.Equal("1.5 KB", RedisKeyItemViewModel.FormatBytes(1_536));
+            Assert.Equal("1000 B", RedisKeyItemViewModel.FormatBytes(1_000));
             Assert.Equal("1.234 keys", RedisCounts.Count(1_234, "key", "keys"));
             Assert.Equal("1 key", RedisCounts.Count(1, "key", "keys"));
 
@@ -84,6 +87,103 @@ public sealed class RedisRuntimePanelHigTests
         {
             CultureInfo.CurrentCulture = previous;
         }
+    }
+
+    [Fact]
+    public void PubSubTimesAreTheReadersClockTime()
+    {
+        var previous = CultureInfo.CurrentCulture;
+        try
+        {
+            var received = new DateTimeOffset(2026, 8, 2, 21, 14, 9, TimeSpan.Zero);
+            var message = new RedisPubSubMessageViewModel(new Asura.Application.RedisPubSubMessage(
+                new Asura.Application.RedisSubscription(Asura.Application.RedisSubscriptionKind.Channel, "events"),
+                "events",
+                "hello",
+                received));
+            foreach (var culture in new[] { "en-US", "de-DE" })
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(culture);
+                Assert.Equal(DisplayDates.FormatTime(received), message.Time);
+                Assert.Equal(received.ToLocalTime().ToString("T", CultureInfo.CurrentCulture), message.Time);
+            }
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previous;
+        }
+    }
+
+    [Fact]
+    public async Task TheStatusMarkFollowsTheRealConnectionState()
+    {
+        using var panel = RedisPanelFixtures.Panel(new RedisPanelFixtures.StubSession(null));
+        await panel.Initialization;
+        Assert.Equal(StatusTone.Success, panel.ConnectionStatusTone);
+        Assert.Equal($"Connected to {panel.ConnectionDisplayName}", panel.ConnectionStatusLabel);
+
+        panel.ToggleConnectionCommand.Execute(null);
+        await WaitUntilAsync(() => !panel.IsConnected);
+        Assert.Equal(StatusTone.Neutral, panel.ConnectionStatusTone);
+        Assert.Equal("Not connected", panel.ConnectionStatusLabel);
+
+        using var refused = new RedisRuntimePanelViewModel(
+            Asura.Core.PanelInstanceId.New(),
+            "Redis",
+            new RefusingFactory(),
+            new RedisPanelFixtures.StubCatalog(),
+            connectionString: "localhost:6379",
+            timeProvider: TimeProvider.System);
+        await refused.Initialization;
+        Assert.False(refused.IsConnected);
+        Assert.Equal(StatusTone.Danger, refused.ConnectionStatusTone);
+        Assert.Equal($"Could not connect to {refused.ConnectionDisplayName}", refused.ConnectionStatusLabel);
+    }
+
+    [Fact]
+    public Task TheHeaderMarkNamesTheStateAndShowsAGlyphWithoutColour() =>
+        RunHeadlessAsync(async () =>
+        {
+            using var panel = RedisPanelFixtures.Panel(new RedisPanelFixtures.StubSession(null));
+            await panel.Initialization;
+            var view = new RedisRuntimePanelView { DataContext = panel };
+            var window = new Window { Width = 1_400, Height = 950, Content = view };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+
+                var mark = Assert.Single(view.GetVisualDescendants().OfType<StatusMark>());
+                Assert.Equal(StatusTone.Success, mark.Tone);
+                Assert.Equal(panel.ConnectionStatusLabel, AutomationProperties.GetName(mark));
+                Assert.Equal(panel.ConnectionStatusLabel, ToolTip.GetTip(mark));
+
+                window.Resources["ShellDifferentiateWithoutColor"] = true;
+                window.UpdateLayout();
+                Assert.True(mark.Glyph.IsVisible);
+                Assert.False(mark.Dot.IsVisible);
+
+                // The edit action sits in a toolbar group.
+                var group = Assert.Single(
+                    view.GetVisualDescendants().OfType<Border>(),
+                    border => border.Classes.Contains("ToolbarGroup"));
+                var edit = Assert.IsType<Button>(group.Child);
+                Assert.Contains("ToolbarGroupAction", edit.Classes, StringComparer.Ordinal);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+    private sealed class RefusingFactory : Asura.Application.IRedisPanelSessionFactory
+    {
+        public Task<Asura.Application.IRedisPanelSession> OpenAsync(
+            string connectionString,
+            Asura.Core.ConnectionProfile? tunnel,
+            CancellationToken cancellationToken) =>
+            Task.FromException<Asura.Application.IRedisPanelSession>(
+                new InvalidOperationException("connection refused"));
     }
 
     [Fact]
