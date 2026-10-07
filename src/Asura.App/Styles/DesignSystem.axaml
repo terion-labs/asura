@@ -73,9 +73,11 @@
         <Setter Property="Background" Value="{DynamicResource ShellSidebarBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource ShellSidebarBorderBrush}" />
       </Style>
+      <!-- A notice is information, in its own tone. Drawn in the accent it
+           read as a warning whenever the accent was orange or yellow. -->
       <Style Selector="^:tone-notice">
-        <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource ShellNoticeBorderBrush}" />
+        <Setter Property="Background" Value="{DynamicResource ShellInfoSoftBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ShellInfoBorderBrush}" />
       </Style>
       <Style Selector="^:tone-danger">
         <Setter Property="Background" Value="{DynamicResource ShellDangerSoftBrush}" />
@@ -952,9 +954,9 @@
         <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
       </Style>
       <Style Selector="^.Notice">
-        <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource ShellNoticeBorderBrush}" />
-        <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+        <Setter Property="Background" Value="{DynamicResource ShellInfoSoftBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ShellInfoBorderBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource ShellInfoBrush}" />
       </Style>
 
       <Style Selector="^:tone-default">
@@ -968,9 +970,9 @@
         <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
       </Style>
       <Style Selector="^:tone-notice">
-        <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource ShellNoticeBorderBrush}" />
-        <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+        <Setter Property="Background" Value="{DynamicResource ShellInfoSoftBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ShellInfoBorderBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource ShellInfoBrush}" />
       </Style>
       <Style Selector="^:tone-danger">
         <Setter Property="Background" Value="{DynamicResource ShellDangerSoftBrush}" />
@@ -1483,6 +1485,9 @@
       </Style>
       <Style Selector="^:tone-success /template/ icons|SymbolIcon#PART_Glyph">
         <Setter Property="Foreground" Value="{DynamicResource ShellSuccessBrush}" />
+      </Style>
+      <Style Selector="^:tone-notice /template/ icons|SymbolIcon#PART_Glyph">
+        <Setter Property="Foreground" Value="{DynamicResource ShellInfoBrush}" />
       </Style>
     </ControlTheme>
 

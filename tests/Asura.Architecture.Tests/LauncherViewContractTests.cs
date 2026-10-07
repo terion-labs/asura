@@ -402,7 +402,7 @@ public sealed class LauncherViewContractTests
         AssertStyleSetter(
             activeNavigationStyle,
             "Foreground",
-            "{DynamicResource ShellAccentBrush}");
+            "{DynamicResource ShellAccentTextBrush}");
         AssertStyleSetter(activeNavigationStyle, "FontWeight", "Medium");
         AssertStyleSetter(
             activeNavigationStyle,
@@ -419,7 +419,7 @@ public sealed class LauncherViewContractTests
         AssertStyleSetter(
             activeLabelStyle,
             "Foreground",
-            "{DynamicResource ShellAccentBrush}");
+            "{DynamicResource ShellAccentTextBrush}");
     }
 
     private static XElement FindNamedElement(XElement root, string name) =>

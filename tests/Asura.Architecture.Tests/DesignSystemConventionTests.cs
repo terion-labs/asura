@@ -232,11 +232,11 @@ public sealed partial class DesignSystemConventionTests
 
     /// <summary>
     /// How many literal colours the application's markup may still contain.
-    /// The survivors are deliberate — the appearance page's mode-preview tiles
-    /// render each mode's own values, which must not follow the live theme —
-    /// but a new one is a theme and a contrast guarantee silently bypassed.
+    /// None: even the appearance page's mode-preview tiles draw each mode from
+    /// the mapper's published preview tokens. A new literal is a theme and a
+    /// contrast guarantee silently bypassed.
     /// </summary>
-    private const int LiteralColourBudget = 14;
+    private const int LiteralColourBudget = 0;
 
     [Fact]
     public void Literal_colours_in_application_markup_only_ever_decrease()

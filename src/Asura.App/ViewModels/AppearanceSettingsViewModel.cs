@@ -67,7 +67,7 @@ public sealed class AppearanceSettingsViewModel : ObservableObject, IDisposable
 
     public string ThemeAccent => ActiveTheme.Accent.Kind == AccentPreferenceKind.Custom
         ? ActiveTheme.Accent.CustomColor?.ToString()
-            ?? ThemePreference.BronzeFallback.ToString()
+            ?? ThemePreference.BrandAccent.ToString()
         : "Follow system accent";
 
     public bool ShowTabBar => ActiveTheme.ShowTabBar;

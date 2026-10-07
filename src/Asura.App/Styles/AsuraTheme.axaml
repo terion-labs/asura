@@ -139,7 +139,8 @@
     <Setter Property="BorderThickness" Value="0,0,0,1" />
   </Style>
 
-  <!-- File actions live inside one macOS-style toolbar capsule. Their disabled
+  <!-- File actions live inside one macOS-style toolbar group: a capsule on the
+       Liquid Glass profile, a rounded rectangle elsewhere. Their disabled
        state must remain quiet; the Fluent template otherwise paints a separate
        rounded lozenge behind every unavailable action. -->
   <Style Selector="Border.FileToolbarGroup">
@@ -147,7 +148,7 @@
     <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellGroupCornerRadius}" />
   </Style>
 
   <Style Selector="Button.IconButton.FileToolbarAction">
@@ -341,7 +342,7 @@
   </Style>
 
   <Style Selector="Button.TextButton.Accent">
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
   </Style>
 
   <!--
@@ -440,7 +441,7 @@
 
   <Style Selector="Button.NavButton.active">
     <Setter Property="Background" Value="{DynamicResource ShellSidebarSelectionBrush}" />
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
     <Setter Property="FontWeight" Value="Medium" />
     <Setter Property="AutomationProperties.ItemStatus" Value="Current page" />
   </Style>
@@ -454,7 +455,7 @@
   </Style>
 
   <Style Selector="Button.NavButton.active TextBlock">
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
   </Style>
 
   <!-- The current route's icon carries the accent, as in the reference nav. -->
@@ -683,7 +684,7 @@
   </Style>
 
   <Style Selector="TextBlock.Eyebrow.Accent">
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
   </Style>
 
   <!-- An eyebrow that labels a region rather than a single value. Small caps
@@ -972,7 +973,7 @@
   </Style>
 
   <Style Selector="RadioButton.PresetCard:checked TextBlock.PresetName">
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
   </Style>
 
   <Style Selector="RadioButton.PresetCard icons|SymbolIcon.PresetCheck">

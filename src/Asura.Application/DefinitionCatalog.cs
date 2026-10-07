@@ -1607,7 +1607,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
             && IsKnownDefaultWorkspaceSeed(workspace)
             && string.Equals(
             workspace.Accent,
-            ThemePreference.BronzeFallback.ToString(),
+            ThemePreference.LegacyBronzeSeed.ToString(),
             StringComparison.OrdinalIgnoreCase);
         if (!hasLegacyName && !hasLegacySeedAccent)
         {

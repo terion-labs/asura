@@ -26,6 +26,12 @@ public sealed class HostAccessibilityPreferencesSourceTests
             HostAccessibilityPreferences.Default,
             HostAccessibilityPreferenceMapping.FromMacOs(null, null));
         Assert.Equal(
+            new HostAccessibilityPreferences(false, true, 1, differentiateWithoutColor: true),
+            HostAccessibilityPreferenceMapping.FromMacOs(
+                reducedMotion: false,
+                reducedTransparency: true,
+                differentiateWithoutColor: true));
+        Assert.Equal(
             new HostAccessibilityPreferences(true, true, 1.5),
             HostAccessibilityPreferenceMapping.FromWindows(
                 animationsEnabled: false,

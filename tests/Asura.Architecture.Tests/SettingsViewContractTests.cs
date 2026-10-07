@@ -587,7 +587,7 @@ public sealed class SettingsViewContractTests
             "OnAccentModeSelectionChanged",
             AttributeValue(accentMode, "SelectionChanged"));
         Assert.Equal(
-            new[] { "Follow host", "Asura bronze", "Custom" },
+            new[] { "Follow host", "Asura orange", "Custom" },
             accentMode.Elements()
                 .Where(element => string.Equals(element.Name.LocalName, "ComboBoxItem", StringComparison.Ordinal))
                 .Select(element => AttributeValue(element, "Content"))

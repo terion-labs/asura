@@ -37,8 +37,8 @@ public sealed partial class App : Avalonia.Application
     private readonly AppearancePreviewCoordinator? _appearancePreview;
     private IPlatformSettings? _platformSettings;
     private AvaloniaHostAppearanceAdapter? _hostAppearance;
+    private IHostSystemPaletteSource? _hostSystemPalette;
     private INotifyCollectionChanged? _windowCollection;
-    private DispatcherTimer? _applicationIconRefreshTimer;
     private readonly HashSet<MainWindowViewModel> _additionalMainWindowViewModels = [];
     private bool _desktopExitStarted;
 
@@ -56,6 +56,7 @@ public sealed partial class App : Avalonia.Application
         "high-contrast",
         "motion-disabled",
         "materials-enabled",
+        "differentiate-without-color",
     ];
 
     private static readonly int[] ScalableFontSizes =
@@ -328,25 +329,26 @@ public sealed partial class App : Avalonia.Application
         var hostAccessibilityPreferences = _hostAccessibilityPreferences
             ?? throw new InvalidOperationException(
                 "The desktop composition root did not provide host accessibility preferences.");
+        // AppKit's semantic colours and the Multicolor accent are read on macOS
+        // only; elsewhere the mapper's literal palette is the answer. The Dock
+        // icon is not touched at runtime: Assets.car carries every appearance
+        // the system can ask for, including Clear and Tinted.
+        _hostSystemPalette = OperatingSystem.IsMacOS()
+            ? new MacOsSystemPaletteSource()
+            : null;
         _hostAppearance = new AvaloniaHostAppearanceAdapter(
             _platformSettings,
-            hostAccessibilityPreferences);
+            hostAccessibilityPreferences,
+            _hostSystemPalette);
         _platformSettings.ColorValuesChanged += OnPlatformColorValuesChanged;
         hostAccessibilityPreferences.Changed += OnHostAccessibilityPreferencesChanged;
         hostAccessibilityPreferences.Start();
+        _hostSystemPalette?.Changed += OnHostSystemPaletteChanged;
+        _hostSystemPalette?.Start();
         (_appearancePreview ?? throw new InvalidOperationException(
             "The desktop composition root did not provide appearance preview state."))
             .Changed += OnAppearancePreviewChanged;
         ApplyAppearance();
-        if (OperatingSystem.IsMacOSVersionAtLeast(26))
-        {
-            _applicationIconRefreshTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromSeconds(2),
-            };
-            _applicationIconRefreshTimer.Tick += OnApplicationIconRefresh;
-            _applicationIconRefreshTimer.Start();
-        }
 
         _definitionCatalog?.Changed += OnDefinitionCatalogChanged;
 
@@ -359,18 +361,22 @@ public sealed partial class App : Avalonia.Application
 
     }
 
-    private void OnApplicationIconRefresh(object? sender, EventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        RefreshApplicationIcon();
-    }
-
     private void OnPlatformColorValuesChanged(object? sender, PlatformColorValues values)
     {
         _ = sender;
         _ = values;
+        // Avalonia and AppKit announce the same change separately and in no
+        // fixed order; reading the host palette here means whichever arrives
+        // first already sees both.
+        _hostSystemPalette?.Refresh();
         ApplyAppearance();
+    }
+
+    private void OnHostSystemPaletteChanged(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        Dispatcher.UIThread.Post(ApplyAppearance);
     }
 
     private void OnDefinitionCatalogChanged(object? sender, EventArgs e)
@@ -414,11 +420,12 @@ public sealed partial class App : Avalonia.Application
 
     private void ApplyAppearance()
     {
-        var resources = ResolveAppearanceResources();
-        RefreshApplicationIcon();
+        var theme = ResolveEffectiveTheme();
+        var resources = MapAppearanceResources(theme);
 
         RequestedThemeVariant = resources.ThemeVariant;
         ApplyApplicationResources(resources);
+        ApplyThemePreviewResources(theme);
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             foreach (var window in desktop.Windows)
@@ -430,87 +437,83 @@ public sealed partial class App : Avalonia.Application
         }
     }
 
-    private void RefreshApplicationIcon()
+    private EffectiveAppearanceResources ResolveAppearanceResources() =>
+        MapAppearanceResources(ResolveEffectiveTheme());
+
+    /// <summary>
+    /// The stored theme against the live host. A workspace's colours mark the
+    /// workspace — its rail tile and its tab chip — and never replace the
+    /// person's accent, which belongs to the whole system.
+    /// </summary>
+    private EffectiveTheme ResolveEffectiveTheme()
     {
-        var hostAccent = _hostAppearance?.GetCurrent().Accent;
-        if (hostAccent is { } accent)
+        var hostAppearance = _hostAppearance?.GetCurrent()
+            ?? throw new InvalidOperationException("Platform appearance settings are unavailable.");
+        return StoredTheme.Resolve(hostAppearance);
+    }
+
+    private EffectiveAppearanceResources MapAppearanceResources(EffectiveTheme theme) =>
+        EffectiveAppearanceResourceMapper.Map(
+            theme,
+            CurrentHostPalette.For(theme.Appearance));
+
+    private HostSystemPalette CurrentHostPalette =>
+        _hostAppearance?.SystemPalette ?? HostSystemPalette.None;
+
+    /// <summary>
+    /// The Theme tiles in Settings draw what each mode would actually look
+    /// like, so they are mapped the same way as the live appearance — with the
+    /// current profile, contrast and host colours — once per mode.
+    /// </summary>
+    private void ApplyThemePreviewResources(EffectiveTheme theme)
+    {
+        foreach (var appearance in new[] { EffectiveAppearanceMode.Dark, EffectiveAppearanceMode.Light })
         {
-            _ = MacOsApplicationIcon.TryApply(accent);
+            var preview = MapAppearanceResources(theme with { Appearance = appearance });
+            var prefix = $"ShellThemePreview{appearance}";
+            Publish($"{prefix}BackgroundBrush", Brush(preview.Background));
+            Publish($"{prefix}BorderBrush", Brush(preview.Border));
+            Publish($"{prefix}MutedBrush", Brush(preview.MutedText));
+            Publish($"{prefix}SuccessBrush", Brush(preview.Success));
+            Publish($"{prefix}AccentTextBrush", Brush(preview.AccentText));
         }
     }
 
     /// <summary>
-    /// The accent of the workspace that is open, when it has one of its own. A
-    /// workspace accent is a temporary override of the application's: it lasts
-    /// while that workspace is open and leaves nothing behind, which is why it
-    /// is held here rather than written to the stored theme.
+    /// A chrome surface — sidebar, rail — carrying the shell's chrome opacity,
+    /// or solid when the backdrop is off and there is nothing behind it to show.
     /// </summary>
-    private RgbColor? _workspaceAccent;
+    private SolidColorBrush Chrome(Color color, bool chromeIsGlass) =>
+        WithAlpha(color, ChromeAlpha(chromeIsGlass));
 
-    public void SetWorkspaceAccent(RgbColor? accent)
-    {
-        if (_workspaceAccent == accent)
-        {
-            return;
-        }
+    /// <summary>
+    /// A content surface — a panel, a card, the terminal — which is solid
+    /// unless glass panels were asked for. Text, diffs and grids are read here,
+    /// and they stay legible whatever the desktop picture is.
+    /// </summary>
+    private SolidColorBrush Content(Color color) => WithAlpha(color, ContentAlpha);
 
-        _workspaceAccent = accent;
-        ApplyAppearance();
-    }
+    /// <summary>
+    /// The same, as a number, for the surfaces that are drawn rather than
+    /// filled — a terminal paints its own background from its palette.
+    /// </summary>
+    private double SurfaceOpacity => ContentAlpha / (double)byte.MaxValue;
 
-    private EffectiveAppearanceResources ResolveAppearanceResources()
-    {
-        var preference = _appearancePreview?.Current.Theme
-            ?? _definitionCatalog?.Snapshot.Themes
-            .FirstOrDefault(item => item.Value.Id == ThemePreference.Default.Id)?.Value
-            ?? ThemePreference.Default;
-        var hostAppearance = _hostAppearance?.GetCurrent()
-            ?? throw new InvalidOperationException("Platform appearance settings are unavailable.");
-        var theme = preference.Resolve(hostAppearance);
-        if (_workspaceAccent is { } workspaceAccent)
-        {
-            theme = theme with
-            {
-                Accent = workspaceAccent,
-                AccentSource = AccentSource.Custom,
-            };
-        }
-
-        return EffectiveAppearanceResourceMapper.Map(theme);
-    }
+    private static SolidColorBrush WithAlpha(Color color, byte alpha) =>
+        new(Color.FromArgb(alpha, color.R, color.G, color.B));
 
     /// <summary>
     /// Publishes one appearance token, and only when it has actually changed.
     ///
     /// Every write to the application's resources invalidates each control
     /// bound to that key, anywhere in the window. There are seventy of these
-    /// and almost all of them are the same before and after — a workspace
-    /// accent moves the accent family and nothing else — so rewriting the set
-    /// wholesale restyled the entire tree to change fifteen colours. That is
-    /// most of a third of a second on every workspace switch.
+    /// and almost all of them are the same before and after, so rewriting the
+    /// set wholesale restyled the entire tree to change a handful of colours.
     ///
     /// Brushes are compared by colour rather than by reference, because each
     /// pass builds new ones; without that every write still looks like a
     /// change and nothing is saved.
     /// </summary>
-    /// <summary>
-    /// A surface colour, carrying the shell's surface opacity — or solid, when
-    /// the backdrop is off and there is nothing behind it to show.
-    /// </summary>
-    private SolidColorBrush Translucent(Color color) =>
-        new(Color.FromArgb(
-            WindowIsTranslucent ? ShellSurfaceAlpha : byte.MaxValue,
-            color.R,
-            color.G,
-            color.B));
-
-    /// <summary>
-    /// The same, as a number, for the surfaces that are drawn rather than
-    /// filled — a terminal paints its own background from its palette.
-    /// </summary>
-    private double SurfaceOpacity =>
-        WindowIsTranslucent ? ShellSurfaceAlpha / (double)byte.MaxValue : 1;
-
     private void Publish(string key, object? value)
     {
         if (Resources.TryGetValue(key, out var existing)
@@ -534,16 +537,6 @@ public sealed partial class App : Avalonia.Application
         };
 
     /// <summary>
-    /// How much of the base surface survives.
-    ///
-    /// The surface stays the dark it always was — this is a hint of what is
-    /// behind the window, not a window you can see through. Seventy per cent
-    /// let so much light in that the shell read as pale bands around dark
-    /// panels; the earlier eighty-five looked like nothing only because the
-    /// window was still opaque at the time and none of it was reaching the
-    /// screen. This is the number to move in either direction.
-    /// </summary>
-    /// <summary>
     /// How solid the base surface is painted.
     ///
     /// Nothing at all when the material's own translucency is left to stand:
@@ -564,30 +557,30 @@ public sealed partial class App : Avalonia.Application
         byte.MaxValue);
 
     /// <summary>
-    /// How solid the surfaces standing on the base are.
+    /// How solid the chrome standing on the base is: the sidebar and the rail.
     ///
-    /// They were fully opaque, which made the shell a pale frame around dark
-    /// slabs — and the frame is what read as a bar along the top, because the
-    /// chrome is the largest run of base surface not covered by a panel. The
-    /// system title bar was quietened and the band stayed, which is what ruled
-    /// that out and left this. Nearly solid, because text is read on these.
+    /// Liquid Glass makes the chrome the glass layer, so it carries the base's
+    /// own opacity. The other profiles keep it most of the way to solid —
+    /// halfway between the base and opaque — because labels are read on it.
+    /// Glass panels, where asked for, put the content at the base opacity too,
+    /// and the chrome follows rather than standing more solid than the panels.
     /// </summary>
-    /// <summary>
-    /// How solid the surfaces standing on the base are.
-    ///
-    /// As glass they carry the base's own opacity, so the shell reads as one
-    /// sheet of material rather than panels standing on it. Otherwise they sit
-    /// most of the way to solid — halfway between the base and opaque — which
-    /// is what the shell looked like before the choice existed, and text is
-    /// read on them.
-    /// </summary>
-    private byte ShellSurfaceAlpha => WindowHasGlassPanels
-        ? StoredOpacityAlpha
-        : (byte)Math.Clamp(
-            StoredOpacityAlpha + ((byte.MaxValue - StoredOpacityAlpha) / 2),
-            0,
-            byte.MaxValue);
+    private byte ChromeAlpha(bool chromeIsGlass) => !WindowIsTranslucent
+        ? byte.MaxValue
+        : chromeIsGlass || WindowHasGlassPanels
+            ? StoredOpacityAlpha
+            : (byte)Math.Clamp(
+                StoredOpacityAlpha + ((byte.MaxValue - StoredOpacityAlpha) / 2),
+                0,
+                byte.MaxValue);
 
+    /// <summary>
+    /// How solid the content surfaces are: opaque, unless the person asked for
+    /// glass panels and the host allows translucency at all.
+    /// </summary>
+    private byte ContentAlpha => WindowHasGlassPanels
+        ? StoredOpacityAlpha
+        : byte.MaxValue;
 
     /// <summary>
     /// Whether the host has asked for less transparency. The shell answers it
@@ -682,30 +675,24 @@ public sealed partial class App : Avalonia.Application
         // setting, and an operating system that says so gets a solid surface.
         Publish(
             "ShellWindowBackdropBrush",
-            new SolidColorBrush(Color.FromArgb(
-                WindowIsTranslucent
-                    ? ShellBackdropAlpha
-                    : byte.MaxValue,
-                resources.Background.R,
-                resources.Background.G,
-                resources.Background.B)));
-        Publish("ShellSidebarBrush", Translucent(resources.SidebarSurface));
+            WithAlpha(
+                resources.Background,
+                WindowIsTranslucent ? ShellBackdropAlpha : byte.MaxValue));
+        Publish("ShellSidebarBrush", Chrome(resources.SidebarSurface, resources.ChromeIsGlass));
         // The same swatch as glass, for the one sidebar-coloured surface that
         // floats over the app's own content. It stands on a blurred snapshot
         // of what it covers — live backdrop blur is not available inside the
-        // window — so it can afford to be genuinely translucent: the blur
-        // beneath is what keeps the conversation legible.
+        // window — so it can afford to be translucent while the blur beneath
+        // keeps the conversation legible. With transparency reduced, contrast
+        // increased, or translucency turned off, it is solid and the blur goes.
         Publish(
             "ShellSidebarOverlayBrush",
-            new SolidColorBrush(Color.FromArgb(
-                0xCC,
-                resources.SidebarSurface.R,
-                resources.SidebarSurface.G,
-                resources.SidebarSurface.B)));
+            WithAlpha(resources.SidebarSurface, WindowIsTranslucent ? (byte)0xCC : byte.MaxValue));
+        Publish("ShellBlurBehindEnabled", WindowIsTranslucent);
         Publish("ShellSidebarBorderBrush", Brush(resources.SidebarBorder));
         Publish("ShellSidebarSelectionBrush", Brush(resources.SidebarSelectionSurface));
-        Publish("ShellSurfaceBrush", Translucent(resources.Surface));
-        Publish("ShellSurfaceRaisedBrush", Translucent(resources.RaisedSurface));
+        Publish("ShellSurfaceBrush", Content(resources.Surface));
+        Publish("ShellSurfaceRaisedBrush", Content(resources.RaisedSurface));
         // The same surface, solid, for the ones that open in a window of their
         // own. A flyout is its own top level with no material behind it, so the
         // shell's translucency there is not glass — it is a hole, showing
@@ -719,22 +706,25 @@ public sealed partial class App : Avalonia.Application
         // reads best, and it is not one of the surfaces that switch governs.
         Publish(
             "ShellSurfaceOverlayBrush",
-            new SolidColorBrush(Color.FromArgb(
-                WindowIsTranslucent ? StoredOpacityAlpha : byte.MaxValue,
-                resources.RaisedSurface.R,
-                resources.RaisedSurface.G,
-                resources.RaisedSurface.B)));
-        // A veil is glass over the app's own content: a genuinely translucent
-        // wash of the background tone, weighted toward black so it reads as a
-        // distinct darker band even over its own colour — and anything that
-        // slides beneath it stays visible, dimmed rather than hidden.
+            WithAlpha(
+                resources.RaisedSurface,
+                WindowIsTranslucent ? StoredOpacityAlpha : byte.MaxValue));
+        // A veil is glass over the app's own content: a translucent wash of the
+        // background tone, weighted toward black so it reads as a distinct
+        // darker band even over its own colour. Without translucency it is the
+        // same band, solid.
         Publish(
             "ShellVeilBrush",
             new SolidColorBrush(Color.FromArgb(
-                0xA8,
+                WindowIsTranslucent ? (byte)0xA8 : byte.MaxValue,
                 (byte)(resources.Background.R / 2),
                 (byte)(resources.Background.G / 2),
                 (byte)(resources.Background.B / 2))));
+        // The wash behind a modal overlay, and the overlay's own shadow: both
+        // lighter in a light theme, where a near-black scrim blacked the window
+        // out and a dark shadow read as a smudge.
+        Publish("ShellScrimBrush", Brush(resources.Scrim));
+        Publish("ShellOverlayShadow", resources.OverlayShadow);
         Publish("ShellSurfaceHoverBrush", Brush(resources.HoverSurface));
         Publish("ShellBorderBrush", Brush(resources.Border));
         Publish("ShellControlSurfaceBrush", Brush(resources.ControlSurface));
@@ -743,16 +733,27 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellTextBrush", Brush(resources.Text));
         Publish("ShellMutedBrush", Brush(resources.MutedText));
         Publish("ShellAccentBrush", Brush(resources.Accent));
+        // The accent as text — a link-style button, the current page — held
+        // to 4.5:1 on every surface, where the fill only has to read as a fill.
+        Publish("ShellAccentTextBrush", Brush(resources.AccentText));
         // The flyout's shadow carries the accent in its inner glow, so it is
-        // composed here where the live accent is known — a workspace retint
-        // re-runs this and the glow follows.
+        // composed here where the live accent is known. A light theme takes a
+        // softer drop, as the overlay shadow does.
+        var accentHex = $"{resources.Accent.R:X2}{resources.Accent.G:X2}{resources.Accent.B:X2}";
         Publish(
             "ShellFlyoutShadow",
             BoxShadows.Parse(
-                "0 8 48 0 #8C000000, 0 2 14 0 #59000000, inset 0 0 40 0 "
-                + $"#38{resources.Accent.R:X2}{resources.Accent.G:X2}{resources.Accent.B:X2}"));
+                (resources.ThemeVariant == ThemeVariant.Light
+                    ? "0 8 32 0 #2E000000, 0 1 4 0 #1F000000"
+                    : "0 8 48 0 #8C000000, 0 2 14 0 #59000000")
+                + $", inset 0 0 40 0 #38{accentHex}"));
         Publish("ShellAccentForegroundBrush", Brush(resources.AccentForeground));
         Publish("ShellAccentSoftBrush", Brush(resources.AccentSoft));
+        // A strongly selected row and its label, and the quieter selection of a
+        // list that does not have focus — AppKit's own where it has them.
+        Publish("ShellSelectedContentBrush", Brush(resources.SelectedContent));
+        Publish("ShellSelectedContentForegroundBrush", Brush(resources.SelectedContentForeground));
+        Publish("ShellUnemphasizedSelectionBrush", Brush(resources.UnemphasizedSelection));
         Publish("ShellDangerBrush", Brush(resources.Danger));
         Publish("ShellDangerForegroundBrush", Brush(resources.DangerForeground));
         Publish("ShellDangerSoftBrush", Brush(resources.DangerSoft));
@@ -763,7 +764,13 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellWarningBrush", Brush(resources.Warning));
         Publish("ShellWarningSoftBrush", Brush(resources.WarningSoft));
         Publish("ShellWarningBorderBrush", Brush(resources.WarningBorder));
-        Publish("ShellNoticeBorderBrush", Brush(resources.NoticeBorder));
+        Publish("ShellInfoBrush", Brush(resources.Info));
+        Publish("ShellInfoSoftBrush", Brush(resources.InfoSoft));
+        Publish("ShellInfoBorderBrush", Brush(resources.InfoBorder));
+        Publish("ShellStatusNeutralBrush", Brush(resources.StatusNeutral));
+        // Whether state has to be carried by shape or text as well as colour.
+        // Also a window class, so a style can add the shape where it is needed.
+        Publish("ShellDifferentiateWithoutColor", resources.DifferentiateWithoutColor);
         // Controls the design system has not retemplated — check boxes, radio
         // buttons, switches, sliders, calendar and text selection — take their
         // accent from Fluent's SystemAccentColor family, which otherwise tracks
@@ -820,6 +827,7 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellDataFontFamily", new FontFamily(
             "SF Mono,Menlo,Monaco,Cascadia Mono,Consolas,monospace"));
         Publish("ShellBaseFontSize", resources.BaseFontSize);
+        Publish("ShellSecondaryFontSize", resources.SecondaryFontSize);
         Publish("ShellPillFontSize", resources.PillFontSize);
         foreach (var baseFontSize in ScalableFontSizes)
         {
@@ -887,6 +895,7 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellCardRadius", resources.CardCornerRadius.TopLeft);
         Publish("ShellPillCornerRadius", resources.PillCornerRadius);
         Publish("ShellInnerCornerRadius", resources.InnerCornerRadius);
+        Publish("ShellGroupCornerRadius", resources.GroupCornerRadius);
         // The clearance between a rounded miniature frame and the tiles inside
         // it. It follows the radius, not a fixed step: at a tight radius a
         // couple of pixels reads fine, while a round setting needs the tiles
@@ -970,6 +979,10 @@ public sealed partial class App : Avalonia.Application
         {
             window.Classes.Add("materials-enabled");
         }
+        if (resources.DifferentiateWithoutColor)
+        {
+            window.Classes.Add("differentiate-without-color");
+        }
 
     }
 
@@ -1017,12 +1030,9 @@ public sealed partial class App : Avalonia.Application
         _appearancePreview?.Changed -= OnAppearancePreviewChanged;
         _windowCollection?.CollectionChanged -= OnWindowCollectionChanged;
         _windowCollection = null;
-        if (_applicationIconRefreshTimer is { } iconRefreshTimer)
-        {
-            iconRefreshTimer.Stop();
-            iconRefreshTimer.Tick -= OnApplicationIconRefresh;
-            _applicationIconRefreshTimer = null;
-        }
+        _hostSystemPalette?.Changed -= OnHostSystemPaletteChanged;
+        _hostSystemPalette?.Stop();
+        _hostSystemPalette = null;
 
         foreach (var viewModel in _additionalMainWindowViewModels.ToArray())
         {
@@ -1188,8 +1198,6 @@ public sealed partial class App : Avalonia.Application
 
         desktop.MainWindow = window;
         QuickTerminalController.SetMainWindow(window);
-        var accent = (window.DataContext as MainWindowViewModel)?.ActiveWorkspaceAccent;
-        SetWorkspaceAccent(RgbColor.TryParse(accent, out var color) ? color : null);
     }
 
     private void OnMainWindowClosed(object? sender, EventArgs e)

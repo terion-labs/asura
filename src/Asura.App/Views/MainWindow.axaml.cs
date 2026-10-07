@@ -174,20 +174,10 @@ public sealed partial class MainWindow : Window
 
     protected override void OnOpened(EventArgs e)
     {
-        // Subscribed before the base raises Opened, not after. Startup restore
-        // runs from that event, and when the work it waits on has already
-        // finished it runs straight through — so the restored workspace
-        // announced its accent while nothing was listening yet, and the shell
-        // kept its own colour until the first switch.
-        ViewModel.WorkspaceAccentChanged += OnWorkspaceAccentChanged;
         // Whether a notification leaves a mark depends on whether anyone was
         // looking, and the window is the only thing that can say.
         Deactivated += OnWindowDeactivated;
         base.OnOpened(e);
-        // And whatever it announced before any of this, in case something else
-        // ever gets in front of the subscription again. The accent that is
-        // already being worn costs nothing to apply.
-        OnWorkspaceAccentChanged(this, ViewModel.ActiveWorkspaceAccent);
         RefreshWindowChromeMetrics();
         Avalonia.Threading.Dispatcher.UIThread.Post(
             RefreshWindowChromeMetrics,
@@ -265,9 +255,9 @@ public sealed partial class MainWindow : Window
                 _ => MacOsWindowKind.CompactToolbar,
             });
         // The platform's own material for a window's base. Avalonia pins the
-        // view it creates to a fixed light one and lets its state follow the
-        // window's, so the glass reads wrong for a dark shell and dulls
-        // whenever focus moves away. Both are answered there.
+        // view it creates to a fixed light one, which reads wrong for a dark
+        // shell; that is answered there, and the glass dims with the window
+        // when focus moves away, as every Mac window's does.
         MacOsWindowMaterial.TrySit(this, MacOsMaterial.UnderWindowBackground);
         // Asking to be a different kind of window moves the standard buttons,
         // and the band is measured from where they are. Nothing else notices:
@@ -328,58 +318,10 @@ public sealed partial class MainWindow : Window
         ViewModel.IsWindowFocused = false;
     }
 
-    private string? _pendingWorkspaceAccent;
-    private bool _workspaceAccentRepaintQueued;
-
-    /// <summary>
-    /// Retints the shell for the workspace now in front — after that workspace
-    /// is on screen, not before it.
-    ///
-    /// Republishing the appearance restyles every control bound to a token,
-    /// which is the whole window. Doing it inline made it part of switching:
-    /// the click was answered by a third of a second of restyling and only
-    /// then by the workspace appearing. The colour is not what you asked for
-    /// when you clicked a workspace, so it waits a frame and follows.
-    ///
-    /// Queued once and coalesced. Switching twice quickly should repaint the
-    /// colour you landed on, not each colour you passed through.
-    /// </summary>
-    private void OnWorkspaceAccentChanged(object? sender, string? accent)
-    {
-        _ = sender;
-        _pendingWorkspaceAccent = accent;
-        if (_workspaceAccentRepaintQueued)
-        {
-            return;
-        }
-
-        _workspaceAccentRepaintQueued = true;
-        Avalonia.Threading.Dispatcher.UIThread.Post(
-            () =>
-            {
-                _workspaceAccentRepaintQueued = false;
-                if (Avalonia.Application.Current is not App app)
-                {
-                    return;
-                }
-
-                // A stored accent that no longer parses is a definition problem,
-                // not a reason to leave the shell wearing the last workspace's
-                // colour.
-                app.SetWorkspaceAccent(
-                    _pendingWorkspaceAccent is { } pending
-                    && RgbColor.TryParse(pending, out var color)
-                        ? color
-                        : null);
-            },
-            Avalonia.Threading.DispatcherPriority.Background);
-    }
-
     protected override void OnClosed(EventArgs e)
     {
         if (DataContext is MainWindowViewModel viewModel)
         {
-            viewModel.WorkspaceAccentChanged -= OnWorkspaceAccentChanged;
             viewModel.ReleaseAppearanceEditing();
         }
 

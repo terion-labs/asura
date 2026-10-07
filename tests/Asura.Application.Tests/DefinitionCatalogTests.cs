@@ -314,7 +314,7 @@ public sealed class DefinitionCatalogTests
         Assert.True(result.IsSuccess, result.Error?.Message);
         Assert.Equal("Work", Assert.Single(result.Value!.Workspaces).Value.Name);
         Assert.Equal(
-            ThemePreference.BronzeFallback.ToString(),
+            ThemePreference.LegacyBronzeSeed.ToString(),
             Assert.Single(result.Value.Workspaces).Value.Accent);
         Assert.Equal(0, fixture.Workspaces.SaveAttempts);
     }
@@ -387,7 +387,7 @@ public sealed class DefinitionCatalogTests
             WorkspaceDefinition.CurrentSchemaVersion,
             WorkspaceDefinition.DefaultWorkspaceName,
             "Your local Asura workspace.",
-            ThemePreference.BronzeFallback.ToString(),
+            ThemePreference.LegacyBronzeSeed.ToString(),
             [],
             hasExplicitAccent: true);
         fixture.Workspaces.Add(workspace, revision: 6);
@@ -396,7 +396,7 @@ public sealed class DefinitionCatalogTests
 
         Assert.True(result.IsSuccess, result.Error?.Message);
         var stored = Assert.Single(result.Value!.Workspaces);
-        Assert.Equal(ThemePreference.BronzeFallback.ToString(), stored.Value.Accent);
+        Assert.Equal(ThemePreference.LegacyBronzeSeed.ToString(), stored.Value.Accent);
         Assert.True(stored.Value.HasExplicitAccent);
         Assert.Equal(0, fixture.Workspaces.SaveAttempts);
     }

@@ -29,7 +29,7 @@ public sealed partial class CodeEditBox
     {
         var error = ResourceBrush("ShellDangerBrush");
         var warning = ResourceBrush("ShellWarningBrush");
-        var information = ResourceBrush("ShellAccentBrush");
+        var information = ResourceBrush("ShellInfoBrush");
         _sqlDiagnosticRenderer.Update(Diagnostics, error, warning, information);
         DiagnosticStatusText.Foreground = HighestSeverity(Diagnostics) switch
         {

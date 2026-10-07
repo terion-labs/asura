@@ -45,14 +45,19 @@ public sealed class ThemeChromePreferenceTests
         Assert.Equal(WorkspacePanelPlacement.Left, theme.WorkspacePanelPlacement);
     }
 
+    /// <summary>
+    /// Translucent chrome, opaque content: the window material stays on, and
+    /// the panels that hold terminal output, diffs and grids do not become
+    /// glass unless someone asks for it.
+    /// </summary>
     [Fact]
-    public void MacOS_first_run_defaults_to_normal_translucent_glass()
+    public void MacOS_first_run_keeps_glass_on_the_chrome_and_content_opaque()
     {
         var theme = ThemePreference.DefaultFor(HostOperatingSystem.MacOS);
 
         Assert.Equal(InterfaceDensity.Cozy, theme.Density);
         Assert.True(theme.IsTranslucent);
-        Assert.True(theme.HasGlassPanels);
+        Assert.False(theme.HasGlassPanels);
         Assert.False(theme.OverridesBackdropOpacity);
         Assert.Equal(78, theme.BackdropOpacityPercent);
     }

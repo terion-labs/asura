@@ -3167,7 +3167,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var runtime = new RuntimeWorkspaceViewModel(
             WorkspaceInstanceId.New(),
             connection.Name,
-            ThemePreference.BronzeFallback.ToString(),
+            ThemePreference.BrandAccent.ToString(),
             [.. Connections.Where(item => item.Id == connection.Id)],
             CurrentAgentPolicyProvenance());
         try
@@ -3215,7 +3215,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var runtime = new RuntimeWorkspaceViewModel(
             WorkspaceInstanceId.New(),
             screen.Name,
-            ThemePreference.BronzeFallback.ToString(),
+            ThemePreference.BrandAccent.ToString(),
             [.. Connections],
             CurrentAgentPolicyProvenance());
         try
@@ -3311,7 +3311,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var runtimeWorkspace = new RuntimeWorkspaceViewModel(
             WorkspaceInstanceId.New(),
             profile.Name,
-            ThemePreference.BronzeFallback.ToString(),
+            ThemePreference.BrandAccent.ToString(),
             [],
             CurrentAgentPolicyProvenance());
         try
@@ -3372,7 +3372,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var runtimeWorkspace = new RuntimeWorkspaceViewModel(
             WorkspaceInstanceId.New(),
             profile.Name,
-            ThemePreference.BronzeFallback.ToString(),
+            ThemePreference.BrandAccent.ToString(),
             [],
             CurrentAgentPolicyProvenance());
         try
@@ -3428,7 +3428,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var runtime = new RuntimeWorkspaceViewModel(
             WorkspaceInstanceId.New(),
             "Local system",
-            ThemePreference.BronzeFallback.ToString(),
+            ThemePreference.BrandAccent.ToString(),
             [],
             CurrentAgentPolicyProvenance());
         try
@@ -3476,7 +3476,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var runtime = new RuntimeWorkspaceViewModel(
             WorkspaceInstanceId.New(),
             "Database",
-            ThemePreference.BronzeFallback.ToString(),
+            ThemePreference.BrandAccent.ToString(),
             [],
             CurrentAgentPolicyProvenance());
         try
@@ -3527,7 +3527,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var runtime = new RuntimeWorkspaceViewModel(
             WorkspaceInstanceId.New(),
             "Browser",
-            ThemePreference.BronzeFallback.ToString(),
+            ThemePreference.BrandAccent.ToString(),
             [],
             CurrentAgentPolicyProvenance());
         try
