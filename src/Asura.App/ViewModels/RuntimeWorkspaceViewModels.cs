@@ -356,6 +356,7 @@ public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabS
     private string _title;
     private string _icon;
     private bool _hasChosenTitle;
+    private BrowserRuntimePanelViewModel? _pageTitleSource;
     private bool _hasChosenIcon;
     private bool _isActive;
     private bool _canClose = true;
@@ -405,6 +406,7 @@ public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabS
         _dockLayout.LayoutChanged += (_, _) =>
             OnPropertyChanged(nameof(DockLayoutRevision));
         Panels.CollectionChanged += (_, _) => RefreshPanelVisibility();
+        Panels.CollectionChanged += (_, _) => FollowBrowserPageTitle();
         FloatingPanels.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsDockEmpty));
     }
 
@@ -413,7 +415,48 @@ public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabS
     public string Title
     {
         get => _title;
-        private set => SetProperty(ref _title, value);
+        private set
+        {
+            if (SetProperty(ref _title, value))
+            {
+                OnPropertyChanged(nameof(DisplayTitle));
+            }
+        }
+    }
+
+    /// <summary>
+    /// The tab's title as the strip writes it. A tab that holds one browser
+    /// and was never renamed reads its page's title or host: four tabs all
+    /// called "Browser" could not be told apart. The durable title stays as
+    /// it was, because it is part of the graph the session host checks.
+    /// </summary>
+    public string DisplayTitle =>
+        !_hasChosenTitle && _pageTitleSource is { PageTitle.Length: > 0 } browser
+            ? browser.PageTitle
+            : Title;
+
+    private void FollowBrowserPageTitle()
+    {
+        var contentPanels = Panels.Where(panel => panel.Kind != PanelKind.Placeholder).ToArray();
+        var source = contentPanels is [BrowserRuntimePanelViewModel browser] ? browser : null;
+        if (ReferenceEquals(source, _pageTitleSource))
+        {
+            return;
+        }
+
+        _pageTitleSource?.PropertyChanged -= OnPageTitleSourceChanged;
+        _pageTitleSource = source;
+        _pageTitleSource?.PropertyChanged += OnPageTitleSourceChanged;
+        OnPropertyChanged(nameof(DisplayTitle));
+    }
+
+    private void OnPageTitleSourceChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        _ = sender;
+        if (e.PropertyName is null or nameof(BrowserRuntimePanelViewModel.PageTitle))
+        {
+            OnPropertyChanged(nameof(DisplayTitle));
+        }
     }
 
     /// <summary>
@@ -985,6 +1028,7 @@ public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabS
 
         Title = title.Trim();
         _hasChosenTitle = true;
+        OnPropertyChanged(nameof(DisplayTitle));
         return true;
     }
 

@@ -129,7 +129,7 @@ public sealed class ApplicationMenuLayoutTests
         string[] opening =
         [
             "Settings…", "Check for Updates…", "New Tab…", "Find…", "Command Palette…",
-            "Add Panel…", "Layout Designer…", "Rename Tab…", "Report an Issue…",
+            "Add Panel…", "Layout Designer…", "Rename Tab…", "Change Tab Icon…", "Report an Issue…",
         ];
         var titles = ApplicationMenuLayout.AllCommands().Select(item => item.Title).ToHashSet(StringComparer.Ordinal);
 

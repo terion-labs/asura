@@ -297,7 +297,7 @@ public sealed class MainWindowTabReorderTests
             result => result.Target is LauncherSearchTarget.Command command
                 && command.Id == commandId);
 
-    private static TabReorderFixture CreateFixture(int activeTabIndex = 0)
+    internal static TabReorderFixture CreateFixture(int activeTabIndex = 0)
     {
         var client = DispatchProxy.Create<ISessionHostClient, TabReorderSessionClient>();
         var session = (TabReorderSessionClient)(object)client;
@@ -359,7 +359,7 @@ public sealed class MainWindowTabReorderTests
                 tab.ActivePanelId!.Value)),
             runtime.ActiveTab!.Id);
 
-    private sealed record TabReorderFixture(
+    internal sealed record TabReorderFixture(
         MainWindowViewModel ViewModel,
         RuntimeWorkspaceViewModel Runtime,
         TabReorderSessionClient Session);

@@ -10,6 +10,7 @@ public static class BuiltInCommands
     public static CommandId TogglePanelZoom { get; } = new("panel.zoom.toggle");
     public static CommandId ClosePanel { get; } = new("panel.close");
     public static CommandId RenameTab { get; } = new("tab.rename");
+    public static CommandId ChangeTabIcon { get; } = new("tab.change-icon");
     public static CommandId CloseTab { get; } = new("tab.close");
     public static CommandId MoveTabLeft { get; } = new("tab.move-left");
     public static CommandId MoveTabRight { get; } = new("tab.move-right");
@@ -102,6 +103,7 @@ public static class BuiltInCommands
     {
         About,
         CheckForUpdates,
+        ChangeTabIcon,
         ZoomWindow,
         BringAllToFront,
         ToggleQuickTerminal,
@@ -164,6 +166,7 @@ public static class BuiltInCommands
             Define(TogglePanelZoom, "Toggle Panel Zoom", "Panels", CommandContext.Panel),
             Define(ClosePanel, "Close Panel", "Panels", CommandContext.Panel),
             Define(RenameTab, "Rename Tab", "Tabs", CommandContext.Tab),
+            Define(ChangeTabIcon, "Change Tab Icon", "Tabs", CommandContext.Tab),
             Define(CloseTab, "Close Tab", "Tabs", CommandContext.Tab),
             Define(MoveTabLeft, "Move Tab Left", "Tabs", CommandContext.Tab),
             Define(MoveTabRight, "Move Tab Right", "Tabs", CommandContext.Tab),

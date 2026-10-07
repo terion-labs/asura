@@ -19,6 +19,8 @@ public sealed class WorkspaceViewContractTests
             ["CancelFileTransferRequested"] = "OnCancelFileTransferClick",
             ["ClearAgentChatRequested"] = "OnClearAgentChatClick",
             ["CloseRuntimeTabRequested"] = "OnCloseRuntimeTabClick",
+            ["CloseOtherRuntimeTabsRequested"] = "OnCloseOtherRuntimeTabsClick",
+            ["MoveRuntimeTabToWorkspaceRequested"] = "OnMoveRuntimeTabToWorkspaceRequested",
             ["DeclineAgentQuestionRequested"] = "OnDeclineAgentQuestionClick",
             ["DenyAgentActionRequested"] = "OnDenyAgentActionClick",
             ["DisableAgentYoloRequested"] = "OnDisableAgentYoloClick",

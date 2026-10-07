@@ -351,6 +351,69 @@ public sealed class BrowserRuntimePanelViewModelTests
         Assert.Equal(1, lifetime.DisposeCount);
     }
 
+    [Theory]
+    [InlineData("  Guide  ", "https://docs.example.test/guide", "Guide")]
+    [InlineData("", "https://www.example.test/", "example.test")]
+    [InlineData(" ", "https://docs.example.test/guide", "docs.example.test")]
+    public void A_page_is_named_by_its_title_or_else_its_host(
+        string title,
+        string address,
+        string expected) =>
+        Assert.Equal(
+            expected,
+            BrowserRuntimePanelViewModel.PageTitleFor(title, Address(address)));
+
+    [Fact]
+    public void A_blank_page_has_no_name_of_its_own() =>
+        Assert.Empty(BrowserRuntimePanelViewModel.PageTitleFor(null, BrowserAddress.Blank));
+
+    [Fact]
+    public void A_browser_tab_reads_its_page_until_someone_names_it()
+    {
+        var rendererView = new BrowserRendererView(
+            new Border(),
+            new RecordingBrowserRenderer(),
+            new RecordingLifetime());
+        var panel = new BrowserRuntimePanelViewModel(
+            new PanelInstanceId("browser-panel"),
+            "Browser",
+            new SessionOwner(
+                HostMode.Desktop,
+                new WindowInstanceId("window"),
+                new WorkspaceInstanceId("workspace"),
+                new TabInstanceId("tab"),
+                new PanelInstanceId("browser-panel")),
+            Address("https://www.example.test/start"),
+            DispatchProxy.Create<ISessionHostClient, NoopSessionClient>(),
+            new ClientId("client"),
+            BuiltInConnections.Local,
+            new RecordingBrowserRendererViewFactory(rendererView));
+        var tab = new RuntimeTabViewModel(new TabInstanceId("tab"), "Browser", "TEST");
+        tab.AddPanel(panel);
+        var durableTitle = tab.Title;
+        var announced = new List<string?>();
+        tab.PropertyChanged += (_, e) => announced.Add(e.PropertyName);
+
+        Assert.Equal("example.test", tab.DisplayTitle);
+
+        panel.ApplyBrowserState(new BrowserSessionState(
+            Address("https://www.example.test/guide"),
+            "Getting Started",
+            BrowserLoadState.Ready,
+            canGoBack: true,
+            canGoForward: false,
+            documentRevision: 2));
+
+        // The page names the tab; the durable title the host checks is unchanged.
+        Assert.Equal("Getting Started", tab.DisplayTitle);
+        Assert.Equal(durableTitle, tab.Title);
+        Assert.Contains(nameof(RuntimeTabViewModel.DisplayTitle), announced, StringComparer.Ordinal);
+
+        Assert.True(tab.Rename("Docs"));
+        Assert.Equal("Docs", tab.DisplayTitle);
+        panel.Dispose();
+    }
+
     [Fact]
     public async Task BrowserStateFlowsIntoRecoveryAndRendererLifetimeIsReleasedOnce()
     {

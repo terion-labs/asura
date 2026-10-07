@@ -455,6 +455,8 @@
         CloseRuntimeTabRequested="OnCloseRuntimeTabClick"
         RuntimeTabTitleEditRequested="OnRuntimeTabTitleEditRequested"
         RuntimeTabIconEditRequested="OnRuntimeTabIconEditRequested"
+        CloseOtherRuntimeTabsRequested="OnCloseOtherRuntimeTabsClick"
+        MoveRuntimeTabToWorkspaceRequested="OnMoveRuntimeTabToWorkspaceRequested"
         DeclineAgentQuestionRequested="OnDeclineAgentQuestionClick"
         DenyAgentActionRequested="OnDenyAgentActionClick"
         DisableAgentYoloRequested="OnDisableAgentYoloClick"

@@ -9837,7 +9837,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             return ActivePanel is not null;
         }
 
-        if (id == BuiltInCommands.RenameTab)
+        if (id == BuiltInCommands.RenameTab || id == BuiltInCommands.ChangeTabIcon)
         {
             return RuntimeWorkspace?.ActiveTab is not null;
         }

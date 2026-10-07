@@ -19,14 +19,21 @@ public sealed partial class MainWindow
 {
     private RuntimeTabDragController? _runtimeTabDrag;
 
-    private RuntimeTabDragController RuntimeTabDrag => _runtimeTabDrag ??= new(
-        this,
-        ViewModel,
-        new RuntimeTabDragPresentation(
-            ShowDragGhost,
-            MoveDragGhost,
-            HideDragGhost),
-        _lifetime.Token);
+    private RuntimeTabDragController RuntimeTabDrag => _runtimeTabDrag ??= CreateRuntimeTabDrag();
+
+    private RuntimeTabDragController CreateRuntimeTabDrag()
+    {
+        var controller = new RuntimeTabDragController(
+            this,
+            ViewModel,
+            new RuntimeTabDragPresentation(
+                ShowDragGhost,
+                MoveDragGhost,
+                HideDragGhost),
+            _lifetime.Token);
+        AddHandler(KeyDownEvent, controller.KeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
+        return controller;
+    }
 
     public async Task RequestNewTerminalAsync()
     {
@@ -1884,32 +1891,40 @@ public sealed partial class MainWindow
     private async void OnCloseRuntimeTabClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
-        if (sender is not Control { DataContext: RuntimeTabViewModel tab })
+        if (sender is Control { DataContext: RuntimeTabViewModel tab }
+            && await CloseRuntimeTabAsync(tab))
         {
-            return;
-        }
-
-        if (!await ConfirmDiscardDatabaseChangesAsync(tab.Panels))
-        {
-            return;
-        }
-
-        if (tab.Panels.All(panel => panel is FileRuntimePanelViewModel { HostedClient: null }
-                or UnavailableRuntimePanelViewModel
-                or TerminalRuntimePanelViewModel
-            { SessionRequest: null, MultiplexerSession: null }
-                or StatisticsRuntimePanelViewModel { HasHostedSession: false }
-                or ProcessMonitorRuntimePanelViewModel { HasHostedSession: false })
-            || await RunCloseFlowAsync(
-            (decision, cancellationToken) =>
-                ViewModel.CloseTabAsync(tab.Id, decision, cancellationToken)))
-        {
-            if (await ViewModel.RemoveTabAsync(tab.Id, _lifetime.Token))
-            {
-                FocusActivePanel();
-            }
+            FocusActivePanel();
         }
     }
+
+    /// <summary>
+    /// Closes one tab under the usual policy: unsaved database edits and
+    /// running sessions ask first. False when the person kept the tab.
+    /// </summary>
+    private async Task<bool> CloseRuntimeTabAsync(RuntimeTabViewModel tab)
+    {
+        if (!await ConfirmDiscardDatabaseChangesAsync(tab.Panels))
+        {
+            return false;
+        }
+
+        if (!tab.Panels.All(HoldsNothingToClose)
+            && !await RunCloseFlowAsync((decision, cancellationToken) =>
+                ViewModel.CloseTabAsync(tab.Id, decision, cancellationToken)))
+        {
+            return false;
+        }
+
+        return await ViewModel.RemoveTabAsync(tab.Id, _lifetime.Token);
+    }
+
+    private static bool HoldsNothingToClose(RuntimePanelViewModel panel) =>
+        panel is FileRuntimePanelViewModel { HostedClient: null }
+            or UnavailableRuntimePanelViewModel
+            or TerminalRuntimePanelViewModel { SessionRequest: null, MultiplexerSession: null }
+            or StatisticsRuntimePanelViewModel { HasHostedSession: false }
+            or ProcessMonitorRuntimePanelViewModel { HasHostedSession: false };
 
     private async void OnAddTerminalPanelClick(object? sender, RoutedEventArgs e)
     {

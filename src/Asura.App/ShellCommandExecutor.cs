@@ -31,6 +31,9 @@ internal interface IShellCommandPresentation
 
     Task RenameActiveTabAsync();
 
+    /// <summary>Opens the icon picker on the active tab, wherever its strip is docked.</summary>
+    void ChangeActiveTabIcon();
+
     Task CloseActiveTabAsync();
 
     void CloseWindow();
@@ -149,6 +152,9 @@ internal sealed class ShellCommandExecutor(
             case ApplicationCommandActionKind.RenameTab:
                 await presentation.RenameActiveTabAsync();
                 presentation.FocusActivePanel();
+                return;
+            case ApplicationCommandActionKind.ChangeTabIcon:
+                presentation.ChangeActiveTabIcon();
                 return;
             case ApplicationCommandActionKind.CloseTab:
                 await presentation.CloseActiveTabAsync();
