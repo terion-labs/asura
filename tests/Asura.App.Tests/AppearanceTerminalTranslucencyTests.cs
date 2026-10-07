@@ -73,6 +73,23 @@ public sealed class AppearanceTerminalTranslucencyTests
     }
 
     [Fact]
+    public void Material_status_names_a_translucent_terminal_only_when_it_shows()
+    {
+        const string window = "Window material: glass sidebar and rail · content opaque";
+
+        Assert.Equal(
+            window + ", terminal translucent",
+            App.MaterialStatusWithTerminal(window, true, MaterialDisposition.Enabled));
+        Assert.Equal(window, App.MaterialStatusWithTerminal(window, false, MaterialDisposition.Enabled));
+        Assert.Equal(
+            "Window material: opaque fallback (reduced transparency)",
+            App.MaterialStatusWithTerminal(
+                "Window material: opaque fallback (reduced transparency)",
+                true,
+                MaterialDisposition.DisabledByReducedTransparency));
+    }
+
+    [Fact]
     public void The_terminal_setting_is_independent_of_glass_panels()
     {
         var withGlass = Theme(hasTranslucentTerminal: false, hasGlassPanels: true);

@@ -216,6 +216,8 @@ public sealed partial class DesignSystemConventionTests
     /// Muted text is secondary text, and secondary text is at least the macOS
     /// Subheadline, 11 pt. Ten is the caption size and belongs to captions
     /// listed in <see cref="CaptionExceptions"/>, not to every description.
+    /// Every element whose name ends in TextBlock counts, so the subclasses
+    /// (LiveRegionTextBlock, GitDiffTextBlock) are held to it too.
     /// </summary>
     [Fact]
     public void Muted_text_in_application_markup_is_at_least_the_secondary_size()
@@ -223,7 +225,7 @@ public sealed partial class DesignSystemConventionTests
         var violations = GuardedApplicationXaml()
             .Where(file => !CaptionExceptions.ContainsKey(file.Path))
             .SelectMany(file => file.Document.Descendants()
-                .Where(element => element.Name.LocalName is "TextBlock" or "SelectableTextBlock")
+                .Where(element => element.Name.LocalName.EndsWith("TextBlock", StringComparison.Ordinal))
                 .Where(element => ClassNames(element).Contains("Muted", StringComparer.Ordinal))
                 .Where(element => IsBelowSecondarySize(AttributeValue(element, "FontSize")))
                 .Select(element => $"{file.Path}:{LineOf(element)}"))

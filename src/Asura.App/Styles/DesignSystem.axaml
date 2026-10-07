@@ -1662,9 +1662,15 @@
                   ColumnDefinitions="*,Auto"
                   ColumnSpacing="{DynamicResource ShellSpaceSm}">
                 <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
+                  <!-- An editor fills a window of its own, so its title is the
+                       window's: Title 1 rather than a dialog's Title 2. The role
+                       class is chosen here, not overridden from the theme,
+                       because an application class style outranks a theme's
+                       template-child style. -->
                   <TextBlock
                       Name="PART_Title"
-                      Classes="Title2"
+                      Classes.Title1="{TemplateBinding Chrome, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static controls:DialogChrome.Editor}}"
+                      Classes.Title2="{TemplateBinding Chrome, Converter={x:Static ObjectConverters.NotEqual}, ConverterParameter={x:Static controls:DialogChrome.Editor}}"
                       Text="{TemplateBinding Title}" />
                   <TextBlock
                       Name="PART_Subtitle"
@@ -1722,12 +1728,6 @@
         </ControlTemplate>
       </Setter>
 
-      <!-- An editor fills a window of its own, so its title is the window's:
-           Title 1 rather than a dialog's Title 2. -->
-      <Style Selector="^:editor /template/ TextBlock#PART_Title">
-        <Setter Property="FontSize" Value="{DynamicResource ShellFontSize22}" />
-        <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight22}" />
-      </Style>
       <Style Selector="^[Scrolls=False] /template/ ScrollViewer#PART_Scroll">
         <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
       </Style>

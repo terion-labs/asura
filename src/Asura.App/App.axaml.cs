@@ -519,6 +519,19 @@ public sealed partial class App : Avalonia.Application
             : 1.0;
 
     /// <summary>
+    /// The material line names the terminal when it is the one content
+    /// surface the window's material shows through, so "content opaque" is
+    /// not the whole story while a translucent terminal is on screen.
+    /// </summary>
+    internal static string MaterialStatusWithTerminal(
+        string windowMaterialStatus,
+        bool hasTranslucentTerminal,
+        MaterialDisposition material) =>
+        hasTranslucentTerminal && material == MaterialDisposition.Enabled
+            ? $"{windowMaterialStatus}, terminal translucent"
+            : windowMaterialStatus;
+
+    /// <summary>
     /// The sentence under the translucent-terminal setting: what it does, or
     /// why it cannot do it right now.
     /// </summary>
@@ -1054,7 +1067,12 @@ public sealed partial class App : Avalonia.Application
             resources.CardCornerRadius.BottomLeft));
         Publish("ShellAppearanceStatus", resources.AppearanceStatus);
         Publish("ShellAccentStatus", resources.AccentStatus);
-        Publish("ShellMaterialStatus", resources.MaterialStatus);
+        Publish(
+            "ShellMaterialStatus",
+            MaterialStatusWithTerminal(
+                resources.MaterialStatus,
+                StoredTheme.HasTranslucentTerminal,
+                material));
         Publish("ShellPlatformProfileClass", resources.ProfileClass);
         Publish("ShellHighContrast", resources.HighContrast);
         Publish("ShellMotionEnabled", resources.MotionEnabled);

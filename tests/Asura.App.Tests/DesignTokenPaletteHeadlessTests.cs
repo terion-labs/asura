@@ -44,10 +44,6 @@ public sealed class DesignTokenPaletteHeadlessTests
     });
 
     /// <summary>
-    /// A series must read against the content surface it is drawn on, and must
-    /// not be mistaken for the brand accent, the host's blue, or a status.
-    /// </summary>
-    /// <summary>
     /// The terminal paints its background with this. With the default theme
     /// nobody asked for translucency, so it is solid.
     /// </summary>
@@ -59,6 +55,10 @@ public sealed class DesignTokenPaletteHeadlessTests
         Assert.Equal(1.0, Assert.IsType<double>(opacity));
     });
 
+    /// <summary>
+    /// A series must read against the content surface it is drawn on, and must
+    /// not be mistaken for the brand accent, the host's blue, or a status.
+    /// </summary>
     [Theory]
     [InlineData(true, new[] { "#FFFFFF", "#F5F5F7", "#E7E8E5" }, new[] { "#147A3F", "#B42318", "#8A4B08", "#0B5CAD" })]
     [InlineData(false, new[] { "#242424", "#2C2C2E", "#18181B" }, new[] { "#77D797", "#FF7B72", "#E1A45F", "#6CB4FF" })]

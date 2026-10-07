@@ -1,9 +1,11 @@
 using Asura.App.Controls;
 using Asura.App.ViewModels;
+using Asura.Core;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 
 namespace Asura.App.Tests;
 
@@ -125,6 +127,45 @@ public sealed class DesignTokenStateHeadlessTests
 
         StatusToneBrush.SetBackground(dot, null);
         Assert.DoesNotContain(dot.Classes, name => name.StartsWith(":tone-", StringComparison.Ordinal));
+    });
+
+    /// <summary>
+    /// A dialog's title is Title 2 and an editor's is Title 1. The role class
+    /// is picked from the chrome, because a theme style aimed at the template
+    /// title loses to the application's Title 2 class style.
+    /// </summary>
+    [Theory]
+    [InlineData(false, "Title2", "ShellFontSize17")]
+    [InlineData(true, "Title1", "ShellFontSize22")]
+    public Task A_dialog_title_takes_the_role_of_its_chrome(bool editor, string role, string sizeKey) => RunAsync(() =>
+    {
+        // The type ramp is published by the appearance pipeline, not App.axaml.
+        var app = Assert.IsType<App>(Avalonia.Application.Current);
+        app.ApplyApplicationResources(EffectiveAppearanceResourceMapper.Map(
+            ThemePreference.Default.Resolve(
+                new HostAppearance(HostOperatingSystem.MacOS, HostColorScheme.Dark, accent: null))));
+        var chrome = editor ? DialogChrome.Editor : DialogChrome.Utility;
+        var shell = new DialogShell { Title = "Connection", Chrome = chrome, Content = "Body" };
+        var window = new Window { Content = shell };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var title = shell.GetVisualDescendants().OfType<TextBlock>()
+                .Single(block => block.Name == "PART_Title");
+            Assert.True(window.TryFindResource(sizeKey, out var size));
+            Assert.Contains(role, title.Classes, StringComparer.Ordinal);
+            Assert.Equal(Assert.IsType<double>(size), title.FontSize);
+
+            shell.Chrome = editor ? DialogChrome.Utility : DialogChrome.Editor;
+            window.UpdateLayout();
+            Assert.DoesNotContain(role, title.Classes, StringComparer.Ordinal);
+            Assert.NotEqual((double)size!, title.FontSize);
+        }
+        finally
+        {
+            window.Close();
+        }
     });
 
     private static string Shape(Border mark) => string.Join(
