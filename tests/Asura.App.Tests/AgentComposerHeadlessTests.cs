@@ -25,7 +25,7 @@ namespace Asura.App.Tests;
 public sealed partial class AgentChatViewModelTests
 {
     [Fact]
-    public Task Rendered_agent_completion_replaces_progress_without_live_region_updates() =>
+    public Task Rendered_agent_completion_announces_only_the_outcome() =>
         RunAgentComposerHeadlessAsync(async () =>
         {
             var provider = Provider("provider", "Provider", order: 0);
@@ -76,10 +76,16 @@ public sealed partial class AgentChatViewModelTests
                 window.Show();
                 window.UpdateLayout();
 
+                // The streaming transcript never becomes a live region; the
+                // one status region stays silent until the run ends.
+                var announcements = Assert.IsType<LiveRegionTextBlock>(
+                    view.FindControl<LiveRegionTextBlock>("AgentAnnouncementRegion"));
                 Assert.DoesNotContain(
                     view.GetVisualDescendants().OfType<Control>(),
-                    control => AutomationProperties.GetLiveSetting(control)
-                        != AutomationLiveSetting.Off);
+                    control => !ReferenceEquals(control, announcements)
+                        && AutomationProperties.GetLiveSetting(control)
+                            != AutomationLiveSetting.Off);
+                Assert.True(string.IsNullOrEmpty(announcements.Text));
 
                 runtime.Snapshot = runtime.Snapshot with
                 {
@@ -105,6 +111,7 @@ public sealed partial class AgentChatViewModelTests
                     "the committed assistant response");
 
                 Assert.False(viewModel.HasCurrentProgress);
+                Assert.Equal("Response complete", announcements.Text);
                 Assert.Equal(201, viewModel.Messages.Count);
                 Assert.Contains(
                     view.GetVisualDescendants().OfType<SelectableMarkdownDocument>(),

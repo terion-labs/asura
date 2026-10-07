@@ -279,15 +279,41 @@ public sealed record AgentApprovalArgumentViewModel(
         _ => Name,
     };
 
+    /// <summary>
+    /// Identifiers that route an action rather than describe it. The card's
+    /// heading already names the panel, so these stay in Details.
+    /// </summary>
     public bool IsRoutingIdentifier => Name is
-        "session_id" or "window_id" or "workspace_id";
+        "session_id" or "window_id" or "workspace_id" or "tab_id" or "panel_id";
+}
+
+/// <summary>
+/// Approval and run cards name where an action runs by the panel's own title.
+/// The trusted runtime title also carries the exact panel and session
+/// identifiers that bind the decision; those remain available in Details.
+/// </summary>
+internal static class AgentTargetPresentation
+{
+    private static readonly string[] IdentifierSuffixes =
+        [" — panel ", " — session ", " · panel ", " · session "];
+
+    public static string ReadableTitle(string targetTitle)
+    {
+        ArgumentNullException.ThrowIfNull(targetTitle);
+        var end = IdentifierSuffixes
+            .Select(suffix => targetTitle.IndexOf(suffix, StringComparison.Ordinal))
+            .Where(index => index > 0)
+            .DefaultIfEmpty(targetTitle.Length)
+            .Min();
+        return targetTitle[..end];
+    }
 }
 
 public sealed record AgentApprovalCardViewModel(
     AgentApprovalId Id,
     string ToolName,
     string ToolTitle,
-    string Risk,
+    AgentActionRisk RiskLevel,
     string Permission,
     string TargetTitle,
     string ExactTarget,
@@ -299,6 +325,13 @@ public sealed record AgentApprovalCardViewModel(
 {
     public bool HasArguments => Arguments.Count > 0;
 
+    public string Risk => AgentPolicyPresentation.RiskName(RiskLevel);
+
+    public string TargetDisplayTitle => AgentTargetPresentation.ReadableTitle(TargetTitle);
+
+    public string AccessibleName =>
+        $"Approval required · {ToolTitle} · in {TargetDisplayTitle} · {Risk}";
+
     public IReadOnlyList<AgentApprovalArgumentViewModel> ActionArguments =>
         [.. Arguments.Where(argument => !argument.IsRoutingIdentifier)];
 
@@ -308,7 +341,7 @@ public sealed record AgentApprovalCardViewModel(
 
     public bool HasWorkingDirectory => !string.Equals(WorkingDirectory, "Not reported", StringComparison.Ordinal);
 
-    public bool IsHighRisk => Risk is "Destructive" or "Privileged";
+    public bool IsHighRisk => RiskLevel is AgentActionRisk.Destructive or AgentActionRisk.Privileged;
 
     public string InputYieldWarning =>
         "Approving temporarily yields terminal input to the agent for this one action. "
@@ -318,10 +351,15 @@ public sealed record AgentApprovalCardViewModel(
 public sealed record AgentToolActivityViewModel(
     string ToolName,
     string ToolTitle,
-    string Risk,
+    AgentActionRisk RiskLevel,
     string TargetTitle,
     bool CancellationRequested,
-    PanelInstanceId? PanelId);
+    PanelInstanceId? PanelId)
+{
+    public string Risk => AgentPolicyPresentation.RiskName(RiskLevel);
+
+    public string TargetDisplayTitle => AgentTargetPresentation.ReadableTitle(TargetTitle);
+}
 
 /// <summary>
 /// Immutable presentation copy of one bounded, run-local progress report.
@@ -529,6 +567,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     private AgentServiceTierOption _selectedServiceTier = AllServiceTierOptions[0];
     private string _prompt = string.Empty;
     private string _status = string.Empty;
+    private string _announcement = string.Empty;
     private string _provisionalAssistantText = string.Empty;
     private string _provisionalReasoningSummary = string.Empty;
     private string _questionResponseDraft = string.Empty;
@@ -646,11 +685,26 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public bool SendRawSecrets
     {
         get => _sendRawSecrets;
-        set => SetProperty(ref _sendRawSecrets, value);
+        set
+        {
+            if (SetProperty(ref _sendRawSecrets, value))
+            {
+                OnPropertyChanged(nameof(SendRawSecretsHelp));
+            }
+        }
     }
 
     public string SendRawSecretsExplanation =>
         $"Send secrets in this new message to {SelectedProvider?.Name ?? "the selected provider"} / {SelectedModelName}. Turns off after sending. Use a message's lock button to send its secrets on the next request. Revealing a secret only shows it locally.";
+
+    /// <summary>
+    /// The one line under the checkbox: what happens to secrets in the next
+    /// message with the box as it is now. The full rules stay in the
+    /// checkbox's help text for assistive technology.
+    /// </summary>
+    public string SendRawSecretsHelp => SendRawSecrets
+        ? $"Secrets in this message go to {SelectedProvider?.Name ?? "the selected provider"} / {SelectedModelName}. Turns off after sending."
+        : "Secrets in this message stay hidden from the model.";
 
     private string? DisclosureDestinationLabel(string? destination)
     {
@@ -671,6 +725,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             message.NextDisclosureDestination = $"{SelectedProvider?.Name ?? "the selected provider"} / {SelectedModelName}";
         }
         OnPropertyChanged(nameof(SendRawSecretsExplanation));
+        OnPropertyChanged(nameof(SendRawSecretsHelp));
     }
 
     private System.Collections.Immutable.ImmutableArray<ChatHiddenReference> RawSecretReferences(string prompt)
@@ -963,6 +1018,9 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             0,
             100);
 
+    public string ContextWindowPercentLabel =>
+        $"{ContextWindowPercent.ToString("0", CultureInfo.CurrentCulture)}%";
+
     public string ContextWindowUsageLabel => HasContextWindow
         ? $"{FormatTokenCount(ContextUsedTokens)} / {FormatTokenCount(ContextEffectiveLimit)} tokens used"
             + (SelectedModel?.ContextWindowTokens is null ? " · Local working budget; model limit unavailable" : string.Empty)
@@ -1211,6 +1269,18 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(ShowFooterStatus));
             }
         }
+    }
+
+    /// <summary>
+    /// The latest discrete event a screen reader should hear: a decision the
+    /// agent is waiting for, or how a run ended. Never the response stream,
+    /// which would talk over the person reading it. Empty while a run is
+    /// starting, so the same outcome twice in a row is still announced.
+    /// </summary>
+    public string Announcement
+    {
+        get => _announcement;
+        private set => SetProperty(ref _announcement, value);
     }
 
     public string ProvisionalAssistantText
@@ -1849,6 +1919,27 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     public bool CanRequestStop =>
         CanStop && !_stopInFlight && State != GovernedAgentState.Cancelling;
+
+    /// <summary>
+    /// The saved conversation that <see cref="ClearAsync"/> would delete, or
+    /// null when clearing discards only an unsaved run. Hosts confirm before
+    /// a clear that deletes a transcript someone could still open.
+    /// </summary>
+    public AgentConversationItemViewModel? ConversationDeletedByClear =>
+        Conversations.FirstOrDefault(item => item.IsCurrent);
+
+    /// <summary>
+    /// What the failed-run recovery button removes, in its own label: only
+    /// the failed run, or the whole saved conversation it belongs to. The
+    /// ellipsis marks the confirmation that a deletion asks for first.
+    /// </summary>
+    public string ClearFailedRunLabel => ConversationDeletedByClear is null
+        ? "Clear Failed Run"
+        : "Delete Conversation…";
+
+    public string ClearFailedRunAccessibleName => ConversationDeletedByClear is { } saved
+        ? $"Delete the conversation “{saved.Title}” with its failed run"
+        : "Clear the failed AI agent run";
 
     public bool CanClear =>
         !IsBusy
@@ -2894,6 +2985,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         var snapshot = _runtime.Snapshot;
         var previousState = State;
         var previousQuestionId = PendingQuestion?.Id;
+        var previousApprovalId = PendingApproval?.Id;
+        var previousCapabilityRequestId = PendingCapabilityRequest?.Id;
         if (_auditRunId != (snapshot.SelectedConversationRunId ?? snapshot.RunId))
         {
             _modelSelectionExplicit = false;
@@ -2986,6 +3079,9 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                     item.Availability)));
         RefreshFilteredConversations();
         OnPropertyChanged(nameof(HasConversationHistory));
+        OnPropertyChanged(nameof(ConversationDeletedByClear));
+        OnPropertyChanged(nameof(ClearFailedRunLabel));
+        OnPropertyChanged(nameof(ClearFailedRunAccessibleName));
         Replace(
             ContextItems,
             snapshot.ContextItems.Select(CreateContextItem));
@@ -3104,6 +3200,11 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             ? "Hidden content not saved" : "Conversation not saved");
         NotifyAvailabilityChanged();
         NotifyContentChanged();
+        Announce(
+            previousState,
+            previousApprovalId,
+            previousQuestionId,
+            previousCapabilityRequestId);
         if (_approvalModeChangePending
             && _isRunBound)
         {
@@ -3129,6 +3230,44 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 or GovernedAgentState.Cancelled)
         {
             RunFinished?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private void Announce(
+        GovernedAgentState previousState,
+        AgentApprovalId? previousApprovalId,
+        AgentQuestionId? previousQuestionId,
+        AgentCapabilityRequestId? previousCapabilityRequestId)
+    {
+        if (PendingApproval is { } approval && approval.Id != previousApprovalId)
+        {
+            Announcement =
+                $"Approval required: {approval.ToolTitle} in {approval.TargetDisplayTitle}";
+        }
+        else if (PendingQuestion is { } question && question.Id != previousQuestionId)
+        {
+            Announcement = $"The agent asks: {question.Question}";
+        }
+        else if (PendingCapabilityRequest is { } request
+            && request.Id != previousCapabilityRequestId)
+        {
+            Announcement = $"Permission requested: {request.DisplayTitle}";
+        }
+        else if (State != previousState && IsActiveRunState(previousState))
+        {
+            Announcement = State switch
+            {
+                GovernedAgentState.Ready => "Response complete",
+                GovernedAgentState.Failed => Status.Length > 0
+                    ? $"{FailureHeading}. {Status}"
+                    : FailureHeading,
+                GovernedAgentState.Cancelled => "Run stopped",
+                _ => Announcement,
+            };
+        }
+        else if (State != previousState && IsActiveRunState(State))
+        {
+            Announcement = string.Empty;
         }
     }
 
@@ -3565,8 +3704,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             approval.Id,
             approval.ToolName,
             approval.ToolTitle,
-            FormatEnum(approval.Risk),
-            FormatEnum(approval.Permission),
+            approval.Risk,
+            AgentPolicyPresentation.PermissionName(approval.Permission),
             approval.Presentation.TargetTitle,
             FormatTarget(approval.Target),
             approval.Presentation.Host ?? "Not reported",
@@ -3673,6 +3812,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ContextUsedTokens));
         OnPropertyChanged(nameof(ContextEffectiveLimit));
         OnPropertyChanged(nameof(ContextWindowPercent));
+        OnPropertyChanged(nameof(ContextWindowPercentLabel));
         OnPropertyChanged(nameof(ContextWindowUsageLabel));
     }
 
@@ -3724,7 +3864,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         new(
             activity.ToolName,
             activity.ToolTitle,
-            FormatEnum(activity.Risk),
+            activity.Risk,
             activity.TargetTitle,
             activity.CancellationRequested,
             activity.PanelId);

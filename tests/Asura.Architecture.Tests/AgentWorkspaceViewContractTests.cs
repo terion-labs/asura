@@ -532,7 +532,7 @@ public sealed class AgentWorkspaceViewContractTests
     }
 
     [Fact]
-    public void Agent_surface_does_not_use_macos_native_live_regions()
+    public void Agent_surface_announces_only_through_its_one_crash_safe_status_region()
     {
         var root = ApplicationViews.RepositoryRoot;
         var agentViews = new[]
@@ -559,7 +559,149 @@ public sealed class AgentWorkspaceViewContractTests
             .Where(element =>
                 AttributeValue(element, "AutomationProperties.LiveSetting") is not null);
 
-        Assert.Empty(liveRegions);
+        // Avalonia 12.0.5's macOS bridge terminates the process on a nil live
+        // announcement from streaming or detached controls. The one exception
+        // is the LiveRegionTextBlock, which never announces empty text, placed
+        // directly in the surface's root panel so it is never recycled with a
+        // transcript row, and fed discrete events rather than the stream.
+        var region = Assert.Single(liveRegions);
+        Assert.Equal(
+            XName.Get("LiveRegionTextBlock", "using:Asura.App.Controls"),
+            region.Name);
+        Assert.Equal("AgentAnnouncementRegion", AttributeValue(region, "Name"));
+        Assert.Equal(
+            "{Binding AgentChat.Announcement, FallbackValue=''}",
+            AttributeValue(region, "Text"));
+        var view = Assert.IsType<XElement>(LoadView().Root);
+        var rootPanel = Assert.Single(
+            view.Elements(),
+            element => string.Equals(element.Name.LocalName, "Panel", StringComparison.Ordinal));
+        Assert.Same(
+            rootPanel,
+            Assert.Single(
+                view.Descendants(),
+                element => string.Equals(AttributeValue(element, "Name"), "AgentAnnouncementRegion", StringComparison.Ordinal))
+                .Parent);
+    }
+
+    [Fact]
+    public void Send_raw_secrets_is_a_checkbox_that_explains_itself_in_view()
+    {
+        var root = Assert.IsType<XElement>(LoadView().Root);
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal));
+
+        var option = FindNamedElement(root, "AgentSendRawSecrets");
+        Assert.Equal("CheckBox", option.Name.LocalName);
+        Assert.Equal("Send raw secrets", AttributeValue(option, "Content"));
+        Assert.Equal(
+            "{Binding AgentChat.SendRawSecrets, Mode=TwoWay}",
+            AttributeValue(option, "IsChecked"));
+        Assert.Null(AttributeValue(option, "ToolTip.Tip"));
+
+        var help = FindNamedElement(root, "AgentSendRawSecretsHelp");
+        Assert.Equal("TextBlock", help.Name.LocalName);
+        Assert.Equal("{Binding AgentChat.SendRawSecretsHelp}", AttributeValue(help, "Text"));
+        Assert.Equal("Wrap", AttributeValue(help, "TextWrapping"));
+        Assert.Same(option.Parent, help.Parent);
+    }
+
+    [Fact]
+    public void Failed_run_recovery_is_secondary_and_names_what_it_clears()
+    {
+        var root = Assert.IsType<XElement>(LoadView().Root);
+        var failedState = FindNamedElement(root, "AgentFailedTurnState");
+        var clear = FindNamedElement(failedState, "AgentClearFailedRunButton");
+
+        Assert.Equal(
+            "{Binding AgentChat.ClearFailedRunLabel, FallbackValue='Clear Failed Run'}",
+            AttributeValue(clear, "Content"));
+        Assert.Equal("SecondaryButton", AttributeValue(clear, "Classes"));
+        Assert.Equal("OnClearAgentChatClick", AttributeValue(clear, "Click"));
+        Assert.DoesNotContain(
+            failedState.Descendants(),
+            element => HasClass(element, "PrimaryButton"));
+    }
+
+    [Fact]
+    public void Composer_accepts_dropped_files_and_marks_itself_as_the_target()
+    {
+        var root = Assert.IsType<XElement>(LoadView().Root);
+        var composer = FindNamedElement(root, "AgentComposer");
+
+        Assert.Equal("True", AttributeValue(composer, "DragDrop.AllowDrop"));
+        Assert.Equal("OnAgentComposerDragOver", AttributeValue(composer, "DragDrop.DragEnter"));
+        Assert.Equal("OnAgentComposerDragOver", AttributeValue(composer, "DragDrop.DragOver"));
+        Assert.Equal("OnAgentComposerDragLeave", AttributeValue(composer, "DragDrop.DragLeave"));
+        Assert.Equal("OnAgentComposerDrop", AttributeValue(composer, "DragDrop.Drop"));
+        Assert.Contains(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "Style", StringComparison.Ordinal)
+                && string.Equals(
+                    AttributeValue(element, "Selector"),
+                    "Border#AgentComposer.dropTarget",
+                    StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Context_usage_is_a_gauge_with_its_value_not_a_progress_bar()
+    {
+        var root = Assert.IsType<XElement>(LoadView().Root);
+        var gauge = FindNamedElement(root, "AgentContextWindowGauge");
+        var flyout = Assert.Single(
+            gauge.Ancestors(),
+            element => string.Equals(element.Name.LocalName, "Flyout", StringComparison.Ordinal));
+
+        Assert.Equal("ContextWindowDonut", gauge.Name.LocalName);
+        Assert.Equal(
+            "{Binding AgentChat.ContextWindowPercent}",
+            AttributeValue(gauge, "Percentage"));
+        Assert.Equal("Context window used", AttributeValue(gauge, "AutomationProperties.Name"));
+        Assert.Contains(
+            flyout.Descendants(),
+            element => string.Equals(
+                AttributeValue(element, "Text"),
+                "{Binding AgentChat.ContextWindowPercentLabel}",
+                StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            flyout.Descendants(),
+            element => string.Equals(element.Name.LocalName, "ProgressBar", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Run_card_names_the_panel_and_keeps_identifiers_in_details()
+    {
+        var root = Assert.IsType<XElement>(LoadView().Root);
+        var heading = Assert.Single(
+            root.Descendants(),
+            element => (AttributeValue(element, "Text") ?? string.Empty)
+                .Contains("Running in", StringComparison.Ordinal));
+        Assert.Equal(
+            "{Binding AgentChat.ActiveTool.TargetDisplayTitle, StringFormat={}Running in {0}}",
+            AttributeValue(heading, "Text"));
+
+        var details = FindNamedElement(root, "AgentToolActivityDetails");
+        foreach (var identifier in new[] { "ActiveTool.ToolName", "ActiveTool.TargetTitle," })
+        {
+            var element = Assert.Single(
+                root.Descendants(),
+                element => (AttributeValue(element, "Text") ?? string.Empty)
+                    .Contains(identifier, StringComparison.Ordinal));
+            Assert.Contains(details, element.Ancestors());
+        }
+    }
+
+    [Fact]
+    public void Decision_cards_are_named_so_the_view_can_focus_them()
+    {
+        var root = Assert.IsType<XElement>(LoadView().Root);
+
+        Assert.Equal("AgentApprovalCardView", FindNamedElement(root, "AgentApprovalCard").Name.LocalName);
+        Assert.Equal("AgentQuestionCardView", FindNamedElement(root, "AgentQuestionCard").Name.LocalName);
+        Assert.Equal(
+            "AgentCapabilityRequestCardView",
+            FindNamedElement(root, "AgentCapabilityRequestCard").Name.LocalName);
     }
 
     [Fact]

@@ -29,13 +29,11 @@
     </DataTemplate>
   </UserControl.Resources>
   <UserControl.Styles>
-    <Style Selector="ToggleSwitch.SecretDisclosure /template/ Border#SwitchTrack">
-      <Setter Property="Width" Value="28" />
-      <Setter Property="Height" Value="16" />
-    </Style>
-    <Style Selector="ToggleSwitch.SecretDisclosure /template/ Ellipse#SwitchKnob">
-      <Setter Property="Width" Value="12" />
-      <Setter Property="Height" Value="12" />
+    <!-- A file dragged over the composer lights the composer itself, so
+         the place it will land is the place that reacts. -->
+    <Style Selector="Border#AgentComposer.dropTarget">
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
     </Style>
     <Style Selector="Button.ComposerControl">
       <Setter Property="Height" Value="32" />
@@ -200,13 +198,33 @@
     </Style>
   </UserControl.Styles>
   <!--
-    Keep the agent surface free of AutomationProperties.LiveSetting. Avalonia
-    12.0.5's macOS bridge can raise a native live-region notification with a
-    nil announcement while streaming controls are updated or detached, which
-    terminates the process. Stable names, help text, and keyboard focus remain
-    available to assistive technology without that unsafe native callback.
+    Keep the agent surface free of AutomationProperties.LiveSetting, with one
+    exception below. Avalonia 12.0.5's macOS bridge can raise a native
+    live-region notification with a nil announcement while streaming controls
+    are updated or detached, which terminates the process. Stable names, help
+    text, and keyboard focus remain available to assistive technology without
+    that unsafe native callback.
   -->
   <Panel ClipToBounds="False">
+  <!--
+    The one live region: discrete agent events (a decision is waiting, a run
+    ended), never the response stream. It is the crash-safe LiveRegionTextBlock,
+    which never announces empty text, and it sits directly in the root panel so
+    it lives exactly as long as the agent surface and is never recycled with a
+    transcript row. Off-screen in every way but to assistive technology.
+  -->
+  <controls:LiveRegionTextBlock
+      x:Name="AgentAnnouncementRegion"
+      Width="1"
+      Height="1"
+      HorizontalAlignment="Left"
+      VerticalAlignment="Top"
+      ClipToBounds="True"
+      IsHitTestVisible="False"
+      Opacity="0"
+      Text="{Binding AgentChat.Announcement, FallbackValue=''}"
+      AutomationProperties.LiveSetting="Polite"
+      AutomationProperties.Name="AI agent announcements" />
   <!-- The floating panel's backdrop: whatever the window has already painted
        beneath it, blurred live on every frame by the compositor itself.
        Nothing is captured ahead of time, so scrolling or streaming content
@@ -659,10 +677,12 @@
             </StackPanel>
           </controls:SurfaceCard>
           <components:AgentQuestionCardView
+              x:Name="AgentQuestionCard"
               DeclineRequested="OnDeclineAgentQuestionClick"
               ResponseKeyDownRequested="OnAgentQuestionResponseKeyDown"
               SubmitRequested="OnSubmitAgentQuestionClick" />
           <components:AgentCapabilityRequestCardView
+              x:Name="AgentCapabilityRequestCard"
               EnableAskRequested="OnEnableAgentCapabilityAskClick"
               KeepOffRequested="OnKeepAgentCapabilityOffClick" />
           <!--
@@ -689,12 +709,25 @@
                     Grid.Column="1"
                     VerticalAlignment="Center"
                     Classes="Eyebrow Accent"
-                    Text="{Binding AgentChat.ActiveTool.TargetTitle, StringFormat={}Running in {0}}"
+                    Text="{Binding AgentChat.ActiveTool.TargetDisplayTitle, StringFormat={}Running in {0}}"
                     TextTrimming="CharacterEllipsis" />
                 <TextBlock Grid.Column="2" VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding AgentChat.ActiveTool.Risk}" />
               </Grid>
               <TextBlock FontWeight="SemiBold" Text="{Binding AgentChat.ActiveTool.ToolTitle}" TextWrapping="Wrap" />
-              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding AgentChat.ActiveTool.ToolName}" TextWrapping="Wrap" />
+              <!-- Identifiers bind the action; they are for checking it, not
+                   for reading what it is. -->
+              <Expander
+                  x:Name="AgentToolActivityDetails"
+                  Header="Details"
+                  HorizontalAlignment="Stretch"
+                  HorizontalContentAlignment="Stretch"
+                  FontSize="{DynamicResource ShellFontSize10}"
+                  AutomationProperties.Name="Show AI agent tool details">
+                <StackPanel Spacing="{DynamicResource ShellSpaceXs}" Margin="{controls:Inset Top=Xs}">
+                  <SelectableTextBlock Classes="Muted" Text="{Binding AgentChat.ActiveTool.ToolName, StringFormat={}Tool: {0}}" TextWrapping="Wrap" />
+                  <SelectableTextBlock Classes="Muted" Text="{Binding AgentChat.ActiveTool.TargetTitle, StringFormat={}Target: {0}}" TextWrapping="Wrap" />
+                </StackPanel>
+              </Expander>
               <Button
                   Margin="{controls:Inset Top=Xs}"
                   HorizontalAlignment="Left"
@@ -707,6 +740,7 @@
             </StackPanel>
           </Border>
           <components:AgentApprovalCardView
+              x:Name="AgentApprovalCard"
               ApproveRequested="OnApproveAgentActionClick"
               DenyRequested="OnDenyAgentActionClick"
               IsVisible="{Binding AgentChat.HasPendingApproval, FallbackValue=False}" />
@@ -876,17 +910,22 @@
           Kind="Retry"
           Heading="{Binding AgentChat.FailureHeading}"
           Body="{Binding AgentChat.Status}">
+        <!-- Neither action is the obvious next step, so neither is primary.
+             Clearing names what it removes; the host confirms first when
+             that includes a saved conversation. -->
         <StackPanel HorizontalAlignment="Center" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
           <Button
-              Classes="PrimaryButton"
+              x:Name="AgentClearFailedRunButton"
+              Classes="SecondaryButton"
               Click="OnClearAgentChatClick"
-              Content="Reset to retry"
+              Content="{Binding AgentChat.ClearFailedRunLabel, FallbackValue='Clear Failed Run'}"
               IsEnabled="{Binding AgentChat.CanClear}"
-              AutomationProperties.Name="Clear the failed AI agent run and try again" />
+              AutomationProperties.Name="{Binding AgentChat.ClearFailedRunAccessibleName, FallbackValue='Clear the failed AI agent run'}"
+              AutomationProperties.HelpText="Discards this run so you can send the message again. A saved conversation is deleted only after you confirm." />
           <Button
               Classes="TextButton"
               Click="OnShowAgentSettingsClick"
-              Content="Provider settings"
+              Content="Provider Settings…"
               AutomationProperties.Name="Open AI settings" />
         </StackPanel>
       </controls:StateOverlay>
@@ -1012,6 +1051,11 @@
         </ItemsControl>
         <Border
           x:Name="AgentComposer"
+          DragDrop.AllowDrop="True"
+          DragDrop.DragEnter="OnAgentComposerDragOver"
+          DragDrop.DragOver="OnAgentComposerDragOver"
+          DragDrop.DragLeave="OnAgentComposerDragLeave"
+          DragDrop.Drop="OnAgentComposerDrop"
           Margin="{controls:Inset Horizontal=Md, Bottom=Md}"
           Padding="{controls:Inset Sm}"
           Background="{DynamicResource ShellSurfaceBrush}"
@@ -1076,18 +1120,31 @@
           </StackPanel>
           <Border Grid.Row="4" BorderThickness="0,1,0,0"
               BorderBrush="{DynamicResource ShellBorderBrush}" Padding="{controls:Inset Top=Xs}">
-            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-              <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding !AgentChat.HasFailedTurn}">
-                <ToggleSwitch Classes="SecretDisclosure" IsChecked="{Binding AgentChat.SendRawSecrets, Mode=TwoWay}"
-                    IsEnabled="{Binding AgentChat.CanEnterPrompt}"
-                    AutomationProperties.Name="Send raw secrets" />
-                <TextBlock Text="Send raw secrets" FontSize="{DynamicResource ShellFontSize11}" VerticalAlignment="Center" Classes="Muted" />
-                <Button Classes="TextButton" Padding="0" MinWidth="20" MinHeight="22"
-                    ToolTip.Tip="{Binding AgentChat.SendRawSecretsExplanation}"
-                    AutomationProperties.Name="How sending raw secrets works">
-                  <icons:SymbolIcon Symbol="Info" FontSize="13" />
-                </Button>
-              </StackPanel>
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto">
+              <!-- A minor option for one message, so a checkbox rather than a
+                   switch, and its consequence is written out rather than kept
+                   in a tooltip. The whole row, box and label, is the 28 pt
+                   hit target. -->
+              <CheckBox
+                  x:Name="AgentSendRawSecrets"
+                  MinHeight="28"
+                  VerticalAlignment="Center"
+                  FontSize="{DynamicResource ShellFontSize11}"
+                  Content="Send raw secrets"
+                  IsChecked="{Binding AgentChat.SendRawSecrets, Mode=TwoWay}"
+                  IsEnabled="{Binding AgentChat.CanEnterPrompt}"
+                  IsVisible="{Binding !AgentChat.HasFailedTurn}"
+                  AutomationProperties.Name="Send raw secrets"
+                  AutomationProperties.HelpText="{Binding AgentChat.SendRawSecretsExplanation}" />
+              <TextBlock
+                  x:Name="AgentSendRawSecretsHelp"
+                  Grid.Row="1"
+                  Grid.ColumnSpan="4"
+                  Classes="Muted"
+                  FontSize="{DynamicResource ShellFontSize10}"
+                  Text="{Binding AgentChat.SendRawSecretsHelp}"
+                  TextWrapping="Wrap"
+                  IsVisible="{Binding !AgentChat.HasFailedTurn}" />
               <ComboBox Grid.Column="2" Width="104" Margin="4,0" MinHeight="26"
                   VerticalAlignment="Center"
                   FontSize="{DynamicResource ShellFontSize11}"
@@ -1124,11 +1181,29 @@
                 <Button.Flyout>
                   <Flyout Placement="TopEdgeAlignedRight">
                     <StackPanel Width="210" Spacing="{DynamicResource ShellSpaceSm}">
-                      <TextBlock FontWeight="SemiBold" Text="Context window" />
-                      <ProgressBar
-                          Minimum="0"
-                          Maximum="100"
-                          Value="{Binding AgentChat.ContextWindowPercent}" />
+                      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                        <Panel Width="44" Height="44">
+                          <controls:ContextWindowDonut
+                              x:Name="AgentContextWindowGauge"
+                              Percentage="{Binding AgentChat.ContextWindowPercent}"
+                              TrackBrush="{DynamicResource ShellBorderBrush}"
+                              IndicatorBrush="{DynamicResource ShellAccentBrush}"
+                              StrokeThickness="4"
+                              AutomationProperties.Name="Context window used" />
+                          <TextBlock
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              FontSize="{DynamicResource ShellFontSize10}"
+                              FontWeight="SemiBold"
+                              Text="{Binding AgentChat.ContextWindowPercentLabel}"
+                              AutomationProperties.AccessibilityView="Raw" />
+                        </Panel>
+                        <TextBlock
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            FontWeight="SemiBold"
+                            Text="Context window" />
+                      </Grid>
                       <TextBlock
                           Classes="Muted"
                           Text="{Binding AgentChat.ContextWindowUsageLabel}" TextWrapping="Wrap" />

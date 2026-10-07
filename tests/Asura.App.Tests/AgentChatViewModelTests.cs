@@ -2276,9 +2276,12 @@ public sealed partial class AgentChatViewModelTests
         Assert.Equal(approvalId, approval.Id);
         Assert.Equal("terminal.send_text", approval.ToolName);
         Assert.Equal("Send text to terminal", approval.ToolTitle);
-        Assert.Equal("Mutation", approval.Risk);
+        Assert.Equal(AgentActionRisk.Mutation, approval.RiskLevel);
+        Assert.Equal("Makes changes", approval.Risk);
+        Assert.False(approval.IsHighRisk);
         Assert.Equal("Ask", approval.Permission);
         Assert.Equal("Production API shell", approval.TargetTitle);
+        Assert.Equal("Production API shell", approval.TargetDisplayTitle);
         Assert.Contains("window/window-1", approval.ExactTarget);
         Assert.Contains("workspace/workspace-1", approval.ExactTarget);
         Assert.Contains("tab/tab-1", approval.ExactTarget);
@@ -2418,6 +2421,12 @@ public sealed partial class AgentChatViewModelTests
             "https://docs.example.test/runbook",
             Assert.Single(approval.ActionArguments).DisplayValue);
         Assert.Equal("Destination", Assert.Single(approval.ActionArguments).DisplayName);
+        // The trusted title binds the exact panel and session; the card's
+        // heading names the panel the way the tab strip does.
+        Assert.Equal("Runbook", approval.TargetDisplayTitle);
+        Assert.Equal(
+            "Approval required · Navigate browser · in Runbook · Makes changes",
+            approval.AccessibleName);
     }
 
     [Fact]
@@ -2938,8 +2947,10 @@ public sealed partial class AgentChatViewModelTests
         var activity = Assert.IsType<AgentToolActivityViewModel>(viewModel.ActiveTool);
         Assert.Equal("terminal.read_screen", activity.ToolName);
         Assert.Equal("Read terminal screen", activity.ToolTitle);
-        Assert.Equal("Observation", activity.Risk);
+        Assert.Equal(AgentActionRisk.Observation, activity.RiskLevel);
+        Assert.Equal("Read only", activity.Risk);
         Assert.Equal("Production shell", activity.TargetTitle);
+        Assert.Equal("Production shell", activity.TargetDisplayTitle);
         Assert.Equal(panelId, activity.PanelId);
         Assert.Equal(activity.PanelId, viewModel.PanelActivity?.PanelId);
         Assert.False(activity.CancellationRequested);
