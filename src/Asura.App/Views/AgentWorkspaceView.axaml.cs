@@ -34,6 +34,14 @@ public sealed partial class AgentWorkspaceView : UserControl
     {
         InitializeComponent();
         InitializeAgentChatTranscript();
+
+        // A click anywhere on a model row chooses it. The list selects on the
+        // press and marks it handled, so the release is read even then.
+        AgentModelList.AddHandler(
+            InputElement.PointerReleasedEvent,
+            OnModelListPointerReleased,
+            RoutingStrategies.Bubble,
+            handledEventsToo: true);
         AgentChatPromptInput.AddHandler(
             InputElement.KeyDownEvent,
             OnAgentPromptKeyDown,
@@ -584,14 +592,117 @@ public sealed partial class AgentWorkspaceView : UserControl
     private void OnForkAgentConversationClick(object? sender, RoutedEventArgs e) =>
         ForkAgentConversationRequested?.Invoke(sender, e);
 
-    private void OnSelectModelClick(object? sender, RoutedEventArgs e) =>
-        SelectAgentModelRequested?.Invoke(sender, e);
-
     private void OnToggleFavoriteModelClick(object? sender, RoutedEventArgs e) =>
         ToggleAgentModelFavoriteRequested?.Invoke(sender, e);
 
     private void OnRefreshModelsClick(object? sender, RoutedEventArgs e) =>
         RefreshAgentModelsRequested?.Invoke(sender, e);
+
+    /// <summary>
+    /// The model menu opens on the model in use, with the keyboard in its
+    /// filter field: typing narrows the list, Down moves into it.
+    /// </summary>
+    private void OnModelMenuOpened(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        var current = ModelRows().FirstOrDefault(row => row.IsCurrent);
+        AgentModelList.SelectedItem = current;
+        if (current is not null)
+        {
+            AgentModelList.ScrollIntoView(current);
+        }
+
+        AgentModelFilter.Focus(NavigationMethod.Tab);
+    }
+
+    private void OnModelFilterKeyDown(object? sender, KeyEventArgs e)
+    {
+        _ = sender;
+        if (e.KeyModifiers != KeyModifiers.None)
+        {
+            return;
+        }
+
+        if (e.Key == Key.Down && AgentModelList.ItemCount > 0)
+        {
+            if (AgentModelList.SelectedIndex < 0)
+            {
+                AgentModelList.SelectedIndex = 0;
+            }
+
+            AgentModelList.ScrollIntoView(AgentModelList.SelectedIndex);
+            AgentModelList.ContainerFromIndex(AgentModelList.SelectedIndex)?
+                .Focus(NavigationMethod.Directional);
+            e.Handled = true;
+            return;
+        }
+
+        // Return in the field chooses the highlighted model, or the first
+        // match when the keyboard has not been into the list.
+        if (e.Key == Key.Enter
+            && (AgentModelList.SelectedItem as AgentModelPickerItemViewModel
+                ?? ModelRows().FirstOrDefault()) is { } row)
+        {
+            e.Handled = true;
+            ChooseModel(row);
+        }
+    }
+
+    private void OnModelListKeyDown(object? sender, KeyEventArgs e)
+    {
+        _ = sender;
+        if (e.Key == Key.Enter
+            && e.KeyModifiers == KeyModifiers.None
+            && AgentModelList.SelectedItem is AgentModelPickerItemViewModel row)
+        {
+            e.Handled = true;
+            ChooseModel(row);
+        }
+    }
+
+    private void OnModelListPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        _ = sender;
+        if (e.InitialPressMouseButton != MouseButton.Left
+            || e.Source is not Visual source)
+        {
+            return;
+        }
+
+        // The star in a row marks a favorite; it does not choose the model.
+        if (source.FindAncestorOfType<Button>(includeSelf: true) is { } button
+            && AgentModelList.IsVisualAncestorOf(button))
+        {
+            return;
+        }
+
+        if (source.FindAncestorOfType<ListBoxItem>(includeSelf: true)
+            is { DataContext: AgentModelPickerItemViewModel row })
+        {
+            ChooseModel(row);
+        }
+    }
+
+    private IEnumerable<AgentModelPickerItemViewModel> ModelRows() =>
+        AgentModelList.Items.OfType<AgentModelPickerItemViewModel>();
+
+    /// <summary>
+    /// Hands the chosen model to the host and closes the menu. The sender is
+    /// the row, which carries its model in its tag. The host reads it before
+    /// the menu closes: closing detaches the row and clears its bindings.
+    /// </summary>
+    internal void ChooseModel(AgentModelPickerItemViewModel row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        Control carrier = AgentModelList.ContainerFromItem(row)?
+            .GetVisualDescendants()
+            .OfType<Control>()
+            .FirstOrDefault(control => ReferenceEquals(control.Tag, row.Model))
+            ?? new Control { Tag = row.Model };
+        SelectAgentModelRequested?.Invoke(carrier, new RoutedEventArgs());
+        AgentModelPickerButton.Flyout?.Hide();
+    }
 
     private sealed record QueuedFollowUpDrag(
         Control Source,

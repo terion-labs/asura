@@ -1,4 +1,3 @@
-using System.Globalization;
 using Asura.Application;
 using Asura.Core;
 using FluentIcons.Common;
@@ -65,10 +64,10 @@ public sealed record RecentSessionHistoryItemViewModel(
 
     public string LastUsed => RelativeTime(Record.LastUsedAt, ObservedAt);
 
-    public string Started => FormatTimestamp(Record.StartedAt);
+    public string Started => DisplayDates.Format(Record.StartedAt);
 
     public string Ended => Record.EndedAt is { } endedAt
-        ? FormatTimestamp(endedAt)
+        ? DisplayDates.Format(endedAt)
         : "In progress";
 
     public string Duration => Record.EndedAt is { } endedAt
@@ -96,9 +95,6 @@ public sealed record RecentSessionHistoryItemViewModel(
         && string.Equals(SourceKind, other.SourceKind, StringComparison.Ordinal)
         && string.Equals(LastUsed, other.LastUsed, StringComparison.Ordinal)
         && SourceGlyph == other.SourceGlyph;
-
-    private static string FormatTimestamp(DateTimeOffset timestamp) =>
-        timestamp.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
 
     private static string FormatDuration(TimeSpan duration)
     {
@@ -137,7 +133,7 @@ public sealed record RecentSessionHistoryItemViewModel(
 
         return age < TimeSpan.FromDays(7)
             ? $"{Math.Max(1, (int)age.TotalDays)} d ago"
-            : timestamp.ToLocalTime().ToString("yyyy-MM-dd", CultureInfo.CurrentCulture);
+            : DisplayDates.Format(timestamp);
     }
 
     private static string PanelKindLabel(PanelKind kind) => PanelTypes.Name(kind);

@@ -383,10 +383,14 @@ public sealed class TransientOverlayViewContractTests
 
         // No inline create form: the launcher opens things, and creating a
         // screen or workspace belongs to the page that owns that list. The one
-        // text box narrows what is already there rather than adding to it.
-        var textBox = Assert.Single(
+        // text box narrows what is already there rather than adding to it, and
+        // is the shared search field: a magnifier, a clear button, Esc clears.
+        Assert.DoesNotContain(
             catalogRoot.Descendants(),
             element => string.Equals(element.Name.LocalName, "TextBox", StringComparison.Ordinal));
+        var textBox = Assert.Single(
+            catalogRoot.Descendants(),
+            element => string.Equals(element.Name.LocalName, "SearchField", StringComparison.Ordinal));
         Assert.Equal("HistorySearchBox", AttributeValue(textBox, "Name"));
         Assert.Equal("{Binding HistorySearchQuery}", AttributeValue(textBox, "Text"));
 

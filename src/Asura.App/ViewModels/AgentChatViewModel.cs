@@ -215,14 +215,30 @@ public sealed record AgentServiceTierOption(
     AgentServiceTier Value,
     string Label);
 
+/// <summary>
+/// One row of the model menu. <see cref="IsCurrent"/> is the model the agent
+/// uses now, the row the menu checks; the list's own selection is only where
+/// the keyboard is until Return or a click chooses it.
+/// </summary>
 public sealed record AgentModelPickerItemViewModel(
     AiProviderModelDescriptor Model,
     string ProviderName,
-    bool IsFavorite)
+    bool IsFavorite,
+    bool IsCurrent = false)
 {
     public string Id => Model.Id;
 
     public string DisplayName => Model.DisplayName;
+
+    /// <summary>
+    /// What VoiceOver reads for the row. The check mark is only drawn, so the
+    /// name and the item status both say which model is in use.
+    /// </summary>
+    public string AccessibleName => IsCurrent
+        ? $"{DisplayName}, {ProviderName}, current model"
+        : $"{DisplayName}, {ProviderName}";
+
+    public string AccessibleStatus => IsCurrent ? "Current model" : string.Empty;
 
     public string FavoriteAccessibleName => IsFavorite
         ? $"Remove {DisplayName} from favorite models"
@@ -522,6 +538,8 @@ public sealed record AgentYoloAuthorityViewModel(
 
 public sealed class AgentChatViewModel : ObservableObject, IDisposable
 {
+    internal const string AskForApprovalModeTitle = "Ask for Approval";
+    internal const string FullAccessModeTitle = "Full Access";
     private static readonly TimeSpan MinimumStreamingRefreshInterval =
         TimeSpan.FromMilliseconds(33);
     private const string PendingCapabilityNotice =
@@ -951,6 +969,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(SelectedModelName));
                 NotifyContextWindowChanged();
                 UpdateModelCapabilities(value);
+                RefreshFilteredModels();
             }
         }
     }
@@ -1822,6 +1841,9 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(CanEnableYolo));
                 OnPropertyChanged(nameof(CanDisableYolo));
                 OnPropertyChanged(nameof(PolicyModeLabel));
+                OnPropertyChanged(nameof(AccessModeLabel));
+                OnPropertyChanged(nameof(IsFullAccessSelected));
+                OnPropertyChanged(nameof(IsAskForApprovalSelected));
                 NotifyContentChanged();
             }
         }
@@ -1839,9 +1861,17 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         ? "Full access"
         : FormatEnum(_terminalMutationPermission);
 
+    /// <summary>
+    /// The approval pop-up's title, which is always the title of the mode
+    /// checked in its menu.
+    /// </summary>
     public string AccessModeLabel => _fullAccessSelected
-        ? "Full access"
-        : "Ask approval";
+        ? FullAccessModeTitle
+        : AskForApprovalModeTitle;
+
+    public bool IsFullAccessSelected => _fullAccessSelected;
+
+    public bool IsAskForApprovalSelected => !_fullAccessSelected;
 
     public bool HasProvider => Providers.Count > 0;
 
@@ -4062,7 +4092,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                     model,
                     providerName,
                     provider is not null && _favoriteModels.Contains(
-                        new AgentModelFavorite(provider.Id, model.Id))))
+                        new AgentModelFavorite(provider.Id, model.Id)),
+                    IsCurrent: string.Equals(model.Id, SelectedModel?.Id, StringComparison.Ordinal)))
                 .Where(item => query.Length == 0
                     || item.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase)
                     || item.Id.Contains(query, StringComparison.OrdinalIgnoreCase)
@@ -4151,6 +4182,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CanDisableYolo));
         OnPropertyChanged(nameof(PolicyModeLabel));
         OnPropertyChanged(nameof(AccessModeLabel));
+        OnPropertyChanged(nameof(IsFullAccessSelected));
+        OnPropertyChanged(nameof(IsAskForApprovalSelected));
     }
 
     private void NotifyQuestionAvailabilityChanged()

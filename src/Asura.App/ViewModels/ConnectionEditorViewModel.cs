@@ -240,6 +240,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
                 OnPropertyChanged(nameof(IsWsl));
                 OnPropertyChanged(nameof(ShowsLocalShell));
                 OnPropertyChanged(nameof(CanBrowseRepository));
+                OnPropertyChanged(nameof(UsesSystemFolderPicker));
                 OnPropertyChanged(nameof(ShowsSavedSshSources));
                 OnPropertyChanged(nameof(ShowsSshEndpointFields));
             }
@@ -546,6 +547,15 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     /// needs the Git client and an endpoint the Git panel supports.
     /// </summary>
     public bool CanBrowseRepository => _gitClient is not null && (IsLocal || IsSsh);
+
+    /// <summary>
+    /// Whether the repository folder is chosen with the system's Open panel.
+    /// A local repository is a folder on this computer, so the panel people
+    /// already know chooses it, with its sidebar, recents and search. An SSH
+    /// repository lives where that panel cannot see, so it is browsed on the
+    /// host with Asura's own folder browser.
+    /// </summary>
+    public bool UsesSystemFolderPicker => IsLocal;
 
     public bool UsesSecretReference => Authentication is
         ConnectionAuthenticationChoice.Password or ConnectionAuthenticationChoice.PrivateKey;

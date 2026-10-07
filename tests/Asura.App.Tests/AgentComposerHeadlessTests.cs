@@ -680,9 +680,9 @@ public sealed partial class AgentChatViewModelTests
                 Task selection = Task.CompletedTask;
                 view.SelectAgentModelRequested += (sender, _) =>
                 {
-                    var button = Assert.IsType<Button>(sender);
+                    var row = Assert.IsAssignableFrom<Control>(sender);
                     selection = viewModel.SelectModelAsync(
-                        Assert.IsType<AiProviderModelDescriptor>(button.Tag),
+                        Assert.IsType<AiProviderModelDescriptor>(row.Tag),
                         CancellationToken.None);
                 };
 
@@ -693,12 +693,19 @@ public sealed partial class AgentChatViewModelTests
                 picker.Flyout!.ShowAt(picker);
                 window.UpdateLayout();
 
-                var fastModel = Assert.Single(
-                    window.GetVisualDescendants().OfType<Button>(),
-                    button => string.Equals(AutomationProperties.GetName(button)
-, "Use model Fast model", StringComparison.Ordinal));
-                fastModel.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                // The model menu is a list: the keyboard highlights a row and
+                // Return chooses it.
+                var models = Assert.IsType<ListBox>(view.FindControl<ListBox>("AgentModelList"));
+                models.SelectedItem = Assert.Single(
+                    models.Items.OfType<AgentModelPickerItemViewModel>(),
+                    item => string.Equals(item.DisplayName, "Fast model", StringComparison.Ordinal));
+                models.RaiseEvent(new KeyEventArgs
+                {
+                    RoutedEvent = InputElement.KeyDownEvent,
+                    Key = Key.Enter,
+                });
                 await selection;
+                Assert.False(picker.Flyout.IsOpen);
 
                 Assert.Equal(0, runtime.ClearCount);
                 Assert.Equal(
@@ -824,26 +831,24 @@ public sealed partial class AgentChatViewModelTests
                 access.Flyout!.ShowAt(access);
                 window.UpdateLayout();
                 var fullAccess = Assert.Single(
-                    window.GetVisualDescendants().OfType<Button>(),
-                    button => string.Equals(AutomationProperties.GetName(button)
-, "Enable full access for agent actions", StringComparison.Ordinal));
-                fullAccess.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    window.GetVisualDescendants().OfType<MenuItem>(),
+                    item => string.Equals(item.Header as string, "Full Access", StringComparison.Ordinal));
+                fullAccess.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
                 await selection;
 
-                Assert.Equal("Full access", viewModel.AccessModeLabel);
+                Assert.Equal("Full Access", viewModel.AccessModeLabel);
                 Assert.Equal(0, runtime.EnableFullAccessCount);
                 Assert.False(access.Flyout.IsOpen);
 
                 access.Flyout.ShowAt(access);
                 window.UpdateLayout();
                 var askApproval = Assert.Single(
-                    window.GetVisualDescendants().OfType<Button>(),
-                    button => string.Equals(AutomationProperties.GetName(button)
-, "Ask for approval for agent actions", StringComparison.Ordinal));
-                askApproval.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    window.GetVisualDescendants().OfType<MenuItem>(),
+                    item => string.Equals(item.Header as string, "Ask for Approval", StringComparison.Ordinal));
+                askApproval.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
                 await selection;
 
-                Assert.Equal("Ask approval", viewModel.AccessModeLabel);
+                Assert.Equal("Ask for Approval", viewModel.AccessModeLabel);
                 Assert.False(access.Flyout.IsOpen);
             }
             finally

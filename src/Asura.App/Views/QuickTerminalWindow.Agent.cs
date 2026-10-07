@@ -231,7 +231,7 @@ public sealed partial class QuickTerminalWindow
 
     private async void OnSelectAgentModelClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: AiProviderModelDescriptor model })
+        if (sender is Control { Tag: AiProviderModelDescriptor model })
         {
             await RunQuickAgentConversationActionAsync(
                 sender,

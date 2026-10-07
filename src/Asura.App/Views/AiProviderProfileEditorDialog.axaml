@@ -52,11 +52,11 @@
           </Grid>
           <TextBlock
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               Text="{Binding ProviderProtocol, StringFormat={}Wire protocol: {0}}" />
           <TextBlock
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               IsVisible="{Binding !IsProviderRuntimeSupported}"
               Text="{Binding ProviderAvailability}"
               TextWrapping="Wrap" />
@@ -110,7 +110,7 @@
           </Grid>
           <TextBlock
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               Text="{Binding SelectedAuthentication.Detail}"
               TextWrapping="Wrap" />
           <StackPanel IsVisible="{Binding UsesCredential}" Spacing="{DynamicResource ShellSpaceSm}">
@@ -154,7 +154,7 @@
                 Content="Store API Key"
                 IsEnabled="{Binding CanStoreCredential}"
                 AutomationProperties.Name="{Binding Source={x:Static vm:SecretStoreName.Current}, StringFormat={}Store the API key in {0}}" />
-            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Source={x:Static vm:SecretStoreName.Current}, StringFormat='Store, Test, or Save writes the entered key to {0} and selects it here. A stored key stays in {0} if you cancel; existing keys are not overwritten.'}" TextWrapping="Wrap" />
+            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Source={x:Static vm:SecretStoreName.Current}, StringFormat='Store, Test, or Save writes the entered key to {0} and selects it here. A stored key stays in {0} if you cancel; existing keys are not overwritten.'}" TextWrapping="Wrap" />
             <controls:LiveRegionTextBlock Text="{Binding CredentialStatus}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
           </StackPanel>
           <StackPanel
@@ -177,9 +177,9 @@
                 Background="{DynamicResource ShellSurfaceElevatedBrush}"
                 CornerRadius="{DynamicResource ShellRadiusSm}">
               <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="DEVICE CODE" />
-                <SelectableTextBlock FontFamily="{DynamicResource ShellMonoFontFamily}" FontSize="{DynamicResource ShellFontSize16}" Text="{Binding DeviceCode}" />
-                <SelectableTextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding AuthenticationUri}" />
+                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Device code" />
+                <SelectableTextBlock FontFamily="{DynamicResource ShellDataFontFamily}" FontSize="{DynamicResource ShellFontSize16}" Text="{Binding DeviceCode}" />
+                <SelectableTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding AuthenticationUri}" />
               </StackPanel>
             </Border>
           </StackPanel>
@@ -189,15 +189,15 @@
       <controls:SurfaceCard Tone="Notice" Padding="{DynamicResource ShellCardPaddingCompact}">
         <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
           <TextBlock FontWeight="SemiBold" Text="{Binding TestStatus}" />
-          <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding TestDetail}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+          <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding TestDetail}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
           <StackPanel IsVisible="{Binding HasModels}" Spacing="{DynamicResource ShellSpaceXs}">
-            <TextBlock x:Name="ModelCatalogHeading" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Last discovered models" />
+            <TextBlock x:Name="ModelCatalogHeading" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Last discovered models" />
             <ItemsControl ItemsSource="{Binding Models}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
                   <Grid Margin="{controls:Inset Top=Xs}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                    <TextBlock FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Id}" />
-                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding DisplayName}" />
+                    <TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Id}" />
+                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding DisplayName}" />
                   </Grid>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>

@@ -378,7 +378,7 @@ public sealed partial class MainWindow
 
     private async void OnSelectAgentModelClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: AiProviderModelDescriptor model })
+        if (sender is Control { Tag: AiProviderModelDescriptor model })
         {
             await RunAgentConversationActionAsync(
                 sender,

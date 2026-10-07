@@ -231,7 +231,7 @@
                   <Ellipse Width="7" Height="7" controls:StatusToneBrush.Fill="{Binding StatusTone}" />
                   <TextBlock Grid.Column="1" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Stage}" />
                   <TextBlock Grid.Column="2" Classes="Eyebrow" Text="{Binding Status}" />
-                  <TextBlock Grid.Column="3" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Message}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Column="3" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Message}" TextWrapping="Wrap" />
                 </Grid>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
@@ -242,7 +242,7 @@
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                 <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock FontWeight="SemiBold" Text="{Binding HostKeyReviewTitle}" />
-                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding HostKeyReview.Endpoint}" />
+                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding HostKeyReview.Endpoint}" />
                 </StackPanel>
                 <Button
                     Grid.Column="1"
@@ -257,7 +257,7 @@
                 <TextBlock Grid.Row="1" Classes="Eyebrow" Text="Presented" />
                 <TextBlock Grid.Row="1" Grid.Column="1" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding HostKeyReview.Presented.Sha256Fingerprint}" TextWrapping="Wrap" />
                 <TextBlock Grid.Row="2" Classes="Eyebrow" Text="Previous" />
-                <TextBlock Grid.Row="2" Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding TrustedHostKeyFingerprint}" TextWrapping="Wrap" />
+                <TextBlock Grid.Row="2" Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding TrustedHostKeyFingerprint}" TextWrapping="Wrap" />
               </Grid>
             </StackPanel>
           </controls:SurfaceCard>
@@ -270,7 +270,7 @@
           <controls:SurfaceCard IsVisible="{Binding IsLocal}">
             <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
               <TextBlock Classes="SectionHeading" Text="Local filesystem" />
-              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="The adapter is confined to this existing folder and does not follow links outside it." TextWrapping="Wrap" />
+              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="The adapter is confined to this existing folder and does not follow links outside it." TextWrapping="Wrap" />
               <controls:LabeledField Label="Folder" controls:FieldValidation.For="LocalRoot"><TextBox Text="{Binding LocalRoot}" PlaceholderText="Absolute folder path" AutomationProperties.Name="Local folder" /></controls:LabeledField>
             </StackPanel>
           </controls:SurfaceCard>
@@ -291,7 +291,7 @@
           <controls:SurfaceCard IsVisible="{Binding IsSftp}">
             <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
               <TextBlock Classes="SectionHeading" Text="SFTP" />
-              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="SFTP uses the same SSH connection and credentials as the terminal." TextWrapping="Wrap" />
+              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="SFTP uses the same SSH connection and credentials as the terminal." TextWrapping="Wrap" />
               <controls:LabeledField Label="SSH connection">
                 <ComboBox ItemsSource="{Binding SshConnections}" SelectedItem="{Binding SelectedSshConnection}"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
               </controls:LabeledField>
@@ -299,7 +299,7 @@
               <controls:SurfaceCard Tone="Notice" Padding="{DynamicResource ShellCardPaddingCompact}" IsVisible="{Binding HasHostKeyReview}">
                 <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                   <TextBlock FontWeight="SemiBold" Text="{Binding HostKeyReviewTitle}" />
-                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding HostKeyReviewStatus}" TextWrapping="Wrap" />
+                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding HostKeyReviewStatus}" TextWrapping="Wrap" />
                   <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                     <TextBlock Classes="Eyebrow" Text="Presented" />
                     <TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding PresentedHostKey}" TextWrapping="Wrap" />
@@ -377,7 +377,7 @@
                   IsVisible="False"
                   Created="OnCredentialDraftCreated"
                   Cancelled="OnCredentialDraftCancelled" />
-              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="Choose a credential saved for this connection. S3 credentials use JSON fields accessKeyId, secretAccessKey, and optional sessionToken." TextWrapping="Wrap" />
+              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Choose a credential saved for this connection. S3 credentials use JSON fields accessKeyId, secretAccessKey, and optional sessionToken." TextWrapping="Wrap" />
             </StackPanel>
           </controls:SurfaceCard>
 
@@ -523,13 +523,13 @@
 
           <TextBlock
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize9}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               IsVisible="{Binding HasStoredPassword}"
               Text="A password is stored for this connection. Leaving the field empty keeps it; storing a new one replaces it."
               TextWrapping="Wrap" />
           <TextBlock
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize9}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               IsVisible="{Binding HasStoredTunnelPassword}"
               Text="A tunnel password is stored for this connection. Leaving the field empty keeps it; storing a new one replaces it."
               TextWrapping="Wrap" />

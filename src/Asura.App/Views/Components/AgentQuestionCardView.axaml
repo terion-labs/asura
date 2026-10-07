@@ -19,7 +19,7 @@
       <TextBlock Text="{Binding AgentChat.PendingQuestion.Question}" TextWrapping="Wrap" />
       <TextBlock
           Classes="Muted"
-          FontSize="{DynamicResource ShellFontSize9}"
+          FontSize="{DynamicResource ShellSecondaryFontSize}"
           Text="{Binding AgentChat.PendingQuestion.ExpiresAt, StringFormat={}Expires · {0}}"
           TextWrapping="Wrap" />
       <StackPanel Spacing="{DynamicResource ShellSpaceXs}">

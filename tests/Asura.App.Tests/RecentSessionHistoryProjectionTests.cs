@@ -84,7 +84,7 @@ public sealed class RecentSessionHistoryProjectionTests
     }
 
     [Fact]
-    public void Detail_strings_use_the_explicit_observation_time_and_utc_metadata()
+    public void Detail_strings_use_the_explicit_observation_time_and_reader_dates()
     {
         var item = Item(
             "detail",
@@ -93,8 +93,11 @@ public sealed class RecentSessionHistoryProjectionTests
             endedAt: Now.AddMinutes(-2));
 
         Assert.Equal("2 min ago", item.LastUsed);
-        Assert.Equal("2026-07-23 11:55:00 UTC", item.Started);
-        Assert.Equal("2026-07-23 11:58:00 UTC", item.Ended);
+        // Started and ended read as every other date in the app does: local
+        // time in the reader's own short date and time style.
+        Assert.Equal(DisplayDates.Format(Now.AddMinutes(-5)), item.Started);
+        Assert.Equal(DisplayDates.Format(Now.AddMinutes(-2)), item.Ended);
+        Assert.DoesNotContain("UTC", item.Started, StringComparison.Ordinal);
         Assert.Equal("3 min", item.Duration);
         Assert.Equal("Terminal · Closed", item.Detail);
     }

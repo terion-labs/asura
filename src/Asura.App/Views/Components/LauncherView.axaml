@@ -18,7 +18,7 @@
           Click="OnShowCommandPaletteClick"
           AutomationProperties.Name="Search commands, connections, screens, workspaces, and session history">
         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-          <icons:SymbolIcon Symbol="Search" FontSize="16" />
+          <icons:SymbolIcon Symbol="Search" FontSize="{DynamicResource ShellIconSizeMd}" />
           <TextBlock
               Grid.Column="1"
               VerticalAlignment="Center"
@@ -39,7 +39,7 @@
           IsVisible="{Binding ShowCloseAction, ElementName=Root}"
           ToolTip.Tip="Close launcher"
           AutomationProperties.Name="Close new tab or session launcher">
-        <icons:SymbolIcon Symbol="Dismiss" FontSize="14" />
+        <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeSm}" />
       </Button>
     </Grid>
 
@@ -52,28 +52,28 @@
         AutomationProperties.Name="Getting started">
       <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
         <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-          <TextBlock FontSize="{DynamicResource ShellFontSize16}" FontWeight="SemiBold" Text="{Binding Onboarding.Title}" />
+          <TextBlock Classes="Title3" Text="{Binding Onboarding.Title}" />
           <TextBlock Classes="Muted" Text="{Binding Onboarding.Introduction}" TextWrapping="Wrap" />
         </StackPanel>
         <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
           <controls:SurfaceCard Tone="Notice" Padding="{DynamicResource ShellCardPaddingCompact}">
             <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                <icons:SymbolIcon Symbol="WindowConsole" FontSize="15" />
+                <icons:SymbolIcon Symbol="WindowConsole" FontSize="{DynamicResource ShellIconSizeMd}" />
                 <TextBlock Grid.Column="1" FontWeight="SemiBold" Text="Default terminal" />
               </Grid>
               <TextBlock Classes="Eyebrow" Text="{Binding Onboarding.LocalTerminalState}" />
-              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Onboarding.LocalTerminalDetail}" TextWrapping="Wrap" />
+              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Onboarding.LocalTerminalDetail}" TextWrapping="Wrap" />
             </StackPanel>
           </controls:SurfaceCard>
           <controls:SurfaceCard Tone="Notice" Padding="{DynamicResource ShellCardPaddingCompact}" Grid.Column="1">
             <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                <icons:SymbolIcon Symbol="Shield" FontSize="15" />
+                <icons:SymbolIcon Symbol="Shield" FontSize="{DynamicResource ShellIconSizeMd}" />
                 <TextBlock Grid.Column="1" FontWeight="SemiBold" Text="Secure password storage" />
               </Grid>
               <TextBlock Classes="Eyebrow" Text="{Binding Onboarding.CredentialVaultState}" />
-              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Onboarding.CredentialVaultDetail}" TextWrapping="Wrap" />
+              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Onboarding.CredentialVaultDetail}" TextWrapping="Wrap" />
             </StackPanel>
           </controls:SurfaceCard>
         </Grid>
@@ -81,7 +81,7 @@
           <controls:LiveRegionTextBlock
               VerticalAlignment="Center"
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               Text="{Binding Onboarding.StatusMessage}"
               TextWrapping="Wrap"
               IsVisible="{Binding !Onboarding.IsBusy}"
@@ -107,7 +107,7 @@
     </controls:SurfaceCard>
 
     <StackPanel Grid.Row="2" Spacing="{DynamicResource ShellSpaceSm}">
-      <TextBlock FontSize="{DynamicResource ShellFontSize14}" FontWeight="SemiBold" Text="Start something new" />
+      <TextBlock Classes="Headline" Text="Start something new" />
       <controls:CardGridPanel MinItemWidth="150" Spacing="{DynamicResource ShellSpaceSm}">
         <!-- Each type by its one name and sentence, the ones the Add Panel
              chooser, the palette and Settings use. A tile is named by its
@@ -129,7 +129,7 @@
         ColumnDefinitions="Auto,*"
         ColumnSpacing="{DynamicResource ShellSpaceMd}">
       <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
-        <TextBlock VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize14}" FontWeight="SemiBold" Text="Workspaces" />
+        <TextBlock VerticalAlignment="Center" Classes="Headline" Text="Workspaces" />
         <components:CountPill Value="{Binding Workspaces.Count}" />
       </StackPanel>
       <ScrollViewer
@@ -159,19 +159,19 @@
           </ItemsControl.ItemTemplate>
         </ItemsControl>
       </ScrollViewer>
-      <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" IsVisible="{Binding HasNoWorkspaces}" Text="No saved workspaces yet." />
+      <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" IsVisible="{Binding HasNoWorkspaces}" Text="No saved workspaces yet." />
     </Grid>
 
     <Grid Grid.Row="4" VerticalAlignment="Top" ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceLg}">
       <Grid RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
         <Grid ColumnDefinitions="*,Auto">
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
-            <TextBlock VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize14}" FontWeight="SemiBold" Text="Saved connections" />
+            <TextBlock VerticalAlignment="Center" Classes="Headline" Text="Saved connections" />
             <components:CountPill Value="{Binding SavedConnectionShortcutCount}" />
           </StackPanel>
           <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceMd}">
-            <Button Classes="TextButton" Click="OnManageConnectionsClick" Content="Manage all" />
-            <Button Classes="TextButton" Click="OnAddConnectionClick" Content="Add" />
+            <Button Classes="TextButton" Click="OnManageConnectionsClick" Content="Manage Connections…" AutomationProperties.Name="Manage Connections…" />
+            <Button Classes="TextButton" Click="OnAddConnectionClick" Content="Add Connection…" AutomationProperties.Name="Add Connection…" />
           </StackPanel>
         </Grid>
         <controls:SurfaceCard Tone="Sunken" ClipsContent="True" Padding="0" Grid.Row="1" VerticalAlignment="Top" MaxHeight="420">
@@ -193,10 +193,10 @@
       <Grid Grid.Column="1" RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
         <Grid ColumnDefinitions="*,Auto">
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
-            <TextBlock VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize14}" FontWeight="SemiBold" Text="Saved screens" />
+            <TextBlock VerticalAlignment="Center" Classes="Headline" Text="Saved screens" />
             <components:CountPill Value="{Binding Screens.Count}" />
           </StackPanel>
-          <Button Grid.Column="1" VerticalAlignment="Center" MinHeight="0" Padding="0" Classes="TextButton" Click="OnShowLayoutDesignerClick" Content="Layouts" />
+          <Button Grid.Column="1" VerticalAlignment="Center" MinHeight="0" Padding="0" Classes="TextButton" Click="OnShowLayoutDesignerClick" Content="Layout Designer…" AutomationProperties.Name="Layout Designer…" />
         </Grid>
         <controls:SurfaceCard Tone="Sunken" ClipsContent="True" Padding="0" Grid.Row="1" VerticalAlignment="Top" MaxHeight="420">
           <ScrollViewer HorizontalScrollBarVisibility="Disabled">
@@ -226,7 +226,7 @@
                       </Border>
                       <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock FontSize="{DynamicResource ShellFontSize13}" FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Summary}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Summary}" TextTrimming="CharacterEllipsis" />
                       </StackPanel>
                     </Grid>
                   </Button>
@@ -245,19 +245,18 @@
     <Grid Grid.Row="5" RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}" IsVisible="{Binding HasHistorySessions}">
       <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
-          <TextBlock VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize14}" FontWeight="SemiBold" Text="History" />
+          <TextBlock VerticalAlignment="Center" Classes="Headline" Text="History" />
           <components:CountPill Value="{Binding HistoryResultCount}" />
         </StackPanel>
-        <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-          <icons:SymbolIcon VerticalAlignment="Center" Symbol="Search" FontSize="14" />
-          <TextBox
-              x:Name="HistorySearchBox"
-              Grid.Column="1"
-              PlaceholderText="Search title, source, kind, outcome, or session ID…"
-              AutomationProperties.Name="Search session history"
-              KeyDown="OnHistorySearchKeyDown"
-              Text="{Binding HistorySearchQuery}" />
-        </Grid>
+        <controls:SearchField
+            x:Name="HistorySearchBox"
+            Grid.Column="1"
+            PlaceholderText="Filter history"
+            ToolTip.Tip="Filter by title, source, kind, outcome, or session ID"
+            AutomationProperties.Name="Filter session history"
+            AutomationProperties.HelpText="Matches title, source, kind, outcome, or session ID."
+            KeyDown="OnHistorySearchKeyDown"
+            Text="{Binding HistorySearchQuery}" />
       </Grid>
       <controls:SurfaceCard Tone="Sunken" ClipsContent="True" Padding="0" Grid.Row="1" VerticalAlignment="Top" MaxHeight="260">
         <Panel>

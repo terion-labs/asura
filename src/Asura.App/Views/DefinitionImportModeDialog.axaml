@@ -25,7 +25,7 @@
             IsChecked="True">
           <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
             <TextBlock FontWeight="SemiBold" Text="Stop on conflicts" />
-            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="Safest. Existing definitions are never replaced." />
+            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Safest. Existing definitions are never replaced." />
           </StackPanel>
         </RadioButton>
       </controls:SurfaceCard>
@@ -35,7 +35,7 @@
             GroupName="ImportMode">
           <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
             <TextBlock FontWeight="SemiBold" Text="Replace matching definitions" />
-            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="Matching stable identities are replaced after preflight and explicit confirmation." TextWrapping="Wrap" />
+            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Matching stable identities are replaced after preflight and explicit confirmation." TextWrapping="Wrap" />
           </StackPanel>
         </RadioButton>
       </controls:SurfaceCard>
