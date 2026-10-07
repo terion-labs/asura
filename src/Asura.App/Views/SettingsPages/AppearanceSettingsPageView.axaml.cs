@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.Core;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -18,7 +19,8 @@ internal sealed record AppearanceSelection(
     bool IsTranslucent,
     int BackdropOpacityPercent,
     bool HasGlassPanels,
-    bool OverridesBackdropOpacity);
+    bool OverridesBackdropOpacity,
+    bool HasTranslucentTerminal);
 
 internal sealed record AppearanceTextScaleOption(string DisplayName, double? Scale);
 
@@ -29,6 +31,14 @@ public sealed partial class AppearanceSettingsPageView : UserControl
     public AppearanceSettingsPageView()
     {
         InitializeComponent();
+        // A toggle field reports its state as a property, not an event.
+        TranslucentTerminalToggle.PropertyChanged += (sender, e) =>
+        {
+            if (e.Property == ToggleField.IsCheckedProperty)
+            {
+                OnAppearanceChanged(sender, new RoutedEventArgs());
+            }
+        };
     }
 
     /// <summary>
@@ -128,6 +138,13 @@ public sealed partial class AppearanceSettingsPageView : UserControl
             AppearanceModeSystem.IsChecked = theme.Appearance == AppearanceMode.System;
             AppearanceModeDark.IsChecked = theme.Appearance == AppearanceMode.Dark;
             AppearanceModeLight.IsChecked = theme.Appearance == AppearanceMode.Light;
+            // Opened, never closed, from here: an override stays in view for
+            // the person who made it, and folding it back is theirs to do.
+            if (theme.Appearance != AppearanceMode.System)
+            {
+                AppearanceOverrideExpander.IsExpanded = true;
+            }
+
             PlatformProfilePicker.SelectedItem = theme.PlatformProfile;
             SelectComboBoxItem(
                 AccentModePicker,
@@ -153,6 +170,7 @@ public sealed partial class AppearanceSettingsPageView : UserControl
             TranslucencyToggle.IsChecked = theme.IsTranslucent;
             GlassPanelsToggle.IsChecked = theme.HasGlassPanels;
             OverrideOpacityToggle.IsChecked = theme.OverridesBackdropOpacity;
+            TranslucentTerminalToggle.IsChecked = theme.HasTranslucentTerminal;
             BackdropOpacitySlider.Value = theme.BackdropOpacityPercent;
             DensityCompact.IsChecked = theme.Density == InterfaceDensity.Compact;
             DensityCozy.IsChecked = theme.Density == InterfaceDensity.Cozy;
@@ -217,7 +235,8 @@ public sealed partial class AppearanceSettingsPageView : UserControl
             TranslucencyToggle.IsChecked == true,
             (int)Math.Round(BackdropOpacitySlider.Value),
             GlassPanelsToggle.IsChecked == true,
-            OverrideOpacityToggle.IsChecked == true);
+            OverrideOpacityToggle.IsChecked == true,
+            TranslucentTerminalToggle.IsChecked);
     }
 
     private TabStripPlacement SelectedTabStripPlacement() =>
@@ -312,6 +331,27 @@ public sealed partial class AppearanceSettingsPageView : UserControl
         }
 
         ApplicationAppearanceChanged?.Invoke(sender, e);
+    }
+
+    /// <summary>
+    /// System sits outside the override disclosure and Dark and Light inside
+    /// it, so they no longer share a logical parent and the radio group cannot
+    /// keep them exclusive on its own. Checking one clears the other two.
+    /// </summary>
+    private void OnAppearanceModeChanged(object? sender, RoutedEventArgs e)
+    {
+        if (sender is RadioButton { IsChecked: true } checkedMode)
+        {
+            foreach (var mode in new[] { AppearanceModeSystem, AppearanceModeDark, AppearanceModeLight })
+            {
+                if (!ReferenceEquals(mode, checkedMode))
+                {
+                    mode.IsChecked = false;
+                }
+            }
+        }
+
+        OnAppearanceChanged(sender, e);
     }
 
     private void OnTerminalAppearanceChanged(object? sender, RoutedEventArgs e)

@@ -59,9 +59,14 @@ public sealed partial class App : Avalonia.Application
         "differentiate-without-color",
     ];
 
+    /// <summary>
+    /// The text sizes published as ShellFontSizeN. The ramp starts at 10, the
+    /// macOS Caption: 8 and 9 named sizes the host never draws, so they are not
+    /// published and the view guard keeps them out of the markup.
+    /// </summary>
     private static readonly int[] ScalableFontSizes =
     [
-        8, 9, 10, 11, 12, 13, 14,
+        10, 11, 12, 13, 14,
         15, 16, 17, 18, 19, 20, 21,
         22, 23, 24, 25, 26, 27, 28,
     ];
@@ -495,6 +500,85 @@ public sealed partial class App : Avalonia.Application
     /// </summary>
     private double SurfaceOpacity => ContentAlpha / (double)byte.MaxValue;
 
+    /// <summary>
+    /// How solid a terminal's background is drawn: the stored backdrop
+    /// opacity when the person asked for a translucent terminal and the
+    /// window's material is actually on, and fully solid otherwise — under
+    /// Reduce Transparency, Increase Contrast, or a window that is not
+    /// translucent there is nothing behind the terminal worth seeing.
+    /// </summary>
+    internal static double TerminalSurfaceOpacity(
+        bool hasTranslucentTerminal,
+        MaterialDisposition material,
+        int backdropOpacityPercent) =>
+        hasTranslucentTerminal && material == MaterialDisposition.Enabled
+            ? Math.Clamp(
+                (int)Math.Round(backdropOpacityPercent * byte.MaxValue / 100.0),
+                0,
+                byte.MaxValue) / (double)byte.MaxValue
+            : 1.0;
+
+    /// <summary>
+    /// The material line names the terminal when it is the one content
+    /// surface the window's material shows through, so "content opaque" is
+    /// not the whole story while a translucent terminal is on screen.
+    /// </summary>
+    internal static string MaterialStatusWithTerminal(
+        string windowMaterialStatus,
+        bool hasTranslucentTerminal,
+        MaterialDisposition material) =>
+        hasTranslucentTerminal && material == MaterialDisposition.Enabled
+            ? $"{windowMaterialStatus}, terminal translucent"
+            : windowMaterialStatus;
+
+    /// <summary>
+    /// The sentence under the translucent-terminal setting: what it does, or
+    /// why it cannot do it right now.
+    /// </summary>
+    internal static string TerminalTranslucencyStatus(MaterialDisposition material) => material switch
+    {
+        MaterialDisposition.Enabled =>
+            "Let the window's material show through terminals, at the background opacity.",
+        MaterialDisposition.NotRequested =>
+            "Unavailable while window translucency is off.",
+        MaterialDisposition.DisabledByHighContrast =>
+            "Unavailable while Increase Contrast is on.",
+        MaterialDisposition.DisabledByReducedTransparency =>
+            "Unavailable while Reduce Transparency is on.",
+        _ => "Unavailable because this system does not offer window translucency.",
+    };
+
+    /// <summary>
+    /// The categorical palette for chart series, in fixed order: teal, violet,
+    /// olive and magenta. None is the brand orange, the host's blue or a
+    /// status hue, so a series never reads as a control or as a verdict. The
+    /// order and both steps were checked as a set for colour-vision
+    /// separation, and every slot clears 3:1 against the content surface of
+    /// its own mode.
+    /// </summary>
+    internal static IReadOnlyList<Color> ChartSeriesColors(bool isLight) => isLight
+        ? LightChartSeries
+        : DarkChartSeries;
+
+    private static readonly Color[] LightChartSeries =
+    [
+        Color.Parse("#008F8A"),
+        Color.Parse("#7A5AD6"),
+        Color.Parse("#7A8417"),
+        Color.Parse("#C23D84"),
+    ];
+
+    private static readonly Color[] DarkChartSeries =
+    [
+        Color.Parse("#1FA09D"),
+        Color.Parse("#8F7BE6"),
+        Color.Parse("#8C9628"),
+        Color.Parse("#D9599A"),
+    ];
+
+    /// <summary>The area under a series line: the series colour, faint.</summary>
+    private const byte ChartSeriesFillAlpha = 0x33;
+
     private static SolidColorBrush WithAlpha(Color color, byte alpha) =>
         new(Color.FromArgb(alpha, color.R, color.G, color.B));
 
@@ -662,7 +746,7 @@ public sealed partial class App : Avalonia.Application
             supportsAdvancedMaterials: false,
             supportsLiquidGlass: false));
 
-    private void ApplyApplicationResources(EffectiveAppearanceResources resources)
+    internal void ApplyApplicationResources(EffectiveAppearanceResources resources)
     {
         Publish("ShellBackgroundBrush", Brush(resources.Background));
         // The base surface the whole shell sits on. Slightly translucent, so
@@ -763,6 +847,17 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellInfoSoftBrush", Brush(resources.InfoSoft));
         Publish("ShellInfoBorderBrush", Brush(resources.InfoBorder));
         Publish("ShellStatusNeutralBrush", Brush(resources.StatusNeutral));
+        // Chart series take a palette of their own: a line coloured with the
+        // accent read as something to press, and one in the success green
+        // read as a verdict on the value it plots.
+        var chartSeries = ChartSeriesColors(resources.ThemeVariant == ThemeVariant.Light);
+        for (var slot = 0; slot < chartSeries.Count; slot++)
+        {
+            var series = chartSeries[slot];
+            Publish($"ShellChartSeries{slot + 1}Brush", Brush(series));
+            Publish($"ShellChartSeries{slot + 1}FillBrush", WithAlpha(series, ChartSeriesFillAlpha));
+        }
+
         // Whether state has to be carried by shape or text as well as colour.
         // Also a window class, so a style can add the shape where it is needed.
         Publish("ShellDifferentiateWithoutColor", resources.DifferentiateWithoutColor);
@@ -853,6 +948,21 @@ public sealed partial class App : Avalonia.Application
 
         Publish("ShellControlMinHeight", resources.ControlMinHeight);
         Publish("ShellSurfaceOpacity", SurfaceOpacity);
+        // The terminal's own opacity, which the terminal views paint their
+        // background with. Opaque unless the person asked for a translucent
+        // terminal and the window can be translucent at all — glass panels
+        // have no say in it, and Quick Terminal keeps its own setting.
+        var material = ResolveStoredTheme().MaterialDisposition;
+        Publish(
+            "ShellTerminalSurfaceOpacity",
+            TerminalSurfaceOpacity(
+                StoredTheme.HasTranslucentTerminal,
+                material,
+                StoredTheme.BackdropOpacityPercent));
+        Publish(
+            "ShellTerminalTranslucencyAvailable",
+            material == MaterialDisposition.Enabled);
+        Publish("ShellTerminalTranslucencyStatus", TerminalTranslucencyStatus(material));
 
         // The three sizes a mark is drawn at — in a row, beside a name, and as
         // the subject of the page. Derived from the control height rather than
@@ -957,7 +1067,12 @@ public sealed partial class App : Avalonia.Application
             resources.CardCornerRadius.BottomLeft));
         Publish("ShellAppearanceStatus", resources.AppearanceStatus);
         Publish("ShellAccentStatus", resources.AccentStatus);
-        Publish("ShellMaterialStatus", resources.MaterialStatus);
+        Publish(
+            "ShellMaterialStatus",
+            MaterialStatusWithTerminal(
+                resources.MaterialStatus,
+                StoredTheme.HasTranslucentTerminal,
+                material));
         Publish("ShellPlatformProfileClass", resources.ProfileClass);
         Publish("ShellHighContrast", resources.HighContrast);
         Publish("ShellMotionEnabled", resources.MotionEnabled);

@@ -14,8 +14,7 @@
   <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
     <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
       <TextBlock
-          FontSize="{DynamicResource ShellFontSize14}"
-          FontWeight="SemiBold"
+          Classes="Headline"
           Text="{Binding Heading, ElementName=Root}" />
       <local:CountPill
           Value="{Binding Count, ElementName=Root}"
@@ -23,7 +22,7 @@
     </StackPanel>
     <TextBlock
         Classes="Muted"
-        FontSize="{DynamicResource ShellFontSize12}"
+        FontSize="{DynamicResource ShellSecondaryFontSize}"
         Text="{Binding Description, ElementName=Root}"
         TextWrapping="Wrap"
         IsVisible="{Binding HasDescription, ElementName=Root}" />

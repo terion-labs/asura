@@ -22,18 +22,17 @@
         <StackPanel HorizontalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
           <icons:SymbolIcon
               HorizontalAlignment="Center"
-              FontSize="28"
-              Foreground="{DynamicResource ShellAccentBrush}"
+              FontSize="{DynamicResource ShellIconSizeLg}"
+              Foreground="{DynamicResource ShellMutedBrush}"
               Symbol="LockClosed" />
           <TextBlock
               HorizontalAlignment="Center"
-              FontSize="{DynamicResource ShellFontSize14}"
-              FontWeight="SemiBold"
+              Classes="Title2"
               Text="Asura is locked" />
           <TextBlock
               HorizontalAlignment="Center"
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               Text="Enter your PIN to continue." />
         </StackPanel>
         <TextBox
@@ -46,7 +45,7 @@
         <TextBlock
             HorizontalAlignment="Center"
             Foreground="{DynamicResource ShellDangerBrush}"
-            FontSize="{DynamicResource ShellFontSize10}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{CompiledBinding UnlockStatus}"
             TextWrapping="Wrap"
             IsVisible="{CompiledBinding HasUnlockStatus}" />

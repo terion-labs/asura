@@ -11,10 +11,10 @@
       <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
         <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-          <TextBlock FontWeight="SemiBold" Text="App-managed cache &amp; logs" />
+          <TextBlock Classes="Headline" Text="App-managed cache &amp; logs" />
           <TextBlock
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               Text="Review only files stored in Asura’s dedicated cache and inactive-log locations."
               TextWrapping="Wrap" />
         </StackPanel>
@@ -35,7 +35,7 @@
 
       <controls:LiveRegionTextBlock
           Classes="Muted"
-          FontSize="{DynamicResource ShellFontSize9}"
+          FontSize="{DynamicResource ShellSecondaryFontSize}"
           Text="{Binding StatusMessage}"
           IsVisible="{Binding !HasError}"
           TextWrapping="Wrap"
@@ -68,12 +68,12 @@
                   <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
                   <TextBlock
                       Classes="Muted"
-                      FontSize="{DynamicResource ShellFontSize9}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
                       Text="{Binding Description}"
                       TextWrapping="Wrap" />
                   <WrapPanel Orientation="Horizontal">
-                    <TextBlock Margin="{controls:Inset Right=Md}" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding FileCountLabel}" />
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding SizeLabel}" />
+                    <TextBlock Margin="{controls:Inset Right=Md}" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding FileCountLabel}" />
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding SizeLabel}" />
                   </WrapPanel>
                 </StackPanel>
                 <Button

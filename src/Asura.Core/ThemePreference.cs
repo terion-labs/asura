@@ -75,6 +75,13 @@ public sealed record ThemePreference : IDurableDefinition
     public const bool DefaultOverridesBackdropOpacity = true;
 
     /// <summary>
+    /// Whether a terminal lets the window's material show through its
+    /// background. Off by default and opt-in: terminal output is content, and
+    /// content stays opaque unless someone asks otherwise.
+    /// </summary>
+    public const bool DefaultHasTranslucentTerminal = false;
+
+    /// <summary>
     /// How solid the shell's base surface is, as a percentage. The blur is
     /// only half of glass; the other half is how much of the blurred desktop
     /// is allowed through. Near 100 the surface reads as a painted frame
@@ -156,7 +163,8 @@ public sealed record ThemePreference : IDurableDefinition
         bool isTranslucent = DefaultIsTranslucent,
         int backdropOpacityPercent = DefaultBackdropOpacityPercent,
         bool hasGlassPanels = DefaultHasGlassPanels,
-        bool overridesBackdropOpacity = DefaultOverridesBackdropOpacity)
+        bool overridesBackdropOpacity = DefaultOverridesBackdropOpacity,
+        bool hasTranslucentTerminal = DefaultHasTranslucentTerminal)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(accent);
@@ -214,6 +222,7 @@ public sealed record ThemePreference : IDurableDefinition
         IsTranslucent = isTranslucent;
         HasGlassPanels = hasGlassPanels;
         OverridesBackdropOpacity = overridesBackdropOpacity;
+        HasTranslucentTerminal = hasTranslucentTerminal;
         BackdropOpacityPercent = backdropOpacityPercent;
     }
 
@@ -269,6 +278,15 @@ public sealed record ThemePreference : IDurableDefinition
     /// material's own translucency is left to stand.
     /// </summary>
     public bool OverridesBackdropOpacity { get; }
+
+    /// <summary>
+    /// Whether terminals are drawn at the stored backdrop opacity, so the
+    /// window's material shows through them. Independent of
+    /// <see cref="HasGlassPanels"/>, and honoured only where the window itself
+    /// is translucent. A document stored before the setting existed reads as
+    /// off.
+    /// </summary>
+    public bool HasTranslucentTerminal { get; }
 
     [JsonIgnore]
     public DefinitionKey Key => new(Kind, Id.Value);

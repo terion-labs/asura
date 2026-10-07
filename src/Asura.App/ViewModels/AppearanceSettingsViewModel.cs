@@ -73,6 +73,13 @@ public sealed class AppearanceSettingsViewModel : ObservableObject, IDisposable
     public bool ShowTabBar => ActiveTheme.ShowTabBar;
 
     /// <summary>
+    /// Whether terminals asked to let the window's material show through.
+    /// What the shell actually draws also depends on the host allowing
+    /// translucency at all; this is only the stored request.
+    /// </summary>
+    public bool HasTranslucentTerminal => ActiveTheme.HasTranslucentTerminal;
+
+    /// <summary>
     /// Saves only the workspace-rail field while retaining every other stored
     /// chrome choice. Catalog publication updates the visible projection.
     /// </summary>
@@ -165,7 +172,10 @@ public sealed class AppearanceSettingsViewModel : ObservableObject, IDisposable
             effective.IsTranslucent,
             effective.BackdropOpacityPercent,
             effective.HasGlassPanels,
-            effective.OverridesBackdropOpacity);
+            effective.OverridesBackdropOpacity,
+            // Not part of the chrome half: a caller saving chrome leaves the
+            // terminal's own translucency as it was stored.
+            existing.HasTranslucentTerminal);
         return await SaveThemeAsync(updated, stored?.Revision, cancellationToken);
     }
 
@@ -231,6 +241,7 @@ public sealed class AppearanceSettingsViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ThemeTextScale));
         OnPropertyChanged(nameof(ThemeAccent));
         OnPropertyChanged(nameof(ShowTabBar));
+        OnPropertyChanged(nameof(HasTranslucentTerminal));
         OnPropertyChanged(nameof(ShowWorkspacesPanel));
         OnPropertyChanged(nameof(IsWorkspacePanelOnLeft));
         OnPropertyChanged(nameof(IsWorkspacePanelOnRight));

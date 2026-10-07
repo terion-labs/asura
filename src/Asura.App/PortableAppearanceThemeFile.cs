@@ -63,7 +63,8 @@ public sealed record PortableApplicationAppearance(
     bool IsTranslucent,
     int BackdropOpacityPercent,
     bool HasGlassPanels,
-    bool OverridesBackdropOpacity)
+    bool OverridesBackdropOpacity,
+    bool HasTranslucentTerminal = ThemePreference.DefaultHasTranslucentTerminal)
 {
     public static PortableApplicationAppearance From(ThemePreference theme)
     {
@@ -82,7 +83,8 @@ public sealed record PortableApplicationAppearance(
             theme.IsTranslucent,
             theme.BackdropOpacityPercent,
             theme.HasGlassPanels,
-            theme.OverridesBackdropOpacity);
+            theme.OverridesBackdropOpacity,
+            theme.HasTranslucentTerminal);
     }
 
     public ThemePreference ApplyTo(ThemePreference existing)
@@ -113,7 +115,8 @@ public sealed record PortableApplicationAppearance(
             IsTranslucent,
             BackdropOpacityPercent,
             HasGlassPanels,
-            OverridesBackdropOpacity);
+            OverridesBackdropOpacity,
+            HasTranslucentTerminal);
     }
 }
 
@@ -215,7 +218,10 @@ public static class PortableAppearanceThemeFile
             "textScaleOverride", "density", "showTabBar", "showWorkspacesPanel",
             "tabStripPlacement", "workspacePanelPlacement", "isTranslucent",
             "backdropOpacityPercent", "hasGlassPanels", "overridesBackdropOpacity",
-        ]);
+        ],
+        // Added after the format shipped: a file written before it existed
+        // still imports, with the terminal opaque.
+        optionalProperties: ["hasTranslucentTerminal"]);
         ValidateNullableColor(application.GetProperty("customAccent"));
 
         var terminal = root.GetProperty("terminalPalette");
@@ -256,7 +262,10 @@ public static class PortableAppearanceThemeFile
     private static void ValidateColor(JsonElement color) =>
         RequireObject(color, ["red", "green", "blue"]);
 
-    private static void RequireObject(JsonElement element, string[] requiredProperties)
+    private static void RequireObject(
+        JsonElement element,
+        string[] requiredProperties,
+        string[]? optionalProperties = null)
     {
         if (element.ValueKind != JsonValueKind.Object)
         {
@@ -266,7 +275,8 @@ public static class PortableAppearanceThemeFile
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var property in element.EnumerateObject())
         {
-            if (!requiredProperties.Contains(property.Name, StringComparer.Ordinal))
+            if (!requiredProperties.Contains(property.Name, StringComparer.Ordinal)
+                && optionalProperties?.Contains(property.Name, StringComparer.Ordinal) != true)
             {
                 throw new JsonException($"Unknown appearance member '{property.Name}'.");
             }
