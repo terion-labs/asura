@@ -151,11 +151,16 @@
     </controls:PanelChrome.TitleAdornment>
 
     <controls:PanelChrome.Status>
-      <Border
-          Classes="StatusDot"
+      <!-- The session's real state in words for the tooltip and VoiceOver, and
+           a glyph per state under Differentiate Without Color. The name is
+           never empty: the macOS bridge cannot announce a live element that
+           has none. -->
+      <controls:StatusMark
+          x:Name="TerminalStatusMark"
+          AutomationProperties.AccessibilityView="Content"
           AutomationProperties.LiveSetting="Polite"
-          AutomationProperties.Name="Terminal session status"
-          controls:StatusToneBrush.Background="{Binding StatusTone, ElementName=RuntimeTerminal}" />
+          Tone="{Binding StatusTone, ElementName=RuntimeTerminal}"
+          Description="{Binding StatusText, ElementName=RuntimeTerminal, StringFormat='Terminal session: {0}'}" />
     </controls:PanelChrome.Status>
 
     <controls:PanelChrome.Leading>
@@ -176,7 +181,7 @@
             StartupCommandDispatcher="{CompiledBinding StartupCommandDispatcher}"
             SessionRequest="{CompiledBinding SessionRequest}"
             RenderProfile="{CompiledBinding RenderProfile}"
-            BackgroundOpacity="{DynamicResource ShellSurfaceOpacity}"
+            BackgroundOpacity="{DynamicResource ShellTerminalSurfaceOpacity}"
             AccessibleTitle="{CompiledBinding Title}"
             IsCopyMode="{CompiledBinding IsCopyMode}"
             CanSplit="True"
@@ -205,20 +210,20 @@
             <StackPanel MaxWidth="460" Spacing="{DynamicResource ShellSpaceSm}">
               <TextBlock
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize10}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
                   Text="{Binding RecoveryLabel}"
                   TextAlignment="Center"
                   TextWrapping="Wrap" />
               <controls:SurfaceCard Padding="{DynamicResource ShellCardPaddingCompact}" IsVisible="{Binding HasHostKeyReview}">
                 <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                  <TextBlock FontWeight="SemiBold" Text="{Binding HostKeyReviewTitle}" TextAlignment="Center" />
-                  <TextBlock FontSize="{DynamicResource ShellFontSize9}" Text="{Binding HostKeyReview.Presented.Algorithm}" TextAlignment="Center" />
-                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding HostKeyReview.Presented.Sha256Fingerprint}" TextAlignment="Center" TextWrapping="Wrap" />
-                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding TrustedHostKeyFingerprint}" TextAlignment="Center" TextWrapping="Wrap" />
+                  <TextBlock Classes="Headline" Text="{Binding HostKeyReviewTitle}" TextAlignment="Center" />
+                  <TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding HostKeyReview.Presented.Algorithm}" TextAlignment="Center" />
+                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding HostKeyReview.Presented.Sha256Fingerprint}" TextAlignment="Center" TextWrapping="Wrap" />
+                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding TrustedHostKeyFingerprint}" TextAlignment="Center" TextWrapping="Wrap" />
                   <Button Classes="SecondaryButton" Click="OnTrustHostKeyClick" Content="{Binding TrustHostKeyLabel}" IsVisible="{Binding CanTrustHostKey}" />
                 </StackPanel>
               </controls:SurfaceCard>
-              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding ReconnectStatus}" IsVisible="{Binding IsReconnecting}" />
+              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ReconnectStatus}" IsVisible="{Binding IsReconnecting}" />
               <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
                 <Button
                     Classes="PrimaryButton"

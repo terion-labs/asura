@@ -42,7 +42,7 @@
         Grid.Row="1"
         Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}"
         Classes="Muted"
-        FontSize="{DynamicResource ShellFontSize9}"
+        FontSize="{DynamicResource ShellSecondaryFontSize}"
         Text="{Binding Summary}" />
   </Grid>
 </UserControl>

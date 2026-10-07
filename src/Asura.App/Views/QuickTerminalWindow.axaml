@@ -260,7 +260,7 @@
                   Click="OnHideClick"
                   ToolTip.Tip="Hide Quick Terminal"
                   AutomationProperties.Name="Hide Quick Terminal">
-                <icons:SymbolIcon Symbol="Dismiss" FontSize="12" />
+                <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeSm}" />
               </Button>
             </StackPanel>
           </Grid>

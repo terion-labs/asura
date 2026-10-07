@@ -464,10 +464,10 @@
                         <icons:SymbolIcon Symbol="Folder" IconVariant="Filled" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding ShowsFolderGlyph}" />
                         <icons:SymbolIcon Symbol="{Binding Glyph}" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding ShowsFileGlyph}" />
                       </Panel>
-                      <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize10}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
+                      <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize12}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
                     </Grid>
-                    <TextBlock Grid.Column="2" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Size}" />
-                    <TextBlock Grid.Column="4" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Modified}" />
+                    <TextBlock Grid.Column="2" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Size}" />
+                    <TextBlock Grid.Column="4" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Modified}" />
                   </Grid>
                 </DataTemplate>
               </ListBox.ItemTemplate>
@@ -496,8 +496,8 @@
                       <icons:SymbolIcon Symbol="Folder" IconVariant="Filled" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding ShowsFolderGlyph}" />
                       <icons:SymbolIcon Symbol="{Binding Glyph}" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding ShowsFileGlyph}" />
                     </Panel>
-                    <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize10}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
-                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Size}" />
+                    <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize12}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
+                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Size}" />
                   </Grid>
                 </DataTemplate>
               </ListBox.ItemTemplate>
@@ -530,8 +530,8 @@
                         <icons:SymbolIcon Symbol="Folder" IconVariant="Filled" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding ShowsFolderGlyph}" />
                         <icons:SymbolIcon Symbol="{Binding Glyph}" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding ShowsFileGlyph}" />
                       </Panel>
-                      <TextBlock FontSize="{DynamicResource ShellFontSize10}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
-                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Size}" />
+                      <TextBlock FontSize="{DynamicResource ShellFontSize12}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
+                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Size}" />
                     </StackPanel>
                   </controls:SurfaceCard>
                 </DataTemplate>
@@ -557,7 +557,7 @@
               AutomationProperties.LiveSetting="Assertive"
               AutomationProperties.Name="{Binding ContentPresentation.AccessibleName}">
             <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding ContentPresentation.SuggestedAction}" TextWrapping="Wrap" />
+              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ContentPresentation.SuggestedAction}" TextWrapping="Wrap" />
               <Button HorizontalAlignment="Left" Classes="SecondaryButton" Command="{Binding RetryCommand}" Content="Retry location" IsVisible="{Binding CanRetryContentState}" AutomationProperties.Name="Retry File Viewer location" />
             </StackPanel>
           </controls:StateOverlay>
@@ -568,7 +568,7 @@
               IsVisible="{Binding ShowEmptyLocationState}"
               AutomationProperties.LiveSetting="Polite"
               AutomationProperties.Name="File Viewer empty location">
-            <TextBlock MaxWidth="360" HorizontalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding ContentPresentation.SuggestedAction}" TextAlignment="Center" TextWrapping="Wrap" />
+            <TextBlock MaxWidth="360" HorizontalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ContentPresentation.SuggestedAction}" TextAlignment="Center" TextWrapping="Wrap" />
           </controls:StateOverlay>
           <controls:StateOverlay
               Kind="NoResults"
@@ -577,7 +577,7 @@
               IsVisible="{Binding ShowSearchNoResultsState}"
               AutomationProperties.LiveSetting="Polite"
               AutomationProperties.Name="File Viewer search has no results">
-            <TextBlock MaxWidth="360" HorizontalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding ContentPresentation.SuggestedAction}" TextAlignment="Center" TextWrapping="Wrap" />
+            <TextBlock MaxWidth="360" HorizontalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ContentPresentation.SuggestedAction}" TextAlignment="Center" TextWrapping="Wrap" />
           </controls:StateOverlay>
 
           <ProgressBar Classes="WorkingStripe" IsVisible="{Binding ShowNavigationProgress}" />
@@ -607,7 +607,7 @@
           <Grid RowDefinitions="29,Auto,*">
             <Border Background="{DynamicResource ShellSurfaceBrush}">
               <Grid Margin="{controls:Inset Horizontal=Md}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding PreviewTitle}" TextTrimming="CharacterEllipsis" />
+                <TextBlock VerticalAlignment="Center" Classes="Headline MiddleTruncated" Text="{Binding PreviewTitle}" ToolTip.Tip="{Binding PreviewTitle}" />
                 <!-- Only providers that transfer preview bytes onto the host
                      need this choice. -->
                 <StackPanel
@@ -631,8 +631,8 @@
                 <StackPanel Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Kind" /><TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding SelectedMetadata.Kind}" /></StackPanel>
                 <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Size" /><TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding SelectedMetadata.Size}" /></StackPanel>
                 <StackPanel Grid.Row="1" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Modified" /><TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding SelectedMetadata.Modified}" /></StackPanel>
-                <StackPanel Grid.Row="1" Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Version" /><TextBlock FontSize="{DynamicResource ShellFontSize9}" Text="{Binding SelectedMetadata.Version}" TextTrimming="CharacterEllipsis" /></StackPanel>
-                <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding SelectedMetadata.Source}" />
+                <StackPanel Grid.Row="1" Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Version" /><TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding SelectedMetadata.Version}" TextTrimming="CharacterEllipsis" /></StackPanel>
+                <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding SelectedMetadata.Source}" />
                 </Grid>
                 <!-- What this format can be shown as, along the bottom of its
                      details: the same reading as the workspace status bar,
@@ -696,17 +696,17 @@
                     Symbol="{Binding PreviewBinary.Symbol}" />
                 <TextBlock
                     HorizontalAlignment="Center"
-                    FontWeight="SemiBold"
+                    Classes="Headline"
                     Text="{Binding PreviewBinary.FormatName}" />
                 <TextBlock
                     HorizontalAlignment="Center"
                     Classes="Muted"
-                    FontSize="{DynamicResource ShellFontSize9}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
                     Text="{Binding PreviewBinary.Detail}" />
                 <TextBlock
                     HorizontalAlignment="Center"
                     Classes="Muted"
-                    FontSize="{DynamicResource ShellFontSize9}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
                     Text="{Binding SelectedMetadata.Size}" />
               </StackPanel>
               <!-- An archive is listed, never unpacked. -->
@@ -774,7 +774,7 @@
                   <controls:LiveRegionTextBlock
                       VerticalAlignment="Center"
                       Classes="Muted"
-                      FontSize="{DynamicResource ShellFontSize10}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
                       Text="{Binding PdfPageStatus}"
                       AutomationProperties.LiveSetting="Polite" />
                   <Button
@@ -834,14 +834,14 @@
                 <TextBlock
                     MaxWidth="260"
                     Classes="Muted"
-                    FontSize="{DynamicResource ShellFontSize10}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
                     Text="{Binding PreviewDownloadPromptDetail}"
                     TextAlignment="Center"
                     TextWrapping="Wrap" />
                 <TextBlock
                     HorizontalAlignment="Center"
                     Classes="Muted"
-                    FontSize="{DynamicResource ShellFontSize9}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
                     Text="Press Space to preview" />
               </StackPanel>
 

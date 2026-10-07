@@ -102,7 +102,7 @@
         Click="OnAddTab"
         ToolTip.Tip="{x:Static vm:ShortcutTips.NewTab}"
         AutomationProperties.Name="New Tab">
-      <icons:SymbolIcon Symbol="Add" FontSize="12" />
+      <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
     </Button>
     <Button
         x:Name="OverflowMenuButton"
@@ -116,7 +116,7 @@
         IsVisible="False"
         ToolTip.Tip="Show All Tabs"
         AutomationProperties.Name="Show All Tabs">
-      <icons:SymbolIcon Symbol="ChevronDown" FontSize="11" />
+      <icons:SymbolIcon Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
       <Button.Flyout>
         <MenuFlyout Placement="BottomEdgeAlignedRight" Opening="OnOverflowMenuOpening" />
       </Button.Flyout>
@@ -228,7 +228,7 @@
                     AutomationProperties.AccessibilityView="Raw">
                   <!-- Fluent's visible glyph sits one DIP below Inter's optical
                        centre even though both controls are geometrically centred. -->
-                  <icons:SymbolIcon VerticalAlignment="Center" Symbol="{Binding IconSymbol}" FontSize="11">
+                  <icons:SymbolIcon VerticalAlignment="Center" Symbol="{Binding IconSymbol}" FontSize="{DynamicResource ShellIconSizeXs}">
                     <icons:SymbolIcon.RenderTransform>
                       <TranslateTransform Y="-1" />
                     </icons:SymbolIcon.RenderTransform>
@@ -316,7 +316,7 @@
                 AutomationProperties.Name="{Binding DisplayTitle, StringFormat={}Close {0}}"
                 AutomationProperties.HelpText="Closes this tab. A tab with running sessions asks first.">
 
-              <icons:SymbolIcon Symbol="Dismiss" FontSize="10" />
+              <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeXs}" />
             </Button>
           </Grid>
         </DataTemplate>

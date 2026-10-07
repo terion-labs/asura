@@ -471,6 +471,7 @@ public sealed class ManagedTerminalAccessibilityTests
             window.UpdateLayout();
 
             Assert.True(findBar.IsVisible);
+            Assert.IsType<SearchField>(overlay.FindField);
             Assert.True(overlay.FindField.IsFocused);
             Assert.Equal("Find in terminal", AutomationProperties.GetName(overlay.FindField));
             Assert.Equal(TerminalFindInput.MaximumQueryLength, overlay.FindField.MaxLength);
@@ -480,6 +481,8 @@ public sealed class ManagedTerminalAccessibilityTests
             Assert.Equal(new TerminalFindInput("error", 0), sink.Finds[^1]);
             Assert.Equal("Match 1 of 3", host.Surface.FindStatusMessage);
 
+            // The first Escape clears the query, as a search field does; the
+            // second closes the bar.
             var escape = new KeyEventArgs
             {
                 RoutedEvent = InputElement.KeyDownEvent,
@@ -488,8 +491,18 @@ public sealed class ManagedTerminalAccessibilityTests
             overlay.FindField.RaiseEvent(escape);
             Dispatcher.UIThread.RunJobs();
             Assert.True(escape.Handled);
-            Assert.False(host.Surface.IsFindVisible);
+            Assert.True(host.Surface.IsFindVisible);
             Assert.Equal(string.Empty, overlay.FindField.Text);
+
+            escape = new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent,
+                Key = Key.Escape,
+            };
+            overlay.FindField.RaiseEvent(escape);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(escape.Handled);
+            Assert.False(host.Surface.IsFindVisible);
 
             var announcer = overlay.GetVisualDescendants().OfType<LiveRegionTextBlock>()
                 .Single(block => AutomationProperties.GetName(block) == "Terminal output");

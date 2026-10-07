@@ -268,8 +268,12 @@ public sealed partial class BrowserRuntimePanelView : UserControl
             OpenFind();
             e.Handled = true;
         }
-        else if (e.Key == Key.Escape && RuntimeBrowser.IsFindVisible)
+        else if (e.Key == Key.Escape
+            && RuntimeBrowser.IsFindVisible
+            && !SearchField.ClaimsEscape(e))
         {
+            // A query in the find field is cleared by the field first; the
+            // next Escape closes the bar.
             RuntimeBrowser.CloseFind();
             e.Handled = true;
         }

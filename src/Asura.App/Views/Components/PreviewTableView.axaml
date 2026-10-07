@@ -23,7 +23,7 @@
                   Width="40"
                   Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}"
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize9}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
                   Text="#"
                   TextAlignment="Right" />
             </Border>
@@ -39,8 +39,8 @@
                         Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}"
                         FontSize="{DynamicResource ShellFontSize10}"
                         FontWeight="SemiBold"
+                        Classes="MiddleTruncated"
                         Text="{Binding Name}"
-                        TextTrimming="CharacterEllipsis"
                         ToolTip.Tip="{Binding Name}" />
                   </Border>
                 </DataTemplate>
@@ -65,7 +65,7 @@
                           Width="40"
                           Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}"
                           Classes="Muted"
-                          FontSize="{DynamicResource ShellFontSize9}"
+                          FontSize="{DynamicResource ShellSecondaryFontSize}"
                           Text="{Binding Number}"
                           TextAlignment="Right" />
                     </Border>
@@ -99,7 +99,7 @@
         Grid.Row="1"
         Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}"
         Classes="Muted"
-        FontSize="{DynamicResource ShellFontSize9}"
+        FontSize="{DynamicResource ShellSecondaryFontSize}"
         Text="{Binding Summary}" />
   </Grid>
   <UserControl.Styles>
