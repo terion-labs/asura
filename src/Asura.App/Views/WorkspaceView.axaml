@@ -60,9 +60,11 @@
          value would silence whichever of these the state asks for, and the
          resize handle needs local values it can set and clear. Docked is the
          spacer's exact slot; floating sits flush into the content zone's
-         top-right corner with its own height. -->
+         top-right corner with its own height. Both lengths are laid out for
+         13 pt text and grow with the text-size setting, or larger text wraps
+         the conversation into a column too narrow to read. -->
     <Style Selector="views|AgentWorkspaceView">
-      <Setter Property="Width" Value="352" />
+      <Setter Property="Width" Value="{controls:TextScaled 352}" />
     </Style>
     <Style Selector="Panel#AgentViewport">
       <Setter Property="Margin" Value="{controls:Inset Right=Sm, Bottom=Sm}" />
@@ -72,7 +74,7 @@
     </Style>
     <Style Selector="views|AgentWorkspaceView.floating">
       <Setter Property="VerticalAlignment" Value="Top" />
-      <Setter Property="Height" Value="620" />
+      <Setter Property="Height" Value="{controls:TextScaled 620}" />
     </Style>
     <!-- Unpinned, the agent panel hovers over the canvas: the sidebar's own
          swatch as glass over a blurred snapshot of what it covers, ringed by
@@ -836,7 +838,10 @@
 
     <!-- This is deliberately an in-window overlay, not a Flyout. Platform
          popups own a separate surface and can extend beyond custom window
-         chrome; transfer progress must remain bounded by the workspace. -->
+         chrome; transfer progress must remain bounded by the workspace.
+         It shares the bottom-right corner with the agent panel's composer,
+         so while the agent panel is open the code-behind insets it to sit
+         beside that panel instead of over the send button. -->
     <controls:SurfaceCard
         x:Name="FileTransferManager"
         Grid.Row="1"

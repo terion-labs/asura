@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -24,6 +25,52 @@ public sealed partial class WorkspaceView : UserControl
         AddHandler(PanelChrome.CollapseRequestedEvent, OnCollapsePanelRequested);
         AddHandler(PanelChrome.ExpandRequestedEvent, OnExpandPanelRequested);
         DetachedFromVisualTree += (_, e) => EndPanelPreviewRequested?.Invoke(this, e);
+        AgentOverlay.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == IsVisibleProperty || e.Property == BoundsProperty)
+            {
+                KeepFileTransfersBesideAgentPanel();
+            }
+        };
+        AgentWorkspaceSurface.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == BoundsProperty)
+            {
+                KeepFileTransfersBesideAgentPanel();
+            }
+        };
+    }
+
+    /// <summary>
+    /// The transfer manager and the agent panel both open from the
+    /// bottom-right corner. Open together, the transfers card would cover the
+    /// composer's send button and model picker, so it moves to the agent
+    /// panel's left edge, leaving the same gap it keeps from the window edge,
+    /// and narrows to the room left there. Only a window too narrow to hold a
+    /// readable card beside the panel puts it back over the panel.
+    /// </summary>
+    private void KeepFileTransfersBesideAgentPanel()
+    {
+        const double minimumTransferWidth = 280;
+        var gap = this.TryFindResource("ShellSpaceSm", ActualThemeVariant, out var space)
+            && space is double spacing
+                ? spacing
+                : 8;
+        var right = gap;
+        if (AgentOverlay.IsVisible
+            && FileTransferManager.Parent is Visual host
+            && AgentWorkspaceSurface.TranslatePoint(default, host) is { } agentPanelLeft
+            && agentPanelLeft.X - (2 * gap) >= minimumTransferWidth)
+        {
+            right = host.Bounds.Width - agentPanelLeft.X + gap;
+            FileTransferManager.MaxWidth = agentPanelLeft.X - (2 * gap);
+        }
+        else
+        {
+            FileTransferManager.ClearValue(MaxWidthProperty);
+        }
+
+        FileTransferManager.Margin = new Thickness(0, 0, right, gap);
     }
 
     /// <summary>

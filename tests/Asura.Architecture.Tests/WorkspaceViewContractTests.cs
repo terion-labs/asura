@@ -332,12 +332,18 @@ public sealed class WorkspaceViewContractTests
                 element => element, StringComparer.Ordinal);
         // The base style supplies the initial width. Once the docked resize
         // edge changes it, the spacer follows the surface's live bounds.
+        // Both default lengths follow the text-size setting, so larger text
+        // does not wrap the conversation into an unreadably narrow column.
         var agentBase = agentStates["views|AgentWorkspaceView"];
         Assert.Contains(
             agentBase.Descendants(),
             setter => string.Equals(AttributeValue(setter, "Property"), "Width"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(setter, "Value"), "352", StringComparison.Ordinal));
+, StringComparison.Ordinal) && string.Equals(AttributeValue(setter, "Value"), "{controls:TextScaled 352}", StringComparison.Ordinal));
         Assert.True(agentStates.ContainsKey("views|AgentWorkspaceView.floating"));
+        Assert.Contains(
+            agentStates["views|AgentWorkspaceView.floating"].Descendants(),
+            setter => string.Equals(AttributeValue(setter, "Property"), "Height"
+, StringComparison.Ordinal) && string.Equals(AttributeValue(setter, "Value"), "{controls:TextScaled 620}", StringComparison.Ordinal));
         // Floating wears the sidebar's own swatch as glass over the blurred
         // snapshot of what it covers, ringed by the flyout shadow — spread on
         // every edge, because an offset shadow on near-black only ever peeks
