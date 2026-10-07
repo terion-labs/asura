@@ -24,10 +24,13 @@
          and only then scroll, so a full strip compresses before anything
          goes out of sight. Docked at the side it deals in rows — full width,
          control height — and a chip-sized tab there sat squeezed in the
-         middle of its own column. -->
+         middle of its own column. The chip is at least the chrome's height
+         at the text size it was drawn for, and grows with larger text rather
+         than clipping its title. -->
     <Style Selector="components|RuntimeTabStripView[Orientation=Horizontal] Grid.RuntimeTabDropTarget">
       <Setter Property="Width" Value="{Binding $parent[components:RuntimeTabStripView].TabWidth}" />
-      <Setter Property="Height" Value="22" />
+      <Setter Property="MinHeight" Value="{controls:TextScaled 22}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <!-- The trailing inset keeps the label clear of the close button, which
          sits over the chip's end: a label that ran under it could not be
@@ -99,7 +102,7 @@
         Click="OnAddTab"
         ToolTip.Tip="{x:Static vm:ShortcutTips.NewTab}"
         AutomationProperties.Name="New Tab">
-      <icons:SymbolIcon Symbol="Add" FontSize="12" />
+      <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
     </Button>
     <Button
         x:Name="OverflowMenuButton"
@@ -113,7 +116,7 @@
         IsVisible="False"
         ToolTip.Tip="Show All Tabs"
         AutomationProperties.Name="Show All Tabs">
-      <icons:SymbolIcon Symbol="ChevronDown" FontSize="11" />
+      <icons:SymbolIcon Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
       <Button.Flyout>
         <MenuFlyout Placement="BottomEdgeAlignedRight" Opening="OnOverflowMenuOpening" />
       </Button.Flyout>
@@ -132,10 +135,9 @@
            The list is a tab group to assistive technology: each tab inside
            it says it is a tab, whether it is the selected one, and where it
            stands among the others. -->
-      <ItemsControl
+      <controls:RuntimeTabList
           x:Name="TabItems"
           ItemsSource="{Binding Tabs, ElementName=Root}"
-          AutomationProperties.ControlTypeOverride="Tab"
           AutomationProperties.Name="Tabs">
       <ItemsControl.ItemContainerTheme>
         <ControlTheme TargetType="ContentPresenter">
@@ -172,6 +174,11 @@
                 <MenuItem Classes="ChangeTabIcon" Header="Change Icon…" Click="OnChangeTabIconMenuClick" />
                 <Separator Classes="MoveTabSeparator" />
                 <MenuItem Classes="MoveTabToWorkspace" Header="Move to Workspace" />
+                <MenuItem
+                    Classes="MoveTabToNewWindow"
+                    Header="Move to New Window"
+                    Click="OnMoveTabToNewWindowMenuClick"
+                    ToolTip.ShowOnDisabled="True" />
                 <Separator />
                 <MenuItem Classes="CloseTab" Header="Close Tab" Click="OnClose" />
                 <MenuItem Classes="CloseOtherTabs" Header="Close Other Tabs" Click="OnCloseOtherTabsMenuClick" />
@@ -221,7 +228,7 @@
                     AutomationProperties.AccessibilityView="Raw">
                   <!-- Fluent's visible glyph sits one DIP below Inter's optical
                        centre even though both controls are geometrically centred. -->
-                  <icons:SymbolIcon VerticalAlignment="Center" Symbol="{Binding IconSymbol}" FontSize="11">
+                  <icons:SymbolIcon VerticalAlignment="Center" Symbol="{Binding IconSymbol}" FontSize="{DynamicResource ShellIconSizeXs}">
                     <icons:SymbolIcon.RenderTransform>
                       <TranslateTransform Y="-1" />
                     </icons:SymbolIcon.RenderTransform>
@@ -250,8 +257,7 @@
                       DoubleTapped="OnTitleDoubleTapped" />
                   <TextBox
                       Classes="Dense RuntimeTabTitleEditor"
-                      MinHeight="0"
-                      Height="20"
+                      MinHeight="{controls:TextScaled 20}"
                       Padding="2,0"
                       VerticalContentAlignment="Center"
                       FontSize="{DynamicResource ShellFontSize10}"
@@ -310,12 +316,12 @@
                 AutomationProperties.Name="{Binding DisplayTitle, StringFormat={}Close {0}}"
                 AutomationProperties.HelpText="Closes this tab. A tab with running sessions asks first.">
 
-              <icons:SymbolIcon Symbol="Dismiss" FontSize="10" />
+              <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeXs}" />
             </Button>
           </Grid>
         </DataTemplate>
       </ItemsControl.ItemTemplate>
-      </ItemsControl>
+      </controls:RuntimeTabList>
     </ScrollViewer>
   </DockPanel>
 </UserControl>

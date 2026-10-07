@@ -362,6 +362,51 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         ArgumentNullException.ThrowIfNull(commit);
         return await TransferUnderGateAsync(
             source,
+            this,
+            destination,
+            request.Source,
+            request.Destination,
+            request.TabId,
+            null,
+            () => RequireSessionClient().TransferWorkspaceTabAsync(
+                request,
+                OperationContext.ForHuman(
+                    _clientId,
+                    idempotencyKey: IdempotencyKey.New()),
+                cancellationToken),
+            commit,
+            "tab transfer");
+    }
+
+    /// <summary>
+    /// Moves a tab into a workspace that another window shows. The host
+    /// re-owns the tab's sessions under the destination window, so a running
+    /// terminal keeps its process and scrollback. The caller holds both
+    /// windows' serialization gates, which also keeps the destination's graph
+    /// watch from applying the new revision before the tab has arrived.
+    /// </summary>
+    public async Task<bool> TransferTabToWindowUnderGateAsync(
+        RuntimeWorkspaceViewModel source,
+        RuntimeWorkspaceGraphCoordinator destinationGraph,
+        RuntimeWorkspaceViewModel destination,
+        TransferWorkspaceTabRequest request,
+        Action commit,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(destinationGraph);
+        ArgumentNullException.ThrowIfNull(destination);
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(commit);
+        if (request.SourceWindowId != _windowId
+            || request.DestinationWindowId != destinationGraph._windowId)
+        {
+            return false;
+        }
+
+        return await TransferUnderGateAsync(
+            source,
+            destinationGraph,
             destination,
             request.Source,
             request.Destination,
@@ -390,6 +435,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         ArgumentNullException.ThrowIfNull(commit);
         return await TransferUnderGateAsync(
             source,
+            this,
             destination,
             request.Source,
             request.Destination,
@@ -407,6 +453,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
 
     private async Task<bool> TransferUnderGateAsync(
         RuntimeWorkspaceViewModel source,
+        RuntimeWorkspaceGraphCoordinator destinationGraph,
         RuntimeWorkspaceViewModel destination,
         WorkspaceInstance sourceProposal,
         WorkspaceInstance destinationProposal,
@@ -416,7 +463,10 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         Action commit,
         string operation)
     {
+        var crossesWindows = !ReferenceEquals(destinationGraph, this);
         if (!ReferenceEquals(_currentWorkspace(), source)
+            || (crossesWindows
+                && !ReferenceEquals(destinationGraph._currentWorkspace(), destination))
             || source.Id != sourceProposal.Id
             || destination.Id != destinationProposal.Id)
         {
@@ -449,7 +499,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
             || receipt.TabId != tabId
             || receipt.PanelId != panelId
             || receipt.Source.WindowId != _windowId
-            || receipt.Destination.WindowId != _windowId
+            || receipt.Destination.WindowId != destinationGraph._windowId
             || receipt.Source.Workspace.Id != source.Id
             || receipt.Destination.Workspace.Id != destination.Id
             || receipt.Source.Revision <= source.HostRevision
@@ -473,6 +523,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
             || !OwnershipReceiptsMatch(
                 receipt.Sessions,
                 sourceProposal,
+                destinationGraph._windowId,
                 destinationProposal,
                 tabId,
                 panelId))
@@ -485,7 +536,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         _workspaceCommitted(source);
         if (!ReferenceEquals(source, destination))
         {
-            _workspaceCommitted(destination);
+            destinationGraph._workspaceCommitted(destination);
         }
         try
         {
@@ -509,12 +560,18 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         }
 
         _projectionApplied();
+        if (crossesWindows)
+        {
+            destinationGraph._projectionApplied();
+        }
+
         return true;
     }
 
     private bool OwnershipReceiptsMatch(
         IReadOnlyList<SessionOwnershipTransferReceipt> sessions,
         WorkspaceInstance source,
+        WindowInstanceId destinationWindowId,
         WorkspaceInstance destination,
         TabInstanceId sourceTabId,
         PanelInstanceId? panelId)
@@ -532,7 +589,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
             item.Source.WindowId == _windowId
             && item.Source.WorkspaceId == source.Id
             && item.Source.TabId == sourceTabId
-            && item.Destination.WindowId == _windowId
+            && item.Destination.WindowId == destinationWindowId
             && item.Destination.WorkspaceId == destination.Id
             && item.Destination.TabId == destinationTabId
             && item.Source.PanelId == item.Destination.PanelId

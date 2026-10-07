@@ -243,13 +243,13 @@
                   AutomationProperties.Name="Toggle AI agent panel">
                 <Grid>
                   <icons:SymbolIcon
-                      FontSize="13"
+                      FontSize="{DynamicResource ShellIconSizeSm}"
                       Foreground="{DynamicResource ShellForegroundBrush}"
                       Symbol="Bot" />
                   <icons:SymbolIcon
                       Classes="AgentToolbarActivityPulse"
                       Classes.running="{Binding AgentChat.IsBusy}"
-                      FontSize="13"
+                      FontSize="{DynamicResource ShellIconSizeSm}"
                       Foreground="{DynamicResource ShellAccentBrush}"
                       Opacity="0"
                       Symbol="Bot" />
@@ -260,7 +260,7 @@
                   Click="OnHideClick"
                   ToolTip.Tip="Hide Quick Terminal"
                   AutomationProperties.Name="Hide Quick Terminal">
-                <icons:SymbolIcon Symbol="Dismiss" FontSize="12" />
+                <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeSm}" />
               </Button>
             </StackPanel>
           </Grid>

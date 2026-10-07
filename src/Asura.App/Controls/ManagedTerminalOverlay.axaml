@@ -26,7 +26,9 @@
         CornerRadius="{DynamicResource ShellInnerCornerRadius}"
         IsVisible="{Binding IsFindVisible}">
       <Grid ColumnDefinitions="240,Auto,Auto,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
-        <TextBox
+        <!-- The shared search field: a magnifier, a clear button, and an
+             Escape that clears the query before a second one closes the bar. -->
+        <controls:SearchField
             x:Name="FindBox"
             AutomationProperties.Name="Find in terminal"
             KeyDown="OnFindBoxKeyDown"
@@ -39,7 +41,7 @@
             AutomationProperties.LiveSetting="Polite"
             AutomationProperties.Name="Find result"
             Foreground="{DynamicResource ShellMutedBrush}"
-            FontSize="{DynamicResource ShellFontSize11}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding FindStatusMessage}" />
         <Button
             Grid.Column="2"
@@ -80,13 +82,13 @@
         IsVisible="{Binding IsLinkConfirmationVisible}">
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
         <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-          <TextBlock FontWeight="SemiBold" Text="Open this link?" />
+          <TextBlock Classes="Headline" Text="Open this link?" />
           <SelectableTextBlock
               AutomationProperties.Name="Link address"
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize11}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               Text="{Binding PendingLinkText}"
-              TextTrimming="CharacterEllipsis" />
+              TextTrimming="{x:Static TextTrimming.PrefixCharacterEllipsis}" />
         </StackPanel>
         <StackPanel
             Grid.Column="1"

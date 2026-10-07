@@ -1360,10 +1360,26 @@ public sealed class RuntimePanelViewContractTests
             element => element.Attributes().Any(attribute =>
                 attribute.Name.LocalName.Contains("Transform", StringComparison.Ordinal)));
 
-        var status = FindUniqueAccessibleElement(root, "Terminal session status");
+        // The header mark says the session's real state in words and, with
+        // Differentiate Without Color, by shape.
+        var status = Assert.Single(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "PanelChrome.Status", StringComparison.Ordinal));
+        var mark = Assert.Single(status.Elements());
+        Assert.Equal("StatusMark", mark.Name.LocalName);
         Assert.Equal(
             "Polite",
-            AttributeValue(status, "AutomationProperties.LiveSetting"));
+            AttributeValue(mark, "AutomationProperties.LiveSetting"));
+        Assert.Equal(
+            "{Binding StatusTone, ElementName=RuntimeTerminal}",
+            AttributeValue(mark, "Tone"));
+        Assert.StartsWith(
+            "{Binding StatusText, ElementName=RuntimeTerminal",
+            AttributeValue(mark, "Description"),
+            StringComparison.Ordinal);
+        Assert.Equal(
+            "{DynamicResource ShellTerminalSurfaceOpacity}",
+            AttributeValue(terminal, "BackgroundOpacity"));
 
         var codeBehind = File.ReadAllText(
             RuntimePanelPath("TerminalRuntimePanelView", ".axaml.cs"));
@@ -1484,7 +1500,20 @@ public sealed class RuntimePanelViewContractTests
             "{Binding IsLive, ElementName=RuntimeBrowser}",
             AttributeValue(findInPage, "IsEnabled"));
         var findText = FindUniqueAccessibleElement(root, "Find text in page");
+        Assert.Equal("SearchField", findText.Name.LocalName);
         Assert.Equal("OnFindBoxKeyDown", AttributeValue(findText, "KeyDown"));
+        var browserStatus = Assert.Single(Assert.Single(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "PanelChrome.Status", StringComparison.Ordinal))
+            .Elements());
+        Assert.Equal("StatusMark", browserStatus.Name.LocalName);
+        Assert.Equal(
+            "{Binding StatusTone, ElementName=RuntimeBrowser}",
+            AttributeValue(browserStatus, "Tone"));
+        Assert.StartsWith(
+            "{Binding StatusText, ElementName=RuntimeBrowser",
+            AttributeValue(browserStatus, "Description"),
+            StringComparison.Ordinal);
         Assert.Equal("OnFindTextChanged", AttributeValue(findText, "TextChanged"));
         var eventNotice = FindUniqueAccessibleElement(root, "Browser event notice");
         Assert.Equal(

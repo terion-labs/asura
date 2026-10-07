@@ -45,7 +45,7 @@
     <TextBlock
         x:Name="RenderingState"
         Classes="Muted"
-        FontSize="{DynamicResource ShellFontSize9}"
+        FontSize="{DynamicResource ShellSecondaryFontSize}"
         Text="Rendering message…"
         IsVisible="False"
         AutomationProperties.Name="Rendering Markdown message" />

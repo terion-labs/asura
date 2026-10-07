@@ -170,25 +170,7 @@ public sealed class QuickTerminalController : IDisposable
         PositionAtTopOfWorkingArea(window);
         try
         {
-            var wasVisible = window.IsVisible;
-            if (!wasVisible)
-            {
-                window.PrepareReveal(progress);
-                window.Show();
-            }
-            else
-            {
-                window.SetRevealProgress(progress);
-            }
-
-            window.ConfigureAsPanel();
-
-            window.ApplyBackdrop();
-            if (!wasVisible)
-            {
-                window.CompletePreparedReveal();
-            }
-
+            window.ShowForReveal(progress);
             window.Activate();
             window.FocusTerminal();
             StartTransition(window, progress, 1);
@@ -338,6 +320,10 @@ public sealed class QuickTerminalController : IDisposable
         {
             DataContext = _viewModel,
         };
+
+        // Avalonia creates the native window in the constructor, so it can
+        // be a panel before anything shows it, including a restore at startup.
+        _quickWindow.ConfigureAsPanel();
         _quickWindow.ApplySettings(_settings, _hostPreferences);
         _quickWindow.DismissRequested += OnDismissRequested;
         _quickWindow.AgentSettingsRequested += OnAgentSettingsRequested;

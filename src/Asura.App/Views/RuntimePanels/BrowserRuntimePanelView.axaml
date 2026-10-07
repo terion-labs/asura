@@ -32,9 +32,13 @@
       SplitRequested="OnSplitRequested"
       Title="{Binding Title}">
     <controls:PanelChrome.Status>
-      <Border
-          Classes="StatusDot"
-          controls:StatusToneBrush.Background="{Binding StatusTone, ElementName=RuntimeBrowser}" />
+      <!-- The page's real state in words, and a glyph per state under
+           Differentiate Without Color. -->
+      <controls:StatusMark
+          x:Name="BrowserStatusMark"
+          AutomationProperties.AccessibilityView="Content"
+          Tone="{Binding StatusTone, ElementName=RuntimeBrowser}"
+          Description="{Binding StatusText, ElementName=RuntimeBrowser, StringFormat='Browser: {0}'}" />
     </controls:PanelChrome.Status>
 
     <controls:PanelChrome.Leading>
@@ -112,7 +116,7 @@
               <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                 <Grid Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" ColumnDefinitions="*,Auto">
                   <TextBlock Text="History" Classes="Muted" VerticalAlignment="Center"
-                      FontSize="{DynamicResource ShellFontSize9}" />
+                      FontSize="{DynamicResource ShellSecondaryFontSize}" />
                   <Button Grid.Column="1" Classes="IconButton" Click="OnClearHistoryClick"
                       AutomationProperties.Name="Clear browsing history" ToolTip.Tip="Clear browsing history">
                     <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize11}" Symbol="Delete" />
@@ -135,18 +139,18 @@
                           Background="Transparent" Tapped="OnHistoryEntryTapped" ToolTip.Tip="{Binding Address}">
                         <icons:SymbolIcon Symbol="History" FontSize="{DynamicResource ShellFontSize13}"
                             Foreground="{DynamicResource ShellMutedBrush}" VerticalAlignment="Center" />
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
                           <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"
-                              FontSize="{DynamicResource ShellFontSize11}" />
-                          <TextBlock Text="{Binding DisplayAddress}" TextTrimming="CharacterEllipsis"
-                              Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" />
+                              FontSize="{DynamicResource ShellFontSize12}" />
+                          <TextBlock Text="{Binding DisplayAddress}"
+                              Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" />
                         </StackPanel>
                       </Grid>
                     </DataTemplate>
                   </ListBox.ItemTemplate>
                 </ListBox>
                 <TextBlock Text="{Binding HistoryStatus}" IsVisible="{Binding HistoryStatus, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}"
-                    Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" TextWrapping="Wrap" FontSize="{DynamicResource ShellFontSize9}" />
+                    Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" TextWrapping="Wrap" FontSize="{DynamicResource ShellFontSize10}" />
               </StackPanel>
             </Border>
           </Popup>
@@ -217,14 +221,14 @@
             AutomationProperties.LiveSetting="Polite"
             AutomationProperties.Name="Browser session status"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding StatusText, ElementName=RuntimeBrowser}" />
         <TextBlock
             Grid.Column="1"
             Margin="{controls:Inset Right=Xl}"
             VerticalAlignment="Center"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding StatusMessage, ElementName=RuntimeBrowser}"
             TextTrimming="CharacterEllipsis" />
         <TextBlock
@@ -232,7 +236,7 @@
             VerticalAlignment="Center"
             AutomationProperties.Name="Pinned browser profile"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding BrowserProfileDisplayName, StringFormat=Profile: {0}}" />
       </Grid>
     </controls:PanelChrome.Footer>
@@ -281,12 +285,11 @@
         <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
           <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
             <TextBlock
-                FontSize="{DynamicResource ShellFontSize10}"
-                FontWeight="SemiBold"
+                Classes="Headline"
                 Text="{Binding ProductHeading, ElementName=RuntimeBrowser}" />
             <TextBlock
                 Classes="Muted"
-                FontSize="{DynamicResource ShellFontSize9}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
                 Text="{Binding ProductMessage, ElementName=RuntimeBrowser}"
                 TextWrapping="Wrap" />
           </StackPanel>
@@ -330,7 +333,7 @@
           CornerRadius="{DynamicResource ShellInnerCornerRadius}"
           IsVisible="{Binding IsFindVisible, ElementName=RuntimeBrowser}">
         <Grid ColumnDefinitions="220,Auto,Auto,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
-          <TextBox
+          <controls:SearchField
               x:Name="FindBox"
               AutomationProperties.Name="Find text in page"
               KeyDown="OnFindBoxKeyDown"
@@ -344,7 +347,7 @@
               AutomationProperties.LiveSetting="Polite"
               AutomationProperties.Name="Find result count"
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize9}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               Text="{Binding FindResultText, ElementName=RuntimeBrowser}" />
           <Button Grid.Column="2" AutomationProperties.Name="Previous find match" Classes="IconButton" Click="OnFindPreviousClick" ToolTip.Tip="Previous match">
             <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize11}" Symbol="ChevronUp" />

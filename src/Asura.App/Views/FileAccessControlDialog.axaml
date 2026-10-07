@@ -45,12 +45,13 @@
                   ColumnSpacing="{DynamicResource ShellSpaceSm}">
                 <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock
-                      FontSize="{DynamicResource ShellFontSize10}"
+                      Classes="MiddleTruncated"
+                      FontSize="{DynamicResource ShellFontSize12}"
                       Text="{Binding Name}"
-                      TextTrimming="CharacterEllipsis" />
+                      ToolTip.Tip="{Binding Name}" />
                   <TextBlock
                       Classes="Muted"
-                      FontSize="{DynamicResource ShellFontSize9}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
                       Text="{Binding Detail}"
                       IsVisible="{Binding HasDetail}"
                       TextTrimming="CharacterEllipsis" />
@@ -85,14 +86,14 @@
         <controls:LiveRegionTextBlock
             Classes="Muted"
             FontFamily="{DynamicResource ShellDataFontFamily}"
-            FontSize="{DynamicResource ShellFontSize10}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding ModeText}"
             IsVisible="{Binding HasMode}"
             AutomationProperties.LiveSetting="Polite"
             AutomationProperties.Name="Permission bits" />
         <TextBlock
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize10}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding ReadOnlyReason}"
             IsVisible="{Binding !CanEdit}"
             TextWrapping="Wrap" />

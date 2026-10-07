@@ -23,7 +23,7 @@
         StartupCommandDispatcher="{Binding StartupCommandDispatcher}"
         SessionRequest="{Binding SessionRequest}"
         RenderProfile="{Binding RenderProfile}"
-        BackgroundOpacity="{DynamicResource ShellSurfaceOpacity}"
+        BackgroundOpacity="{DynamicResource ShellTerminalSurfaceOpacity}"
         AccessibleTitle="{Binding Title}"
         IsCopyMode="{Binding IsCopyMode}"
         CopyModeExitRequested="OnCopyModeExitRequested"
@@ -37,10 +37,10 @@
         IsHitTestVisible="False"
         IsVisible="{Binding ShowFallback, ElementName=EmbeddedTerminal}">
       <StackPanel MaxWidth="440" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
-        <icons:SymbolIcon Symbol="WindowConsole" FontSize="24" Foreground="{DynamicResource ShellMutedBrush}" />
+        <icons:SymbolIcon Symbol="WindowConsole" FontSize="{controls:TextScaled 24}" Foreground="{DynamicResource ShellMutedBrush}" />
         <TextBlock
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize11}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding StatusMessage, ElementName=EmbeddedTerminal}"
             TextAlignment="Center"
             TextWrapping="Wrap" />
@@ -55,20 +55,20 @@
         Background="{DynamicResource ShellSurfaceBrush}"
         IsVisible="{Binding HasConnectionOverlay}">
       <StackPanel MaxWidth="460" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
-        <icons:SymbolIcon Symbol="WindowConsole" FontSize="25" Foreground="{DynamicResource ShellWarningBrush}" />
-        <TextBlock FontSize="{DynamicResource ShellFontSize15}" FontWeight="SemiBold" Text="{Binding ConnectionStatus}" TextAlignment="Center" />
-        <TextBlock Classes="Muted" Text="{Binding ConnectionDetail}" TextAlignment="Center" TextWrapping="Wrap" />
-        <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding RecoveryLabel}" TextAlignment="Center" TextWrapping="Wrap" />
+        <icons:SymbolIcon Symbol="WindowConsole" FontSize="{controls:TextScaled 25}" Foreground="{DynamicResource ShellWarningBrush}" />
+        <TextBlock Classes="Title3" Text="{Binding ConnectionStatus}" TextAlignment="Center" />
+        <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ConnectionDetail}" TextAlignment="Center" TextWrapping="Wrap" />
+        <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding RecoveryLabel}" TextAlignment="Center" TextWrapping="Wrap" />
         <controls:SurfaceCard Padding="0" IsVisible="{Binding HasHostKeyReview}">
           <StackPanel Margin="{controls:Inset Md}" Spacing="{DynamicResource ShellSpaceXs}">
-            <TextBlock FontWeight="SemiBold" Text="{Binding HostKeyReviewTitle}" TextAlignment="Center" />
-            <TextBlock FontSize="{DynamicResource ShellFontSize9}" Text="{Binding HostKeyReview.Presented.Algorithm}" TextAlignment="Center" />
-            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding HostKeyReview.Presented.Sha256Fingerprint}" TextAlignment="Center" TextWrapping="Wrap" />
-            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding TrustedHostKeyFingerprint}" TextAlignment="Center" TextWrapping="Wrap" />
+            <TextBlock Classes="Headline" Text="{Binding HostKeyReviewTitle}" TextAlignment="Center" />
+            <TextBlock FontSize="{DynamicResource ShellFontSize12}" Text="{Binding HostKeyReview.Presented.Algorithm}" TextAlignment="Center" />
+            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding HostKeyReview.Presented.Sha256Fingerprint}" TextAlignment="Center" TextWrapping="Wrap" />
+            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding TrustedHostKeyFingerprint}" TextAlignment="Center" TextWrapping="Wrap" />
             <Button Classes="SecondaryButton" Click="OnTrustHostKeyClick" Content="{Binding TrustHostKeyLabel}" IsVisible="{Binding CanTrustHostKey}" />
           </StackPanel>
         </controls:SurfaceCard>
-        <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding ReconnectStatus}" IsVisible="{Binding IsReconnecting}" />
+        <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ReconnectStatus}" IsVisible="{Binding IsReconnecting}" />
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
           <Button Classes="PrimaryButton" Click="OnProceedWithoutContinuityClick" Content="Proceed without continuity" IsVisible="{Binding CanProceedWithoutContinuity}" />
           <Button Classes="SecondaryButton" Click="OnRetryConnectionClick" Content="Retry connection" IsVisible="{Binding CanRetry}" />

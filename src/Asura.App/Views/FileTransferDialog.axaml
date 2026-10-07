@@ -25,7 +25,7 @@
         <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
           <TextBlock Classes="Eyebrow" Text="Source" />
           <TextBlock Text="{Binding Source.Name}" />
-          <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding SourceLocation}" />
+          <TextBlock Classes="Muted Path" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding SourceLocation}" ToolTip.Tip="{Binding SourceLocation}" />
         </StackPanel>
       </controls:SurfaceCard>
       <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">

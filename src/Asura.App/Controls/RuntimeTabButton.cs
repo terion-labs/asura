@@ -4,6 +4,7 @@ using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 
 namespace Asura.App.Controls;
 
@@ -66,7 +67,14 @@ internal sealed class RuntimeTabButton : Button
 
         public bool IsSelected => Owner.IsSelected;
 
-        public ISelectionProvider? SelectionContainer => null;
+        /// <summary>
+        /// The tab list the tab belongs to, so assistive technology hears the
+        /// selection as one choice among the strip's tabs.
+        /// </summary>
+        public ISelectionProvider? SelectionContainer =>
+            Owner.FindAncestorOfType<RuntimeTabList>() is { } list
+                ? CreatePeerForElement(list) as ISelectionProvider
+                : null;
 
         public void AddToSelection() => Select();
 
@@ -84,5 +92,35 @@ internal sealed class RuntimeTabButton : Button
 
         protected override AutomationControlType GetAutomationControlTypeCore() =>
             AutomationControlType.TabItem;
+    }
+}
+
+/// <summary>
+/// The strip's tabs as one tab group. It answers which tab is selected, so the
+/// selected state each <see cref="RuntimeTabButton"/> reports belongs to a
+/// container rather than standing alone, as a tab view's selection does.
+/// </summary>
+internal sealed class RuntimeTabList : ItemsControl
+{
+    protected override Type StyleKeyOverride => typeof(ItemsControl);
+
+    protected override AutomationPeer OnCreateAutomationPeer() =>
+        new RuntimeTabListAutomationPeer(this);
+
+    private sealed class RuntimeTabListAutomationPeer(RuntimeTabList owner)
+        : ItemsControlAutomationPeer(owner), ISelectionProvider
+    {
+        public bool CanSelectMultiple => false;
+
+        public bool IsSelectionRequired => true;
+
+        public IReadOnlyList<AutomationPeer> GetSelection() =>
+            [.. Owner.GetVisualDescendants()
+                .OfType<RuntimeTabButton>()
+                .Where(tab => tab.IsSelected)
+                .Select(CreatePeerForElement)];
+
+        protected override AutomationControlType GetAutomationControlTypeCore() =>
+            AutomationControlType.Tab;
     }
 }

@@ -106,6 +106,9 @@ public sealed partial class MainWindowViewModel
                             Math.Min(sourceIndex, source.Tabs.Count - 1)];
                     }
 
+                    // The host moved the tab's sessions to the destination
+                    // workspace; a view that attaches again asks by that owner.
+                    ReownTabSessions(movedTab, WindowId, destination.Id);
                     destination.Tabs.Add(movedTab);
                     destination.ActiveTab = movedTab;
                     WorkspaceTransferStatus =

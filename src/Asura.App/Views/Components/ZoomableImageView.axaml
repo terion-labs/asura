@@ -34,7 +34,7 @@
             Click="OnZoomOutClick"
             ToolTip.Tip="Zoom out"
             AutomationProperties.Name="Zoom out">
-          <icons:SymbolIcon Symbol="ZoomOut" FontSize="12" />
+          <icons:SymbolIcon Symbol="ZoomOut" FontSize="{DynamicResource ShellIconSizeSm}" />
         </Button>
         <Button
             x:Name="ZoomLevelButton"
@@ -47,7 +47,7 @@
           <controls:LiveRegionTextBlock
               x:Name="ZoomLevelText"
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               HorizontalAlignment="Center"
               Text="100%"
               AutomationProperties.LiveSetting="Polite" />
@@ -57,7 +57,7 @@
             Click="OnZoomInClick"
             ToolTip.Tip="Zoom in"
             AutomationProperties.Name="Zoom in">
-          <icons:SymbolIcon Symbol="ZoomIn" FontSize="12" />
+          <icons:SymbolIcon Symbol="ZoomIn" FontSize="{DynamicResource ShellIconSizeSm}" />
         </Button>
         <Border Width="1" Margin="{DynamicResource ShellHairlineInset}" Background="{DynamicResource ShellBorderBrush}" />
         <Button
@@ -65,14 +65,14 @@
             Click="OnRotateLeftClick"
             ToolTip.Tip="Rotate left"
             AutomationProperties.Name="Rotate left">
-          <icons:SymbolIcon Symbol="RotateLeft" FontSize="12" />
+          <icons:SymbolIcon Symbol="RotateLeft" FontSize="{DynamicResource ShellIconSizeSm}" />
         </Button>
         <Button
             Classes="IconButton"
             Click="OnRotateRightClick"
             ToolTip.Tip="Rotate right"
             AutomationProperties.Name="Rotate right">
-          <icons:SymbolIcon Symbol="RotateRight" FontSize="12" />
+          <icons:SymbolIcon Symbol="RotateRight" FontSize="{DynamicResource ShellIconSizeSm}" />
         </Button>
       </StackPanel>
     </Border>

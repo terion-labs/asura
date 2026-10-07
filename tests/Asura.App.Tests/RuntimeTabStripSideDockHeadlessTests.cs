@@ -395,7 +395,7 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
             menu.Open(host);
             var items = menu.Items.OfType<MenuItem>().Where(item => item.IsVisible).ToArray();
             Assert.Equal(
-                ["Rename Tab…", "Change Icon…", "Move to Workspace", "Close Tab", "Close Other Tabs"],
+                ["Rename Tab…", "Change Icon…", "Move to Workspace", "Move to New Window", "Close Tab", "Close Other Tabs"],
                 items.Select(item => item.Header as string), StringComparer.Ordinal);
 
             var move = items[2];
@@ -406,7 +406,7 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
             Assert.Same(tabs[1], moved.Tab);
             Assert.Same(elsewhere, moved.Destination);
 
-            items[4].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            items[5].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
             Assert.Same(tabs[1], closedOthersFor);
 
             items[0].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
