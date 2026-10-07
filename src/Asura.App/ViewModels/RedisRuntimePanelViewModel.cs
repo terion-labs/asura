@@ -85,12 +85,28 @@ public sealed class RedisKeyItemViewModel : ObservableObject
     /// <summary>Re-reads the clock. Nothing about the key changed.</summary>
     public void Tick() => OnPropertyChanged(nameof(Ttl));
 
-    private static string FormatBytes(long bytes) => bytes switch
+    /// <summary>
+    /// A memory figure in the reader's own number format, the way every other
+    /// size on this screen is written.
+    /// </summary>
+    internal static string FormatBytes(long bytes) => bytes switch
     {
-        < 1024 => $"{bytes} B",
-        < 1024 * 1024 => $"{bytes / 1024d:0.#} KB",
-        _ => $"{bytes / (1024d * 1024d):0.#} MB",
+        < 1024 => $"{RedisCounts.Format(bytes)} B",
+        < 1024 * 1024 => $"{(bytes / 1024d).ToString("0.#", CultureInfo.CurrentCulture)} KB",
+        _ => $"{(bytes / (1024d * 1024d)).ToString("0.#", CultureInfo.CurrentCulture)} MB",
     };
+}
+
+/// <summary>
+/// Counts on the Redis screen — keys loaded, bytes, members — in the current
+/// culture's digit grouping, with a real plural.
+/// </summary>
+internal static class RedisCounts
+{
+    public static string Format(long count) => count.ToString("N0", CultureInfo.CurrentCulture);
+
+    public static string Count(long count, string singular, string plural) =>
+        count == 1 ? $"1 {singular}" : $"{Format(count)} {plural}";
 }
 
 /// <summary>
@@ -195,43 +211,43 @@ public sealed record RedisKeyForm(
     public static RedisKeyForm For(string type) => type switch
     {
         "hash" => new(
-            "Value", "Field", null, "Add fields", true,
+            "Value", "Field", null, "Add Fields", true,
             EntriesLabel: "Fields",
             CanRemoveEntries: true,
-            EditLabel: "Save field",
+            EditLabel: "Save Field",
             EntryIdentityLabel: "Field"),
         "list" => new(
             "Value", null, null, "Append", true,
             EntriesLabel: "Values",
             CanRemoveEntries: true,
-            EditLabel: "Save value",
+            EditLabel: "Save Value",
             EntryIdentityLabel: "Position"),
         "set" => new(
-            "Member", null, null, "Add members", false,
+            "Member", null, null, "Add Members", false,
             EntriesLabel: "Members",
             CanRemoveEntries: true,
-            EditLabel: "Replace member",
+            EditLabel: "Replace Member",
             EntryIdentityLabel: "Member"),
         "zset" => new(
-            "Member", null, "Score", "Add members", false,
+            "Member", null, "Score", "Add Members", false,
             EntriesLabel: "Members",
             CanRemoveEntries: true,
-            EditLabel: "Save member",
+            EditLabel: "Save Member",
             EntryIdentityLabel: "Member"),
         "stream" => new(
-            "Value", "Field", null, "Append entry", true,
+            "Value", "Field", null, "Append Entry", true,
             CanRemoveEntries: true,
             EntryIdentityLabel: "Entry"),
         "json" => new(
-            "JSON", null, null, "Replace document", true,
+            "JSON", null, null, "Replace Document", true,
             IsJson: true,
             HasWholeValue: true,
-            EditLabel: "Replace document"),
-        "timeseries" => new("Sample", null, null, "Add sample", false),
+            EditLabel: "Replace Document"),
+        "timeseries" => new("Sample", null, null, "Add Sample", false),
         _ => new(
-            "Value", null, null, "Set value", true,
+            "Value", null, null, "Set Value", true,
             HasWholeValue: true,
-            EditLabel: "Set value"),
+            EditLabel: "Set Value"),
     };
 }
 
@@ -259,6 +275,7 @@ public sealed record RedisPubSubMessageViewModel(RedisPubSubMessage Message)
 public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
 {
     private const int ScanBatchSize = 200;
+    private const string AllKeysPattern = "*";
     private const int MaximumValueEntries = 500;
     private const int MaximumPubSubMessages = 500;
 
@@ -290,7 +307,8 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     private bool _isBusy;
     private string _statusText = "Disconnected";
     private string? _errorMessage;
-    private string _scanPattern = "*";
+    private string _scanPattern = string.Empty;
+    private string _activeScanPattern = AllKeysPattern;
     private string? _scanCursor;
     private bool _scanComplete;
     private string _newKeyName = string.Empty;
@@ -358,6 +376,9 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
 
         ConnectCommand = new AsyncActionCommand(ConnectAsync, () => !IsBusy && HasConnectionTarget);
         DisconnectCommand = new AsyncActionCommand(DisconnectAsync, () => IsConnected);
+        ToggleConnectionCommand = new AsyncActionCommand(
+            () => IsConnected ? DisconnectAsync() : ConnectAsync(),
+            () => IsConnected || (!IsBusy && HasConnectionTarget));
         ScanCommand = new AsyncActionCommand(RestartScanAsync, () => IsConnected && !IsBusy);
         LoadMoreCommand = new AsyncActionCommand(LoadMoreAsync, () => IsConnected && !IsBusy && !ScanComplete);
         CreateKeyCommand = new AsyncActionCommand(CreateKeyAsync, () => IsConnected && !IsBusy && !string.IsNullOrWhiteSpace(NewKeyName));
@@ -646,11 +667,19 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
 
     public bool HasSearchResults => SearchResults.Count > 0;
 
+    /// <summary>
+    /// The key filter as typed: a SCAN MATCH glob. Empty lists every key, so
+    /// the search field it sits in can be cleared like any other.
+    /// </summary>
     public string ScanPattern
     {
         get => _scanPattern;
         set => SetProperty(ref _scanPattern, value ?? string.Empty);
     }
+
+    /// <summary>Whether the key list was read through a filter narrower than
+    /// every key.</summary>
+    public bool IsFilteringKeys => !string.Equals(_activeScanPattern, AllKeysPattern, StringComparison.Ordinal);
 
     public bool ScanComplete
     {
@@ -666,8 +695,8 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     }
 
     public string ScanProgressText => ScanComplete
-        ? $"Scan complete · {Keys.Count} keys loaded"
-        : $"{Keys.Count} keys loaded · live SCAN";
+        ? $"Scan complete · {RedisCounts.Count(Keys.Count, "key", "keys")} loaded"
+        : $"{RedisCounts.Count(Keys.Count, "key", "keys")} loaded · live SCAN";
 
     public IReadOnlyList<string> NewKeyTypeOptions { get; } =
         ["string", "hash", "list", "set", "zset", "stream", "json", "timeseries"];
@@ -795,10 +824,10 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     /// <summary>What removing the pointed-at entry does, in the type's words.</summary>
     public string RemoveEntryLabel => SelectedKeyType switch
     {
-        "hash" => "Remove field",
-        "stream" => "Remove entry",
-        "set" or "zset" => "Remove member",
-        _ => "Remove value",
+        "hash" => "Remove Field",
+        "stream" => "Remove Entry",
+        "set" or "zset" => "Remove Member",
+        _ => "Remove Value",
     };
 
     public string SelectedKeyType => _selectedSnapshot?.Summary.Type ?? string.Empty;
@@ -811,9 +840,9 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             // A string's length is its bytes; everything else counts members.
             _selectedSnapshot.Length is not { } length
                 ? "size unknown"
-                : string.Equals(_selectedSnapshot.Summary.Type, "string"
-, StringComparison.Ordinal) ? $"{length.ToString(CultureInfo.InvariantCulture)} bytes"
-                    : $"{length.ToString(CultureInfo.InvariantCulture)} items",
+                : string.Equals(_selectedSnapshot.Summary.Type, "string", StringComparison.Ordinal)
+                    ? RedisCounts.Count(length, "byte", "bytes")
+                    : RedisCounts.Count(length, "item", "items"),
             SelectedKey?.IsExpiring == true ? $"TTL {SelectedKey.Ttl}" : "persistent",
             SelectedKey?.Memory ?? "-");
 
@@ -850,7 +879,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     public string MutationValue { get => _mutationValue; set => SetProperty(ref _mutationValue, value ?? string.Empty); }
     public string MutationScore { get => _mutationScore; set => SetProperty(ref _mutationScore, value ?? string.Empty); }
     public string ExpirySeconds { get => _expirySeconds; set => SetProperty(ref _expirySeconds, value ?? string.Empty); }
-    public string DeleteKeyLabel => _deleteArmed ? "Confirm delete" : "Delete key";
+    public string DeleteKeyLabel => _deleteArmed ? "Confirm Delete" : "Delete Key";
 
     /// <summary>
     /// Whether the delete action is one press from running. Quiet until then:
@@ -871,6 +900,19 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
 
     public AsyncActionCommand ConnectCommand { get; }
     public AsyncActionCommand DisconnectCommand { get; }
+
+    /// <summary>
+    /// The toolbar's one connection button: it connects when there is no
+    /// session and disconnects when there is. Two buttons enabled side by side
+    /// asked people to work out which one applied.
+    /// </summary>
+    public AsyncActionCommand ToggleConnectionCommand { get; }
+
+    public string ConnectionActionLabel => IsConnected ? "Disconnect" : "Connect";
+
+    public string ConnectionActionDescription => IsConnected
+        ? "Disconnect from Redis"
+        : "Connect to Redis";
     public AsyncActionCommand ScanCommand { get; }
     public AsyncActionCommand LoadMoreCommand { get; }
     public AsyncActionCommand CreateKeyCommand { get; }
@@ -1232,6 +1274,9 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         _selectedKey = null;
         _selectedSnapshot = null;
         _scanCursor = null;
+        // A scan keeps the pattern it started with: a cursor is only
+        // meaningful for the MATCH it was issued under.
+        _activeScanPattern = string.IsNullOrWhiteSpace(ScanPattern) ? AllKeysPattern : ScanPattern.Trim();
         ScanComplete = false;
         await LoadScanPageCoreAsync(cancellationToken).ConfigureAwait(true);
     }
@@ -1325,7 +1370,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             return;
         }
 
-        var page = await _session.ScanKeysAsync(ScanPattern, _scanCursor, ScanBatchSize, cancellationToken)
+        var page = await _session.ScanKeysAsync(_activeScanPattern, _scanCursor, ScanBatchSize, cancellationToken)
             .ConfigureAwait(true);
         var existing = Keys.Select(item => Convert.ToBase64String(item.Summary.Key.Bytes)).ToHashSet(StringComparer.Ordinal);
         foreach (var summary in page.Keys)
@@ -1769,6 +1814,8 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     private void OnConnectionChanged()
     {
         OnPropertyChanged(nameof(IsConnected));
+        OnPropertyChanged(nameof(ConnectionActionLabel));
+        OnPropertyChanged(nameof(ConnectionActionDescription));
         OnPropertyChanged(nameof(Facts));
         OnPropertyChanged(nameof(ServerFactsText));
         OnPropertyChanged(nameof(SearchAvailable));
@@ -1818,6 +1865,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     {
         ConnectCommand.RaiseCanExecuteChanged();
         DisconnectCommand.RaiseCanExecuteChanged();
+        ToggleConnectionCommand.RaiseCanExecuteChanged();
         ScanCommand.RaiseCanExecuteChanged();
         LoadMoreCommand.RaiseCanExecuteChanged();
         CreateKeyCommand.RaiseCanExecuteChanged();

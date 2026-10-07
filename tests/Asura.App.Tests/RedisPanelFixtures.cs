@@ -83,12 +83,18 @@ internal static class RedisPanelFixtures
         public Task SelectDatabaseAsync(int database, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
+        /// <summary>The MATCH pattern of the most recent SCAN.</summary>
+        public string? LastScanPattern { get; private set; }
+
         public Task<RedisScanPage> ScanKeysAsync(
             string pattern,
             string? cursor,
             int count,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(new RedisScanPage([Describe()], null, true));
+            CancellationToken cancellationToken)
+        {
+            LastScanPattern = pattern;
+            return Task.FromResult(new RedisScanPage([Describe()], null, true));
+        }
 
         public Task<RedisKeySnapshot> ReadKeyAsync(
             RedisKeyReference key,

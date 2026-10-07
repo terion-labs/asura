@@ -94,14 +94,14 @@ public sealed class RedisKeyExpiryTests
 
 
     [Theory]
-    [InlineData("string", "Value", null, null, "Set value")]
-    [InlineData("hash", "Value", "Field", null, "Add fields")]
+    [InlineData("string", "Value", null, null, "Set Value")]
+    [InlineData("hash", "Value", "Field", null, "Add Fields")]
     [InlineData("list", "Value", null, null, "Append")]
-    [InlineData("set", "Member", null, null, "Add members")]
-    [InlineData("zset", "Member", null, "Score", "Add members")]
-    [InlineData("stream", "Value", "Field", null, "Append entry")]
-    [InlineData("json", "JSON", null, null, "Replace document")]
-    [InlineData("timeseries", "Sample", null, null, "Add sample")]
+    [InlineData("set", "Member", null, null, "Add Members")]
+    [InlineData("zset", "Member", null, "Score", "Add Members")]
+    [InlineData("stream", "Value", "Field", null, "Append Entry")]
+    [InlineData("json", "JSON", null, null, "Replace Document")]
+    [InlineData("timeseries", "Sample", null, null, "Add Sample")]
     public void EachTypeAsksForWhatItActuallyNeeds(
         string type,
         string valueLabel,
@@ -316,11 +316,11 @@ public sealed class RedisKeyExpiryTests
     /// type the removal is for and names the action in that type's words.
     /// </summary>
     [Theory]
-    [InlineData("hash", "Remove field", "hash email")]
-    [InlineData("list", "Remove value", "list 0")]
-    [InlineData("set", "Remove member", "set value")]
-    [InlineData("zset", "Remove member", "zset value")]
-    [InlineData("stream", "Remove entry", "stream event")]
+    [InlineData("hash", "Remove Field", "hash email")]
+    [InlineData("list", "Remove Value", "list 0")]
+    [InlineData("set", "Remove Member", "set value")]
+    [InlineData("zset", "Remove Member", "zset value")]
+    [InlineData("stream", "Remove Entry", "stream event")]
     public async Task AnEntryCanBeTakenOutOfACollection(string type, string label, string removal)
     {
         var session = new RedisPanelFixtures.StubSession(null, type: type);
