@@ -3164,7 +3164,10 @@ public sealed class DatabaseRuntimePanelViewModelTests
 
         public string? LastConnectionString { get; private set; }
 
-        public Task<IReadOnlyList<DatabaseTableDescriptor>> ListTablesAsync(
+        /// <summary>When set, listing tables (the connect probe) waits for it.</summary>
+        public TaskCompletionSource? ListTablesRelease { get; set; }
+
+        public async Task<IReadOnlyList<DatabaseTableDescriptor>> ListTablesAsync(
             string driverId,
             string connectionString,
             ConnectionProfile? tunnel,
@@ -3172,12 +3175,17 @@ public sealed class DatabaseRuntimePanelViewModelTests
         {
             LastTunnel = tunnel;
             LastConnectionString = connectionString;
+            if (ListTablesRelease is { } release)
+            {
+                await release.Task.WaitAsync(cancellationToken);
+            }
+
             ThrowIfConfigured();
-            return Task.FromResult<IReadOnlyList<DatabaseTableDescriptor>>(
+            return
             [
                 new("people", DatabaseTableKind.Table),
                 new("names", DatabaseTableKind.View),
-            ]);
+            ];
         }
 
         public Task<DatabaseQueryPage> QueryAsync(

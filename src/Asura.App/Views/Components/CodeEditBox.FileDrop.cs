@@ -1,48 +1,86 @@
+using Avalonia;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
+using AvaloniaEdit.Editing;
 
 namespace Asura.App.Views.Components;
 
 /// <summary>
-/// Files dropped from the Finder onto an editable editor. A single SQL or
+/// Files dropped from the Finder onto an editable editor that opts in with
+/// <see cref="AcceptsFileDrop"/>. A single SQL or
 /// text script opens into the statement at the drop point, so a saved query
 /// runs without a trip through Open; anything else types its path, as a drop
 /// on a Mac text view does.
 /// </summary>
 public sealed partial class CodeEditBox
 {
+    /// <summary>
+    /// Whether a Finder drop opens a script or types paths here. Off by
+    /// default: only the SQL statement editor takes files, so a YAML manifest
+    /// or a Redis value is never filled with a dropped script.
+    /// </summary>
+    public static readonly StyledProperty<bool> AcceptsFileDropProperty =
+        AvaloniaProperty.Register<CodeEditBox, bool>(nameof(AcceptsFileDrop));
+
     private int? _caretBeforeDrag;
+
+    public bool AcceptsFileDrop
+    {
+        get => GetValue(AcceptsFileDropProperty);
+        set => SetValue(AcceptsFileDropProperty, value);
+    }
+
+    static CodeEditBox()
+    {
+        // Drag events only bubble, and the text area inside inserts any drag
+        // that carries text, which a Finder or file-manager drag usually does
+        // (the file's name or URI). A class handler on the text area runs
+        // before its own instance handlers, so for a file payload the editor
+        // answers first and marks the event handled: the text area never
+        // inserts a second copy. Drags without files pass through untouched,
+        // so moving a selection inside the editor still works.
+        DragDrop.DragEnterEvent.AddClassHandler<TextArea>((area, e) => OwnerOf(area)?.OnFileDragOver(area, e));
+        DragDrop.DragOverEvent.AddClassHandler<TextArea>((area, e) => OwnerOf(area)?.OnFileDragOver(area, e));
+        DragDrop.DropEvent.AddClassHandler<TextArea>((area, e) => OwnerOf(area)?.OnFileDrop(area, e));
+    }
+
+    private static CodeEditBox? OwnerOf(TextArea area) =>
+        area.FindAncestorOfType<CodeEditBox>() is { } box && ReferenceEquals(box.Editor.TextArea, area)
+            ? box
+            : null;
 
     private void InitializeFileDrop()
     {
-        DragDrop.SetAllowDrop(this, true);
-        // The text area may claim drag events for its own text moves, so the
-        // file handlers listen to handled events as well.
-        AddHandler(DragDrop.DragOverEvent, OnFileDragOver, RoutingStrategies.Bubble, handledEventsToo: true);
+        // A drop beside the text area (its padding) lands on the box itself.
+        AddHandler(DragDrop.DragEnterEvent, OnFileDragOver);
+        AddHandler(DragDrop.DragOverEvent, OnFileDragOver);
         AddHandler(DragDrop.DragLeaveEvent, OnFileDragLeave, RoutingStrategies.Bubble, handledEventsToo: true);
-        AddHandler(DragDrop.DropEvent, OnFileDrop, RoutingStrategies.Bubble, handledEventsToo: true);
+        AddHandler(DragDrop.DropEvent, OnFileDrop);
     }
 
-    private bool AcceptsFileDrop(DragEventArgs e) =>
-        !IsReadOnly
-        && IsEffectivelyEnabled
-        && e.DataTransfer.Contains(DataFormat.File);
+    private void SyncAllowDrop() => DragDrop.SetAllowDrop(this, AcceptsFileDrop);
+
+    private bool CarriesFiles(DragEventArgs e) =>
+        AcceptsFileDrop && e.DataTransfer.Contains(DataFormat.File);
+
+    private bool CanTakeFiles() => !IsReadOnly && IsEffectivelyEnabled;
 
     private void OnFileDragOver(object? sender, DragEventArgs e)
     {
         _ = sender;
-        if (!AcceptsFileDrop(e))
+        if (!CarriesFiles(e))
+        {
+            // Any other drag is the text area's to decide.
+            return;
+        }
+
+        e.Handled = true;
+        if (!CanTakeFiles())
         {
             EndFileDragFeedback(restoreCaret: true);
-            // Files over an editor that cannot take them are refused; any
-            // other drag is the text area's to decide.
-            if (e.DataTransfer.Contains(DataFormat.File))
-            {
-                e.DragEffects = DragDropEffects.None;
-                e.Handled = true;
-            }
-
+            e.DragEffects = DragDropEffects.None;
             return;
         }
 
@@ -57,7 +95,6 @@ public sealed partial class CodeEditBox
         Editor.TextArea.Caret.Show();
         FileDropHighlight.IsVisible = true;
         e.DragEffects = DragDropEffects.Copy;
-        e.Handled = true;
     }
 
     private void OnFileDragLeave(object? sender, DragEventArgs e)
@@ -70,8 +107,18 @@ public sealed partial class CodeEditBox
     private async void OnFileDrop(object? sender, DragEventArgs e)
     {
         _ = sender;
-        if (!AcceptsFileDrop(e))
+        if (!CarriesFiles(e))
         {
+            EndFileDragFeedback(restoreCaret: true);
+            return;
+        }
+
+        // A file payload is this handler's alone, taken or refused: the text
+        // area must not insert its text form as well.
+        e.Handled = true;
+        if (!CanTakeFiles())
+        {
+            e.DragEffects = DragDropEffects.None;
             EndFileDragFeedback(restoreCaret: true);
             return;
         }
@@ -86,11 +133,11 @@ public sealed partial class CodeEditBox
         EndFileDragFeedback(restoreCaret: false);
         if (paths is not { Length: > 0 })
         {
+            e.DragEffects = DragDropEffects.None;
             return;
         }
 
         e.DragEffects = DragDropEffects.Copy;
-        e.Handled = true;
         var text = await CodeEditBoxFileDrop.TextForAsync(paths, CancellationToken.None);
         Editor.CaretOffset = Math.Clamp(offset, 0, Editor.Document.TextLength);
         InsertAtCaret(text);

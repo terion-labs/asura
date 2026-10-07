@@ -172,6 +172,10 @@ public sealed partial class CodeEditBox : UserControl
         {
             Editor.IsReadOnly = IsReadOnly;
         }
+        else if (change.Property == AcceptsFileDropProperty)
+        {
+            SyncAllowDrop();
+        }
         else if (change.Property == ShowLineNumbersProperty)
         {
             Editor.ShowLineNumbers = ShowLineNumbers;

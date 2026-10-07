@@ -1207,9 +1207,7 @@ public sealed partial class DatabaseWorkspaceView
             return;
         }
 
-        var deleteKey = e.Key is Key.Delete or Key.Back;
-        if (deleteKey
-            && e.KeyModifiers == KeyModifiers.None
+        if (IsGridKey(GridCommand.DeleteRow, e)
             && target is not null
             && Panel is { CanDeleteSelectedRow: true } deletePanel)
         {

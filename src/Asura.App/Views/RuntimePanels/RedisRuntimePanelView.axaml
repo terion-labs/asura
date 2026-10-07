@@ -308,10 +308,7 @@
                   <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                     <TextBlock
                         FontFamily="{DynamicResource ShellDataFontFamily}"
-                        FontSize="{DynamicResource ShellFontSize13}"
-                        FontWeight="SemiBold"
-                        LineHeight="{DynamicResource ShellLineHeight13}"
-                        Classes="MiddleTruncated"
+                        Classes="Headline MiddleTruncated"
                         Text="{Binding SelectedKey.Name}"
                         AutomationProperties.Name="Selected Redis key" />
                     <TextBlock

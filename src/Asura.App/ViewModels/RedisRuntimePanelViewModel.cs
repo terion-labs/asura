@@ -927,8 +927,15 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         {
             RedisConnectionProblem.Failed => StatusTone.Danger,
             RedisConnectionProblem.PasswordRequired => StatusTone.Warning,
+            _ when IsConnecting => StatusTone.Warning,
             _ => StatusTone.Neutral,
         };
+
+    /// <summary>
+    /// A connection attempt is in flight: drawn as progress, not as the idle
+    /// "not connected" ring.
+    /// </summary>
+    private bool IsConnecting => !IsConnected && IsBusy && HasConnectionTarget;
 
     /// <summary>The same state in words, for the mark's tooltip and VoiceOver.</summary>
     public string ConnectionStatusLabel => IsConnected
@@ -937,7 +944,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         {
             RedisConnectionProblem.Failed => $"Could not connect to {ConnectionDisplayName}",
             RedisConnectionProblem.PasswordRequired => $"{ConnectionDisplayName} needs a password",
-            _ when IsBusy && HasConnectionTarget => $"Connecting to {ConnectionDisplayName}",
+            _ when IsConnecting => $"Connecting to {ConnectionDisplayName}",
             _ when HasConnectionTarget => "Not connected",
             _ => "No connection",
         };

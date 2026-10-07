@@ -35,7 +35,18 @@ internal static class DatabaseGridShortcuts
     /// command's own standard shortcut (⌘C copies, ⌘V pastes): the only way
     /// a grid key may equal a menu key.
     /// </summary>
-    internal sealed record Entry(GridCommand Command, KeyGesture? Gesture, CommandId? MenuCommand = null);
+    internal sealed record Entry(GridCommand Command, KeyGesture? Gesture, CommandId? MenuCommand = null)
+    {
+        /// <summary>
+        /// Further keys the grid answers for the command without showing them
+        /// in the menu: the other of the two delete keys.
+        /// </summary>
+        public IReadOnlyList<KeyGesture> AlsoAnswers { get; init; } = [];
+
+        /// <summary>Every key the grid answers for the command, the shown one first.</summary>
+        public IEnumerable<KeyGesture> Gestures =>
+            Gesture is null ? AlsoAnswers : [Gesture, .. AlsoAnswers];
+    }
 
     private const AvaloniaKeyModifiers Command = AvaloniaKeyModifiers.Meta;
     private const AvaloniaKeyModifiers Option = AvaloniaKeyModifiers.Alt;
@@ -45,7 +56,8 @@ internal static class DatabaseGridShortcuts
     /// <summary>
     /// Add Row is ⌥⌘N: ⌘I is Get Info, a new row is a new thing, which is
     /// what N means, and Option keeps it clear of New Window. Refresh is ⌥⌘R
-    /// for the same reason. Delete Row is the Delete key the Mac keyboard has.
+    /// for the same reason. Delete Row is the Delete key the Mac keyboard has
+    /// (Backspace); a full keyboard's forward delete works too.
     /// </summary>
     public static IReadOnlyList<Entry> MacOS { get; } =
     [
@@ -56,7 +68,7 @@ internal static class DatabaseGridShortcuts
         new(GridCommand.PasteCell, new KeyGesture(Key.V, Command), BuiltInCommands.EditPaste),
         new(GridCommand.AddRow, new KeyGesture(Key.N, Command | Option)),
         new(GridCommand.DuplicateRow, null),
-        new(GridCommand.DeleteRow, new KeyGesture(Key.Back)),
+        new(GridCommand.DeleteRow, new KeyGesture(Key.Back)) { AlsoAnswers = [new KeyGesture(Key.Delete)] },
     ];
 
     /// <summary>
@@ -72,7 +84,7 @@ internal static class DatabaseGridShortcuts
         new(GridCommand.PasteCell, new KeyGesture(Key.V, Control), BuiltInCommands.EditPaste),
         new(GridCommand.AddRow, new KeyGesture(Key.N, Control | Shift)),
         new(GridCommand.DuplicateRow, new KeyGesture(Key.D, Control)),
-        new(GridCommand.DeleteRow, new KeyGesture(Key.Delete)),
+        new(GridCommand.DeleteRow, new KeyGesture(Key.Delete)) { AlsoAnswers = [new KeyGesture(Key.Back)] },
     ];
 
     /// <summary>The table this process answers to.</summary>
@@ -90,5 +102,5 @@ internal static class DatabaseGridShortcuts
     /// without a key matches nothing, so the press goes on to the keymap.
     /// </summary>
     public static bool Matches(GridCommand command, KeyEventArgs e) =>
-        GestureFor(command)?.Matches(e) == true;
+        Current.First(entry => entry.Command == command).Gestures.Any(gesture => gesture.Matches(e));
 }

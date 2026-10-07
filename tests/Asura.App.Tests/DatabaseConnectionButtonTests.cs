@@ -88,6 +88,58 @@ public sealed class DatabaseConnectionButtonTests
     }
 
     [Fact]
+    public Task A_connection_in_flight_draws_progress_not_the_idle_ring() =>
+        RunHeadlessAsync(async () =>
+        {
+            var client = new DatabaseRuntimePanelViewModelTests.FakeDatabasePanelClient
+            {
+                FailWith = "connection refused",
+            };
+            using var panel = new DatabaseRuntimePanelViewModel(
+                PanelInstanceId.New(),
+                "Database",
+                client);
+            panel.ConnectionString = "Data Source=demo.db";
+            var view = new DatabaseRuntimePanelView { DataContext = panel };
+            var window = new Window { Width = 1_200, Height = 760, Content = view };
+            try
+            {
+                window.Show();
+                window.Resources["ShellDifferentiateWithoutColor"] = true;
+                window.UpdateLayout();
+                var mark = Assert.Single(view.GetVisualDescendants().OfType<StatusMark>());
+                Assert.Equal(StatusTone.Neutral, mark.Tone);
+                var idleGlyph = mark.Glyph.Symbol;
+
+                // A retry after a failure shows the attempt, not the old failure.
+                await panel.ConnectAsync();
+                Assert.Equal(StatusTone.Danger, panel.ConnectionStatusTone);
+                client.FailWith = null;
+                client.ListTablesRelease = new TaskCompletionSource();
+                var connecting = panel.ConnectAsync();
+                await WaitUntilAsync(() => panel.IsBusy);
+                window.UpdateLayout();
+
+                Assert.Equal(StatusTone.Warning, panel.ConnectionStatusTone);
+                Assert.Equal($"Connecting to {panel.ConnectionDisplayName}", panel.ConnectionStatusLabel);
+                Assert.Equal(StatusTone.Warning, mark.Tone);
+                Assert.Equal(panel.ConnectionStatusLabel, AutomationProperties.GetName(mark));
+                Assert.True(mark.Glyph.IsVisible);
+                Assert.NotEqual(idleGlyph, mark.Glyph.Symbol);
+                Assert.NotEqual(Symbol.CheckmarkCircle, mark.Glyph.Symbol);
+
+                client.ListTablesRelease.SetResult();
+                await connecting;
+                window.UpdateLayout();
+                Assert.Equal(StatusTone.Success, mark.Tone);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+    [Fact]
     public Task The_toolbar_has_one_connection_button_named_by_its_label() =>
         RunHeadlessAsync(async () =>
         {

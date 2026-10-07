@@ -18,13 +18,9 @@ public sealed class PanelShortcutCollisionTests
     [Fact]
     public void No_macOS_database_grid_key_belongs_to_the_menu_bar_or_the_keymap()
     {
-        foreach (var entry in DatabaseGridShortcuts.MacOS)
+        foreach (var (entry, gesture) in DatabaseGridShortcuts.MacOS
+            .SelectMany(entry => entry.Gestures, (entry, gesture) => (entry, gesture)))
         {
-            if (entry.Gesture is not { } gesture)
-            {
-                continue;
-            }
-
             var stroke = ApplicationKeyStrokeMapper.Map(gesture.Key, gesture.KeyModifiers);
 
             // The grid may answer an Edit menu key only by doing that
@@ -74,9 +70,9 @@ public sealed class PanelShortcutCollisionTests
         // Nothing in the application keymap those hosts start with takes a
         // grid key, as a direct binding or as the prefix.
         var keymap = BuiltInKeymaps.ApplicationFor(HostOperatingSystem.Windows);
-        foreach (var entry in DatabaseGridShortcuts.WindowsAndLinux)
+        foreach (var gesture in DatabaseGridShortcuts.WindowsAndLinux.SelectMany(entry => entry.Gestures))
         {
-            var stroke = ApplicationKeyStrokeMapper.Map(entry.Gesture!.Key, entry.Gesture.KeyModifiers);
+            var stroke = ApplicationKeyStrokeMapper.Map(gesture.Key, gesture.KeyModifiers);
             Assert.DoesNotContain(keymap.Bindings, binding => binding.Sequence[0] == stroke);
             Assert.NotEqual(keymap.Prefix?.Stroke, stroke);
         }
@@ -91,6 +87,25 @@ public sealed class PanelShortcutCollisionTests
         Assert.Same(
             DatabaseGridShortcuts.For(HostPlatform.Current),
             DatabaseGridShortcuts.Current);
+    }
+
+    [Theory]
+    [InlineData(Key.Back)]
+    [InlineData(Key.Delete)]
+    public void Both_delete_keys_delete_the_row_through_the_table(Key key)
+    {
+        var press = new KeyEventArgs { Key = key, KeyModifiers = AvaloniaKeyModifiers.None };
+        Assert.True(DatabaseGridShortcuts.Matches(GridCommand.DeleteRow, press));
+        foreach (var table in new[] { DatabaseGridShortcuts.MacOS, DatabaseGridShortcuts.WindowsAndLinux })
+        {
+            var delete = Assert.Single(table, entry => entry.Command == GridCommand.DeleteRow);
+            Assert.Contains(delete.Gestures, gesture => gesture.Matches(press));
+        }
+
+        // A modified delete key is not Delete Row: ⌘⌫ belongs to the text it
+        // would edit.
+        var modified = new KeyEventArgs { Key = key, KeyModifiers = AvaloniaKeyModifiers.Meta };
+        Assert.False(DatabaseGridShortcuts.Matches(GridCommand.DeleteRow, modified));
     }
 
     [Fact]

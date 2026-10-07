@@ -176,6 +176,61 @@ public sealed class RedisRuntimePanelHigTests
             }
         });
 
+    [Fact]
+    public Task AConnectionInFlightDrawsProgressNotTheIdleRing() =>
+        RunHeadlessAsync(async () =>
+        {
+            var factory = new HeldFactory();
+            using var panel = new RedisRuntimePanelViewModel(
+                Asura.Core.PanelInstanceId.New(),
+                "Redis",
+                factory,
+                new RedisPanelFixtures.StubCatalog(),
+                connectionString: "localhost:6379",
+                timeProvider: TimeProvider.System);
+            var view = new RedisRuntimePanelView { DataContext = panel };
+            var window = new Window { Width = 1_400, Height = 950, Content = view };
+            try
+            {
+                window.Show();
+                window.Resources["ShellDifferentiateWithoutColor"] = true;
+                await WaitUntilAsync(() => panel.IsBusy);
+                window.UpdateLayout();
+
+                Assert.False(panel.IsConnected);
+                Assert.Equal(StatusTone.Warning, panel.ConnectionStatusTone);
+                Assert.Equal($"Connecting to {panel.ConnectionDisplayName}", panel.ConnectionStatusLabel);
+                var mark = Assert.Single(view.GetVisualDescendants().OfType<StatusMark>());
+                Assert.Equal(StatusTone.Warning, mark.Tone);
+                Assert.Equal(panel.ConnectionStatusLabel, AutomationProperties.GetName(mark));
+                Assert.True(mark.Glyph.IsVisible);
+                Assert.NotEqual(StatusToneGlyph.For(StatusTone.Neutral), mark.Glyph.Symbol);
+
+                factory.Release.SetResult();
+                await panel.Initialization;
+                window.UpdateLayout();
+                Assert.Equal(StatusTone.Success, mark.Tone);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+    private sealed class HeldFactory : Asura.Application.IRedisPanelSessionFactory
+    {
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task<Asura.Application.IRedisPanelSession> OpenAsync(
+            string connectionString,
+            Asura.Core.ConnectionProfile? tunnel,
+            CancellationToken cancellationToken)
+        {
+            await Release.Task.WaitAsync(cancellationToken);
+            return new RedisPanelFixtures.StubSession(null);
+        }
+    }
+
     private sealed class RefusingFactory : Asura.Application.IRedisPanelSessionFactory
     {
         public Task<Asura.Application.IRedisPanelSession> OpenAsync(

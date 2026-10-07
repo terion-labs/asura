@@ -340,6 +340,7 @@
                 x:Name="QueryEditorBox"
                 MinHeight="58"
                 MaxHeight="132"
+                AcceptsFileDrop="True"
                 GrammarExtension=".sql"
                 SqlCompletionContext="{CompiledBinding #DatabaseWorkspaceRoot.((vm:ISqlQueryEditorHost)DataContext).SqlLanguageCompletionContext}"
                 SqlLanguageSession="{CompiledBinding #DatabaseWorkspaceRoot.((vm:ISqlQueryEditorHost)DataContext).SqlLanguageSession}"

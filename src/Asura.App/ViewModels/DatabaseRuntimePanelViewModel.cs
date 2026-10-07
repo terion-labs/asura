@@ -1299,14 +1299,22 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         ? StatusTone.Success
         : _connectionFailed
             ? StatusTone.Danger
-            : StatusTone.Neutral;
+            : IsConnecting
+                ? StatusTone.Warning
+                : StatusTone.Neutral;
+
+    /// <summary>
+    /// A connection attempt is in flight: not yet connected or failed, with a
+    /// target to reach and the panel busy reaching it.
+    /// </summary>
+    private bool IsConnecting => !IsConnected && IsBusy && HasConnectionTarget;
 
     /// <summary>The same state in words, for the mark's tooltip and VoiceOver.</summary>
     public string ConnectionStatusLabel => IsConnected
         ? $"Connected to {ConnectionDisplayName}"
         : _connectionFailed
             ? $"Could not connect to {ConnectionDisplayName}"
-            : IsBusy && HasConnectionTarget
+            : IsConnecting
                 ? $"Connecting to {ConnectionDisplayName}"
                 : HasConnectionTarget
                     ? "Not connected"
@@ -1740,6 +1748,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             return;
         }
 
+        // A new attempt is in flight, not the last one's failure.
+        _connectionFailed = false;
         await RunGuardedAsync(async cancellationToken =>
         {
             _latestResolvedRecoveryBinding = null;
