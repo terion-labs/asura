@@ -494,10 +494,11 @@
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
+                  <!-- The same push button as Apply: one style per strip. -->
                   <Button
                       Grid.Column="1"
                       VerticalAlignment="Center"
-                      Classes="TextButton Dense"
+                      Classes="SecondaryButton Dense"
                       Click="OnClearFilterClick"
                       ToolTip.Tip="Clear the table filter"
                       AutomationProperties.Name="Clear the table filter">

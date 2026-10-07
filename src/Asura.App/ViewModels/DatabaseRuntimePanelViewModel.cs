@@ -1012,7 +1012,9 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     public string StatusText => IsBusy
         ? "Working…"
         : IsConnected
-            ? $"Connected · {Tables.Count} objects"
+            ? Tables.Count == 1
+                ? "Connected · 1 object"
+                : $"Connected · {Tables.Count.ToString("N0", CultureInfo.CurrentCulture)} objects"
             : "Not connected";
 
     public string ResultSummary

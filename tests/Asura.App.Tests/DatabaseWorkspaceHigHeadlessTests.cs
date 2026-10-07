@@ -100,7 +100,9 @@ public sealed class DatabaseWorkspaceHigHeadlessTests
             var delete = Named<Button>(view, "Delete the selected database row");
             var revert = Named<Button>(view, "Revert unsaved database changes");
             var save = Named<Button>(view, "Save database changes");
-            foreach (var button in new[] { add, revert, save })
+            var apply = Named<Button>(view, "Apply the table filter");
+            var clear = Named<Button>(view, "Clear the table filter");
+            foreach (var button in new[] { add, revert, save, apply, clear })
             {
                 Assert.Contains("SecondaryButton", button.Classes, StringComparer.Ordinal);
                 Assert.DoesNotContain("PrimaryButton", button.Classes, StringComparer.Ordinal);
@@ -140,6 +142,9 @@ public sealed class DatabaseWorkspaceHigHeadlessTests
             var total = Named<TextBlock>(view, "Total matching database rows");
             Assert.EndsWith(" rows", total.Text, StringComparison.Ordinal);
             Assert.Equal(panel.TotalRowsText, total.Text);
+
+            // The status bar counts objects with a real plural.
+            Assert.Matches(@"^Connected · [\d.,\u00a0\u202f]+ objects$|^Connected · 1 object$", panel.StatusText);
             await Task.CompletedTask;
         });
 

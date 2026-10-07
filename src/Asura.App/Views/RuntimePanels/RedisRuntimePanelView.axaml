@@ -701,7 +701,7 @@
                   </Grid>
                   <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="{DynamicResource ShellSpaceXs}">
                     <Button
-                        Classes="TextButton Dense"
+                        Classes="SecondaryButton Dense"
                         Command="{Binding UnsubscribeCommand}"
                         Content="Unsubscribe"
                         AutomationProperties.Name="Unsubscribe from the selected Redis subscription" />
@@ -754,9 +754,11 @@
                         Content="Sharded"
                         IsChecked="{Binding PublishSharded, Mode=TwoWay}"
                         AutomationProperties.Name="Publish to the shard channel" />
+                    <!-- Subscribe is this view's one primary action: messages
+                         only arrive once something is listening. -->
                     <Button
                         Grid.Column="1"
-                        Classes="PrimaryButton Dense"
+                        Classes="SecondaryButton Dense"
                         Command="{Binding PublishCommand}"
                         Content="Publish"
                         AutomationProperties.Name="Publish the Redis message" />

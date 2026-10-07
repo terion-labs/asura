@@ -140,6 +140,21 @@ public sealed class RedisRuntimePanelHigTests
                 var removeField = Assert.Single(visible, button => Equals(button.Content, "Remove Field"));
                 Assert.Contains("DestructiveButton", deleteKey.Classes, StringComparer.Ordinal);
                 Assert.Contains("DestructiveButton", removeField.Classes, StringComparer.Ordinal);
+
+                // Pub/Sub has one primary action too: Subscribe. Publish and
+                // Unsubscribe are push buttons of the same secondary style.
+                panel.Perspective = RedisWorkspacePerspective.PubSub;
+                window.UpdateLayout();
+                var pubSub = view.GetVisualDescendants().OfType<Button>()
+                    .Where(button => button.IsEffectivelyVisible)
+                    .ToArray();
+                var subscribe = Assert.Single(pubSub, button => button.Classes.Contains("PrimaryButton"));
+                Assert.Equal("Subscribe", subscribe.Content);
+                foreach (var label in new[] { "Publish", "Unsubscribe" })
+                {
+                    var button = Assert.Single(pubSub, button => Equals(button.Content, label));
+                    Assert.Contains("SecondaryButton", button.Classes, StringComparer.Ordinal);
+                }
             }
             finally
             {
