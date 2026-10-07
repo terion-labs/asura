@@ -81,22 +81,24 @@ internal sealed class ApplicationMenuBar
     /// <summary>
     /// Runs the item a key alias stands for. A menu item shows one key
     /// equivalent, so Bigger shows Command-+ and, as in Apple's apps, also
-    /// answers to Command-=, the same key without Shift.
+    /// answers to Command-=, the same key without Shift. An item whose keymap
+    /// stroke replaces Apple's standard shortcut also answers to the standard
+    /// one, unless the keymap gives it to another command.
     /// </summary>
     /// <returns>True when an available item ran.</returns>
     public bool TryInvokeKeyAlias(Key key, AvaloniaKeyModifiers modifiers)
     {
-        if (key != Key.OemPlus || (modifiers & AvaloniaKeyModifiers.Shift) != AvaloniaKeyModifiers.None)
+        // Every alias uses Command, so ordinary typing returns here.
+        if ((modifiers & AvaloniaKeyModifiers.Meta) == AvaloniaKeyModifiers.None)
         {
             return false;
         }
 
         _state = _host.CaptureInvocation(NoArguments);
+        var shortcuts = _host.CreateShortcutResolver();
         foreach (var bound in _items)
         {
-            if (bound.Item.Gesture is { Key: Key.Add } gesture
-                && gesture.KeyModifiers == modifiers
-                && bound.Command.CanExecute(null))
+            if (IsAlias(bound, key, modifiers, shortcuts) && bound.Command.CanExecute(null))
             {
                 bound.Command.Execute(null);
                 return true;
@@ -104,6 +106,26 @@ internal sealed class ApplicationMenuBar
         }
 
         return false;
+    }
+
+    private static bool IsAlias(
+        BoundItem bound,
+        Key key,
+        AvaloniaKeyModifiers modifiers,
+        MenuShortcutResolver shortcuts)
+    {
+        if (key == Key.OemPlus
+            && (modifiers & AvaloniaKeyModifiers.Shift) == AvaloniaKeyModifiers.None
+            && bound.Item.Gesture is { Key: Key.Add } shown
+            && shown.KeyModifiers == modifiers)
+        {
+            return true;
+        }
+
+        return shortcuts.StandardAlias(bound.Node.Command, bound.Node.Arguments) is { } alias
+            && MenuKeyGestures.From(alias) is { } gesture
+            && gesture.Key == key
+            && gesture.KeyModifiers == modifiers;
     }
 
     private NativeMenu Build(IEnumerable<MenuNode> nodes)

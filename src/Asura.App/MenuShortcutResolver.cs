@@ -43,17 +43,40 @@ internal sealed class MenuShortcutResolver(
             return extra;
         }
 
-        if (MacOsMenuShortcuts.For(command, arguments) is not { } standard)
+        return MacOsMenuShortcuts.For(command, arguments) is { } standard
+            && !IsClaimedByAnotherCommand(standard, command, arguments)
+                ? standard
+                : null;
+    }
+
+    /// <summary>
+    /// Apple's standard shortcut for a command whose menu item shows another
+    /// stroke, for example Show Next Tab when the keymap binds it to
+    /// Option-Command-Right. The standard stroke keeps working as long as the
+    /// keymap leaves it free; null when the item already shows it.
+    /// </summary>
+    public KeyStroke? StandardAlias(CommandId command, IReadOnlyDictionary<string, string> arguments)
+    {
+        ArgumentNullException.ThrowIfNull(arguments);
+        if (MacOsMenuShortcuts.For(command, arguments) is not { } standard
+            || IsClaimedByAnotherCommand(standard, command, arguments))
         {
             return null;
         }
 
-        var claimed = applicationBindings.Any(binding =>
-            binding.Sequence.Count == 1
-            && IsSameKey(binding.Sequence[0], standard)
-            && !(binding.CommandId == command && SameArguments(binding.Arguments, arguments)));
-        return claimed ? null : standard;
+        return Resolve(command, arguments) is { } shown && IsSameKey(shown, standard)
+            ? null
+            : standard;
     }
+
+    private bool IsClaimedByAnotherCommand(
+        KeyStroke stroke,
+        CommandId command,
+        IReadOnlyDictionary<string, string> arguments) =>
+        applicationBindings.Any(binding =>
+            binding.Sequence.Count == 1
+            && IsSameKey(binding.Sequence[0], stroke)
+            && !(binding.CommandId == command && SameArguments(binding.Arguments, arguments)));
 
     /// <summary>
     /// Keymaps name some keys by character and others by key cap, "[" and

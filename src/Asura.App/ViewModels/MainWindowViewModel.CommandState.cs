@@ -20,6 +20,18 @@ public sealed partial class MainWindowViewModel
         [BuiltInCommands.GitSync] = git => git.SyncCommand,
     };
 
+    /// <summary>
+    /// The window's contexts and facts for the command palette, including
+    /// what only the view knows, such as what the focused field can do. The
+    /// view model alone knows <see cref="ActiveCommandContexts"/> and
+    /// <see cref="ActiveCommandState"/>.
+    /// </summary>
+    internal Func<CommandInvocation>? CommandInvocationSource { get; set; }
+
+    private CommandInvocation CaptureCommandInvocation() =>
+        CommandInvocationSource?.Invoke()
+        ?? new CommandInvocation(ActiveCommandContexts, state: ActiveCommandState);
+
     public IReadOnlyList<KeyValuePair<string, bool>> ActiveCommandState
     {
         get
@@ -31,13 +43,7 @@ public sealed partial class MainWindowViewModel
                 new(CommandStates.IsAgentPanelVisible, IsAgentPanelVisible),
                 new(CommandStates.IsPanelZoomed, RuntimeWorkspace?.ActiveTab?.ZoomedPanelId is not null),
             ];
-            foreach (var command in GitCommands.Keys)
-            {
-                state.Add(new(
-                    CommandStates.CanExecute(command),
-                    ActiveGitCommand(command)?.CanExecute(null) == true));
-            }
-
+            AddGitState(state, ActivePanel as GitRuntimePanelViewModel);
             return state;
         }
     }
@@ -47,8 +53,26 @@ public sealed partial class MainWindowViewModel
     /// the active panel is not a Git panel.
     /// </summary>
     internal ICommand? ActiveGitCommand(CommandId command) =>
-        ActivePanel is GitRuntimePanelViewModel git
-            && GitCommands.TryGetValue(command, out var select)
+        GitCommand(ActivePanel as GitRuntimePanelViewModel, command);
+
+    internal static bool IsGitCommand(CommandId command) => GitCommands.ContainsKey(command);
+
+    /// <summary>The given Git panel's command behind a Git menu item.</summary>
+    internal static ICommand? GitCommand(GitRuntimePanelViewModel? git, CommandId command) =>
+        git is not null && GitCommands.TryGetValue(command, out var select)
             ? select(git)
             : null;
+
+    /// <summary>Adds whether each Git menu item can run against <paramref name="git"/>.</summary>
+    internal static void AddGitState(
+        ICollection<KeyValuePair<string, bool>> state,
+        GitRuntimePanelViewModel? git)
+    {
+        foreach (var command in GitCommands.Keys)
+        {
+            state.Add(new(
+                CommandStates.CanExecute(command),
+                GitCommand(git, command)?.CanExecute(null) == true));
+        }
+    }
 }

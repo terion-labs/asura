@@ -249,6 +249,44 @@ public sealed class MenuShortcutResolverTests
     }
 
     [Fact]
+    public void Tmux_profile_tab_strokes_keep_the_standard_tab_shortcuts_working()
+    {
+        var resolver = new MenuShortcutResolver(BuiltInKeymaps.TmuxApplication.Bindings, []);
+
+        Assert.Equal(
+            new KeyStroke("ARROWRIGHT", CoreKeyModifiers.Meta | CoreKeyModifiers.Alt),
+            resolver.Resolve(BuiltInCommands.NextTab, NoArguments));
+        Assert.Equal(
+            new KeyStroke("]", CoreKeyModifiers.Meta | CoreKeyModifiers.Shift),
+            resolver.StandardAlias(BuiltInCommands.NextTab, NoArguments));
+        Assert.Equal(
+            new KeyStroke("[", CoreKeyModifiers.Meta | CoreKeyModifiers.Shift),
+            resolver.StandardAlias(BuiltInCommands.PreviousTab, NoArguments));
+
+        // An item that already shows its standard shortcut needs no alias.
+        Assert.Null(resolver.StandardAlias(BuiltInCommands.AddPanel, NoArguments));
+    }
+
+    [Fact]
+    public void A_standard_shortcut_the_keymap_gives_to_another_command_is_no_alias()
+    {
+        var resolver = new MenuShortcutResolver(
+            [
+                new CommandBinding(
+                    BuiltInCommands.NextTab,
+                    KeySequence.Of(new KeyStroke("ARROWRIGHT", CoreKeyModifiers.Meta | CoreKeyModifiers.Alt)),
+                    CommandContext.Tab),
+                new CommandBinding(
+                    BuiltInCommands.TogglePanelZoom,
+                    KeySequence.Of(new KeyStroke("OEMCLOSEBRACKETS", CoreKeyModifiers.Meta | CoreKeyModifiers.Shift)),
+                    CommandContext.Panel),
+            ],
+            []);
+
+        Assert.Null(resolver.StandardAlias(BuiltInCommands.NextTab, NoArguments));
+    }
+
+    [Fact]
     public void A_standard_shortcut_the_keymap_gives_to_another_command_is_dropped()
     {
         var resolver = new MenuShortcutResolver(
@@ -470,6 +508,33 @@ public sealed class ApplicationMenuBarTests
     }
 
     [Fact]
+    public async Task Standard_shortcuts_run_items_whose_keymap_shows_another_stroke()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await session.Dispatch(() =>
+        {
+            var host = new RecordingMenuHost
+            {
+                Shortcuts = new MenuShortcutResolver(BuiltInKeymaps.TmuxApplication.Bindings, []),
+            };
+            var bar = ApplicationMenuBar.CreateMenuBar(host);
+
+            Assert.Equal(
+                new KeyGesture(Key.Right, AvaloniaKeyModifiers.Meta | AvaloniaKeyModifiers.Alt),
+                Find(bar.Menu, "Window", "Show Next Tab").Gesture);
+            Assert.True(bar.TryInvokeKeyAlias(
+                Key.OemCloseBrackets,
+                AvaloniaKeyModifiers.Meta | AvaloniaKeyModifiers.Shift));
+            Assert.False(bar.TryInvokeKeyAlias(Key.OemCloseBrackets, AvaloniaKeyModifiers.Shift));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(BuiltInCommands.NextTab, Assert.Single(host.Executed).Command);
+
+            // Items that show their standard shortcut are matched by the menu itself.
+            Assert.False(bar.TryInvokeKeyAlias(Key.T, AvaloniaKeyModifiers.Meta | AvaloniaKeyModifiers.Shift));
+        }, CancellationToken.None);
+    }
+
+    [Fact]
     public async Task Edit_items_dim_without_the_focused_element_able_to_act()
     {
         await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
@@ -545,6 +610,8 @@ public sealed class ApplicationMenuBarTests
             return Task.CompletedTask;
         }
 
-        public MenuShortcutResolver CreateShortcutResolver() => new([], []);
+        public MenuShortcutResolver Shortcuts { get; init; } = new([], []);
+
+        public MenuShortcutResolver CreateShortcutResolver() => Shortcuts;
     }
 }

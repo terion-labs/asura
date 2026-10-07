@@ -9524,6 +9524,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 ["create", "new", "git", "repository", "commit", "branch", "diff", "panel"]),
         ]);
 
+        // Captured once: the window reads the focused element's facts, which
+        // takes a walk of the visual tree.
+        var captured = CaptureCommandInvocation();
+        var menuShortcuts = OperatingSystem.IsMacOS()
+            ? new MenuShortcutResolver(ActiveApplicationKeymap.Bindings, [])
+            : null;
         foreach (var command in BuiltInCommands.Registry.Commands)
         {
             var bindings = activeBindings[command.Id].ToArray();
@@ -9544,10 +9550,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 .ToArray();
             if (invocations.Length == 0)
             {
+                // The menu bar's standard shortcut, so both surfaces agree.
+                var standard = menuShortcuts?.Resolve(
+                    command.Id,
+                    ImmutableDictionary<string, string>.Empty);
                 candidates.Add(CreateCommandLauncherResult(
                     command,
                     ImmutableDictionary<string, string>.Empty,
-                    "Unbound"));
+                    standard is { } stroke ? KeySequence.Of(stroke).ToString() : "Unbound",
+                    captured));
                 continue;
             }
 
@@ -9555,7 +9566,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 CreateCommandLauncherResult(
                     command,
                     invocation.Target.Arguments,
-                    invocation.Binding.Sequence.ToString())));
+                    invocation.Binding.Sequence.ToString(),
+                    captured)));
         }
 
         candidates.AddRange(Connections.Select(connection => new LauncherSearchResultViewModel(
@@ -9657,7 +9669,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     private LauncherSearchResultViewModel CreateCommandLauncherResult(
         CommandDefinition command,
         IReadOnlyDictionary<string, string> arguments,
-        string shortcut)
+        string shortcut,
+        CommandInvocation captured)
     {
         var argumentSummary = string.Join(
             " · ",
@@ -9669,7 +9682,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             arguments
                 .OrderBy(argument => argument.Key, StringComparer.Ordinal)
                 .Select(argument => $"{argument.Key}={argument.Value}"));
-        var isAvailable = IsCommandAvailable(command.Id, arguments);
+        var isAvailable = IsCommandAvailable(command.Id, arguments, captured);
         var searchTerms = new List<string>
         {
             "command",
@@ -9702,29 +9715,38 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     private static string CountLabel(int count, string singular) =>
         $"{count} {(count == 1 ? singular : $"{singular}s")}";
 
-    internal bool IsCommandAvailable(
+    /// <summary>
+    /// Whether a palette row can run: the registry's contexts and facts, read
+    /// from <paramref name="captured"/>, and then this view model's own limits.
+    /// </summary>
+    private bool IsCommandAvailable(
         CommandId id,
-        IReadOnlyDictionary<string, string> arguments)
+        IReadOnlyDictionary<string, string> arguments,
+        CommandInvocation captured)
     {
         if (id == BuiltInCommands.NewTab)
         {
             return true;
         }
 
-        if (!BuiltInCommands.Registry.TryGet(id, out var definition)
-            || definition is null)
-        {
-            return false;
-        }
-
-        if (!definition.IsAvailable(new CommandInvocation(
-                ActiveCommandContexts,
+        return BuiltInCommands.Registry.TryGet(id, out var definition)
+            && definition is not null
+            && definition.IsAvailable(new CommandInvocation(
+                captured.ActiveContexts,
                 arguments,
-                ActiveCommandState)))
-        {
-            return false;
-        }
+                captured.State))
+            && AllowsCommand(id, arguments);
+    }
 
+    /// <summary>
+    /// The limits the registry cannot express, such as a tab position past the
+    /// last tab. Callers check the registry's contexts and facts themselves,
+    /// against the facts the window captured.
+    /// </summary>
+    internal bool AllowsCommand(
+        CommandId id,
+        IReadOnlyDictionary<string, string> arguments)
+    {
         if (id == BuiltInCommands.MoveTabLeft
             || id == BuiltInCommands.MoveTabRight)
         {

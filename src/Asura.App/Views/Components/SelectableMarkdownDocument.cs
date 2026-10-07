@@ -212,7 +212,7 @@ internal sealed class SelectableMarkdownDocument : Control
         base.OnKeyDown(e);
     }
 
-    private async Task CopySelectionAsync()
+    internal async Task CopySelectionAsync()
     {
         try
         {

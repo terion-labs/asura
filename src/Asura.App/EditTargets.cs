@@ -1,4 +1,5 @@
 using Asura.App.Controls;
+using Asura.App.Views.Components;
 using Asura.Application;
 using Asura.Core;
 using Avalonia;
@@ -97,6 +98,10 @@ internal static class FocusedCommandTargets
                     return new TerminalEditTarget(terminal, lifetime);
                 case IBrowserEditCommandTarget browser:
                     return new BrowserEditTarget(browser);
+                case SelectableTextBlock text:
+                    return new SelectableTextEditTarget(text);
+                case SelectableMarkdownDocument document:
+                    return new MarkdownDocumentEditTarget(document);
                 default:
                     break;
             }
@@ -342,6 +347,63 @@ internal static class FocusedCommandTargets
             {
                 _ = await terminal.ExecuteCommandAsync(terminalCommand, lifetime);
             }
+        }
+    }
+
+    /// <summary>
+    /// Read-only text, such as a status line, copies and selects but takes no input.
+    /// </summary>
+    private sealed class SelectableTextEditTarget(SelectableTextBlock text) : IEditTarget
+    {
+        public string? SelectedText => text.SelectedText is { Length: > 0 } selected ? selected : null;
+
+        public bool CanExecute(EditAction action) => action switch
+        {
+            EditAction.Copy => text.CanCopy,
+            EditAction.SelectAll => !string.IsNullOrEmpty(text.Text),
+            _ => false,
+        };
+
+        public Task ExecuteAsync(EditAction action)
+        {
+            if (action == EditAction.Copy)
+            {
+                text.Copy();
+            }
+            else if (action == EditAction.SelectAll)
+            {
+                text.SelectAll();
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    /// <summary>An agent message: read-only text that copies and selects.</summary>
+    private sealed class MarkdownDocumentEditTarget(SelectableMarkdownDocument document) : IEditTarget
+    {
+        public string? SelectedText => document.SelectedText is { Length: > 0 } selected ? selected : null;
+
+        public bool CanExecute(EditAction action) => action switch
+        {
+            EditAction.Copy => document.SelectedText.Length > 0,
+            EditAction.SelectAll => document.Text.Length > 0,
+            _ => false,
+        };
+
+        public Task ExecuteAsync(EditAction action)
+        {
+            if (action == EditAction.Copy)
+            {
+                return document.CopySelectionAsync();
+            }
+
+            if (action == EditAction.SelectAll)
+            {
+                document.SelectAllText();
+            }
+
+            return Task.CompletedTask;
         }
     }
 

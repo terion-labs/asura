@@ -1,5 +1,7 @@
 using Asura.App.Controls;
+using Asura.App.ViewModels;
 using Asura.App.Views;
+using Asura.App.Views.RuntimePanels;
 using Asura.Core;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -120,10 +122,17 @@ internal class AuxiliaryWindowMenuHost(
             state,
             FocusedCommandTargets.EditTargetFor(focused, Lifetime),
             FocusedCommandTargets.FindTargetFor(focused, Lifetime));
+        var git = GitPanel(focused);
+        MainWindowViewModel.AddGitState(state, git);
         var contexts = Contexts;
         if (FocusedTerminal(focused) is not null)
         {
             contexts |= CommandContext.Terminal;
+        }
+
+        if (git is not null)
+        {
+            contexts |= CommandContext.Panel;
         }
 
         return new CommandInvocation(contexts, arguments, state);
@@ -158,7 +167,8 @@ internal class AuxiliaryWindowMenuHost(
             || command == BuiltInCommands.NewTerminalTab
             || command == BuiltInCommands.CloseWindow
             || (WindowFrameCommands.Handles(command) && WindowFrameCommands.CanExecute(Window, command))
-            || FocusedTerminalCommands.Contains(command);
+            || FocusedTerminalCommands.Contains(command)
+            || MainWindowViewModel.IsGitCommand(command);
     }
 
     public virtual async Task ExecuteAsync(CommandId command, IReadOnlyDictionary<string, string> arguments)
@@ -188,6 +198,10 @@ internal class AuxiliaryWindowMenuHost(
         {
             _ = await terminal.ExecuteCommandAsync(command, Lifetime);
         }
+        else if (MainWindowViewModel.GitCommand(GitPanel(focused), command) is { } git && git.CanExecute(null))
+        {
+            git.Execute(null);
+        }
     }
 
     public MenuShortcutResolver CreateShortcutResolver() => application.CreateShortcutResolver();
@@ -195,6 +209,24 @@ internal class AuxiliaryWindowMenuHost(
     protected virtual CommandContext Contexts => CommandContext.Global;
 
     protected virtual void CloseWindow() => Window.Close();
+
+    /// <summary>
+    /// The Git panel the Git menu acts on: the one holding focus, or a floated
+    /// window's only Git panel when nothing in it has focus.
+    /// </summary>
+    private GitRuntimePanelViewModel? GitPanel(IInputElement? focused)
+    {
+        if (focused is not Avalonia.Visual scope)
+        {
+            var panels = Window.GetVisualDescendants().OfType<GitRuntimePanelView>().Take(2).ToArray();
+            return panels.Length == 1 ? panels[0].DataContext as GitRuntimePanelViewModel : null;
+        }
+
+        return scope.GetSelfAndVisualAncestors()
+            .OfType<GitRuntimePanelView>()
+            .FirstOrDefault()?
+            .DataContext as GitRuntimePanelViewModel;
+    }
 
     private static ManagedTerminalSurface? FocusedTerminal(IInputElement? focused) =>
         (focused as Avalonia.Visual)?.GetSelfAndVisualAncestors()

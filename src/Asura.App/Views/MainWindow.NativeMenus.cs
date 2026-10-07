@@ -2,6 +2,7 @@ using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Core;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
@@ -14,7 +15,16 @@ namespace Asura.App.Views;
 /// </summary>
 public sealed partial class MainWindow : IShellCommandPresentation, IApplicationMenuHost
 {
+    private static readonly IReadOnlyDictionary<string, string> NoCommandArguments =
+        new Dictionary<string, string>(StringComparer.Ordinal);
+
     private ShellCommandExecutor? _shellCommands;
+
+    /// <summary>
+    /// What had focus when the command palette opened. Edit commands chosen in
+    /// the palette act on it, not on the palette's own search field.
+    /// </summary>
+    private IInputElement? _commandPaletteOrigin;
 
     private static App AsuraApplication => Avalonia.Application.Current as App
         ?? throw new InvalidOperationException("The Asura application is unavailable.");
@@ -24,22 +34,60 @@ public sealed partial class MainWindow : IShellCommandPresentation, IApplication
         this,
         _lifetime.Token);
 
-    public CommandInvocation CaptureInvocation(IReadOnlyDictionary<string, string> arguments)
+    public CommandInvocation CaptureInvocation(IReadOnlyDictionary<string, string> arguments) =>
+        CaptureInvocation(FocusManager?.GetFocusedElement(), arguments);
+
+    private CommandInvocation CaptureInvocation(
+        IInputElement? focused,
+        IReadOnlyDictionary<string, string> arguments)
     {
         var state = new List<KeyValuePair<string, bool>>(ViewModel.ActiveCommandState)
         {
             new(CommandStates.IsQuickTerminalVisible, AsuraApplication.IsQuickTerminalVisible),
             new(CommandStates.IsFullScreen, WindowState == WindowState.FullScreen),
         };
-        var edit = FocusedEditTarget();
-        FocusedCommandTargets.AddState(state, edit, FocusedFindTarget());
+        FocusedCommandTargets.AddState(state, FocusedEditTarget(focused), FocusedFindTarget(focused));
         var contexts = ViewModel.ActiveCommandContexts;
-        if (FocusManager?.GetFocusedElement() is TextBox)
+        if (focused is TextBox)
         {
             contexts |= CommandContext.TextEditing;
         }
 
         return new CommandInvocation(contexts, arguments, state);
+    }
+
+    /// <summary>
+    /// Remembers what has focus before the command palette takes it, so the
+    /// palette's rows reflect, and its Edit commands act on, that element.
+    /// </summary>
+    private void CaptureCommandPaletteOrigin()
+    {
+        if (!ViewModel.IsCommandPaletteVisible)
+        {
+            _commandPaletteOrigin = FocusManager?.GetFocusedElement();
+        }
+
+        ViewModel.CommandInvocationSource = () => CaptureInvocation(_commandPaletteOrigin, NoCommandArguments);
+    }
+
+    /// <summary>
+    /// Gives focus back to what had it before the palette opened, so an Edit
+    /// command chosen there reaches it. With nothing focused then, the active
+    /// panel takes focus.
+    /// </summary>
+    private void RestoreCommandPaletteOrigin(CommandId command)
+    {
+        if (!FocusedCommandTargets.IsEditCommand(command))
+        {
+            return;
+        }
+
+        if (_commandPaletteOrigin is InputElement { IsEffectivelyVisible: true } origin && origin.Focus())
+        {
+            return;
+        }
+
+        FocusNavigator.FocusActivePanel();
     }
 
     /// <summary>
@@ -78,7 +126,9 @@ public sealed partial class MainWindow : IShellCommandPresentation, IApplication
             return false;
         }
 
-        return ViewModel.IsCommandAvailable(command, arguments);
+        // The menu bar has checked the registry against the facts this window
+        // captured, including what the focused field can do.
+        return ViewModel.AllowsCommand(command, arguments);
     }
 
     async Task IApplicationMenuHost.ExecuteAsync(CommandId command, IReadOnlyDictionary<string, string> arguments)
@@ -150,8 +200,11 @@ public sealed partial class MainWindow : IShellCommandPresentation, IApplication
         _ = await terminal.ExecuteCommandAsync(command, _lifetime.Token);
     }
 
-    Task IShellCommandPresentation.ExecuteEditCommandAsync(CommandId command) =>
-        FocusedCommandTargets.ExecuteAsync(command, FocusedEditTarget(), FocusedFindTarget());
+    Task IShellCommandPresentation.ExecuteEditCommandAsync(CommandId command)
+    {
+        var focused = FocusManager?.GetFocusedElement();
+        return FocusedCommandTargets.ExecuteAsync(command, FocusedEditTarget(focused), FocusedFindTarget(focused));
+    }
 
     void IShellCommandPresentation.ExecuteWindowCommand(CommandId command) =>
         WindowFrameCommands.Execute(this, command);
@@ -168,22 +221,33 @@ public sealed partial class MainWindow : IShellCommandPresentation, IApplication
     }
 
     /// <summary>
-    /// The focused editable element, or the active terminal when focus sits on
-    /// window chrome such as the tab strip.
+    /// The focused editable element. Only when nothing in the window has
+    /// focus does the Edit menu act on the terminal the window shows. A
+    /// focused button, list or Settings field has no target, so its Edit items
+    /// dim and Command-C or Command-V reach that control instead of pasting
+    /// into a terminal behind it.
     /// </summary>
-    private IEditTarget? FocusedEditTarget() =>
-        FocusedCommandTargets.EditTargetFor(FocusManager?.GetFocusedElement(), _lifetime.Token)
-        ?? (ActiveTerminalSurface() is { } terminal
-            ? FocusedCommandTargets.TerminalEdit(terminal, _lifetime.Token)
-            : null);
+    private IEditTarget? FocusedEditTarget(IInputElement? focused)
+    {
+        if (FocusedCommandTargets.EditTargetFor(focused, _lifetime.Token) is { } target)
+        {
+            return target;
+        }
+
+        return (focused is null || ReferenceEquals(focused, this))
+            && ViewModel.IsWorkspaceVisible
+            && ActiveTerminalSurface(focused) is { } terminal
+                ? FocusedCommandTargets.TerminalEdit(terminal, _lifetime.Token)
+                : null;
+    }
 
     /// <summary>
     /// The focused panel's find target, or the active panel's when focus is
     /// elsewhere in the window, for example in the agent panel.
     /// </summary>
-    private IFindTarget? FocusedFindTarget()
+    private IFindTarget? FocusedFindTarget(IInputElement? focusedElement)
     {
-        if (FocusedCommandTargets.FindTargetFor(FocusManager?.GetFocusedElement(), _lifetime.Token) is { } focused)
+        if (FocusedCommandTargets.FindTargetFor(focusedElement, _lifetime.Token) is { } focused)
         {
             return focused;
         }
@@ -193,7 +257,7 @@ public sealed partial class MainWindow : IShellCommandPresentation, IApplication
             return null;
         }
 
-        if (ActiveTerminalSurface() is { } terminal)
+        if (ActiveTerminalSurface(focusedElement) is { } terminal)
         {
             return FocusedCommandTargets.TerminalFind(terminal, _lifetime.Token);
         }
@@ -206,7 +270,10 @@ public sealed partial class MainWindow : IShellCommandPresentation, IApplication
     }
 
     private ManagedTerminalSurface? ActiveTerminalSurface() =>
-        (FocusManager?.GetFocusedElement() as Avalonia.Visual)?
+        ActiveTerminalSurface(FocusManager?.GetFocusedElement());
+
+    private ManagedTerminalSurface? ActiveTerminalSurface(IInputElement? focused) =>
+        (focused as Avalonia.Visual)?
             .GetSelfAndVisualAncestors()
             .OfType<ManagedTerminalSurface>()
             .FirstOrDefault()
