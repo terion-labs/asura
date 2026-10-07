@@ -216,6 +216,19 @@ public sealed class GitPanelPresentationTests
         Assert.Equal("Merge “topic” into “main”…", branch.MergeLabel);
     }
 
+    [Fact]
+    public void Ref_menu_labels_keep_underscores_out_of_access_key_parsing()
+    {
+        var branch = new GitRefItemViewModel(
+            new GitRefItem("refs/heads/fix_login", "fix_login", GitRefKind.LocalBranch, "aaaa", IsCurrent: false),
+            currentBranchName: "release_2");
+
+        // Doubled in the header so the menu draws and announces one underscore.
+        Assert.Equal("Check Out “fix__login”", branch.CheckoutLabel);
+        Assert.Equal("Merge “fix__login” into “release__2”…", branch.MergeLabel);
+        Assert.Equal(string.Empty, GitMenuText.Literal(null));
+    }
+
     private static GitRuntimePanelViewModel CreatePanel(IGitRepositoryClient client) =>
         new(PanelInstanceId.New(), "Git", client, BuiltInConnections.Local);
 

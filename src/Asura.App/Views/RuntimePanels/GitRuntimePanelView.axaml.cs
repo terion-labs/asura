@@ -44,6 +44,7 @@ public sealed partial class GitRuntimePanelView : UserControl
         PresentChangeSelection();
         PresentHistorySelection();
         PresentSidebarCollapse();
+        PresentRecentRepositories();
     }
 
     private void OnSidebarPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
@@ -76,6 +77,10 @@ public sealed partial class GitRuntimePanelView : UserControl
         else if (string.Equals(e.PropertyName, nameof(GitRuntimePanelViewModel.SelectedCommits), StringComparison.Ordinal))
         {
             PresentHistorySelection();
+        }
+        else if (string.Equals(e.PropertyName, nameof(GitRuntimePanelViewModel.RecentRepositories), StringComparison.Ordinal))
+        {
+            PresentRecentRepositories();
         }
     }
 
@@ -234,20 +239,21 @@ public sealed partial class GitRuntimePanelView : UserControl
         return picked.Count > 0 ? picked[0].TryGetLocalPath() : null;
     }
 
-    private void OnRecentRepositoriesMenuOpening(object? sender, EventArgs e)
+    // A command per repository, rebuilt when the stored list changes rather
+    // than as the menu opens: a presenter already showing the flyout does
+    // not pick up items added from its own Opening event. Each path is
+    // escaped so its underscores are shown rather than read as access keys.
+    private void PresentRecentRepositories()
     {
-        _ = e;
-        if (sender is not MenuFlyout menu || ViewModel is not { } viewModel)
+        if (GitRecentRepositoriesButton.Flyout is not MenuFlyout menu)
         {
             return;
         }
 
-        // A command per repository, rebuilt as the menu opens so it always
-        // matches the stored list.
         menu.Items.Clear();
-        foreach (var path in viewModel.RecentRepositories)
+        foreach (var path in ViewModel?.RecentRepositories ?? [])
         {
-            var item = new MenuItem { Header = path, Tag = path };
+            var item = new MenuItem { Header = GitMenuText.Literal(path), Tag = path };
             item.Click += OnOpenRecentRepositoryClick;
             menu.Items.Add(item);
         }

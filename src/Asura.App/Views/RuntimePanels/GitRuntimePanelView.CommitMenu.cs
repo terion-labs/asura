@@ -49,7 +49,7 @@ public sealed partial class GitRuntimePanelView
         }
 
         menu.DataContext = commit;
-        CommitResetMenu.Header = $"Reset “{viewModel.BranchName}” to Here";
+        CommitResetMenu.Header = $"Reset “{GitMenuText.Literal(viewModel.BranchName)}” to Here";
         foreach (var item in menu.Items.OfType<MenuItem>())
         {
             item.IsEnabled = (item.Tag is string tag && ReadOnlyHistoryActions.Contains(tag))

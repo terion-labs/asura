@@ -268,11 +268,14 @@
     <controls:PanelChrome.Status>
       <!-- The repository's state, not a fixed "available" green. With
            Differentiate Without Color the dot gives way to a glyph per state,
-           so the state never rests on hue alone. -->
+           so the state never rests on hue alone. A Panel has no automation
+           peer of its own, so the mark opts into the content view; without
+           that VoiceOver never reaches its name. -->
       <Panel
           x:Name="GitStatusMark"
           Background="Transparent"
           ToolTip.Tip="{Binding RepositoryStatusLabel}"
+          AutomationProperties.AccessibilityView="Content"
           AutomationProperties.Name="{Binding RepositoryStatusAccessibleName}">
         <Border Classes="StatusDot GitStatusDot" controls:StatusToneBrush.Background="{Binding RepositoryStatusTone}" />
         <Panel Classes="GitStatusGlyphs">
@@ -445,7 +448,9 @@
                 <MenuItem Header="Open in Files" Tag="Files" Click="OnOpenGitContext" IsEnabled="{Binding CanReadRepository}" />
                 <MenuItem Header="Open Selected File" Tag="File" Click="OnOpenGitContext" IsEnabled="{Binding CanReadRepository}" />
                 <Separator />
-                <MenuItem Header="Git Settings…" Click="OnGitPreferences" IsEnabled="{Binding CanReadRepository}" />
+                <!-- These choices apply to every Git panel, not this repository;
+                     the label says so until they move to the Settings window. -->
+                <MenuItem Header="Git Panel Settings…" Click="OnGitPreferences" IsEnabled="{Binding CanReadRepository}" ToolTip.Tip="Diff display, Git executable and background fetch for all Git panels" />
                 <MenuItem Header="Identity and Signing…" Click="OnIdentitySettings" IsEnabled="{Binding CanMutateRepository}" />
               </MenuFlyout>
             </Button.Flyout>
@@ -603,7 +608,7 @@
                   <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="9" />
                 </StackPanel>
                 <Button.Flyout>
-                  <MenuFlyout Placement="BottomEdgeAlignedLeft" Opening="OnRecentRepositoriesMenuOpening" />
+                  <MenuFlyout Placement="BottomEdgeAlignedLeft" />
                 </Button.Flyout>
               </Button>
             </StackPanel>

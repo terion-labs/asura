@@ -6,6 +6,7 @@ using Asura.Application;
 using Asura.Core;
 using Asura.Git;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
@@ -60,7 +61,8 @@ public sealed class GitPanelConformanceHeadlessTests
         }
 
         var tools = ((MenuFlyout)view.FindControl<Button>("GitToolsMenuButton")!.Flyout!).Items.OfType<MenuItem>().ToArray();
-        Assert.Contains(tools, item => Equals(item.Header, "Git Settings…"));
+        Assert.Contains(tools, item => Equals(item.Header, "Git Panel Settings…"));
+        Assert.Contains(tools, item => Equals(item.Header, "Identity and Signing…"));
         Assert.DoesNotContain(tools, item => (item.Header as string)?.Contains("preferences", StringComparison.OrdinalIgnoreCase) == true);
         var benchmark = view.FindControl<MenuItem>("GitBenchmarkMenuItem")!;
         Assert.Equal(GitRuntimePanelViewModel.IsDiagnosticsBuild, tools.Contains(benchmark));
@@ -165,7 +167,12 @@ public sealed class GitPanelConformanceHeadlessTests
     public Task The_status_mark_names_the_state_and_trades_hue_for_a_glyph_on_request() => RunPanelAsync((view, panel, window) =>
     {
         var mark = view.FindControl<Panel>("GitStatusMark")!;
-        Assert.Equal("Repository status: Repository ready", AutomationProperties.GetName(mark));
+        // Through the peer, not the attached property: a plain Panel's peer
+        // is hidden from assistive technology, so the name alone proves nothing.
+        var peer = ControlAutomationPeer.CreatePeerForElement(mark);
+        Assert.True(peer.IsControlElement());
+        Assert.True(peer.IsContentElement());
+        Assert.Equal("Repository status: Repository ready", peer.GetName());
         Assert.Equal("Repository ready", ToolTip.GetTip(mark));
         var dot = mark.GetVisualDescendants().OfType<Border>().Single(border => border.Classes.Contains("GitStatusDot"));
         var glyphs = mark.GetVisualDescendants().OfType<Panel>().Single(panel => panel.Classes.Contains("GitStatusGlyphs"));
@@ -266,7 +273,7 @@ public sealed class GitPanelConformanceHeadlessTests
     {
         using var panel = new GitRuntimePanelViewModel(
             PanelInstanceId.New(), "Git", new FakeGitRepositoryClient(), BuiltInConnections.Local,
-            panelPreferences: new RecentPreferences(["/repo", "/elsewhere"]));
+            panelPreferences: new RecentPreferences(["/repo", "/Users/x/my_project"]));
         await panel.Initialization;
         var view = new GitRuntimePanelView { DataContext = panel };
         window.Content = view;
@@ -278,9 +285,21 @@ public sealed class GitPanelConformanceHeadlessTests
         Assert.True(button.IsEffectivelyEnabled);
         var flyout = (MenuFlyout)button.Flyout!;
         flyout.ShowAt(button);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         window.UpdateLayout();
         var items = flyout.Items.OfType<MenuItem>().ToArray();
-        Assert.Equal(["/repo", "/elsewhere"], items.Select(item => item.Header as string), StringComparer.Ordinal);
+        Assert.Equal(["/repo", "/Users/x/my_project"], items.Select(item => item.Tag as string), StringComparer.Ordinal);
+
+        // An underscore in a path is text, not an access-key marker: the row
+        // shows it and VoiceOver reads it.
+        var underscored = items[1];
+        Assert.Equal("/Users/x/my_project", ControlAutomationPeer.CreatePeerForElement(underscored).GetName());
+        // The popup lays out its rows on its own pass.
+        await WaitForAsync(underscored.IsAttachedToVisualTree);
+        TopLevel.GetTopLevel(underscored)!.UpdateLayout();
+        var shown = underscored.GetVisualDescendants().OfType<AccessText>().Single();
+        Assert.Equal("/Users/x/my__project", shown.Text);
+        Assert.Equal("/Users/x/my_project", VisibleText(shown));
 
         items[0].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
         await WaitForAsync(() => panel.IsRepositoryOpen);
@@ -427,6 +446,10 @@ public sealed class GitPanelConformanceHeadlessTests
             .Single(item => Equals(item.Header, header));
 
     private static Color? Color(IBrush? brush) => (brush as ISolidColorBrush)?.Color;
+
+    // The characters the text layout draws, after access-key markers are gone.
+    private static string VisibleText(TextBlock text) =>
+        string.Concat(text.TextLayout.TextLines.SelectMany(line => line.TextRuns).Select(run => run.Text.ToString())).TrimEnd('\r', '\n');
 
     private static async Task WaitForAsync(Func<bool> condition)
     {
