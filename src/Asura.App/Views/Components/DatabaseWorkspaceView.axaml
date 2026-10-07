@@ -51,6 +51,15 @@
       <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
     </Style>
 
+    <!-- The object list is a list of buttons, so its selection is a class a
+         screen reader cannot see. The row that is open says so. -->
+    <Style Selector="local|DatabaseWorkspaceView Button.ListRow">
+      <Setter Property="AutomationProperties.ItemStatus" Value="" />
+    </Style>
+    <Style Selector="local|DatabaseWorkspaceView Button.ListRow.selected">
+      <Setter Property="AutomationProperties.ItemStatus" Value="Selected" />
+    </Style>
+
     <!-- The DataGrid.DatabaseGrid table chrome moved to AsuraTheme so
          Redis and other value tables share it. -->
     <Style Selector="Border.DatabaseCellValidation">
@@ -101,12 +110,12 @@
                   TextTrimming="CharacterEllipsis" />
             </Grid>
           </Button>
-          <TextBox
+          <controls:SearchField
               x:Name="ObjectFilterBox"
               Grid.Row="1"
               Margin="{controls:Inset Horizontal=Xs, Vertical=Sm}"
               Text="{Binding TableFilter, Mode=TwoWay}"
-              PlaceholderText="Filter objects…"
+              PlaceholderText="Filter objects"
               AutomationProperties.Name="Filter database objects" />
           <ScrollViewer
               Grid.Row="2"
@@ -206,50 +215,7 @@
               Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}"
               ColumnDefinitions="Auto,Auto,*,Auto"
               ColumnSpacing="{DynamicResource ShellSpaceSm}">
-            <Border
-                VerticalAlignment="Center"
-                Classes="Segmented PerspectiveToggle"
-                IsVisible="{Binding !IsDatabaseOverview}">
-              <UniformGrid Columns="3">
-                <ToggleButton
-                    x:Name="EmbeddedDataModeButton"
-                    Classes="Segment"
-                    Click="OnEmbeddedDataModeClick"
-                    Content="Data"
-                    AutomationProperties.Name="Show table data" />
-                <ToggleButton
-                    x:Name="EmbeddedStructureModeButton"
-                    Classes="Segment"
-                    Click="OnEmbeddedStructureModeClick"
-                    Content="Structure"
-                    AutomationProperties.Name="Show table structure" />
-                <ToggleButton
-                    x:Name="EmbeddedIndexesModeButton"
-                    Classes="Segment"
-                    Click="OnEmbeddedIndexesModeClick"
-                    Content="Indexes"
-                    AutomationProperties.Name="Show table indexes" />
-              </UniformGrid>
-            </Border>
-            <Border
-                VerticalAlignment="Center"
-                Classes="Segmented PerspectiveToggle"
-                IsVisible="{Binding IsDatabaseOverview}">
-              <UniformGrid Columns="2">
-                <ToggleButton
-                    x:Name="EmbeddedObjectsOverviewButton"
-                    Classes="Segment"
-                    Click="OnEmbeddedObjectsOverviewClick"
-                    Content="Objects"
-                    AutomationProperties.Name="Show database objects" />
-                <ToggleButton
-                    x:Name="EmbeddedDiagramOverviewButton"
-                    Classes="Segment"
-                    Click="OnEmbeddedDiagramOverviewClick"
-                    Content="ER Diagram"
-                    AutomationProperties.Name="Show database Mermaid ER diagram" />
-              </UniformGrid>
-            </Border>
+            <local:DatabasePerspectivePicker DiagramShown="OnEmbeddedDiagramShown" />
             <Button
                 Grid.Column="3"
                 VerticalAlignment="Center"
@@ -259,7 +225,7 @@
                 AutomationProperties.Name="Open this database in the database viewer">
               <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
                 <icons:SymbolIcon Symbol="Open" FontSize="11" />
-                <TextBlock Text="Open in viewer" />
+                <TextBlock Text="Open in Viewer" />
               </StackPanel>
             </Button>
           </Grid>
@@ -305,9 +271,9 @@
               <Button.Flyout>
                 <Flyout Placement="BottomEdgeAlignedLeft">
                   <Grid Width="280" RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource ShellSpaceSm}">
-                    <TextBox
+                    <controls:SearchField
                         Text="{Binding TableFilter, Mode=TwoWay}"
-                        PlaceholderText="Filter objects…"
+                        PlaceholderText="Filter objects"
                         AutomationProperties.Name="Filter database objects" />
                     <ScrollViewer
                         Grid.Row="1"
@@ -451,10 +417,13 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                           </Grid.ColumnDefinitions>
+                          <!-- Says what it switches: an unlabelled box at the
+                               start of the row read as a row selector. -->
                           <CheckBox
                               VerticalAlignment="Center"
+                              Content="Filter"
                               IsChecked="{Binding IsIncluded, Mode=TwoWay}"
-                              ToolTip.Tip="Include this condition"
+                              ToolTip.Tip="Include this condition when the filter is applied"
                               AutomationProperties.Name="Include this filter condition" />
                           <ComboBox
                               Grid.Column="1"
@@ -525,10 +494,11 @@
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
+                  <!-- The same push button as Apply: one style per strip. -->
                   <Button
                       Grid.Column="1"
                       VerticalAlignment="Center"
-                      Classes="TextButton Dense"
+                      Classes="SecondaryButton Dense"
                       Click="OnClearFilterClick"
                       ToolTip.Tip="Clear the table filter"
                       AutomationProperties.Name="Clear the table filter">
@@ -546,32 +516,34 @@
                            cell's own context menu rather than in a strip that
                            mostly acts on rows. Each remaining action carries a
                            label and a glyph; which one shows follows the
-                           panel's width. -->
+                           panel's width. One push-button style for the whole
+                           strip: a filled Save beside a plain-text Delete read
+                           as three kinds of control. Delete keeps the shape
+                           and says what it is with its label's colour. -->
                       <Button
                           Classes="SecondaryButton Dense"
                           Click="OnAddRowClick"
                           IsEnabled="{Binding CanMutateRows}"
-                          ToolTip.Tip="Add a database row"
+                          ToolTip.Tip="{x:Static vm:DatabaseRuntimePanelViewModel.AddRowTip}"
                           AutomationProperties.Name="Add a database row">
                         <Panel>
-                          <TextBlock Classes="rowActionLabel" Text="Add row" />
+                          <TextBlock Classes="rowActionLabel" Text="Add Row" />
                           <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Add" FontSize="12" />
                         </Panel>
                       </Button>
                       <Button
-                          Classes="TextButton Dense"
+                          Classes="DestructiveButton Dense"
                           Click="OnDeleteRowClick"
-                          Foreground="{DynamicResource ShellDangerBrush}"
                           IsEnabled="{Binding CanDeleteSelectedRow}"
-                          ToolTip.Tip="Delete the selected row"
-                          AutomationProperties.Name="Delete the selected database row">
+                          ToolTip.Tip="Delete the selected rows"
+                          AutomationProperties.Name="Delete the selected database rows">
                         <Panel>
                           <TextBlock Classes="rowActionLabel" Text="Delete" />
                           <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Delete" FontSize="12" />
                         </Panel>
                       </Button>
                       <Button
-                          Classes="TextButton Dense"
+                          Classes="SecondaryButton Dense"
                           Click="OnRevertChangesClick"
                           IsEnabled="{Binding CanRevertChanges}"
                           ToolTip.Tip="Revert unsaved changes"
@@ -582,7 +554,7 @@
                         </Panel>
                       </Button>
                       <Button
-                          Classes="PrimaryButton Dense"
+                          Classes="SecondaryButton Dense"
                           Click="OnSaveChangesClick"
                           IsEnabled="{Binding CanSaveChanges}"
                           ToolTip.Tip="Save changes"
@@ -614,11 +586,17 @@
                         AutomationProperties.Name="Show the previous database page">
                       <icons:SymbolIcon Symbol="ChevronLeft" FontSize="11" />
                     </Button>
+                    <!-- "Rows per page: 200 · 6 rows". A bare "200 / 6" read
+                         as page 200 of 6. -->
                     <StackPanel
                         Orientation="Horizontal"
                         Spacing="{DynamicResource ShellSpaceXs}"
-                        VerticalAlignment="Center"
-                        ToolTip.Tip="Rows per page / total matching rows">
+                        VerticalAlignment="Center">
+                      <TextBlock
+                          VerticalAlignment="Center"
+                          Classes="Muted"
+                          FontSize="{DynamicResource ShellFontSize9}"
+                          Text="Rows per page:" />
                       <TextBox
                           Width="52"
                           Classes="Dense"
@@ -626,13 +604,14 @@
                           Text="{Binding PageLimitText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                           IsEnabled="{Binding CanChangePageLimit}"
                           KeyDown="OnPageLimitKeyDown"
+                          ToolTip.Tip="Rows per page, from 1 to 5000"
                           AutomationProperties.Name="Database page row limit"
                           AutomationProperties.HelpText="Enter a value from 1 to 5000, then press Enter" />
                       <TextBlock
                           VerticalAlignment="Center"
                           Classes="Muted"
                           FontSize="{DynamicResource ShellFontSize9}"
-                          Text="/" />
+                          Text="·" />
                       <TextBlock
                           MinWidth="28"
                           VerticalAlignment="Center"
@@ -669,7 +648,7 @@
                   HeadersVisibility="Column"
                   HorizontalScrollBarVisibility="Auto"
                   VerticalScrollBarVisibility="Auto"
-                  SelectionMode="Single"
+                  SelectionMode="Extended"
                   Sorting="OnResultSorting"
                   CellPointerPressed="OnResultCellPointerPressed"
                   ContextRequested="OnResultContextRequested"
@@ -683,70 +662,14 @@
                       Opening="OnResultContextMenuOpening"
                       Closing="OnResultContextMenuClosing"
                       AutomationProperties.Name="Database rows context menu">
+                    <!-- Three groups at most, most used first: reading the
+                         cell and row, changing the page, and — last, behind its
+                         own separator — taking a row away. -->
                     <MenuItem
-                        x:Name="QuickLookMenuItem"
-                        Click="OnQuickLookClick"
-                        Header="Quick Look Editor"
-                        AutomationProperties.Name="Open the active database cell in Quick Look" />
-
-                    <Separator />
-                    <MenuItem
-                        x:Name="RefreshTableMenuItem"
-                        Click="OnRefreshTableClick"
-                        Header="Refresh"
-                        AutomationProperties.Name="Refresh the current database page">
-                      <MenuItem.Icon><icons:SymbolIcon Symbol="ArrowClockwise" FontSize="14" /></MenuItem.Icon>
-                    </MenuItem>
-
-                    <Separator x:Name="MutationMenuSeparator" />
-                    <MenuItem
-                        x:Name="PasteCellMenuItem"
-                        Click="OnPasteCellClick"
-                        Header="Paste"
-                        AutomationProperties.Name="Paste a database cell value from the clipboard">
-                      <MenuItem.Icon><icons:SymbolIcon Symbol="ClipboardPaste" FontSize="14" /></MenuItem.Icon>
-                    </MenuItem>
-                    <MenuItem
-                        x:Name="AddRowMenuItem"
-                        Click="OnContextAddRowClick"
-                        Header="Add Row"
-                        AutomationProperties.Name="Add a database row from the context menu" />
-                    <MenuItem
-                        x:Name="DuplicateRowMenuItem"
-                        Click="OnDuplicateRowClick"
-                        Header="Duplicate"
-                        AutomationProperties.Name="Duplicate the selected database row" />
-
-                    <Separator x:Name="SetValueMenuSeparator" />
-                    <MenuItem
-                        x:Name="SetValueMenuItem"
-                        Header="Set Value"
-                        AutomationProperties.Name="Set the active database cell value">
-                      <MenuItem
-                          x:Name="SetEmptyMenuItem"
-                          Click="OnSetEmptyClick"
-                          Header="EMPTY"
-                          AutomationProperties.Name="Set the active database cell to empty text" />
-                      <Separator x:Name="SetNullMenuSeparator" />
-                      <MenuItem
-                          x:Name="SetNullContextMenuItem"
-                          Click="OnSetNullContextClick"
-                          Header="NULL"
-                          AutomationProperties.Name="Set the active database cell to NULL from the context menu" />
-                      <MenuItem
-                          x:Name="SetDefaultContextMenuItem"
-                          Click="OnSetDefaultContextClick"
-                          Header="DEFAULT"
-                          AutomationProperties.Name="Set the active database cell to DEFAULT from the context menu" />
-                      <Separator x:Name="SetFileMenuSeparator" />
-                      <MenuItem
-                          x:Name="SetFileMenuItem"
-                          Click="OnSetFileClick"
-                          Header="Add a file…"
-                          AutomationProperties.Name="Set the active database cell from a file" />
-                    </MenuItem>
-
-                    <Separator x:Name="CopyMenuSeparator" />
+                        x:Name="CellEditorMenuItem"
+                        Click="OnCellEditorClick"
+                        Header="Open Cell Editor…"
+                        AutomationProperties.Name="Open the active database cell in the cell editor" />
                     <MenuItem
                         x:Name="CopyRowMenuItem"
                         Click="OnCopyRowClick"
@@ -782,35 +705,78 @@
                           Header="INSERT"
                           AutomationProperties.Name="Copy the selected database row as INSERT" />
                     </MenuItem>
-
-                    <Separator x:Name="QuickFilterMenuSeparator" />
                     <MenuItem
                         x:Name="QuickFilterMenuItem"
                         Header="Quick Filter"
                         AutomationProperties.Name="Quick-filter the active database cell" />
-
-                    <Separator x:Name="TransferMenuSeparator" />
-                    <MenuItem
-                        x:Name="ImportMenuItem"
-                        Header="Import"
-                        AutomationProperties.Name="Import database rows">
-                      <MenuItem
-                          x:Name="ImportCsvMenuItem"
-                          Click="OnImportCsvClick"
-                          Header="CSV…"
-                          AutomationProperties.Name="Import database rows from CSV" />
-                    </MenuItem>
                     <MenuItem
                         x:Name="ExportPageMenuItem"
                         Click="OnExportPageClick"
-                        Header="Export current page…"
+                        Header="Export Page…"
                         AutomationProperties.Name="Export the current database page" />
+                    <MenuItem
+                        x:Name="RefreshTableMenuItem"
+                        Click="OnRefreshTableClick"
+                        Header="Refresh"
+                        AutomationProperties.Name="Refresh the current database page">
+                      <MenuItem.Icon><icons:SymbolIcon Symbol="ArrowClockwise" FontSize="14" /></MenuItem.Icon>
+                    </MenuItem>
+
+                    <Separator x:Name="MutationMenuSeparator" />
+                    <MenuItem
+                        x:Name="PasteCellMenuItem"
+                        Click="OnPasteCellClick"
+                        Header="Paste"
+                        AutomationProperties.Name="Paste a database cell value from the clipboard">
+                      <MenuItem.Icon><icons:SymbolIcon Symbol="ClipboardPaste" FontSize="14" /></MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem
+                        x:Name="SetValueMenuItem"
+                        Header="Set Value"
+                        AutomationProperties.Name="Set the active database cell value">
+                      <MenuItem
+                          x:Name="SetEmptyMenuItem"
+                          Click="OnSetEmptyClick"
+                          Header="Empty"
+                          AutomationProperties.Name="Set the active database cell to empty text" />
+                      <MenuItem
+                          x:Name="SetNullContextMenuItem"
+                          Click="OnSetNullContextClick"
+                          Header="NULL"
+                          AutomationProperties.Name="Set the active database cell to NULL from the context menu" />
+                      <MenuItem
+                          x:Name="SetDefaultContextMenuItem"
+                          Click="OnSetDefaultContextClick"
+                          Header="DEFAULT"
+                          AutomationProperties.Name="Set the active database cell to DEFAULT from the context menu" />
+                      <Separator x:Name="SetFileMenuSeparator" />
+                      <MenuItem
+                          x:Name="SetFileMenuItem"
+                          Click="OnSetFileClick"
+                          Header="Choose File…"
+                          AutomationProperties.Name="Set the active database cell from a file" />
+                    </MenuItem>
+                    <MenuItem
+                        x:Name="AddRowMenuItem"
+                        Click="OnContextAddRowClick"
+                        Header="Add Row"
+                        AutomationProperties.Name="Add a database row from the context menu" />
+                    <MenuItem
+                        x:Name="DuplicateRowMenuItem"
+                        Click="OnDuplicateRowClick"
+                        Header="Duplicate Row"
+                        AutomationProperties.Name="Duplicate the selected database row" />
+                    <MenuItem
+                        x:Name="ImportMenuItem"
+                        Click="OnImportCsvClick"
+                        Header="Import CSV…"
+                        AutomationProperties.Name="Import database rows from CSV" />
 
                     <Separator x:Name="DeleteMenuSeparator" />
                     <MenuItem
                         x:Name="DeleteRowMenuItem"
                         Click="OnContextDeleteRowClick"
-                        Header="Delete"
+                        Header="Delete Row"
                         Foreground="{DynamicResource ShellDangerBrush}"
                         AutomationProperties.Name="Delete the selected database row from the context menu">
                       <MenuItem.Icon><icons:SymbolIcon Symbol="Delete" FontSize="14" /></MenuItem.Icon>
@@ -1070,7 +1036,7 @@
                 <Button
                     Classes="TextButton Dense"
                     Click="OnCopyMermaidDiagramClick"
-                    Content="Copy source"
+                    Content="Copy Source"
                     IsEnabled="{Binding HasMermaidDiagram}"
                     AutomationProperties.Name="Copy the Mermaid ER diagram source" />
                 <Button

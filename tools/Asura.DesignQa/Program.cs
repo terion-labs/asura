@@ -1626,10 +1626,10 @@ internal sealed class QaApplication : Avalonia.Application
         // desktop screenshot permission.
         ("database-context-menu-2x", CreateDatabaseContextMenuProbe, null),
         // The same real database grid in the three states fixed by the latest
-        // interaction pass: a compact Quick Look, an explicit descending
+        // interaction pass: a compact cell editor, an explicit descending
         // server sort, and a context menu opened after running an edited raw
         // query whose complete base-table provenance keeps mutations safe.
-        ("database-quick-look-compact-2x", CreateDatabaseQuickLookCompactProbe, null),
+        ("database-cell-editor-compact-2x", CreateDatabaseCellEditorCompactProbe, null),
         // Editing a prose-sized cell grows the expanded editor beside it; the
         // probe proves the popup opens on the real edit path and holds focus.
         ("database-cell-expand-editor-2x", CreateDatabaseCellExpandProbe, null),
@@ -2438,6 +2438,8 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         var mapper = appAssembly.GetType(
                 "Asura.App.EffectiveAppearanceResourceMapper",
                 throwOnError: true)!;
+        // Named by its parameter: the mapper also has an overload that takes
+        // the host's semantic colors, and a bare name is ambiguous.
         var mapped = mapper
             .GetMethod("Map", BindingFlags.Public | BindingFlags.Static, [effectiveTheme.GetType()])!
             .Invoke(null, [effectiveTheme]);
@@ -3274,7 +3276,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 window.UpdateLayout();
             });
 
-    private static Window CreateDatabaseQuickLookCompactProbe() =>
+    private static Window CreateDatabaseCellEditorCompactProbe() =>
         CreatePreparedDatabaseProbe(
             width: 720,
             height: 560,
@@ -3290,15 +3292,15 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                     "How automakers are responding to the 25% car tariffs so far — "
                     + "a deliberately long value that wraps inside the compact editor.");
                 OpenDatabaseProbeContextMenu(window, grid);
-                var quickLook = grid.ContextMenu!.Items
+                var openCellEditor = grid.ContextMenu!.Items
                     .OfType<MenuItem>()
                     .Single(candidate => string.Equals(
                         AutomationProperties.GetName(candidate),
-                        "Open the active database cell in Quick Look",
+                        "Open the active database cell in the cell editor",
                         StringComparison.Ordinal));
                 grid.ContextMenu.Close();
                 window.UpdateLayout();
-                quickLook.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                openCellEditor.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
                 Dispatcher.UIThread.RunJobs();
                 await Task.Delay(80);
                 Dispatcher.UIThread.RunJobs();
@@ -3306,11 +3308,11 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 if (TopLevel.GetTopLevel(grid)?.FocusManager?.GetFocusedElement() is not TextBox editor
                     || !string.Equals(
                         AutomationProperties.GetName(editor),
-                        "Quick Look value for service",
+                        "Cell editor value for service",
                         StringComparison.Ordinal))
                 {
                     throw new InvalidOperationException(
-                        "The compact database probe did not open the real Quick Look editor.");
+                        "The compact database probe did not open the real cell editor.");
                 }
 
                 var popupHost = editor.GetVisualAncestors().Last();
@@ -3321,19 +3323,19 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                     .OfType<Grid>()
                     .Single(candidate => string.Equals(
                         AutomationProperties.GetName(candidate),
-                        "Database cell Quick Look dialog",
+                        "Database cell editor dialog",
                         StringComparison.Ordinal));
                 var apply = presenter.GetVisualDescendants()
                     .OfType<Button>()
                     .Single(candidate => string.Equals(
                         AutomationProperties.GetName(candidate),
-                        "Apply the Quick Look database cell value",
+                        "Apply the database cell editor value",
                         StringComparison.Ordinal));
                 var cancel = presenter.GetVisualDescendants()
                     .OfType<Button>()
                     .Single(candidate => string.Equals(
                         AutomationProperties.GetName(candidate),
-                        "Close the database cell Quick Look",
+                        "Close the database cell editor",
                         StringComparison.Ordinal));
                 if (!apply.IsEffectivelyVisible
                     || !cancel.IsEffectivelyVisible
@@ -3341,7 +3343,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                     || dialog.Bounds.Height > grid.Bounds.Height)
                 {
                     throw new InvalidOperationException(
-                        "The compact Quick Look escaped the grid viewport or hid an action.");
+                        "The compact cell editor escaped the grid viewport or hid an action.");
                 }
             });
 

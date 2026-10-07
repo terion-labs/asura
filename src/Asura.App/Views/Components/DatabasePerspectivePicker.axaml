@@ -1,0 +1,42 @@
+<UserControl
+    x:Class="Asura.App.Views.Components.DatabasePerspectivePicker"
+    x:DataType="vm:DatabaseRuntimePanelViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:controls="using:Asura.App.Controls"
+    VerticalAlignment="Center">
+  <!-- The views of one thing are one segmented control each: the three
+       perspectives on a selected object, or the two on the database itself.
+       Both hold the same slot; which one shows follows what is selected.
+       Structure and Indexes dim rather than vanish when there is no object
+       to describe, so the strip never changes shape under the pointer. -->
+  <Panel>
+    <controls:SegmentedControl
+        x:Name="ModePicker"
+        IsVisible="{Binding !IsDatabaseOverview}"
+        SelectionChanged="OnModeSelectionChanged"
+        AutomationProperties.Name="Object view">
+      <RadioButton Content="Data" AutomationProperties.Name="Show table data" />
+      <RadioButton
+          Content="Structure"
+          IsEnabled="{Binding HasSelectedObject}"
+          AutomationProperties.Name="Show table structure" />
+      <RadioButton
+          Content="Indexes"
+          IsEnabled="{Binding HasSelectedObject}"
+          AutomationProperties.Name="Show table indexes" />
+    </controls:SegmentedControl>
+
+    <!-- The diagram is rendered in-app; its portable Mermaid source remains
+         available to copy and save. -->
+    <controls:SegmentedControl
+        x:Name="OverviewPicker"
+        IsVisible="{Binding IsDatabaseOverview}"
+        SelectionChanged="OnOverviewSelectionChanged"
+        AutomationProperties.Name="Database view">
+      <RadioButton Content="Objects" AutomationProperties.Name="Show database objects" />
+      <RadioButton Content="ER Diagram" AutomationProperties.Name="Show database Mermaid ER diagram" />
+    </controls:SegmentedControl>
+  </Panel>
+</UserControl>

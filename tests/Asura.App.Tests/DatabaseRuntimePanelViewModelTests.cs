@@ -1896,7 +1896,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         await panel.PreviewTableAsync(panel.Tables[0]);
         Assert.Equal("200", panel.PageLimitText);
         Assert.Equal(987, panel.TotalRows);
-        Assert.Equal("987", panel.TotalRowsText);
+        Assert.Equal("987 rows", panel.TotalRowsText);
 
         panel.FilterColumn = panel.FilterColumns.Single(column => string.Equals(column.Name, "name", StringComparison.Ordinal));
         panel.FilterOperator = panel.FilterOperators.Single(option =>

@@ -1000,21 +1000,21 @@ public sealed class RuntimePanelViewContractTests
     public void Redis_panel_uses_the_database_toolbar_and_flat_workspace_geometry()
     {
         var root = Assert.IsType<XElement>(LoadRuntimePanelView("RedisRuntimePanelView").Root);
-        var connect = Assert.Single(
+        // One connection button that says what it will do, never a Connect
+        // and a Disconnect enabled side by side.
+        var connection = Assert.Single(
             root.Descendants(),
-            element => string.Equals(AttributeValue(element, "AutomationProperties.Name"), "Connect to Redis", StringComparison.Ordinal));
-        var disconnect = Assert.Single(
+            element => string.Equals(AttributeValue(element, "Command"), "{Binding ToggleConnectionCommand}", StringComparison.Ordinal));
+        Assert.Equal("{Binding ConnectionActionLabel}", AttributeValue(connection, "Content"));
+        Assert.Equal("{Binding ConnectionActionDescription}", AttributeValue(connection, "AutomationProperties.Name"));
+        Assert.DoesNotContain(
             root.Descendants(),
-            element => string.Equals(AttributeValue(element, "AutomationProperties.Name"), "Disconnect from Redis", StringComparison.Ordinal));
-
-        foreach (var button in new[] { connect, disconnect })
-        {
-            Assert.Equal("26", AttributeValue(button, "Height"));
-            Assert.Equal("{controls:Inset Horizontal=Md}", AttributeValue(button, "Padding"));
-            Assert.Equal("Center", AttributeValue(button, "VerticalAlignment"));
-            Assert.Equal("Center", AttributeValue(button, "VerticalContentAlignment"));
-            Assert.True(HasClass(button, "SecondaryButton"));
-        }
+            element => AttributeValue(element, "Command") is "{Binding ConnectCommand}" or "{Binding DisconnectCommand}");
+        Assert.Equal("26", AttributeValue(connection, "Height"));
+        Assert.Equal("{controls:Inset Horizontal=Md}", AttributeValue(connection, "Padding"));
+        Assert.Equal("Center", AttributeValue(connection, "VerticalAlignment"));
+        Assert.Equal("Center", AttributeValue(connection, "VerticalContentAlignment"));
+        Assert.True(HasClass(connection, "SecondaryButton"));
 
         // Runtime errors live in the shared panel chrome, independently of refreshed content.
         Assert.Single(root.Descendants(), element => element.Name.LocalName == "PanelChrome");

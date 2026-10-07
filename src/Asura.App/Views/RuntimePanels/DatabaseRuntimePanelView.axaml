@@ -106,59 +106,11 @@
                 TextTrimming="CharacterEllipsis" />
           </StackPanel>
 
-          <!-- The three perspectives on the selected object, out of the
-               connection group: switching views is not a connection change.
-               The database overview is not an object; they fade with it. -->
-          <Grid Grid.Column="1" VerticalAlignment="Center">
-            <Border
-                VerticalAlignment="Center"
-                Classes="Segmented PerspectiveToggle"
-                IsVisible="{Binding !IsDatabaseOverview}">
-              <UniformGrid Columns="3">
-              <ToggleButton
-                  x:Name="DataModeButton"
-                  Classes="Segment"
-                  Click="OnDataModeClick"
-                  Content="Data"
-                  AutomationProperties.Name="Show table data" />
-              <ToggleButton
-                  x:Name="StructureModeButton"
-                  Classes="Segment"
-                  Click="OnStructureModeClick"
-                  Content="Structure"
-                  AutomationProperties.Name="Show table structure" />
-              <ToggleButton
-                  x:Name="IndexesModeButton"
-                  Classes="Segment"
-                  Click="OnIndexesModeClick"
-                  Content="Indexes"
-                  AutomationProperties.Name="Show table indexes" />
-              </UniformGrid>
-            </Border>
-
-            <!-- Database-level perspectives occupy the same stable header
-                 slot as table perspectives. The diagram is rendered in-app;
-                 its portable Mermaid source remains available to copy/save. -->
-            <Border
-                VerticalAlignment="Center"
-                Classes="Segmented PerspectiveToggle"
-                IsVisible="{Binding IsDatabaseOverview}">
-              <UniformGrid Columns="2">
-                <ToggleButton
-                    x:Name="ObjectsOverviewButton"
-                    Classes="Segment"
-                    Click="OnObjectsOverviewClick"
-                    Content="Objects"
-                    AutomationProperties.Name="Show database objects" />
-                <ToggleButton
-                    x:Name="DiagramOverviewButton"
-                    Classes="Segment"
-                    Click="OnDiagramOverviewClick"
-                    Content="ER Diagram"
-                    AutomationProperties.Name="Show database Mermaid ER diagram" />
-              </UniformGrid>
-            </Border>
-          </Grid>
+          <!-- The perspectives, out of the connection group: switching views
+               is not a connection change. -->
+          <components:DatabasePerspectivePicker
+              Grid.Column="1"
+              DiagramShown="OnDiagramShown" />
         </Grid>
       </Border>
 

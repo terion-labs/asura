@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
 using Avalonia.Controls;
@@ -18,87 +17,16 @@ public sealed partial class DatabaseRuntimePanelView : UserControl
 
     private void ObservePanel()
     {
-        if (_observedPanel is not null)
-        {
-            _observedPanel.PasswordRequested -= OnPasswordRequested;
-            _observedPanel.PropertyChanged -= OnPanelPropertyChanged;
-        }
-
+        _observedPanel?.PasswordRequested -= OnPasswordRequested;
         _observedPanel = Panel;
-        if (_observedPanel is not null)
-        {
-            _observedPanel.PasswordRequested += OnPasswordRequested;
-            _observedPanel.PropertyChanged += OnPanelPropertyChanged;
-        }
-
-        SyncModeButtons();
+        _observedPanel?.PasswordRequested += OnPasswordRequested;
     }
 
-    private void OnPanelPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        _ = sender;
-        if (e.PropertyName is null
-            or nameof(DatabaseRuntimePanelViewModel.SelectedMode)
-            or nameof(DatabaseRuntimePanelViewModel.SelectedObject)
-            or nameof(DatabaseRuntimePanelViewModel.SelectedDatabaseOverviewMode)
-            or nameof(DatabaseRuntimePanelViewModel.IsDatabaseOverview))
-        {
-            SyncModeButtons();
-        }
-    }
-
-    private void SyncModeButtons()
-    {
-        var panel = _observedPanel;
-        DataModeButton.IsChecked = panel?.SelectedMode == DatabaseWorkspaceMode.Data;
-        StructureModeButton.IsChecked = panel?.SelectedMode == DatabaseWorkspaceMode.Structure;
-        IndexesModeButton.IsChecked = panel?.SelectedMode == DatabaseWorkspaceMode.Indexes;
-        var hasObject = panel?.SelectedObject is not null;
-        StructureModeButton.IsEnabled = hasObject;
-        IndexesModeButton.IsEnabled = hasObject;
-        ObjectsOverviewButton.IsChecked = panel?.IsDatabaseObjectsOverview == true;
-        DiagramOverviewButton.IsChecked = panel?.IsDatabaseDiagramOverview == true;
-    }
-
-    private void OnDataModeClick(object? sender, RoutedEventArgs e) =>
-        SetMode(DatabaseWorkspaceMode.Data);
-
-    private void OnStructureModeClick(object? sender, RoutedEventArgs e) =>
-        SetMode(DatabaseWorkspaceMode.Structure);
-
-    private void OnIndexesModeClick(object? sender, RoutedEventArgs e) =>
-        SetMode(DatabaseWorkspaceMode.Indexes);
-
-    private void OnObjectsOverviewClick(object? sender, RoutedEventArgs e)
+    private void OnDiagramShown(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        Panel?.ShowDatabaseOverview();
-        SyncModeButtons();
-    }
-
-    private async void OnDiagramOverviewClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (Panel is { } panel)
-        {
-            await panel.ShowDatabaseDiagramAsync();
-        }
-
-        SyncModeButtons();
-        if (Panel?.IsDatabaseDiagramOverview == true)
-        {
-            DatabaseWorkspace.FocusDiagram();
-        }
-    }
-
-    private void SetMode(DatabaseWorkspaceMode mode)
-    {
-        Panel?.SetMode(mode);
-        // Clicking an already-selected ToggleButton tries to uncheck it. The
-        // workspace mode is exclusive, so restore all three from source state.
-        SyncModeButtons();
+        DatabaseWorkspace.FocusDiagram();
     }
 
     private async void OnPasswordRequested(object? sender, EventArgs e)

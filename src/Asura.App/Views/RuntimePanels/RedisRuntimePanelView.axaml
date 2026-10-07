@@ -133,28 +133,20 @@
                 AutomationProperties.Name="Edit Redis connection">
               <icons:SymbolIcon Symbol="Options" FontSize="{DynamicResource ShellFontSize13}" />
             </Button>
+            <!-- One button that says what it will do: Connect without a
+                 session, Disconnect with one. -->
             <Button
-                x:Name="ConnectButton"
-                MinWidth="86"
+                x:Name="ConnectionButton"
+                MinWidth="96"
                 Height="26"
                 Padding="{controls:Inset Horizontal=Md}"
                 VerticalAlignment="Center"
                 VerticalContentAlignment="Center"
+                HorizontalContentAlignment="Center"
                 Classes="SecondaryButton"
-                Command="{Binding ConnectCommand}"
-                Content="Connect"
-                AutomationProperties.Name="Connect to Redis" />
-            <Button
-                x:Name="DisconnectButton"
-                Height="26"
-                Padding="{controls:Inset Horizontal=Md}"
-                VerticalAlignment="Center"
-                VerticalContentAlignment="Center"
-                Classes="SecondaryButton"
-                Command="{Binding DisconnectCommand}"
-                Content="Disconnect"
-                IsVisible="{Binding IsConnected}"
-                AutomationProperties.Name="Disconnect from Redis" />
+                Command="{Binding ToggleConnectionCommand}"
+                Content="{Binding ConnectionActionLabel}"
+                AutomationProperties.Name="{Binding ConnectionActionDescription}" />
             <TextBlock
                 VerticalAlignment="Center"
                 Classes="Muted"
@@ -166,28 +158,15 @@
 
           <!-- The three perspectives on the server, out of the connection
                group: switching views is not a connection change. -->
-          <Border Grid.Column="1" VerticalAlignment="Center" Classes="Segmented PerspectiveToggle">
-            <UniformGrid Columns="3">
-              <ToggleButton
-                  x:Name="BrowserButton"
-                  Classes="Segment"
-                  Click="OnBrowserClick"
-                  Content="Browser"
-                  AutomationProperties.Name="Browse Redis keys" />
-              <ToggleButton
-                  x:Name="SearchButton"
-                  Classes="Segment"
-                  Click="OnSearchClick"
-                  Content="Search"
-                  AutomationProperties.Name="Query a Redis search index" />
-              <ToggleButton
-                  x:Name="PubSubButton"
-                  Classes="Segment"
-                  Click="OnPubSubClick"
-                  Content="Pub/Sub"
-                  AutomationProperties.Name="Show Redis publish and subscribe" />
-            </UniformGrid>
-          </Border>
+          <controls:SegmentedControl
+              x:Name="PerspectivePicker"
+              Grid.Column="1"
+              SelectionChanged="OnPerspectiveSelectionChanged"
+              AutomationProperties.Name="Redis view">
+            <RadioButton Content="Browser" AutomationProperties.Name="Browse Redis keys" />
+            <RadioButton Content="Search" AutomationProperties.Name="Query a Redis search index" />
+            <RadioButton Content="Pub/Sub" AutomationProperties.Name="Show Redis publish and subscribe" />
+          </controls:SegmentedControl>
         </Grid>
       </Border>
 
@@ -201,10 +180,16 @@
           <Border>
             <Grid RowDefinitions="Auto,*,Auto">
               <Grid Margin="{controls:Inset Sm}" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
-                <TextBox x:Name="KeyPatternBox"
-                    PlaceholderText="Glob pattern, e.g. user:*"
+                <!-- The pattern is a filter on the server's SCAN: Return runs
+                     it, and clearing the field lists every key again. -->
+                <controls:SearchField
+                    x:Name="KeyPatternBox"
+                    PlaceholderText="Filter keys, e.g. user:*"
                     Text="{Binding ScanPattern, Mode=TwoWay}"
-                    AutomationProperties.Name="Redis key pattern" />
+                    KeyDown="OnKeyPatternKeyDown"
+                    TextChanged="OnKeyPatternTextChanged"
+                    ToolTip.Tip="A glob pattern; Return filters the key list"
+                    AutomationProperties.Name="Filter Redis keys" />
                 <Button
                     Grid.Column="1"
                     Classes="IconButton"
@@ -267,7 +252,7 @@
                   HorizontalContentAlignment="Center"
                   Classes="SecondaryButton"
                   Command="{Binding LoadMoreCommand}"
-                  Content="Load more keys"
+                  Content="Load More Keys"
                   IsVisible="{Binding !ScanComplete}"
                   AutomationProperties.Name="Load more Redis keys" />
             </Grid>
@@ -344,14 +329,12 @@
                         Command="{Binding SetExpiryCommand}"
                         Content="Apply"
                         AutomationProperties.Name="Apply the Redis time to live" />
-                    <!-- Quiet until it is one press from running, then it wears
-                         the tone of what it is about to do. -->
+                    <!-- Destructive actions on this screen share one look, the
+                         push button with a danger label; the first press arms
+                         this one and says so in its label. -->
                     <Button
                         VerticalAlignment="Center"
-                        Classes="Dense"
-                        Classes.TextButton="{Binding !IsDeleteArmed}"
-                        Classes.DestructiveButton="{Binding IsDeleteArmed}"
-                        Foreground="{DynamicResource ShellDangerBrush}"
+                        Classes="DestructiveButton Dense"
                         Command="{Binding DeleteKeyCommand}"
                         Content="{Binding DeleteKeyLabel}"
                         AutomationProperties.Name="Delete the selected Redis key" />
@@ -497,8 +480,7 @@
                       <Grid ColumnDefinitions="Auto,*,Auto">
                         <Button
                             VerticalAlignment="Center"
-                            Classes="TextButton Dense"
-                            Foreground="{DynamicResource ShellDangerBrush}"
+                            Classes="DestructiveButton Dense"
                             Command="{Binding RemoveEntryCommand}"
                             Content="{Binding RemoveEntryLabel}"
                             IsVisible="{Binding MutationForm.CanRemoveEntries}"
@@ -593,15 +575,19 @@
                             AutomationProperties.Name="Add another entry">
                           <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
                             <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellFontSize10}" />
-                            <TextBlock Text="Add row" />
+                            <TextBlock Text="Add Row" />
                           </StackPanel>
                         </Button>
                       </StackPanel>
                     </StackPanel>
 
+                    <!-- Secondary while the entry form beside it is showing its
+                         primary Save, so the value area has one default-looking
+                         action rather than two competing ones, and never none. -->
                     <Button
                         HorizontalAlignment="Right"
-                        Classes="PrimaryButton"
+                        Classes.PrimaryButton="{Binding !ShowsEntrySave}"
+                        Classes.SecondaryButton="{Binding ShowsEntrySave}"
                         Command="{Binding SaveValueCommand}"
                         Content="{Binding MutationForm.ActionLabel}"
                         AutomationProperties.Name="Write the Redis value" />
@@ -643,6 +629,7 @@
                 <TextBox
                     Classes="Dense"
                     Text="{Binding SearchQuery, Mode=TwoWay}"
+                    KeyDown="OnSearchQueryKeyDown"
                     AutomationProperties.Name="Redis search query" />
               </controls:LabeledField>
               <Button
@@ -650,7 +637,7 @@
                   VerticalAlignment="Bottom"
                   Classes="SecondaryButton Dense"
                   Command="{Binding RefreshIndexesCommand}"
-                  Content="Refresh indexes"
+                  Content="Refresh Indexes"
                   AutomationProperties.Name="Refresh the Redis search indexes" />
               <Button
                   Grid.Column="3"
@@ -714,7 +701,7 @@
                   </Grid>
                   <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="{DynamicResource ShellSpaceXs}">
                     <Button
-                        Classes="TextButton Dense"
+                        Classes="SecondaryButton Dense"
                         Command="{Binding UnsubscribeCommand}"
                         Content="Unsubscribe"
                         AutomationProperties.Name="Unsubscribe from the selected Redis subscription" />
@@ -767,9 +754,11 @@
                         Content="Sharded"
                         IsChecked="{Binding PublishSharded, Mode=TwoWay}"
                         AutomationProperties.Name="Publish to the shard channel" />
+                    <!-- Subscribe is this view's one primary action: messages
+                         only arrive once something is listening. -->
                     <Button
                         Grid.Column="1"
-                        Classes="PrimaryButton Dense"
+                        Classes="SecondaryButton Dense"
                         Command="{Binding PublishCommand}"
                         Content="Publish"
                         AutomationProperties.Name="Publish the Redis message" />
@@ -837,7 +826,7 @@
                   <TextBlock
                       VerticalAlignment="Center"
                       Classes="SectionHeading"
-                      Text="New key" />
+                      Text="New Key" />
                   <Button
                       Grid.Column="1"
                       Classes="IconButton Compact"
@@ -944,7 +933,7 @@
                         AutomationProperties.Name="Add another new key entry">
                       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
                         <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellFontSize10}" />
-                        <TextBlock Text="Add row" />
+                        <TextBlock Text="Add Row" />
                       </StackPanel>
                     </Button>
                   </StackPanel>
@@ -962,7 +951,7 @@
                     HorizontalAlignment="Right"
                     Classes="PrimaryButton"
                     Command="{Binding CreateKeyCommand}"
-                    Content="Create key"
+                    Content="Create Key"
                     AutomationProperties.Name="Create Redis key" />
               </StackPanel>
             </StackPanel>

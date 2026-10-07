@@ -2,6 +2,7 @@ using System.ComponentModel;
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 
 namespace Asura.App.Views.RuntimePanels;
@@ -9,6 +10,7 @@ namespace Asura.App.Views.RuntimePanels;
 public sealed partial class RedisRuntimePanelView : UserControl
 {
     private RedisRuntimePanelViewModel? _observedPanel;
+    private bool _synchronizingPerspective;
 
     public RedisRuntimePanelView()
     {
@@ -39,7 +41,7 @@ public sealed partial class RedisRuntimePanelView : UserControl
             _observedPanel.PropertyChanged += OnPanelPropertyChanged;
         }
 
-        SyncPerspectiveButtons();
+        SyncPerspective();
     }
 
     private void OnPanelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -47,7 +49,7 @@ public sealed partial class RedisRuntimePanelView : UserControl
         _ = sender;
         if (e.PropertyName is null or nameof(RedisRuntimePanelViewModel.Perspective))
         {
-            SyncPerspectiveButtons();
+            SyncPerspective();
         }
     }
 
@@ -77,25 +79,73 @@ public sealed partial class RedisRuntimePanelView : UserControl
         }
     }
 
-    private void OnBrowserClick(object? sender, RoutedEventArgs e) => SetPerspective(RedisWorkspacePerspective.Browser);
-    private void OnSearchClick(object? sender, RoutedEventArgs e) => SetPerspective(RedisWorkspacePerspective.Search);
-    private void OnPubSubClick(object? sender, RoutedEventArgs e) => SetPerspective(RedisWorkspacePerspective.PubSub);
-
-    private void SetPerspective(RedisWorkspacePerspective perspective)
+    private void OnPerspectiveSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (Panel is { } panel)
+        _ = sender;
+        _ = e;
+        if (_synchronizingPerspective || Panel is not { } panel || PerspectivePicker.SelectedIndex < 0)
         {
-            panel.Perspective = perspective;
+            return;
         }
 
-        SyncPerspectiveButtons();
+        panel.Perspective = (RedisWorkspacePerspective)PerspectivePicker.SelectedIndex;
+        SyncPerspective();
     }
 
-    private void SyncPerspectiveButtons()
+    private void SyncPerspective()
     {
-        BrowserButton.IsChecked = Panel?.Perspective == RedisWorkspacePerspective.Browser;
-        SearchButton.IsChecked = Panel?.Perspective == RedisWorkspacePerspective.Search;
-        PubSubButton.IsChecked = Panel?.Perspective == RedisWorkspacePerspective.PubSub;
+        _synchronizingPerspective = true;
+        try
+        {
+            PerspectivePicker.SelectedIndex = (int)(Panel?.Perspective ?? RedisWorkspacePerspective.Browser);
+        }
+        finally
+        {
+            _synchronizingPerspective = false;
+        }
+    }
+
+    // Return filters the key list by the pattern; the scan reads the server,
+    // so it runs when asked rather than on every keystroke.
+    private void OnKeyPatternKeyDown(object? sender, KeyEventArgs e)
+    {
+        _ = sender;
+        if (e.Key == Key.Enter
+            && e.KeyModifiers == KeyModifiers.None
+            && Panel?.ScanCommand is { } scan
+            && scan.CanExecute(null))
+        {
+            e.Handled = true;
+            scan.Execute(null);
+        }
+    }
+
+    // Return runs the query, as it does in every search box.
+    private void OnSearchQueryKeyDown(object? sender, KeyEventArgs e)
+    {
+        _ = sender;
+        if (e.Key == Key.Enter
+            && e.KeyModifiers == KeyModifiers.None
+            && Panel?.SearchCommand is { } search
+            && search.CanExecute(null))
+        {
+            e.Handled = true;
+            search.Execute(null);
+        }
+    }
+
+    // Clearing the field — its clear button or Escape — lists every key again,
+    // as clearing any search field shows everything it was hiding.
+    private void OnKeyPatternTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (string.IsNullOrEmpty(KeyPatternBox.Text)
+            && Panel is { IsFilteringKeys: true, ScanCommand: { } scan }
+            && scan.CanExecute(null))
+        {
+            scan.Execute(null);
+        }
     }
 
     private void OnNewKeyClick(object? sender, RoutedEventArgs e)

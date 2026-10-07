@@ -38,13 +38,14 @@ public sealed class RedisRuntimePanelViewHeadlessTests
             try
             {
                 window.Show();
-                var connect = view.FindControl<Button>("ConnectButton")!;
-                var disconnect = view.FindControl<Button>("DisconnectButton")!;
-                disconnect.IsVisible = true;
+                var connection = view.FindControl<Button>("ConnectionButton")!;
                 window.UpdateLayout();
+                AssertButtonContentFits(connection);
 
-                AssertButtonContentFits(connect);
-                AssertButtonContentFits(disconnect);
+                // The longer of its two labels fits as well.
+                connection.Content = "Disconnect";
+                window.UpdateLayout();
+                AssertButtonContentFits(connection);
             }
             finally
             {
@@ -196,7 +197,7 @@ public sealed class RedisRuntimePanelViewHeadlessTests
 
                 var create = Assert.Single(
                     sheet.GetVisualDescendants().OfType<Button>(),
-                    button => Equals(button.Content, "Create key"));
+                    button => Equals(button.Content, "Create Key"));
                 Assert.True(create.Bounds.Width > 0);
 
                 // The sheet is inside the panel: a popup could be drawn outside
@@ -316,9 +317,9 @@ public sealed class RedisRuntimePanelViewHeadlessTests
                     // The panel is a card holding everything, including these.
                     .Where(card => !card.GetVisualDescendants().OfType<DataGrid>().Any())
                     .Where(card => card.GetVisualDescendants().OfType<Button>().Any(
-                        button => Equals(button.Content, "Set value")
-                            || Equals(button.Content, "Save field")
-                            || Equals(button.Content, "Add fields")))
+                        button => Equals(button.Content, "Set Value")
+                            || Equals(button.Content, "Save Field")
+                            || Equals(button.Content, "Add Fields")))
                     .ToArray();
 
                 // Whatever the type, the forms span the same width the table
