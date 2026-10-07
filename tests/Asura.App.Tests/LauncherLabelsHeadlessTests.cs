@@ -58,18 +58,20 @@ public sealed class LauncherLabelsHeadlessTests
         await RunAsync(window =>
         {
             var launcher = Show(window, new LauncherView());
-            var headings = launcher.GetVisualDescendants()
+            // Section headings are the launcher's own text; a chooser tile's
+            // title shares the Headline role but lives in the tile's template.
+            var headingBlocks = launcher.GetVisualDescendants()
                 .OfType<TextBlock>()
-                .Where(block => block.Classes.Contains("Headline"))
-                .Select(block => block.Text)
+                .Where(block => block.Classes.Contains("Headline") && block.TemplatedParent is null)
                 .ToArray();
+            var headings = headingBlocks.Select(block => block.Text).ToArray();
 
             Assert.Equal(
                 ["Start something new", "Workspaces", "Saved connections", "Saved screens", "History"],
                 headings,
                 StringComparer.Ordinal);
             Assert.All(
-                launcher.GetVisualDescendants().OfType<TextBlock>().Where(block => block.Classes.Contains("Headline")),
+                headingBlocks,
                 block => Assert.Equal(Avalonia.Media.FontWeight.Bold, block.FontWeight));
         });
     }
