@@ -30,7 +30,7 @@
     {
       "role": "icon-composer-document",
       "path": "assets/macos/Asura.icon/icon.json",
-      "sha256": "a141251fed77afcec5c8a4fbf5944705380821e34875f0af6b1cb9109b5a7f2e"
+      "sha256": "afd7b4733060a2957f7d0e0cbd073959038fce07c281ef6da4abcceff13d4319"
     },
     {
       "role": "source-artwork",
@@ -40,7 +40,7 @@
     {
       "role": "icns-fallback",
       "path": "assets/macos/Asura.icns",
-      "sha256": "ecb81118f75b2785020c6b80623d00a5e7743f743027e9764d52ef7238078d00"
+      "sha256": "0f1c86a472575ef880bbf2e0b6883979832e5713d952552d07884c3518c6c748"
     }
   ]
 }
