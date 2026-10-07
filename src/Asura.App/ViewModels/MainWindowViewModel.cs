@@ -5438,7 +5438,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
     }
 
-    private async Task<bool> RemoveTabUnderGateAsync(
+    private async Task<bool> RemoveTabUnderGateCoreAsync(
         RuntimeWorkspaceViewModel workspace,
         RuntimeTabViewModel tab,
         CancellationToken cancellationToken,
@@ -9702,7 +9702,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     private static string CountLabel(int count, string singular) =>
         $"{count} {(count == 1 ? singular : $"{singular}s")}";
 
-    private bool IsCommandAvailable(
+    internal bool IsCommandAvailable(
         CommandId id,
         IReadOnlyDictionary<string, string> arguments)
     {
@@ -9719,7 +9719,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         if (!definition.IsAvailable(new CommandInvocation(
                 ActiveCommandContexts,
-                arguments)))
+                arguments,
+                ActiveCommandState)))
         {
             return false;
         }
@@ -9773,21 +9774,39 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 && position < Workspaces.Count;
         }
 
-        var hasTab = RuntimeWorkspace?.ActiveTab is not null;
-        var hasPanel = ActivePanel is not null;
-        var hasTerminal = ActivePanel is TerminalRuntimePanelViewModel;
-        return (id == BuiltInCommands.SplitPanel && hasPanel)
-            || (id == BuiltInCommands.FocusPanel && hasPanel)
-            || (id == BuiltInCommands.TogglePanelZoom && hasPanel)
-            || (id == BuiltInCommands.ClosePanel && hasPanel)
-            || (id == BuiltInCommands.RenameTab && hasTab)
-            || id == BuiltInCommands.CloseTab
-            || id == BuiltInCommands.NextTab
-            || id == BuiltInCommands.PreviousTab
-            || id == BuiltInCommands.LastTab
-            || id == BuiltInCommands.SelectTab
-            || (id == BuiltInCommands.EnterTerminalCopyMode && hasTerminal)
-            || (id == BuiltInCommands.SendPrefix && hasTerminal);
+        if (id == BuiltInCommands.SelectTab)
+        {
+            return arguments.TryGetValue("position", out var value)
+                && int.TryParse(
+                    value,
+                    System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var position)
+                && position < RuntimeWorkspace?.Tabs.Count;
+        }
+
+        if (id == BuiltInCommands.SplitPanel
+            || id == BuiltInCommands.FocusPanel
+            || id == BuiltInCommands.TogglePanelZoom
+            || id == BuiltInCommands.ClosePanel)
+        {
+            return ActivePanel is not null;
+        }
+
+        if (id == BuiltInCommands.RenameTab)
+        {
+            return RuntimeWorkspace?.ActiveTab is not null;
+        }
+
+        if (id == BuiltInCommands.EnterTerminalCopyMode
+            || id == BuiltInCommands.SendPrefix)
+        {
+            return ActivePanel is TerminalRuntimePanelViewModel;
+        }
+
+        // The rest are decided by their contexts and the facts the window
+        // reports, which the registry has already checked.
+        return true;
     }
 
     private RuntimeTabViewModel CreateConnectionTab(
