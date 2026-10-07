@@ -912,7 +912,7 @@
                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                           <StackPanel Spacing="{DynamicResource ShellSpace2Xs}">
                             <TextBlock FontWeight="SemiBold" Text="{Binding ConnectionName}" />
-                            <TextBlock Classes="Muted" FontFamily="{DynamicResource ShellMonoFontFamily}" Text="{Binding SessionName}" />
+                            <TextBlock Classes="Muted" FontFamily="{DynamicResource ShellDataFontFamily}" Text="{Binding SessionName}" />
                           </StackPanel>
                           <controls:StatusChip
                               Grid.Column="1"
@@ -926,7 +926,7 @@
                                 Content="End Session"
                                 AutomationProperties.Name="End managed remote session" />
                             <Button
-                                Classes="SecondaryButton"
+                                Classes="DestructiveButton"
                                 Click="OnForgetManagedRemoteSessionClick"
                                 Content="Forget"
                                 AutomationProperties.Name="Forget managed remote session record" />

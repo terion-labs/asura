@@ -1024,12 +1024,12 @@
                   <Button Content="Good" Tag="Good" Click="OnOperationControl" IsVisible="{Binding IsBisecting}" />
                   <Button Content="Bad" Tag="Bad" Click="OnOperationControl" IsVisible="{Binding IsBisecting}" />
                   <Button Content="Skip Candidate" Tag="BisectSkip" Click="OnOperationControl" IsVisible="{Binding IsBisecting}" />
-                  <Button Content="Reset Bisect" Tag="BisectReset" Click="OnOperationControl" IsVisible="{Binding IsBisecting}" />
+                  <Button Classes="DestructiveButton" Content="Reset Bisect" Tag="BisectReset" Click="OnOperationControl" IsVisible="{Binding IsBisecting}" />
                 </WrapPanel>
                 <WrapPanel ItemSpacing="{DynamicResource ShellSpaceXs}" LineSpacing="{DynamicResource ShellSpaceXs}" IsVisible="{Binding HasPendingGitFlowFinish}" IsEnabled="{Binding CanMutateRepository}">
                   <TextBlock Text="{Binding GitFlowPendingLabel}" VerticalAlignment="Center" />
                   <Button Content="Review and Resume Finish…" Click="OnGitFlowPending" />
-                  <Button Content="Discard Pending Plan…" Tag="Cancel" Click="OnGitFlowPending" />
+                  <Button Classes="DestructiveButton" Content="Discard Pending Plan…" Tag="Cancel" Click="OnGitFlowPending" />
                 </WrapPanel>
           </StackPanel>
 

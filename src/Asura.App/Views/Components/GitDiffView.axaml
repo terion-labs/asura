@@ -262,7 +262,7 @@
     <WrapPanel Grid.Row="2" ItemSpacing="{DynamicResource ShellSpaceXs}" LineSpacing="{DynamicResource ShellSpaceXs}" Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" IsVisible="{Binding IsLocalChangesSection}">
       <Button Content="Stage Selection" Tag="Stage" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding !SelectedChange.IsStaged}" />
       <Button Content="Unstage Selection" Tag="Unstage" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding SelectedChange.IsStaged}" />
-      <Button Content="Discard Selection…" Tag="Discard" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding !SelectedChange.IsStaged}" />
+      <Button Classes="DestructiveButton" Content="Discard Selection…" Tag="Discard" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding !SelectedChange.IsStaged}" />
     </WrapPanel>
     <components:GitImageDiffView Grid.Row="3" ImagePair="{Binding DiffImages}" IsVisible="{Binding HasDiffImages}" />
     <ListBox
