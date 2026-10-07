@@ -255,6 +255,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             () => _aiProviderRuntime?.Profiles ?? []);
         _connectionRuntime = connectionRuntime ?? throw new ArgumentNullException(nameof(connectionRuntime));
         _secretVault = secretVault ?? throw new ArgumentNullException(nameof(secretVault));
+        DefinitionDeleteUndo = new DefinitionDeleteUndoViewModel(_catalog, _secretVault);
         _filePanelClient = filePanelClient ?? throw new ArgumentNullException(nameof(filePanelClient));
         _fileTransferQueue = fileTransferQueue
             ?? throw new ArgumentNullException(nameof(fileTransferQueue));
@@ -592,6 +593,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public SavedScreenDeleteUndoViewModel SavedScreenDeleteUndo =>
         SavedScreenSettings.DeleteUndo;
+
+    /// <summary>Undo for the last deleted saved connection or workspace.</summary>
+    public DefinitionDeleteUndoViewModel DefinitionDeleteUndo { get; }
 
     public ClientId ClientId { get; }
 
@@ -5083,6 +5087,54 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public void DismissSavedScreenDeleteUndo() =>
         SavedScreenSettings.DismissDeleteUndo();
+
+    /// <summary>
+    /// Deletes a saved connection at once and leaves Undo in its place. Its
+    /// credentials stay until the Undo is gone.
+    /// </summary>
+    public async ValueTask<DefinitionStoreResult<Unit>> DeleteConnectionWithUndoAsync(
+        DefinitionKey key,
+        long revision,
+        CancellationToken cancellationToken)
+    {
+        ClearError();
+        var result = await DefinitionDeleteUndo.DeleteConnectionAsync(key, revision, cancellationToken);
+        ApplyError(result.Error);
+        return result;
+    }
+
+    /// <summary>
+    /// Deletes a saved workspace at once and leaves Undo in its place. An open
+    /// workspace's tabs keep running; an isolate is never deleted.
+    /// </summary>
+    public async ValueTask<DefinitionStoreResult<Unit>> DeleteWorkspaceWithUndoAsync(
+        WorkspaceId id,
+        long revision,
+        CancellationToken cancellationToken)
+    {
+        ClearError();
+        var result = await DefinitionDeleteUndo.DeleteWorkspaceAsync(
+            id,
+            revision,
+            IsDefinitionOpen(new DefinitionKey(WorkspaceDefinition.Kind, id.Value))
+                || _openWorkspaces.Any(workspace =>
+                    TryGetWorkspaceDefinitionId(workspace.Id, out var open) && open == id),
+            cancellationToken);
+        ApplyError(result.Error);
+        return result;
+    }
+
+    public async ValueTask<DefinitionStoreResult<Unit>> UndoDefinitionDeleteAsync(
+        CancellationToken cancellationToken)
+    {
+        ClearError();
+        var result = await DefinitionDeleteUndo.UndoAsync(cancellationToken);
+        ApplyError(result.Error);
+        return result;
+    }
+
+    public ValueTask DismissDefinitionDeleteUndoAsync() =>
+        DefinitionDeleteUndo.DismissAsync();
 
     public bool IsDefinitionOpen(DefinitionKey key) =>
         RuntimeWorkspace is not null && _runtimeHistorySource?.SourceDefinition == key;
@@ -12721,6 +12773,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     {
         try
         {
+            // A delete still waiting for Undo is final once the window goes.
+            await DefinitionDeleteUndo.CommitPendingAsync();
+
             await DefaultAgentPolicySettings.QuiesceAsync().ConfigureAwait(false);
 
             if (_agentRuntimeFactory is null)

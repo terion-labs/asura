@@ -41,6 +41,9 @@ internal sealed class ShellFocusNavigator(
     public void FocusSavedScreenUndo() => Post(() =>
         settingsRoute().FocusSavedScreenUndo());
 
+    public void FocusDefinitionDeleteUndo() => Post(() =>
+        window.FindControl<Button>("UndoDeletedDefinitionButton")?.Focus(NavigationMethod.Tab));
+
     public void FocusLayoutDesignerName() => Post(() =>
     {
         if (viewModel.IsLayoutDesignerVisible)

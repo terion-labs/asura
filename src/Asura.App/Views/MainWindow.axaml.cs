@@ -1075,22 +1075,14 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Deletes the connection at once, without a question: the notice it
+    /// leaves can put it back, credentials and all, and asking about an
+    /// undoable action only teaches people to stop reading the questions that
+    /// matter. Settings and the launcher both come here.
+    /// </summary>
     private async Task DeleteSavedConnectionAsync(LauncherConnectionViewModel connection)
     {
-        var noun = connection.Family switch
-        {
-            SavedConnectionFamily.Files => "file connection",
-            SavedConnectionFamily.Database => "database connection",
-            SavedConnectionFamily.Kubernetes => "Kubernetes connection",
-            _ => "connection",
-        };
-        var confirmed = await Confirmations.DefinitionDelete(noun, connection.Name)
-            .ShowDialog<bool>(this);
-        if (!confirmed)
-        {
-            return;
-        }
-
         var kind = connection.Family switch
         {
             SavedConnectionFamily.Files => FileProviderProfile.Kind,
@@ -1098,10 +1090,14 @@ public sealed partial class MainWindow : Window
             SavedConnectionFamily.Kubernetes => KubernetesConnectionProfile.Kind,
             _ => ConnectionProfile.Kind,
         };
-        _ = await ViewModel.DeleteAsync(
+        var result = await ViewModel.DeleteConnectionWithUndoAsync(
             new DefinitionKey(kind, connection.TargetId),
             connection.Revision,
             _lifetime.Token);
+        if (result.IsSuccess)
+        {
+            FocusDefinitionDeleteUndo();
+        }
     }
 
     private async Task ShowConnectionEditorAsync(LauncherConnectionViewModel? existing, Window? owner = null)
@@ -1646,39 +1642,59 @@ public sealed partial class MainWindow : Window
         FocusCurrentRoute();
     }
 
+    /// <summary>
+    /// Deletes the workspace at once and leaves Undo, which also puts it back
+    /// in its place in the rail. An open workspace's tabs keep running and an
+    /// isolated workspace's isolate is kept; the notice says which.
+    /// </summary>
     private async void OnDeleteWorkspaceClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
         if (sender is Control { DataContext: LauncherWorkspaceViewModel workspace })
         {
-            var key = new DefinitionKey(WorkspaceDefinition.Kind, workspace.Id.Value);
-            var isOpen = ViewModel.IsDefinitionOpen(key);
-            var dialog = workspace.IsIsolated
-                ? Confirmations.DefinitionDelete(
-                    "Delete isolated workspace?",
-                    isOpen
-                        ? $"“{workspace.Name}” will be removed, while its running tabs and sessions remain alive until they close."
-                        : $"“{workspace.Name}” will be permanently removed from this profile.",
-                    "This does not delete the persistent isolate or its installed packages. Remove the isolate with the platform runtime until Asura adds reset and delete controls.",
-                    "Delete Workspace")
-                : isOpen
-                ? Confirmations.DefinitionDelete(
-                    "Delete the open workspace definition?",
-                    $"“{workspace.Name}” is currently open. Its running tabs and sessions will remain alive, but this saved workspace can no longer be reopened after they close.",
-                    "Asura cannot undo this deletion.",
-                    "Delete Workspace")
-                : Confirmations.DefinitionDelete("workspace", workspace.Name);
-            var confirmed = await dialog
-                .ShowDialog<bool>(DialogOwnerFor(sender));
-            if (!confirmed)
-            {
-                return;
-            }
-
-            _ = await ViewModel.DeleteAsync(
-                key,
+            var result = await ViewModel.DeleteWorkspaceWithUndoAsync(
+                workspace.Id,
                 workspace.Revision,
                 _lifetime.Token);
+            if (result.IsSuccess)
+            {
+                FocusDefinitionDeleteUndo();
+            }
+        }
+    }
+
+    private async void OnUndoDefinitionDeleteClick(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        var result = await ViewModel.UndoDefinitionDeleteAsync(_lifetime.Token);
+        if (result.IsSuccess && IsActive)
+        {
+            FocusNavigator.FocusCurrentRoute();
+        }
+    }
+
+    private async void OnDismissDefinitionDeleteUndoClick(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        await ViewModel.DismissDefinitionDeleteUndoAsync();
+        if (IsActive)
+        {
+            FocusNavigator.FocusCurrentRoute();
+        }
+    }
+
+    /// <summary>
+    /// Keyboard focus goes to Undo, as it does after a saved screen is
+    /// deleted, when the delete was made in this window. A delete made in
+    /// Settings leaves focus there.
+    /// </summary>
+    private void FocusDefinitionDeleteUndo()
+    {
+        if (IsActive)
+        {
+            FocusNavigator.FocusDefinitionDeleteUndo();
         }
     }
 
