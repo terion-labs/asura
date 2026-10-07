@@ -337,7 +337,8 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
 
         var selected = KeybindingProfiles
             .FirstOrDefault(item => item.Id == ActiveApplicationKeymap.Id)
-            ?? KeybindingProfiles.FirstOrDefault(item => item.Id == BuiltInKeymaps.TmuxApplicationId)
+            ?? KeybindingProfiles.FirstOrDefault(item =>
+                item.Id == BuiltInKeymaps.ApplicationFor(HostPlatform.Current).Id)
             ?? KeybindingProfiles.FirstOrDefault();
         if (selected is not null)
         {
@@ -449,11 +450,12 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
                 var binding = profile.Bindings[bindingIndex];
                 _ = BuiltInCommands.Registry.TryGet(binding.CommandId, out var command);
                 var hasConflict = issues.Any(issue =>
-                    issue.BindingIndex == bindingIndex
-                    || issue.OtherBindingIndex == bindingIndex);
+                    issue.Severity == KeymapIssueSeverity.Error
+                    && (issue.BindingIndex == bindingIndex
+                        || issue.OtherBindingIndex == bindingIndex));
                 rows.Add(new(
                     command?.Category ?? "Unknown",
-                    command?.Title ?? binding.CommandId.Value,
+                    command?.TitleFor(binding.Arguments) ?? binding.CommandId.Value,
                     KeySequenceDisplay.Format(binding.Sequence),
                     profile.Name,
                     hasConflict ? "Conflict" : "Active",
@@ -494,6 +496,11 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
             ?? profile;
     }
 
+    /// <summary>
+    /// The newest custom application profile is the active one; without one,
+    /// the host's built-in default is. Choosing the tmux-like prefix on a Mac is
+    /// therefore an explicit act: clone its preset.
+    /// </summary>
     private static StoredDefinition<KeymapProfile> ResolveActiveApplicationKeymap(
         DefinitionCatalogSnapshot snapshot)
     {
@@ -509,10 +516,11 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
             return custom;
         }
 
+        var builtIn = BuiltInKeymaps.ApplicationFor(HostPlatform.Current);
         return snapshot.Keymaps
-            .FirstOrDefault(item => item.Value.Id == BuiltInKeymaps.TmuxApplicationId)
+            .FirstOrDefault(item => item.Value.Id == builtIn.Id)
             ?? new StoredDefinition<KeymapProfile>(
-                BuiltInKeymaps.TmuxApplication,
+                builtIn,
                 0,
                 DateTimeOffset.UnixEpoch,
                 DateTimeOffset.UnixEpoch);

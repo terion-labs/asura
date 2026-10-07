@@ -388,7 +388,7 @@
                 Padding="{controls:Inset Xs}"
                 Classes="IconButton"
                 Command="{Binding RunQueryCommand}"
-                ToolTip.Tip="Run the statement (⌘⏎)"
+                ToolTip.Tip="{x:Static vm:ShortcutTips.RunStatement}"
                 AutomationProperties.Name="Run the SQL statement">
               <icons:SymbolIcon
                   Symbol="Play"

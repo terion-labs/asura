@@ -27,7 +27,8 @@ internal sealed record ApplicationCommandPresentation(
     Func<Task> RenameActiveTabAsync,
     Func<Task> CloseActiveTabAsync,
     Func<int, Task> SelectWorkspaceAsync,
-    Func<Task> SendLiteralPrefixAsync);
+    Func<Task> SendLiteralPrefixAsync,
+    Action<int> FocusAdjacentArea);
 
 internal sealed record NativeMenuCommandActions(
     Action OpenNewWindow,
@@ -218,6 +219,12 @@ internal sealed class ShellCommandExecutor(
             case ApplicationCommandActionKind.SendPrefix:
                 await presentation.SendLiteralPrefixAsync();
                 presentation.FocusActivePanel();
+                return;
+            case ApplicationCommandActionKind.FocusNextArea:
+                presentation.FocusAdjacentArea(1);
+                return;
+            case ApplicationCommandActionKind.FocusPreviousArea:
+                presentation.FocusAdjacentArea(-1);
                 return;
             default:
                 throw new ArgumentOutOfRangeException(nameof(action), action.Kind, null);

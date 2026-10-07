@@ -307,7 +307,7 @@ public sealed class KeybindingSettingsEditor
                 return new KeybindingEditorRow(
                     binding.Id,
                     template.CommandId,
-                    command?.Title ?? template.CommandId.Value,
+                    command?.TitleFor(template.Arguments) ?? template.CommandId.Value,
                     command?.Category ?? "Unknown",
                     template.Contexts,
                     binding.Current?.Sequence,

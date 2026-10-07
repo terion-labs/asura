@@ -28,7 +28,6 @@ internal interface IWindowsHotkeyLoop : IDisposable
 internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
 {
     private const int PrimaryHotkeyId = 1;
-    private const int EscapeHotkeyId = 2;
     private const int ErrorHotkeyAlreadyRegistered = 1409;
     private const int ErrorInvalidHotkey = 1422;
     private const uint ModifierAlt = 0x0001;
@@ -36,7 +35,6 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
     private const uint ModifierShift = 0x0004;
     private const uint ModifierWindows = 0x0008;
     private const uint ModifierNoRepeat = 0x4000;
-    private const uint VirtualKeyEscape = 0x1B;
     private const uint VirtualKeyOem3 = 0xC0;
     private const uint VirtualKeyF1 = 0x70;
     private const uint VirtualKeyF24 = 0x87;
@@ -45,9 +43,7 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
     private readonly IWindowsHotkeyLoop _loop;
     private KeyStroke? _registeredGesture;
     private int _primaryRegistered;
-    private int _escapeRegistered;
     private long _primaryGeneration;
-    private long _escapeGeneration;
     private bool _disposed;
 
     public WindowsGlobalHotkeyService()
@@ -62,8 +58,6 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
     }
 
     public event EventHandler? Pressed;
-
-    public event EventHandler? EscapePressed;
 
     public KeyStroke? RegisteredGesture
     {
@@ -97,12 +91,12 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
             }
             catch (Win32Exception exception)
             {
-                return NativeFailure(exception.NativeErrorCode, escapeCapture: false);
+                return NativeFailure(exception.NativeErrorCode);
             }
 
             if (!nativeResult.Succeeded)
             {
-                return MapRegistrationFailure(nativeResult.ErrorCode, escapeCapture: false);
+                return MapRegistrationFailure(nativeResult.ErrorCode);
             }
 
             _registeredGesture = gesture;
@@ -120,44 +114,6 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
         }
     }
 
-    public GlobalHotkeyRegistrationResult BeginEscapeCapture()
-    {
-        lock (_lifecycleGate)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            EndEscapeCaptureCore();
-            var nativeGesture = new WindowsHotkeyGesture(
-                VirtualKeyEscape,
-                ModifierNoRepeat);
-            WindowsHotkeyNativeResult nativeResult;
-            try
-            {
-                nativeResult = _loop.Register(EscapeHotkeyId, nativeGesture);
-            }
-            catch (Win32Exception exception)
-            {
-                return NativeFailure(exception.NativeErrorCode, escapeCapture: true);
-            }
-
-            if (!nativeResult.Succeeded)
-            {
-                return MapRegistrationFailure(nativeResult.ErrorCode, escapeCapture: true);
-            }
-
-            _ = Interlocked.Increment(ref _escapeGeneration);
-            Volatile.Write(ref _escapeRegistered, 1);
-            return new GlobalHotkeyRegistrationResult.Success(new KeyStroke("ESCAPE"));
-        }
-    }
-
-    public void EndEscapeCapture()
-    {
-        lock (_lifecycleGate)
-        {
-            EndEscapeCaptureCore();
-        }
-    }
-
     public void Dispose()
     {
         lock (_lifecycleGate)
@@ -168,7 +124,6 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
             }
 
             _disposed = true;
-            EndEscapeCaptureCore();
             UnregisterPrimary();
             _loop.HotkeyPressed -= OnHotkeyPressed;
             _loop.Dispose();
@@ -273,53 +228,31 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
         _registeredGesture = null;
     }
 
-    private void EndEscapeCaptureCore()
-    {
-        if (Interlocked.Exchange(ref _escapeRegistered, 0) != 0)
-        {
-            _ = Interlocked.Increment(ref _escapeGeneration);
-            _loop.Unregister(EscapeHotkeyId);
-        }
-    }
-
     private void OnHotkeyPressed(int id)
     {
-        var generation = id switch
-        {
-            PrimaryHotkeyId when Volatile.Read(ref _primaryRegistered) != 0 =>
-                Volatile.Read(ref _primaryGeneration),
-            EscapeHotkeyId when Volatile.Read(ref _escapeRegistered) != 0 =>
-                Volatile.Read(ref _escapeGeneration),
-            _ => -1,
-        };
-        if (generation < 0)
+        if (id != PrimaryHotkeyId || Volatile.Read(ref _primaryRegistered) == 0)
         {
             return;
         }
 
+        var generation = Volatile.Read(ref _primaryGeneration);
+
         // The native message loop must never be held by presentation callbacks: registration and
         // disposal synchronously marshal work back to that same loop.
         ThreadPool.QueueUserWorkItem(
-            static state => state.Service.DispatchHotkey(state.Id, state.Generation),
-            (Service: this, Id: id, Generation: generation),
+            static state => state.Service.DispatchHotkey(state.Generation),
+            (Service: this, Generation: generation),
             preferLocal: false);
     }
 
-    private void DispatchHotkey(int id, long generation)
+    private void DispatchHotkey(long generation)
     {
         try
         {
-            if (id == PrimaryHotkeyId
-                && Volatile.Read(ref _primaryRegistered) != 0
+            if (Volatile.Read(ref _primaryRegistered) != 0
                 && Volatile.Read(ref _primaryGeneration) == generation)
             {
                 Pressed?.Invoke(this, EventArgs.Empty);
-            }
-            else if (id == EscapeHotkeyId
-                && Volatile.Read(ref _escapeRegistered) != 0
-                && Volatile.Read(ref _escapeGeneration) == generation)
-            {
-                EscapePressed?.Invoke(this, EventArgs.Empty);
             }
         }
         catch (Exception exception)
@@ -330,33 +263,24 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
         }
     }
 
-    private static GlobalHotkeyRegistrationResult MapRegistrationFailure(
-        int errorCode,
-        bool escapeCapture) => errorCode switch
+    private static GlobalHotkeyRegistrationResult MapRegistrationFailure(int errorCode) =>
+        errorCode switch
         {
             ErrorHotkeyAlreadyRegistered => Failure(
                 GlobalHotkeyRegistrationErrorCode.Conflict,
-                escapeCapture ? "escape_capture_conflict" : "global_hotkey_conflict",
-                escapeCapture
-                    ? "Another application already owns Escape while Quick Terminal is open."
-                    : "Another application already owns this global shortcut."),
+                "global_hotkey_conflict",
+                "Another application already owns this global shortcut."),
             ErrorInvalidHotkey => Failure(
                 GlobalHotkeyRegistrationErrorCode.InvalidGesture,
-                escapeCapture ? "escape_capture_invalid" : "global_hotkey_invalid_gesture",
-                escapeCapture
-                    ? "Windows rejected transient Escape capture."
-                    : "Windows rejected the selected global shortcut."),
-            _ => NativeFailure(errorCode, escapeCapture),
+                "global_hotkey_invalid_gesture",
+                "Windows rejected the selected global shortcut."),
+            _ => NativeFailure(errorCode),
         };
 
-    private static GlobalHotkeyRegistrationResult NativeFailure(
-        int errorCode,
-        bool escapeCapture) => Failure(
+    private static GlobalHotkeyRegistrationResult NativeFailure(int errorCode) => Failure(
         GlobalHotkeyRegistrationErrorCode.NativeFailure,
-        escapeCapture ? "escape_capture_native_failure" : "global_hotkey_native_failure",
-        escapeCapture
-            ? $"Windows could not capture Escape (Win32 error {errorCode})."
-            : $"Windows could not register the global shortcut (Win32 error {errorCode}).");
+        "global_hotkey_native_failure",
+        $"Windows could not register the global shortcut (Win32 error {errorCode}).");
 
     private static GlobalHotkeyRegistrationResult Failure(
         GlobalHotkeyRegistrationErrorCode code,

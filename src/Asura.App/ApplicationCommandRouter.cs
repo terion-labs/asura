@@ -22,6 +22,8 @@ internal enum ApplicationCommandActionKind
     SelectWorkspace,
     EnterTerminalCopyMode,
     SendPrefix,
+    FocusNextArea,
+    FocusPreviousArea,
 }
 
 internal sealed record ApplicationCommandAction(
@@ -155,6 +157,16 @@ internal static class ApplicationCommandRouter
         if (commandId == BuiltInCommands.SendPrefix)
         {
             return Success(ApplicationCommandActionKind.SendPrefix);
+        }
+
+        if (commandId == BuiltInCommands.FocusNextArea)
+        {
+            return Success(ApplicationCommandActionKind.FocusNextArea);
+        }
+
+        if (commandId == BuiltInCommands.FocusPreviousArea)
+        {
+            return Success(ApplicationCommandActionKind.FocusPreviousArea);
         }
 
         return Failure($"Command '{definition.Title}' is not an application command.");

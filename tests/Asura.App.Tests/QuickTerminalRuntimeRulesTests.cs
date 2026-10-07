@@ -19,18 +19,22 @@ public sealed class QuickTerminalRuntimeRulesTests
                 hideOnFocusLoss));
 
     [Theory]
-    [InlineData(false, false, 0)]
-    [InlineData(true, true, 1)]
-    [InlineData(true, false, 2)]
-    public void EscapeCancelsPendingInteractionBeforeHiding(
+    [InlineData(false, false, false, 0)]
+    [InlineData(true, true, false, 1)]
+    [InlineData(true, true, true, 1)]
+    [InlineData(true, false, false, 0)]
+    [InlineData(true, false, true, 2)]
+    public void EscapeReachesTheTerminalUnlessAsuraPromptsOrTheSettingHides(
         bool isVisible,
         bool pendingInteractionCancelled,
+        bool hideOnEscape,
         int expected) =>
         Assert.Equal(
             (QuickTerminalEscapeAction)expected,
             QuickTerminalRuntimeRules.ResolveEscape(
                 isVisible,
-                pendingInteractionCancelled));
+                pendingInteractionCancelled,
+                hideOnEscape));
 
     [Fact]
     public void HiddenSessionIsReusedOnlyWhenRestoreIsEnabled()

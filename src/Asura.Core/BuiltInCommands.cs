@@ -22,6 +22,8 @@ public static class BuiltInCommands
     public static CommandId SelectWorkspace { get; } = new("workspace.select-position");
     public static CommandId EnterTerminalCopyMode { get; } = new("terminal.copy-mode");
     public static CommandId SendPrefix { get; } = new("terminal.send-prefix");
+    public static CommandId FocusNextArea { get; } = new("window.focus-next-area");
+    public static CommandId FocusPreviousArea { get; } = new("window.focus-previous-area");
 
     public static CommandId Copy { get; } = new("terminal.copy");
     public static CommandId Paste { get; } = new("terminal.paste");
@@ -54,56 +56,92 @@ public static class BuiltInCommands
 
         return new CommandRegistry(
         [
-            Define(NewTab, "New tab", "Tabs", CommandContext.Workspace),
-            Define(SplitPanel, "Split panel", "Panels", CommandContext.Panel, orientationSchema),
-            Define(FocusPanel, "Focus panel", "Panels", CommandContext.Panel, directionSchema),
-            Define(TogglePanelZoom, "Toggle panel zoom", "Panels", CommandContext.Panel),
-            Define(ClosePanel, "Close panel", "Panels", CommandContext.Panel),
-            Define(RenameTab, "Rename tab", "Tabs", CommandContext.Tab),
-            Define(CloseTab, "Close tab", "Tabs", CommandContext.Tab),
-            Define(MoveTabLeft, "Move tab left", "Tabs", CommandContext.Tab),
-            Define(MoveTabRight, "Move tab right", "Tabs", CommandContext.Tab),
+            Define(NewTab, "New Tab", "Tabs", CommandContext.Workspace),
             Define(
-                MoveTabToWorkspace,
-                "Move tab to open workspace",
-                "Tabs",
-                CommandContext.Tab,
-                positionSchema),
-            Define(
-                MovePanelToWorkspace,
-                "Move panel to open workspace",
+                SplitPanel,
+                "Split Panel",
                 "Panels",
                 CommandContext.Panel,
-                positionSchema),
-            Define(NextTab, "Next tab", "Tabs", CommandContext.Tab),
-            Define(PreviousTab, "Previous tab", "Tabs", CommandContext.Tab),
-            Define(LastTab, "Last active tab", "Tabs", CommandContext.Tab),
-            Define(SelectTab, "Select tab by position", "Tabs", CommandContext.Tab, positionSchema),
+                orientationSchema,
+                arguments => arguments.GetValueOrDefault("orientation") switch
+                {
+                    "left-right" => "Split Panel Right",
+                    "top-bottom" => "Split Panel Down",
+                    _ => null,
+                }),
+            Define(
+                FocusPanel,
+                "Focus Panel",
+                "Panels",
+                CommandContext.Panel,
+                directionSchema,
+                arguments => arguments.GetValueOrDefault("direction") switch
+                {
+                    "left" => "Focus Panel Left",
+                    "right" => "Focus Panel Right",
+                    "up" => "Focus Panel Up",
+                    "down" => "Focus Panel Down",
+                    "next" => "Focus Next Panel",
+                    _ => null,
+                }),
+            Define(TogglePanelZoom, "Toggle Panel Zoom", "Panels", CommandContext.Panel),
+            Define(ClosePanel, "Close Panel", "Panels", CommandContext.Panel),
+            Define(RenameTab, "Rename Tab", "Tabs", CommandContext.Tab),
+            Define(CloseTab, "Close Tab", "Tabs", CommandContext.Tab),
+            Define(MoveTabLeft, "Move Tab Left", "Tabs", CommandContext.Tab),
+            Define(MoveTabRight, "Move Tab Right", "Tabs", CommandContext.Tab),
+            Define(
+                MoveTabToWorkspace,
+                "Move Tab to Open Workspace",
+                "Tabs",
+                CommandContext.Tab,
+                positionSchema,
+                arguments => PositionTitle("Move Tab to Workspace", arguments)),
+            Define(
+                MovePanelToWorkspace,
+                "Move Panel to Open Workspace",
+                "Panels",
+                CommandContext.Panel,
+                positionSchema,
+                arguments => PositionTitle("Move Panel to Workspace", arguments)),
+            Define(NextTab, "Show Next Tab", "Tabs", CommandContext.Tab),
+            Define(PreviousTab, "Show Previous Tab", "Tabs", CommandContext.Tab),
+            Define(LastTab, "Show Last Active Tab", "Tabs", CommandContext.Tab),
+            Define(
+                SelectTab,
+                "Select Tab by Position",
+                "Tabs",
+                CommandContext.Tab,
+                positionSchema,
+                arguments => PositionTitle("Select Tab", arguments)),
             Define(
                 SelectWorkspace,
-                "Select workspace by position",
+                "Go to Workspace by Position",
                 "Workspaces",
                 CommandContext.Window,
-                positionSchema),
-            Define(EnterTerminalCopyMode, "Enter terminal copy mode", "Terminal", CommandContext.Terminal),
-            Define(SendPrefix, "Send literal prefix", "Terminal", CommandContext.Terminal),
+                positionSchema,
+                arguments => PositionTitle("Go to Workspace", arguments)),
+            Define(FocusNextArea, "Move Focus to Next Area", "Window", CommandContext.Window),
+            Define(FocusPreviousArea, "Move Focus to Previous Area", "Window", CommandContext.Window),
+            Define(EnterTerminalCopyMode, "Enter Terminal Copy Mode", "Terminal", CommandContext.Terminal),
+            Define(SendPrefix, "Send Literal Prefix", "Terminal", CommandContext.Terminal),
             Define(Copy, "Copy", "Terminal", CommandContext.Terminal),
             Define(Paste, "Paste", "Terminal", CommandContext.Terminal),
-            Define(SelectAll, "Select visible terminal content", "Terminal", CommandContext.Terminal),
-            Define(MoveWordLeft, "Move one word left", "Terminal", CommandContext.Terminal),
-            Define(MoveWordRight, "Move one word right", "Terminal", CommandContext.Terminal),
-            Define(DeleteWordBackward, "Delete previous word", "Terminal", CommandContext.Terminal),
-            Define(DeleteWordForward, "Delete next word", "Terminal", CommandContext.Terminal),
-            Define(MoveToLineStart, "Move to line start", "Terminal", CommandContext.Terminal),
-            Define(MoveToLineEnd, "Move to line end", "Terminal", CommandContext.Terminal),
+            Define(SelectAll, "Select Visible Terminal Content", "Terminal", CommandContext.Terminal),
+            Define(MoveWordLeft, "Move One Word Left", "Terminal", CommandContext.Terminal),
+            Define(MoveWordRight, "Move One Word Right", "Terminal", CommandContext.Terminal),
+            Define(DeleteWordBackward, "Delete Previous Word", "Terminal", CommandContext.Terminal),
+            Define(DeleteWordForward, "Delete Next Word", "Terminal", CommandContext.Terminal),
+            Define(MoveToLineStart, "Move to Line Start", "Terminal", CommandContext.Terminal),
+            Define(MoveToLineEnd, "Move to Line End", "Terminal", CommandContext.Terminal),
             Define(Find, "Find", "Terminal", CommandContext.Terminal),
-            Define(IncreaseFontSize, "Increase font size", "Terminal", CommandContext.Terminal),
-            Define(DecreaseFontSize, "Decrease font size", "Terminal", CommandContext.Terminal),
-            Define(ResetFontSize, "Reset font size", "Terminal", CommandContext.Terminal),
-            Define(ClearScrollback, "Clear scrollback", "Terminal", CommandContext.Terminal),
-            Define(SendInterrupt, "Send interrupt", "Terminal", CommandContext.Terminal),
-            Define(SendEndOfFile, "Send end of file", "Terminal", CommandContext.Terminal),
-            Define(ClearScreen, "Clear screen", "Terminal", CommandContext.Terminal),
+            Define(IncreaseFontSize, "Increase Font Size", "Terminal", CommandContext.Terminal),
+            Define(DecreaseFontSize, "Decrease Font Size", "Terminal", CommandContext.Terminal),
+            Define(ResetFontSize, "Reset Font Size", "Terminal", CommandContext.Terminal),
+            Define(ClearScrollback, "Clear Scrollback", "Terminal", CommandContext.Terminal),
+            Define(SendInterrupt, "Send Interrupt", "Terminal", CommandContext.Terminal),
+            Define(SendEndOfFile, "Send End of File", "Terminal", CommandContext.Terminal),
+            Define(ClearScreen, "Clear Screen", "Terminal", CommandContext.Terminal),
         ]);
     }
 
@@ -112,13 +150,34 @@ public static class BuiltInCommands
         string title,
         string category,
         CommandContext contexts,
-        CommandParameterSchema? parameters = null)
+        CommandParameterSchema? parameters = null,
+        Func<IReadOnlyDictionary<string, string>, string?>? invocationTitle = null)
     {
         var defaults = BuiltInKeymaps.All
             .SelectMany(profile => profile.Bindings)
             .Where(binding => binding.CommandId == id)
             .ToArray();
 
-        return new CommandDefinition(id, title, category, contexts, parameters, defaults);
+        return new CommandDefinition(
+            id,
+            title,
+            category,
+            contexts,
+            parameters,
+            defaults,
+            invocationTitle: invocationTitle);
     }
+
+    // Positions are stored from zero, as the router reads them; people count
+    // tabs and workspaces from one.
+    private static string? PositionTitle(
+        string title,
+        IReadOnlyDictionary<string, string> arguments) =>
+        int.TryParse(
+            arguments.GetValueOrDefault("position"),
+            System.Globalization.NumberStyles.None,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var position)
+            ? $"{title} {position + 1}"
+            : null;
 }

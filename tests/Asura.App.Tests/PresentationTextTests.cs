@@ -53,40 +53,50 @@ public sealed class EnumDisplayConverterTests
 
 public sealed class KeySequenceDisplayTests
 {
-    [Theory]
-    [InlineData("ARROWLEFT", "←")]
-    [InlineData("ARROWRIGHT", "→")]
-    [InlineData("PAGEUP", "Page Up")]
-    [InlineData("ESCAPE", "Esc")]
-    [InlineData("X", "X")]
-    [InlineData("F12", "F12")]
-    public void Stored_key_names_render_for_people(string key, string expected) =>
-        Assert.Equal(expected, KeySequenceDisplay.Format(new KeyStroke(key)));
-
+    /// <summary>
+    /// Every surface that shows a shortcut writes it the way this host does;
+    /// the notation itself is <see cref="ShortcutText"/>'s and tested there.
+    /// </summary>
     [Fact]
-    public void Modifiers_precede_the_key()
+    public void Shortcuts_are_written_in_the_host_notation()
     {
-        var stroke = new KeyStroke("B", KeyModifiers.Control);
-        Assert.Equal("Ctrl+B", KeySequenceDisplay.Format(stroke));
-    }
-
-    [Fact]
-    public void A_sequence_separates_its_strokes()
-    {
-        var sequence = new KeySequence(
-        [
+        var sequence = KeySequence.Of(
             new KeyStroke("B", KeyModifiers.Control),
-            new KeyStroke("ARROWLEFT"),
-        ]);
+            new KeyStroke("ARROWLEFT"));
 
-        Assert.Equal("Ctrl+B, ←", KeySequenceDisplay.Format(sequence));
+        Assert.Equal(
+            ShortcutText.Format(sequence, HostPlatform.Current),
+            KeySequenceDisplay.Format(sequence));
+        Assert.Equal(
+            HostPlatform.Current == HostOperatingSystem.MacOS ? "⌃B ←" : "Ctrl+B, ←",
+            KeySequenceDisplay.Format(sequence));
     }
 
     [Fact]
-    public void Formatting_never_changes_the_stored_comparison_form()
+    public void Tooltips_name_the_shortcut_after_the_label()
     {
-        var stroke = new KeyStroke("arrowleft");
-        Assert.Equal("ARROWLEFT", stroke.Key);
-        Assert.Equal("←", KeySequenceDisplay.Format(stroke));
+        var stroke = new KeyStroke("W", KeyModifiers.Meta);
+
+        Assert.Equal(
+            $"Close tab ({ShortcutText.Format(stroke, HostPlatform.Current)})",
+            KeySequenceDisplay.WithShortcut("Close tab", stroke));
+        Assert.Equal("Close tab", KeySequenceDisplay.WithShortcut("Close tab", null));
+    }
+
+    [Fact]
+    public void Toolbar_tooltips_name_their_menu_shortcut_on_a_mac()
+    {
+        if (HostPlatform.Current == HostOperatingSystem.MacOS)
+        {
+            Assert.Equal("Close tab (⌘W)", ShortcutTips.CloseTab);
+            Assert.Equal("New tab (⌥⌘T)", ShortcutTips.NewTab);
+            Assert.Equal("Toggle agent panel (⌃⌘A)", ShortcutTips.ToggleAgentPanel);
+            Assert.Equal("Add panel (⇧⌘D)", ShortcutTips.AddPanel);
+        }
+        else
+        {
+            Assert.Equal("Close tab", ShortcutTips.CloseTab);
+            Assert.Equal("New tab", ShortcutTips.NewTab);
+        }
     }
 }

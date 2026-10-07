@@ -8,7 +8,8 @@ public sealed class BuiltInKeymapsTests
         var profile = BuiltInKeymaps.TmuxApplication;
 
         Assert.Equal(new KeyStroke("B", KeyModifiers.Control), profile.Prefix?.Stroke);
-        Assert.Equal(FailedSequenceBehavior.DiscardAndShowHint, profile.Prefix?.FailedSequenceBehavior);
+        // A lone or unbound Control-B goes back to readline, vim, or nested tmux.
+        Assert.Equal(FailedSequenceBehavior.PassThrough, profile.Prefix?.FailedSequenceBehavior);
         Assert.True(profile.Prefix?.Repeatable);
         Assert.Contains(profile.Bindings, binding => binding.CommandId == BuiltInCommands.NewTab);
         Assert.Contains(profile.Bindings, binding => binding.CommandId == BuiltInCommands.SplitPanel);
@@ -52,6 +53,86 @@ public sealed class BuiltInKeymapsTests
                 new KeyStroke((position + 1).ToString(System.Globalization.CultureInfo.InvariantCulture), KeyModifiers.Meta),
                 binding.Sequence[0]);
             Assert.Equal(position.ToString(System.Globalization.CultureInfo.InvariantCulture), binding.Arguments["position"]);
+        }
+    }
+
+    [Theory]
+    [InlineData(HostOperatingSystem.MacOS, "builtin.application.macos")]
+    [InlineData(HostOperatingSystem.Windows, "builtin.application.tmux")]
+    [InlineData(HostOperatingSystem.Linux, "builtin.application.tmux")]
+    public void Mac_starts_with_command_shortcuts_and_other_hosts_keep_the_prefix(
+        HostOperatingSystem host,
+        string expectedId)
+    {
+        Assert.Equal(expectedId, BuiltInKeymaps.ApplicationFor(host).Id.Value);
+    }
+
+    [Fact]
+    public void Mac_application_map_agrees_with_the_menu_bar_and_has_no_prefix()
+    {
+        var profile = BuiltInKeymaps.MacOsApplication;
+
+        Assert.Equal(KeymapLayer.Application, profile.Layer);
+        Assert.Null(profile.Prefix);
+        Assert.All(profile.Bindings, binding => Assert.Equal(1, binding.Sequence.Count));
+        Assert.Equal(new KeyStroke("T", KeyModifiers.Alt | KeyModifiers.Meta), Shortcut(profile, BuiltInCommands.NewTab));
+        Assert.Equal(new KeyStroke("W", KeyModifiers.Meta), Shortcut(profile, BuiltInCommands.CloseTab));
+        Assert.Equal(new KeyStroke("W", KeyModifiers.Alt | KeyModifiers.Meta), Shortcut(profile, BuiltInCommands.ClosePanel));
+        Assert.Equal(new KeyStroke("F6", KeyModifiers.Control), Shortcut(profile, BuiltInCommands.FocusNextArea));
+        Assert.Equal(
+            new KeyStroke("F6", KeyModifiers.Control | KeyModifiers.Shift),
+            Shortcut(profile, BuiltInCommands.FocusPreviousArea));
+
+        foreach (var binding in profile.Bindings)
+        {
+            if (MacOsStandardShortcuts.TryFindMenu(binding.Sequence[0], out var menu))
+            {
+                Assert.Equal(menu.CommandId, binding.CommandId);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Shift-Command-3, -4, and -5 take screenshots before Asura sees them.
+    /// </summary>
+    [Fact]
+    public void Moving_a_tab_to_a_workspace_avoids_the_screenshot_shortcuts()
+    {
+        foreach (var profile in BuiltInKeymaps.All.Where(item => item.Layer == KeymapLayer.Application))
+        {
+            var moves = profile.Bindings
+                .Where(binding => binding.CommandId == BuiltInCommands.MoveTabToWorkspace)
+                .ToArray();
+
+            Assert.Equal(9, moves.Length);
+            Assert.All(moves, binding => Assert.Equal(
+                KeyModifiers.Control | KeyModifiers.Meta,
+                binding.Sequence[0].Modifiers));
+        }
+    }
+
+    /// <summary>
+    /// No built-in binding on a Mac is one macOS or the menu bar answers for
+    /// another command, so none of them is dead on arrival.
+    /// </summary>
+    [Fact]
+    public void Mac_built_in_maps_never_bind_a_reserved_shortcut()
+    {
+        foreach (var profile in new[]
+        {
+            BuiltInKeymaps.MacOsApplication,
+            BuiltInKeymaps.TmuxApplication,
+            BuiltInKeymaps.MacOsTerminal,
+        })
+        {
+            var issues = KeymapConflictValidator.Validate(
+                profile,
+                BuiltInCommands.Registry,
+                HostOperatingSystem.MacOS);
+
+            Assert.DoesNotContain(issues, issue => issue.Kind
+                is KeymapIssueKind.SystemShortcut
+                or KeymapIssueKind.MenuShortcut);
         }
     }
 
@@ -107,6 +188,9 @@ public sealed class BuiltInKeymapsTests
     public void VisibleOnlyTerminalSelectionIsNamedHonestly()
     {
         Assert.True(BuiltInCommands.Registry.TryGet(BuiltInCommands.SelectAll, out var command));
-        Assert.Equal("Select visible terminal content", command?.Title);
+        Assert.Equal("Select Visible Terminal Content", command?.Title);
     }
+
+    private static KeyStroke Shortcut(KeymapProfile profile, CommandId commandId) =>
+        Assert.Single(profile.Bindings, binding => binding.CommandId == commandId).Sequence[0];
 }

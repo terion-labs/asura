@@ -17,7 +17,8 @@ public sealed partial class MainWindow
             CloseActiveTabAsync,
             position => OpenRuntimeWorkspaceAsync(token =>
                 ViewModel.SelectWorkspaceAtPositionAsync(position, token)),
-            SendLiteralPrefixAsync),
+            SendLiteralPrefixAsync,
+            FocusNavigator.FocusAdjacentArea),
         new NativeMenuCommandActions(
             AsuraApplication.OpenNewWindow,
             () => AsuraApplication.OpenNewTabAsync(this),

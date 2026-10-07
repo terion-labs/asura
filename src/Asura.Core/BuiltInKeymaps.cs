@@ -6,11 +6,13 @@ public static class BuiltInKeymaps
 {
     private static readonly KeyStroke TmuxPrefix = new("B", KeyModifiers.Control);
 
+    public static KeymapProfileId MacOsApplicationId { get; } = new("builtin.application.macos");
     public static KeymapProfileId TmuxApplicationId { get; } = new("builtin.application.tmux");
     public static KeymapProfileId MacOsTerminalId { get; } = new("builtin.terminal.macos-native");
     public static KeymapProfileId WindowsTerminalId { get; } = new("builtin.terminal.windows-native");
     public static KeymapProfileId LinuxTerminalId { get; } = new("builtin.terminal.linux-native");
 
+    public static KeymapProfile MacOsApplication { get; } = CreateMacOsApplication();
     public static KeymapProfile TmuxApplication { get; } = CreateTmuxApplication();
     public static KeymapProfile MacOsTerminal { get; } = CreateMacOsTerminal();
     public static KeymapProfile WindowsTerminal { get; } = CreateWindowsTerminal();
@@ -18,11 +20,25 @@ public static class BuiltInKeymaps
 
     public static ImmutableArray<KeymapProfile> All { get; } =
     [
+        MacOsApplication,
         TmuxApplication,
         MacOsTerminal,
         WindowsTerminal,
         LinuxTerminal,
     ];
+
+    /// <summary>
+    /// The application keymap a host starts with. A Mac answers to Command
+    /// shortcuts, so the tmux-like prefix there is something people choose, not
+    /// something that takes Control-B from every text field before they know it
+    /// exists.
+    /// </summary>
+    public static KeymapProfile ApplicationFor(HostOperatingSystem operatingSystem) => operatingSystem switch
+    {
+        HostOperatingSystem.MacOS => MacOsApplication,
+        HostOperatingSystem.Windows or HostOperatingSystem.Linux => TmuxApplication,
+        _ => throw new ArgumentOutOfRangeException(nameof(operatingSystem), operatingSystem, null),
+    };
 
     public static KeymapProfile TerminalFor(HostOperatingSystem operatingSystem) => operatingSystem switch
     {
@@ -38,7 +54,9 @@ public static class BuiltInKeymaps
             TmuxPrefix,
             TimeSpan.FromMilliseconds(750),
             repeatable: true,
-            FailedSequenceBehavior.DiscardAndShowHint);
+            // A lone Control-B, or Control-B and an unbound key, belongs to the
+            // program that has focus: readline, vim, or a nested tmux.
+            FailedSequenceBehavior.PassThrough);
 
         var bindings = new List<CommandBinding>
         {
@@ -95,29 +113,8 @@ public static class BuiltInKeymaps
                 ("position", position.ToString(System.Globalization.CultureInfo.InvariantCulture))));
         }
 
-        for (var position = 0; position < 9; position++)
-        {
-            var key = (position + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
-            var argument = position.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            bindings.Add(Direct(
-                BuiltInCommands.SelectWorkspace,
-                key,
-                KeyModifiers.Meta,
-                CommandContext.Window,
-                ("position", argument)));
-            bindings.Add(Direct(
-                BuiltInCommands.MoveTabToWorkspace,
-                key,
-                KeyModifiers.Meta | KeyModifiers.Shift,
-                CommandContext.Tab,
-                ("position", argument)));
-            bindings.Add(Direct(
-                BuiltInCommands.MovePanelToWorkspace,
-                key,
-                KeyModifiers.Meta | KeyModifiers.Alt,
-                CommandContext.Panel,
-                ("position", argument)));
-        }
+        bindings.AddRange(WorkspaceBindings());
+        bindings.AddRange(FocusAreaBindings());
 
         return new KeymapProfile(
             TmuxApplicationId,
@@ -126,6 +123,136 @@ public static class BuiltInKeymaps
             bindings,
             prefix);
     }
+
+    /// <summary>
+    /// Direct Command shortcuts that agree with the menu bar. Commands the menu
+    /// bar owns outright, such as New Window or the Command Palette, are not
+    /// keymap commands; the ones here are the menu's keymap counterparts plus
+    /// panel navigation, which has no standard Mac shortcut and uses
+    /// Option-Command arrows.
+    /// </summary>
+    private static KeymapProfile CreateMacOsApplication()
+    {
+        var bindings = new List<CommandBinding>
+        {
+            Direct(BuiltInCommands.NewTab, "T", KeyModifiers.Alt | KeyModifiers.Meta, CommandContext.Workspace),
+            Direct(BuiltInCommands.CloseTab, "W", KeyModifiers.Meta, CommandContext.Tab),
+            Direct(BuiltInCommands.ClosePanel, "W", KeyModifiers.Alt | KeyModifiers.Meta, CommandContext.Panel),
+            Direct(
+                BuiltInCommands.PreviousTab,
+                "OEMOPENBRACKETS",
+                KeyModifiers.Shift | KeyModifiers.Meta,
+                CommandContext.Tab),
+            Direct(
+                BuiltInCommands.NextTab,
+                "OEMCLOSEBRACKETS",
+                KeyModifiers.Shift | KeyModifiers.Meta,
+                CommandContext.Tab),
+            Direct(
+                BuiltInCommands.SplitPanel,
+                "D",
+                KeyModifiers.Meta,
+                CommandContext.Panel,
+                ("orientation", "left-right")),
+            Direct(
+                BuiltInCommands.SplitPanel,
+                "D",
+                KeyModifiers.Alt | KeyModifiers.Shift | KeyModifiers.Meta,
+                CommandContext.Panel,
+                ("orientation", "top-bottom")),
+            Direct(
+                BuiltInCommands.FocusPanel,
+                "ARROWLEFT",
+                KeyModifiers.Alt | KeyModifiers.Meta,
+                CommandContext.Panel,
+                ("direction", "left")),
+            Direct(
+                BuiltInCommands.FocusPanel,
+                "ARROWRIGHT",
+                KeyModifiers.Alt | KeyModifiers.Meta,
+                CommandContext.Panel,
+                ("direction", "right")),
+            Direct(
+                BuiltInCommands.FocusPanel,
+                "ARROWUP",
+                KeyModifiers.Alt | KeyModifiers.Meta,
+                CommandContext.Panel,
+                ("direction", "up")),
+            Direct(
+                BuiltInCommands.FocusPanel,
+                "ARROWDOWN",
+                KeyModifiers.Alt | KeyModifiers.Meta,
+                CommandContext.Panel,
+                ("direction", "down")),
+            Direct(
+                BuiltInCommands.FocusPanel,
+                "OEMCLOSEBRACKETS",
+                KeyModifiers.Meta,
+                CommandContext.Panel,
+                ("direction", "next")),
+            Direct(
+                BuiltInCommands.TogglePanelZoom,
+                "ENTER",
+                KeyModifiers.Shift | KeyModifiers.Meta,
+                CommandContext.Panel),
+        };
+
+        bindings.AddRange(WorkspaceBindings());
+        bindings.AddRange(FocusAreaBindings());
+
+        return new KeymapProfile(
+            MacOsApplicationId,
+            "macOS application",
+            KeymapLayer.Application,
+            bindings);
+    }
+
+    /// <summary>
+    /// Command and a number goes to a workspace. Moving a tab or panel adds
+    /// Control or Option rather than Shift: Shift-Command-3, -4, and -5 take
+    /// screenshots and never reach the app.
+    /// </summary>
+    private static IEnumerable<CommandBinding> WorkspaceBindings()
+    {
+        for (var position = 0; position < 9; position++)
+        {
+            var key = (position + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var argument = position.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            yield return Direct(
+                BuiltInCommands.SelectWorkspace,
+                key,
+                KeyModifiers.Meta,
+                CommandContext.Window,
+                ("position", argument));
+            yield return Direct(
+                BuiltInCommands.MoveTabToWorkspace,
+                key,
+                KeyModifiers.Control | KeyModifiers.Meta,
+                CommandContext.Tab,
+                ("position", argument));
+            yield return Direct(
+                BuiltInCommands.MovePanelToWorkspace,
+                key,
+                KeyModifiers.Alt | KeyModifiers.Meta,
+                CommandContext.Panel,
+                ("position", argument));
+        }
+    }
+
+    /// <summary>
+    /// Control-F6 and Control-Shift-F6 move between the window's areas, as
+    /// they do in AppKit, so keyboard focus can leave a terminal that sends
+    /// every Tab to its shell.
+    /// </summary>
+    private static IEnumerable<CommandBinding> FocusAreaBindings() =>
+    [
+        Direct(BuiltInCommands.FocusNextArea, "F6", KeyModifiers.Control, CommandContext.Window),
+        Direct(
+            BuiltInCommands.FocusPreviousArea,
+            "F6",
+            KeyModifiers.Control | KeyModifiers.Shift,
+            CommandContext.Window),
+    ];
 
     private static KeymapProfile CreateMacOsTerminal() => new(
         MacOsTerminalId,

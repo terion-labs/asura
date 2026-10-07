@@ -9,15 +9,16 @@ namespace Asura.App.Tests;
 public sealed class MainWindowKeybindingEditorTests
 {
     [Fact]
-    public void Opening_keybinding_settings_selects_the_tmux_preset_and_clone_is_editable()
+    public void Opening_keybinding_settings_selects_the_host_default_preset_and_clone_is_editable()
     {
+        var hostDefault = BuiltInKeymaps.ApplicationFor(HostPlatform.Current);
         var catalog = new RecordingDefinitionCatalog(KeymapSnapshot());
         using var viewModel = CreateViewModel(catalog);
 
         viewModel.ShowSettings(SettingsPage.Keybindings);
 
         Assert.Equal(ShellRoute.Settings, viewModel.Route);
-        Assert.Equal(BuiltInKeymaps.TmuxApplicationId, viewModel.SelectedKeybindingProfile?.Id);
+        Assert.Equal(hostDefault.Id, viewModel.SelectedKeybindingProfile?.Id);
         Assert.True(viewModel.CanCloneSelectedKeybindingProfile);
         Assert.True(viewModel.KeybindingEditorSession?.IsReadOnly);
 
@@ -28,13 +29,13 @@ public sealed class MainWindowKeybindingEditorTests
         var session = Assert.IsType<KeybindingEditorSessionViewModel>(
             viewModel.KeybindingEditorSession);
         Assert.StartsWith("user.keymap.", clone.Id.Value, StringComparison.Ordinal);
-        Assert.Equal("tmux-like application copy", clone.Name);
+        Assert.Equal($"{hostDefault.Name} copy", clone.Name);
         Assert.True(clone.IsUnsaved);
         Assert.False(clone.IsBuiltIn);
         Assert.Null(clone.Revision);
         Assert.False(session.IsReadOnly);
         Assert.Equal(clone.Id, session.ProfileId);
-        Assert.Equal(BuiltInKeymaps.TmuxApplicationId, session.Editor.BasedOn);
+        Assert.Equal(hostDefault.Id, session.Editor.BasedOn);
         Assert.Contains(viewModel.KeybindingProfiles, item => item.Id == clone.Id);
         Assert.False(viewModel.HasOperationError);
     }
@@ -61,7 +62,7 @@ public sealed class MainWindowKeybindingEditorTests
         var saved = Assert.IsType<StoredDefinition<KeymapProfile>>(result.Value);
         Assert.Null(catalog.LastExpectedRevision);
         Assert.Equal(saved.Value.Id, catalog.LastSavedKeymap?.Id);
-        Assert.Equal(BuiltInKeymaps.TmuxApplicationId, saved.Value.BasedOn);
+        Assert.Equal(BuiltInKeymaps.ApplicationFor(HostPlatform.Current).Id, saved.Value.BasedOn);
         Assert.Equal(
             KeySequence.Of(new KeyStroke("T", KeyModifiers.Control | KeyModifiers.Shift)),
             Assert.Single(
@@ -81,7 +82,7 @@ public sealed class MainWindowKeybindingEditorTests
         Assert.Equal(saved.Value.Id, viewModel.ActiveApplicationKeymap.Id);
         Assert.Equal(saved.Revision, viewModel.ActiveApplicationKeymapRevision);
         Assert.Equal(
-            KeySequence.Of(new KeyStroke("T", KeyModifiers.Control | KeyModifiers.Shift)).ToString(),
+            KeySequenceDisplay.Format(KeySequence.Of(new KeyStroke("T", KeyModifiers.Control | KeyModifiers.Shift))),
             Assert.Single(
                 viewModel.LauncherSearchResults,
                 item => item.Target is LauncherSearchTarget.Command command
@@ -284,8 +285,8 @@ public sealed class MainWindowKeybindingEditorTests
                     || command.Id == BuiltInCommands.MoveTabRight))
             .ToArray();
         Assert.Equal(2, commands.Length);
-        Assert.Contains(commands, item => string.Equals(item.Title, "Move tab left", StringComparison.Ordinal));
-        Assert.Contains(commands, item => string.Equals(item.Title, "Move tab right", StringComparison.Ordinal));
+        Assert.Contains(commands, item => string.Equals(item.Title, "Move Tab Left", StringComparison.Ordinal));
+        Assert.Contains(commands, item => string.Equals(item.Title, "Move Tab Right", StringComparison.Ordinal));
         Assert.All(commands, item =>
         {
             Assert.NotEqual("Unbound", item.TrailingText, StringComparer.Ordinal);

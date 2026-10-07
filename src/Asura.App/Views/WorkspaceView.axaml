@@ -345,7 +345,7 @@
               x:Name="AgentToggleButton"
               Classes="IconButton"
               Click="OnToggleAgentClick"
-              ToolTip.Tip="Toggle agent panel"
+              ToolTip.Tip="{x:Static vm:ShortcutTips.ToggleAgentPanel}"
               AutomationProperties.Name="Toggle AI agent panel">
             <Grid>
               <icons:SymbolIcon
@@ -367,7 +367,7 @@
             the panel itself then asks what to open — rather than a modal asking
             what to open and the layout deciding where it lands.
           -->
-          <Button Classes="IconButton" ToolTip.Tip="Add panel" AutomationProperties.Name="Add panel">
+          <Button Classes="IconButton" ToolTip.Tip="{x:Static vm:ShortcutTips.AddPanel}" AutomationProperties.Name="Add panel">
             <icons:SymbolIcon Symbol="LayoutColumnTwoSplitRight" FontSize="15" />
             <Button.Flyout>
               <MenuFlyout Placement="Bottom">

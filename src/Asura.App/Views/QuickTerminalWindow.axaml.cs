@@ -351,22 +351,37 @@ public sealed partial class QuickTerminalWindow : Window
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         _ = sender;
-        if (e.Key != Key.Escape)
+        if (e.Key != Key.Escape || e.KeyModifiers != Avalonia.Input.KeyModifiers.None)
         {
             return;
         }
 
-        e.Handled = true;
         var action = QuickTerminalRuntimeRules.ResolveEscape(
             IsVisible,
-            TryCancelPendingInteraction());
-        if (action != QuickTerminalEscapeAction.Hide)
+            TryCancelPendingInteraction(),
+            _settings.HideOnEscape);
+        switch (action)
         {
-            return;
+            case QuickTerminalEscapeAction.CancelPendingInteraction:
+                e.Handled = true;
+                return;
+            case QuickTerminalEscapeAction.Hide:
+                e.Handled = true;
+                RequestDismiss();
+                return;
+            default:
+                // vim, less, fzf, and readline need Escape. Leave it unhandled
+                // so the terminal sends it to the running program.
+                return;
         }
-
-        RequestDismiss();
     }
+
+    /// <summary>
+    /// Makes the window behave as a panel: it joins whichever Space is
+    /// current, including another app's full-screen Space, and stays out of
+    /// window cycling and Mission Control.
+    /// </summary>
+    public void ConfigureAsPanel() => _ = MacOsQuickTerminalReveal.TryConfigurePanelBehavior(this);
 
     private void OnHideClick(object? sender, RoutedEventArgs e)
     {

@@ -16,7 +16,9 @@ public sealed record KeybindingEditorRow(
 {
     public bool IsBound => Sequence is not null;
 
-    public string Shortcut => Sequence?.ToString() ?? "Unbound";
+    public string Shortcut => Sequence is null
+        ? "Unbound"
+        : ShortcutText.Format(Sequence, HostPlatform.Current);
 
     public bool HasBlockingConflict =>
         Issues.Any(issue => issue.Severity == KeymapIssueSeverity.Error);

@@ -53,23 +53,36 @@
         </Grid>
       </controls:SettingRow>
       <controls:SettingsGroup.Footer>
-        <Grid
-            ColumnDefinitions="Auto,*"
-            ColumnSpacing="{DynamicResource ShellSpaceSm}"
-            AutomationProperties.LiveSetting="Polite"
-            AutomationProperties.Name="{Binding QuickTerminalSettingsEditor.RegistrationStatus}">
-          <Ellipse
-              Width="8"
-              Height="8"
-              VerticalAlignment="Center"
-              Fill="{Binding QuickTerminalSettingsEditor.RegistrationStatusBrush}" />
+        <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+          <Grid
+              ColumnDefinitions="Auto,*"
+              ColumnSpacing="{DynamicResource ShellSpaceSm}"
+              AutomationProperties.LiveSetting="Polite"
+              AutomationProperties.Name="{Binding QuickTerminalSettingsEditor.RegistrationStatus}">
+            <Ellipse
+                Width="8"
+                Height="8"
+                VerticalAlignment="Center"
+                Fill="{Binding QuickTerminalSettingsEditor.RegistrationStatusBrush}" />
+            <TextBlock
+                Grid.Column="1"
+                Classes="Muted"
+                FontSize="{DynamicResource ShellFontSize10}"
+                Text="{Binding QuickTerminalSettingsEditor.RegistrationStatus}"
+                TextWrapping="Wrap" />
+          </Grid>
+          <!-- The hotkey is exclusive while Asura runs, so a chord macOS or the
+               menu bar already uses would be taken from them. Warn as the
+               field changes; saving stays the person's call. -->
           <TextBlock
-              Grid.Column="1"
               Classes="Muted"
               FontSize="{DynamicResource ShellFontSize10}"
-              Text="{Binding QuickTerminalSettingsEditor.RegistrationStatus}"
-              TextWrapping="Wrap" />
-        </Grid>
+              Foreground="{DynamicResource ShellWarningBrush}"
+              IsVisible="{Binding QuickTerminalSettingsEditor.HasHotkeyWarning}"
+              Text="{Binding QuickTerminalSettingsEditor.HotkeyWarning}"
+              TextWrapping="Wrap"
+              AutomationProperties.LiveSetting="Polite" />
+        </StackPanel>
       </controls:SettingsGroup.Footer>
     </controls:SettingsGroup>
 
@@ -195,6 +208,14 @@
             AutomationProperties.Name="Hide Quick Terminal on focus loss" />
       </controls:SettingRow>
       <controls:SettingRow
+          Label="Escape hides Quick Terminal"
+          Description="Dismiss the panel with Escape. When off, Escape reaches the program in the terminal, such as vim or less.">
+        <ToggleSwitch
+            HorizontalAlignment="Right"
+            IsChecked="{Binding QuickTerminalSettingsEditor.HideOnEscape}"
+            AutomationProperties.Name="Escape hides Quick Terminal" />
+      </controls:SettingRow>
+      <controls:SettingRow
           Label="Keep terminal session"
           Description="Retain the terminal and scrollback between openings. Turning this off starts a fresh shell next time.">
         <ToggleSwitch
@@ -214,7 +235,7 @@
         <TextBlock
             Classes="Muted"
             FontSize="{DynamicResource ShellFontSize10}"
-            Text="Escape always hides the Quick Terminal panel."
+            Text="{Binding QuickTerminalSettingsEditor.DismissSummary}"
             TextWrapping="Wrap" />
       </controls:SettingsGroup.Footer>
     </controls:SettingsGroup>

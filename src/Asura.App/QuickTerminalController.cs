@@ -10,7 +10,6 @@ namespace Asura.App;
 
 public sealed class QuickTerminalController : IDisposable
 {
-    private static readonly KeyStroke DefaultGesture = QuickTerminalSettings.Default.Hotkey;
     private readonly IGlobalHotkeyService _globalHotkey;
     private readonly MainWindowViewModel _mainWindowViewModel;
     private readonly IDefinitionCatalog _catalog;
@@ -36,7 +35,6 @@ public sealed class QuickTerminalController : IDisposable
     private IDisposable? _animationCompletion;
     private readonly QuickTerminalTransitionTimeline _transition = new();
     private KeyStroke? _configuredGesture;
-    private KeyStroke? _activeGesture;
     private GlobalHotkeyRegistrationResult? _registrationResult;
     private long _settingsRevision = -1;
     private double _availableHeight;
@@ -111,7 +109,6 @@ public sealed class QuickTerminalController : IDisposable
         _initialized = true;
         SetMainWindow(mainWindow);
         _globalHotkey.Pressed += OnGlobalHotkeyPressed;
-        _globalHotkey.EscapePressed += OnEscapePressed;
         _catalog.Changed += OnCatalogChanged;
         _appearancePreview.Changed += OnAppearancePreviewChanged;
         _hostAccessibilityPreferences.Changed += OnHostAccessibilityPreferencesChanged;
@@ -156,7 +153,6 @@ public sealed class QuickTerminalController : IDisposable
         }
 
         PositionAtTopOfWorkingArea(window);
-        _ = _globalHotkey.BeginEscapeCapture();
         try
         {
             var wasVisible = window.IsVisible;
@@ -170,6 +166,8 @@ public sealed class QuickTerminalController : IDisposable
                 window.SetRevealProgress(progress);
             }
 
+            window.ConfigureAsPanel();
+
             window.ApplyBackdrop();
             if (!wasVisible)
             {
@@ -182,7 +180,6 @@ public sealed class QuickTerminalController : IDisposable
         }
         catch
         {
-            _globalHotkey.EndEscapeCapture();
             PauseTransition(window);
             _transition.Reset();
             if (window.IsVisible)
@@ -214,6 +211,11 @@ public sealed class QuickTerminalController : IDisposable
         return true;
     }
 
+    /// <summary>
+    /// Command-W in Quick Terminal closes its tab, and with one tab left it
+    /// dismisses the panel instead: the panel's single session is kept for the
+    /// next opening rather than ended by a close shortcut.
+    /// </summary>
     public async Task<bool> TryCloseTabInActiveQuickTerminalAsync()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -222,20 +224,23 @@ public sealed class QuickTerminalController : IDisposable
             return false;
         }
 
-        if (_viewModel.ActiveTab is { } activeTab)
+        if (_viewModel.Tabs.Count > 1 && _viewModel.ActiveTab is { } activeTab)
         {
             await _viewModel.CloseTabAsync(activeTab);
             _quickWindow.FocusTerminal();
         }
+        else
+        {
+            Hide();
+        }
 
-        // The command belongs to Quick Terminal even when its only tab cannot
-        // be closed. Never let it fall through and mutate the main window.
+        // The command belongs to Quick Terminal either way. Never let it fall
+        // through and mutate the main window.
         return true;
     }
 
     private void Hide(bool restorePreviousApplication)
     {
-        _globalHotkey.EndEscapeCapture();
         if (_quickWindow?.IsVisible != true
             || _transition.State is QuickTerminalVisibilityState.Hidden
                 or QuickTerminalVisibilityState.Hiding)
@@ -264,8 +269,6 @@ public sealed class QuickTerminalController : IDisposable
         _appearancePreview.Changed -= OnAppearancePreviewChanged;
         _hostAccessibilityPreferences.Changed -= OnHostAccessibilityPreferencesChanged;
         _globalHotkey.Pressed -= OnGlobalHotkeyPressed;
-        _globalHotkey.EscapePressed -= OnEscapePressed;
-        _globalHotkey.EndEscapeCapture();
         _globalHotkey.Unregister();
         _viewModel.RecoveryStateChanged -= OnRecoveryStateChanged;
         _viewModel.Dispose();
@@ -445,24 +448,15 @@ public sealed class QuickTerminalController : IDisposable
         }
     }
 
+    /// <summary>
+    /// Registers exactly the configured hotkey. When the system refuses it,
+    /// Quick Terminal has no hotkey and Settings says so; quietly taking some
+    /// other chord instead would claim a shortcut the user never chose.
+    /// </summary>
     private void RegisterConfiguredHotkey()
     {
         _configuredGesture = _settings.Hotkey;
         _registrationResult = _globalHotkey.Register(_settings.Hotkey);
-        _activeGesture = _registrationResult is GlobalHotkeyRegistrationResult.Success
-            ? _settings.Hotkey
-            : null;
-
-        if (_registrationResult is GlobalHotkeyRegistrationResult.Failure
-            && _settings.Hotkey != DefaultGesture)
-        {
-            var fallback = _globalHotkey.Register(DefaultGesture);
-            if (fallback is GlobalHotkeyRegistrationResult.Success)
-            {
-                _activeGesture = DefaultGesture;
-            }
-        }
-
         PublishRegistration();
     }
 
@@ -475,7 +469,6 @@ public sealed class QuickTerminalController : IDisposable
 
         _mainWindowViewModel.ApplyQuickTerminalRegistration(
             _settings.Hotkey,
-            _activeGesture,
             _registrationResult);
     }
 
@@ -911,17 +904,14 @@ public sealed class QuickTerminalController : IDisposable
             settings.RestoreLastSession,
             settings.HideOnFocusLoss,
             settings.IsTranslucent,
-            settings.RestoreOnStart);
+            settings.RestoreOnStart,
+            settings.HideOnEscape);
 
     private void OnQuickWindowActivated(object? sender, EventArgs e)
     {
         _ = sender;
         _ = e;
         _quickWindowIsActive = true;
-        if (!_disposed && IsVisible)
-        {
-            _ = _globalHotkey.BeginEscapeCapture();
-        }
     }
 
     private void OnQuickWindowDeactivated(object? sender, EventArgs e)
@@ -929,7 +919,6 @@ public sealed class QuickTerminalController : IDisposable
         _ = sender;
         _ = e;
         _quickWindowIsActive = false;
-        _globalHotkey.EndEscapeCapture();
     }
 
     private void OnQuickWindowClosed(object? sender, EventArgs e)
@@ -954,28 +943,6 @@ public sealed class QuickTerminalController : IDisposable
         window.Closed -= OnQuickWindowClosed;
         ResetTransition();
         _quickWindow = null;
-        _globalHotkey.EndEscapeCapture();
-    }
-
-    private void OnEscapePressed(object? sender, EventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (!_disposed && IsVisible)
-            {
-                var action = QuickTerminalRuntimeRules.ResolveEscape(
-                    IsVisible,
-                    _quickWindow?.TryCancelPendingInteraction() == true);
-                if (action != QuickTerminalEscapeAction.Hide)
-                {
-                    return;
-                }
-
-                Hide();
-            }
-        });
     }
 
 }

@@ -89,6 +89,59 @@ public sealed class SqliteDatabaseTests
     }
 
     [Fact]
+    public async Task SeededQuickTerminalHotkeyMovesOffCommandGraveAndChosenHotkeysStay()
+    {
+        await using var temporary = TemporaryDatabase.Create();
+        var payloadMigration = SqliteSchema.Migrations.Single(migration =>
+            string.Equals(
+                migration.Name,
+                "migrate-durable-definition-payloads",
+                StringComparison.Ordinal));
+        await HistoricalDatabaseFixture.CreateAsync(
+            temporary.DatabasePath,
+            payloadMigration.Version - 1);
+        await using (var legacy = await HistoricalDatabaseFixture.OpenAsync(
+            temporary.DatabasePath))
+        {
+            await InsertLegacyDefinitionAsync(
+                legacy,
+                DefinitionKind.QuickTerminalSettings,
+                QuickTerminalSettings.DefaultId.Value,
+                "Quick Terminal",
+                """
+                {"id":{"value":"builtin.quick-terminal.default"},"schemaVersion":1,"name":"Quick Terminal","hotkey":{"key":"GRAVE","modifiers":"Meta"},"monitorPolicy":"MainWindow","heightFraction":0.55,"opacity":0.82,"blurRadius":12,"animateSlide":true,"animationDurationMilliseconds":180,"reduceMotion":false,"restoreLastSession":true,"hideOnFocusLoss":true}
+                """);
+            await InsertLegacyDefinitionAsync(
+                legacy,
+                DefinitionKind.QuickTerminalSettings,
+                "quick-terminal.chosen",
+                "Chosen Quick Terminal",
+                """
+                {"id":{"value":"quick-terminal.chosen"},"schemaVersion":1,"name":"Chosen Quick Terminal","hotkey":{"key":"GRAVE","modifiers":"Meta"},"monitorPolicy":"MainWindow","heightFraction":0.55,"opacity":0.82,"blurRadius":12,"animateSlide":true,"animationDurationMilliseconds":180,"reduceMotion":false,"restoreLastSession":true,"hideOnFocusLoss":true}
+                """);
+        }
+
+        await temporary.Database.EnsureInitializedAsync(CancellationToken.None);
+
+        var repository = new SqliteDefinitionRepository<QuickTerminalSettings>(
+            temporary.Database,
+            TimeProvider.System);
+        var seeded = await repository.GetAsync(
+            new(DefinitionKind.QuickTerminalSettings, QuickTerminalSettings.DefaultId.Value),
+            CancellationToken.None);
+        var chosen = await repository.GetAsync(
+            new(DefinitionKind.QuickTerminalSettings, "quick-terminal.chosen"),
+            CancellationToken.None);
+
+        Assert.True(seeded.IsSuccess, seeded.Error?.Message);
+        Assert.Equal(QuickTerminalSettings.DefaultHotkey, seeded.Value!.Value.Hotkey);
+        Assert.False(seeded.Value.Value.HideOnEscape);
+        Assert.True(seeded.Value.Value.IsTranslucent);
+        Assert.True(chosen.IsSuccess, chosen.Error?.Message);
+        Assert.Equal(new KeyStroke("GRAVE", KeyModifiers.Meta), chosen.Value!.Value.Hotkey);
+    }
+
+    [Fact]
     public async Task LegacyDefinitionPayloadsUpgradeWithoutLosingUserConfiguration()
     {
         await using var temporary = TemporaryDatabase.Create();
@@ -503,7 +556,7 @@ public sealed class SqliteDatabaseTests
         Assert.Contains(
             sourceVersion switch
             {
-                8 => "next migration collision",
+                8 or 24 => "next migration collision",
                 13 or 16 or 23 => "duplicate column name",
                 _ => "already exists",
             },

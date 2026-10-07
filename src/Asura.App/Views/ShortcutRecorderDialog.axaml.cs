@@ -1,4 +1,5 @@
 using Asura.App.Controls;
+using Asura.App.ViewModels;
 using Asura.Core;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -115,8 +116,12 @@ public sealed partial class ShortcutRecorderDialog : Window
     {
         var hasStrokes = _strokes.Count > 0;
         this.FindControl<TextBlock>("RecordedShortcutText")!.Text = hasStrokes
-            ? string.Join(", ", _strokes)
+            ? KeySequenceDisplay.Format(_strokes)
             : "No keys recorded";
+        var warning = hasStrokes ? ReservedWarning(_strokes[0]) : null;
+        var warningText = this.FindControl<TextBlock>("ReservedShortcutText")!;
+        warningText.Text = warning;
+        warningText.IsVisible = warning is not null;
         this.FindControl<TextBlock>("StrokeCountText")!.Text =
             $"{_strokes.Count} of {_maximumStrokes} {(_maximumStrokes == 1 ? "stroke" : "strokes")}";
         this.FindControl<DialogShell>("Shell")!.Subtitle = _maximumStrokes == 1
@@ -132,6 +137,27 @@ public sealed partial class ShortcutRecorderDialog : Window
         this.FindControl<Button>("ClearButton")!.IsEnabled = hasStrokes;
         this.FindControl<Button>("UseShortcutButton")!.IsEnabled =
             hasStrokes && _strokes.Count <= _maximumStrokes;
+    }
+
+    /// <summary>
+    /// A shortcut macOS or Asura's menu bar answers first never reaches the
+    /// keymap. Say so while recording, before the profile's validator does.
+    /// </summary>
+    private static string? ReservedWarning(KeyStroke first)
+    {
+        if (HostPlatform.Current != HostOperatingSystem.MacOS)
+        {
+            return null;
+        }
+
+        if (MacOsStandardShortcuts.TryFindSystem(first, out var system))
+        {
+            return $"{KeySequenceDisplay.Format(first)} is reserved by macOS for {system.Owner}. Asura never receives it.";
+        }
+
+        return MacOsStandardShortcuts.TryFindMenu(first, out var menu)
+            ? $"{KeySequenceDisplay.Format(first)} is the menu shortcut for {menu.Owner}."
+            : null;
     }
 
     private static bool IsModifierKey(Key key) => key.ToString() is

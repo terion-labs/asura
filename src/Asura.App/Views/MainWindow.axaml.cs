@@ -13,6 +13,7 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 using AvaloniaKeyModifiers = Avalonia.Input.KeyModifiers;
 
 namespace Asura.App.Views;
@@ -1870,7 +1871,8 @@ public sealed partial class MainWindow : Window
 
         if (!ViewModel.HasOverlay)
         {
-            var replayTarget = FindActiveTerminalHost();
+            var focused = FocusManager?.GetFocusedElement();
+            var replayTarget = FindApplicationKeyReplayTarget(focused);
             ApplicationKeyReplay? replay = replayTarget is null
                 ? null
                 : replayTarget.ReplayApplicationKeyStrokesAsync;
@@ -1878,7 +1880,8 @@ public sealed partial class MainWindow : Window
                 ViewModel.ActiveApplicationKeymap,
                 ViewModel.ActiveApplicationKeymapRevision,
                 ViewModel.ActiveApplicationKeymapName,
-                ViewModel.ActiveCommandContexts);
+                ViewModel.ActiveCommandContexts,
+                ApplicationKeyFocus.OwnsTextInput(focused));
             var handling = ApplicationKeys.Resolve(
                 ApplicationKeyStrokeMapper.Map(e.Key, e.KeyModifiers, e.KeySymbol),
                 profile);
@@ -1940,6 +1943,22 @@ public sealed partial class MainWindow : Window
 
         // Copy mode's keys (the line cursor, selection, copy) are handled by the
         // terminal surface, which also keeps every other key from the shell.
+    }
+
+    /// <summary>
+    /// A prefix that timed out, or met a key it does not bind, goes back to the
+    /// terminal only when that terminal has keyboard focus. Typing in a list
+    /// or a toolbar must not land in a shell that is merely visible.
+    /// </summary>
+    private TerminalPresentationHost? FindApplicationKeyReplayTarget(IInputElement? focused)
+    {
+        var terminal = FindActiveTerminalHost();
+        return terminal is not null
+            && (focused is null
+                || (focused is Visual visual && terminal.IsVisualAncestorOf(visual))
+                || ReferenceEquals(focused, terminal))
+            ? terminal
+            : null;
     }
 
     private void FocusCurrentRoute() => FocusNavigator.FocusCurrentRoute();

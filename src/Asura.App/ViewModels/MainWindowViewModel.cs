@@ -4849,11 +4849,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public void ApplyQuickTerminalRegistration(
         KeyStroke configuredGesture,
-        KeyStroke? activeGesture,
         GlobalHotkeyRegistrationResult result) =>
         TerminalSettings.ApplyQuickTerminalRegistration(
             configuredGesture,
-            activeGesture,
             result);
 
     public async ValueTask<DefinitionStoreResult<StoredDefinition<LayoutDefinition>>> CreateLayoutAsync(
@@ -9490,8 +9488,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         foreach (var command in BuiltInCommands.Registry.Commands)
         {
+            // A command the active profile does not bind is still listed, once
+            // per invocation its presets know, but without another profile's
+            // shortcut: that key would do nothing here.
             var bindings = activeBindings[command.Id].ToArray();
-            if (bindings.Length == 0)
+            var isBoundHere = bindings.Length > 0;
+            if (!isBoundHere)
             {
                 bindings = [.. command.DefaultBindings];
             }
@@ -9519,7 +9521,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 CreateCommandLauncherResult(
                     command,
                     invocation.Target.Arguments,
-                    invocation.Binding.Sequence.ToString())));
+                    isBoundHere
+                        ? KeySequenceDisplay.Format(invocation.Binding.Sequence)
+                        : string.Empty)));
         }
 
         candidates.AddRange(Connections.Select(connection => new LauncherSearchResultViewModel(
@@ -9638,6 +9642,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             "command",
             command.Id.Value,
+            command.Title,
             command.Category,
         };
         foreach (var argument in arguments)
@@ -9652,7 +9657,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             Symbol.Code,
             $"COMMAND · {command.Category}",
             argumentSummary.Length == 0
-                ? command.Title
+                    || !string.Equals(command.TitleFor(arguments), command.Title, StringComparison.Ordinal)
+                ? command.TitleFor(arguments)
                 : $"{command.Title} · {argumentSummary}",
             argumentDetail.Length == 0
                 ? command.Id.Value

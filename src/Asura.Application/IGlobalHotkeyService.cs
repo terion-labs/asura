@@ -27,23 +27,17 @@ public abstract record GlobalHotkeyRegistrationResult
 }
 
 /// <summary>
-/// Owns the process-wide Quick Terminal shortcut and its transient Escape dismissal capture.
-/// Implementations must report conflicts instead of silently sharing a system gesture with another
-/// registration. Escape capture is enabled only while Quick Terminal is visible.
+/// Owns the process-wide Quick Terminal shortcut. Implementations must report conflicts instead of
+/// silently sharing a system gesture with another registration. Escape is never captured globally:
+/// while Quick Terminal is open it belongs to the program running in the terminal.
 /// </summary>
 public interface IGlobalHotkeyService : IDisposable
 {
     event EventHandler? Pressed;
-
-    event EventHandler? EscapePressed;
 
     KeyStroke? RegisteredGesture { get; }
 
     GlobalHotkeyRegistrationResult Register(KeyStroke gesture);
 
     void Unregister();
-
-    GlobalHotkeyRegistrationResult BeginEscapeCapture();
-
-    void EndEscapeCapture();
 }

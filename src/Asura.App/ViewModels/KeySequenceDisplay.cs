@@ -1,106 +1,30 @@
-using System.Globalization;
 using Asura.Core;
 
 namespace Asura.App.ViewModels;
 
 /// <summary>
-/// Renders a key sequence for people rather than for comparison.
-/// <see cref="KeyStroke.Key"/> is canonically upper-case so strokes compare
-/// exactly, which makes the stored form read as <c>Ctrl+B, ARROWLEFT</c>. This
-/// maps the shouted names onto the symbols and casing a keyboard actually shows.
+/// Writes shortcuts for people on this host. Every surface that shows a
+/// shortcut, from the command palette to a tooltip, goes through here so they
+/// all read the same way; <see cref="ShortcutText"/> owns the notation.
 /// </summary>
 public static class KeySequenceDisplay
 {
-    private static readonly Dictionary<string, string> KeyLabels = new(StringComparer.Ordinal)
-    {
-        ["ARROWLEFT"] = "←",
-        ["ARROWRIGHT"] = "→",
-        ["ARROWUP"] = "↑",
-        ["ARROWDOWN"] = "↓",
-        ["LEFT"] = "←",
-        ["RIGHT"] = "→",
-        ["UP"] = "↑",
-        ["DOWN"] = "↓",
-        ["PAGEUP"] = "Page Up",
-        ["PAGEDOWN"] = "Page Down",
-        ["ESCAPE"] = "Esc",
-        ["ENTER"] = "Enter",
-        ["RETURN"] = "Enter",
-        ["SPACE"] = "Space",
-        ["TAB"] = "Tab",
-        ["BACKSPACE"] = "Backspace",
-        ["DELETE"] = "Delete",
-        ["INSERT"] = "Insert",
-        ["HOME"] = "Home",
-        ["END"] = "End",
-        ["GRAVE"] = "`",
-        ["OEMTILDE"] = "`",
-        ["OEMCOMMA"] = ",",
-        ["OEMPERIOD"] = ".",
-        ["OEMMINUS"] = "-",
-        ["OEMPLUS"] = "=",
-        ["OEMOPENBRACKETS"] = "[",
-        ["OEMCLOSEBRACKETS"] = "]",
-        ["OEMQUESTION"] = "/",
-        ["OEMPIPE"] = "\\",
-        ["OEMSEMICOLON"] = ";",
-        ["OEMQUOTES"] = "'",
-    };
+    public static string Format(KeySequence sequence) =>
+        ShortcutText.Format(sequence, HostPlatform.Current);
 
-    public static string Format(KeySequence sequence)
+    public static string Format(IEnumerable<KeyStroke> strokes) =>
+        ShortcutText.Format(strokes, HostPlatform.Current);
+
+    public static string Format(KeyStroke stroke) =>
+        ShortcutText.Format(stroke, HostPlatform.Current);
+
+    /// <summary>
+    /// Appends a command's shortcut to its tooltip, as a menu shows it beside
+    /// the command: "Close tab (⌘W)".
+    /// </summary>
+    public static string WithShortcut(string label, KeyStroke? stroke)
     {
-        ArgumentNullException.ThrowIfNull(sequence);
-        return string.Join(", ", sequence.Strokes.Select(Format));
+        ArgumentException.ThrowIfNullOrWhiteSpace(label);
+        return stroke is { } value ? $"{label} ({Format(value)})" : label;
     }
-
-    public static string Format(KeyStroke stroke)
-    {
-        var parts = new List<string>(5);
-        if ((stroke.Modifiers & KeyModifiers.Control) != KeyModifiers.None)
-        {
-            parts.Add("Ctrl");
-        }
-
-        if ((stroke.Modifiers & KeyModifiers.Alt) != KeyModifiers.None)
-        {
-            parts.Add(OperatingSystem.IsMacOS() ? "Option" : "Alt");
-        }
-
-        if ((stroke.Modifiers & KeyModifiers.Shift) != KeyModifiers.None)
-        {
-            parts.Add("Shift");
-        }
-
-        if ((stroke.Modifiers & KeyModifiers.Meta) != KeyModifiers.None)
-        {
-            parts.Add(OperatingSystem.IsMacOS()
-                ? "Cmd"
-                : OperatingSystem.IsWindows() ? "Win" : "Super");
-        }
-
-        parts.Add(KeyLabel(stroke.Key));
-        return string.Join('+', parts);
-    }
-
-    private static string KeyLabel(string key)
-    {
-        if (KeyLabels.TryGetValue(key, out var label))
-        {
-            return label;
-        }
-
-        // Single characters and function keys already read correctly upper-case;
-        // anything else is a word that should not shout.
-        if (key.Length <= 1 || IsFunctionKey(key))
-        {
-            return key;
-        }
-
-        return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(key.ToLowerInvariant());
-    }
-
-    private static bool IsFunctionKey(string key) =>
-        key.Length is 2 or 3
-        && key[0] == 'F'
-        && key[1..].All(char.IsAsciiDigit);
 }

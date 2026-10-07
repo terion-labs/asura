@@ -59,14 +59,18 @@ public sealed class KeybindingSettingsEditorTests
         editor.RecordShortcut(
             paste.Id,
             [new KeyStroke("v", KeyModifiers.Control | KeyModifiers.Alt)]);
-        Assert.Equal("Ctrl+Alt+V", Row(editor, paste.Id).Shortcut);
+        Assert.Equal(
+            ShortcutText.Format(new KeyStroke("V", KeyModifiers.Control | KeyModifiers.Alt), HostPlatform.Current),
+            Row(editor, paste.Id).Shortcut);
 
         editor.Unbind(paste.Id);
         Assert.False(Row(editor, paste.Id).IsBound);
         Assert.Contains(Row(editor, paste.Id), editor.Search("unbound"));
 
         editor.ResetShortcut(paste.Id);
-        Assert.Equal("Ctrl+Shift+V", Row(editor, paste.Id).Shortcut);
+        Assert.Equal(
+            ShortcutText.Format(new KeyStroke("V", KeyModifiers.Control | KeyModifiers.Shift), HostPlatform.Current),
+            Row(editor, paste.Id).Shortcut);
         Assert.False(Row(editor, paste.Id).CanReset);
     }
 
@@ -261,6 +265,22 @@ public sealed class KeybindingSettingsEditorTests
             BuiltInKeymaps.TmuxApplication));
 
         Assert.Contains("same layer", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Each_focus_panel_row_names_its_direction()
+    {
+        var editor = CloneTmux();
+
+        var titles = editor.Rows
+            .Where(row => row.CommandId == BuiltInCommands.FocusPanel)
+            .Select(row => row.Title)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(
+            ["Focus Next Panel", "Focus Panel Down", "Focus Panel Left", "Focus Panel Right", "Focus Panel Up"],
+            titles);
     }
 
     private static KeybindingSettingsEditor CloneTmux() =>
