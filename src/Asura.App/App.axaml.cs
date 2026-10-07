@@ -156,13 +156,18 @@ public sealed partial class App : Avalonia.Application
         _appearancePreview = appearancePreview ?? new AppearancePreviewCoordinator();
     }
 
-    public override void Initialize() => AvaloniaXamlLoader.Load(this);
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+        CreateApplicationMenu();
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            RegisterMenuAttachment();
             var mainWindowViewModel = _mainWindowViewModel
                 ?? throw new InvalidOperationException(
                     "The desktop composition root did not provide the main window view model.");
@@ -243,6 +248,7 @@ public sealed partial class App : Avalonia.Application
 
     private void RegisterMainWindow(MainWindow window)
     {
+        AttachMenuBar(window);
         window.Activated += OnMainWindowActivated;
         window.Closed += OnMainWindowClosed;
     }
@@ -275,52 +281,6 @@ public sealed partial class App : Avalonia.Application
     }
 
     internal void ToggleQuickTerminal() => QuickTerminalController.Toggle();
-
-    internal async Task OpenNewTabAsync(MainWindow owner)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        if (await QuickTerminalController.TryAddTabToActiveQuickTerminalAsync())
-        {
-            return;
-        }
-
-        await owner.ShowNewItemLauncherAsync();
-    }
-
-    internal async Task CloseTabAsync(MainWindow owner)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        if (await QuickTerminalController.TryCloseTabInActiveQuickTerminalAsync())
-        {
-            return;
-        }
-
-        await owner.RequestCloseTabAsync();
-    }
-
-    private void OnSettingsMenuClick(object? sender, EventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        MainWindow.NavigateToSettings();
-    }
-
-    private void OnAboutMenuClick(object? sender, EventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        MainWindow.NavigateToSettings(SettingsPage.About);
-    }
-
-    private async void OnCheckForUpdatesMenuClick(object? sender, EventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        var window = MainWindow;
-        window.Show();
-        window.Activate();
-        await window.CheckForUpdatesAsync();
-    }
 
     private void AttachAppearance()
     {

@@ -111,7 +111,7 @@
     <Grid RowDefinitions="46,28,*">
       <Border Grid.Row="0" Classes="PanelToolbar">
         <Grid Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}">
-          <TextBox VerticalAlignment="Center" Text="{Binding Filter}" PlaceholderText="Filter by process name or PID" AutomationProperties.Name="Filter processes" />
+          <TextBox x:Name="ProcessFilterBox" VerticalAlignment="Center" Text="{Binding Filter}" PlaceholderText="Filter by process name or PID" AutomationProperties.Name="Filter processes" />
         </Grid>
       </Border>
 

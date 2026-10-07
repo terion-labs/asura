@@ -2338,6 +2338,9 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
     public StartupCommandDeliveryFailurePolicy StartupCommandDeliveryFailurePolicy =>
         StartupCommandDispatchState.FailurePolicy;
 
+    /// <summary>The terminal keymap this session launched with.</summary>
+    internal TerminalKeymapSnapshot? Keymap => _keymap;
+
     public bool IsCopyMode
     {
         get => _isCopyMode;

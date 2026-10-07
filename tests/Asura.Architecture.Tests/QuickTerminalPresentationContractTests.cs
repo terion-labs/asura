@@ -360,15 +360,20 @@ public sealed class QuickTerminalPresentationContractTests
         Assert.DoesNotContain(".Dispose()", closing.Value, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Quick Terminal has its own menu bar while it is key. Its New Terminal
+    /// Tab and Close Tab items act on its tabs and never fall through to the
+    /// main window.
+    /// </summary>
     [Fact]
     public void Native_new_tab_command_targets_the_active_quick_terminal()
     {
         var repositoryRoot = ApplicationViewCatalog.Load().RepositoryRoot;
-        var application = File.ReadAllText(Path.Combine(
+        var menuHosts = File.ReadAllText(Path.Combine(
             repositoryRoot,
             "src",
             "Asura.App",
-            "App.axaml.cs"));
+            "WindowMenuHosts.cs"));
         var controller = File.ReadAllText(Path.Combine(
             repositoryRoot,
             "src",
@@ -376,8 +381,8 @@ public sealed class QuickTerminalPresentationContractTests
             "QuickTerminalController.cs"));
 
         Assert.Contains(
-            "await QuickTerminalController.TryAddTabToActiveQuickTerminalAsync()",
-            application,
+            "await controller.TryAddTabToActiveQuickTerminalAsync()",
+            menuHosts,
             StringComparison.Ordinal);
         Assert.Contains(
             "if (!_quickWindowIsActive || _quickWindow?.IsVisible != true)",
@@ -386,8 +391,8 @@ public sealed class QuickTerminalPresentationContractTests
         Assert.Contains("await _viewModel.AddTabAsync()", controller, StringComparison.Ordinal);
         Assert.Contains("_quickWindow.FocusTerminal()", controller, StringComparison.Ordinal);
         Assert.Contains(
-            "await QuickTerminalController.TryCloseTabInActiveQuickTerminalAsync()",
-            application,
+            "await controller.TryCloseTabInActiveQuickTerminalAsync()",
+            menuHosts,
             StringComparison.Ordinal);
         Assert.Contains(
             "await _viewModel.CloseTabAsync(activeTab)",

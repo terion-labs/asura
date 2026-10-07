@@ -2609,8 +2609,9 @@ public sealed class ManagedTerminalSurface : Control
     }
 
     /// <summary>
-    /// Runs one terminal command as if its shortcut had been pressed. The context
-    /// menu and the application menus use this.
+    /// Runs one terminal command as if its shortcut had been pressed, including
+    /// the status it reports when the command cannot run. The context menu,
+    /// the application menus and the command palette use this.
     /// </summary>
     internal async ValueTask<TerminalCommandDispatchResult> ExecuteCommandAsync(
         CommandId commandId,

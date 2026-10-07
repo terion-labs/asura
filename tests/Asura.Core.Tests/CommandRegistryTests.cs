@@ -42,11 +42,23 @@ public sealed class CommandRegistryTests
         Assert.False(command.IsAvailable(invalidParameter));
     }
 
+    /// <summary>
+    /// A command ships with a keymap binding or a macOS menu shortcut, unless
+    /// Apple's standard menus leave it to the pointer and menu search, as they
+    /// do for About and Bring All to Front.
+    /// </summary>
     [Fact]
-    public void Every_built_in_command_has_a_default_binding()
+    public void Every_built_in_command_ships_with_a_shortcut_unless_it_is_unbound_by_design()
     {
         Assert.NotEmpty(BuiltInCommands.Registry.Commands);
-        Assert.All(BuiltInCommands.Registry.Commands, command => Assert.NotEmpty(command.DefaultBindings));
+        Assert.All(BuiltInCommands.Registry.Commands, command =>
+        {
+            var hasShortcut = !command.DefaultBindings.IsEmpty
+                || MacOsMenuShortcuts.All.Any(binding => binding.CommandId == command.Id);
+            Assert.True(
+                hasShortcut != BuiltInCommands.UnboundByDefault.Contains(command.Id),
+                $"{command.Id} must either ship with a shortcut or be listed in UnboundByDefault, not both.");
+        });
     }
 
     [Theory]

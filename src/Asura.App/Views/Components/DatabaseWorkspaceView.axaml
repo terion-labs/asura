@@ -102,6 +102,7 @@
             </Grid>
           </Button>
           <TextBox
+              x:Name="ObjectFilterBox"
               Grid.Row="1"
               Margin="{controls:Inset Horizontal=Xs, Vertical=Sm}"
               Text="{Binding TableFilter, Mode=TwoWay}"

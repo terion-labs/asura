@@ -466,7 +466,7 @@
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" MaxWidth="320" />
                       </Grid.ColumnDefinitions>
-                      <TextBox
+                      <TextBox x:Name="ResourceFilterBox"
                           VerticalAlignment="Center"
                           Text="{Binding Filter, Mode=TwoWay}"
                           PlaceholderText="Filter resources…"

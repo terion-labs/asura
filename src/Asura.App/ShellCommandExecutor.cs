@@ -3,47 +3,64 @@ using Asura.Core;
 
 namespace Asura.App;
 
-internal enum NativeMenuCommand
+/// <summary>
+/// The window operations the command vocabulary needs from its view. The menu
+/// bar, the keymap and the command palette all reach these through
+/// <see cref="ShellCommandExecutor"/>, so a command behaves the same however it
+/// was invoked.
+/// </summary>
+internal interface IShellCommandPresentation
 {
-    NewWindow,
-    NewTab,
-    NewTerminal,
-    CloseTab,
-    CommandPalette,
-    Launcher,
-    QuickTerminal,
-    ToggleAgent,
-    AddPanel,
-    LayoutDesigner,
-    PreviousTab,
-    NextTab,
-    ClosePanel,
+    /// <summary>
+    /// The window's command contexts and <see cref="CommandStates"/> facts,
+    /// with the invocation's arguments.
+    /// </summary>
+    CommandInvocation CaptureInvocation(IReadOnlyDictionary<string, string> arguments);
+
+    Task ShowNewItemLauncherAsync();
+
+    Task OpenNewTerminalTabAsync();
+
+    void FocusActivePanel();
+
+    Task CloseActivePanelAsync();
+
+    Task ShowAddPanelAsync();
+
+    Task ShowLayoutDesignerAsync();
+
+    Task RenameActiveTabAsync();
+
+    Task CloseActiveTabAsync();
+
+    void CloseWindow();
+
+    Task SelectWorkspaceAsync(int position);
+
+    Task SendLiteralPrefixAsync();
+
+    void ShowCommandPalette();
+
+    void ToggleSidebar();
+
+    void ToggleAgentPanel();
+
+    Task ExecuteTerminalCommandAsync(CommandId command);
+
+    Task ExecuteEditCommandAsync(CommandId command);
+
+    void ExecuteWindowCommand(CommandId command);
+
+    Task ExecuteApplicationCommandAsync(CommandId command);
+
+    void ExecuteGitCommand(CommandId command);
+
+    /// <summary>
+    /// Moves keyboard focus to the next (1) or previous (-1) area of the
+    /// window, as Control-F6 does in an AppKit window.
+    /// </summary>
+    void FocusAdjacentArea(int direction);
 }
-
-internal sealed record ApplicationCommandPresentation(
-    Func<Task> ShowNewItemLauncherAsync,
-    Action FocusActivePanel,
-    Func<Task> CloseActivePanelAsync,
-    Func<Task> RenameActiveTabAsync,
-    Func<Task> CloseActiveTabAsync,
-    Func<int, Task> SelectWorkspaceAsync,
-    Func<Task> SendLiteralPrefixAsync,
-    Action<int> FocusAdjacentArea);
-
-internal sealed record NativeMenuCommandActions(
-    Action OpenNewWindow,
-    Func<Task> OpenNewTabAsync,
-    Func<Task> OpenNewTerminalAsync,
-    Func<Task> CloseTabAsync,
-    Action ShowCommandPalette,
-    Func<Task> ShowLauncherAsync,
-    Action ToggleQuickTerminal,
-    Action ToggleAgent,
-    Func<Task> ShowAddPanelAsync,
-    Func<Task> ShowLayoutDesignerAsync,
-    Func<Task> SelectPreviousTabAsync,
-    Func<Task> SelectNextTabAsync,
-    Func<Task> ClosePanelAsync);
 
 /// <summary>
 /// Executes the shell command vocabulary after the registry has validated and
@@ -52,8 +69,7 @@ internal sealed record NativeMenuCommandActions(
 /// </summary>
 internal sealed class ShellCommandExecutor(
     MainWindowViewModel viewModel,
-    ApplicationCommandPresentation presentation,
-    NativeMenuCommandActions nativeMenu,
+    IShellCommandPresentation presentation,
     CancellationToken lifetime)
 {
     public async Task ExecuteAsync(
@@ -63,8 +79,7 @@ internal sealed class ShellCommandExecutor(
         ArgumentNullException.ThrowIfNull(arguments);
         var routed = ApplicationCommandRouter.Route(
             commandId,
-            arguments,
-            viewModel.ActiveCommandContexts);
+            presentation.CaptureInvocation(arguments));
         if (routed.Action is not { } action)
         {
             viewModel.SetError(routed.Error ?? "That command is unavailable.");
@@ -85,60 +100,22 @@ internal sealed class ShellCommandExecutor(
         }
     }
 
-    public async Task ExecuteNativeAsync(NativeMenuCommand command)
-    {
-        switch (command)
-        {
-            case NativeMenuCommand.NewWindow:
-                nativeMenu.OpenNewWindow();
-                return;
-            case NativeMenuCommand.NewTab:
-                await nativeMenu.OpenNewTabAsync();
-                return;
-            case NativeMenuCommand.NewTerminal:
-                await nativeMenu.OpenNewTerminalAsync();
-                return;
-            case NativeMenuCommand.CloseTab:
-                await nativeMenu.CloseTabAsync();
-                return;
-            case NativeMenuCommand.CommandPalette:
-                nativeMenu.ShowCommandPalette();
-                return;
-            case NativeMenuCommand.Launcher:
-                await nativeMenu.ShowLauncherAsync();
-                return;
-            case NativeMenuCommand.QuickTerminal:
-                nativeMenu.ToggleQuickTerminal();
-                return;
-            case NativeMenuCommand.ToggleAgent:
-                nativeMenu.ToggleAgent();
-                return;
-            case NativeMenuCommand.AddPanel:
-                await nativeMenu.ShowAddPanelAsync();
-                return;
-            case NativeMenuCommand.LayoutDesigner:
-                await nativeMenu.ShowLayoutDesignerAsync();
-                return;
-            case NativeMenuCommand.PreviousTab:
-                await nativeMenu.SelectPreviousTabAsync();
-                return;
-            case NativeMenuCommand.NextTab:
-                await nativeMenu.SelectNextTabAsync();
-                return;
-            case NativeMenuCommand.ClosePanel:
-                await nativeMenu.ClosePanelAsync();
-                return;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(command), command, null);
-        }
-    }
-
     private async Task ExecuteAsync(ApplicationCommandAction action)
     {
         switch (action.Kind)
         {
             case ApplicationCommandActionKind.NewTab:
                 await presentation.ShowNewItemLauncherAsync();
+                return;
+            case ApplicationCommandActionKind.NewTerminalTab:
+                await presentation.OpenNewTerminalTabAsync();
+                return;
+            case ApplicationCommandActionKind.ReopenClosedTab:
+                if (await viewModel.ReopenClosedTabAsync(lifetime))
+                {
+                    presentation.FocusActivePanel();
+                }
+
                 return;
             case ApplicationCommandActionKind.SplitPanel:
                 if (await viewModel.AddLocalTerminalPanelAsync(
@@ -163,6 +140,12 @@ internal sealed class ShellCommandExecutor(
                 await presentation.CloseActivePanelAsync();
                 presentation.FocusActivePanel();
                 return;
+            case ApplicationCommandActionKind.AddPanel:
+                await presentation.ShowAddPanelAsync();
+                return;
+            case ApplicationCommandActionKind.ShowLayoutDesigner:
+                await presentation.ShowLayoutDesignerAsync();
+                return;
             case ApplicationCommandActionKind.RenameTab:
                 await presentation.RenameActiveTabAsync();
                 presentation.FocusActivePanel();
@@ -170,6 +153,9 @@ internal sealed class ShellCommandExecutor(
             case ApplicationCommandActionKind.CloseTab:
                 await presentation.CloseActiveTabAsync();
                 presentation.FocusActivePanel();
+                return;
+            case ApplicationCommandActionKind.CloseWindow:
+                presentation.CloseWindow();
                 return;
             case ApplicationCommandActionKind.MoveTab:
                 _ = await viewModel.MoveActiveTabAsync(action.TabOffset!.Value, lifetime);
@@ -225,6 +211,30 @@ internal sealed class ShellCommandExecutor(
                 return;
             case ApplicationCommandActionKind.FocusPreviousArea:
                 presentation.FocusAdjacentArea(-1);
+                return;
+            case ApplicationCommandActionKind.ShowCommandPalette:
+                presentation.ShowCommandPalette();
+                return;
+            case ApplicationCommandActionKind.ToggleSidebar:
+                presentation.ToggleSidebar();
+                return;
+            case ApplicationCommandActionKind.ToggleAgentPanel:
+                presentation.ToggleAgentPanel();
+                return;
+            case ApplicationCommandActionKind.Terminal:
+                await presentation.ExecuteTerminalCommandAsync(action.Command!.Value);
+                return;
+            case ApplicationCommandActionKind.Edit:
+                await presentation.ExecuteEditCommandAsync(action.Command!.Value);
+                return;
+            case ApplicationCommandActionKind.Window:
+                presentation.ExecuteWindowCommand(action.Command!.Value);
+                return;
+            case ApplicationCommandActionKind.Application:
+                await presentation.ExecuteApplicationCommandAsync(action.Command!.Value);
+                return;
+            case ApplicationCommandActionKind.Git:
+                presentation.ExecuteGitCommand(action.Command!.Value);
                 return;
             default:
                 throw new ArgumentOutOfRangeException(nameof(action), action.Kind, null);

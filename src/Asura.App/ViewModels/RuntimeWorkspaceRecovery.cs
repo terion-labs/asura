@@ -99,7 +99,7 @@ internal static class RuntimeWorkspaceRecoveryCodec
             workspace.IsolationBinding?.ImageReference,
             workspace.NetworkIdentity);
 
-    private static RuntimeTabRecoveryPayload CaptureTab(RuntimeTabViewModel tab) =>
+    internal static RuntimeTabRecoveryPayload CaptureTab(RuntimeTabViewModel tab) =>
         new(
             tab.Id.Value,
             tab.Title,

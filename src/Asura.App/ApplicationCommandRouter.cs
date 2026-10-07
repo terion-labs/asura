@@ -7,12 +7,17 @@ namespace Asura.App;
 internal enum ApplicationCommandActionKind
 {
     NewTab,
+    NewTerminalTab,
+    ReopenClosedTab,
     SplitPanel,
     FocusPanel,
     TogglePanelZoom,
     ClosePanel,
+    AddPanel,
+    ShowLayoutDesigner,
     RenameTab,
     CloseTab,
+    CloseWindow,
     MoveTab,
     MoveTabToWorkspace,
     MovePanelToWorkspace,
@@ -24,15 +29,38 @@ internal enum ApplicationCommandActionKind
     SendPrefix,
     FocusNextArea,
     FocusPreviousArea,
+    ShowCommandPalette,
+    ToggleSidebar,
+    ToggleAgentPanel,
+
+    /// <summary>A terminal command run by the focused or active terminal.</summary>
+    Terminal,
+
+    /// <summary>An Edit menu command routed to the focused element.</summary>
+    Edit,
+
+    /// <summary>A command acting on the window frame itself.</summary>
+    Window,
+
+    /// <summary>A command owned by the application rather than one window.</summary>
+    Application,
+
+    /// <summary>A command run by the focused Git panel.</summary>
+    Git,
 }
 
+/// <param name="Command">
+/// The registry command a forwarded kind (terminal, edit, window, application
+/// or Git) passes on to its owner.
+/// </param>
 internal sealed record ApplicationCommandAction(
     ApplicationCommandActionKind Kind,
     PanelSplitOrientation? SplitOrientation = null,
     PanelFocusDirection? FocusDirection = null,
     int? TabOffset = null,
     int? TabPosition = null,
-    int? WorkspacePosition = null);
+    int? WorkspacePosition = null,
+    CommandId? Command = null);
 
 internal sealed record ApplicationCommandRouteResult(
     ApplicationCommandAction? Action,
@@ -47,27 +75,102 @@ internal sealed record ApplicationCommandRouteResult(
 /// </summary>
 internal static class ApplicationCommandRouter
 {
+    private static readonly Dictionary<CommandId, ApplicationCommandActionKind> DirectCommands = new()
+    {
+        [BuiltInCommands.NewTab] = ApplicationCommandActionKind.NewTab,
+        [BuiltInCommands.NewTerminalTab] = ApplicationCommandActionKind.NewTerminalTab,
+        [BuiltInCommands.ReopenClosedTab] = ApplicationCommandActionKind.ReopenClosedTab,
+        [BuiltInCommands.TogglePanelZoom] = ApplicationCommandActionKind.TogglePanelZoom,
+        [BuiltInCommands.ClosePanel] = ApplicationCommandActionKind.ClosePanel,
+        [BuiltInCommands.AddPanel] = ApplicationCommandActionKind.AddPanel,
+        [BuiltInCommands.ShowLayoutDesigner] = ApplicationCommandActionKind.ShowLayoutDesigner,
+        [BuiltInCommands.RenameTab] = ApplicationCommandActionKind.RenameTab,
+        [BuiltInCommands.CloseTab] = ApplicationCommandActionKind.CloseTab,
+        [BuiltInCommands.CloseWindow] = ApplicationCommandActionKind.CloseWindow,
+        [BuiltInCommands.LastTab] = ApplicationCommandActionKind.SelectLastTab,
+        [BuiltInCommands.EnterTerminalCopyMode] = ApplicationCommandActionKind.EnterTerminalCopyMode,
+        [BuiltInCommands.SendPrefix] = ApplicationCommandActionKind.SendPrefix,
+        [BuiltInCommands.ShowCommandPalette] = ApplicationCommandActionKind.ShowCommandPalette,
+        [BuiltInCommands.ToggleSidebar] = ApplicationCommandActionKind.ToggleSidebar,
+        [BuiltInCommands.ToggleAgentPanel] = ApplicationCommandActionKind.ToggleAgentPanel,
+    };
+
+    private static readonly Dictionary<CommandId, int> TabOffsets = new()
+    {
+        [BuiltInCommands.MoveTabLeft] = -1,
+        [BuiltInCommands.MoveTabRight] = 1,
+        [BuiltInCommands.PreviousTab] = -1,
+        [BuiltInCommands.NextTab] = 1,
+    };
+
+    private static readonly HashSet<CommandId> WindowCommands =
+    [
+        BuiltInCommands.MinimizeWindow,
+        BuiltInCommands.ZoomWindow,
+        BuiltInCommands.ToggleFullScreen,
+        BuiltInCommands.BringAllToFront,
+    ];
+
+    private static readonly HashSet<CommandId> ApplicationCommands =
+    [
+        BuiltInCommands.About,
+        BuiltInCommands.NewWindow,
+        BuiltInCommands.ShowSettings,
+        BuiltInCommands.CheckForUpdates,
+        BuiltInCommands.ToggleQuickTerminal,
+        BuiltInCommands.ShowHelp,
+        BuiltInCommands.ShowKeyboardShortcuts,
+        BuiltInCommands.ShowReleaseNotes,
+        BuiltInCommands.ReportIssue,
+    ];
+
+    /// <summary>
+    /// Commands that belong to the application rather than to one window.
+    /// Every window's menu runs them the same way.
+    /// </summary>
+    public static bool IsApplicationCommand(CommandId commandId) =>
+        ApplicationCommands.Contains(commandId);
+
     public static ApplicationCommandRouteResult Route(
         CommandId commandId,
         IReadOnlyDictionary<string, string> arguments,
-        CommandContext activeContexts)
+        CommandContext activeContexts) =>
+        Route(commandId, new CommandInvocation(activeContexts, arguments));
+
+    /// <summary>
+    /// Routes one invocation. The invocation carries the host's
+    /// <see cref="CommandStates"/> facts, so state-gated commands such as
+    /// Undo are validated against what the focused element can do.
+    /// </summary>
+    public static ApplicationCommandRouteResult Route(
+        CommandId commandId,
+        CommandInvocation invocation)
     {
-        ArgumentNullException.ThrowIfNull(arguments);
+        ArgumentNullException.ThrowIfNull(invocation);
         if (!BuiltInCommands.Registry.TryGet(commandId, out var definition)
             || definition is null)
         {
             return Failure($"Command '{commandId}' is not registered.");
         }
 
-        var invocation = new CommandInvocation(activeContexts, arguments);
         if (!definition.IsAvailable(invocation))
         {
             return Failure($"Command '{definition.Title}' is unavailable in the current context or has invalid arguments.");
         }
 
-        if (commandId == BuiltInCommands.NewTab)
+        var arguments = invocation.Arguments;
+        if (DirectCommands.TryGetValue(commandId, out var kind))
         {
-            return Success(ApplicationCommandActionKind.NewTab);
+            return Success(kind);
+        }
+
+        if (TabOffsets.TryGetValue(commandId, out var offset))
+        {
+            return Success(
+                commandId == BuiltInCommands.MoveTabLeft || commandId == BuiltInCommands.MoveTabRight
+                    ? ApplicationCommandActionKind.MoveTab
+                    : ApplicationCommandActionKind.SelectRelativeTab,
+                tabOffset: offset);
         }
 
         if (commandId == BuiltInCommands.SplitPanel)
@@ -78,36 +181,6 @@ internal static class ApplicationCommandRouter
         if (commandId == BuiltInCommands.FocusPanel)
         {
             return ParseFocusDirection(arguments);
-        }
-
-        if (commandId == BuiltInCommands.TogglePanelZoom)
-        {
-            return Success(ApplicationCommandActionKind.TogglePanelZoom);
-        }
-
-        if (commandId == BuiltInCommands.ClosePanel)
-        {
-            return Success(ApplicationCommandActionKind.ClosePanel);
-        }
-
-        if (commandId == BuiltInCommands.RenameTab)
-        {
-            return Success(ApplicationCommandActionKind.RenameTab);
-        }
-
-        if (commandId == BuiltInCommands.CloseTab)
-        {
-            return Success(ApplicationCommandActionKind.CloseTab);
-        }
-
-        if (commandId == BuiltInCommands.MoveTabLeft)
-        {
-            return Success(ApplicationCommandActionKind.MoveTab, tabOffset: -1);
-        }
-
-        if (commandId == BuiltInCommands.MoveTabRight)
-        {
-            return Success(ApplicationCommandActionKind.MoveTab, tabOffset: 1);
         }
 
         if (commandId == BuiltInCommands.MoveTabToWorkspace)
@@ -124,21 +197,6 @@ internal static class ApplicationCommandRouter
                 ApplicationCommandActionKind.MovePanelToWorkspace);
         }
 
-        if (commandId == BuiltInCommands.NextTab)
-        {
-            return Success(ApplicationCommandActionKind.SelectRelativeTab, tabOffset: 1);
-        }
-
-        if (commandId == BuiltInCommands.PreviousTab)
-        {
-            return Success(ApplicationCommandActionKind.SelectRelativeTab, tabOffset: -1);
-        }
-
-        if (commandId == BuiltInCommands.LastTab)
-        {
-            return Success(ApplicationCommandActionKind.SelectLastTab);
-        }
-
         if (commandId == BuiltInCommands.SelectTab)
         {
             return ParseTabPosition(arguments);
@@ -149,14 +207,14 @@ internal static class ApplicationCommandRouter
             return ParseWorkspacePosition(arguments);
         }
 
-        if (commandId == BuiltInCommands.EnterTerminalCopyMode)
+        if (WindowCommands.Contains(commandId))
         {
-            return Success(ApplicationCommandActionKind.EnterTerminalCopyMode);
+            return Forward(ApplicationCommandActionKind.Window, commandId);
         }
 
-        if (commandId == BuiltInCommands.SendPrefix)
+        if (ApplicationCommands.Contains(commandId))
         {
-            return Success(ApplicationCommandActionKind.SendPrefix);
+            return Forward(ApplicationCommandActionKind.Application, commandId);
         }
 
         if (commandId == BuiltInCommands.FocusNextArea)
@@ -169,7 +227,13 @@ internal static class ApplicationCommandRouter
             return Success(ApplicationCommandActionKind.FocusPreviousArea);
         }
 
-        return Failure($"Command '{definition.Title}' is not an application command.");
+        return definition.Category switch
+        {
+            "Edit" => Forward(ApplicationCommandActionKind.Edit, commandId),
+            "Git" => Forward(ApplicationCommandActionKind.Git, commandId),
+            "Terminal" => Forward(ApplicationCommandActionKind.Terminal, commandId),
+            _ => Failure($"Command '{definition.Title}' is not an application command."),
+        };
     }
 
     private static ApplicationCommandRouteResult ParseSplitOrientation(
@@ -274,6 +338,12 @@ internal static class ApplicationCommandRouter
         ApplicationCommandActionKind kind,
         int? tabOffset = null) => new(
         new ApplicationCommandAction(kind, TabOffset: tabOffset),
+        null);
+
+    private static ApplicationCommandRouteResult Forward(
+        ApplicationCommandActionKind kind,
+        CommandId commandId) => new(
+        new ApplicationCommandAction(kind, Command: commandId),
         null);
 
     private static ApplicationCommandRouteResult Failure(string error) => new(null, error);

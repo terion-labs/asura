@@ -441,6 +441,7 @@ public sealed partial class MainWindow : Window
 
     public void ShowCommandPalette()
     {
+        CaptureCommandPaletteOrigin();
         EnsureCommandPaletteOverlay();
         ViewModel.ShowOverlay(ShellOverlay.CommandPalette);
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
@@ -1796,6 +1797,7 @@ public sealed partial class MainWindow : Window
         }
 
         ViewModel.CloseOverlay();
+        RestoreCommandPaletteOrigin(command.Id);
         await ExecuteCommandAsync(command.Id, command.Arguments);
     }
 
