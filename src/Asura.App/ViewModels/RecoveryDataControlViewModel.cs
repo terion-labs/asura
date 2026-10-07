@@ -17,11 +17,12 @@ public sealed record RecoveryRunItemViewModel
         Title = $"Saved recovery {displayNumber}";
         ClearAutomationName = $"Clear saved recovery {displayNumber}";
         SnapshotLabel =
-            $"{snapshotCount.ToString("N0", CultureInfo.InvariantCulture)} "
+            $"{snapshotCount.ToString("N0", CultureInfo.CurrentCulture)} "
             + $"snapshot{(snapshotCount == 1 ? string.Empty : "s")}";
-        SizeLabel = FormatBytes(payloadBytes);
-        UpdatedLabel =
-            $"Last saved {lastUpdatedAt.UtcDateTime.ToString("yyyy-MM-dd HH:mm 'UTC'", CultureInfo.InvariantCulture)}";
+        // Sizes and moments read as they do everywhere else in the app: the
+        // shared byte units, and local time in the reader's own convention.
+        SizeLabel = ByteSize.Format(payloadBytes);
+        UpdatedLabel = $"Last saved {DisplayDates.Format(lastUpdatedAt)}";
     }
 
     internal string RunId { get; }
@@ -35,19 +36,6 @@ public sealed record RecoveryRunItemViewModel
     public string SizeLabel { get; }
 
     public string UpdatedLabel { get; }
-
-    private static string FormatBytes(long bytes)
-    {
-        const long kibibyte = 1024;
-        const long mebibyte = kibibyte * 1024;
-        return bytes switch
-        {
-            < kibibyte => $"{bytes.ToString("N0", CultureInfo.InvariantCulture)} B",
-            < mebibyte =>
-                $"{(bytes / (double)kibibyte).ToString("0.0", CultureInfo.InvariantCulture)} KiB",
-            _ => $"{(bytes / (double)mebibyte).ToString("0.0", CultureInfo.InvariantCulture)} MiB",
-        };
-    }
 }
 
 /// <summary>

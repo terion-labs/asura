@@ -6,10 +6,10 @@
     Focusable="False"
     HorizontalContentAlignment="Stretch">
   <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+    <!-- A Settings page's title is the host's Title 1 role. -->
     <TextBlock
-        FontSize="{DynamicResource ShellFontSize25}"
-        FontWeight="SemiBold"
-        LineHeight="{DynamicResource ShellLineHeight25}"
+        x:Name="HeadingText"
+        Classes="Title1"
         Text="{Binding Heading, ElementName=Root}" />
     <TextBlock
         Classes="Muted"

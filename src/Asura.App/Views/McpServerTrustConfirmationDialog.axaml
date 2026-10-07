@@ -71,14 +71,14 @@
           <TextBlock Classes="Eyebrow" Margin="{controls:Inset Top=Xs}" Text="Ordered arguments" />
           <TextBlock
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               IsVisible="{Binding HasNoArguments}"
               Text="No arguments" />
           <ItemsControl ItemsSource="{Binding Arguments}" IsVisible="{Binding HasArguments}">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
                 <Grid Margin="{controls:Inset Top=Xs}" ColumnDefinitions="100,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Label}" />
+                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Label}" />
                   <TextBlock Grid.Column="1" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Value}" TextWrapping="Wrap" />
                 </Grid>
               </DataTemplate>
@@ -116,12 +116,12 @@
             <TextBlock Classes="SectionHeading" Text="Environment credentials" />
             <TextBlock
                 Classes="Muted"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
                 IsVisible="{Binding HasNoEnvironment}"
                 Text="No environment bindings" />
             <TextBlock
                 Classes="Muted"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
                 IsVisible="{Binding HasEnvironment}"
                 Text="Credential values are never shown."
                 TextWrapping="Wrap" />
@@ -143,7 +143,7 @@
                       <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
                         <TextBlock
                             Classes="Muted"
-                            FontSize="{DynamicResource ShellFontSize9}"
+                            FontSize="{DynamicResource ShellSecondaryFontSize}"
                             Text="{Binding ReferenceValue, StringFormat={}Credential · {0}}"
                             TextWrapping="Wrap" />
                         <TextBlock
@@ -152,7 +152,7 @@
                             TextWrapping="Wrap" />
                         <TextBlock
                             Classes="Muted"
-                            FontSize="{DynamicResource ShellFontSize9}"
+                            FontSize="{DynamicResource ShellSecondaryFontSize}"
                             Text="{Binding StateSummary}"
                             TextWrapping="Wrap" />
                       </StackPanel>
@@ -166,12 +166,12 @@
             <TextBlock Classes="SectionHeading" Text="HTTP header credentials" />
             <TextBlock
                 Classes="Muted"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
                 IsVisible="{Binding HasNoHttpHeaders}"
                 Text="No secret HTTP headers" />
             <TextBlock
                 Classes="Muted"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
                 IsVisible="{Binding HasHttpHeaders}"
                 Text="Header values are never shown."
                 TextWrapping="Wrap" />
@@ -193,7 +193,7 @@
                       <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
                         <TextBlock
                             Classes="Muted"
-                            FontSize="{DynamicResource ShellFontSize9}"
+                            FontSize="{DynamicResource ShellSecondaryFontSize}"
                             Text="{Binding ReferenceValue, StringFormat={}Credential · {0}}"
                             TextWrapping="Wrap" />
                         <TextBlock
@@ -202,7 +202,7 @@
                             TextWrapping="Wrap" />
                         <TextBlock
                             Classes="Muted"
-                            FontSize="{DynamicResource ShellFontSize9}"
+                            FontSize="{DynamicResource ShellSecondaryFontSize}"
                             Text="{Binding StateSummary}"
                             TextWrapping="Wrap" />
                       </StackPanel>
@@ -215,7 +215,7 @@
           <TextBlock Classes="SectionHeading" Margin="{controls:Inset Top=Xs}" Text="Enabled tools" />
           <TextBlock
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               IsVisible="{Binding HasNoEnabledTools}"
               Text="No tools enabled" />
           <ItemsControl ItemsSource="{Binding EnabledTools}" IsVisible="{Binding HasEnabledTools}">

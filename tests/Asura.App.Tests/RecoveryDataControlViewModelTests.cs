@@ -27,8 +27,10 @@ public sealed class RecoveryDataControlViewModelTests
         Assert.Equal("Saved recovery 1", item.Title);
         Assert.Equal("Clear saved recovery 1", item.ClearAutomationName);
         Assert.Equal("2 snapshots", item.SnapshotLabel);
-        Assert.Equal("1.5 KiB", item.SizeLabel);
-        Assert.Equal("Last saved 2026-07-23 09:30 UTC", item.UpdatedLabel);
+        Assert.Equal(ByteSize.Format(1536), item.SizeLabel);
+        Assert.Equal(
+            "Last saved " + DisplayDates.Format(new DateTimeOffset(2026, 7, 23, 9, 30, 0, TimeSpan.Zero)),
+            item.UpdatedLabel);
         Assert.DoesNotContain(
             "private-run-id",
             string.Join(' ', item.Title, item.SnapshotLabel, item.SizeLabel, item.UpdatedLabel),

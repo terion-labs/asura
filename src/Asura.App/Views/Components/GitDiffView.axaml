@@ -138,7 +138,7 @@
                 IsEnabled="{Binding CanSelectPreviousDiffFile}"
                 ToolTip.Tip="{x:Static vm:GitDiffShortcuts.PreviousFileTip}"
                 AutomationProperties.Name="Previous File">
-              <icons:SymbolIcon Symbol="ArrowUp" FontSize="14" />
+              <icons:SymbolIcon Symbol="ArrowUp" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>
             <Button
                 x:Name="NextFileButton"
@@ -148,7 +148,7 @@
                 IsEnabled="{Binding CanSelectNextDiffFile}"
                 ToolTip.Tip="{x:Static vm:GitDiffShortcuts.NextFileTip}"
                 AutomationProperties.Name="Next File">
-              <icons:SymbolIcon Symbol="ArrowDown" FontSize="14" />
+              <icons:SymbolIcon Symbol="ArrowDown" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>
           </StackPanel>
         </Border>
@@ -161,7 +161,7 @@
                 Click="OnDiffNavigate"
                 ToolTip.Tip="{x:Static vm:GitDiffShortcuts.PreviousChangeTip}"
                 AutomationProperties.Name="Previous Change">
-              <icons:SymbolIcon Symbol="ChevronUp" FontSize="14" />
+              <icons:SymbolIcon Symbol="ChevronUp" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>
             <Button
                 x:Name="NextChangeButton"
@@ -170,7 +170,7 @@
                 Click="OnDiffNavigate"
                 ToolTip.Tip="{x:Static vm:GitDiffShortcuts.NextChangeTip}"
                 AutomationProperties.Name="Next Change">
-              <icons:SymbolIcon Symbol="ChevronDown" FontSize="14" />
+              <icons:SymbolIcon Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>
           </StackPanel>
         </Border>
@@ -207,7 +207,7 @@
             Click="OnDiffNavigate"
             ToolTip.Tip="{x:Static vm:GitDiffShortcuts.PreviousMatchTip}"
             AutomationProperties.Name="Previous Match">
-          <icons:SymbolIcon Symbol="ChevronLeft" FontSize="13" />
+          <icons:SymbolIcon Symbol="ChevronLeft" FontSize="{DynamicResource ShellIconSizeSm}" />
         </Button>
         <Button
             x:Name="NextMatchButton"
@@ -216,7 +216,7 @@
             Click="OnDiffNavigate"
             ToolTip.Tip="{x:Static vm:GitDiffShortcuts.NextMatchTip}"
             AutomationProperties.Name="Next Match">
-          <icons:SymbolIcon Symbol="ChevronRight" FontSize="13" />
+          <icons:SymbolIcon Symbol="ChevronRight" FontSize="{DynamicResource ShellIconSizeSm}" />
         </Button>
       </StackPanel>
       <StackPanel Grid.Column="2" Orientation="Horizontal">
@@ -226,7 +226,7 @@
             IsChecked="{Binding DiffIgnoresWhitespace, Mode=TwoWay}"
             ToolTip.Tip="Ignore whitespace changes"
             AutomationProperties.Name="Ignore whitespace changes">
-          <icons:SymbolIcon Symbol="Spacebar" FontSize="14" />
+          <icons:SymbolIcon Symbol="Spacebar" FontSize="{DynamicResource ShellIconSizeSm}" />
         </ToggleButton>
         <ToggleButton
             x:Name="SideBySideToggle"
@@ -234,7 +234,7 @@
             IsChecked="{Binding DiffIsSplit, Mode=TwoWay}"
             ToolTip.Tip="Side-by-side comparison"
             AutomationProperties.Name="Side-by-side comparison">
-          <icons:SymbolIcon Symbol="SplitVertical" FontSize="14" />
+          <icons:SymbolIcon Symbol="SplitVertical" FontSize="{DynamicResource ShellIconSizeSm}" />
         </ToggleButton>
       </StackPanel>
       <Button
@@ -245,7 +245,7 @@
           AutomationProperties.Name="View">
         <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
           <TextBlock VerticalAlignment="Center" Text="View" />
-          <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="9" />
+          <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
         </StackPanel>
         <Button.Flyout>
           <MenuFlyout Placement="BottomEdgeAlignedRight">

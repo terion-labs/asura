@@ -65,10 +65,11 @@
     <Style Selector="icons|SymbolIcon.GitRefGlyph">
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
     </Style>
+    <!-- Ref names keep both ends, so feature/… branches stay apart. -->
     <Style Selector="TextBlock.GitSidebarRow">
       <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
       <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
-      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Setter Property="TextTrimming" Value="{x:Static TextTrimming.PrefixCharacterEllipsis}" />
     </Style>
     <!-- Ref trees use the shell's standard tree template with a single icon
          column and a fixed row band. The parent viewport constrains labels. -->
@@ -82,7 +83,7 @@
     <Style Selector="TextBox.GitRefFilter">
       <Setter Property="MinHeight" Value="24" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize9}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="Grid.GitSidebarRowLayout">
@@ -110,7 +111,7 @@
     <Style Selector="Border.GitKindBadge TextBlock">
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="VerticalAlignment" Value="Center" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize9}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
     </Style>
@@ -149,16 +150,18 @@
       <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
       <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
     </Style>
+    <!-- A ref name is a label, not something to act on, so it wears a
+         neutral fill rather than the accent the selection and focus use. -->
     <Style Selector="Border.GitRefTag">
-      <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellPillCornerRadius}" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs}" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="Border.GitRefTag TextBlock">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize9}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight9}" />
-      <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
     </Style>
     <Style Selector="Border.GitCountBadge">
       <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
@@ -168,15 +171,15 @@
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="Border.GitCountBadge TextBlock">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize9}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight9}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="TextBlock.GitMetaLabel">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize9}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight9}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
@@ -281,22 +284,22 @@
         <Panel Classes="GitStatusGlyphs">
           <icons:SymbolIcon
               Symbol="CheckmarkCircle"
-              FontSize="11"
+              FontSize="{DynamicResource ShellIconSizeXs}"
               Foreground="{DynamicResource ShellSuccessBrush}"
               IsVisible="{Binding RepositoryStatusTone, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusTone.Success}}" />
           <icons:SymbolIcon
               Symbol="Warning"
-              FontSize="11"
+              FontSize="{DynamicResource ShellIconSizeXs}"
               Foreground="{DynamicResource ShellWarningBrush}"
               IsVisible="{Binding RepositoryStatusTone, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusTone.Warning}}" />
           <icons:SymbolIcon
               Symbol="ErrorCircle"
-              FontSize="11"
+              FontSize="{DynamicResource ShellIconSizeXs}"
               Foreground="{DynamicResource ShellDangerBrush}"
               IsVisible="{Binding RepositoryStatusTone, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusTone.Danger}}" />
           <icons:SymbolIcon
               Symbol="Circle"
-              FontSize="11"
+              FontSize="{DynamicResource ShellIconSizeXs}"
               Foreground="{DynamicResource ShellStatusNeutralBrush}"
               IsVisible="{Binding RepositoryStatusTone, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusTone.Neutral}}" />
         </Panel>
@@ -329,7 +332,7 @@
               AutomationProperties.Name="Branch">
             <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
               <TextBlock VerticalAlignment="Center" Text="Branch" />
-              <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="9" />
+              <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
             </StackPanel>
             <Button.Flyout>
               <MenuFlyout Placement="BottomEdgeAlignedLeft">
@@ -372,7 +375,7 @@
               AutomationProperties.Name="Remote">
             <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
               <TextBlock VerticalAlignment="Center" Text="Remote" />
-              <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="9" />
+              <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
             </StackPanel>
             <Button.Flyout>
               <MenuFlyout Placement="BottomEdgeAlignedLeft">
@@ -398,7 +401,7 @@
               AutomationProperties.Name="Tools">
             <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
               <TextBlock VerticalAlignment="Center" Text="Tools" />
-              <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="9" />
+              <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
             </StackPanel>
             <Button.Flyout>
               <!-- Seven entries at the top and one submenu level: reading
@@ -468,18 +471,18 @@
         </StackPanel>
         <Button Content="Cancel Operation" Click="OnCancelGitOperation" IsVisible="{Binding IsMutating}" />
         <Button Classes="IconButton" Tag="Previous" Click="OnNavigateConflict" IsVisible="{Binding HasUnresolvedConflicts}" ToolTip.Tip="Previous conflict" AutomationProperties.Name="Previous conflict">
-          <icons:SymbolIcon Symbol="ChevronLeft" FontSize="{DynamicResource ShellFontSize13}" />
+          <icons:SymbolIcon Symbol="ChevronLeft" FontSize="{DynamicResource ShellIconSizeSm}" />
         </Button>
         <Button Content="Resolve Conflict…" Click="OnResolveConflict" IsVisible="{Binding IsConflictSelected}" IsEnabled="{Binding CanMutateRepository}" />
         <Button Classes="IconButton" Tag="Next" Click="OnNavigateConflict" IsVisible="{Binding HasUnresolvedConflicts}" ToolTip.Tip="Next conflict" AutomationProperties.Name="Next conflict">
-          <icons:SymbolIcon Symbol="ChevronRight" FontSize="{DynamicResource ShellFontSize13}" />
+          <icons:SymbolIcon Symbol="ChevronRight" FontSize="{DynamicResource ShellIconSizeSm}" />
         </Button>
         <!-- No LineHeight: the status line carries ↑/↓ arrows beside digits,
              and only an uninflated line box keeps them on one centerline. -->
         <controls:LiveRegionTextBlock
             VerticalAlignment="Center"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding StatusText}"
             AutomationProperties.LiveSetting="Polite" />
         <Border Classes="FileToolbarGroup" x:Name="GitToolbarActions">
@@ -489,21 +492,21 @@
                 Command="{Binding PullCommand}"
                 ToolTip.Tip="Pull"
                 AutomationProperties.Name="Pull">
-              <icons:SymbolIcon Symbol="ArrowDown" FontSize="14" />
+              <icons:SymbolIcon Symbol="ArrowDown" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>
             <Button
                 Classes="IconButton FileToolbarAction"
                 Command="{Binding PushCommand}"
                 ToolTip.Tip="Push"
                 AutomationProperties.Name="Push">
-              <icons:SymbolIcon Symbol="ArrowUp" FontSize="14" />
+              <icons:SymbolIcon Symbol="ArrowUp" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>
             <Button
                 Classes="IconButton FileToolbarAction"
                 Command="{Binding SyncCommand}"
                 ToolTip.Tip="Pull, then push"
                 AutomationProperties.Name="Pull, then push">
-              <icons:SymbolIcon Symbol="ArrowSync" FontSize="14" />
+              <icons:SymbolIcon Symbol="ArrowSync" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>
             <Button
                 Classes="IconButton FileToolbarAction"
@@ -511,14 +514,14 @@
                 IsEnabled="{Binding CanMutateRepository}"
                 ToolTip.Tip="Stash working changes"
                 AutomationProperties.Name="Stash working changes">
-              <icons:SymbolIcon Symbol="Archive" FontSize="14" />
+              <icons:SymbolIcon Symbol="Archive" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>
             <Button
                 Classes="IconButton FileToolbarAction"
                 Command="{Binding RefreshCommand}"
                 ToolTip.Tip="Refresh repository state"
                 AutomationProperties.Name="Refresh repository state">
-              <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="14" />
+              <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>
           </StackPanel>
         </Border>
@@ -529,14 +532,12 @@
       <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
         <TextBlock
             Classes="Muted Path"
-            FontSize="{DynamicResource ShellFontSize9}"
-            LineHeight="{DynamicResource ShellLineHeight9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding RepositoryRoot}" />
         <TextBlock
             Grid.Column="1"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
-            LineHeight="{DynamicResource ShellLineHeight9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding ConnectionDisplayName, StringFormat=Target · {0}}" />
         <!-- Impersonation is visible, never silent: when Git runs as the
              repository's owner rather than the signed-in user, the footer
@@ -544,8 +545,7 @@
         <TextBlock
             Grid.Column="2"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
-            LineHeight="{DynamicResource ShellLineHeight9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding EffectiveGitUser, StringFormat=· git as {0}}"
             IsVisible="{Binding HasEffectiveGitUser}" />
       </Grid>
@@ -565,11 +565,7 @@
           <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
             <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
               <TextBlock Classes="Eyebrow" Text="Git" />
-              <TextBlock
-                  FontSize="{DynamicResource ShellFontSize15}"
-                  LineHeight="{DynamicResource ShellLineHeight15}"
-                  FontWeight="SemiBold"
-                  Text="Open a repository" />
+              <TextBlock Classes="Title3" Text="Open a repository" />
               <TextBlock
                   Classes="Muted"
                   Text="Point the panel at a working tree on this connection. The target's own Git does the work."
@@ -615,7 +611,7 @@
                   AutomationProperties.Name="Open Recent">
                 <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock VerticalAlignment="Center" Text="Open Recent" />
-                  <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="9" />
+                  <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
                 </StackPanel>
                 <Button.Flyout>
                   <MenuFlyout Placement="BottomEdgeAlignedLeft" />
@@ -688,7 +684,7 @@
                   AutomationProperties.Name="Repository sections">
                 <ListBoxItem AutomationProperties.Name="Local Changes">
                   <Grid VerticalAlignment="Center" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="Edit" FontSize="15" />
+                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="Edit" FontSize="{DynamicResource ShellIconSizeMd}" />
                     <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="Local Changes" />
                     <Border Grid.Column="2" HorizontalAlignment="Right" Classes="GitCountBadge">
                       <TextBlock Text="{Binding UnstagedCount}" />
@@ -697,7 +693,7 @@
                 </ListBoxItem>
                 <ListBoxItem AutomationProperties.Name="All Commits">
                   <Grid VerticalAlignment="Center" ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="History" FontSize="15" />
+                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="History" FontSize="{DynamicResource ShellIconSizeMd}" />
                     <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="All Commits" />
                   </Grid>
                 </ListBoxItem>
@@ -781,7 +777,7 @@
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
                                     Symbol="BranchFork"
-                                    FontSize="11" />
+                                    FontSize="{DynamicResource ShellIconSizeXs}" />
                                 <TextBlock
                                     Grid.Column="1"
                                     VerticalAlignment="Center"
@@ -819,7 +815,7 @@
                         Click="OnAddRemoteClick"
                         ToolTip.Tip="Add remote"
                         AutomationProperties.Name="Add remote">
-                      <icons:SymbolIcon Symbol="Add" FontSize="12" />
+                      <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                     </Button>
                   </Grid>
                   <TreeView x:Name="GitRemoteBranchTree" Classes="GitRefTree"
@@ -847,7 +843,7 @@
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
                                     Symbol="Globe"
-                                    FontSize="11" />
+                                    FontSize="{DynamicResource ShellIconSizeXs}" />
                                 <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="GitSidebarRow" Text="{Binding LeafName}" ToolTip.Tip="{Binding Name}" />
                               </Grid>
                             </Border>
@@ -872,7 +868,7 @@
                         Click="OnCreateTagClick"
                         ToolTip.Tip="Create tag"
                         AutomationProperties.Name="Create tag">
-                      <icons:SymbolIcon Symbol="Add" FontSize="12" />
+                      <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                     </Button>
                   </Grid>
                   <TreeView x:Name="GitTagTree" Classes="GitRefTree"
@@ -1070,8 +1066,8 @@
                       ToolTip.Tip="{Binding UnstagedViewToggleLabel}"
                       AutomationProperties.Name="{Binding UnstagedViewToggleLabel}">
                     <Panel>
-                      <icons:SymbolIcon Symbol="Folder" FontSize="13" IsVisible="{Binding !UnstagedViewIsTree}" />
-                      <icons:SymbolIcon Symbol="Navigation" FontSize="13" IsVisible="{Binding UnstagedViewIsTree}" />
+                      <icons:SymbolIcon Symbol="Folder" FontSize="{DynamicResource ShellIconSizeSm}" IsVisible="{Binding !UnstagedViewIsTree}" />
+                      <icons:SymbolIcon Symbol="Navigation" FontSize="{DynamicResource ShellIconSizeSm}" IsVisible="{Binding UnstagedViewIsTree}" />
                     </Panel>
                   </Button>
                   <Button
@@ -1081,7 +1077,7 @@
                       IsEnabled="{Binding HasUnstagedSelection}"
                       ToolTip.Tip="Discard selected changes"
                       AutomationProperties.Name="Discard selected changes">
-                    <icons:SymbolIcon Symbol="Delete" FontSize="13" />
+                    <icons:SymbolIcon Symbol="Delete" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                   <Button
                       Grid.Column="5"
@@ -1182,7 +1178,7 @@
                       <icons:SymbolIcon
                           VerticalAlignment="Center"
                           Symbol="Folder"
-                          FontSize="12"
+                          FontSize="{DynamicResource ShellIconSizeSm}"
                           Foreground="{DynamicResource ShellMutedBrush}"
                           IsVisible="{Binding IsDirectory}" />
                       <Border
@@ -1216,8 +1212,8 @@
                       ToolTip.Tip="{Binding StagedViewToggleLabel}"
                       AutomationProperties.Name="{Binding StagedViewToggleLabel}">
                     <Panel>
-                      <icons:SymbolIcon Symbol="Folder" FontSize="13" IsVisible="{Binding !StagedViewIsTree}" />
-                      <icons:SymbolIcon Symbol="Navigation" FontSize="13" IsVisible="{Binding StagedViewIsTree}" />
+                      <icons:SymbolIcon Symbol="Folder" FontSize="{DynamicResource ShellIconSizeSm}" IsVisible="{Binding !StagedViewIsTree}" />
+                      <icons:SymbolIcon Symbol="Navigation" FontSize="{DynamicResource ShellIconSizeSm}" IsVisible="{Binding StagedViewIsTree}" />
                     </Panel>
                   </Button>
                   <Button
@@ -1319,7 +1315,7 @@
                       <icons:SymbolIcon
                           VerticalAlignment="Center"
                           Symbol="Folder"
-                          FontSize="12"
+                          FontSize="{DynamicResource ShellIconSizeSm}"
                           Foreground="{DynamicResource ShellMutedBrush}"
                           IsVisible="{Binding IsDirectory}" />
                       <Border
@@ -1584,10 +1580,9 @@
                       <TextBlock
                           Grid.Row="2"
                           Grid.Column="1"
-                          Classes="GitCommitCell Muted"
+                          Classes="GitCommitCell Muted MiddleTruncated"
                           FontFamily="{DynamicResource ShellDataFontFamily}"
-                          Text="{Binding SelectedCommit.Commit.Sha}"
-                          TextTrimming="CharacterEllipsis" />
+                          Text="{Binding SelectedCommit.Commit.Sha}" />
                       <TextBlock Grid.Row="3" Classes="GitMetaLabel" Text="PARENTS" IsVisible="{Binding HasCommitParents}" />
                       <ItemsControl
                           Grid.Row="3"
@@ -1678,13 +1673,13 @@
                         <icons:SymbolIcon
                             VerticalAlignment="Center"
                             Symbol="Folder"
-                            FontSize="12"
+                            FontSize="{DynamicResource ShellIconSizeSm}"
                             Foreground="{DynamicResource ShellMutedBrush}"
                             IsVisible="{Binding IsDirectory}" />
                         <icons:SymbolIcon
                             VerticalAlignment="Center"
                             Symbol="Document"
-                            FontSize="12"
+                            FontSize="{DynamicResource ShellIconSizeSm}"
                             Foreground="{DynamicResource ShellMutedBrush}"
                             IsVisible="{Binding !IsDirectory}" />
                         <TextBlock VerticalAlignment="Center" Classes="GitCommitCell" Text="{Binding Name}" />

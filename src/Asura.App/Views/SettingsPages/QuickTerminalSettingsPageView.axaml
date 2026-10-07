@@ -61,7 +61,7 @@
             <TextBlock
                 Grid.Column="1"
                 Classes="Muted"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
                 Text="{Binding QuickTerminalSettingsEditor.RegistrationStatus}"
                 TextWrapping="Wrap" />
           </Grid>
@@ -70,7 +70,7 @@
                field changes; saving stays the person's call. -->
           <TextBlock
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               Foreground="{DynamicResource ShellWarningBrush}"
               IsVisible="{Binding QuickTerminalSettingsEditor.HasHotkeyWarning}"
               Text="{Binding QuickTerminalSettingsEditor.HotkeyWarning}"
@@ -150,7 +150,7 @@
       <controls:SettingsGroup.Footer>
         <TextBlock
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize10}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="Some platforms expose only on/off blur, so Asura applies the stored radius at the nearest supported level."
             TextWrapping="Wrap" />
       </controls:SettingsGroup.Footer>
@@ -228,7 +228,7 @@
       <controls:SettingsGroup.Footer>
         <TextBlock
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize10}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding QuickTerminalSettingsEditor.DismissSummary}"
             TextWrapping="Wrap" />
       </controls:SettingsGroup.Footer>

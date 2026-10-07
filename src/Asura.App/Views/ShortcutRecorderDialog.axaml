@@ -31,7 +31,7 @@
           <TextBlock x:Name="StrokeCountText" Classes="Eyebrow" Text="0 of 8 strokes" />
         </StackPanel>
       </controls:SurfaceCard>
-      <TextBlock x:Name="RecorderStatusText" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="Tab moves to the controls; Escape cancels." TextAlignment="Center" />
+      <TextBlock x:Name="RecorderStatusText" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Tab moves to the controls; Escape cancels." TextAlignment="Center" />
       <TextBlock
           x:Name="ReservedShortcutText"
           FontSize="{DynamicResource ShellFontSize10}"

@@ -303,7 +303,7 @@
                       Click="OnCreateWorkspaceClick"
                       ToolTip.Tip="New Workspace…"
                       AutomationProperties.Name="New Workspace…">
-                    <icons:SymbolIcon Symbol="Add" FontSize="13" />
+                    <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                   <Button
                       x:Name="DeleteWorkspaceButton"
@@ -312,7 +312,7 @@
                       IsEnabled="False"
                       ToolTip.Tip="Delete Workspace…"
                       AutomationProperties.Name="Delete selected workspace">
-                    <icons:SymbolIcon Symbol="Subtract" FontSize="13" />
+                    <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                 </StackPanel>
               </StackPanel>
@@ -336,7 +336,7 @@
                             </ContextMenu>
                           </controls:ListItem.ContextMenu>
                           <controls:ListItem.Leading>
-                            <controls:IdentityTile Tint="{DynamicResource ShellAccentSoftBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="Grid" />
+                            <controls:IdentityTile Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="Grid" />
                           </controls:ListItem.Leading>
                           <controls:ListItem.Trailing>
                             <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
@@ -355,7 +355,7 @@
                       Click="OnCreateScreenClick"
                       ToolTip.Tip="New Saved Screen…"
                       AutomationProperties.Name="New Saved Screen…">
-                    <icons:SymbolIcon Symbol="Add" FontSize="13" />
+                    <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                   <Button
                       x:Name="DeleteScreenButton"
@@ -364,7 +364,7 @@
                       IsEnabled="False"
                       ToolTip.Tip="Delete Saved Screen…"
                       AutomationProperties.Name="Delete selected saved screen">
-                    <icons:SymbolIcon Symbol="Subtract" FontSize="13" />
+                    <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                 </StackPanel>
               </StackPanel>
@@ -409,7 +409,7 @@
                   </StackPanel>
                 </controls:SettingRow>
                 <controls:SettingsGroup.Footer>
-                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding DefinitionBundleStatus}" TextWrapping="Wrap" />
+                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding DefinitionBundleStatus}" TextWrapping="Wrap" />
                 </controls:SettingsGroup.Footer>
               </controls:SettingsGroup>
             </StackPanel>
@@ -419,8 +419,8 @@
                 <components:SettingsPageHeader
                     Heading="Keyboard Shortcuts"
                     Description="Record, unbind, reset, and validate application or terminal shortcuts. Blocking conflicts cannot be saved." />
-                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding ActiveApplicationKeymapName, StringFormat={}Active application profile · {0}}" />
-                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" TextWrapping="Wrap" Text="Your newest custom application profile is the active one. To use the tmux-like prefix, choose its preset and clone it." />
+                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ActiveApplicationKeymapName, StringFormat={}Active application profile · {0}}" />
+                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap" Text="Your newest custom application profile is the active one. To use the tmux-like prefix, choose its preset and clone it." />
               </StackPanel>
 
               <Grid ColumnDefinitions="*,320" ColumnSpacing="{DynamicResource ShellSpaceLg}">
@@ -434,7 +434,7 @@
                     <ComboBox.ItemTemplate>
                       <DataTemplate>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                          <TextBlock VerticalAlignment="Center" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                          <TextBlock VerticalAlignment="Center" Classes="MiddleTruncated" Text="{Binding Name}" />
                           <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding LayerLabel}" />
                         </Grid>
                       </DataTemplate>
@@ -456,7 +456,7 @@
                       <TextBlock FontWeight="SemiBold" Text="{Binding KeybindingEditorSession.Name}" />
                       <Border Classes="Keycap"><TextBlock Text="{Binding SelectedKeybindingProfile.StateLabel}" /></Border>
                     </StackPanel>
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding KeybindingEditorSession.StateSummary}" />
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding KeybindingEditorSession.StateSummary}" />
                   </StackPanel>
                   <controls:StatusChip Grid.Column="1" Content="{Binding KeybindingEditorSession.ConflictCount, StringFormat={}{0} conflicts}" />
                   <controls:StatusChip Grid.Column="2" Content="{Binding KeybindingEditorSession.WarningCount, StringFormat={}{0} warnings}" />
@@ -547,10 +547,10 @@
                             </Style>
                           </Border.Styles>
                           <Grid Margin="{controls:Inset Horizontal=Md, Vertical=Sm}" ColumnDefinitions="130,*,190,130,90,220" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                            <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Category}" />
+                            <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Category}" />
                             <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize11}" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
                             <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Shortcut}" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Grid.Column="3" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Contexts}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="3" VerticalAlignment="Center" Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Contexts}" />
                             <TextBlock Grid.Column="4" VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding Status}" />
                             <StackPanel Grid.Column="5" Classes="KeybindingRowActions" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}" IsVisible="{Binding ShowsActions}">
                               <Button Classes="SecondaryButton" Click="OnRecordKeybindingClick" Content="Record…" IsEnabled="{Binding CanEdit}" AutomationProperties.Name="{Binding Title, StringFormat={}Record a shortcut for {0}}" />
@@ -570,7 +570,7 @@
               </controls:SurfaceCard>
 
               <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="Unknown commands are preserved so older builds never erase newer bindings." />
+                <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Unknown commands are preserved so older builds never erase newer bindings." />
                 <Button Grid.Column="1" Classes="DestructiveButton" Click="OnResetAllKeybindingsClick" Content="Reset Profile" IsEnabled="{Binding KeybindingEditorSession.CanEditRows}" />
                 <Button Grid.Column="2" Classes="PrimaryButton" Click="OnSaveKeybindingsClick" Content="Save Shortcuts" IsEnabled="{Binding KeybindingEditorSession.CanSave}" />
               </Grid>
@@ -987,7 +987,7 @@
               <!-- Cursor and scrollback -->
               <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                 <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                  <TextBlock FontSize="{DynamicResource ShellFontSize14}" FontWeight="SemiBold" Text="Cursor &amp; buffer" />
+                  <TextBlock Classes="Headline" Text="Cursor &amp; buffer" />
                   <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize12}" Text="How the caret is drawn and how much history each session keeps." />
                 </StackPanel>
                 <Grid ColumnDefinitions="*,*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
@@ -1093,7 +1093,7 @@
                   </controls:SettingRow>
                   <controls:SettingsGroup.Footer>
                     <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" TextWrapping="Wrap"
+                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
                           Text="{Binding ApplicationSecurityEditor.EncryptionAvailability}" />
                       <TextBlock Foreground="{DynamicResource ShellWarningBrush}" FontSize="{DynamicResource ShellFontSize10}" TextWrapping="Wrap"
                           Text="{Binding ApplicationSecurityEditor.StatusDetail}"
@@ -1150,10 +1150,10 @@
                   </controls:SettingRow>
                   <controls:SettingsGroup.Footer>
                     <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" TextWrapping="Wrap"
+                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
                           Text="This build has no startup-protection support."
                           IsVisible="{Binding !ApplicationSecurityEditor.IsProtectionAvailable}" />
-                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" TextWrapping="Wrap"
+                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
                           Text="Startup protection is on."
                           IsVisible="{Binding ApplicationSecurityEditor.ShowProtectionControls}" />
                       <TextBlock Foreground="{DynamicResource ShellWarningBrush}" FontSize="{DynamicResource ShellFontSize10}" TextWrapping="Wrap"
@@ -1203,11 +1203,11 @@
                   <controls:SettingsGroup.Footer>
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
                       <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-                        <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" TextWrapping="Wrap"
+                        <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
                             Text="{Binding HistoryRetentionStatus}"
                             AutomationProperties.LiveSetting="Polite"
                             AutomationProperties.Name="History retention status" />
-                        <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" TextWrapping="Wrap"
+                        <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
                             Text="{Binding HistoryExportStatus}"
                             AutomationProperties.LiveSetting="Polite"
                             AutomationProperties.Name="History export status" />
@@ -1250,7 +1250,7 @@
                 </StackPanel>
                 <controls:SettingsGroup.Footer>
                   <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="Use this credential when editing a connection." />
+                    <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Use this credential when editing a connection." />
                     <Button Grid.Column="1" Classes="SecondaryButton" Click="OnCreateConnectionSecretClick" Content="Store Credential" AutomationProperties.Name="Store connection credential" />
                   </Grid>
                 </controls:SettingsGroup.Footer>
@@ -1282,7 +1282,7 @@
                 </StackPanel>
                 <controls:SettingsGroup.Footer>
                   <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="Save the provider first, then store and select its credential." TextWrapping="Wrap" />
+                    <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Save the provider first, then store and select its credential." TextWrapping="Wrap" />
                     <Button Grid.Column="1" Classes="SecondaryButton" Click="OnCreateFileProviderSecretClick" Content="Store Credential" AutomationProperties.Name="Store file-provider credential" />
                   </Grid>
                 </controls:SettingsGroup.Footer>
@@ -1362,7 +1362,7 @@
                   <TextBlock
                       HorizontalAlignment="Right"
                       Classes="Muted"
-                      FontSize="{DynamicResource ShellFontSize9}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
                       Text="{Binding DefaultAgentPolicy.SystemPromptUsage}" />
                 </StackPanel>
               </controls:SettingsGroup>
@@ -1445,7 +1445,7 @@
                   </Grid>
                   <TextBlock
                       Classes="Muted"
-                      FontSize="{DynamicResource ShellFontSize9}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
                       Text="Long conversations compact automatically before the provider context limit. When configured, title generation runs once after the first completed response."
                       TextWrapping="Wrap" />
                   <Expander
@@ -1461,7 +1461,7 @@
                           <Grid Margin="{controls:Inset Vertical=Sm}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
                             <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
                               <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" TextWrapping="Wrap" />
-                              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Description}" TextWrapping="Wrap" />
+                              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Description}" TextWrapping="Wrap" />
                             </StackPanel>
                             <Border Grid.Column="1" VerticalAlignment="Center" Classes="Segmented">
                               <Grid ColumnDefinitions="60,60,60">
@@ -1478,7 +1478,7 @@
                   <!-- Saved as it changes, like every other setting here. -->
                   <TextBlock
                       Foreground="{DynamicResource ShellDangerBrush}"
-                      FontSize="{DynamicResource ShellFontSize9}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
                       Text="Choose an available provider and a valid model. The default is saved once it is complete."
                       TextWrapping="Wrap"
                       IsVisible="{Binding !DefaultAgentPolicy.IsValid}" />
@@ -1756,7 +1756,7 @@
                           AutomationProperties.Name="MCP credential binding">
                         <ComboBox.ItemTemplate>
                           <DataTemplate>
-                            <TextBlock FontSize="{DynamicResource ShellFontSize9}" Text="{Binding DisplayName}" />
+                            <TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding DisplayName}" />
                           </DataTemplate>
                         </ComboBox.ItemTemplate>
                       </ComboBox>
@@ -1790,7 +1790,7 @@
                     <TextBlock
                         VerticalAlignment="Center"
                         Classes="Muted"
-                        FontSize="{DynamicResource ShellFontSize10}"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
                         Text="Choose a credential binding above."
                         TextWrapping="Wrap" />
                     <Button
@@ -1821,7 +1821,7 @@
                   </StackPanel>
                 </controls:SettingRow>
                 <controls:SettingsGroup.Footer>
-                  <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding HistoryRetentionStatus}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Current session history privacy" />
+                  <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding HistoryRetentionStatus}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Current session history privacy" />
                 </controls:SettingsGroup.Footer>
               </controls:SettingsGroup>
               <views:LocalArtifactControlView x:Name="LocalArtifactControlView" />

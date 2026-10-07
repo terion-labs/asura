@@ -43,7 +43,7 @@
           <ComboBox.ItemTemplate>
             <DataTemplate x:DataType="vm:NetworkPolicyConnectionOptionViewModel">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="MiddleTruncated" Text="{Binding Name}" />
                 <TextBlock Grid.Column="1" Classes="Eyebrow" Text="{Binding KindLabel}" />
               </Grid>
             </DataTemplate>
@@ -62,7 +62,7 @@
           <TextBlock
               VerticalAlignment="Center"
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               Text="{Binding Policy.Summary}"
               TextWrapping="Wrap" />
           <controls:StatusChip

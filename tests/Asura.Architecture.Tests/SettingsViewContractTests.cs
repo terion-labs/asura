@@ -775,12 +775,18 @@ public sealed class SettingsViewContractTests
                 AttributeValue(element, "Text"),
                 "{Binding Description, ElementName=Root}",
                 StringComparison.Ordinal));
-        Assert.All(
-            textBlocks,
-            element => Assert.StartsWith(
-                "{DynamicResource ShellLineHeight",
-                AttributeValue(element, "LineHeight"),
-                StringComparison.Ordinal));
+        // The heading takes the Title 1 role, which brings its size, weight
+        // and leading; the description keeps an explicit leading token.
+        var heading = Assert.Single(textBlocks, element => string.Equals(
+            AttributeValue(element, "Text"), "{Binding Heading, ElementName=Root}", StringComparison.Ordinal));
+        Assert.Equal("Title1", AttributeValue(heading, "Classes"));
+        Assert.Null(heading.Attribute("FontSize"));
+        Assert.Null(heading.Attribute("FontWeight"));
+        var description = Assert.Single(textBlocks, element => !ReferenceEquals(element, heading));
+        Assert.StartsWith(
+            "{DynamicResource ShellLineHeight",
+            AttributeValue(description, "LineHeight"),
+            StringComparison.Ordinal);
     }
 
     [Fact]
