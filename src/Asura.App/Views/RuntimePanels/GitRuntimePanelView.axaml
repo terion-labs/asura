@@ -393,11 +393,10 @@
     <controls:PanelChrome.Footer>
       <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
         <TextBlock
-            Classes="Muted"
+            Classes="Muted Path"
             FontSize="{DynamicResource ShellFontSize9}"
             LineHeight="{DynamicResource ShellLineHeight9}"
-            Text="{Binding RepositoryRoot}"
-            TextTrimming="CharacterEllipsis" />
+            Text="{Binding RepositoryRoot}" />
         <TextBlock
             Grid.Column="1"
             Classes="Muted"
@@ -1467,9 +1466,8 @@
                               <TextBlock
                                   Grid.Column="1"
                                   VerticalAlignment="Center"
-                                  Classes="GitCommitCell"
-                                  Text="{Binding Path}"
-                                  TextTrimming="CharacterEllipsis" />
+                                  Classes="GitCommitCell Path"
+                                  Text="{Binding Path}" />
                             </Grid>
                           </Button>
                         </DataTemplate>
@@ -1591,8 +1589,8 @@
                         FontFamily="{DynamicResource ShellDataFontFamily}"
                         FontSize="{DynamicResource ShellFontSize10}"
                         LineHeight="{DynamicResource ShellLineHeight10}"
-                        Text="{Binding CommitFileName}"
-                        TextTrimming="CharacterEllipsis" />
+                        Classes="Path"
+                        Text="{Binding CommitFileName}" />
                   </Border>
                   <components:CodePreviewView
                       Grid.Row="1"

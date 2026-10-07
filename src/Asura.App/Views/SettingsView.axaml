@@ -1387,7 +1387,7 @@
                             <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
                             <TextBlock Classes="Eyebrow" Text="{Binding Kind}" />
                           </StackPanel>
-                          <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Endpoint}" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Endpoint}" />
                           <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding DefaultModel, StringFormat={}Default model: {0}}" />
                         </StackPanel>
                         <StackPanel Grid.Column="2" Spacing="{DynamicResource ShellSpaceXs}">
