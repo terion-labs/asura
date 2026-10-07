@@ -603,10 +603,12 @@ internal sealed class QaApplication : Avalonia.Application
             vm.ShowWorkspace();
             AddSampleDockerPanel(vm);
         }),
+        // A container's usage figures lead its Info view now that the views
+        // are five segments; the capture keeps its name and shows them there.
         new("workspace-docker-stats", vm =>
         {
             vm.ShowWorkspace();
-            AddSampleDockerPanel(vm).SelectDetail(DockerPanelDetail.Stats);
+            AddSampleDockerPanel(vm).SelectDetail(DockerPanelDetail.Info);
         }),
         new("workspace-docker-logs", vm =>
         {
