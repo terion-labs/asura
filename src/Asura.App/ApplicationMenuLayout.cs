@@ -212,6 +212,7 @@ internal static class ApplicationMenuLayout
             Item("Move Tab Left", BuiltInCommands.MoveTabLeft),
             Item("Move Tab Right", BuiltInCommands.MoveTabRight),
             Item("Rename Tab…", BuiltInCommands.RenameTab),
+            Item("Change Tab Icon…", BuiltInCommands.ChangeTabIcon),
             MenuSeparatorNode.Instance,
             Item("Move Focus to Next Area", BuiltInCommands.FocusNextArea),
             Item("Move Focus to Previous Area", BuiltInCommands.FocusPreviousArea),

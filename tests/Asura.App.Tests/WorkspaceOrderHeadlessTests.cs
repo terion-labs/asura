@@ -24,7 +24,7 @@ public sealed class WorkspaceOrderHeadlessTests
         var main = new LauncherWorkspaceViewModel(
             new WorkspaceId(WorkspaceDefinition.DefaultWorkspaceId), 1, "Main", "", "#808080", "M",
             FluentIcons.Common.Symbol.Window, 0)
-        { IsOpen = true };
+        { IsOpen = true, IsInFront = true };
         model.Workspaces.Insert(0, main);
         model.Workspaces[1].IsOpen = true;
         var view = new WorkspaceView { DataContext = model };
@@ -35,24 +35,106 @@ public sealed class WorkspaceOrderHeadlessTests
         try
         {
             var menu = view.FindControl<Button>("WorkspacesMenuButton")!;
-            var flyout = Assert.IsType<Flyout>(menu.Flyout);
+            var flyout = Assert.IsType<MenuFlyout>(menu.Flyout);
             flyout.ShowAt(menu);
             await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
-            window.UpdateLayout();
-            var content = Assert.IsAssignableFrom<Control>(flyout.Content);
-            var closeButtons = content.GetVisualDescendants().OfType<Button>()
-                .Where(button => Equals(button.GetValue(ToolTip.TipProperty),
-                    "Terminate this workspace and everything running in it")).ToArray();
-            var mainClose = Assert.Single(closeButtons, button => ReferenceEquals(button.DataContext, main));
-            Assert.False(mainClose.IsVisible);
-            mainClose.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            var items = flyout.Items.OfType<MenuItem>().ToArray();
+
+            // One checkable item per workspace, the one in front checked, and
+            // the Terminate Workspace submenu on its own after a separator.
+            Assert.Equal(model.Workspaces.Count + 1, items.Length);
+            Assert.All(items[..^1], item => Assert.Equal(MenuItemToggleType.Radio, item.ToggleType));
+            Assert.True(Assert.Single(items[..^1], item => ReferenceEquals(item.DataContext, main)).IsChecked);
+            Assert.IsType<Separator>(flyout.Items[^2]);
+            var terminate = items[^1];
+            Assert.Equal(WorkspaceView.TerminateWorkspaceHeader, terminate.Header);
+
+            // It names every workspace that can be ended, in front or not,
+            // each with the ellipsis of the question it asks; Main is never
+            // among them.
+            var targets = terminate.Items.OfType<MenuItem>().ToArray();
+            var background = model.Workspaces[1];
+            var target = Assert.Single(targets);
+            Assert.Same(background, target.DataContext);
+            Assert.Equal(background.Name + "…", target.Header);
+            Assert.DoesNotContain(targets, item => ReferenceEquals(item.DataContext, main));
+
+            // Choosing it asks the shell to terminate that workspace, which
+            // confirms first; it never takes the rail's unconfirmed close.
+            var terminated = new List<object?>();
+            view.TerminateWorkspaceRequested += (sender, _) =>
+                terminated.Add((sender as Control)?.DataContext);
+            target.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+            Assert.Equal([background], terminated);
             Assert.Equal(0, closed);
-            var otherClose = Assert.Single(closeButtons, button => ReferenceEquals(button.DataContext, model.Workspaces[1]));
-            Assert.True(otherClose.IsVisible);
-            otherClose.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            Assert.Equal(1, closed);
+            flyout.Hide();
+
+            // With nothing that can be ended, the submenu is there but dimmed.
+            background.IsOpen = false;
+            flyout.ShowAt(menu);
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+            terminate = flyout.Items.OfType<MenuItem>().Last();
+            Assert.False(terminate.IsEnabled);
+            Assert.Empty(terminate.Items);
         }
         finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task A_checked_radio_menu_item_still_draws_its_icon() => RunAsync(() =>
+    {
+        // The Workspaces menu tells running, resting and waiting workspaces
+        // apart by the mark in the icon column; the theme must not trade
+        // that column for the radio check.
+        var icon = new Border { Width = 12, Height = 12 };
+        var item = new MenuItem
+        {
+            Header = "Main",
+            Icon = icon,
+            ToggleType = MenuItemToggleType.Radio,
+            IsChecked = true,
+        };
+        var window = new Window { Width = 300, Height = 100, Content = new StackPanel { Children = { item } } };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            Assert.NotNull(icon.GetVisualParent());
+            Assert.True(icon.IsEffectivelyVisible);
+            Assert.True(icon.Bounds.Width > 0);
+        }
+        finally { window.Close(); }
+        return Task.CompletedTask;
+    });
+
+    [Theory]
+    [InlineData(0, "The workspace stops.")]
+    [InlineData(1, "Its tab closes")]
+    [InlineData(3, "Its 3 tabs close")]
+    public void Terminate_workspace_always_has_a_question_to_ask(int tabCount, string detailStart)
+    {
+        var options = Confirmations.TerminateWorkspaceOptions("Build", tabCount);
+
+        Assert.Equal("Terminate “Build”?", options.Heading);
+        Assert.StartsWith(detailStart, options.Detail, StringComparison.Ordinal);
+        Assert.Equal("Terminate", options.ConfirmLabel);
+        Assert.Equal(ConfirmationIntent.Destructive, options.Intent);
+        Assert.True(options.ShowsCancel);
+        // Asked from a menu item, every time: no "Don't ask again".
+        Assert.Null(options.SuppressionLabel);
+    }
+
+    [Fact]
+    public Task Workspace_menu_names_the_workspaces_that_need_attention() => RunAsync(() =>
+    {
+        using var model = CreateModel(out _);
+        model.Workspaces[0].HasAttention = true;
+        var view = new WorkspaceView { DataContext = model };
+        var item = view.BuildWorkspacesMenu(model.Workspaces).OfType<MenuItem>().First();
+        Assert.Equal(
+            $"{model.Workspaces[0].Name}, needs attention",
+            Avalonia.Automation.AutomationProperties.GetName(item));
+        return Task.CompletedTask;
     });
 
     [Theory]

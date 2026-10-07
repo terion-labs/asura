@@ -27,25 +27,12 @@ internal static class KindBadges
             ? profile.ConnectionKind == ConnectionKind.Ssh ? "Git · SSH" : "Git"
             : Connection(profile.ConnectionKind);
 
-    public static string Panel(PanelKind kind) => kind switch
-    {
-        PanelKind.FileViewer => "Files",
-        PanelKind.ProcessMonitor => "Process monitor",
-        PanelKind.DatabaseViewer => "Database",
-        PanelKind.Docker => "Docker",
-        PanelKind.Git => "Git",
-        _ => kind.ToString(),
-    };
+    /// <summary>A panel type reads as the noun every other screen uses.</summary>
+    public static string Panel(PanelKind kind) => kind == PanelKind.Placeholder
+        ? "New panel"
+        : PanelTypes.Name(kind);
 
-    public static string Panel(ScreenPanelKind kind) => kind switch
-    {
-        ScreenPanelKind.FileViewer => "Files",
-        ScreenPanelKind.ProcessMonitor => "Process monitor",
-        ScreenPanelKind.DatabaseViewer => "Database",
-        ScreenPanelKind.Docker => "Docker",
-        ScreenPanelKind.Git => "Git",
-        _ => kind.ToString(),
-    };
+    public static string Panel(ScreenPanelKind kind) => PanelTypes.Name(kind);
 
     public static string FileProvider(FileProviderKind kind) => kind switch
     {

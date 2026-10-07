@@ -679,7 +679,13 @@ public sealed partial class RepositoryConventionTests
                 .Descendants()
                 .Where(element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal))
                 .Where(ContainsIconWithoutVisibleText)
-                .Where(element => !HasAttribute(element, "AutomationProperties.Name"))
+                .Where(element => !HasAttribute(element, "AutomationProperties.Name")
+                    // A name built by a multi-binding is written as a
+                    // property element; it is just as explicit.
+                    && !element.Elements().Any(child => string.Equals(
+                        child.Name.LocalName,
+                        "AutomationProperties.Name",
+                        StringComparison.Ordinal)))
                 .Select(DescribeElement)
                 .ToArray();
 
@@ -980,7 +986,7 @@ public sealed partial class RepositoryConventionTests
 
         var activator = Assert.Single(
             dropTarget.Elements(),
-            element => string.Equals(element.Name.LocalName, "Button"
+            element => string.Equals(element.Name.LocalName, "RuntimeTabButton"
 , StringComparison.Ordinal) && HasClass(element, "RuntimeTabActivator"));
         Assert.Null(AttributeValue(activator, "PointerMoved"));
         Assert.Null(AttributeValue(activator, "PointerReleased"));
@@ -1014,12 +1020,24 @@ public sealed partial class RepositoryConventionTests
             mainWindowCodeBehind[pointerPressedStart..pointerMovedStart],
             StringComparison.Ordinal);
 
+        // A tab is named by its title, with the attention mark and agent
+        // activity folded in; its role and selected state come from the
+        // tab button's own automation peer.
+        var activatorName = Assert.Single(
+            activator.Elements(),
+            element => string.Equals(element.Name.LocalName, "AutomationProperties.Name", StringComparison.Ordinal));
+        var nameBinding = Assert.Single(activatorName.Elements());
+        Assert.Equal("MultiBinding", nameBinding.Name.LocalName);
         Assert.Contains(
-            "Activate tab",
-            AttributeValue(activator, "AutomationProperties.Name"),
+            "AttentionLabelConverter",
+            AttributeValue(nameBinding, "Converter"),
             StringComparison.Ordinal);
+        Assert.Equal(
+            ["DisplayTitle", "HasAttention", "AgentActivity"],
+            nameBinding.Elements().Select(binding => AttributeValue(binding, "Path")), StringComparer.Ordinal);
+        Assert.Equal("{Binding IsActive}", AttributeValue(activator, "IsSelected"));
         Assert.Contains(
-            "Drag the tab to reorder it",
+            "Drag to reorder",
             AttributeValue(activator, "AutomationProperties.HelpText"),
             StringComparison.Ordinal);
         var close = Assert.Single(

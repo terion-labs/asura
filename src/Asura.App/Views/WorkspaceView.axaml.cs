@@ -168,6 +168,12 @@ public sealed partial class WorkspaceView : UserControl
     public event EventHandler<RoutedEventArgs>? OpenWorkspaceRequested;
 
     public event EventHandler<RoutedEventArgs>? CloseWorkspaceRequested;
+
+    /// <summary>
+    /// Terminate Workspace from the Workspaces menu: unlike the rail's close
+    /// button, it always asks first.
+    /// </summary>
+    public event EventHandler<RoutedEventArgs>? TerminateWorkspaceRequested;
     public event EventHandler<RoutedEventArgs>? SaveWorkspaceLayoutRequested;
 
     private void OnSaveWorkspaceLayoutClick(object? sender, RoutedEventArgs e) =>
@@ -246,6 +252,13 @@ public sealed partial class WorkspaceView : UserControl
     public event EventHandler<RoutedEventArgs>? LockShellRequested;
 
     public event EventHandler<RoutedEventArgs>? ShowSettingsRequested;
+
+    /// <summary>
+    /// Whether the title bar carries its own Settings button. On macOS the
+    /// app menu and ⌘, are where Settings lives; Windows and Linux draw no
+    /// menu bar, so the button is the pointer's only way in there.
+    /// </summary>
+    public static bool ShowsSettingsButton { get; } = !OperatingSystem.IsMacOS();
 
     public event EventHandler<RoutedEventArgs>? SubmitAgentQuestionRequested;
 
@@ -448,29 +461,6 @@ public sealed partial class WorkspaceView : UserControl
 
     private void OnShowNewItemClick(object? sender, RoutedEventArgs e) =>
         ShowNewItemRequested?.Invoke(sender, e);
-
-    /// <summary>
-    /// The shell reads which workspace was chosen from the sender's data
-    /// context, and hiding the menu first takes that context away with the
-    /// popup — so the click arrived describing nothing and nothing happened.
-    /// </summary>
-    private void OnWorkspacesMenuOpenClick(object? sender, RoutedEventArgs e)
-    {
-        OpenWorkspaceRequested?.Invoke(sender, e);
-        WorkspacesMenuButton.Flyout?.Hide();
-    }
-
-    private void OnWorkspacesMenuCloseClick(object? sender, RoutedEventArgs e)
-    {
-        if (sender is not Control { DataContext: LauncherWorkspaceViewModel { CanClose: true } })
-        {
-            return;
-        }
-
-        CloseWorkspaceRequested?.Invoke(sender, e);
-        WorkspacesMenuButton.Flyout?.Hide();
-    }
-
 
     private void OnShowNewPanelClick(object? sender, RoutedEventArgs e) =>
         ShowNewPanelRequested?.Invoke(sender, e);

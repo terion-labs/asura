@@ -28,7 +28,11 @@ public sealed partial class CommandPaletteView : UserControl
         }
     }
 
-    private void OnActivateSearchResultClick(object? sender, RoutedEventArgs e) =>
+    /// <summary>
+    /// A click on a row opens it, as Return does. The shell reads the row's
+    /// result from the sender and ignores one that cannot be used.
+    /// </summary>
+    private void OnActivateSearchResultTapped(object? sender, TappedEventArgs e) =>
         ActivateSearchResultRequested?.Invoke(sender, e);
 
     private void OnCloseClick(object? sender, RoutedEventArgs e) =>

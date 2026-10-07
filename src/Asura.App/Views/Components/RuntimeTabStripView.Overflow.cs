@@ -1,10 +1,11 @@
 using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using Asura.App.Controls;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
-using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -17,6 +18,7 @@ public sealed partial class RuntimeTabStripView
     private const double OverflowFadePixels = 56;
     private INotifyCollectionChanged? _observedCollection;
     private readonly List<INotifyPropertyChanged> _observedTabs = [];
+    private bool _revealActiveTab = true;
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -52,6 +54,8 @@ public sealed partial class RuntimeTabStripView
             }
         }
 
+        _revealActiveTab = true;
+        InvalidateMeasure();
         QueueOverflowPresentation();
     }
 
@@ -78,6 +82,11 @@ public sealed partial class RuntimeTabStripView
     private void OnTabPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         _ = sender;
+        if (e.PropertyName is null or "IsActive")
+        {
+            _revealActiveTab = true;
+        }
+
         if (e.PropertyName is null or "IsActive" or "Title" or "IconSymbol")
         {
             QueueOverflowPresentation();
@@ -89,43 +98,99 @@ public sealed partial class RuntimeTabStripView
 
     private void UpdateOverflowPresentation()
     {
-        var activeBounds = PinActiveTab();
-        UpdateOverflowFade(activeBounds);
+        var tabHosts = TabHosts();
+        AnnouncePositions(tabHosts);
+        if (_revealActiveTab && TabScrollViewer.Viewport is { Width: > 0, Height: > 0 })
+        {
+            _revealActiveTab = false;
+            RevealActiveTab(tabHosts);
+        }
+
+        UpdateOverflowMenuVisibility();
+        UpdateOverflowFade(ActiveTabBounds(tabHosts));
+    }
+
+    private Grid[] TabHosts() =>
+        [.. this.GetVisualDescendants()
+            .OfType<Grid>()
+            .Where(grid => grid.Classes.Contains("RuntimeTabDropTarget"))];
+
+    /// <summary>
+    /// Each tab says where it stands among the others — "tab 3 of 7" — which a
+    /// strip of identical buttons never could. The order is the panel's, so
+    /// the positions follow a reorder without the tabs being rebuilt.
+    /// </summary>
+    private static void AnnouncePositions(IReadOnlyList<Grid> tabHosts)
+    {
+        var activators = tabHosts
+            .Select(host => host.Children.OfType<RuntimeTabButton>().FirstOrDefault())
+            .OfType<RuntimeTabButton>()
+            .OrderBy(activator =>
+                activator.FindAncestorOfType<ContentPresenter>() is { } container
+                && container.GetVisualParent() is Panel panel
+                    ? panel.Children.IndexOf(container)
+                    : int.MaxValue)
+            .ToArray();
+        for (var index = 0; index < activators.Length; index++)
+        {
+            AutomationProperties.SetPositionInSet(activators[index], index + 1);
+            AutomationProperties.SetSizeOfSet(activators[index], activators.Length);
+        }
     }
 
     /// <summary>
-    /// The selected tab remains reachable while the overflow moves. A render
-    /// transform deliberately leaves its layout slot behind, so neighbouring
-    /// tabs travel underneath the raised active chip instead of being reflowed.
-    /// The generated presenter is the StackPanel child, so it owns both the
-    /// transform and z-index; raising the template's inner grid cannot reorder
-    /// it against sibling presenters.
+    /// The tab that was just chosen is scrolled into view, clear of the edge
+    /// fade where there is room. It used to be translated over its
+    /// neighbours instead, which kept it in sight by drawing it on top of the
+    /// tabs beside it and hid whichever one it landed on.
     /// </summary>
-    private (double Leading, double Trailing)? PinActiveTab()
+    private void RevealActiveTab(IReadOnlyList<Grid> tabHosts)
     {
-        var tabHosts = this.GetVisualDescendants()
-            .OfType<Grid>()
-            .Where(grid => grid.Classes.Contains("RuntimeTabDropTarget"))
-            .ToArray();
-        foreach (var host in tabHosts)
+        if (tabHosts.SingleOrDefault(host => host.Classes.Contains("active")) is not { } active
+            || active.FindAncestorOfType<ContentPresenter>() is not { } container)
         {
-            var container = host.FindAncestorOfType<ContentPresenter>();
-            if (container is not null)
-            {
-                container.RenderTransform = null;
-                container.ZIndex = 0;
-            }
+            return;
         }
 
-        var active = tabHosts.SingleOrDefault(host => host.Classes.Contains("active"));
-        var activeContainer = active?.FindAncestorOfType<ContentPresenter>();
-        if (activeContainer is null)
+        var horizontal = Orientation == Orientation.Horizontal;
+        var viewport = horizontal
+            ? TabScrollViewer.Viewport.Width
+            : TabScrollViewer.Viewport.Height;
+        var length = horizontal ? container.Bounds.Width : container.Bounds.Height;
+        var fade = Math.Max(0, Math.Min(OverflowFadePixels, (viewport - length) / 2));
+        container.BringIntoView(horizontal
+            ? new Rect(-fade, 0, container.Bounds.Width + (2 * fade), container.Bounds.Height)
+            : new Rect(0, -fade, container.Bounds.Width, container.Bounds.Height + (2 * fade)));
+    }
+
+    /// <summary>
+    /// A horizontal strip settles this while it measures, because it reserves
+    /// the room for the button; a side strip has the room already and shows
+    /// the button once its rows run past the bottom.
+    /// </summary>
+    private void UpdateOverflowMenuVisibility()
+    {
+        if (Orientation == Orientation.Horizontal)
         {
-            return default;
+            return;
         }
 
-        activeContainer.ZIndex = 1;
-        if (TabScrollViewer.Viewport is { Width: <= 0 } or { Height: <= 0 })
+        OverflowSeparator.IsVisible = false;
+        OverflowMenuButton.IsVisible =
+            TabScrollViewer.Extent.Height - TabScrollViewer.Viewport.Height > 1;
+    }
+
+    /// <summary>
+    /// Where the active tab is drawn inside the scroll viewport, so the edge
+    /// fade can leave it opaque.
+    /// </summary>
+    private (double Leading, double Trailing)? ActiveTabBounds(IReadOnlyList<Grid> tabHosts)
+    {
+        var activeContainer = tabHosts
+            .SingleOrDefault(host => host.Classes.Contains("active"))
+            ?.FindAncestorOfType<ContentPresenter>();
+        if (activeContainer is null
+            || TabScrollViewer.Viewport is { Width: <= 0 } or { Height: <= 0 })
         {
             return default;
         }
@@ -139,27 +204,9 @@ public sealed partial class RuntimeTabStripView
             return default;
         }
 
-        var horizontal = Orientation == Orientation.Horizontal;
-        var leading = horizontal ? topLeft.Value.X : topLeft.Value.Y;
-        var trailing = horizontal ? bottomRight.Value.X : bottomRight.Value.Y;
-        var viewport = horizontal
-            ? TabScrollViewer.Viewport.Width
-            : TabScrollViewer.Viewport.Height;
-        var translation = leading < 0
-            ? -leading
-            : trailing > viewport
-                ? viewport - trailing
-                : 0;
-        if (Math.Abs(translation) >= 0.5)
-        {
-            activeContainer.RenderTransform = horizontal
-                ? new TranslateTransform(translation, 0)
-                : new TranslateTransform(0, translation);
-        }
-
-        var displayedLeading = leading + translation;
-        var displayedTrailing = trailing + translation;
-        return (displayedLeading, displayedTrailing);
+        return Orientation == Orientation.Horizontal
+            ? (topLeft.Value.X, bottomRight.Value.X)
+            : (topLeft.Value.Y, bottomRight.Value.Y);
     }
 
     /// <summary>
@@ -177,9 +224,6 @@ public sealed partial class RuntimeTabStripView
             ? TabScrollViewer.Viewport.Width
             : TabScrollViewer.Viewport.Height;
         var offset = horizontal ? TabScrollViewer.Offset.X : TabScrollViewer.Offset.Y;
-        OverflowSeparator.IsVisible = ShowsOverflowSeparator
-            && horizontal
-            && extent - viewport > 1;
         var fadeStart = offset > 1;
         var fadeEnd = extent - viewport - offset > 1;
         if (viewport <= 0 || (!fadeStart && !fadeEnd))
@@ -221,10 +265,10 @@ public sealed partial class RuntimeTabStripView
             samples.Add(new GradientStop(Colors.Black, 1));
         }
 
-        // The mask belongs to the ScrollViewer, so z-index alone cannot keep a
-        // child opaque. Cut out only the active tab's interval instead of
-        // removing the whole edge ramp; scrolling siblings then keep fading in
-        // the gap before the selected chip reaches its sticky boundary.
+        // The mask belongs to the ScrollViewer, so the active tab cannot opt
+        // out of it on its own. Cut out only the active tab's interval instead
+        // of removing the whole edge ramp; scrolling siblings then keep fading
+        // in the gap beside the selected chip.
         if (activeBounds is { } active)
         {
             var activeStart = Math.Clamp(active.Leading / viewport, 0, 1);

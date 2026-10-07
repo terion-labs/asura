@@ -19,6 +19,8 @@ public sealed class WorkspaceViewContractTests
             ["CancelFileTransferRequested"] = "OnCancelFileTransferClick",
             ["ClearAgentChatRequested"] = "OnClearAgentChatClick",
             ["CloseRuntimeTabRequested"] = "OnCloseRuntimeTabClick",
+            ["CloseOtherRuntimeTabsRequested"] = "OnCloseOtherRuntimeTabsClick",
+            ["MoveRuntimeTabToWorkspaceRequested"] = "OnMoveRuntimeTabToWorkspaceRequested",
             ["DeclineAgentQuestionRequested"] = "OnDeclineAgentQuestionClick",
             ["DenyAgentActionRequested"] = "OnDenyAgentActionClick",
             ["DisableAgentYoloRequested"] = "OnDisableAgentYoloClick",
@@ -46,6 +48,7 @@ public sealed class WorkspaceViewContractTests
             ["ShowNewPanelRequested"] = "OnShowNewPanelClick",
             ["ShowSettingsRequested"] = "OnShowSettingsClick",
             ["SubmitAgentQuestionRequested"] = "OnSubmitAgentQuestionClick",
+            ["TerminateWorkspaceRequested"] = "OnTerminateWorkspaceClick",
             ["ToggleAgentRequested"] = "OnToggleAgentClick",
         };
 
@@ -239,20 +242,27 @@ public sealed class WorkspaceViewContractTests
             workspacesMenuIcon.Descendants(),
             element => string.Equals(element.Name.LocalName, "SymbolIcon"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Symbol"), "Bot", StringComparison.Ordinal));
-        Assert.Single(
+        // A menu, built as it opens, with no switch inside it: the rail's
+        // own toggle is Show Sidebar in the View menu.
+        Assert.Equal("{Binding WorkspacesMenuName}", AttributeValue(workspacesMenu, "AutomationProperties.Name"));
+        var workspacesFlyout = Assert.Single(
             workspacesMenu.Descendants(),
-            element => string.Equals(element.Name.LocalName, "ItemsControl"
-, StringComparison.Ordinal) && string.Equals(
-                    AttributeValue(element, "ItemsSource"),
-                    "{Binding Workspaces}",
-                    StringComparison.Ordinal));
-        Assert.Single(
+            element => string.Equals(element.Name.LocalName, "MenuFlyout", StringComparison.Ordinal));
+        Assert.Equal("OnWorkspacesMenuOpening", AttributeValue(workspacesFlyout, "Opening"));
+        Assert.DoesNotContain(
             workspacesMenu.Descendants(),
-            element => string.Equals(element.Name.LocalName, "ToggleSwitch"
-, StringComparison.Ordinal) && string.Equals(
-                    AttributeValue(element, "IsChecked"),
-                    "{Binding ShowWorkspacesPanel, Mode=TwoWay}",
-                    StringComparison.Ordinal));
+            element => string.Equals(element.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal));
+
+        // On macOS Settings is the app menu's and ⌘,'s, not a title-bar
+        // button; Windows and Linux draw no menu bar, so the button stays
+        // there and only there.
+        var settingsButton = Assert.Single(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Click"), "OnShowSettingsClick", StringComparison.Ordinal));
+        Assert.Equal(
+            "{x:Static views:WorkspaceView.ShowsSettingsButton}",
+            AttributeValue(settingsButton, "IsVisible"));
 
         // Every edge the setting offers has a host, and each is bound to the
         // stored placement rather than being always visible.

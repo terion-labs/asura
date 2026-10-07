@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
+    xmlns:converters="using:Asura.App.Converters"
     xmlns:dock="using:Dock.Avalonia.Controls"
     xmlns:dockCore="using:Dock.Model.Core"
     xmlns:components="using:Asura.App.Views.Components"
@@ -41,26 +42,6 @@
     </ControlTheme>
   </UserControl.Resources>
   <UserControl.Styles>
-    <!-- A workspace calling for attention. Slow and shallow on purpose: this
-         sits in a menu the user opened to read, and anything sharper reads as
-         an error rather than as activity. With Reduce Motion it is a still
-         badge instead: a ring in the text colour around the workspace's dot. -->
-    <Style Selector="Window:not(.motion-disabled) Ellipse.calling">
-      <Style.Animations>
-        <Animation Duration="0:0:1.4" IterationCount="INFINITE" PlaybackDirection="Alternate">
-          <KeyFrame Cue="0%">
-            <Setter Property="Opacity" Value="1" />
-          </KeyFrame>
-          <KeyFrame Cue="100%">
-            <Setter Property="Opacity" Value="0.3" />
-          </KeyFrame>
-        </Animation>
-      </Style.Animations>
-    </Style>
-    <Style Selector="Window.motion-disabled Ellipse.calling">
-      <Setter Property="Stroke" Value="{DynamicResource ShellTextBrush}" />
-      <Setter Property="StrokeThickness" Value="2" />
-    </Style>
     <!-- All of the panel's geometry lives here, not on the element: an inline
          value would silence whichever of these the state asks for, and the
          resize handle needs local values it can set and clear. Docked is the
@@ -88,8 +69,10 @@
       <Setter Property="BoxShadow" Value="{DynamicResource ShellFlyoutShadow}" />
       <Setter Property="Background" Value="{DynamicResource ShellSidebarOverlayBrush}" />
     </Style>
-    <!-- The route mark reads its state in colour: quiet when direct, green
-         once a route carries traffic, accent while one is being brought up. -->
+    <!-- The route mark reads its state in its glyph — globe, turning globe,
+         shielded globe, broken shield, lock — and the colour repeats it:
+         quiet when direct, green once a route carries traffic, accent while
+         one is being brought up, danger when it failed or blocks traffic. -->
     <Style Selector="icons|SymbolIcon.NetworkMark">
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
     </Style>
@@ -98,6 +81,9 @@
     </Style>
     <Style Selector="icons|SymbolIcon.NetworkMark.busy">
       <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    </Style>
+    <Style Selector="icons|SymbolIcon.NetworkMark.degraded">
+      <Setter Property="Foreground" Value="{DynamicResource ShellDangerBrush}" />
     </Style>
   </UserControl.Styles>
   <Grid RowDefinitions="Auto,*,Auto">
@@ -108,14 +94,22 @@
       <Grid ColumnDefinitions="Auto,*,Auto" Margin="{Binding $parent[views:MainWindow].WindowTitleBarContentMargin}" ColumnSpacing="{DynamicResource ShellSpaceSm}">
         <!-- Where the home tab used to sit. Home was a screen you left the work
              to visit; this is the same corner answering the question that screen
-             was mostly opened for — which workspace, and whether the rail that
-             lists them is on. -->
+             was mostly opened for — which workspace.
+
+             A menu, not a popover of buttons: arrow keys and type-select walk
+             it, VoiceOver hears menu items, and the workspace in front is the
+             checked one. Ending a workspace is its own item, apart from the
+             list and last, so it is never one slip away from opening one. The
+             rail's own switch lives in the View menu with the other sidebars.
+             The items are built as the menu opens, from the workspaces as they
+             are then. -->
         <Button
             x:Name="WorkspacesMenuButton"
             Classes="IconButton"
             WindowDecorationProperties.ElementRole="User"
             ToolTip.Tip="Workspaces"
-            AutomationProperties.Name="Workspaces">
+            Tag="{Binding Workspaces}"
+            AutomationProperties.Name="{Binding WorkspacesMenuName}">
           <Panel>
             <icons:SymbolIcon Symbol="CalendarWeekNumbers" FontSize="15" />
             <controls:SignalDot
@@ -124,73 +118,7 @@
                 IsVisible="{Binding HasWorkspaceAttention}" />
           </Panel>
           <Button.Flyout>
-            <Flyout Placement="BottomEdgeAlignedLeft" FlyoutPresenterClasses="SavedConnectionMenu">
-              <StackPanel MinWidth="220" Spacing="{DynamicResource ShellSpaceXs}">
-                <ItemsControl ItemsSource="{Binding Workspaces}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <Grid ColumnDefinitions="*,Auto">
-                      <Button
-                          Classes="FlyoutMenuItem"
-                          Click="OnWorkspacesMenuOpenClick"
-                          HorizontalContentAlignment="Stretch"
-                          AutomationProperties.Name="{Binding Name, StringFormat=Open workspace {0}}">
-                        <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                          <!-- One mark, read by its fill: an idle workspace is
-                               an outline, a running one is solid, and one that
-                               is calling breathes. All three in the workspace's
-                               own colour, so the row still says whose it is. -->
-                          <Panel VerticalAlignment="Center" Width="12" Height="12">
-                            <Ellipse
-                                Width="12"
-                                Height="12"
-                                Stroke="{Binding Accent, Converter={StaticResource HexColorBrushConverter}}"
-                                StrokeThickness="2"
-                                IsVisible="{Binding !IsOpen}" />
-                            <Ellipse
-                                Width="12"
-                                Height="12"
-                                Classes.calling="{Binding HasAttention}"
-                                Fill="{Binding Accent, Converter={StaticResource HexColorBrushConverter}}"
-                                IsVisible="{Binding IsOpen}" />
-                          </Panel>
-                          <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                          <icons:SymbolIcon
-                              Grid.Column="2"
-                              VerticalAlignment="Center"
-                              AutomationProperties.Name="AI agent active"
-                              Classes="PanelAgentActivity"
-                              FontSize="{DynamicResource ShellFontSize10}"
-                              Foreground="{DynamicResource ShellAccentBrush}"
-                              IsVisible="{Binding HasAgentActivity}"
-                              Symbol="Bot" />
-                          <icons:SymbolIcon Grid.Column="3" VerticalAlignment="Center" Symbol="Checkmark" FontSize="12" IsVisible="{Binding IsInFront}" />
-                        </Grid>
-                      </Button>
-                      <Button
-                          Grid.Column="1"
-                          Classes="IconButton"
-                          Click="OnWorkspacesMenuCloseClick"
-                          IsVisible="{Binding CanClose}"
-                          ToolTip.Tip="Terminate this workspace and everything running in it"
-                          AutomationProperties.Name="{Binding Name, StringFormat=Terminate workspace {0}}">
-                        <icons:SymbolIcon Symbol="Dismiss" FontSize="11" />
-                      </Button>
-                      </Grid>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <Border Height="1" Background="{DynamicResource ShellBorderBrush}" />
-                <Grid Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                  <TextBlock VerticalAlignment="Center" Text="Show workspaces panel" />
-                  <ToggleSwitch
-                      x:Name="WorkspacesPanelToggle"
-                      Grid.Column="1"
-                      IsChecked="{Binding ShowWorkspacesPanel, Mode=TwoWay}"
-                      AutomationProperties.Name="Show workspaces panel" />
-                </Grid>
-              </StackPanel>
-            </Flyout>
+            <MenuFlyout Placement="BottomEdgeAlignedLeft" Opening="OnWorkspacesMenuOpening" />
           </Button.Flyout>
         </Button>
         <components:RuntimeTabStripView
@@ -209,6 +137,10 @@
             CloseRequested="OnCloseRuntimeTabClick"
             TitleEditRequested="OnRuntimeTabTitleEditRequested"
             IconEditRequested="OnRuntimeTabIconEditRequested"
+            MoveTargets="{Binding OpenWorkspaces}"
+            CurrentMoveTarget="{Binding RuntimeWorkspace}"
+            CloseOtherTabsRequested="OnCloseOtherRuntimeTabsClick"
+            MoveToWorkspaceRequested="OnMoveRuntimeTabToWorkspaceRequested"
             TabDragEnter="OnRuntimeTabDragEnter"
             TabDragLeave="OnRuntimeTabDragLeave"
             TabDragOver="OnRuntimeTabDragOver"
@@ -242,21 +174,10 @@
                   Classes="NetworkMark"
                   Classes.connected="{Binding WorkspaceNetwork.IsConnected}"
                   Classes.busy="{Binding WorkspaceNetwork.IsConnecting}"
+                  Classes.degraded="{Binding WorkspaceNetwork.IsDegraded}"
                   FontSize="13"
-                  IsVisible="{Binding !WorkspaceNetwork.IsDegraded}"
-                  Symbol="Globe" />
-              <icons:SymbolIcon
-                  VerticalAlignment="Center"
-                  FontSize="13"
-                  Foreground="{DynamicResource ShellDangerBrush}"
-                  IsVisible="{Binding WorkspaceNetwork.IsFailed}"
-                  Symbol="ShieldError" />
-              <icons:SymbolIcon
-                  VerticalAlignment="Center"
-                  FontSize="13"
-                  Foreground="{DynamicResource ShellDangerBrush}"
-                  IsVisible="{Binding WorkspaceNetwork.IsBlocked}"
-                  Symbol="LockClosed" />
+                  Symbol="{Binding WorkspaceNetwork.RouteSymbol}"
+                  AutomationProperties.AccessibilityView="Raw" />
               <TextBlock
                   VerticalAlignment="Center"
                   FontSize="{DynamicResource ShellFontSize9}"
@@ -414,7 +335,7 @@
                shows — so search keeps its place here rather than losing its
                only visible affordance with it. -->
           <Button Classes="IconButton" Click="OnShowCommandPaletteClick" ToolTip.Tip="{Binding CommandPaletteAction}" AutomationProperties.Name="Search commands, connections, screens, workspaces, and session history"><icons:SymbolIcon Symbol="Search" FontSize="15" /></Button>
-          <Button Classes="IconButton" Click="OnShowSettingsClick" ToolTip.Tip="Settings" AutomationProperties.Name="Open settings"><icons:SymbolIcon Symbol="Settings" FontSize="15" /></Button>
+          <Button Classes="IconButton" Click="OnShowSettingsClick" ToolTip.Tip="Settings" AutomationProperties.Name="Settings" IsVisible="{x:Static views:WorkspaceView.ShowsSettingsButton}"><icons:SymbolIcon Symbol="Settings" FontSize="15" /></Button>
           <Button Classes="IconButton" Click="OnLockShellClick" ToolTip.Tip="Lock Asura" AutomationProperties.Name="Lock Asura" IsVisible="{Binding ApplicationSecurityEditor.IsProtectionEnabled}"><icons:SymbolIcon Symbol="LockClosed" FontSize="15" /></Button>
         </StackPanel>
       </Grid>
@@ -440,6 +361,10 @@
           CloseRequested="OnCloseRuntimeTabClick"
           TitleEditRequested="OnRuntimeTabTitleEditRequested"
           IconEditRequested="OnRuntimeTabIconEditRequested"
+          MoveTargets="{Binding OpenWorkspaces}"
+          CurrentMoveTarget="{Binding RuntimeWorkspace}"
+          CloseOtherTabsRequested="OnCloseOtherRuntimeTabsClick"
+          MoveToWorkspaceRequested="OnMoveRuntimeTabToWorkspaceRequested"
           TabDragEnter="OnRuntimeTabDragEnter"
           TabDragLeave="OnRuntimeTabDragLeave"
           TabDragOver="OnRuntimeTabDragOver"
@@ -553,6 +478,10 @@
             CloseRequested="OnCloseRuntimeTabClick"
             TitleEditRequested="OnRuntimeTabTitleEditRequested"
             IconEditRequested="OnRuntimeTabIconEditRequested"
+            MoveTargets="{Binding OpenWorkspaces}"
+            CurrentMoveTarget="{Binding RuntimeWorkspace}"
+            CloseOtherTabsRequested="OnCloseOtherRuntimeTabsClick"
+            MoveToWorkspaceRequested="OnMoveRuntimeTabToWorkspaceRequested"
             TabDragEnter="OnRuntimeTabDragEnter"
             TabDragLeave="OnRuntimeTabDragLeave"
             TabDragOver="OnRuntimeTabDragOver"
@@ -593,8 +522,19 @@
                     Click="OnRestorePanelClick"
                     PointerEntered="OnCollapsedPanelPointerEntered"
                     PointerExited="OnCollapsedPanelPointerExited"
-                    ToolTip.Tip="{Binding Title}"
-                    AutomationProperties.Name="{Binding Title, StringFormat=Restore {0}}">
+                    GotFocus="OnCollapsedPanelGotFocus"
+                    LostFocus="OnCollapsedPanelLostFocus"
+                    ToolTip.Tip="{Binding Title}">
+                  <!-- Heard as "Restore Terminal, needs attention": the dot
+                       and the robot are drawn for the eye, and the name is
+                       where a screen reader learns the same. -->
+                  <AutomationProperties.Name>
+                    <MultiBinding Converter="{x:Static converters:AttentionLabelConverter.Instance}" ConverterParameter="Restore {0}">
+                      <Binding Path="Title" />
+                      <Binding Path="HasAttention" />
+                      <Binding Path="AgentActivity" />
+                    </MultiBinding>
+                  </AutomationProperties.Name>
                   <Panel>
                     <icons:SymbolIcon Symbol="{Binding IconSymbol}" FontSize="18" />
                     <controls:SignalDot
@@ -604,6 +544,7 @@
                         Symbol="Bot" FontSize="10"
                         HorizontalAlignment="Right" VerticalAlignment="Bottom"
                         Foreground="{DynamicResource ShellAccentBrush}"
+                        AutomationProperties.AccessibilityView="Raw"
                         IsVisible="{Binding IsAgentActive}" />
                   </Panel>
                 </Button>

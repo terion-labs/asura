@@ -816,7 +816,7 @@ public sealed partial class MainWindowViewModel
                     workspace.Id,
                     tab.Id,
                     id,
-                    "File Viewer",
+                    PanelTypes.Files,
                     connection.Endpoint is ConnectionEndpoint.Ssh
                         ? ConnectionFileProviderProfiles.Id(connection.Id)
                         : BuiltInFileProviders.HomeId,
@@ -847,7 +847,7 @@ public sealed partial class MainWindowViewModel
                     workspace.Id,
                     tab.Id,
                     id,
-                    "File Viewer",
+                    PanelTypes.Files,
                     file.Id,
                     deferInitialization: true)
                 : null;
@@ -890,7 +890,7 @@ public sealed partial class MainWindowViewModel
                 workspace.Id,
                 tab.Id,
                 id,
-                "File Viewer",
+                PanelTypes.Files,
                 deferInitialization: true),
             PanelKind.Statistics or PanelKind.ProcessMonitor =>
                 CreateMonitorPanel(
@@ -913,8 +913,8 @@ public sealed partial class MainWindowViewModel
 
     private static string AgentWorkspacePanelTitle(PanelKind kind) => kind switch
     {
-        PanelKind.Statistics => "Statistics",
-        PanelKind.ProcessMonitor => "Process Monitor",
+        PanelKind.Statistics => PanelTypes.Statistics,
+        PanelKind.ProcessMonitor => PanelTypes.Processes,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
 

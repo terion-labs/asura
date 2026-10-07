@@ -31,7 +31,7 @@ public sealed class MainWindowEditMenuTests
                 var bar = ApplicationMenuBar.CreateMenuBar(window);
                 window.ShowCommandPalette();
                 Dispatcher.UIThread.RunJobs();
-                var search = Assert.IsType<TextBox>(window.FocusManager?.GetFocusedElement());
+                var search = Assert.IsAssignableFrom<TextBox>(window.FocusManager?.GetFocusedElement());
                 search.Text = "alpha";
                 search.SelectAll();
                 bar.Refresh();
@@ -123,7 +123,7 @@ public sealed class MainWindowEditMenuTests
                 var button = new Button { Content = "Plain" };
                 window.ShowCommandPalette();
                 Dispatcher.UIThread.RunJobs();
-                var search = Assert.IsType<TextBox>(window.FocusManager?.GetFocusedElement());
+                var search = Assert.IsAssignableFrom<TextBox>(window.FocusManager?.GetFocusedElement());
                 var host = Assert.IsAssignableFrom<Panel>(search.Parent);
                 var text = new SelectableTextBlock { Text = "agent reply", Focusable = true };
                 host.Children.Add(text);

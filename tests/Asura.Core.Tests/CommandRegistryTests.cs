@@ -13,6 +13,22 @@ public sealed class CommandRegistryTests
     }
 
     [Fact]
+    public void Built_in_categories_name_each_group_once()
+    {
+        // The palette shows the category on every row, so "Window" beside
+        // "Windows" reads as two groups for one menu.
+        var categories = BuiltInCommands.Registry.Commands
+            .Select(command => command.Category)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.DoesNotContain(
+            categories,
+            category => categories.Contains(category + "s", StringComparer.OrdinalIgnoreCase));
+        Assert.All(categories, category => Assert.True(char.IsUpper(category[0]), category));
+    }
+
+    [Fact]
     public void Availability_checks_context_parameters_and_runtime_predicate()
     {
         var schema = new CommandParameterSchema(

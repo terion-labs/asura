@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Asura.Application;
 using Asura.Core;
+using FluentIcons.Common;
 
 namespace Asura.App.ViewModels;
 
@@ -92,6 +93,21 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
     };
 
     public bool IsDirect => _snapshot.State == WorkspaceNetworkState.Direct;
+
+    /// <summary>
+    /// The title bar's route mark, one glyph per state: a plain globe for
+    /// direct, a globe turning while a route comes up, a shielded globe once
+    /// one carries traffic, and the failure and block marks. Colour repeats
+    /// what the shape says rather than being the only thing that says it.
+    /// </summary>
+    public Symbol RouteSymbol => _snapshot.State switch
+    {
+        WorkspaceNetworkState.Failed => Symbol.ShieldError,
+        WorkspaceNetworkState.Blocked => Symbol.LockClosed,
+        _ when IsConnecting => Symbol.GlobeSync,
+        WorkspaceNetworkState.Connected => Symbol.GlobeShield,
+        _ => Symbol.Globe,
+    };
 
     /// <summary>A route that is not carrying traffic the way it was asked to.</summary>
     public bool IsDegraded => IsFailed || IsBlocked;
@@ -404,6 +420,7 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
         }
 
         OnPropertyChanged(nameof(IsConnecting));
+        OnPropertyChanged(nameof(RouteSymbol));
         OnPropertyChanged(nameof(CanToggle));
         OnPropertyChanged(nameof(ToggleAction));
         OnPropertyChanged(nameof(StatusText));
@@ -420,6 +437,7 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
         OnPropertyChanged(nameof(IsBlocked));
         OnPropertyChanged(nameof(IsDirect));
         OnPropertyChanged(nameof(IsDegraded));
+        OnPropertyChanged(nameof(RouteSymbol));
         OnPropertyChanged(nameof(CanToggle));
         OnPropertyChanged(nameof(ToggleAction));
         OnPropertyChanged(nameof(RouteLabel));

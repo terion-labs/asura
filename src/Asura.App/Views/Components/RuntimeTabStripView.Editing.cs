@@ -17,10 +17,18 @@ public sealed partial class RuntimeTabStripView
 
     private void OnTitleDoubleTapped(object? sender, TappedEventArgs e)
     {
-        if (sender is not TextBlock { Parent: Panel host } title
+        if (sender is TextBlock title && BeginTitleEdit(title))
+        {
+            e.Handled = true;
+        }
+    }
+
+    private bool BeginTitleEdit(TextBlock title)
+    {
+        if (title is not { Parent: Panel host }
             || host.Children.OfType<TextBox>().SingleOrDefault() is not { } editor)
         {
-            return;
+            return false;
         }
 
         if (_activeTitleEditor is { } active && !ReferenceEquals(active, editor))
@@ -34,7 +42,7 @@ public sealed partial class RuntimeTabStripView
         editor.IsVisible = true;
         editor.Focus();
         editor.SelectAll();
-        e.Handled = true;
+        return true;
     }
 
     private void OnTitleEditorKeyDown(object? sender, KeyEventArgs e)
@@ -93,20 +101,28 @@ public sealed partial class RuntimeTabStripView
 
     private void OnIconDoubleTapped(object? sender, TappedEventArgs e)
     {
-        if (sender is not Control { DataContext: { } tab } anchor
+        if (sender is Control anchor && OpenIconPicker(anchor))
+        {
+            e.Handled = true;
+        }
+    }
+
+    private bool OpenIconPicker(Control anchor)
+    {
+        if (anchor is not { DataContext: { } tab }
             || FlyoutBase.GetAttachedFlyout(anchor) is not Flyout
             {
                 Content: IconPicker picker,
             } flyout)
         {
-            return;
+            return false;
         }
 
         picker.DataContext = new RuntimeTabIconPickerViewModel(anchor.Tag as string ?? string.Empty);
         picker.Tag = new IconPickerSession(tab, flyout);
         flyout.Placement = IconPickerPlacement;
         flyout.ShowAt(anchor);
-        e.Handled = true;
+        return true;
     }
 
     private void OnIconFlyoutOpened(object? sender, EventArgs e)

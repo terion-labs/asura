@@ -140,16 +140,7 @@ public sealed record RecentSessionHistoryItemViewModel(
             : timestamp.ToLocalTime().ToString("yyyy-MM-dd", CultureInfo.CurrentCulture);
     }
 
-    private static string PanelKindLabel(PanelKind kind) => kind switch
-    {
-        PanelKind.Terminal => "Terminal",
-        PanelKind.FileViewer => "File Viewer",
-        PanelKind.Browser => "Browser",
-        PanelKind.Statistics => "Statistics",
-        PanelKind.ProcessMonitor => "Process Monitor",
-        PanelKind.DatabaseViewer => "Database",
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
-    };
+    private static string PanelKindLabel(PanelKind kind) => PanelTypes.Name(kind);
 
     private static string OutcomeLabel(RecentSessionOutcome outcome) => outcome switch
     {

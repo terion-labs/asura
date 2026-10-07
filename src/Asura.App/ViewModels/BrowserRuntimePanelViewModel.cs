@@ -24,6 +24,7 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
     private readonly string? _connectionDisplayName;
     private BrowserRendererView? _rendererView;
     private BrowserAddress _currentAddress;
+    private string _pageTitle = string.Empty;
     private Task _initialization = Task.CompletedTask;
     private string? _routeErrorMessage;
     private bool _initializationStarted;
@@ -114,6 +115,7 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         _rendererViewFactory = rendererViewFactory
             ?? throw new ArgumentNullException(nameof(rendererViewFactory));
         _currentAddress = initialAddress;
+        _pageTitle = PageTitleFor(null, initialAddress);
         SessionRequest = new EnsureBrowserSessionRequest(
             SessionId.New(),
             owner,
@@ -213,10 +215,35 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         private set => SetProperty(ref _currentAddress, value);
     }
 
+    /// <summary>
+    /// The name a page gives itself, or its host while it has none. Empty for
+    /// a blank page, which has neither.
+    /// </summary>
+    public string PageTitle
+    {
+        get => _pageTitle;
+        private set => SetProperty(ref _pageTitle, value);
+    }
+
+    internal static string PageTitleFor(string? title, BrowserAddress address)
+    {
+        ArgumentNullException.ThrowIfNull(address);
+        if (!string.IsNullOrWhiteSpace(title))
+        {
+            return title.Trim();
+        }
+
+        var host = address.Value.IsAbsoluteUri ? address.Value.Host : string.Empty;
+        return host.StartsWith("www.", StringComparison.OrdinalIgnoreCase)
+            ? host[4..]
+            : host;
+    }
+
     internal void ApplyBrowserState(BrowserSessionState state)
     {
         ArgumentNullException.ThrowIfNull(state);
         CurrentAddress = state.Address;
+        PageTitle = PageTitleFor(state.Title, state.Address);
         if (state.LoadState == BrowserLoadState.Ready && state.DocumentRevision > 0
             && (_recordedAddress != state.Address || _recordedRevision != state.DocumentRevision
                 || !string.Equals(_recordedTitle, state.Title, StringComparison.Ordinal)))

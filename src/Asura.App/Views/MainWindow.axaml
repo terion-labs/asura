@@ -451,18 +451,22 @@
         CloseRuntimeTabRequested="OnCloseRuntimeTabClick"
         RuntimeTabTitleEditRequested="OnRuntimeTabTitleEditRequested"
         RuntimeTabIconEditRequested="OnRuntimeTabIconEditRequested"
+        CloseOtherRuntimeTabsRequested="OnCloseOtherRuntimeTabsClick"
+        MoveRuntimeTabToWorkspaceRequested="OnMoveRuntimeTabToWorkspaceRequested"
         DeclineAgentQuestionRequested="OnDeclineAgentQuestionClick"
         DenyAgentActionRequested="OnDenyAgentActionClick"
         DisableAgentYoloRequested="OnDisableAgentYoloClick"
         EnableAgentCapabilityAskRequested="OnEnableAgentCapabilityAskClick"
         EnableAgentYoloRequested="OnEnableAgentYoloClick"
         LockShellRequested="OnLockShellClick"
+        ShowSettingsRequested="OnShowSettingsClick"
         IsVisible="{Binding IsWorkspaceVisible}"
         KeepAgentCapabilityOffRequested="OnKeepAgentCapabilityOffClick"
         LoadOlderAgentAuditRequested="OnLoadOlderAgentAuditClick"
         MoveQueuedFollowUpRequested="OnMoveAgentQueuedFollowUpRequested"
         OpenWorkspaceRequested="OnOpenWorkspaceClick"
         CloseWorkspaceRequested="OnCloseWorkspaceClick"
+        TerminateWorkspaceRequested="OnTerminateWorkspaceClick"
         SaveWorkspaceLayoutRequested="OnSaveWorkspaceLayoutClick"
         CreateWorkspaceRequested="OnCreateWorkspaceClick"
         RefreshAgentAuditRequested="OnRefreshAgentAuditClick"
@@ -495,7 +499,6 @@
         ShowNewItemRequested="OnShowNewItemClick"
         AddPanelToSideRequested="OnAddPanelToSideRequested"
         ShowNewPanelRequested="OnShowNewPanelClick"
-        ShowSettingsRequested="OnShowSettingsClick"
         SubmitAgentQuestionRequested="OnSubmitAgentQuestionClick"
         ToggleAgentRequested="OnToggleAgentClick"
         ToggleAgentPinRequested="OnToggleAgentPinClick"
@@ -503,8 +506,14 @@
         WorkspaceNetworkToggleRequested="OnWorkspaceNetworkToggleRequested"
         NetworkingSettingsRequested="OnNetworkingSettingsClick" />
 
-    <!-- Docked overlays. Runtime native views are hidden while these are open. -->
-    <Grid IsVisible="{Binding HasOverlay}" Background="{DynamicResource ShellScrimBrush}">
+    <!-- Docked overlays. Runtime native views are hidden while these are open.
+         A click on the scrim around the palette or the Add Panel chooser
+         closes it, as a click outside a popover does. -->
+    <Grid
+        x:Name="OverlayScrim"
+        IsVisible="{Binding HasOverlay}"
+        Background="{DynamicResource ShellScrimBrush}"
+        PointerPressed="OnOverlayScrimPointerPressed">
       <ContentControl
           x:Name="CommandPaletteOverlayHost"
           IsVisible="{Binding IsCommandPaletteVisible}" />

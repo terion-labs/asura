@@ -1160,6 +1160,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 OnPropertyChanged(nameof(HasRuntimeWorkspace));
                 OnPropertyChanged(nameof(NewItemLauncherTitle));
                 OnPropertyChanged(nameof(CanCreateBrowserPanel));
+                OnPropertyChanged(nameof(BrowserPanelUnavailableReason));
                 OnPropertyChanged(nameof(PanelConnectionOptions));
                 OnPropertyChanged(nameof(BrowserConnectionOptions));
                 OnPropertyChanged(nameof(WorkspaceNetwork));
@@ -1284,6 +1285,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             OnPropertyChanged(nameof(IsWorkspaceRailVisible));
             OnPropertyChanged(nameof(HasWorkspaceAttention));
+            OnPropertyChanged(nameof(WorkspacesMenuName));
         }
     }
 
@@ -1839,6 +1841,23 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     public bool CanCreateBrowserPanel =>
         CanStartBrowserSession
         && RuntimeWorkspace?.ActiveTab is not null;
+
+    /// <summary>
+    /// What a dimmed Browser tile says instead of its description: why it
+    /// cannot be used, and what would fix that.
+    /// </summary>
+    public string? BrowserSessionUnavailableReason => CanStartBrowserSession
+        ? null
+        : BrowserEngineMissing;
+
+    public string? BrowserPanelUnavailableReason => !CanStartBrowserSession
+        ? BrowserEngineMissing
+        : RuntimeWorkspace?.ActiveTab is null
+            ? "Open a tab first, then add a browser panel to it."
+            : null;
+
+    private static string BrowserEngineMissing =>
+        "This build of Asura doesn't include the browser engine. Install the full build to add browser panels.";
 
     public RuntimePanelViewModel? ActivePanel => RuntimeWorkspace?.ActiveTab?.ActivePanel;
 
@@ -3473,13 +3492,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             RegisterWorkspaceConnectionRuntime(runtime);
             var tab = new RuntimeTabViewModel(
                 TabInstanceId.New(),
-                kind == PanelKind.Statistics ? "Statistics" : "Processes",
+                PanelTypes.Name(kind),
                 "Local host");
             var panel = CreateMonitorPanel(
                 runtime.Id,
                 tab.Id,
                 PanelInstanceId.New(),
-                kind == PanelKind.Statistics ? "Statistics" : "Process Monitor",
+                PanelTypes.Name(kind),
                 kind);
             tab.AddPanel(panel);
             runtime.Tabs.Add(tab);
@@ -5352,7 +5371,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             return HostResult<CloseScopeResult>.Fail(
                 HostError.Create(
                     HostErrorCode.NotFound,
-                    "This File Viewer has no hosted session to close."),
+                    "This Files panel has no hosted session to close."),
                 currentRevision: 0);
         }
 
@@ -6061,7 +6080,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             workspace,
             tab,
             panel,
-            "File Viewer creation",
+            "Files panel creation",
             () =>
             {
                 tab.AddPanel(panel);
@@ -6178,7 +6197,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (connection.Endpoint is not (ConnectionEndpoint.Local or ConnectionEndpoint.Ssh))
             {
                 SetError(
-                    "That execution connection cannot back File Viewer. "
+                    "That execution connection cannot back a Files panel. "
                     + "Choose a file connection from the panel selector.");
                 return false;
             }
@@ -6297,7 +6316,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             candidate.Panels.Any(panel => panel.Id == currentPanel.Id));
         if (workspace is null || tab is null)
         {
-            SetError("That File Viewer panel is no longer open.");
+            SetError("That Files panel is no longer open.");
             return false;
         }
 
@@ -6306,7 +6325,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             .SingleOrDefault(candidate => candidate.Id == currentPanel.Id);
         if (livePanel is null)
         {
-            SetError("The File Viewer changed before its connection could be switched.");
+            SetError("The Files panel changed before its connection could be switched.");
             return false;
         }
 
@@ -6320,7 +6339,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         if (!tab.ReplacePanel(livePanel, replacement))
         {
             replacement.Dispose();
-            SetError("The File Viewer changed before its connection could be switched.");
+            SetError("The Files panel changed before its connection could be switched.");
             return false;
         }
 
@@ -6338,7 +6357,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var tab = workspace?.ActiveTab;
         if (workspace is null || tab is null)
         {
-            SetError("Open a workspace tab before adding a File Viewer panel.");
+            SetError("Open a workspace tab before adding a Files panel.");
             return false;
         }
 
@@ -6346,13 +6365,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             workspace.Id,
             tab.Id,
             PanelInstanceId.New(),
-            "File Viewer",
+            PanelTypes.Files,
             deferInitialization: true);
         return await AddRuntimePanelUnderReceiptAsync(
             workspace,
             tab,
             panel,
-            "File Viewer creation",
+            "Files panel creation",
             () =>
             {
                 tab.AddPanel(panel);
@@ -7134,15 +7153,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     private static string SinglePanelTabTitle(PanelKind kind) => kind switch
     {
-        PanelKind.Browser => "Browser",
-        PanelKind.FileViewer => "File Viewer",
-        PanelKind.Statistics => "Statistics",
-        PanelKind.ProcessMonitor => "Process Monitor",
-        PanelKind.DatabaseViewer => "Database",
-        PanelKind.Docker => "Docker",
-        PanelKind.Kubernetes => "Kubernetes",
-        PanelKind.Git => "Git",
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+        PanelKind.Terminal or PanelKind.Placeholder =>
+            throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+        _ => PanelTypes.Name(kind),
     };
 
     private static string BrowserCreationFailure(RuntimePanelViewModel panel) =>
@@ -7878,6 +7891,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
 
         OnPropertyChanged(nameof(HasWorkspaceAttention));
+
+        OnPropertyChanged(nameof(WorkspacesMenuName));
         OnPropertyChanged(nameof(HasWorkspaceAgentActivity));
     }
 
@@ -7891,6 +7906,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     /// </summary>
     public bool HasWorkspaceAttention =>
         !IsWorkspaceRailVisible && Workspaces.Any(item => item.HasAttention);
+
+    /// <summary>
+    /// The Workspaces button as it is heard: "Workspaces", or "Workspaces, 1
+    /// needs attention" while it carries the mark. The mark is a dot, and a
+    /// dot says nothing to a screen reader.
+    /// </summary>
+    public string WorkspacesMenuName => AttentionLabel.Count(
+        "Workspaces",
+        HasWorkspaceAttention ? Workspaces.Count(item => item.HasAttention) : 0);
 
     public bool HasWorkspaceAgentActivity =>
         Workspaces.Any(item => item.HasAgentActivity);
@@ -8896,6 +8920,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         // The mark on the menu stands in for the rail, so turning the rail on
         // or off decides whether it is needed.
         OnPropertyChanged(nameof(HasWorkspaceAttention));
+        OnPropertyChanged(nameof(WorkspacesMenuName));
         OnPropertyChanged(nameof(KeybindingConflictCount));
         RefreshRecentSessionAvailability();
         Launcher.RefreshSearchResults();
@@ -9473,106 +9498,58 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var activeBindings = ActiveApplicationKeymap.Bindings
             .ToLookup(binding => binding.CommandId);
         var candidates = new List<LauncherSearchResultViewModel>();
-        var savedDefinitionAction = HasRuntimeWorkspace ? "Add tab" : "Open";
 
         var canStartFileViewer = RuntimeWorkspace?.ActiveTab is not null
             || Workspaces.Count > 0
             || Connections.Any(connection => connection.CanOpen);
-        var canStartBrowser = CanStartBrowserSession;
         var canStartDatabase = _databaseConnectionCatalog is not null;
+
+        // One row per panel type, by the name and sentence the launcher and
+        // the Add Panel chooser use. The old names stay searchable.
         candidates.AddRange(
         [
-            new LauncherSearchResultViewModel(
-                new LauncherSearchTarget.CreatePanel(PanelKind.Terminal),
-                Symbol.WindowConsole,
-                "Create · terminal",
-                "New terminal",
-                "Start a local PTY in a new tab.",
-                "Open",
-                IsAvailable: true,
-                UnavailableReason: null,
-                ["create", "new", "terminal", "local", "pty", "panel", "tab"]),
-            new LauncherSearchResultViewModel(
-                new LauncherSearchTarget.CreatePanel(PanelKind.Browser),
-                Symbol.Globe,
-                "Create · browser",
-                "New browser",
-                "Open an embedded Chromium browser panel.",
-                canStartBrowser ? "Open" : "Unavailable",
-                canStartBrowser,
-                canStartBrowser
-                    ? null
-                    : "The embedded browser is unavailable in this build.",
-                ["create", "new", "browser", "web", "panel"]),
-            new LauncherSearchResultViewModel(
-                new LauncherSearchTarget.CreatePanel(PanelKind.FileViewer),
-                Symbol.Folder,
-                "Create · files",
-                "New File Viewer",
-                "Browse local or configured file providers.",
-                canStartFileViewer ? "Open" : "Unavailable",
-                canStartFileViewer,
+            CreatePanelResult(
+                PanelKind.Terminal,
+                unavailableReason: null,
+                ["create", "new", "terminal", "local", "shell", "pty", "panel", "tab"]),
+            CreatePanelResult(
+                PanelKind.Browser,
+                BrowserSessionUnavailableReason,
+                ["create", "new", "browser", "web", "chromium", "panel"]),
+            CreatePanelResult(
+                PanelKind.FileViewer,
                 canStartFileViewer
                     ? null
-                    : "Open or save a workspace or connection first.",
-                ["create", "new", "file", "files", "viewer", "panel"]),
-            new LauncherSearchResultViewModel(
-                new LauncherSearchTarget.CreatePanel(PanelKind.Statistics),
-                Symbol.PulseSquare,
-                "Create · statistics",
-                "New statistics panel",
-                "Watch live system metrics on this host.",
-                "Open",
-                IsAvailable: true,
-                UnavailableReason: null,
-                ["create", "new", "statistics", "stats", "local", "host", "panel"]),
-            new LauncherSearchResultViewModel(
-                new LauncherSearchTarget.CreatePanel(PanelKind.ProcessMonitor),
-                Symbol.Gauge,
-                "Create · process monitor",
-                "New process monitor",
-                "Watch running processes on this host.",
-                "Open",
-                IsAvailable: true,
-                UnavailableReason: null,
-                ["create", "new", "process", "monitor", "local", "host", "panel"]),
-            new LauncherSearchResultViewModel(
-                new LauncherSearchTarget.CreatePanel(PanelKind.DatabaseViewer),
-                Symbol.Database,
-                "Create · database",
-                "New database viewer",
-                "Query SQLite, PostgreSQL, or MySQL.",
-                canStartDatabase ? "Open" : "Unavailable",
-                canStartDatabase,
+                    : "Open a workspace or save a connection first.",
+                ["create", "new", "file", "files", "viewer", "file viewer", "panel"]),
+            CreatePanelResult(
+                PanelKind.Statistics,
+                unavailableReason: null,
+                ["create", "new", "statistics", "stats", "metrics", "local", "host", "panel"]),
+            CreatePanelResult(
+                PanelKind.ProcessMonitor,
+                unavailableReason: null,
+                ["create", "new", "process", "processes", "process monitor", "local", "host", "panel"]),
+            CreatePanelResult(
+                PanelKind.DatabaseViewer,
                 canStartDatabase
                     ? null
-                    : "The database drivers are unavailable in this build.",
+                    : "This build of Asura doesn't include the database drivers.",
                 ["create", "new", "database", "sql", "sqlite", "postgres", "mysql", "panel"]),
-            new LauncherSearchResultViewModel(new LauncherSearchTarget.CreatePanel(PanelKind.Kubernetes), Symbol.Grid,
-                "Create · Kubernetes", "New Kubernetes panel", "Browse cluster resources, manifests and pod logs.", "Open",
-                true, null, ["create", "new", "kubernetes", "k8s", "cluster", "panel"]),
-            new LauncherSearchResultViewModel(
-                new LauncherSearchTarget.CreatePanel(PanelKind.Docker),
-                Symbol.Box,
-                "Create · Docker",
-                "New Docker panel",
-                "Manage containers, images, volumes, and networks locally or over SSH.",
-                _dockerEngineClient is null ? "Unavailable" : "Open",
-                _dockerEngineClient is not null,
+            CreatePanelResult(
+                PanelKind.Kubernetes,
+                unavailableReason: null,
+                ["create", "new", "kubernetes", "k8s", "cluster", "panel"]),
+            CreatePanelResult(
+                PanelKind.Docker,
                 _dockerEngineClient is null
-                    ? "Docker support is unavailable in this build."
+                    ? "This build of Asura doesn't include Docker support."
                     : null,
                 ["create", "new", "docker", "container", "image", "volume", "network", "panel"]),
-            new LauncherSearchResultViewModel(
-                new LauncherSearchTarget.CreatePanel(PanelKind.Git),
-                Symbol.BranchFork,
-                "Create · Git",
-                "New Git panel",
-                "Stage, commit, and browse history locally or over SSH.",
-                _gitRepositoryClient is null ? "Unavailable" : "Open",
-                _gitRepositoryClient is not null,
+            CreatePanelResult(
+                PanelKind.Git,
                 _gitRepositoryClient is null
-                    ? "Git support is unavailable in this build."
+                    ? "This build of Asura doesn't include Git support."
                     : null,
                 ["create", "new", "git", "repository", "commit", "branch", "diff", "panel"]),
         ]);
@@ -9614,7 +9591,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 candidates.Add(CreateCommandLauncherResult(
                     command,
                     ImmutableDictionary<string, string>.Empty,
-                    standard is { } stroke ? KeySequenceDisplay.Format(stroke) : "Unbound",
+                    standard is { } stroke ? KeySequenceDisplay.Format(stroke) : string.Empty,
                     captured));
                 continue;
             }
@@ -9632,10 +9609,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         candidates.AddRange(Connections.Select(connection => new LauncherSearchResultViewModel(
             new LauncherSearchTarget.Connection(connection.Id),
             Symbol.Server,
-            $"CONNECTION · {connection.Kind}",
+            $"Connection · {connection.Kind}",
             connection.Name,
             connection.Detail,
-            connection.CanOpen ? savedDefinitionAction : "Unavailable",
+            string.Empty,
             connection.CanOpen,
             connection.CanOpen ? null : connection.Status,
             [
@@ -9649,10 +9626,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             new LauncherSearchTarget.FileConnection(
                 new FileProviderProfileId(connection.TargetId)),
             Symbol.Folder,
-            $"CONNECTION · {connection.Kind}",
+            $"Connection · {connection.Kind}",
             connection.Name,
             connection.Detail,
-            connection.CanOpen ? savedDefinitionAction : "Unavailable",
+            string.Empty,
             connection.CanOpen,
             connection.CanOpen ? null : connection.Status,
             [
@@ -9664,16 +9641,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             ])));
         candidates.AddRange(Launcher.KubernetesConnections.Select(connection => new LauncherSearchResultViewModel(
             new LauncherSearchTarget.KubernetesConnection(new KubernetesConnectionProfileId(connection.TargetId)), Symbol.Grid,
-            "Kubernetes connection", connection.Name, connection.Detail, "Open", connection.CanOpen, null,
+            "Connection · Kubernetes", connection.Name, connection.Detail, string.Empty, connection.CanOpen,
+            connection.CanOpen ? null : connection.Status,
             ["kubernetes", "k8s", "cluster", connection.Name, connection.Detail])));
         candidates.AddRange(DatabaseConnections.Select(connection => new LauncherSearchResultViewModel(
             new LauncherSearchTarget.DatabaseConnection(
                 new DatabaseConnectionProfileId(connection.TargetId)),
             Symbol.Database,
-            $"CONNECTION · {connection.Kind}",
+            $"Connection · {connection.Kind}",
             connection.Name,
             connection.Detail,
-            connection.CanOpen ? savedDefinitionAction : "Unavailable",
+            string.Empty,
             connection.CanOpen,
             connection.CanOpen ? null : connection.Status,
             [
@@ -9686,10 +9664,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         candidates.AddRange(Screens.Select(screen => new LauncherSearchResultViewModel(
             new LauncherSearchTarget.Screen(screen.Id),
             Symbol.Grid,
-            $"SAVED SCREEN · {screen.Layout}",
+            $"Saved Screen · {screen.Layout}",
             screen.Name,
-            $"{screen.Description} · {CountLabel(screen.PanelCount, "panel")}",
-            savedDefinitionAction,
+            JoinCaption(screen.Description, CountLabel(screen.PanelCount, "panel")),
+            string.Empty,
             IsAvailable: true,
             UnavailableReason: null,
             ["screen", "saved screen", screen.Id.Value, screen.Description, screen.Layout])));
@@ -9698,18 +9676,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             workspace.IconSymbol,
             "Workspace",
             workspace.Name,
-            workspace.Description,
-            CountLabel(workspace.ItemCount, "item"),
+            JoinCaption(workspace.Description, CountLabel(workspace.ItemCount, "item")),
+            string.Empty,
             IsAvailable: true,
             UnavailableReason: null,
             ["workspace", workspace.Id.Value, workspace.Description])));
         candidates.AddRange(HistorySessions.Select(recent => new LauncherSearchResultViewModel(
             new LauncherSearchTarget.RecentSession(recent.SessionId),
             Symbol.History,
-            $"RECENT SESSION · {recent.SourceKind}",
+            $"Recent Session · {recent.SourceKind}",
             recent.Title,
-            recent.Detail,
-            recent.LastUsed,
+            JoinCaption(recent.Detail, recent.LastUsed),
+            string.Empty,
             recent.CanOpen,
             recent.CanOpen
                 ? null
@@ -9725,6 +9703,31 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         return candidates;
     }
 
+    /// <summary>
+    /// A palette row that opens a new tab of one panel type. It is named and
+    /// described as the launcher and the Add Panel chooser name it.
+    /// </summary>
+    private static LauncherSearchResultViewModel CreatePanelResult(
+        PanelKind kind,
+        string? unavailableReason,
+        IReadOnlyList<string> searchTerms) =>
+        new(
+            new LauncherSearchTarget.CreatePanel(kind),
+            PanelTypes.Icon(kind),
+            "New Tab",
+            PanelTypes.Name(kind),
+            PanelTypes.Description(kind),
+            string.Empty,
+            IsAvailable: unavailableReason is null,
+            unavailableReason,
+            searchTerms);
+
+    /// <summary>
+    /// A command as a palette row: its title (naming the invocation when the
+    /// command takes arguments), its menu category, and its shortcut. The
+    /// command identifier and raw arguments stay searchable but are never
+    /// shown: they are the program's words, not the person's.
+    /// </summary>
     private LauncherSearchResultViewModel CreateCommandLauncherResult(
         CommandDefinition command,
         IReadOnlyDictionary<string, string> arguments,
@@ -9736,11 +9739,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             arguments
                 .OrderBy(argument => argument.Key, StringComparer.Ordinal)
                 .Select(argument => argument.Value));
-        var argumentDetail = string.Join(
-            ", ",
-            arguments
-                .OrderBy(argument => argument.Key, StringComparer.Ordinal)
-                .Select(argument => $"{argument.Key}={argument.Value}"));
         var isAvailable = IsCommandAvailable(command.Id, arguments, captured);
         var searchTerms = new List<string>
         {
@@ -9759,19 +9757,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         return new LauncherSearchResultViewModel(
             new LauncherSearchTarget.Command(command.Id, arguments),
             Symbol.Code,
-            $"COMMAND · {command.Category}",
+            command.Category,
             argumentSummary.Length == 0
                     || !string.Equals(command.TitleFor(arguments), command.Title, StringComparison.Ordinal)
                 ? command.TitleFor(arguments)
                 : $"{command.Title} · {argumentSummary}",
-            argumentDetail.Length == 0
-                ? command.Id.Value
-                : $"{command.Id.Value} · {argumentDetail}",
+            string.Empty,
             shortcut,
             isAvailable,
-            isAvailable ? null : "Unavailable in the current route.",
+            isAvailable ? null : "Not available here",
             searchTerms);
     }
+
+    private static string JoinCaption(string first, string second) =>
+        string.IsNullOrWhiteSpace(first)
+            ? second
+            : string.IsNullOrWhiteSpace(second) ? first : $"{first} · {second}";
 
     private static string CountLabel(int count, string singular) =>
         $"{count} {(count == 1 ? singular : $"{singular}s")}";
@@ -9876,7 +9877,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             return ActivePanel is not null;
         }
 
-        if (id == BuiltInCommands.RenameTab)
+        if (id == BuiltInCommands.RenameTab || id == BuiltInCommands.ChangeTabIcon)
         {
             return RuntimeWorkspace?.ActiveTab is not null;
         }
@@ -10360,7 +10361,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     PanelInstanceId.New(),
                     PanelKind.ProcessMonitor,
                     recovered.Title,
-                    "Process monitor",
+                    PanelTypes.Processes,
                     "The recovered monitoring connection is no longer available.");
             }
 
@@ -10491,7 +10492,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                             PanelInstanceId.New(),
                             PanelKind.FileViewer,
                             title,
-                            "File viewer",
+                            PanelTypes.Files,
                             "This panel has an invalid startup location. Repair the saved screen with a location supported by its file provider.");
                     }
                 }
@@ -10563,9 +10564,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     PanelInstanceId.New(),
                     PanelKindFromDefinition(panel.Kind),
                     title,
-                    panel.Kind == ScreenPanelKind.Statistics
-                        ? "Statistics"
-                        : "Process monitor",
+                    PanelTypes.Name(panel.Kind),
                     "The connection this panel monitors is no longer in the catalog. "
                     + "Repair the saved screen with a connection that still exists, or remove "
                     + "it from the panel to monitor the local host.");
@@ -10766,7 +10765,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     panelId,
                     PanelKind.FileViewer,
                     title,
-                    "File Viewer");
+                    PanelTypes.Files);
             }
 
             var workspaceProfile = isolated.FilePanelClient.Profiles.First();
@@ -11105,7 +11104,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 panelId,
                 kind,
                 title,
-                kind == PanelKind.Statistics ? "Statistics" : "Process monitor");
+                PanelTypes.Name(kind));
         }
 
         var owner = new SessionOwner(
@@ -13029,33 +13028,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     private static Symbol WorkspaceIconSymbol(string icon) => WorkspaceIcons.SymbolFor(icon);
 
-    private static string PanelTitle(ScreenPanelKind kind) => kind switch
-    {
-        ScreenPanelKind.Terminal => "Terminal",
-        ScreenPanelKind.Browser => "Browser",
-        ScreenPanelKind.FileViewer => "Files",
-        ScreenPanelKind.Statistics => "Statistics",
-        ScreenPanelKind.ProcessMonitor => "Processes",
-        ScreenPanelKind.DatabaseViewer => "Database",
-        ScreenPanelKind.Docker => "Docker",
-        ScreenPanelKind.Kubernetes => "Kubernetes",
-        ScreenPanelKind.Git => "Git",
-        _ => "Panel",
-    };
+    private static string PanelTitle(ScreenPanelKind kind) =>
+        Enum.IsDefined(kind) ? PanelTypes.Name(kind) : "Panel";
 
-    private static string PanelTitle(PanelKind kind) => kind switch
-    {
-        PanelKind.Terminal => "Terminal",
-        PanelKind.Browser => "Browser",
-        PanelKind.FileViewer => "File Viewer",
-        PanelKind.Statistics => "Statistics",
-        PanelKind.ProcessMonitor => "Process Monitor",
-        PanelKind.DatabaseViewer => "Database",
-        PanelKind.Docker => "Docker",
-        PanelKind.Kubernetes => "Kubernetes",
-        PanelKind.Git => "Git",
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
-    };
+    private static string PanelTitle(PanelKind kind) => PanelTypes.Name(kind);
 
     private static PanelKind PanelKindFromDefinition(ScreenPanelKind kind) => kind switch
     {
@@ -13076,9 +13052,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             "TERMINAL" => PanelKind.Terminal,
             "BROWSER" => PanelKind.Browser,
-            "FILEVIEWER" => PanelKind.FileViewer,
+            // The panel type names, and the labels older snapshots stored.
+            "FILES" or "FILEVIEWER" => PanelKind.FileViewer,
             "STATISTICS" => PanelKind.Statistics,
-            "PROCESSMONITOR" => PanelKind.ProcessMonitor,
+            "PROCESSES" or "PROCESSMONITOR" => PanelKind.ProcessMonitor,
             "DATABASE" or "DATABASEVIEWER" => PanelKind.DatabaseViewer,
             "DOCKER" => PanelKind.Docker,
             "KUBERNETES" => PanelKind.Kubernetes,
