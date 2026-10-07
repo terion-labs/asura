@@ -350,7 +350,7 @@
                   <MenuItem Header="Remove Upstream…" Tag="UnsetUpstream" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
                 </MenuItem>
                 <MenuItem Header="Worktrees">
-                  <MenuItem Header="Add Worktree…" Tag="Add" Click="OnWorktreeTool" IsEnabled="{Binding CanMutateRepository}" />
+                  <MenuItem Header="Add Worktree…" Click="OnAddWorktree" IsEnabled="{Binding CanMutateRepository}" />
                   <MenuItem Header="Lock Worktree…" Tag="Lock" Click="OnWorktreeTool" IsEnabled="{Binding CanMutateRepository}" />
                   <MenuItem Header="Unlock Worktree…" Tag="Unlock" Click="OnWorktreeTool" IsEnabled="{Binding CanMutateRepository}" />
                   <Separator />

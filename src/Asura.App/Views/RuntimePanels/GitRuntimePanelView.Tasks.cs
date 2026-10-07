@@ -18,7 +18,7 @@ public sealed partial class GitRuntimePanelView
         }
 
         var output = string.Join("\n\n", viewModel.Activity.Select(item => $"{GitDateText.Format(item.StartedAt, CultureInfo.CurrentCulture)} · {item.Outcome}\n{item.Detail}"));
-        await new GitOutputDialog("Git activity", output.Length == 0 ? "No operations in this panel yet." : output).ShowDialog(window);
+        await new GitOutputDialog("Git Activity", output.Length == 0 ? "No operations in this panel yet." : output).ShowDialog(window);
     }
     private async void OnRepositoryTask(object? sender, RoutedEventArgs e)
     {
@@ -74,21 +74,21 @@ public sealed partial class GitRuntimePanelView
 
     private static string TaskTitle(GitRepositoryTask task) => task switch
     {
-        GitRepositoryTask.SetUpstream => "Set tracking branch",
-        GitRepositoryTask.UnsetUpstream => "Remove tracking branch",
-        GitRepositoryTask.PruneRemote => "Prune remote branches",
-        GitRepositoryTask.IgnorePattern => "Add ignore pattern",
-        GitRepositoryTask.ApplyPatch => "Apply patch",
-        GitRepositoryTask.ExportPatch => "Export patch",
-        GitRepositoryTask.BisectStart => "Start bisect",
-        GitRepositoryTask.Statistics => "Repository statistics",
-        GitRepositoryTask.Blame => "File blame",
-        GitRepositoryTask.RangeHistory => "Line history",
-        GitRepositoryTask.Signature => "Commit signature",
-        GitRepositoryTask.ConflictForecast => "Preview merge conflicts",
-        GitRepositoryTask.ExternalDiff => "External diff tool",
-        GitRepositoryTask.ExternalMerge => "External merge tool",
-        GitRepositoryTask.Benchmark => "Status benchmark",
+        GitRepositoryTask.SetUpstream => "Set Tracking Branch",
+        GitRepositoryTask.UnsetUpstream => "Remove Tracking Branch",
+        GitRepositoryTask.PruneRemote => "Prune Remote Branches",
+        GitRepositoryTask.IgnorePattern => "Add Ignore Pattern",
+        GitRepositoryTask.ApplyPatch => "Apply Patch",
+        GitRepositoryTask.ExportPatch => "Export Patch",
+        GitRepositoryTask.BisectStart => "Start Bisect",
+        GitRepositoryTask.Statistics => "Repository Statistics",
+        GitRepositoryTask.Blame => "File Blame",
+        GitRepositoryTask.RangeHistory => "Line History",
+        GitRepositoryTask.Signature => "Commit Signature",
+        GitRepositoryTask.ConflictForecast => "Preview Merge Conflicts",
+        GitRepositoryTask.ExternalDiff => "External Diff Tool",
+        GitRepositoryTask.ExternalMerge => "External Merge Tool",
+        GitRepositoryTask.Benchmark => "Status Benchmark",
         _ => "Git LFS · " + task.ToString()[3..],
     };
 
@@ -109,7 +109,7 @@ public sealed partial class GitRuntimePanelView
         }
 
         var entries = await viewModel.ReadReflogAsync();
-        var values = await ShowGitFormAsync("Recover from reflog", "Choose an entry to preserve as a new branch.",
+        var values = await ShowGitFormAsync("Recover from Reflog", "Choose an entry to preserve as a new branch.",
             new("sha", "Reflog entry", Choices: [.. entries.Select(item => item.Sha + " · " + item.Selector + " · " + item.Subject)]),
             new("name", "Recovery branch name", "recovered"));
         if (values is null)

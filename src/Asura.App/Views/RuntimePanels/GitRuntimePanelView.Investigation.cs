@@ -39,7 +39,7 @@ public sealed partial class GitRuntimePanelView
         }
         var pattern = string.Equals(menu.Tag as string, "Extension", StringComparison.Ordinal) && System.IO.Path.GetExtension(path) is { Length: > 0 } extension
             ? "*" + extension : "/" + path;
-        var values = await ShowGitFormAsync("Ignore working files", "Append this pattern to .gitignore. Already tracked files remain tracked.",
+        var values = await ShowGitFormAsync("Ignore Working Files", "Append this pattern to .gitignore. Already tracked files remain tracked.",
             new GitWorkflowField("pattern", "Ignore pattern", pattern));
         if (values is not null)
         {
@@ -59,7 +59,7 @@ public sealed partial class GitRuntimePanelView
         if (ViewModel is { } viewModel && OwnerWindow is { } window && sender is MenuItem { DataContext: GitStashItem stash }
             && await viewModel.ReadStashPatchAsync(stash.Reference) is { } patch)
         {
-            await new GitOutputDialog("Stash patch · " + stash.Reference, patch).ShowDialog(window);
+            await new GitOutputDialog("Stash Patch · " + stash.Reference, patch).ShowDialog(window);
         }
     }
 
@@ -80,7 +80,7 @@ public sealed partial class GitRuntimePanelView
         };
         if (path is null)
         {
-            var fields = await ShowGitFormAsync("File history", "Follow one tracked file through renames.", new GitWorkflowField("path", "File path"));
+            var fields = await ShowGitFormAsync("File History", "Follow one tracked file through renames.", new GitWorkflowField("path", "File path"));
             path = fields?.GetValueOrDefault("path");
         }
 
@@ -135,7 +135,7 @@ public sealed partial class GitRuntimePanelView
         {
             var destination = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                Title = "Save patch",
+                Title = "Save Patch",
                 SuggestedFileName = fileName,
             });
             if (destination is null)
@@ -151,7 +151,7 @@ public sealed partial class GitRuntimePanelView
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            await new GitOutputDialog("Could not save patch", exception.Message).ShowDialog(window);
+            await new GitOutputDialog("Could Not Save Patch", exception.Message).ShowDialog(window);
         }
     }
 }

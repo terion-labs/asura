@@ -119,10 +119,10 @@ public sealed partial class GitRuntimePanelView
         if (control == GitOperationControl.Abort && OwnerWindow is { } window
             && !await new ConfirmationDialog(new ConfirmationDialogOptions
             {
-                Title = "Abort Git operation",
+                Title = "Abort Git Operation",
                 Heading = $"Abort {viewModel.Operation.Kind}?",
                 Detail = "Git will restore the state from before this operation. Resolution edits may be lost.",
-                ConfirmLabel = "Abort operation",
+                ConfirmLabel = "Abort Operation",
             }).ShowDialog<bool>(window))
         {
             return;
@@ -255,10 +255,10 @@ public sealed partial class GitRuntimePanelView
                 var parentCount = items.Min(item => item.Commit.ParentShas.Count);
                 if (parentCount == 0)
                 {
-                    await new GitOutputDialog("Choose a different commit sequence", "A root commit and merge commits cannot share a mainline choice. Apply the root commit separately.").ShowDialog(window);
+                    await new GitOutputDialog("Choose a Different Commit Sequence", "A root commit and merge commits cannot share a mainline choice. Apply the root commit separately.").ShowDialog(window);
                     return;
                 }
-                var mainline = await ShowGitFormAsync("Choose merge parent",
+                var mainline = await ShowGitFormAsync("Choose Merge Parent",
                     "Changes are calculated against this parent of each selected merge commit. Parent 1 follows the branch that received the merge. The selected commits run as one sequence and stop on conflicts.",
                     new GitWorkflowField("parent", "Mainline parent", "1", Choices: [.. Enumerable.Range(1, parentCount).Select(index => index.ToString(CultureInfo.InvariantCulture))]));
                 if (mainline is null)
@@ -277,7 +277,7 @@ public sealed partial class GitRuntimePanelView
         {
             if (!await new ConfirmationDialog(new ConfirmationDialogOptions
             {
-                Title = "Review history action",
+                Title = "Review History Action",
                 Heading = $"{tag}: {(request.Revisions.Count == 1 ? selected.Commit.ShortSha : request.Revisions.Count + " commits")}",
                 Detail = request.Revisions.Count == 1 ? selected.Commit.Subject : string.Join("\n", items.Select(item => item.ShortSha + " " + item.Subject)),
                 Notice = request.Action == GitHistoryAction.Reset

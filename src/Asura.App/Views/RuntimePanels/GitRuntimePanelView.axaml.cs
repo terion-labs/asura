@@ -520,6 +520,50 @@ public sealed partial class GitRuntimePanelView : UserControl
     }
 
     /// <summary>
+    /// Add Worktree from the Branch menu. On this Mac the Open panel chooses
+    /// where it goes first; the form that follows starts from that path and
+    /// asks for the revision. Over SSH the path is typed in the form.
+    /// </summary>
+    private async void OnAddWorktree(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (ViewModel is not { } viewModel || TopLevel.GetTopLevel(this) is not Window window)
+        {
+            return;
+        }
+
+        var path = "";
+        if (SystemFolderPicker(window) is { } storage && viewModel.UsesSystemFolderPicker)
+        {
+            var location = await PickLocalFolderAsync(
+                storage,
+                "Choose a Folder for the Worktree",
+                Path.GetDirectoryName(viewModel.RepositoryRoot.TrimEnd('/')));
+            if (location is null)
+            {
+                return;
+            }
+
+            path = WorktreeDestination(location, $"{viewModel.RepositoryName}-worktree");
+        }
+
+        var values = await ShowGitFormAsync(
+            "Add Worktree",
+            "Git creates a linked worktree at this path and checks out the starting revision there.",
+            new GitWorkflowField("path", "Worktree path", path),
+            new GitWorkflowField("branch", "Starting branch or revision", "HEAD"),
+            new GitWorkflowField("new", "New branch name (optional)", Required: false));
+        if (values is null)
+        {
+            return;
+        }
+
+        await viewModel.ManageWorktreeAsync(new(GitWorktreeAction.Add, values["path"], values.GetValueOrDefault("branch"),
+            values.GetValueOrDefault("new") is { Length: > 0 } branch ? branch : null));
+    }
+
+    /// <summary>
     /// Where a worktree chosen in the Open panel goes: the chosen folder
     /// itself when it is empty, otherwise a new folder inside it.
     /// </summary>
@@ -632,8 +676,8 @@ public sealed partial class GitRuntimePanelView : UserControl
         }
 
         var name = await new FileNameDialog(
-                "New branch",
-                "Create branch",
+                "New Branch",
+                "Create Branch",
                 description: "The branch is created at HEAD and checked out. Git validates the name.")
             .ShowDialog<string?>(window);
         if (name is not null)
@@ -653,7 +697,7 @@ public sealed partial class GitRuntimePanelView : UserControl
         }
 
         var name = await new FileNameDialog(
-                "Rename branch",
+                "Rename Branch",
                 "Rename",
                 item.Name,
                 "Only the branch's own name changes; its upstream keeps pointing where it did.")
@@ -699,7 +743,7 @@ public sealed partial class GitRuntimePanelView : UserControl
             return;
         }
 
-        var result = await new GitRemoteEditorDialog("Add remote", "Add remote")
+        var result = await new GitRemoteEditorDialog("Add Remote", "Add Remote")
             .ShowDialog<GitRemoteEditorResult?>(window);
         if (result is not null)
         {
@@ -721,7 +765,7 @@ public sealed partial class GitRuntimePanelView : UserControl
         var url = viewModel.Remotes
             .FirstOrDefault(remote => string.Equals(remote.Name, remoteName, StringComparison.Ordinal))
             ?.FetchUrl;
-        var result = await new GitRemoteEditorDialog("Edit remote", "Save", remoteName, url)
+        var result = await new GitRemoteEditorDialog("Edit Remote", "Save", remoteName, url)
             .ShowDialog<GitRemoteEditorResult?>(window);
         if (result is not null)
         {
