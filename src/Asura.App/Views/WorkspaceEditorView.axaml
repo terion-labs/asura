@@ -344,7 +344,7 @@
                   <ComboBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:NetworkPolicyConnectionOptionViewModel">
                       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="MiddleTruncated" Text="{Binding Name}" />
                         <TextBlock Grid.Column="1" Classes="Eyebrow" Text="{Binding KindLabel}" />
                       </Grid>
                     </DataTemplate>
@@ -609,7 +609,7 @@
                               <controls:IdentityTile TileSize="Small" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="NumberSymbol" />
                               <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
                                 <TextBlock Classes="Eyebrow Accent" Text="{Binding KindLabel}" />
-                                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Id.Value}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Id.Value}" />
                               </StackPanel>
                               <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
                                 <Button Classes="IconButton" Click="OnMovePanelEarlierClick" ToolTip.Tip="Move panel earlier" AutomationProperties.Name="Move panel earlier"><icons:SymbolIcon Symbol="ArrowUp" FontSize="{DynamicResource ShellIconSizeXs}" /></Button>

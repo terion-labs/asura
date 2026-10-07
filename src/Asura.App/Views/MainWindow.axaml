@@ -621,10 +621,10 @@
               Symbol="{Binding Symbol}" />
           <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
             <TextBlock
+                Classes="MiddleTruncated"
                 FontSize="{DynamicResource ShellFontSize11}"
                 FontWeight="SemiBold"
-                Text="{Binding Title}"
-                TextTrimming="CharacterEllipsis" />
+                Text="{Binding Title}" />
             <TextBlock
                 FontSize="{DynamicResource ShellFontSize10}"
                 Foreground="{DynamicResource ShellMutedBrush}"

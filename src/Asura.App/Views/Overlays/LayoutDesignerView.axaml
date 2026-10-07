@@ -228,7 +228,7 @@
                           </ItemsControl.ItemTemplate>
                         </ItemsControl>
                       </Border>
-                      <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="MiddleTruncated" Text="{Binding Name}" />
                       <TextBlock Grid.Column="2" VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding SlotCount, StringFormat={}{0} slots}" TextAlignment="Right" />
                     </Grid>
                   </Button>

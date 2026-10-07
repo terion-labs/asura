@@ -80,7 +80,7 @@
       <Setter Property="Foreground" Value="{DynamicResource ShellSuccessBrush}" />
     </Style>
     <Style Selector="icons|SymbolIcon.NetworkMark.busy">
-      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellInfoBrush}" />
     </Style>
     <Style Selector="icons|SymbolIcon.NetworkMark.degraded">
       <Setter Property="Foreground" Value="{DynamicResource ShellDangerBrush}" />
@@ -254,7 +254,7 @@
                   VerticalAlignment="Center"
                   Symbol="ArrowSort"
                   FontSize="{DynamicResource ShellIconSizeXs}"
-                  Foreground="{DynamicResource ShellAccentBrush}" />
+                  Foreground="{DynamicResource ShellInfoBrush}" />
               <controls:LiveRegionTextBlock
                   VerticalAlignment="Center"
                   FontSize="{DynamicResource ShellFontSize10}"
@@ -491,7 +491,7 @@
                     <icons:SymbolIcon
                         Symbol="Bot" FontSize="{DynamicResource ShellIconSizeXs}"
                         HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                        Foreground="{DynamicResource ShellAccentBrush}"
+                        Foreground="{DynamicResource ShellInfoBrush}"
                         AutomationProperties.AccessibilityView="Raw"
                         IsVisible="{Binding IsAgentActive}" />
                   </Panel>
@@ -558,9 +558,9 @@
                     <Grid x:DataType="dockCore:IDockable" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                       <TextBlock
                           VerticalAlignment="Center"
+                          Classes="MiddleTruncated"
                           FontWeight="SemiBold"
-                        Text="{Binding Title}"
-                          TextTrimming="CharacterEllipsis" />
+                          Text="{Binding Title}" />
                       <TextBlock
                           Grid.Column="1"
                           VerticalAlignment="Center"
@@ -789,10 +789,10 @@
                         <TextBlock FontSize="{DynamicResource ShellFontSize10}" FontWeight="SemiBold" Text="{Binding Operation}" />
                         <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Stage}" />
                       </StackPanel>
-                      <TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Source}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Classes="Path" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Source}" />
                       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
                         <icons:SymbolIcon Symbol="ArrowRight" FontSize="{DynamicResource ShellIconSizeXs}" Foreground="{DynamicResource ShellMutedBrush}" />
-                        <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Destination}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="Muted Path" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Destination}" />
                       </StackPanel>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">

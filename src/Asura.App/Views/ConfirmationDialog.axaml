@@ -36,7 +36,7 @@
           x:Name="FallbackGlyph"
           HorizontalAlignment="Center"
           VerticalAlignment="Center"
-          FontSize="40"
+          FontSize="{DynamicResource ShellIconSizeXl}"
           Foreground="{DynamicResource ShellAccentBrush}"
           Symbol="Info"
           IsVisible="False" />
@@ -53,7 +53,7 @@
             x:Name="CautionGlyph"
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
-            FontSize="22"
+            FontSize="{controls:TextScaled 22}"
             Foreground="{DynamicResource ShellWarningBrush}"
             IconVariant="Filled"
             Symbol="Warning" />

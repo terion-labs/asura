@@ -79,7 +79,7 @@
                 <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="{Binding IconSymbol}" FontSize="{DynamicResource ShellIconSizeSm}" />
               </Border>
               <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-                <TextBlock FontWeight="SemiBold" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="MiddleTruncated" FontWeight="SemiBold" Text="{Binding Title}" />
                 <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Caption}" TextTrimming="CharacterEllipsis" />
               </StackPanel>
               <TextBlock
