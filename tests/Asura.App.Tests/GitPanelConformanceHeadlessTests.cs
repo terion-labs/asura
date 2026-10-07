@@ -201,6 +201,35 @@ public sealed class GitPanelConformanceHeadlessTests
     });
 
     [Fact]
+    public Task Typing_a_name_in_the_branch_list_selects_the_first_branch_that_starts_with_it()
+    {
+        const string sha = "0000000000000000000000000000000000000001";
+        var client = new FakeGitRepositoryClient
+        {
+            RefsOverride =
+            [
+                new GitRefItem("refs/heads/dev", "dev", GitRefKind.LocalBranch, sha, IsCurrent: true),
+                new GitRefItem("refs/heads/main", "main", GitRefKind.LocalBranch, sha, IsCurrent: false),
+                new GitRefItem("refs/heads/release", "release", GitRefKind.LocalBranch, sha, IsCurrent: false),
+                new GitRefItem("refs/heads/rework", "rework", GitRefKind.LocalBranch, sha, IsCurrent: false),
+            ],
+        };
+        return RunPanelAsync((view, panel, window) =>
+        {
+            var tree = view.FindControl<TreeView>("GitLocalBranchTree")!;
+            window.UpdateLayout();
+            Assert.True(Assert.IsType<TreeViewItem>(tree.ContainerFromIndex(0)).Focus());
+
+            window.KeyTextInput("r");
+            Assert.Equal("release", Assert.IsType<GitRefTreeNodeViewModel>(tree.SelectedItem).Name);
+            window.KeyTextInput("e");
+            window.KeyTextInput("w");
+            Assert.Equal("rework", Assert.IsType<GitRefTreeNodeViewModel>(tree.SelectedItem).Name);
+            return Task.CompletedTask;
+        }, client);
+    }
+
+    [Fact]
     public Task The_ref_filter_is_a_search_field_and_Escape_clears_it() => RunPanelAsync((view, panel, window) =>
     {
         var filter = Assert.IsType<SearchField>(view.FindControl<TextBox>("GitRefFilter"));

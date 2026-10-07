@@ -26,6 +26,7 @@ public sealed partial class GitRuntimePanelView : UserControl
             RoutingStrategies.Tunnel);
         DataContextChanged += OnDataContextChanged;
         GitSidebar.PropertyChanged += OnSidebarPropertyChanged;
+        EnableRefTypeSelect();
         // The status-read benchmark measures Asura rather than the
         // repository, so only builds made for developing Asura offer it.
         if (!GitRuntimePanelViewModel.IsDiagnosticsBuild)
