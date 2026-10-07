@@ -543,21 +543,42 @@ public sealed class ManagedTerminalSurfaceTests
         };
         surface.UpdateSnapshot(Snapshot(mouseTracking: false, columns: 80, rows: 24));
 
+        var focusRequests = 0;
+        surface.FindFocusRequested += (_, _) => focusRequests++;
         var find = await surface.DispatchKeymapShortcutAsync(Key.F, AvaloniaKeyModifiers.Control);
-        await surface.SubmitTextInputAsync("needle");
+        _ = await surface.UpdateFindQueryAsync("needle");
         Assert.True(await surface.HandleFindKeyAsync(Key.Enter, AvaloniaKeyModifiers.None));
 
         Assert.Equal(TerminalCommandDispatchResult.Outcome.Executed, find.Status);
+        Assert.Equal(1, focusRequests);
         Assert.True(surface.IsFindVisible);
         Assert.Equal("needle", surface.FindQuery);
         Assert.Equal(3, sink.Finds.Count);
         Assert.Equal(string.Empty, sink.Finds[0].Query);
         Assert.Equal(new TerminalFindInput("needle", 0), sink.Finds[1]);
         Assert.Equal(new TerminalFindInput("needle", 1), sink.Finds[2]);
-        Assert.Contains("Match 2 of 3", surface.FindStatusMessage, StringComparison.Ordinal);
+        Assert.Equal("Match 2 of 3", surface.FindStatusMessage);
         Assert.Contains("find query 'needle'", AutomationProperties.GetItemStatus(surface), StringComparison.Ordinal);
-        Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(surface));
         Assert.Empty(sink.Text);
+
+        // The find field is a real text box now: terminal text input is never
+        // diverted into the query, and Find again only returns focus to the field.
+        await surface.SubmitTextInputAsync("typed");
+        Assert.Equal(["typed"], sink.Text);
+        Assert.Equal("needle", surface.FindQuery);
+        Assert.True(await surface.BeginFindAsync());
+        Assert.Equal(2, focusRequests);
+        Assert.Equal(3, sink.Finds.Count);
+
+        var findNext = OperatingSystem.IsMacOS() ? AvaloniaKeyModifiers.Meta : AvaloniaKeyModifiers.Control;
+        Assert.True(await surface.HandleFindKeyAsync(Key.G, findNext));
+        Assert.Equal(new TerminalFindInput("needle", 2), sink.Finds[^1]);
+        Assert.True(await surface.HandleFindKeyAsync(Key.G, findNext | AvaloniaKeyModifiers.Shift));
+        Assert.Equal(new TerminalFindInput("needle", 1), sink.Finds[^1]);
+        Assert.True(await surface.HandleFindKeyAsync(Key.Enter, AvaloniaKeyModifiers.Shift));
+        Assert.Equal(new TerminalFindInput("needle", 0), sink.Finds[^1]);
+        Assert.False(await surface.HandleFindKeyAsync(Key.Left, AvaloniaKeyModifiers.None));
+        Assert.False(await surface.HandleFindKeyAsync(Key.V, findNext));
 
         Assert.True(await surface.HandleFindKeyAsync(Key.Escape, AvaloniaKeyModifiers.None));
         Assert.False(surface.IsFindVisible);
@@ -1325,6 +1346,13 @@ public sealed class ManagedTerminalSurfaceTests
             cancellationToken.ThrowIfCancellationRequested();
             Pastes.Add(pasteInput);
             return ValueTask.FromResult(TerminalPasteResult.Completed(bracketed: true));
+        }
+
+        public ValueTask<TerminalScreenSnapshot?> ReadScreenSnapshotAsync(
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult<TerminalScreenSnapshot?>(null);
         }
     }
 

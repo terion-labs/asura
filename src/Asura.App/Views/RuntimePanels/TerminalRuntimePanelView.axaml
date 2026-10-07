@@ -177,6 +177,11 @@
             SessionRequest="{CompiledBinding SessionRequest}"
             RenderProfile="{CompiledBinding RenderProfile}"
             BackgroundOpacity="{DynamicResource ShellSurfaceOpacity}"
+            AccessibleTitle="{CompiledBinding Title}"
+            IsCopyMode="{CompiledBinding IsCopyMode}"
+            CanSplit="True"
+            CopyModeExitRequested="OnCopyModeExitRequested"
+            SplitRequested="OnSplitRequested"
             SessionSnapshotChanged="OnSessionSnapshotChanged"
             SessionInitializationFailed="OnSessionInitializationFailed" />
         <Border
@@ -189,22 +194,6 @@
               Body="{Binding StatusMessage, ElementName=RuntimeTerminal}" />
         </Border>
 
-        <Border
-            Margin="{controls:Inset Md}"
-            Padding="{controls:Inset Sm}"
-            HorizontalAlignment="Right"
-            VerticalAlignment="Bottom"
-            Background="{DynamicResource ShellWarningOverlayBrush}"
-            BorderBrush="{DynamicResource ShellWarningBorderBrush}"
-            BorderThickness="1"
-            CornerRadius="{DynamicResource ShellControlCornerRadius}"
-            IsHitTestVisible="False"
-            IsVisible="{Binding IsCopyMode}">
-          <TextBlock
-              FontSize="{DynamicResource ShellFontSize9}"
-              Foreground="{DynamicResource ShellWarningBrush}"
-              Text="COPY MODE · scroll/select with the pointer · copy normally · Esc exits" />
-        </Border>
         <Border
             Margin="{DynamicResource ShellHairline}"
             Background="{DynamicResource ShellSurfaceBrush}"

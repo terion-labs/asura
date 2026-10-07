@@ -43,6 +43,16 @@ public sealed partial class TerminalRuntimePanelView : UserControl
     private void OnCloseClick(object? sender, RoutedEventArgs e) =>
         CloseRequested?.Invoke(sender, e);
 
+    private void OnCopyModeExitRequested(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (DataContext is TerminalRuntimePanelViewModel panel)
+        {
+            _ = panel.ExitCopyMode();
+        }
+    }
+
     private void OnConnectionSelected(
         object? sender,
         PanelConnectionSelectedEventArgs e)

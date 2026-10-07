@@ -1,0 +1,164 @@
+<UserControl
+    x:Class="Asura.App.Controls.ManagedTerminalOverlay"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Asura.App.Controls"
+    xmlns:icons="using:FluentIcons.Avalonia"
+    x:CompileBindings="True"
+    x:DataType="controls:ManagedTerminalSurface">
+  <!--
+    The terminal's transient controls, layered over the cell grid. They used to be
+    painted into the grid in a fixed dark style, 9 pt, with a find "field" that
+    could not paste, move its caret, or undo, and that assistive technology could
+    not see. As real controls they take the shell's type and colour tokens in
+    light, dark, and increased-contrast appearances.
+  -->
+  <Panel>
+    <Border
+        x:Name="FindBar"
+        Margin="{controls:Inset Sm}"
+        Padding="{controls:Inset Xs}"
+        HorizontalAlignment="Right"
+        VerticalAlignment="Top"
+        Background="{DynamicResource ShellPopupSurfaceBrush}"
+        BorderBrush="{DynamicResource ShellBorderBrush}"
+        BorderThickness="1"
+        CornerRadius="{DynamicResource ShellInnerCornerRadius}"
+        IsVisible="{Binding IsFindVisible}">
+      <Grid ColumnDefinitions="240,Auto,Auto,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+        <TextBox
+            x:Name="FindBox"
+            AutomationProperties.Name="Find in terminal"
+            KeyDown="OnFindBoxKeyDown"
+            PlaceholderText="Find"
+            TextChanged="OnFindTextChanged" />
+        <controls:LiveRegionTextBlock
+            Grid.Column="1"
+            MinWidth="72"
+            VerticalAlignment="Center"
+            AutomationProperties.LiveSetting="Polite"
+            AutomationProperties.Name="Find result"
+            Classes="Muted"
+            FontSize="{DynamicResource ShellFontSize11}"
+            Text="{Binding FindStatusMessage}" />
+        <Button
+            Grid.Column="2"
+            AutomationProperties.Name="Previous match"
+            Classes="IconButton"
+            Click="OnFindPreviousClick"
+            ToolTip.Tip="{x:Static controls:ManagedTerminalOverlay.FindPreviousTip}">
+          <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize11}" Symbol="ChevronUp" />
+        </Button>
+        <Button
+            Grid.Column="3"
+            AutomationProperties.Name="Next match"
+            Classes="IconButton"
+            Click="OnFindNextClick"
+            ToolTip.Tip="{x:Static controls:ManagedTerminalOverlay.FindNextTip}">
+          <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize11}" Symbol="ChevronDown" />
+        </Button>
+        <Button
+            Grid.Column="4"
+            AutomationProperties.Name="Done"
+            Classes="TextButton"
+            Click="OnCloseFindClick"
+            Content="Done"
+            ToolTip.Tip="Close the find bar (Esc)" />
+      </Grid>
+    </Border>
+
+    <Border
+        x:Name="LinkConfirmation"
+        Margin="{controls:Inset Md}"
+        Padding="{controls:Inset Md}"
+        HorizontalAlignment="Stretch"
+        VerticalAlignment="Bottom"
+        Background="{DynamicResource ShellPopupSurfaceBrush}"
+        BorderBrush="{DynamicResource ShellBorderBrush}"
+        BorderThickness="1"
+        CornerRadius="{DynamicResource ShellInnerCornerRadius}"
+        IsVisible="{Binding IsLinkConfirmationVisible}">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+        <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
+          <TextBlock FontWeight="SemiBold" Text="Open this link?" />
+          <SelectableTextBlock
+              AutomationProperties.Name="Link address"
+              Classes="Muted"
+              FontSize="{DynamicResource ShellFontSize11}"
+              Text="{Binding PendingLinkText}"
+              TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+        <StackPanel
+            Grid.Column="1"
+            VerticalAlignment="Center"
+            Orientation="Horizontal"
+            Spacing="{DynamicResource ShellSpaceSm}">
+          <Button
+              AutomationProperties.Name="Cancel"
+              Classes="SecondaryButton"
+              Click="OnCancelLinkClick"
+              Content="Cancel"
+              ToolTip.Tip="Esc" />
+          <Button
+              AutomationProperties.Name="Open link"
+              Classes="PrimaryButton"
+              Click="OnOpenLinkClick"
+              Content="Open"
+              ToolTip.Tip="Return" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Border
+        x:Name="CommandStatus"
+        Margin="{controls:Inset Md}"
+        Padding="{controls:Inset Sm}"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Bottom"
+        Background="{DynamicResource ShellPopupSurfaceBrush}"
+        BorderBrush="{DynamicResource ShellBorderBrush}"
+        BorderThickness="1"
+        CornerRadius="{DynamicResource ShellInnerCornerRadius}"
+        IsHitTestVisible="False"
+        IsVisible="{Binding CommandStatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+      <controls:LiveRegionTextBlock
+          AutomationProperties.LiveSetting="Polite"
+          AutomationProperties.Name="Terminal command status"
+          FontSize="{DynamicResource ShellFontSize11}"
+          Text="{Binding CommandStatusMessage}"
+          TextWrapping="Wrap" />
+    </Border>
+
+    <Border
+        x:Name="CopyModeHint"
+        Margin="{controls:Inset Md}"
+        Padding="{controls:Inset Sm}"
+        HorizontalAlignment="Right"
+        VerticalAlignment="Bottom"
+        Background="{DynamicResource ShellPopupSurfaceBrush}"
+        BorderBrush="{DynamicResource ShellWarningBorderBrush}"
+        BorderThickness="1"
+        CornerRadius="{DynamicResource ShellInnerCornerRadius}"
+        IsHitTestVisible="False"
+        IsVisible="{Binding IsCopyMode}">
+      <TextBlock
+          FontSize="{DynamicResource ShellFontSize11}"
+          Text="{x:Static controls:ManagedTerminalOverlay.CopyModeHintText}" />
+    </Border>
+
+    <!--
+      Screen-reader announcements of new output and of the copy-mode line. The
+      surface itself carries no live setting: Avalonia 12.0.5's macOS bridge
+      announces a live element by its name and terminates the process when that
+      name is empty. LiveRegionTextBlock never announces an empty name.
+    -->
+    <controls:LiveRegionTextBlock
+        x:Name="Announcer"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Bottom"
+        AutomationProperties.LiveSetting="Polite"
+        AutomationProperties.Name="Terminal output"
+        IsHitTestVisible="False"
+        Opacity="0" />
+  </Panel>
+</UserControl>

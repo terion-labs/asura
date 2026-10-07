@@ -90,6 +90,7 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
             control => control.StatusMessage);
 
     private readonly ManagedTerminalSurface _surface;
+    private readonly ManagedTerminalOverlay _overlay;
     private readonly DispatcherTimer _pollTimer;
     private readonly DispatcherTimer _resizeTimer;
     private readonly SemaphoreSlim _screenReadGate = new(1, 1);
@@ -134,7 +135,17 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
         _surface.LostFocus += OnSurfaceLostFocus;
         _surface.FocusRequested += OnSurfaceFocusRequested;
         _surface.SetInputReady(false);
-        Content = _surface;
+        _overlay = new ManagedTerminalOverlay();
+        _overlay.Attach(_surface);
+        _overlay.SurfaceFocusRequested += OnSurfaceFocusRequested;
+        Content = new Panel
+        {
+            Children =
+            {
+                _surface,
+                _overlay,
+            },
+        };
         _pollTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(50),
@@ -233,6 +244,8 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
     }
 
     internal ManagedTerminalSurface Surface => _surface;
+
+    internal ManagedTerminalOverlay Overlay => _overlay;
 
     internal ViewportDescriptor? LastViewport => _lastViewport;
 
@@ -525,6 +538,26 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
             NewContext(),
             cancellationToken);
         return RequireSuccess(result);
+    }
+
+    async ValueTask<TerminalScreenSnapshot?> IManagedTerminalInputSink.ReadScreenSnapshotAsync(
+        CancellationToken cancellationToken)
+    {
+        await _screenReadGate.WaitAsync(cancellationToken);
+        try
+        {
+            var result = await RequireClient().ReadTerminalScreenAsync(
+                RequireSessionRequest().SessionId,
+                NewContext(),
+                cancellationToken);
+            return result is HostResult<TerminalScreenSnapshot>.Success success
+                ? success.Value
+                : null;
+        }
+        finally
+        {
+            _screenReadGate.Release();
+        }
     }
 
     async ValueTask<TerminalPasteResult> IManagedTerminalInputSink.PasteAsync(

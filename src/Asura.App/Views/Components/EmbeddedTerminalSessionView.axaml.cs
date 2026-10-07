@@ -14,6 +14,13 @@ public sealed partial class EmbeddedTerminalSessionView : UserControl
     private TerminalRuntimePanelViewModel? ViewModel =>
         DataContext as TerminalRuntimePanelViewModel;
 
+    private void OnCopyModeExitRequested(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        _ = ViewModel?.ExitCopyMode();
+    }
+
     private void OnCancelReconnectClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;

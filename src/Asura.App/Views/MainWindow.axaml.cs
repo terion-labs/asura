@@ -1995,18 +1995,10 @@ public sealed partial class MainWindow : Window
             e.Handled = true;
             await RequestNewTerminalAsync();
         }
-        else if (ViewModel.ActivePanel is TerminalRuntimePanelViewModel { IsCopyMode: true }
-            && !IsTerminalCopyGesture(e))
-        {
-            // Local copy mode leaves mouse selection and scrolling available but
-            // prevents ordinary key presses from mutating the live remote shell.
-            e.Handled = true;
-        }
-    }
 
-    private static bool IsTerminalCopyGesture(KeyEventArgs e) => OperatingSystem.IsMacOS()
-        ? e.Key == Key.C && (e.KeyModifiers & AvaloniaKeyModifiers.Meta) != AvaloniaKeyModifiers.None : e.Key == Key.C
-            && (e.KeyModifiers & AvaloniaKeyModifiers.Control) != AvaloniaKeyModifiers.None && (e.KeyModifiers & AvaloniaKeyModifiers.Shift) != AvaloniaKeyModifiers.None;
+        // Copy mode's keys (the line cursor, selection, copy) are handled by the
+        // terminal surface, which also keeps every other key from the shell.
+    }
 
     private void FocusCurrentRoute() => FocusNavigator.FocusCurrentRoute();
 
