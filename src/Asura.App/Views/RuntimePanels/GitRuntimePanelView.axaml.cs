@@ -31,6 +31,7 @@ public sealed partial class GitRuntimePanelView : UserControl
     {
         _ = sender;
         _ = e;
+        CloseInspectors();
         _observedViewModel?.PropertyChanged -= OnViewModelPropertyChanged;
         _observedViewModel = ViewModel;
         _observedViewModel?.PropertyChanged += OnViewModelPropertyChanged;
@@ -69,6 +70,10 @@ public sealed partial class GitRuntimePanelView : UserControl
         else if (string.Equals(e.PropertyName, nameof(GitRuntimePanelViewModel.SelectedCommits), StringComparison.Ordinal))
         {
             PresentHistorySelection();
+        }
+        else if (string.Equals(e.PropertyName, nameof(GitRuntimePanelViewModel.RepositoryRoot), StringComparison.Ordinal))
+        {
+            CloseInspectorsIfRepositoryChanged();
         }
     }
 
@@ -505,8 +510,8 @@ public sealed partial class GitRuntimePanelView : UserControl
         // Prefill a sibling of the repository root named after the branch.
         var prefill = $"{viewModel.RepositoryRoot.TrimEnd('/')}-{item.Name.Replace('/', '-')}";
         var path = await new FileNameDialog(
-                "Checkout as worktree",
-                "Create worktree",
+                "Check Out as Worktree",
+                "Create Worktree",
                 prefill,
                 $"“{item.Name}” is checked out into a new linked worktree at this path.")
             .ShowDialog<string?>(window);
@@ -620,8 +625,8 @@ public sealed partial class GitRuntimePanelView : UserControl
         }
 
         var name = await new FileNameDialog(
-                "New branch",
-                "Create branch",
+                "New Branch",
+                "Create Branch",
                 description: "The branch is created at HEAD and checked out. Git validates the name.")
             .ShowDialog<string?>(window);
         if (name is not null)
@@ -641,7 +646,7 @@ public sealed partial class GitRuntimePanelView : UserControl
         }
 
         var name = await new FileNameDialog(
-                "Rename branch",
+                "Rename Branch",
                 "Rename",
                 item.Name,
                 "Only the branch's own name changes; its upstream keeps pointing where it did.")
@@ -687,7 +692,7 @@ public sealed partial class GitRuntimePanelView : UserControl
             return;
         }
 
-        var result = await new GitRemoteEditorDialog("Add remote", "Add remote")
+        var result = await new GitRemoteEditorDialog("Add Remote", "Add Remote")
             .ShowDialog<GitRemoteEditorResult?>(window);
         if (result is not null)
         {
@@ -709,7 +714,7 @@ public sealed partial class GitRuntimePanelView : UserControl
         var url = viewModel.Remotes
             .FirstOrDefault(remote => string.Equals(remote.Name, remoteName, StringComparison.Ordinal))
             ?.FetchUrl;
-        var result = await new GitRemoteEditorDialog("Edit remote", "Save", remoteName, url)
+        var result = await new GitRemoteEditorDialog("Edit Remote", "Save", remoteName, url)
             .ShowDialog<GitRemoteEditorResult?>(window);
         if (result is not null)
         {

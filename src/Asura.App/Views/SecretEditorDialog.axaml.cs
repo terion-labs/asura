@@ -5,7 +5,7 @@ using Avalonia.Interactivity;
 
 namespace Asura.App.Views;
 
-public sealed partial class SecretEditorDialog : Window
+public sealed partial class SecretEditorDialog : DialogWindow
 {
     public SecretEditorDialog()
     {

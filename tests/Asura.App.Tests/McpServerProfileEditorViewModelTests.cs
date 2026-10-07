@@ -730,7 +730,7 @@ public sealed class McpServerProfileEditorViewModelTests
         Assert.Equal("True", editorCancel.Attribute("IsCancel")?.Value);
         var editorSave = Assert.Single(
             editor.Descendants(view + "Button"),
-            button => string.Equals(button.Attribute("Content")?.Value, "Review and save", StringComparison.Ordinal));
+            button => string.Equals(button.Attribute("Content")?.Value, "Review and Save", StringComparison.Ordinal));
         Assert.Equal("True", editorSave.Attribute("IsDefault")?.Value);
 
         Assert.Equal("OnOpened", confirmation.Root?.Attribute("Opened")?.Value);
@@ -745,7 +745,9 @@ public sealed class McpServerProfileEditorViewModelTests
             confirmation.Descendants(view + "Button"),
             button => string.Equals(button.Attribute(x + "Name")?.Value, "ConfirmButton", StringComparison.Ordinal));
         Assert.Equal("False", confirm.Attribute("IsEnabled")?.Value);
-        Assert.Equal("True", confirm.Attribute("IsDefault")?.Value);
+        // Trusting a server is read, ticked, and pressed on purpose: Return
+        // never answers it.
+        Assert.Null(confirm.Attribute("IsDefault"));
         Assert.Contains(
             confirmation.Descendants(view + "TextBlock"),
             element => element.Attribute("Text")?.Value?.Contains(

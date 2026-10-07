@@ -84,8 +84,11 @@ internal sealed record StateOverlayPresentation(
         StateOverlayKind.Cancelled =>
             new(Symbol.Dismiss, SurfaceTone.Default, StateOverlayLayout.Neutral,
                 AutomationLiveSetting.Polite, "Cancelled"),
+        // The host's caution mark, not a trash can: not every irreversible
+        // action deletes something, and the alert that asks badges the app's
+        // icon with this rather than replacing it.
         StateOverlayKind.DestructiveAction =>
-            new(Symbol.Delete, SurfaceTone.Danger, StateOverlayLayout.Attention,
+            new(Symbol.Warning, SurfaceTone.Danger, StateOverlayLayout.Attention,
                 AutomationLiveSetting.Assertive, "Destructive action"),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };

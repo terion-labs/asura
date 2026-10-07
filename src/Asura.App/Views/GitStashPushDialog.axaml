@@ -1,27 +1,24 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.GitStashPushDialog"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Asura.App.Controls"
-    Title="Stash changes"
     Width="440"
     SizeToContent="Height"
-    CanResize="False"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner">
+    CanResize="False">
   <controls:DialogShell
       Scrolls="False"
-      Title="Stash changes"
+      Title="Stash Changes"
       Subtitle="Working changes move onto the stash list and the working tree returns to HEAD.">
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" />
-        <Button Classes="PrimaryButton" Click="OnConfirmClick" Content="Stash" />
+        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
+        <Button Classes="PrimaryButton" Click="OnConfirmClick" Content="Stash" IsDefault="True" />
       </StackPanel>
     </controls:DialogShell.Footer>
 
     <controls:LabeledField Label="Message (optional)">
-      <TextBox x:Name="MessageInput" KeyDown="OnMessageKeyDown" AutomationProperties.Name="Stash message" />
+      <TextBox x:Name="MessageInput" AutomationProperties.Name="Stash message" />
     </controls:LabeledField>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

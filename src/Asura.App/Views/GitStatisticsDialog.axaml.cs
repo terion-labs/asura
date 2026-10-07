@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.Git;
 using Avalonia;
 using Avalonia.Controls;
@@ -6,7 +7,7 @@ using Avalonia.Media;
 
 namespace Asura.App.Views;
 
-public sealed partial class GitStatisticsDialog : Window
+public sealed partial class GitStatisticsDialog : DialogWindow
 {
     private readonly IReadOnlyList<GitDirectorySize> _directories = [];
 
@@ -19,7 +20,6 @@ public sealed partial class GitStatisticsDialog : Window
         Contributors.Text = statistics.Contributors;
     }
 
-    private void OnClose(object? sender, RoutedEventArgs e) => Close();
     private void OnTreemapSize(object? sender, SizeChangedEventArgs e)
     {
         Treemap.Children.Clear();

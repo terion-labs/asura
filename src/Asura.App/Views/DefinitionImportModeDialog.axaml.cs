@@ -1,10 +1,11 @@
+using Asura.App.Controls;
 using Asura.Application;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
 namespace Asura.App.Views;
 
-public sealed partial class DefinitionImportModeDialog : Window
+public sealed partial class DefinitionImportModeDialog : DialogWindow
 {
     public DefinitionImportModeDialog() => InitializeComponent();
 

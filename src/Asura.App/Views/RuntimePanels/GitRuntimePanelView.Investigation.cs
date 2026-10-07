@@ -39,7 +39,7 @@ public sealed partial class GitRuntimePanelView
         }
         var pattern = string.Equals(menu.Tag as string, "Extension", StringComparison.Ordinal) && System.IO.Path.GetExtension(path) is { Length: > 0 } extension
             ? "*" + extension : "/" + path;
-        var values = await ShowGitFormAsync("Ignore working files", "Append this pattern to .gitignore. Already tracked files remain tracked.",
+        var values = await ShowGitFormAsync("Ignore Working Files", "Add to .gitignore", "Append this pattern to .gitignore. Already tracked files remain tracked.",
             new GitWorkflowField("pattern", "Ignore pattern", pattern));
         if (values is not null)
         {
@@ -59,7 +59,7 @@ public sealed partial class GitRuntimePanelView
         if (ViewModel is { } viewModel && OwnerWindow is { } window && sender is MenuItem { DataContext: GitStashItem stash }
             && await viewModel.ReadStashPatchAsync(stash.Reference) is { } patch)
         {
-            await new GitOutputDialog("Stash patch · " + stash.Reference, patch).ShowDialog(window);
+            await new GitOutputDialog("Stash Patch · " + stash.Reference, patch).ShowDialog(window);
         }
     }
 
@@ -80,20 +80,29 @@ public sealed partial class GitRuntimePanelView
         };
         if (path is null)
         {
-            var fields = await ShowGitFormAsync("File history", "Follow one tracked file through renames.", new GitWorkflowField("path", "File path"));
+            var fields = await ShowGitFormAsync("File History", "Show History", "Follow one tracked file through renames.", new GitWorkflowField("path", "File path"));
             path = fields?.GetValueOrDefault("path");
         }
 
-        if (path is null || viewModel.CreateFileInvestigation(path, sender is Control { DataContext: GitTreeNodeViewModel { IsDirectory: true } or GitChangeTreeNodeViewModel { IsDirectory: true } }) is not { } investigation)
+        if (path is null)
         {
             return;
         }
 
-        var sha = await new GitFileHistoryDialog(investigation).ShowDialog<string?>(window);
-        if (sha is not null)
+        // An inspector: it stays open beside the panel while the person keeps
+        // working, and opening a commit from it selects that commit here.
+        var isDirectory = sender is Control { DataContext: GitTreeNodeViewModel { IsDirectory: true } or GitChangeTreeNodeViewModel { IsDirectory: true } };
+        ShowInspector("history\n" + path, window, () =>
         {
-            viewModel.SelectCommitBySha(sha);
-        }
+            if (viewModel.CreateFileInvestigation(path, isDirectory) is not { } investigation)
+            {
+                return null;
+            }
+
+            var history = new GitFileHistoryDialog(investigation);
+            history.CommitRequested += (_, sha) => viewModel.SelectCommitBySha(sha);
+            return history;
+        });
     }
 
     private async void OnSelectedExternalDiff(object? sender, RoutedEventArgs e)
@@ -151,7 +160,7 @@ public sealed partial class GitRuntimePanelView
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            await new GitOutputDialog("Could not save patch", exception.Message).ShowDialog(window);
+            await Confirmations.Problem("The patch could not be saved", exception.Message).ShowDialog(window);
         }
     }
 }

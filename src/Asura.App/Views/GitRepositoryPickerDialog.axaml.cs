@@ -1,16 +1,15 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
-using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 
 namespace Asura.App.Views;
 
 /// <summary>
 /// The connection-aware repository chooser. It browses the panel's target —
-/// local or SSH — through the Git client's directory probe and closes with
+/// local or SSH — through the Git client's folder probe and closes with
 /// the chosen path, or null when cancelled.
 /// </summary>
-public sealed partial class GitRepositoryPickerDialog : Window
+public sealed partial class GitRepositoryPickerDialog : DialogWindow
 {
     public GitRepositoryPickerDialog()
     {
@@ -44,49 +43,9 @@ public sealed partial class GitRepositoryPickerDialog : Window
         }
     }
 
-    private async void OnNavigateUpClick(object? sender, RoutedEventArgs e)
+    private void OnRepositoryChosen(object? sender, string path)
     {
         _ = sender;
-        _ = e;
-        if (Picker is { } picker)
-        {
-            await picker.NavigateUpAsync();
-        }
-    }
-
-    private async void OnPathKeyDown(object? sender, KeyEventArgs e)
-    {
-        _ = sender;
-        if (e.Key == Key.Enter && Picker is { } picker)
-        {
-            e.Handled = true;
-            await picker.NavigateToInputAsync();
-        }
-        else if (e.Key == Key.Escape)
-        {
-            e.Handled = true;
-            Close(null);
-        }
-    }
-
-    // Double-tapping a repository chooses it; double-tapping a plain folder
-    // steps into it, because the repository may live deeper.
-    private async void OnDirectoryDoubleTapped(object? sender, TappedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (Picker is not { SelectedDirectory: { } entry } picker)
-        {
-            return;
-        }
-
-        if (entry.IsRepository)
-        {
-            Close(entry.FullPath);
-        }
-        else
-        {
-            await picker.EnterAsync(entry);
-        }
+        Close(path);
     }
 }

@@ -1,4 +1,4 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.FileAccessControlDialog"
     x:DataType="vm:FileAccessControlEditorViewModel"
     xmlns="https://github.com/avaloniaui"
@@ -7,12 +7,10 @@
     xmlns:vm="using:Asura.App.ViewModels"
     Width="520"
     Height="400"
-    CanResize="False"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner">
+    CanResize="False">
   <controls:DialogShell
+      x:Name="Shell"
       Chrome="Utility"
-      Title="{Binding ItemName}"
       Subtitle="{Binding Summary}"
       Scrolls="False">
     <!--
@@ -24,7 +22,7 @@
       <Grid ColumnDefinitions="*,150,Auto" Margin="{controls:Inset Horizontal=Md, Bottom=Xs}">
         <TextBlock Classes="Eyebrow" Text="Name" />
         <TextBlock Grid.Column="1" Classes="Eyebrow" Text="Privilege" />
-        <!-- Sized to the switch below it rather than to the word, so the two
+        <!-- Sized to the checkbox below it rather than to the word, so the two
              line up and the column takes no more room than the control needs.
              Hidden, it measures nothing and the column closes up entirely,
              which is what an object store's table wants. -->
@@ -64,10 +62,13 @@
                     SelectedItem="{Binding Privilege, Mode=TwoWay}"
                     IsEnabled="{Binding $parent[Window].((vm:FileAccessControlEditorViewModel)DataContext).CanEdit}"
                     AutomationProperties.Name="{Binding PrivilegeLabel}" />
-                <ToggleSwitch
+                <!-- A checkbox, as a permission in a table row is: a switch is
+                     for a prominent setting, not one cell among many. -->
+                <CheckBox
                     Grid.Column="2"
                     Width="38"
                     HorizontalAlignment="Center"
+                    HorizontalContentAlignment="Center"
                     IsChecked="{Binding CanRun, Mode=TwoWay}"
                     IsVisible="{Binding ShowsExecute}"
                     IsEnabled="{Binding $parent[Window].((vm:FileAccessControlEditorViewModel)DataContext).CanEdit}"
@@ -100,14 +101,15 @@
 
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Close" />
+        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
         <Button
             Classes="PrimaryButton"
             Click="OnApplyClick"
             Content="Apply"
+            IsDefault="True"
             IsEnabled="{Binding CanEdit}"
             AutomationProperties.Name="Apply permission changes" />
       </StackPanel>
     </controls:DialogShell.Footer>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

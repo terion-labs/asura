@@ -1606,7 +1606,7 @@
             <Border Grid.Row="0" Classes="TopChrome">
               <Grid
                   Margin="{controls:Inset Horizontal=Lg, Vertical=Md}"
-                  ColumnDefinitions="*,Auto,Auto"
+                  ColumnDefinitions="*,Auto"
                   ColumnSpacing="{DynamicResource ShellSpaceSm}">
                 <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock
@@ -1628,19 +1628,8 @@
                     VerticalAlignment="Center"
                     Content="{TemplateBinding HeaderContent}"
                     IsVisible="{TemplateBinding HeaderContent, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                <!-- IsCancel, so Escape reaches the dialogs whose only cancel
-                     affordance is this glyph — the editors lost Esc-to-close
-                     the first time their inline close buttons were replaced. -->
-                <Button
-                    Name="PART_Close"
-                    Grid.Column="2"
-                    Classes="IconButton"
-                    IsCancel="True"
-                    IsVisible="{TemplateBinding ShowsClose}"
-                    ToolTip.Tip="Close"
-                    AutomationProperties.Name="Close dialog">
-                  <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize14}" Symbol="Dismiss" />
-                </Button>
+                <!-- No close glyph: the footer's Cancel is the way out, and
+                     DialogWindow sends Escape and ⌘. to it. -->
               </Grid>
             </Border>
             <ScrollViewer

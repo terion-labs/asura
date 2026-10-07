@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Git;
 using Avalonia.Controls;
@@ -5,7 +6,7 @@ using Avalonia.Interactivity;
 
 namespace Asura.App.Views;
 
-public sealed partial class GitSubmoduleDialog : Window
+public sealed partial class GitSubmoduleDialog : DialogWindow
 {
     private readonly CancellationTokenSource _lifetime = new();
     private readonly GitRuntimePanelViewModel? _panel;
@@ -31,10 +32,13 @@ public sealed partial class GitSubmoduleDialog : Window
     {
         _panel = panel;
         _item = item;
-        Shell.Subtitle = item.Path;
+        Shell.Title = $"Submodule {item.Path}";
         PresentItem();
         Opened += async (_, _) => await ReloadAsync();
     }
+
+    /// <summary>The submodule was opened; the panel should switch to it.</summary>
+    public event EventHandler<GitRepositoryHandle>? RepositoryOpened;
 
     private void ShowMessage(string message) { Message.Text = message; Message.IsVisible = message.Length > 0; }
     private void SetBusy(bool busy) { _busy = busy; PresentItem(); }
@@ -57,7 +61,6 @@ public sealed partial class GitSubmoduleDialog : Window
     }
 
     private async void OnRefresh(object? sender, RoutedEventArgs e) => await ReloadAsync();
-    private void OnClose(object? sender, RoutedEventArgs e) => Close(null);
     private async Task ReloadAsync()
     {
         if (_busy || _panel is not { } panel || _item is not { } item || _lifetime.IsCancellationRequested) { return; }
@@ -85,11 +88,12 @@ public sealed partial class GitSubmoduleDialog : Window
             || !Enum.TryParse<GitSubmoduleAction>(tag, out var action)) { return; }
         if (!await new ConfirmationDialog(new ConfirmationDialogOptions
         {
-            Title = "Review submodule action",
-            Heading = tag + " · " + item.Path,
+            Heading = $"{tag} submodule “{item.Path}”?",
             Detail = "Recorded revision: " + item.ExpectedRevision,
             Notice = item.IsDirty ? "This submodule has local edits. Git may refuse to move the checkout until they are saved." : "The action applies recursively to this submodule.",
             ConfirmLabel = tag,
+            // Git refuses to move a checkout over local edits, so nothing is lost.
+            Intent = ConfirmationIntent.Confirm,
         }).ShowDialog<bool>(this)) { return; }
         SetBusy(true);
         var success = await panel.ApplySubmoduleChangeAsync(new(action, item.Path));
@@ -106,7 +110,13 @@ public sealed partial class GitSubmoduleDialog : Window
         var result = await panel.OpenSubmoduleAsync(item.Path, _lifetime.Token);
         if (_lifetime.IsCancellationRequested) { return; }
         SetBusy(false);
-        if (result is GitResult<GitRepositoryHandle>.Success success) { Close(success.Value); }
+        if (result is GitResult<GitRepositoryHandle>.Success success)
+        {
+            // The panel switches to the submodule, which this window no
+            // longer describes, so it closes once it has handed it over.
+            RepositoryOpened?.Invoke(this, success.Value);
+            Close();
+        }
         else { ShowMessage(((GitResult<GitRepositoryHandle>.Failure)result).Error.Message); }
     }
 

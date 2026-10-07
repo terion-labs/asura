@@ -119,10 +119,10 @@ public sealed partial class GitRuntimePanelView
         if (control == GitOperationControl.Abort && OwnerWindow is { } window
             && !await new ConfirmationDialog(new ConfirmationDialogOptions
             {
-                Title = "Abort Git operation",
                 Heading = $"Abort {viewModel.Operation.Kind}?",
                 Detail = "Git will restore the state from before this operation. Resolution edits may be lost.",
-                ConfirmLabel = "Abort operation",
+                ConfirmLabel = "Abort Operation",
+                Intent = ConfirmationIntent.Destructive,
             }).ShowDialog<bool>(window))
         {
             return;
@@ -255,10 +255,10 @@ public sealed partial class GitRuntimePanelView
                 var parentCount = items.Min(item => item.Commit.ParentShas.Count);
                 if (parentCount == 0)
                 {
-                    await new GitOutputDialog("Choose a different commit sequence", "A root commit and merge commits cannot share a mainline choice. Apply the root commit separately.").ShowDialog(window);
+                    await Confirmations.Problem("Choose a different commit sequence", "A root commit and merge commits cannot share a mainline choice. Apply the root commit separately.").ShowDialog(window);
                     return;
                 }
-                var mainline = await ShowGitFormAsync("Choose merge parent",
+                var mainline = await ShowGitFormAsync("Choose Merge Parent", "Use Parent",
                     "Changes are calculated against this parent of each selected merge commit. Parent 1 follows the branch that received the merge. The selected commits run as one sequence and stop on conflicts.",
                     new GitWorkflowField("parent", "Mainline parent", "1", Choices: [.. Enumerable.Range(1, parentCount).Select(index => index.ToString(CultureInfo.InvariantCulture))]));
                 if (mainline is null)
@@ -275,15 +275,26 @@ public sealed partial class GitRuntimePanelView
 
         if (request.Action is GitHistoryAction.Reset or GitHistoryAction.Revert or GitHistoryAction.CherryPick or GitHistoryAction.Checkout)
         {
+            var verb = request.Action switch
+            {
+                GitHistoryAction.Reset => $"{mode} Reset",
+                GitHistoryAction.CherryPick => "Cherry-Pick",
+                GitHistoryAction.Checkout => "Check Out",
+                _ => request.Action.ToString(),
+            };
             if (!await new ConfirmationDialog(new ConfirmationDialogOptions
             {
-                Title = "Review history action",
-                Heading = $"{tag}: {(request.Revisions.Count == 1 ? selected.Commit.ShortSha : request.Revisions.Count + " commits")}",
+                Heading = $"{verb} {(request.Revisions.Count == 1 ? selected.Commit.ShortSha : request.Revisions.Count + " commits")}?",
                 Detail = request.Revisions.Count == 1 ? selected.Commit.Subject : string.Join("\n", items.Select(item => item.ShortSha + " " + item.Subject)),
                 Notice = request.Action == GitHistoryAction.Reset
                     ? $"{mode} reset moves {viewModel.BranchName}. Hard reset also discards tracked file edits. Published history may need a force-with-lease push."
                     : $"This action applies to the current checkout, {viewModel.BranchName}. Conflicts remain available in the panel for resolution.",
-                ConfirmLabel = tag,
+                ConfirmLabel = verb,
+                // Only a hard reset throws work away; the rest move refs or
+                // add commits that the reflog and history keep.
+                Intent = request.Action == GitHistoryAction.Reset && mode == GitResetMode.Hard
+                    ? ConfirmationIntent.Destructive
+                    : ConfirmationIntent.Confirm,
             }).ShowDialog<bool>(window))
             {
                 return;

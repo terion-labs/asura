@@ -1,11 +1,11 @@
-<Window x:Class="Asura.App.Views.GitRebaseDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Asura.App.ViewModels" xmlns:controls="using:Asura.App.Controls" Width="900" Height="650" MinWidth="600" MinHeight="350" ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
-  <controls:DialogShell x:Name="Shell" Title="Interactive rebase" Subtitle="Commits run from top to bottom. This rewrites history; published commits may require a force-with-lease push." Scrolls="False">
+<controls:DialogWindow x:Class="Asura.App.Views.GitRebaseDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Asura.App.ViewModels" xmlns:controls="using:Asura.App.Controls" Width="900" Height="650" MinWidth="600" MinHeight="350">
+  <controls:DialogShell x:Name="Shell" Title="Interactive Rebase" Subtitle="Commits run from top to bottom. This rewrites history; published commits may require a force-with-lease push." Scrolls="False">
     <controls:DialogShell.Footer>
       <WrapPanel Orientation="Horizontal">
         <CheckBox Margin="{controls:Inset Right=Sm, Bottom=Xs}" x:Name="AutoStash" Content="Stash local edits and restore afterward" />
         <CheckBox Margin="{controls:Inset Right=Sm, Bottom=Xs}" x:Name="UpdateRefs" Content="Update affected branches" />
-        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Content="Cancel" Click="OnCancel" Classes="SecondaryButton" />
-        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Content="Apply rebase" Click="OnApply" Classes="PrimaryButton" />
+        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Content="Cancel" Click="OnCancel" Classes="SecondaryButton" IsCancel="True" />
+        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Content="Rebase" Click="OnApply" Classes="PrimaryButton" IsDefault="True" />
       </WrapPanel>
     </controls:DialogShell.Footer>
     <Grid RowDefinitions="Auto,*,Auto" RowSpacing="{DynamicResource ShellSpaceSm}">
@@ -29,4 +29,4 @@
       <TextBlock x:Name="Validation" Grid.Row="2" Foreground="{DynamicResource ShellDangerBrush}" TextWrapping="Wrap" />
     </Grid>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

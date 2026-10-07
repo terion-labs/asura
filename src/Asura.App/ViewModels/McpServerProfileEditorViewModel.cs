@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Net;
+using System.Runtime.CompilerServices;
 using Asura.Application;
 using Asura.Core;
 
@@ -462,7 +463,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
 
     public bool IsEditing => ExpectedRevision is not null;
 
-    public string EditorTitle => IsEditing ? "Edit MCP server" : "New MCP server";
+    public string EditorTitle => IsEditing ? "Edit MCP Server" : "New MCP Server";
 
     public string ProfileId => _id.Value;
 
@@ -658,7 +659,8 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
         var executable = Required(Executable, "Executable");
         if (!Path.IsPathFullyQualified(executable))
         {
-            throw new ArgumentException(
+            throw InvalidField.Exception(
+                nameof(Executable),
                 "Executable must be a fully qualified local path.");
         }
 
@@ -668,7 +670,8 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
         if (workingDirectory is not null
             && !Path.IsPathFullyQualified(workingDirectory))
         {
-            throw new ArgumentException(
+            throw InvalidField.Exception(
+                nameof(WorkingDirectory),
                 "Working directory must be a fully qualified local path.");
         }
 
@@ -688,7 +691,8 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
         var endpointText = Required(Endpoint, "Streamable HTTP endpoint");
         if (!Uri.TryCreate(endpointText, UriKind.Absolute, out var endpoint))
         {
-            throw new ArgumentException(
+            throw InvalidField.Exception(
+                nameof(Endpoint),
                 "Streamable HTTP endpoint must be an absolute HTTPS URI.");
         }
 
@@ -698,7 +702,8 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
             StringComparison.OrdinalIgnoreCase);
         if (isPlaintext && !IsLoopback(endpoint))
         {
-            throw new ArgumentException(
+            throw InvalidField.Exception(
+                nameof(Endpoint),
                 "Streamable HTTP endpoint must use HTTPS; plaintext HTTP is allowed only for an exact loopback host.");
         }
 
@@ -992,11 +997,18 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
         }
     }
 
-    private static string Required(string value, string label)
+    /// <summary>
+    /// The trimmed value, or a failure naming the field it came from — the
+    /// property passed in — so the editor can show it under that field.
+    /// </summary>
+    private static string Required(
+        string value,
+        string label,
+        [CallerArgumentExpression(nameof(value))] string field = "")
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new ArgumentException($"{label} is required.");
+            throw InvalidField.Exception(field, $"{label} is required.");
         }
 
         return value.Trim();

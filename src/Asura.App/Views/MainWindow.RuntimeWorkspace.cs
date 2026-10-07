@@ -1702,7 +1702,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        var name = await new FileNameDialog("New folder", "Create")
+        var name = await new FileNameDialog("New Folder", "Create")
             .ShowDialog<string?>(this);
         if (name is not null)
         {
@@ -1837,7 +1837,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        var name = await new FileNameDialog("Rename item", "Rename", selected.Name)
+        var name = await new FileNameDialog("Rename Item", "Rename", selected.Name)
             .ShowDialog<string?>(this);
         if (name is not null)
         {
@@ -2074,7 +2074,7 @@ public sealed partial class MainWindow
         }
 
         var title = await new FileNameDialog(
-            "Rename tab",
+            "Rename Tab",
             "Rename",
             tab.Title,
             "This name identifies the live tab; saved screen definitions are unchanged.")

@@ -1,4 +1,4 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.SavedScreenEditorDialog"
     x:DataType="vm:SavedScreenEditorViewModel"
     xmlns="https://github.com/avaloniaui"
@@ -6,18 +6,13 @@
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
-    Title="{Binding EditorTitle}"
     Width="900"
     Height="820"
     MinWidth="720"
     MinHeight="640"
-    CanResize="True"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner">
+    CanResize="True">
   <controls:DialogShell
       Chrome="Editor"
-      ShowsClose="True"
-      CloseRequested="OnCancelClick"
       Title="{Binding EditorTitle}"
       Subtitle="Choose a layout, then configure the panel assigned to each slot."
       FooterHint="Saving changes only future opens; running instances stay independent.">
@@ -29,10 +24,13 @@
     </controls:DialogShell.HeaderContent>
 
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}" IsEnabled="{Binding CanEdit}">
+      <!-- A failure about one field is shown under that field; what is left
+           is read here, at the top, where the dialog scrolls to it. -->
+      <components:ErrorNoticesView x:Name="FormErrors" DataContext="{Binding ErrorNotices}" />
       <TextBlock Classes="SectionHeading" Text="Details" />
       <controls:SurfaceCard>
         <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-          <controls:LabeledField Label="Name">
+          <controls:LabeledField Label="Name" controls:FieldValidation.For="Name">
             <TextBox Text="{Binding Name}" AutomationProperties.Name="Saved screen name" />
           </controls:LabeledField>
           <controls:LabeledField Grid.Column="1" Label="Description">
@@ -45,7 +43,7 @@
       <controls:SurfaceCard>
         <Grid ColumnDefinitions="*,260" ColumnSpacing="{DynamicResource ShellSpaceLg}">
           <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-            <controls:LabeledField Label="Saved layout">
+            <controls:LabeledField Label="Saved layout" controls:FieldValidation.For="SelectedLayout">
               <ComboBox
                   ItemsSource="{Binding LayoutOptions}"
                   SelectedItem="{Binding SelectedLayout}"
@@ -343,7 +341,6 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
-      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
     </StackPanel>
 
     <controls:DialogShell.Footer>
@@ -356,7 +353,7 @@
             IsEnabled="{Binding CanSave}"
             IsVisible="{Binding CanDuplicate}"
             AutomationProperties.Name="Duplicate saved screen" />
-        <Button MinWidth="92" Click="OnCancelClick" Content="Cancel" IsCancel="True" IsEnabled="{Binding CanEdit}" AutomationProperties.Name="Cancel saved screen editing" />
+        <Button MinWidth="92" Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" IsEnabled="{Binding CanEdit}" AutomationProperties.Name="Cancel saved screen editing" />
         <Button
             MinWidth="120"
             Classes="PrimaryButton"
@@ -368,4 +365,4 @@
       </StackPanel>
     </controls:DialogShell.Footer>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

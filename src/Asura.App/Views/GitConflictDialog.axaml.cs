@@ -1,10 +1,11 @@
+using Asura.App.Controls;
 using Asura.Git;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
 namespace Asura.App.Views;
 
-public sealed partial class GitConflictDialog : Window
+public sealed partial class GitConflictDialog : DialogWindow
 {
     private readonly string _path = "";
     private readonly string _fingerprint = "";
@@ -46,8 +47,8 @@ public sealed partial class GitConflictDialog : Window
         CurrentInput.Text = conflict.CurrentExists ? conflict.Current : "This file was deleted in the current version.";
         IncomingInput.Text = conflict.IncomingExists ? conflict.Incoming : "This file was deleted in the incoming version.";
         ResultInput.Text = initialResult ?? conflict.Current;
-        CurrentButton.Content = conflict.CurrentExists ? "Keep current" : "Accept current deletion";
-        IncomingButton.Content = conflict.IncomingExists ? "Keep incoming" : "Accept incoming deletion";
+        CurrentButton.Content = conflict.CurrentExists ? "Keep Current" : "Accept Current Deletion";
+        IncomingButton.Content = conflict.IncomingExists ? "Keep Incoming" : "Accept Incoming Deletion";
         BothButton.IsEnabled = !conflict.IsBinary && conflict.CurrentExists && conflict.IncomingExists;
         ResultInput.IsEnabled = !conflict.IsBinary;
         SaveButton.IsEnabled = !conflict.IsBinary;

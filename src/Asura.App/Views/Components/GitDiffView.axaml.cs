@@ -57,10 +57,11 @@ public sealed partial class GitDiffView : UserControl
         if (action == GitPatchAction.Discard && TopLevel.GetTopLevel(this) is Window window
             && !await new ConfirmationDialog(new ConfirmationDialogOptions
             {
-                Title = "Discard selected edits",
                 Heading = "Discard these selected lines?",
-                Detail = panel.DiffFileName ?? "Selected file",
-                ConfirmLabel = "Discard selection",
+                Detail = $"The selected edits in “{panel.DiffFileName ?? "this file"}” return to their last staged or committed content.",
+                Notice = "Asura cannot undo a discarded working-tree change.",
+                ConfirmLabel = "Discard Selection",
+                Intent = ConfirmationIntent.Destructive,
             }).ShowDialog<bool>(window))
         {
             return;

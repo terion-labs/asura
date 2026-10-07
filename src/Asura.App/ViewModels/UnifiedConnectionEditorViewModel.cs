@@ -208,7 +208,7 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
         _ => false,
     };
 
-    public string EditorTitle => IsEditing ? "Edit connection" : "New connection";
+    public string EditorTitle => IsEditing ? "Edit Connection" : "New Connection";
 
     /// <summary>
     /// One name for whichever definition the dialog produces. Writing through

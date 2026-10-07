@@ -1,14 +1,13 @@
-<Window x:Class="Asura.App.Views.GitWorkflowDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:Asura.App.Controls" Width="560" MaxHeight="750" SizeToContent="Height" CanResize="True" ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
+<controls:DialogWindow x:Class="Asura.App.Views.GitWorkflowDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:Asura.App.Controls" Width="560" MaxHeight="750" SizeToContent="Height" CanResize="True">
   <controls:DialogShell x:Name="Shell">
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-        <Button Classes="SecondaryButton" Content="Cancel" Click="OnCancel" />
-        <Button x:Name="ApplyButton" Classes="PrimaryButton" Content="Apply" Click="OnApply" />
+        <Button Classes="SecondaryButton" Content="Cancel" Click="OnCancel" IsCancel="True" />
+        <!-- The form's own verb and role, set by the form: Clone, Save Stash,
+             Force Push. A destructive verb is never the default. -->
+        <Button x:Name="ApplyButton" Click="OnApply" />
       </StackPanel>
     </controls:DialogShell.Footer>
-    <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-      <StackPanel x:Name="Fields" Spacing="{DynamicResource ShellSpaceSm}" />
-      <TextBlock x:Name="ValidationMessage" Foreground="{DynamicResource ShellDangerBrush}" IsVisible="False" TextWrapping="Wrap" />
-    </StackPanel>
+    <StackPanel x:Name="Fields" Spacing="{DynamicResource ShellSpaceSm}" />
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

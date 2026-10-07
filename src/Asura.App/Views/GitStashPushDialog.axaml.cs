@@ -1,5 +1,5 @@
+using Asura.App.Controls;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 
 namespace Asura.App.Views;
@@ -11,7 +11,7 @@ public sealed record GitStashPushResult(string? Message);
 /// Stashes the working changes. The message is optional: empty stashes
 /// without one, exactly as Git's own default gesture does.
 /// </summary>
-public sealed partial class GitStashPushDialog : Window
+public sealed partial class GitStashPushDialog : DialogWindow
 {
     public GitStashPushDialog()
     {
@@ -30,26 +30,6 @@ public sealed partial class GitStashPushDialog : Window
     {
         _ = sender;
         _ = e;
-        Confirm();
-    }
-
-    private void OnMessageKeyDown(object? sender, KeyEventArgs e)
-    {
-        _ = sender;
-        if (e.Key == Key.Enter)
-        {
-            Confirm();
-            e.Handled = true;
-        }
-        else if (e.Key == Key.Escape)
-        {
-            Close(null);
-            e.Handled = true;
-        }
-    }
-
-    private void Confirm()
-    {
         var message = this.FindControl<TextBox>("MessageInput")?.Text?.Trim();
         Close(new GitStashPushResult(string.IsNullOrEmpty(message) ? null : message));
     }

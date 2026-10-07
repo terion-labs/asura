@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Core;
 using Avalonia.Controls;
@@ -27,7 +28,7 @@ internal sealed record TabSourceRow(
 /// Chooses what a new workspace tab opens: a saved connection, a saved screen —
 /// linked or copied — or a screen that exists only in this workspace.
 /// </summary>
-public sealed partial class AddWorkspaceTabDialog : Window
+public sealed partial class AddWorkspaceTabDialog : DialogWindow
 {
     private readonly IReadOnlyList<TabSourceRow> _rows = [];
 

@@ -179,7 +179,7 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
 
     public bool IsNew => ExpectedRevision is null;
 
-    public string EditorTitle => IsNew ? "New network connection" : "Edit network connection";
+    public string EditorTitle => IsNew ? "New Network Connection" : "Edit Network Connection";
 
     /// <summary>
     /// Whether the draft for one credential slot is open. It opens from the
@@ -422,6 +422,12 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
         ? "Connection configuration is valid."
         : error;
 
+    /// <summary>
+    /// The property the current validation failure is about, when it names
+    /// one, so the editor can show the message under that field.
+    /// </summary>
+    public string? InvalidFieldName => TryBuild(out _, out _, out var invalidField) ? null : invalidField;
+
     /// <summary>The footer's one sentence: what is still missing, or what saving does.</summary>
     public string FooterHint => TryBuild(out _, out var error)
         ? "Saving stores any new credential in the operating-system vault."
@@ -521,8 +527,14 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
 
     private bool TryBuild(
         out NetworkConnectionProfile? profile,
-        out string error)
+        out string error) => TryBuild(out profile, out error, out _);
+
+    private bool TryBuild(
+        out NetworkConnectionProfile? profile,
+        out string error,
+        out string? field)
     {
+        field = null;
         try
         {
             profile = new(
@@ -537,9 +549,21 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
         {
             profile = null;
             error = FriendlyValidationMessage(exception);
+            field = InvalidField.Of(exception) ?? FieldFor((exception as ArgumentException)?.ParamName);
             return false;
         }
     }
+
+    /// <summary>The editor property a profile constructor's parameter comes from.</summary>
+    private static string? FieldFor(string? parameter) => parameter switch
+    {
+        "name" => nameof(Name),
+        "port" => nameof(Port),
+        "gateway" => nameof(Gateway),
+        "exitNode" => nameof(ExitNode),
+        "controlServer" => nameof(ControlServer),
+        _ => null,
+    };
 
     private NetworkConnectionConfiguration BuildConfiguration() => SelectedKind.Kind switch
     {
@@ -576,7 +600,7 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
             System.Globalization.CultureInfo.InvariantCulture,
             out var port))
         {
-            throw new ArgumentException("Enter a proxy port between 1 and 65535.");
+            throw InvalidField.Exception(nameof(Port), "Enter a proxy port between 1 and 65535.");
         }
 
         return port;

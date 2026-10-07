@@ -210,9 +210,9 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
 
     public bool IsNew => ExpectedRevision is null;
 
-    public string EditorTitle => IsNew ? "Create saved screen" : "Edit saved screen";
+    public string EditorTitle => IsNew ? "New Saved Screen" : "Edit Saved Screen";
 
-    public string PrimaryActionLabel => IsNew ? "Create screen" : "Save screen";
+    public string PrimaryActionLabel => IsNew ? "Create Screen" : "Save Screen";
 
     public bool CanDuplicate => !IsNew;
 
@@ -427,12 +427,12 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("Saved-screen name is required.");
+            throw InvalidField.Exception(nameof(Name), "Saved-screen name is required.");
         }
 
         if (SelectedLayout.Definition is not { } layout)
         {
-            throw new ArgumentException("Choose an available layout before saving.");
+            throw InvalidField.Exception(nameof(SelectedLayout), "Choose an available layout before saving.");
         }
 
         if (HasInvalidBrowserAddresses)

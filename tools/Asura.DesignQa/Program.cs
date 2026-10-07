@@ -1375,8 +1375,10 @@ internal sealed class QaApplication : Avalonia.Application
     /// </summary>
     private static readonly (string Name, Func<Window> Create, ThemePreference? Theme)[] Dialogs =
     [
-        ("git-workflow", () => new GitWorkflowDialog("Push repository", "Review the source and destination branches.",
-            [new("remote", "Remote", "origin"), new("source", "Source branch", "feature/parity"), new("destination", "Destination branch", "feature/parity")]), null),
+        ("git-workflow", () => new GitWorkflowDialog(new GitWorkflowForm("Push Branch", "Review the source and destination branches.",
+            new GitWorkflowAction("Push"),
+            [new("remote", "Remote", "origin"), new("source", "Source branch", "feature/parity"), new("destination", "Destination branch", "feature/parity"),
+                GitWorkflowField.CheckBox("tags", "Push tags too", false)])), null),
         ("git-conflict", () => new GitConflictDialog(new Asura.Git.GitConflictContent("src/service.cs", "return original;\n", "return current;\n", "return incoming;\n", false)), null),
         ("git-rebase", () => new GitRebaseDialog("main", [new("1111111111111111111111111111111111111111", "Add workflow", Asura.Git.GitRebaseAction.Pick, "Add workflow\n\nRetain a detailed message."),
             new("2222222222222222222222222222222222222222", "Polish workflow", Asura.Git.GitRebaseAction.Fixup)]), null),
@@ -2237,10 +2239,6 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         {
             DataContext = CreateViewModel().Launcher,
         }, null),
-        ("dialog-connection-secret", () => new ConnectionSecretEditorDialog(
-            new ConnectionSecretEditorViewModel(new MemoryOnlySecretVault(),
-                new SecretScope(SecretScopeKind.Connection, "qa-connection"),
-                SecretKind.Password, "Production SSH password")), null),
         ("dialog-connection-password", () =>
         {
             var editor = CreateQaConnectionEditor();

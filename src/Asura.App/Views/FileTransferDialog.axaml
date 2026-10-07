@@ -1,4 +1,4 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.FileTransferDialog"
     x:DataType="vm:FileTransferEditorViewModel"
     xmlns="https://github.com/avaloniaui"
@@ -8,17 +8,14 @@
     xmlns:controls="using:Asura.App.Controls"
     Width="620"
     Height="430"
-    CanResize="False"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner"
-    Title="Queue transfer">
+    CanResize="False">
   <controls:DialogShell
-      Title="Queue file transfer"
+      Title="Queue File Transfer"
       Subtitle="Review and manage file transfers.">
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" />
-        <Button Classes="PrimaryButton" Click="OnQueueClick" Content="Queue transfer" />
+        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
+        <Button Classes="PrimaryButton" Click="OnQueueClick" Content="Queue Transfer" IsDefault="True" />
       </StackPanel>
     </controls:DialogShell.Footer>
 
@@ -49,4 +46,4 @@
       </controls:LabeledField>
     </StackPanel>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

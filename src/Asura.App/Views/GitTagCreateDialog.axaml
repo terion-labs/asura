@@ -1,39 +1,36 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.GitTagCreateDialog"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Asura.App.Controls"
-    Title="Create tag"
     Width="440"
     SizeToContent="Height"
-    CanResize="False"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner">
+    CanResize="False">
   <controls:DialogShell
+      x:Name="Shell"
       Scrolls="False"
-      Title="Create tag"
+      Title="Create Tag"
       Subtitle="The tag marks the current HEAD commit. A message makes it an annotated tag.">
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" />
-        <Button Classes="PrimaryButton" Click="OnConfirmClick" Content="Create tag" />
+        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
+        <Button Classes="PrimaryButton" Click="OnConfirmClick" Content="Create Tag" IsDefault="True" />
       </StackPanel>
     </controls:DialogShell.Footer>
 
     <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-      <controls:LabeledField Label="Name">
-        <TextBox x:Name="NameInput" KeyDown="OnNameKeyDown" AutomationProperties.Name="Tag name" />
+      <controls:LabeledField Label="Name" controls:FieldValidation.For="Name">
+        <TextBox x:Name="NameInput" AutomationProperties.Name="Tag name" />
       </controls:LabeledField>
+      <!-- The message box keeps Return for new lines. -->
       <controls:LabeledField Label="Message (optional)">
         <TextBox
             x:Name="MessageInput"
             MinHeight="52"
             AcceptsReturn="True"
             TextWrapping="Wrap"
-            KeyDown="OnMessageKeyDown"
             AutomationProperties.Name="Tag message" />
       </controls:LabeledField>
-      <TextBlock x:Name="ValidationMessage" Foreground="{DynamicResource ShellDangerBrush}" IsVisible="False" TextWrapping="Wrap" />
     </StackPanel>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

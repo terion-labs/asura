@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Git;
 using Avalonia.Controls;
@@ -8,7 +9,7 @@ using Avalonia.VisualTree;
 
 namespace Asura.App.Views;
 
-public sealed partial class GitRebaseDialog : Window
+public sealed partial class GitRebaseDialog : DialogWindow
 {
     private readonly ObservableCollection<GitRebaseRowViewModel> _rows = [];
     private readonly string _baseRevision = "";

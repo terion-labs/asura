@@ -488,7 +488,7 @@ public sealed class SavedScreenEditorViewModelTests
             [connection]);
 
         Assert.True(editor.IsNew);
-        Assert.Equal("Create saved screen", editor.EditorTitle);
+        Assert.Equal("New Saved Screen", editor.EditorTitle);
         Assert.Equal(
             SavedScreenEditorCancelDisposition.ConfirmDiscard,
             editor.RequestCancel());

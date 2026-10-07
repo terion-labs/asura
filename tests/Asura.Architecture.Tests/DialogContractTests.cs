@@ -1,0 +1,357 @@
+using System.Text.RegularExpressions;
+using System.Xml.Linq;
+using Asura.Testing;
+
+namespace Asura.Architecture.Tests;
+
+/// <summary>
+/// Every dialog answers the keyboard the same way and wears the same frame.
+///
+/// Fourteen of thirty-four dialogs once had no Escape path, eight marked a
+/// default button, none answered ⌘., and every one could be minimized while
+/// the window it blocked stayed blocked. <c>DialogWindow</c> now owns Escape,
+/// ⌘., placement and the window buttons; each dialog states its Cancel and its
+/// default. These tests keep a new dialog from opting out of either half.
+/// </summary>
+public sealed partial class DialogContractTests
+{
+    private static readonly string RepositoryRoot =
+        ApplicationViewCatalog.Load().RepositoryRoot;
+
+    private static readonly string ViewsRoot =
+        Path.Combine(RepositoryRoot, "src", "Asura.App", "Views");
+
+    /// <summary>
+    /// Dialogs whose confirm button is deliberately never the default, with
+    /// the reason. Everything else marks a default, or styles its confirm as
+    /// destructive, which by the same rule is never the default.
+    /// </summary>
+    private static readonly Dictionary<string, string> NoDefaultButton = new(StringComparer.Ordinal)
+    {
+        ["McpServerTrustConfirmationDialog.axaml"] =
+            "an alert people must read: Return cannot trust a server nobody reviewed",
+    };
+
+    /// <summary>
+    /// The words that destroy something. A button that starts with one wears
+    /// the destructive style, so it is never mistaken for a routine action.
+    /// </summary>
+    private static readonly string[] DestructiveVerbs =
+        ["Delete", "Discard", "Remove", "Reset", "Clear", "Drop", "Force"];
+
+    /// <summary>
+    /// Buttons whose verb sounds destructive but only edits what the dialog
+    /// itself holds, before anything is saved.
+    /// </summary>
+    private static readonly HashSet<(string Dialog, string Label)> RoutineEdits =
+    [
+        // Both change the keys being recorded, not a saved shortcut.
+        ("ShortcutRecorderDialog.axaml", "Clear"),
+        ("ShortcutRecorderDialog.axaml", "Remove Last"),
+    ];
+
+    private static readonly string[] MinorWords =
+    [
+        "a", "an", "and", "as", "at", "but", "by", "for", "from", "in",
+        "into", "nor", "of", "on", "or", "the", "to", "via", "vs", "with",
+    ];
+
+    public static TheoryData<string> Dialogs()
+    {
+        var data = new TheoryData<string>();
+        foreach (var file in DialogFiles())
+        {
+            data.Add(Path.GetFileName(file));
+        }
+
+        return data;
+    }
+
+    [Fact]
+    public void Every_dialog_is_discovered()
+    {
+        Assert.True(DialogFiles().Count() >= 30, "The dialog catalog looks truncated.");
+    }
+
+    [Theory]
+    [MemberData(nameof(Dialogs))]
+    public void Dialog_derives_from_the_shared_dialog_window(string dialog)
+    {
+        var root = Root(dialog);
+
+        Assert.Equal("DialogWindow", root.Name.LocalName);
+        Assert.Contains(
+            $"partial class {Path.GetFileNameWithoutExtension(dialog)} : DialogWindow",
+            CodeBehind(dialog),
+            StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [MemberData(nameof(Dialogs))]
+    public void Dialog_leaves_window_behaviour_to_the_base(string dialog)
+    {
+        var root = Root(dialog);
+
+        // DialogWindow decides these from the dialog's presentation: a sheet
+        // cannot be minimized or zoomed, stays out of the Dock and window
+        // cycling, and hangs from its owner.
+        foreach (var attribute in new[] { "CanMinimize", "CanMaximize", "ShowInTaskbar", "WindowStartupLocation" })
+        {
+            Assert.Null(root.Attribute(attribute));
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(Dialogs))]
+    public void Dialog_does_not_handle_escape_itself(string dialog)
+    {
+        // Escape and ⌘. reach the dialog's Cancel button through the base, so
+        // a search field gets the first Escape and a disabled Cancel refuses
+        // the keyboard too. A dialog that needs more overrides Cancel().
+        Assert.DoesNotContain("Key.Escape", CodeBehind(dialog), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [MemberData(nameof(Dialogs))]
+    public void Sheet_has_one_cancel_button(string dialog)
+    {
+        if (IsInspector(dialog))
+        {
+            return;
+        }
+
+        var cancels = Buttons(dialog)
+            .Where(button => string.Equals(Attribute(button, "IsCancel"), "True", StringComparison.Ordinal))
+            .ToArray();
+
+        var cancel = Assert.Single(cancels);
+        var label = Attribute(cancel, "Content");
+        Assert.True(
+            label is null || label.StartsWith('{') || label is "Cancel" or "OK",
+            $"{dialog}: the cancel button says “{label}”; a sheet's way out says Cancel, or OK when there is nothing to cancel.");
+    }
+
+    [Theory]
+    [MemberData(nameof(Dialogs))]
+    public void Sheet_marks_a_default_or_says_why_not(string dialog)
+    {
+        if (IsInspector(dialog) || NoDefaultButton.ContainsKey(dialog))
+        {
+            return;
+        }
+
+        var markup = File.ReadAllText(Path.Combine(ViewsRoot, dialog));
+        var code = CodeBehind(dialog);
+        var hasDefault = markup.Contains("IsDefault=\"True\"", StringComparison.Ordinal)
+            || code.Contains(".IsDefault = ", StringComparison.Ordinal);
+        var isDestructive = markup.Contains("DestructiveButton", StringComparison.Ordinal);
+
+        Assert.True(
+            hasDefault || isDestructive,
+            $"{dialog} marks no default button. Give the primary action IsDefault, or style it as destructive if it destroys something.");
+    }
+
+    [Theory]
+    [MemberData(nameof(Dialogs))]
+    public void Destructive_verbs_wear_the_destructive_style(string dialog)
+    {
+        var offenders = Buttons(dialog)
+            .Where(button => Attribute(button, "Content") is { } label
+                && DestructiveVerbs.Any(verb => label.StartsWith(verb + " ", StringComparison.Ordinal)
+                    || string.Equals(label, verb, StringComparison.Ordinal)))
+            .Where(button => !RoutineEdits.Contains((dialog, Attribute(button, "Content")!)))
+            .Where(button => !(Attribute(button, "Classes") ?? string.Empty)
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Contains("DestructiveButton", StringComparer.Ordinal))
+            .Select(button => Attribute(button, "Content"))
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Theory]
+    [MemberData(nameof(Dialogs))]
+    public void Titles_and_button_labels_use_title_case(string dialog)
+    {
+        var root = Root(dialog);
+        var labels = new List<string>();
+        if (Attribute(root, "Title") is { } windowTitle)
+        {
+            labels.Add(windowTitle);
+        }
+
+        labels.AddRange(root.Descendants()
+            .Where(element => element.Name.LocalName == "DialogShell")
+            .Select(shell => Attribute(shell, "Title"))
+            .OfType<string>());
+        labels.AddRange(Buttons(dialog)
+            .Select(button => Attribute(button, "Content"))
+            .OfType<string>());
+
+        var offenders = labels
+            .Where(label => !label.StartsWith('{'))
+            .Where(label => !IsTitleCase(label))
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Theory]
+    [MemberData(nameof(Dialogs))]
+    public void Header_title_is_the_window_title(string dialog)
+    {
+        var root = Root(dialog);
+        var shell = root.Descendants().FirstOrDefault(element => element.Name.LocalName == "DialogShell");
+        if (shell is null || Attribute(shell, "Title") is null)
+        {
+            return;
+        }
+
+        // DialogShell writes its title to the window, so a second, different
+        // Title on the window would only be a stale copy of it.
+        Assert.Null(root.Attribute("Title"));
+    }
+
+    [Theory]
+    [MemberData(nameof(Dialogs))]
+    public void Search_boxes_are_search_fields(string dialog)
+    {
+        var offenders = Root(dialog)
+            .Descendants()
+            .Where(element => element.Name.LocalName == "TextBox")
+            .Where(element => Attribute(element, "PlaceholderText") is { } placeholder
+                && (placeholder.StartsWith("Search", StringComparison.Ordinal)
+                    || placeholder.StartsWith("Filter", StringComparison.Ordinal)))
+            .Select(element => Attribute(element, "PlaceholderText"))
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Theory]
+    [MemberData(nameof(Dialogs))]
+    public void Dialogs_use_checkboxes_not_switches(string dialog)
+    {
+        // A permission in a table row or a minor option in a form is a
+        // checkbox; a switch is for a prominent setting in a window's body.
+        Assert.DoesNotContain(
+            Root(dialog).Descendants(),
+            element => element.Name.LocalName is "ToggleSwitch");
+    }
+
+    [Fact]
+    public void Dialog_shell_has_no_close_glyph()
+    {
+        var shell = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "Asura.App", "Controls", "DialogShell.cs"));
+        var theme = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "Asura.App", "Styles", "DesignSystem.axaml"));
+
+        var start = theme.IndexOf("TargetType=\"controls:DialogShell\"", StringComparison.Ordinal);
+        Assert.True(start >= 0, "The DialogShell theme was not found.");
+        var end = theme.IndexOf("</ControlTheme>", start, StringComparison.Ordinal);
+        var template = theme[start..end];
+
+        Assert.DoesNotContain("ShowsClose", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("PART_Close", template, StringComparison.Ordinal);
+        Assert.DoesNotContain("IsCancel", template, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Dialog_window_tunnels_escape_and_command_period_to_cancel()
+    {
+        var window = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "Asura.App", "Controls", "DialogWindow.cs"));
+
+        Assert.Contains("AddHandler(KeyDownEvent, OnDialogKeyDown, RoutingStrategies.Tunnel);", window, StringComparison.Ordinal);
+        Assert.Contains("SearchField.ClaimsEscape(e)", window, StringComparison.Ordinal);
+        Assert.Contains("Key.OemPeriod", window, StringComparison.Ordinal);
+        Assert.Contains("ShowInTaskbar = false;", window, StringComparison.Ordinal);
+        Assert.Contains("CanMinimize = inspector;", window, StringComparison.Ordinal);
+        Assert.Contains("CanMaximize = inspector;", window, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Confirmations_choose_their_intent()
+    {
+        var dialog = File.ReadAllText(Path.Combine(ViewsRoot, "ConfirmationDialog.axaml.cs"));
+
+        // No default: a confirmation that does not say what it asks would look
+        // like a deletion, and routine questions dressed as deletions teach
+        // people to stop reading the ones that are.
+        Assert.Contains("public required ConfirmationIntent Intent { get; init; }", dialog, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("GitFileHistoryDialog")]
+    [InlineData("GitStatisticsDialog")]
+    [InlineData("GitLfsDialog")]
+    [InlineData("GitSubmoduleDialog")]
+    [InlineData("SavedConnectionsDialog")]
+    public void Inspector_windows_open_without_blocking_their_owner(string dialog)
+    {
+        Assert.True(IsInspector(dialog + ".axaml"), $"{dialog} should be presented as an inspector.");
+
+        var openers = Directory
+            .EnumerateFiles(ViewsRoot, "*.cs", SearchOption.AllDirectories)
+            .Select(File.ReadAllText)
+            .Where(source => source.Contains($"new {dialog}(", StringComparison.Ordinal)
+                || source.Contains($"new {dialog} ", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.NotEmpty(openers);
+        Assert.All(openers, source => Assert.DoesNotMatch(
+            new Regex(
+                $@"new {dialog}\b[^;]*\.ShowDialog",
+                RegexOptions.Singleline | RegexOptions.CultureInvariant,
+                TimeSpan.FromSeconds(1)),
+            source));
+    }
+
+    private static IEnumerable<string> DialogFiles() => Directory
+        .EnumerateFiles(ViewsRoot, "*Dialog.axaml", SearchOption.TopDirectoryOnly)
+        .Order(StringComparer.Ordinal);
+
+    private static XElement Root(string dialog) =>
+        Assert.IsType<XElement>(XDocument.Load(Path.Combine(ViewsRoot, dialog)).Root);
+
+    private static string CodeBehind(string dialog) =>
+        File.ReadAllText(Path.Combine(ViewsRoot, dialog + ".cs"));
+
+    private static bool IsInspector(string dialog) =>
+        string.Equals(Attribute(Root(dialog), "Presentation"), "Inspector", StringComparison.Ordinal);
+
+    private static IEnumerable<XElement> Buttons(string dialog) => Root(dialog)
+        .Descendants()
+        .Where(element => element.Name.LocalName == "Button");
+
+    private static string? Attribute(XElement element, string name) =>
+        element.Attributes().FirstOrDefault(attribute =>
+            string.Equals(attribute.Name.LocalName, name, StringComparison.Ordinal))?.Value;
+
+    /// <summary>
+    /// Title case as the host writes it: every word capitalized except the
+    /// short connecting words inside a phrase. Words that start with a
+    /// non-letter (a quotation, a number) are taken as they are.
+    /// </summary>
+    private static bool IsTitleCase(string label)
+    {
+        var words = WordPattern().Matches(label).Select(match => match.Value).ToArray();
+        for (var index = 0; index < words.Length; index++)
+        {
+            var word = words[index];
+            if (!char.IsLetter(word[0]) || char.IsUpper(word[0]))
+            {
+                continue;
+            }
+
+            var inner = index > 0 && index < words.Length - 1;
+            if (!(inner && MinorWords.Contains(word, StringComparer.Ordinal)))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    [GeneratedRegex(@"[\p{L}\p{N}][\p{L}\p{N}'’\-]*", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex WordPattern();
+}
