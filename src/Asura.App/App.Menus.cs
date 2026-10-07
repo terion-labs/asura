@@ -92,6 +92,7 @@ public sealed partial class App : IApplicationCommandService
         IApplicationMenuHost host = window switch
         {
             MainWindow main => main,
+            SettingsWindow settings => new SettingsWindowMenuHost(settings, this, lifetime.Token),
             QuickTerminalWindow quick when _quickTerminalController is { } controller =>
                 new QuickTerminalMenuHost(quick, controller, this, lifetime.Token),
             _ => new AuxiliaryWindowMenuHost(window, this, lifetime.Token),
@@ -173,15 +174,15 @@ public sealed partial class App : IApplicationCommandService
         }
         else if (command == BuiltInCommands.ShowSettings)
         {
-            ShowFrontMainWindow()?.NavigateToSettings();
+            ShowSettingsWindow(page: null);
         }
         else if (command == BuiltInCommands.ShowKeyboardShortcuts)
         {
-            ShowFrontMainWindow()?.NavigateToSettings(SettingsPage.Keybindings);
+            ShowSettingsWindow(SettingsPage.Keybindings);
         }
         else if (command == BuiltInCommands.CheckForUpdates)
         {
-            if (ShowFrontMainWindow() is { } window)
+            if (SettingsWindowOwner() is { } window)
             {
                 await window.CheckForUpdatesAsync();
             }
@@ -221,6 +222,21 @@ public sealed partial class App : IApplicationCommandService
         ShowWindow(window);
         return window;
     }
+
+    /// <summary>
+    /// Settings… brings the one Settings window forward, or opens it for the
+    /// main window in front. The main window itself stays where it is: the
+    /// point of a Settings window is that the workspace stays in view.
+    /// </summary>
+    private void ShowSettingsWindow(SettingsPage? page) =>
+        SettingsWindowOwner()?.NavigateToSettings(page);
+
+    /// <summary>
+    /// The main window whose Settings to show: the one the open Settings
+    /// window belongs to, else the main window in front.
+    /// </summary>
+    private MainWindow? SettingsWindowOwner() =>
+        SettingsWindow.Current?.Host ?? WindowForRequest();
 
     private async Task OpenAddressAsync(TopLevel? origin, Uri address)
     {

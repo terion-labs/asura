@@ -105,7 +105,6 @@ public sealed class RuntimeDockControlHeadlessTests
             var window = new MainWindow();
             foreach (var hostName in new[]
                      {
-                         "SettingsRouteHost",
                          "CommandPaletteOverlayHost",
                          "NewPanelOverlayHost",
                          "LayoutDesignerOverlayHost",
@@ -117,6 +116,9 @@ public sealed class RuntimeDockControlHeadlessTests
                 Assert.Null(host.Content);
             }
 
+            // Settings content is built from this window's template too, but
+            // it is shown in the Settings window, so it has no host here.
+            Assert.Null(window.FindControl<ContentControl>("SettingsRouteHost"));
             Assert.IsType<SettingsView>(Build(window, "SettingsRouteTemplate"));
             Assert.IsType<CommandPaletteView>(Build(window, "CommandPaletteOverlayTemplate"));
             Assert.IsType<NewPanelChooserView>(Build(window, "NewPanelOverlayTemplate"));

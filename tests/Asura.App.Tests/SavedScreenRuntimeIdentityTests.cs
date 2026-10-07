@@ -16,7 +16,7 @@ namespace Asura.App.Tests;
 public sealed class SavedScreenRuntimeIdentityTests
 {
     [Fact]
-    public async Task New_terminal_policy_preserves_an_existing_runtime_opened_behind_settings()
+    public async Task New_terminal_policy_preserves_an_existing_runtime_while_settings_is_open()
     {
         var connection = LocalConnection("settings-terminal", "Settings terminal");
         var snapshot = new DefinitionCatalogSnapshot(
@@ -28,16 +28,17 @@ public sealed class SavedScreenRuntimeIdentityTests
 
         viewModel.ShowSettings();
 
+        // Settings is a window beside the workspace: the workspace stays in
+        // view and its commands stay available.
         Assert.True(viewModel.HasRuntimeWorkspace);
-        Assert.False(viewModel.IsWorkspaceVisible);
-        Assert.Equal(
+        Assert.True(viewModel.IsWorkspaceVisible);
+        Assert.NotEqual(
             CommandContext.None,
             viewModel.ActiveCommandContexts & CommandContext.Workspace);
         Assert.Equal(
             NewTerminalTarget.ExistingRuntimeWorkspace,
         MainWindow.ResolveNewTerminalTarget(viewModel.HasRuntimeWorkspace));
 
-        viewModel.ShowWorkspace();
         Assert.True(await viewModel.AddLocalTerminalTabAsync());
 
         Assert.Equal(workspaceId, viewModel.RuntimeWorkspace?.Id);

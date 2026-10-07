@@ -578,6 +578,29 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
         return true;
     }
 
+    /// <summary>
+    /// Throws away unsaved changes to the application route and shows the
+    /// stored one again.
+    /// </summary>
+    public void DiscardPolicyDraft()
+    {
+        ThrowIfDisposed();
+        if (!Policy.IsDirty)
+        {
+            return;
+        }
+
+        var snapshot = _catalog.Snapshot;
+        var settings = snapshot.ApplicationNetworkSettings.SingleOrDefault(item =>
+            item.Value.Id == ApplicationNetworkSettings.DefaultId)?.Value
+            ?? ApplicationNetworkSettings.Default;
+        var connections = snapshot.NetworkConnections.Select(item => item.Value).ToArray();
+        Policy = new(
+            connections,
+            NetworkPolicyResolver.ResolveApplication(settings.Policy, connections),
+            isDirty: false);
+    }
+
     public void ApplyCatalog(DefinitionCatalogSnapshot snapshot)
     {
         ThrowIfDisposed();

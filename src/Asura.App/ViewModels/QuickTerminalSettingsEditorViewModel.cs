@@ -26,7 +26,7 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
     private bool _hideOnFocusLoss;
     private bool _hideOnEscape;
     private string _registrationStatus = "Shortcut registration has not been checked yet.";
-    private string _registrationStatusBrush = "#8B8B91";
+    private StatusTone _registrationStatusTone = StatusTone.Neutral;
 
     public QuickTerminalSettingsEditorViewModel(
         QuickTerminalSettings settings,
@@ -202,10 +202,14 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
         private set => SetProperty(ref _registrationStatus, value);
     }
 
-    public string RegistrationStatusBrush
+    /// <summary>
+    /// How registration went, as the status tone the mark beside the status
+    /// draws in: success, warning, or neutral before anything was tried.
+    /// </summary>
+    public StatusTone RegistrationStatusTone
     {
-        get => _registrationStatusBrush;
-        private set => SetProperty(ref _registrationStatusBrush, value);
+        get => _registrationStatusTone;
+        private set => SetProperty(ref _registrationStatusTone, value);
     }
 
     public QuickTerminalSettingsSaveRequest CreateSaveRequest()
@@ -242,7 +246,7 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
         if (result is GlobalHotkeyRegistrationResult.Success)
         {
             RegistrationStatus = $"{configured} is registered globally.";
-            RegistrationStatusBrush = "#3FB950";
+            RegistrationStatusTone = StatusTone.Success;
             return;
         }
 
@@ -251,6 +255,6 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
             $"{configured} could not be registered: {error.Message} "
             + "Quick Terminal has no global hotkey until you choose another shortcut. "
             + "Show Quick Terminal from the View menu meanwhile.";
-        RegistrationStatusBrush = "#FFB224";
+        RegistrationStatusTone = StatusTone.Warning;
     }
 }

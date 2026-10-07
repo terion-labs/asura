@@ -142,7 +142,7 @@ public sealed class QuickTerminalSettingsEditorViewModelTests
         Assert.Contains("Another application", editor.RegistrationStatus);
         Assert.Contains("no global hotkey", editor.RegistrationStatus);
         Assert.DoesNotContain("remains active", editor.RegistrationStatus);
-        Assert.Equal("#FFB224", editor.RegistrationStatusBrush);
+        Assert.Equal(StatusTone.Warning, editor.RegistrationStatusTone);
     }
 
     [Theory]

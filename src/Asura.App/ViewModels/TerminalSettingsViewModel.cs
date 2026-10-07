@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Asura.Application;
 using Asura.Core;
 
@@ -23,16 +24,58 @@ public sealed class TerminalSettingsViewModel : ObservableObject, IDisposable
         ApplyCatalog(_snapshot);
     }
 
+    /// <summary>
+    /// A field of the current <see cref="TerminalEditor"/> changed. Settings
+    /// that apply as they change listen here rather than to each editor the
+    /// catalog replaces after a save.
+    /// </summary>
+    public event EventHandler<PropertyChangedEventArgs>? TerminalEditorEdited;
+
+    /// <summary>A field of the current <see cref="QuickTerminalEditor"/> changed.</summary>
+    public event EventHandler<PropertyChangedEventArgs>? QuickTerminalEditorEdited;
+
     public TerminalProfileEditorViewModel? TerminalEditor
     {
         get => _terminalEditor;
-        private set => SetProperty(ref _terminalEditor, value);
+        private set
+        {
+            var previous = _terminalEditor;
+            if (SetProperty(ref _terminalEditor, value))
+            {
+                previous?.PropertyChanged -= OnTerminalEditorPropertyChanged;
+                value?.PropertyChanged += OnTerminalEditorPropertyChanged;
+            }
+        }
     }
 
     public QuickTerminalSettingsEditorViewModel? QuickTerminalEditor
     {
         get => _quickTerminalEditor;
-        private set => SetProperty(ref _quickTerminalEditor, value);
+        private set
+        {
+            var previous = _quickTerminalEditor;
+            if (SetProperty(ref _quickTerminalEditor, value))
+            {
+                previous?.PropertyChanged -= OnQuickTerminalEditorPropertyChanged;
+                value?.PropertyChanged += OnQuickTerminalEditorPropertyChanged;
+            }
+        }
+    }
+
+    private void OnTerminalEditorPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (ReferenceEquals(sender, _terminalEditor))
+        {
+            TerminalEditorEdited?.Invoke(this, e);
+        }
+    }
+
+    private void OnQuickTerminalEditorPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (ReferenceEquals(sender, _quickTerminalEditor))
+        {
+            QuickTerminalEditorEdited?.Invoke(this, e);
+        }
     }
 
     public TerminalProfile? ActiveTerminalProfile =>

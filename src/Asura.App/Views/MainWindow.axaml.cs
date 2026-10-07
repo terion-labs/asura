@@ -189,6 +189,7 @@ public sealed partial class MainWindow : Window
         // looking, and the window is the only thing that can say.
         Deactivated += OnWindowDeactivated;
         AttachWindowLifecycle();
+        AttachSettingsPresentation();
         base.OnOpened(e);
         RefreshWindowChromeMetrics();
         Avalonia.Threading.Dispatcher.UIThread.Post(
@@ -333,6 +334,7 @@ public sealed partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        HandOffSettingsWindow();
         if (DataContext is MainWindowViewModel viewModel)
         {
             viewModel.ReleaseAppearanceEditing();
@@ -651,7 +653,6 @@ public sealed partial class MainWindow : Window
 
     private async void OnImportDefinitionsClick(object? sender, RoutedEventArgs e)
     {
-        _ = sender;
         _ = e;
         if (_definitionBundles is null)
         {
@@ -660,7 +661,7 @@ public sealed partial class MainWindow : Window
         }
 
         var mode = await new DefinitionImportModeDialog()
-            .ShowDialog<DefinitionImportMode?>(this);
+            .ShowDialog<DefinitionImportMode?>(DialogOwnerFor(sender));
         if (mode is null)
         {
             return;
@@ -682,7 +683,7 @@ public sealed partial class MainWindow : Window
 
         var plan = preflight.Value!;
         var confirmed = await new DefinitionImportPreflightDialog(plan)
-            .ShowDialog<bool>(this);
+            .ShowDialog<bool>(DialogOwnerFor(sender));
         if (!confirmed)
         {
             return;
@@ -754,8 +755,7 @@ public sealed partial class MainWindow : Window
     {
         _ = sender;
         _ = e;
-        NavigateToSettings();
-        SetSettingsPage(SettingsPage.Secrets);
+        NavigateToSettings(SettingsPage.Secrets);
     }
 
 
@@ -790,6 +790,7 @@ public sealed partial class MainWindow : Window
     {
         _ = sender;
         _ = e;
+        BringForwardForEditor();
         await ShowLayoutDesignerAsync();
     }
 
@@ -1190,9 +1191,8 @@ public sealed partial class MainWindow : Window
 
     private async void OnClearRecentSessionsClick(object? sender, RoutedEventArgs e)
     {
-        _ = sender;
         _ = e;
-        if (!await Confirmations.HistoryClear().ShowDialog<bool>(this))
+        if (!await Confirmations.HistoryClear().ShowDialog<bool>(DialogOwnerFor(sender)))
         {
             return;
         }
@@ -1216,10 +1216,9 @@ public sealed partial class MainWindow : Window
 
     private async void OnResetRecentSessionHistoryClick(object? sender, RoutedEventArgs e)
     {
-        _ = sender;
         _ = e;
         if (!ViewModel.CanResetRecentSessionHistory
-            || !await Confirmations.HistoryReset().ShowDialog<bool>(this))
+            || !await Confirmations.HistoryReset().ShowDialog<bool>(DialogOwnerFor(sender)))
         {
             return;
         }
@@ -1232,24 +1231,6 @@ public sealed partial class MainWindow : Window
         _ = sender;
         _ = e;
         _ = await ViewModel.RetryRecentSessionHistoryAsync(_lifetime.Token);
-    }
-
-    private async void OnSaveHistoryRetentionClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (ViewModel.SelectedHistoryRetentionOption is not { } selected)
-        {
-            return;
-        }
-
-        if (ViewModel.RequiresHistoryRetentionConfirmation
-            && !await Confirmations.HistoryRetentionChange(selected).ShowDialog<bool>(this))
-        {
-            return;
-        }
-
-        _ = await ViewModel.SaveHistoryRetentionAsync(_lifetime.Token);
     }
 
     private async void OnExportAllHistoryClick(object? sender, RoutedEventArgs e)
@@ -1331,24 +1312,16 @@ public sealed partial class MainWindow : Window
 
     private async void OnCreateScreenClick(object? sender, RoutedEventArgs e)
     {
-        _ = sender;
         _ = e;
         try
         {
-            // Named in the editor itself; there is no longer a name box to carry
-            // one in from.
+            // Settings › Workspaces & Screens "+": named in the editor itself,
+            // which opens over the Settings window that asked for it.
             var editor = ViewModel.CreateNewSavedScreenEditor(string.Empty);
-            var saved = await new SavedScreenEditorDialog(
+            _ = await new SavedScreenEditorDialog(
                     editor,
                     ViewModel.SaveSavedScreenAsync)
-                .ShowDialog<bool>(this);
-            if (!saved)
-            {
-                return;
-            }
-
-            ViewModel.CloseOverlay();
-            FocusCurrentRoute();
+                .ShowDialog<bool>(DialogOwnerFor(sender));
         }
         catch (InvalidOperationException exception)
         {
@@ -1383,6 +1356,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        BringForwardForEditor();
         ViewModel.DismissLayoutDesigner();
         EnsureLayoutDesignerOverlay();
         ViewModel.BeginEditLayout(layout.Id);
@@ -1431,6 +1405,7 @@ public sealed partial class MainWindow : Window
     {
         _ = sender;
         _ = e;
+        BringForwardForEditor();
         EnsureDefinitionEditorOverlay();
         ViewModel.BeginCreateWorkspace();
         FocusNavigator.FocusDefinitionEditor();
@@ -1441,6 +1416,7 @@ public sealed partial class MainWindow : Window
         _ = e;
         if (sender is Control { DataContext: LauncherWorkspaceViewModel workspace })
         {
+            BringForwardForEditor();
             EnsureDefinitionEditorOverlay();
             ViewModel.BeginEditWorkspace(workspace.Id);
             FocusNavigator.FocusDefinitionEditor();
@@ -1458,7 +1434,7 @@ public sealed partial class MainWindow : Window
                 _ = await new SavedScreenEditorDialog(
                         editor,
                         ViewModel.SaveSavedScreenAsync)
-                    .ShowDialog<bool>(this);
+                    .ShowDialog<bool>(DialogOwnerFor(sender));
             }
             catch (InvalidOperationException exception)
             {
@@ -1649,7 +1625,7 @@ public sealed partial class MainWindow : Window
                     "Delete and keep running")
                 : Confirmations.DefinitionDelete("workspace", workspace.Name);
             var confirmed = await dialog
-                .ShowDialog<bool>(this);
+                .ShowDialog<bool>(DialogOwnerFor(sender));
             if (!confirmed)
             {
                 return;
@@ -1668,7 +1644,7 @@ public sealed partial class MainWindow : Window
         if (sender is Control { DataContext: LauncherScreenViewModel screen })
         {
             var confirmed = await Confirmations.DefinitionDelete("saved screen", screen.Name)
-                .ShowDialog<bool>(this);
+                .ShowDialog<bool>(DialogOwnerFor(sender));
             if (!confirmed)
             {
                 return;

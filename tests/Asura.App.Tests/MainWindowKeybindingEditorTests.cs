@@ -17,7 +17,7 @@ public sealed class MainWindowKeybindingEditorTests
 
         viewModel.ShowSettings(SettingsPage.Keybindings);
 
-        Assert.Equal(ShellRoute.Settings, viewModel.Route);
+        Assert.True(viewModel.IsSettingsVisible);
         Assert.Equal(hostDefault.Id, viewModel.SelectedKeybindingProfile?.Id);
         Assert.True(viewModel.CanCloneSelectedKeybindingProfile);
         Assert.True(viewModel.KeybindingEditorSession?.IsReadOnly);
@@ -38,6 +38,33 @@ public sealed class MainWindowKeybindingEditorTests
         Assert.Equal(hostDefault.Id, session.Editor.BasedOn);
         Assert.Contains(viewModel.KeybindingProfiles, item => item.Id == clone.Id);
         Assert.False(viewModel.HasOperationError);
+    }
+
+    [Fact]
+    public void Unsaved_shortcuts_are_a_settings_draft_that_is_discarded_only_on_request()
+    {
+        var hostDefault = BuiltInKeymaps.ApplicationFor(HostPlatform.Current);
+        var catalog = new RecordingDefinitionCatalog(KeymapSnapshot());
+        using var viewModel = CreateViewModel(catalog);
+        viewModel.ShowSettings(SettingsPage.Keybindings);
+
+        Assert.Null(viewModel.PendingSettingsDraft(SettingsPage.Keybindings));
+
+        viewModel.CloneSelectedKeybindingProfile();
+        var session = Assert.IsType<KeybindingEditorSessionViewModel>(viewModel.KeybindingEditorSession);
+        var newTab = Assert.Single(session.Rows, row => row.Row.CommandId == BuiltInCommands.NewTab);
+        session.RecordShortcut(newTab.Id, [new KeyStroke("T", KeyModifiers.Control | KeyModifiers.Shift)]);
+
+        var draft = Assert.IsType<SettingsDraft>(viewModel.PendingSettingsDraft(SettingsPage.Keybindings));
+        Assert.Equal(SettingsPage.Keybindings, draft.Page);
+        Assert.Null(viewModel.PendingSettingsDraft(SettingsPage.Appearance));
+
+        viewModel.DiscardSettingsDraft(draft.Page);
+
+        Assert.Null(viewModel.PendingSettingsDraft(SettingsPage.Keybindings));
+        Assert.DoesNotContain(viewModel.KeybindingProfiles, item => item.IsUnsaved);
+        Assert.Equal(hostDefault.Id, viewModel.SelectedKeybindingProfile?.Id);
+        Assert.Null(catalog.LastSavedKeymap);
     }
 
     [Fact]
@@ -365,7 +392,7 @@ public sealed class MainWindowKeybindingEditorTests
     }
 
     [Fact]
-    public void Dirty_workspace_editor_blocks_unconfirmed_navigation()
+    public void Dirty_workspace_editor_stays_open_beside_settings()
     {
         var workspace = new WorkspaceDefinition(
             new WorkspaceId("workspace-test"),
@@ -382,10 +409,12 @@ public sealed class MainWindowKeybindingEditorTests
 
         viewModel.ShowSettings(SettingsPage.Workspaces);
 
+        // Settings opens in its own window, so the unsaved editor is neither
+        // replaced nor asked about.
         Assert.Equal(ShellRoute.Workspace, viewModel.Route);
         Assert.Equal(ShellOverlay.DefinitionEditor, viewModel.Overlay);
-        Assert.NotNull(viewModel.WorkspaceEditor);
-        Assert.Contains("discard", viewModel.OperationError, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Changed", viewModel.WorkspaceEditor?.Name);
+        Assert.True(viewModel.IsSettingsVisible);
     }
 
     private static MainWindowViewModel CreateViewModel(IDefinitionCatalog catalog)

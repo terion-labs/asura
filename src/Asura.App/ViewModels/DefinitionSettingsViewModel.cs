@@ -346,6 +346,28 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Throws away unsaved shortcut edits, including a cloned preset that was
+    /// never saved, and reopens the active profile as stored.
+    /// </summary>
+    public void DiscardKeybindingEditor()
+    {
+        ThrowIfDisposed();
+        foreach (var unsaved in KeybindingProfiles.Where(item => item.IsUnsaved).ToArray())
+        {
+            KeybindingProfiles.Remove(unsaved);
+        }
+
+        var selected = SelectedKeybindingProfile is { IsUnsaved: false } current
+            ? current
+            : null;
+        KeybindingEditorSession = null;
+        if (selected is null || !TrySelectKeybindingProfile(selected, out _))
+        {
+            EnsureKeybindingEditor();
+        }
+    }
+
     public void ApplyCatalog(DefinitionCatalogSnapshot snapshot)
     {
         ThrowIfDisposed();

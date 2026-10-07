@@ -5626,22 +5626,28 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     }
 
     [Fact]
-    public async Task Shell_routes_and_subroutes_expose_exactly_one_visible_surface()
+    public async Task Settings_opens_beside_the_workspace_on_exactly_one_page()
     {
         var (client, _) = CreateSessionClient();
         using var viewModel = CreateViewModel(client, CreateCatalogSnapshot());
 
         Assert.Equal(1, VisibleRouteCount(viewModel));
         Assert.True(viewModel.IsWorkspaceVisible);
+        Assert.False(viewModel.IsSettingsVisible);
 
         foreach (var page in Enum.GetValues<SettingsPage>())
         {
             viewModel.ShowSettings(page);
 
+            // Settings is a window of its own: the workspace stays the route.
             Assert.Equal(1, VisibleRouteCount(viewModel));
+            Assert.True(viewModel.IsWorkspaceVisible);
             Assert.True(viewModel.IsSettingsVisible);
             Assert.Equal(1, VisibleSettingsPageCount(viewModel));
         }
+
+        viewModel.HideSettings();
+        Assert.False(viewModel.IsSettingsVisible);
 
         Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
         Assert.Equal(1, VisibleRouteCount(viewModel));
@@ -5681,7 +5687,6 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             nameof(MainWindowViewModel.IsCommandPaletteVisible),
             nameof(MainWindowViewModel.SettingsPage),
             nameof(MainWindowViewModel.IsFilesSettingsVisible),
-            nameof(MainWindowViewModel.Route),
             nameof(MainWindowViewModel.IsSettingsVisible),
             nameof(MainWindowViewModel.IsWorkspaceCanvasVisible),
         ];
@@ -5706,7 +5711,8 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
 
         viewModel.ShowSettings(SettingsPage.Files);
 
-        Assert.Equal(ShellRoute.Settings, viewModel.Route);
+        Assert.Equal(ShellRoute.Workspace, viewModel.Route);
+        Assert.True(viewModel.IsSettingsVisible);
         Assert.Equal(SettingsPage.Files, viewModel.SettingsPage);
         Assert.Equal(ShellOverlay.None, viewModel.Overlay);
         Assert.Equal(1, VisibleRouteCount(viewModel));
@@ -5714,7 +5720,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     }
 
     [Fact]
-    public async Task Dirty_layout_designer_blocks_navigation_and_preserves_its_surface()
+    public async Task Dirty_layout_designer_stays_open_when_settings_opens_beside_it()
     {
         var snapshot = CreateCatalogSnapshot();
         var layout = Assert.Single(snapshot.Layouts).Value;
@@ -5728,11 +5734,13 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
 
         viewModel.ShowSettings(SettingsPage.Appearance);
 
+        // Settings is a window beside this one, so nothing here is replaced
+        // and the unsaved layout needs no question.
         Assert.True(editor.IsDirty);
         Assert.Same(editor, viewModel.LayoutDesignerEditor);
         Assert.Equal(ShellRoute.Workspace, viewModel.Route);
         Assert.Equal(ShellOverlay.LayoutDesigner, viewModel.Overlay);
-        Assert.Contains("discard", viewModel.OperationError, StringComparison.OrdinalIgnoreCase);
+        Assert.True(viewModel.IsSettingsVisible);
     }
 
     [Theory]
@@ -5968,7 +5976,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         recorder.AllowDelayedRegistration.TrySetResult();
         Assert.True(await append);
 
-        Assert.Equal(ShellRoute.Settings, viewModel.Route);
+        Assert.True(viewModel.IsSettingsVisible);
         Assert.Equal(SettingsPage.Files, viewModel.SettingsPage);
         Assert.Equal(ShellOverlay.None, viewModel.Overlay);
         Assert.Equal("Secondary local", viewModel.RuntimeWorkspace?.ActiveTab?.Title);
@@ -7215,8 +7223,9 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             try
             {
                 window.NavigateToSettings(SettingsPage.Appearance);
-                window.UpdateLayout();
-                var compact = window.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>()
+                var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
+                settings.UpdateLayout();
+                var compact = settings.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>()
                     .Single(button => button.Name == "DensityCompact");
                 compact.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
                 Assert.Equal(InterfaceDensity.Compact, coordinator.Current.Theme?.Density);
@@ -7224,12 +7233,13 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
                 Assert.False(viewModel.CanRetryAppearanceSave);
                 if (leaveBeforeSaveCompletes)
                 {
-                    viewModel.ShowWorkspace();
+                    settings.Close();
+                    Assert.False(viewModel.IsSettingsVisible);
                 }
                 pending.SetResult();
                 await saved.Task.WaitAsync(timeout.Token);
                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background);
-                viewModel.ShowWorkspace();
+                settings.Close();
                 Assert.False(viewModel.HasThemeAppearanceDraft);
                 Assert.False(viewModel.CanRetryAppearanceSave);
                 Assert.Equal(InterfaceDensity.Compact, viewModel.ActiveTheme.Density);
@@ -8979,7 +8989,6 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         new[]
         {
             viewModel.IsWorkspaceVisible,
-            viewModel.IsSettingsVisible,
         }.Count(isVisible => isVisible);
 
     private static int VisibleSettingsPageCount(MainWindowViewModel viewModel) =>
@@ -8996,6 +9005,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             viewModel.IsSecretsSettingsVisible,
             viewModel.IsDiagnosticsSettingsVisible,
             viewModel.IsAgentSettingsVisible,
+            viewModel.IsNotificationSettingsVisible,
             viewModel.IsAboutSettingsVisible,
         }.Count(isVisible => isVisible);
 

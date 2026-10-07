@@ -28,6 +28,27 @@ acknowledgement. Merely showing the same workspace does not suppress or clear a
 notification from another panel. Agent work belongs to the workspace's agent
 surface, so opening the workspace does not clear it until that surface is shown.
 
+While Asura is the active application it does not present system banners for
+its own notifications: on macOS the user-notification delegate answers with no
+foreground presentation options, so the in-app attention marks are the only
+signal while Asura is in front. A notification posted while another app is in
+front appears in the system's notification center as usual.
+
+## Settings › Notifications
+
+Settings has a Notifications pane with one switch per source (Terminal, Agent
+runs, File transfers) and a row showing what the operating system allows
+(Allowed, Turned off, Not yet asked, Unavailable). When notifications are
+turned off for Asura, the row offers to open the system's notification
+settings. A source switch governs only native delivery: the in-app attention
+marks still appear. The choices apply at once and are kept in
+`notification-preferences.json` beside the profile, so they are known before a
+startup PIN unlocks the profile database.
+
+Notification titles use title case and name what happened ("Agent Finished",
+"File Transfer Failed", "Background Work Finished"); the body carries the
+outcome and where it happened, without a trailing period in the title.
+
 ```mermaid
 flowchart LR
     terminal["Terminal OSC / bell"] --> event["PanelNotificationEvent"]
@@ -97,8 +118,8 @@ adapter error does not remove the in-app unread trail.
    expose a public way to apply it when focusing an existing Wayland window.
    Internal routing succeeds; a compositor may still refuse to raise the app.
 4. Native delivered notifications are not yet withdrawn when the same record is
-   read inside Asura, and notification authorization/status is not exposed
-   in Settings.
+   read inside Asura. Authorization status is shown in Settings › Notifications
+   on macOS; the Linux portal and Windows adapters do not report it yet.
 5. The bounded internal history has no notification-feed UI, jump-to-latest
    command, or explicit mark-read/mark-unread controls.
 6. Terminal applications can use OSC 9/777 today, but there is no generic

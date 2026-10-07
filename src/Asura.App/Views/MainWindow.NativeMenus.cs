@@ -106,11 +106,6 @@ public sealed partial class MainWindow : IShellCommandPresentation, IApplication
                 || WindowFrameCommands.Handles(command);
         }
 
-        if (command == BuiltInCommands.CloseTab && ViewModel.IsSettingsVisible)
-        {
-            return true;
-        }
-
         if (WindowFrameCommands.Handles(command))
         {
             return WindowFrameCommands.CanExecute(this, command);
@@ -133,12 +128,6 @@ public sealed partial class MainWindow : IShellCommandPresentation, IApplication
 
     async Task IApplicationMenuHost.ExecuteAsync(CommandId command, IReadOnlyDictionary<string, string> arguments)
     {
-        if (command == BuiltInCommands.CloseTab && ViewModel.IsSettingsVisible)
-        {
-            OnSettingsBackClick(this, new RoutedEventArgs());
-            return;
-        }
-
         await ShellCommands.ExecuteAsync(command, arguments);
     }
 

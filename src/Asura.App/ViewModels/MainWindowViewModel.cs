@@ -192,6 +192,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             ?? new WorkspaceDefinitionOccupancy();
         _uiThreadDispatcher = uiThreadDispatcher ?? AvaloniaUiThreadDispatcher.Instance;
         LocalMcpServerSettings = new(localMcpServerControl, _uiThreadDispatcher);
+        NotificationSettings = new(
+            nativeNotificationService as INativeNotificationSettings,
+            _uiThreadDispatcher);
         BrowserStartupRecovery = new(browserStartupRecovery, _uiThreadDispatcher);
         _workspaceNetworkRuntime = workspaceNetworkRuntime;
         _inactiveWorkspaceNetwork = new WorkspaceNetworkControlViewModel(
@@ -221,6 +224,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         DefinitionSettings.PropertyChanged += OnDefinitionSettingsPropertyChanged;
         TerminalSettings = new TerminalSettingsViewModel(_catalog);
         TerminalSettings.PropertyChanged += OnTerminalSettingsPropertyChanged;
+        FollowAutoAppliedEditors();
         _appearancePreview = appearancePreview ?? new AppearancePreviewCoordinator();
         _appearancePreview.Changed += OnAppearancePreviewChanged;
         AppearanceSettings = new AppearanceSettingsViewModel(_catalog);
@@ -501,6 +505,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     public McpServerSettingsViewModel McpServerSettings { get; }
 
     public LocalMcpServerSettingsViewModel LocalMcpServerSettings { get; }
+
+    public NotificationSettingsViewModel NotificationSettings { get; }
 
     public DatabaseConnectionSettingsCoordinator DatabaseConnectionSettings { get; }
 
@@ -1586,8 +1592,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 failed
                     ? PanelNotificationKind.AgentFailed
                     : PanelNotificationKind.AgentCompleted,
-                failed ? "Agent run failed" : "Agent finished",
-                workspace.Name,
+                failed ? "Agent Run Failed" : "Agent Finished",
+                AgentRunOutcomeText(workspace.Name, owned.ViewModel.State),
                 _timeProvider.GetUtcNow())
             {
                 Effects = PanelNotificationEffects.Visual
@@ -1595,6 +1601,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             },
             sourceIsVisible: IsAgentPanelVisible);
     }
+
+    /// <summary>
+    /// What a notification about a finished agent run says: where it ran and
+    /// how it ended, so the banner is worth reading without opening Asura.
+    /// </summary>
+    internal static string AgentRunOutcomeText(string workspaceName, GovernedAgentState state) =>
+        state == GovernedAgentState.Failed
+            ? $"The agent in “{workspaceName}” stopped with an error. Open the agent panel to see what went wrong."
+            : $"The agent in “{workspaceName}” finished its run and is ready for review.";
 
     private void ActivateNativeNotification(
         NativeNotificationRoute route,
@@ -2196,6 +2211,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public bool IsMcpSettingsVisible => _navigation.IsMcpSettingsVisible;
 
+    public bool IsNotificationSettingsVisible => _navigation.IsNotificationSettingsVisible;
+
     public bool IsAboutSettingsVisible => _navigation.IsAboutSettingsVisible;
 
     public string SecretVaultStatus
@@ -2480,40 +2497,56 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     public int KeybindingConflictCount =>
         DefinitionSettings.KeybindingConflictCount;
 
-    public void ShowSettings(SettingsPage page = SettingsPage.Appearance,
+    /// <summary>
+    /// Opens this window's Settings on <paramref name="page"/>, or on the page
+    /// it was last left on. Settings is a window of its own, so an editor open
+    /// in this window stays open beside it.
+    /// </summary>
+    public void ShowSettings(SettingsPage? page = null,
         AgentChatViewModel? agentHistoryOwner = null)
     {
-        if (!TryDismissOverlayForNavigation())
-        {
-            return;
-        }
-
+        var target = page ?? SettingsPage;
         _settingsAgentHistoryOwner = agentHistoryOwner;
         OnPropertyChanged(nameof(AgentHistoryOwner));
-        _navigation.ShowSettings(page);
-        if (page is SettingsPage.Secrets or SettingsPage.Mcp)
+        _navigation.ShowSettings(target);
+        if (target is SettingsPage.Secrets or SettingsPage.Mcp)
         {
             // Listing the native credential store may show an OS authorization
             // prompt. Cross that boundary only after explicit user navigation.
             _ = RefreshSecretsAsync(CancellationToken.None);
         }
 
-        if (page == SettingsPage.Keybindings)
+        if (target == SettingsPage.Keybindings)
         {
             DefinitionSettings.EnsureKeybindingEditor();
         }
 
-        if (page == SettingsPage.Files)
+        if (target == SettingsPage.Files)
         {
             // The usage figure is read when the page is opened, not on a
             // timer: a settings page is looked at, not watched.
             FilePreviewSettingsEditor.RefreshCacheUsage();
         }
 
-        if (page == SettingsPage.Browser)
+        if (target == SettingsPage.Browser)
         {
             BrowserProfileSettingsEditor.RefreshUsage();
         }
+
+        if (target == SettingsPage.Notifications)
+        {
+            // Read when looked at: the person may have just changed it in
+            // System Settings and come back.
+            _ = NotificationSettings.RefreshAuthorizationAsync(CancellationToken.None);
+        }
+    }
+
+    /// <summary>The Settings window this view model was showing closed.</summary>
+    public void HideSettings()
+    {
+        _settingsAgentHistoryOwner = null;
+        OnPropertyChanged(nameof(AgentHistoryOwner));
+        _navigation.HideSettings();
     }
 
     public void ShowWorkspace()
@@ -12830,6 +12863,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         DefinitionEdit.PropertyChanged -= OnDefinitionEditPropertyChanged;
         DefinitionSettings.PropertyChanged -= OnDefinitionSettingsPropertyChanged;
         TerminalSettings.PropertyChanged -= OnTerminalSettingsPropertyChanged;
+        StopFollowingAutoAppliedEditors();
         AppearanceSettings.PropertyChanged -= OnAppearanceSettingsPropertyChanged;
         AppearanceSettings.BackgroundSaveStarting -= OnAppearanceBackgroundSaveStarting;
         AppearanceSettings.BackgroundSaveCompleted -= OnAppearanceBackgroundSaveCompleted;
@@ -12864,6 +12898,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         TerminalConnectionSettings.Dispose();
         McpServerSettings.Dispose();
         LocalMcpServerSettings.Dispose();
+        NotificationSettings.Dispose();
         FileProviderSettings.Dispose();
         AiProviderSettings.Dispose();
         AgentWorkspaceScope.Dispose();

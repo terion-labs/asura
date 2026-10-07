@@ -1996,8 +1996,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
                         ? PanelNotificationKind.FileTransferCompleted
                         : PanelNotificationKind.FileTransferFailed,
                     transfer.State == FilePanelTransferState.Completed
-                        ? "File transfer completed"
-                        : "File transfer failed",
+                        ? "File Transfer Completed"
+                        : "File Transfer Failed",
                     body,
                     transfer.CompletedAt ?? transfer.QueuedAt)
                 {

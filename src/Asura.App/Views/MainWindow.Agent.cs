@@ -323,23 +323,6 @@ public sealed partial class MainWindow
         }
     }
 
-    private async void OnApplyAgentHistoryRetentionClick(
-        object? sender,
-        RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (ViewModel.AgentHistoryOwner is not { CanApplyHistoryRetention: true } agent
-            || !await Confirmations
-                .AgentHistoryRetentionChange(agent.SelectedHistoryRetentionOption)
-                .ShowDialog<bool>(this))
-        {
-            return;
-        }
-
-        await agent.ApplyHistoryRetentionAsync(_lifetime.Token);
-    }
-
     private async void OnExportAgentHistoryClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;

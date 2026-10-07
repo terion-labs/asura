@@ -268,3 +268,27 @@ internal sealed class QuickTerminalMenuHost(
 
     protected override void CloseWindow() => controller.Hide();
 }
+
+/// <summary>
+/// The Settings window has no tabs, so Close Tab (⌘W) closes the window, as it
+/// closes any Mac window without tabs.
+/// </summary>
+internal sealed class SettingsWindowMenuHost(
+    SettingsWindow window,
+    IApplicationCommandService application,
+    CancellationToken lifetime) : AuxiliaryWindowMenuHost(window, application, lifetime)
+{
+    public override bool CanExecute(CommandId command, IReadOnlyDictionary<string, string> arguments) =>
+        command == BuiltInCommands.CloseTab || base.CanExecute(command, arguments);
+
+    public override async Task ExecuteAsync(CommandId command, IReadOnlyDictionary<string, string> arguments)
+    {
+        if (command == BuiltInCommands.CloseTab)
+        {
+            CloseWindow();
+            return;
+        }
+
+        await base.ExecuteAsync(command, arguments);
+    }
+}

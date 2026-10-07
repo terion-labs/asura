@@ -1,0 +1,37 @@
+<Window
+    x:Class="Asura.App.Views.SettingsWindow"
+    x:DataType="vm:MainWindowViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:controls="using:Asura.App.Controls"
+    xmlns:components="using:Asura.App.Views.Components"
+    Title="Settings"
+    Width="980"
+    Height="720"
+    MinWidth="760"
+    MinHeight="480"
+    CanMinimize="False"
+    CanMaximize="False"
+    WindowStartupLocation="CenterScreen">
+  <!--
+    Settings… opens this one window, whichever main window asked. It is not
+    modal: the workspace stays live beside it, so a terminal setting can be
+    watched taking effect. Its title names the page on show, minimize and zoom
+    are dimmed as they are for every Mac settings window, and it reopens on
+    the page it was left on, where it was left.
+  -->
+  <Grid Background="{DynamicResource ShellBackgroundBrush}">
+    <ContentControl
+        x:Name="SettingsHost"
+        HorizontalContentAlignment="Stretch"
+        VerticalContentAlignment="Stretch" />
+    <Border
+        Margin="{controls:Inset Right=Lg, Bottom=Lg}"
+        HorizontalAlignment="Right"
+        VerticalAlignment="Bottom"
+        MaxWidth="520">
+      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
+    </Border>
+  </Grid>
+</Window>

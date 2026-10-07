@@ -23,7 +23,7 @@ public sealed class ShellNavigationViewModelTests
     [InlineData(SettingsPage.Networking)]
     [InlineData(SettingsPage.Files)]
     [InlineData(SettingsPage.Mcp)]
-    public void Settings_navigation_dismisses_an_overlay_and_projects_one_subroute(
+    public void Settings_navigation_dismisses_a_transient_overlay_and_projects_one_page(
         SettingsPage page)
     {
         var navigation = new ShellNavigationViewModel();
@@ -31,13 +31,33 @@ public sealed class ShellNavigationViewModelTests
 
         navigation.ShowSettings(page);
 
-        Assert.Equal(ShellRoute.Settings, navigation.Route);
+        // Settings opens as a window beside the workspace, which stays the route.
+        Assert.Equal(ShellRoute.Workspace, navigation.Route);
         Assert.Equal(page, navigation.SettingsPage);
         Assert.Equal(ShellOverlay.None, navigation.Overlay);
         Assert.True(navigation.IsSettingsVisible);
-        Assert.False(navigation.IsWorkspaceVisible);
+        Assert.True(navigation.IsWorkspaceVisible);
         Assert.False(navigation.HasOverlay);
         Assert.Equal(1, VisibleSettingsPageCount(navigation));
+
+        navigation.HideSettings();
+
+        Assert.False(navigation.IsSettingsVisible);
+        Assert.Equal(page, navigation.SettingsPage);
+    }
+
+    [Theory]
+    [InlineData(ShellOverlay.LayoutDesigner)]
+    [InlineData(ShellOverlay.DefinitionEditor)]
+    public void Settings_leaves_an_editor_overlay_open_beside_it(ShellOverlay editor)
+    {
+        var navigation = new ShellNavigationViewModel();
+        navigation.ShowOverlay(editor);
+
+        navigation.ShowSettings(SettingsPage.Terminal);
+
+        Assert.Equal(editor, navigation.Overlay);
+        Assert.True(navigation.IsSettingsVisible);
     }
 
     [Fact]
@@ -56,7 +76,7 @@ public sealed class ShellNavigationViewModelTests
     }
 
     [Fact]
-    public void Mutation_completion_does_not_steal_a_newer_settings_route()
+    public void Mutation_completion_leaves_settings_open()
     {
         var navigation = new ShellNavigationViewModel();
         navigation.ShowOverlay(ShellOverlay.CommandPalette);
@@ -65,7 +85,7 @@ public sealed class ShellNavigationViewModelTests
 
         navigation.CompleteRuntimeMutation(initiatingState);
 
-        Assert.Equal(ShellRoute.Settings, navigation.Route);
+        Assert.True(navigation.IsSettingsVisible);
         Assert.Equal(SettingsPage.Files, navigation.SettingsPage);
         Assert.Equal(ShellOverlay.None, navigation.Overlay);
     }
@@ -99,7 +119,7 @@ public sealed class ShellNavigationViewModelTests
 
         navigation.CompleteRuntimeMutation(initiatingState);
 
-        Assert.Equal(ShellRoute.Settings, navigation.Route);
+        Assert.Equal(ShellRoute.Workspace, navigation.Route);
         Assert.Equal(editorOverlay, navigation.Overlay);
     }
 
@@ -118,6 +138,7 @@ public sealed class ShellNavigationViewModelTests
             navigation.IsDiagnosticsSettingsVisible,
             navigation.IsAgentSettingsVisible && !navigation.IsMcpSettingsVisible,
             navigation.IsMcpSettingsVisible,
+            navigation.IsNotificationSettingsVisible,
             navigation.IsAboutSettingsVisible,
         }.Count(isVisible => isVisible);
 }

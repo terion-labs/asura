@@ -84,13 +84,13 @@
           <Button
               Classes="SecondaryButton"
               Click="OnCopyTokenClick"
-              Content="Copy token"
+              Content="Copy Token"
               IsEnabled="{Binding CanEdit}"
               AutomationProperties.Name="Copy Asura MCP authentication token" />
           <Button
               Classes="SecondaryButton"
               Click="OnRotateTokenClick"
-              Content="Replace token"
+              Content="Replace Token"
               IsEnabled="{Binding CanEdit}"
               AutomationProperties.Name="Replace Asura MCP authentication token" />
         </StackPanel>
