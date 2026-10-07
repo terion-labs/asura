@@ -17,6 +17,8 @@ public enum KeymapIssueKind
     PrefixCollision,
     OverlappingContexts,
     ShadowedBinding,
+    SystemShortcut,
+    MenuShortcut,
 }
 
 public sealed record KeymapValidationIssue(
@@ -30,7 +32,19 @@ public static class KeymapConflictValidator
 {
     public static ImmutableArray<KeymapValidationIssue> Validate(
         KeymapProfile profile,
-        CommandRegistry registry)
+        CommandRegistry registry) =>
+        Validate(profile, registry, HostPlatform.Current);
+
+    /// <summary>
+    /// Checks a profile against itself and, on macOS, against the shortcuts
+    /// the system and the menu bar answer before any keymap sees the key.
+    /// Those two never block saving: the binding is kept, but it is reported
+    /// because it will not fire.
+    /// </summary>
+    public static ImmutableArray<KeymapValidationIssue> Validate(
+        KeymapProfile profile,
+        CommandRegistry registry,
+        HostOperatingSystem host)
     {
         ArgumentNullException.ThrowIfNull(profile);
         ArgumentNullException.ThrowIfNull(registry);
@@ -56,7 +70,7 @@ public static class KeymapConflictValidator
                     KeymapIssueKind.TerminalSequence,
                     index,
                     null,
-                    $"Terminal shortcut '{binding.Sequence}' must contain exactly one key stroke. Multi-stroke sequences are available in application keymaps."));
+                    $"Terminal shortcut {Quote(binding.Sequence, host)} must contain exactly one key stroke. Multi-stroke sequences are available in application keymaps."));
             }
             else if (profile.Layer == KeymapLayer.Terminal
                 && !TerminalKeyBindingRules.IsSupported(binding.Sequence[0]))
@@ -66,7 +80,12 @@ public static class KeymapConflictValidator
                     KeymapIssueKind.UnsupportedTerminalKey,
                     index,
                     null,
-                    $"Terminal key '{binding.Sequence[0].Key}' is not supported by every desktop renderer."));
+                    $"Terminal key {Quote(KeySequence.Of(new KeyStroke(binding.Sequence[0].Key)), host)} is not supported by every desktop renderer."));
+            }
+
+            if (host == HostOperatingSystem.MacOS)
+            {
+                AddReservedShortcutIssue(binding, index, host, issues);
             }
         }
 
@@ -74,17 +93,56 @@ public static class KeymapConflictValidator
         {
             for (var rightIndex = leftIndex + 1; rightIndex < profile.Bindings.Count; rightIndex++)
             {
-                ValidatePair(profile.Bindings, leftIndex, rightIndex, issues);
+                ValidatePair(profile.Bindings, leftIndex, rightIndex, host, issues);
             }
         }
 
         return issues.ToImmutable();
     }
 
+    /// <summary>
+    /// A sequence starts with its first stroke, so a reserved first stroke
+    /// keeps the whole sequence from ever starting.
+    /// </summary>
+    private static void AddReservedShortcutIssue(
+        CommandBinding binding,
+        int index,
+        HostOperatingSystem host,
+        ImmutableArray<KeymapValidationIssue>.Builder issues)
+    {
+        var first = binding.Sequence[0];
+        if (MacOsStandardShortcuts.TryFindSystem(first, out var system)
+            && system.CommandId != binding.CommandId)
+        {
+            issues.Add(new KeymapValidationIssue(
+                KeymapIssueSeverity.Warning,
+                KeymapIssueKind.SystemShortcut,
+                index,
+                null,
+                $"{Quote(KeySequence.Of(first), host)} is reserved by macOS for {system.Owner}, so this shortcut never reaches Asura."));
+            return;
+        }
+
+        if (MacOsStandardShortcuts.TryFindMenu(first, out var menu)
+            && menu.CommandId != binding.CommandId)
+        {
+            issues.Add(new KeymapValidationIssue(
+                KeymapIssueSeverity.Warning,
+                KeymapIssueKind.MenuShortcut,
+                index,
+                null,
+                $"{Quote(KeySequence.Of(first), host)} is the menu shortcut for {menu.Owner}, so the menu runs instead of this command."));
+        }
+    }
+
+    private static string Quote(KeySequence sequence, HostOperatingSystem host) =>
+        $"“{ShortcutText.Format(sequence, host)}”";
+
     private static void ValidatePair(
         IReadOnlyList<CommandBinding> bindings,
         int leftIndex,
         int rightIndex,
+        HostOperatingSystem host,
         ImmutableArray<KeymapValidationIssue>.Builder issues)
     {
         var left = bindings[leftIndex];
@@ -97,7 +155,7 @@ public static class KeymapConflictValidator
 
         if (left.Sequence.Equals(right.Sequence))
         {
-            AddExactSequenceIssue(left, right, leftIndex, rightIndex, relationship, issues);
+            AddExactSequenceIssue(left, right, leftIndex, rightIndex, relationship, host, issues);
             return;
         }
 
@@ -108,7 +166,7 @@ public static class KeymapConflictValidator
                 KeymapIssueKind.PrefixCollision,
                 leftIndex,
                 rightIndex,
-                $"'{left.Sequence}' and '{right.Sequence}' cannot both resolve while their contexts overlap."));
+                $"{Quote(left.Sequence, host)} and {Quote(right.Sequence, host)} cannot both resolve while their contexts overlap."));
         }
     }
 
@@ -118,6 +176,7 @@ public static class KeymapConflictValidator
         int leftIndex,
         int rightIndex,
         ContextRelationship relationship,
+        HostOperatingSystem host,
         ImmutableArray<KeymapValidationIssue>.Builder issues)
     {
         if (left.Contexts == right.Contexts)
@@ -127,7 +186,7 @@ public static class KeymapConflictValidator
                 KeymapIssueKind.ExactBinding,
                 leftIndex,
                 rightIndex,
-                $"'{left.Sequence}' is assigned more than once in {left.Contexts}."));
+                $"{Quote(left.Sequence, host)} is assigned more than once in {left.Contexts}."));
             return;
         }
 
@@ -138,7 +197,7 @@ public static class KeymapConflictValidator
                 KeymapIssueKind.OverlappingContexts,
                 leftIndex,
                 rightIndex,
-                $"'{left.Sequence}' is ambiguous in contexts that can be active together."));
+                $"{Quote(left.Sequence, host)} is ambiguous in contexts that can be active together."));
             return;
         }
 
@@ -147,7 +206,7 @@ public static class KeymapConflictValidator
             KeymapIssueKind.ShadowedBinding,
             leftIndex,
             rightIndex,
-            $"'{left.Sequence}' in the lower-priority context is shadowed whenever both contexts are active."));
+            $"{Quote(left.Sequence, host)} in the lower-priority context is shadowed whenever both contexts are active."));
     }
 
     private static ContextRelationship GetContextRelationship(CommandContext left, CommandContext right)

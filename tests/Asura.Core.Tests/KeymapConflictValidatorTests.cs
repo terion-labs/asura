@@ -61,6 +61,114 @@ public sealed class KeymapConflictValidatorTests
         Assert.Equal(KeymapIssueSeverity.Warning, issue.Severity);
     }
 
+    [Theory]
+    [InlineData("3", KeyModifiers.Shift | KeyModifiers.Meta, "⇧⌘3", "Screenshot")]
+    [InlineData("SPACE", KeyModifiers.Control, "⌃Space", "input source")]
+    [InlineData("Q", KeyModifiers.Meta, "⌘Q", "Quit")]
+    [InlineData("GRAVE", KeyModifiers.Meta, "⌘`", "next window")]
+    public void A_mac_binding_macOS_takes_first_is_reported_as_never_firing(
+        string key,
+        KeyModifiers modifiers,
+        string shown,
+        string owner)
+    {
+        var profile = CreateProfile(new CommandBinding(
+            FirstCommand,
+            KeySequence.Of(new KeyStroke(key, modifiers)),
+            CommandContext.Global));
+
+        var issue = Assert.Single(KeymapConflictValidator.Validate(
+            profile,
+            CreateRegistry(),
+            HostOperatingSystem.MacOS));
+
+        Assert.Equal(KeymapIssueKind.SystemShortcut, issue.Kind);
+        Assert.Equal(KeymapIssueSeverity.Warning, issue.Severity);
+        Assert.Contains(shown, issue.Message, StringComparison.Ordinal);
+        Assert.Contains(owner, issue.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_mac_binding_the_menu_bar_answers_for_another_command_is_shadowed()
+    {
+        var profile = CreateProfile(new CommandBinding(
+            FirstCommand,
+            KeySequence.Of(new KeyStroke("N", KeyModifiers.Meta)),
+            CommandContext.Global));
+
+        var issue = Assert.Single(KeymapConflictValidator.Validate(
+            profile,
+            CreateRegistry(),
+            HostOperatingSystem.MacOS));
+
+        Assert.Equal(KeymapIssueKind.MenuShortcut, issue.Kind);
+        Assert.Equal(KeymapIssueSeverity.Warning, issue.Severity);
+        Assert.Contains("⌘N", issue.Message, StringComparison.Ordinal);
+        Assert.Contains("New Window", issue.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_binding_that_matches_its_menu_command_is_not_shadowed()
+    {
+        var profile = new KeymapProfile(
+            new KeymapProfileId("test.menu-agrees"),
+            "Menu agrees",
+            KeymapLayer.Application,
+            [new CommandBinding(
+                BuiltInCommands.CloseTab,
+                KeySequence.Of(new KeyStroke("W", KeyModifiers.Meta)),
+                CommandContext.Tab)]);
+
+        Assert.Empty(KeymapConflictValidator.Validate(
+            profile,
+            BuiltInCommands.Registry,
+            HostOperatingSystem.MacOS));
+    }
+
+    [Fact]
+    public void A_reserved_first_stroke_keeps_a_whole_sequence_from_starting()
+    {
+        var profile = CreateProfile(new CommandBinding(
+            FirstCommand,
+            KeySequence.Of(new KeyStroke("TAB", KeyModifiers.Meta), new KeyStroke("X")),
+            CommandContext.Global));
+
+        var issue = Assert.Single(KeymapConflictValidator.Validate(
+            profile,
+            CreateRegistry(),
+            HostOperatingSystem.MacOS));
+
+        Assert.Equal(KeymapIssueKind.SystemShortcut, issue.Kind);
+    }
+
+    [Theory]
+    [InlineData(HostOperatingSystem.Windows)]
+    [InlineData(HostOperatingSystem.Linux)]
+    public void Mac_reservations_do_not_apply_on_other_hosts(HostOperatingSystem host)
+    {
+        var profile = CreateProfile(new CommandBinding(
+            FirstCommand,
+            KeySequence.Of(new KeyStroke("3", KeyModifiers.Shift | KeyModifiers.Meta)),
+            CommandContext.Global));
+
+        Assert.Empty(KeymapConflictValidator.Validate(profile, CreateRegistry(), host));
+    }
+
+    [Fact]
+    public void Conflict_messages_use_the_host_notation()
+    {
+        var sequence = KeySequence.Of(new KeyStroke("K", KeyModifiers.Control));
+        var profile = CreateProfile(
+            new CommandBinding(FirstCommand, sequence, CommandContext.Global),
+            new CommandBinding(SecondCommand, sequence, CommandContext.Global));
+
+        var mac = Assert.Single(KeymapConflictValidator.Validate(profile, CreateRegistry(), HostOperatingSystem.MacOS));
+        var windows = Assert.Single(KeymapConflictValidator.Validate(profile, CreateRegistry(), HostOperatingSystem.Windows));
+
+        Assert.Contains("“⌃K”", mac.Message, StringComparison.Ordinal);
+        Assert.Contains("“Ctrl+K”", windows.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Mutually_exclusive_terminal_and_browser_contexts_do_not_conflict()
     {

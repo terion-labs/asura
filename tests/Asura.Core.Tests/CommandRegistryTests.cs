@@ -64,7 +64,54 @@ public sealed class CommandRegistryTests
 
     public static TheoryData<CommandId, string> TabMoveCommands => new()
     {
-        { BuiltInCommands.MoveTabLeft, "Move tab left" },
-        { BuiltInCommands.MoveTabRight, "Move tab right" },
+        { BuiltInCommands.MoveTabLeft, "Move Tab Left" },
+        { BuiltInCommands.MoveTabRight, "Move Tab Right" },
     };
+
+    [Theory]
+    [InlineData("left", "Focus Panel Left")]
+    [InlineData("right", "Focus Panel Right")]
+    [InlineData("up", "Focus Panel Up")]
+    [InlineData("down", "Focus Panel Down")]
+    [InlineData("next", "Focus Next Panel")]
+    public void Each_focus_panel_invocation_has_its_own_name(string direction, string expected)
+    {
+        Assert.True(BuiltInCommands.Registry.TryGet(BuiltInCommands.FocusPanel, out var command));
+
+        Assert.Equal(
+            expected,
+            command!.TitleFor(new Dictionary<string, string>(StringComparer.Ordinal) { ["direction"] = direction }));
+    }
+
+    [Fact]
+    public void Positions_are_named_from_one_and_unparameterized_commands_keep_their_title()
+    {
+        Assert.True(BuiltInCommands.Registry.TryGet(BuiltInCommands.MoveTabToWorkspace, out var move));
+        Assert.True(BuiltInCommands.Registry.TryGet(BuiltInCommands.CloseTab, out var close));
+
+        Assert.Equal(
+            "Move Tab to Workspace 3",
+            move!.TitleFor(new Dictionary<string, string>(StringComparer.Ordinal) { ["position"] = "2" }));
+        Assert.Equal("Close Tab", close!.TitleFor(new Dictionary<string, string>(StringComparer.Ordinal)));
+    }
+
+    [Fact]
+    public void Every_parameterized_built_in_binding_has_a_distinct_row_name()
+    {
+        foreach (var profile in BuiltInKeymaps.All)
+        {
+            var titles = profile.Bindings
+                .Where(binding => binding.Arguments.Count > 0)
+                .GroupBy(binding => binding.CommandId)
+                .Select(group => group
+                    .Select(binding =>
+                    {
+                        Assert.True(BuiltInCommands.Registry.TryGet(binding.CommandId, out var command));
+                        return command!.TitleFor(binding.Arguments);
+                    })
+                    .ToArray());
+
+            Assert.All(titles, group => Assert.Equal(group.Length, group.Distinct(StringComparer.Ordinal).Count()));
+        }
+    }
 }

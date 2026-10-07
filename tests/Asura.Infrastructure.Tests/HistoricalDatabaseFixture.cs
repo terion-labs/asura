@@ -120,6 +120,10 @@ internal static class HistoricalDatabaseFixture
                 "git-display-and-commit-preferences",
                 "0083DB74EAFDE32F2540CC28EA9F111786E8F945ADD56F99316311660A912F81",
                 IsDestructive: false),
+            [25] = new(
+                "quick-terminal-control-grave-hotkey",
+                "9E46D482F645831B07A0138905AD3B65A785A0F6E16E84B0EA35B73C92895A5D",
+                IsDestructive: false),
         };
 
     public static readonly DateTimeOffset ReferenceTime =
@@ -188,6 +192,28 @@ internal static class HistoricalDatabaseFixture
                         SELECT RAISE(ABORT, 'next migration collision');
                     END;
                     """,
+                // Migration 25 rewrites the seeded Quick Terminal hotkey. Seed
+                // one, then refuse the write.
+                24 => $"""
+                    INSERT INTO definitions(
+                        kind, id, schema_version, revision, name, payload_json,
+                        created_utc, updated_utc)
+                    VALUES (
+                        'quick-terminal-settings',
+                        'builtin.quick-terminal.default',
+                        2,
+                        1,
+                        'Quick Terminal',
+                        '{QuickTerminalPayload}',
+                        '2026-01-01T00:00:00.0000000+00:00',
+                        '2026-01-01T00:00:00.0000000+00:00');
+                    CREATE TRIGGER {schemaObjectName}
+                    BEFORE UPDATE ON definitions
+                    WHEN OLD.kind = 'quick-terminal-settings'
+                    BEGIN
+                        SELECT RAISE(ABORT, 'next migration collision');
+                    END;
+                    """,
                 _ => $"CREATE TABLE {schemaObjectName} "
                      + "(incompatible_column TEXT NOT NULL);",
             });
@@ -207,7 +233,7 @@ internal static class HistoricalDatabaseFixture
                 13 => "ALTER TABLE agent_session_checkpoints DROP COLUMN workspace_id;",
                 16 => "ALTER TABLE browser_profile_preference DROP COLUMN default_profile_id;",
                 23 => "ALTER TABLE git_panel_preference DROP COLUMN settings_json;",
-                8 => $"DROP TRIGGER {schemaObjectName};",
+                8 or 24 => $"DROP TRIGGER {schemaObjectName};",
                 _ => $"DROP TABLE {schemaObjectName};",
             });
     }
@@ -404,11 +430,15 @@ internal static class HistoricalDatabaseFixture
             21 => "agent_file_attachments",
             22 => "git_commit_draft",
             23 => "settings_json",
+            24 => "quick_terminal_hotkey_migration_collision",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(currentVersion),
                 currentVersion,
                 "Only historical schemas with a later production migration are supported."),
         };
+
+    private const string QuickTerminalPayload =
+        """{"id":{"value":"builtin.quick-terminal.default"},"schemaVersion":2,"name":"Quick Terminal","hotkey":{"key":"GRAVE","modifiers":"Meta"},"monitorPolicy":"MainWindow","heightFraction":0.55,"opacity":0.82,"animateSlide":true,"animationDurationMilliseconds":180,"reduceMotion":false,"restoreLastSession":true,"hideOnFocusLoss":true,"isTranslucent":true,"restoreOnStart":true}""";
 
     private sealed record FrozenMigrationReceipt(
         string Name,

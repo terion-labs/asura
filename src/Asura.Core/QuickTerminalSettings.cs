@@ -16,15 +16,23 @@ public sealed record QuickTerminalSettings : IDurableDefinition
     public const double MinimumOpacity = 0.00;
     public const double MaximumOpacity = 1.00;
     public const bool DefaultIsTranslucent = true;
+    public const bool DefaultHideOnEscape = false;
     public const int MaximumAnimationDurationMilliseconds = 1_000;
 
     public static QuickTerminalSettingsId DefaultId { get; } =
         new("builtin.quick-terminal.default");
 
+    /// <summary>
+    /// Control-Grave, not Command-Grave: macOS cycles an app's windows with
+    /// Command-Grave, and an exclusive global hotkey would take that from every
+    /// app while Asura runs.
+    /// </summary>
+    public static KeyStroke DefaultHotkey { get; } = new("GRAVE", KeyModifiers.Control);
+
     public static QuickTerminalSettings Default { get; } = new(
         DefaultId,
         "Quick Terminal",
-        new KeyStroke("GRAVE", KeyModifiers.Meta),
+        DefaultHotkey,
         QuickTerminalMonitorPolicy.MainWindow,
         heightFraction: 0.55,
         opacity: 0.82,
@@ -34,7 +42,8 @@ public sealed record QuickTerminalSettings : IDurableDefinition
         restoreLastSession: true,
         hideOnFocusLoss: true,
         isTranslucent: DefaultIsTranslucent,
-        restoreOnStart: true);
+        restoreOnStart: true,
+        hideOnEscape: DefaultHideOnEscape);
 
     [JsonConstructor]
     public QuickTerminalSettings(
@@ -50,7 +59,8 @@ public sealed record QuickTerminalSettings : IDurableDefinition
         bool restoreLastSession,
         bool hideOnFocusLoss,
         bool isTranslucent = DefaultIsTranslucent,
-        bool restoreOnStart = true)
+        bool restoreOnStart = true,
+        bool hideOnEscape = DefaultHideOnEscape)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (string.IsNullOrWhiteSpace(hotkey.Key)
@@ -107,6 +117,7 @@ public sealed record QuickTerminalSettings : IDurableDefinition
         RestoreLastSession = restoreLastSession;
         HideOnFocusLoss = hideOnFocusLoss;
         RestoreOnStart = restoreOnStart;
+        HideOnEscape = hideOnEscape;
     }
 
     public static DefinitionKind Kind => DefinitionKind.QuickTerminalSettings;
@@ -144,6 +155,14 @@ public sealed record QuickTerminalSettings : IDurableDefinition
     public bool RestoreLastSession { get; }
 
     public bool HideOnFocusLoss { get; }
+
+    /// <summary>
+    /// Whether Escape dismisses the panel. Off by default: in a terminal,
+    /// Escape belongs to the program running there (vim, less, fzf, a TUI
+    /// agent), and the toggle hotkey, Command-W, and focus loss already
+    /// dismiss the panel.
+    /// </summary>
+    public bool HideOnEscape { get; }
 
     /// <summary>
     /// Recreates the Quick Terminal tab and connection set from the latest
