@@ -1,4 +1,3 @@
-using System.Globalization;
 using Asura.Application;
 
 namespace Asura.App.ViewModels;
@@ -173,7 +172,7 @@ public sealed class DiagnosticsExportViewModel : ObservableObject
     public string ReceiptSummary => Receipt is null
         ? string.Empty
         : $"{Receipt.ArtifactCount} artifact{(Receipt.ArtifactCount == 1 ? string.Empty : "s")} · "
-            + $"{FormatBytes(Receipt.ArchiveBytes)} archive";
+            + $"{ByteSize.Format(Receipt.ArchiveBytes)} archive";
 
     public string DigestSummary => Receipt is null ? string.Empty : $"SHA-256 {Receipt.Sha256}";
 
@@ -417,20 +416,4 @@ public sealed class DiagnosticsExportViewModel : ObservableObject
 
     private string CreateSuggestedFileName() =>
         $"asura-diagnostics-{_timeProvider.GetUtcNow():yyyyMMdd-HHmmss}.zip";
-
-    private static string FormatBytes(long bytes)
-    {
-        if (bytes < 1024)
-        {
-            return $"{bytes.ToString(CultureInfo.InvariantCulture)} B";
-        }
-
-        var kibibytes = bytes / 1024d;
-        if (kibibytes < 1024)
-        {
-            return $"{kibibytes.ToString("0.#", CultureInfo.InvariantCulture)} KiB";
-        }
-
-        return $"{(kibibytes / 1024d).ToString("0.#", CultureInfo.InvariantCulture)} MiB";
-    }
 }

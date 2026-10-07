@@ -59,9 +59,14 @@ public sealed partial class App : Avalonia.Application
         "differentiate-without-color",
     ];
 
+    /// <summary>
+    /// The text sizes published as ShellFontSizeN. The ramp starts at 10, the
+    /// macOS Caption: 8 and 9 named sizes the host never draws, so they are not
+    /// published and the view guard keeps them out of the markup.
+    /// </summary>
     private static readonly int[] ScalableFontSizes =
     [
-        8, 9, 10, 11, 12, 13, 14,
+        10, 11, 12, 13, 14,
         15, 16, 17, 18, 19, 20, 21,
         22, 23, 24, 25, 26, 27, 28,
     ];
@@ -530,6 +535,37 @@ public sealed partial class App : Avalonia.Application
         _ => "Unavailable because this system does not offer window translucency.",
     };
 
+    /// <summary>
+    /// The categorical palette for chart series, in fixed order: teal, violet,
+    /// olive and magenta. None is the brand orange, the host's blue or a
+    /// status hue, so a series never reads as a control or as a verdict. The
+    /// order and both steps were checked as a set for colour-vision
+    /// separation, and every slot clears 3:1 against the content surface of
+    /// its own mode.
+    /// </summary>
+    internal static IReadOnlyList<Color> ChartSeriesColors(bool isLight) => isLight
+        ? LightChartSeries
+        : DarkChartSeries;
+
+    private static readonly Color[] LightChartSeries =
+    [
+        Color.Parse("#008F8A"),
+        Color.Parse("#7A5AD6"),
+        Color.Parse("#7A8417"),
+        Color.Parse("#C23D84"),
+    ];
+
+    private static readonly Color[] DarkChartSeries =
+    [
+        Color.Parse("#1FA09D"),
+        Color.Parse("#8F7BE6"),
+        Color.Parse("#8C9628"),
+        Color.Parse("#D9599A"),
+    ];
+
+    /// <summary>The area under a series line: the series colour, faint.</summary>
+    private const byte ChartSeriesFillAlpha = 0x33;
+
     private static SolidColorBrush WithAlpha(Color color, byte alpha) =>
         new(Color.FromArgb(alpha, color.R, color.G, color.B));
 
@@ -697,7 +733,7 @@ public sealed partial class App : Avalonia.Application
             supportsAdvancedMaterials: false,
             supportsLiquidGlass: false));
 
-    private void ApplyApplicationResources(EffectiveAppearanceResources resources)
+    internal void ApplyApplicationResources(EffectiveAppearanceResources resources)
     {
         Publish("ShellBackgroundBrush", Brush(resources.Background));
         // The base surface the whole shell sits on. Slightly translucent, so
@@ -798,6 +834,17 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellInfoSoftBrush", Brush(resources.InfoSoft));
         Publish("ShellInfoBorderBrush", Brush(resources.InfoBorder));
         Publish("ShellStatusNeutralBrush", Brush(resources.StatusNeutral));
+        // Chart series take a palette of their own: a line coloured with the
+        // accent read as something to press, and one in the success green
+        // read as a verdict on the value it plots.
+        var chartSeries = ChartSeriesColors(resources.ThemeVariant == ThemeVariant.Light);
+        for (var slot = 0; slot < chartSeries.Count; slot++)
+        {
+            var series = chartSeries[slot];
+            Publish($"ShellChartSeries{slot + 1}Brush", Brush(series));
+            Publish($"ShellChartSeries{slot + 1}FillBrush", WithAlpha(series, ChartSeriesFillAlpha));
+        }
+
         // Whether state has to be carried by shape or text as well as colour.
         // Also a window class, so a style can add the shape where it is needed.
         Publish("ShellDifferentiateWithoutColor", resources.DifferentiateWithoutColor);

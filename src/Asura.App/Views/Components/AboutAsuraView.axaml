@@ -20,7 +20,7 @@
         <StackPanel Grid.Row="3" Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
           <TextBlock Classes="Eyebrow" Text="Update channel" />
           <TextBlock Text="{Binding ApplicationUpdates.Channel}" />
-          <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding ApplicationUpdates.Status}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Application update status" />
+          <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ApplicationUpdates.Status}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Application update status" />
           <ProgressBar Minimum="0" Maximum="100" Value="{Binding ApplicationUpdates.DownloadProgress}" IsVisible="{Binding ApplicationUpdates.IsDownloading}" AutomationProperties.Name="Update download progress" />
           <ProgressBar IsIndeterminate="True" IsVisible="{Binding ApplicationUpdates.IsPreparingToRestart}" AutomationProperties.Name="Preparing update restart" />
           <WrapPanel Orientation="Horizontal">
@@ -34,7 +34,7 @@
 
     <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-        <StackPanel Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="SectionHeading" Text="Open-source components" /><TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="Key runtime components are shown here; the bundled notice records the current managed inventory." TextWrapping="Wrap" /></StackPanel>
+        <StackPanel Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="SectionHeading" Text="Open-source components" /><TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Key runtime components are shown here; the bundled notice records the current managed inventory." TextWrapping="Wrap" /></StackPanel>
         <Button Grid.Column="1" Classes="SecondaryButton" Click="OnOpenThirdPartyNoticesClick" Content="Acknowledgments…" AutomationProperties.Name="Open bundled third-party notices" />
       </Grid>
       <ItemsControl ItemsSource="{Binding ProductComponents}">
@@ -43,8 +43,8 @@
             <controls:SurfaceCard Padding="{DynamicResource ShellCardPaddingCompact}" Margin="{controls:Inset Bottom=Sm}">
               <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}" RowSpacing="{DynamicResource ShellSpaceSm}">
                 <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                  <TextBlock FontWeight="SemiBold" Text="{Binding Name}" TextWrapping="Wrap" />
-                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Purpose}" TextWrapping="Wrap" />
+                  <TextBlock Classes="Headline" Text="{Binding Name}" TextWrapping="Wrap" />
+                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Purpose}" TextWrapping="Wrap" />
                 </StackPanel>
                 <TextBlock Grid.Column="1" VerticalAlignment="Top" Classes="Eyebrow" Text="Bundled" />
                 <WrapPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal">

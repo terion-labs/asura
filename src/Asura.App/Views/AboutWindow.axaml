@@ -30,8 +30,7 @@
           AutomationProperties.AccessibilityView="Raw" />
       <TextBlock
           HorizontalAlignment="Center"
-          FontSize="{DynamicResource ShellFontSize18}"
-          FontWeight="SemiBold"
+          Classes="Title1"
           Text="{Binding ProductName}" />
       <TextBlock
           x:Name="VersionText"

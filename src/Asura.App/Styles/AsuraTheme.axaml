@@ -123,6 +123,19 @@
     <Setter Property="Height" Value="28" />
   </Style>
 
+  <!-- A chart draws from the chart palette, never the accent or a status
+       tone: a plotted line is neither a control nor a verdict. The first
+       series is the default; a chart that plots another series names its
+       slot. Labels are secondary text at the caption size. -->
+  <Style Selector="controls|TimeSeriesChart">
+    <Setter Property="LineBrush" Value="{DynamicResource ShellChartSeries1Brush}" />
+    <Setter Property="AreaBrush" Value="{DynamicResource ShellChartSeries1FillBrush}" />
+    <Setter Property="GridBrush" Value="{DynamicResource ShellBorderBrush}" />
+    <Setter Property="LabelBrush" Value="{DynamicResource ShellMutedBrush}" />
+    <Setter Property="ReadoutBackground" Value="{DynamicResource ShellSurfaceBrush}" />
+    <Setter Property="LabelFontSize" Value="{DynamicResource ShellFontSize10}" />
+  </Style>
+
   <!-- A panel's toolbar band: the strip under the chrome header that holds a
        panel's own controls. One surface and one hairline, declared here,
        because eleven views were rebuilding the same Border by hand and each
@@ -133,11 +146,13 @@
     <Setter Property="BorderThickness" Value="0,0,0,1" />
   </Style>
 
-  <!-- File actions live inside one macOS-style toolbar group: a capsule on the
-       Liquid Glass profile, a rounded rectangle elsewhere. Their disabled
-       state must remain quiet; the Fluent template otherwise paints a separate
-       rounded lozenge behind every unavailable action. -->
-  <Style Selector="Border.FileToolbarGroup">
+  <!-- A panel's related actions live inside one macOS-style toolbar group: a
+       capsule on the Liquid Glass profile, a rounded rectangle elsewhere.
+       ToolbarGroup and ToolbarGroupAction are the names any panel uses; the
+       File* names are the Files panel's originals and stay working. The
+       disabled state must remain quiet; the Fluent template otherwise paints a
+       separate rounded lozenge behind every unavailable action. -->
+  <Style Selector="Border.FileToolbarGroup, Border.ToolbarGroup">
     <Setter Property="ClipToBounds" Value="True" />
     <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
@@ -145,26 +160,26 @@
     <Setter Property="CornerRadius" Value="{DynamicResource ShellGroupCornerRadius}" />
   </Style>
 
-  <Style Selector="Button.IconButton.FileToolbarAction">
+  <Style Selector="Button.IconButton.FileToolbarAction, Button.IconButton.ToolbarGroupAction">
     <Setter Property="Width" Value="32" />
     <Setter Property="Height" Value="32" />
     <Setter Property="CornerRadius" Value="0" />
   </Style>
 
-  <Style Selector="Button.IconButton.FileToolbarAction /template/ ContentPresenter">
+  <Style Selector="Button.IconButton.FileToolbarAction /template/ ContentPresenter, Button.IconButton.ToolbarGroupAction /template/ ContentPresenter">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="CornerRadius" Value="0" />
   </Style>
 
-  <Style Selector="Button.IconButton.FileToolbarAction:pointerover /template/ ContentPresenter">
+  <Style Selector="Button.IconButton.FileToolbarAction:pointerover /template/ ContentPresenter, Button.IconButton.ToolbarGroupAction:pointerover /template/ ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
   </Style>
 
-  <Style Selector="Button.IconButton.FileToolbarAction:disabled /template/ ContentPresenter">
+  <Style Selector="Button.IconButton.FileToolbarAction:disabled /template/ ContentPresenter, Button.IconButton.ToolbarGroupAction:disabled /template/ ContentPresenter">
     <Setter Property="Background" Value="Transparent" />
   </Style>
 
-  <Style Selector="Button.IconButton.FileToolbarAction.InsetToggle.active /template/ ContentPresenter">
+  <Style Selector="Button.IconButton.FileToolbarAction.InsetToggle.active /template/ ContentPresenter, Button.IconButton.ToolbarGroupAction.InsetToggle.active /template/ ContentPresenter">
     <Setter Property="Margin" Value="{DynamicResource ShellInsetXs}" />
     <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
     <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
@@ -713,8 +728,12 @@
     <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
   </Style>
 
+  <!-- Kept as a class so markup that asks for it still parses, but it no
+       longer paints: a label is static emphasis, and static emphasis is the
+       secondary label colour. The accent is for what can be pressed or is
+       selected. -->
   <Style Selector="TextBlock.Eyebrow.Accent">
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
   </Style>
 
   <!--
@@ -775,7 +794,7 @@
        not spelling out letters. -->
   <Style Selector="TextBlock.Eyebrow.Caps">
     <Setter Property="LetterSpacing" Value="0.9" />
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize9}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
   </Style>
 
   <!-- The chrome band is the base surface and paints nothing of its own, now
@@ -1556,8 +1575,8 @@
             Padding="{TemplateBinding Padding}">
           <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
             <Panel VerticalAlignment="Center">
-              <icons:SymbolIcon Name="Collapsed" Symbol="ChevronRight" FontSize="9" />
-              <icons:SymbolIcon Name="Expanded" Symbol="ChevronDown" FontSize="9" IsVisible="False" />
+              <icons:SymbolIcon Name="Collapsed" Symbol="ChevronRight" FontSize="{DynamicResource ShellIconSizeXs}" />
+              <icons:SymbolIcon Name="Expanded" Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" IsVisible="False" />
             </Panel>
             <ContentPresenter VerticalAlignment="Center" Content="{TemplateBinding Content}" />
           </StackPanel>
@@ -1646,8 +1665,10 @@
     <Setter Property="CornerRadius" Value="{DynamicResource ShellCardCornerRadius}" />
   </Style>
 
+  <!-- A tile behind a decorative glyph is a neutral fill. It used to be the
+       accent wash, which made every illustrated header look selectable. -->
   <Style Selector="Border.IconTile">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
     <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
   </Style>
 
@@ -1738,7 +1759,7 @@
   </Style>
 
   <Style Selector="Border.Keycap TextBlock">
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize9}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
   </Style>
 

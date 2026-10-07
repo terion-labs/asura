@@ -122,6 +122,204 @@ public sealed partial class DesignSystemConventionTests
     }
 
     /// <summary>
+    /// Views another package is migrating onto the type and icon ramps in
+    /// parallel. Each one broke at least one of the three view-wide rules
+    /// below when the rules were written, and is exempt from all three until
+    /// its own change lands. This set is emptied at integration, once every
+    /// package has merged; it may only ever shrink.
+    /// </summary>
+    private static readonly HashSet<string> PendingCrossPackageFiles = new(StringComparer.Ordinal)
+    {
+        "src/Asura.App/Views/AgentWorkspaceView.axaml",
+        "src/Asura.App/Views/AiProviderProfileEditorDialog.axaml",
+        "src/Asura.App/Views/Components/AgentApprovalCardView.axaml",
+        "src/Asura.App/Views/Components/AgentCapabilityRequestCardView.axaml",
+        "src/Asura.App/Views/Components/AgentChatImagePreview.axaml",
+        "src/Asura.App/Views/Components/AgentQuestionCardView.axaml",
+        "src/Asura.App/Views/Components/CodeEditBox.axaml",
+        "src/Asura.App/Views/Components/DatabaseMermaidDiagramView.axaml",
+        "src/Asura.App/Views/Components/DatabaseWorkspaceView.axaml",
+        "src/Asura.App/Views/Components/EmbeddedTerminalSessionView.axaml",
+        "src/Asura.App/Views/Components/GitDiffView.axaml",
+        "src/Asura.App/Views/Components/GitRepositoryBrowserView.axaml",
+        "src/Asura.App/Views/Components/HexPreviewView.axaml",
+        "src/Asura.App/Views/Components/LauncherView.axaml",
+        "src/Asura.App/Views/Components/MarkdownPreviewView.axaml",
+        "src/Asura.App/Views/Components/NetworkCredentialPicker.axaml",
+        "src/Asura.App/Views/Components/PanelConnectionSelectorView.axaml",
+        "src/Asura.App/Views/Components/PreviewTableView.axaml",
+        "src/Asura.App/Views/Components/PreviewTreeView.axaml",
+        "src/Asura.App/Views/Components/RuntimeTabStripView.axaml",
+        "src/Asura.App/Views/Components/SavedConnectionShortcutView.axaml",
+        "src/Asura.App/Views/Components/ZoomableImageView.axaml",
+        "src/Asura.App/Views/ConfirmationDialog.axaml",
+        "src/Asura.App/Views/ConnectionEditorDialog.axaml",
+        "src/Asura.App/Views/DefinitionImportModeDialog.axaml",
+        "src/Asura.App/Views/DefinitionImportPreflightDialog.axaml",
+        "src/Asura.App/Views/FileAccessControlDialog.axaml",
+        "src/Asura.App/Views/FileTransferDialog.axaml",
+        "src/Asura.App/Views/MainWindow.axaml",
+        "src/Asura.App/Views/McpServerProfileEditorDialog.axaml",
+        "src/Asura.App/Views/McpServerTrustConfirmationDialog.axaml",
+        "src/Asura.App/Views/Overlays/CommandPaletteView.axaml",
+        "src/Asura.App/Views/Overlays/LayoutDesignerView.axaml",
+        "src/Asura.App/Views/Overlays/NewPanelChooserView.axaml",
+        "src/Asura.App/Views/QuickTerminalWindow.axaml",
+        "src/Asura.App/Views/RecoveryDataControlView.axaml",
+        "src/Asura.App/Views/RuntimePanels/BrowserRuntimePanelView.axaml",
+        "src/Asura.App/Views/RuntimePanels/DatabaseRuntimePanelView.axaml",
+        "src/Asura.App/Views/RuntimePanels/DockerRuntimePanelView.axaml",
+        "src/Asura.App/Views/RuntimePanels/FileRuntimePanelView.axaml",
+        "src/Asura.App/Views/RuntimePanels/GitRuntimePanelView.axaml",
+        "src/Asura.App/Views/RuntimePanels/KubernetesRuntimePanelView.axaml",
+        "src/Asura.App/Views/RuntimePanels/ProcessMonitorRuntimePanelView.axaml",
+        "src/Asura.App/Views/RuntimePanels/RedisRuntimePanelView.axaml",
+        "src/Asura.App/Views/RuntimePanels/TerminalRuntimePanelView.axaml",
+        "src/Asura.App/Views/SavedScreenEditorDialog.axaml",
+        "src/Asura.App/Views/SecretEditorDialog.axaml",
+        "src/Asura.App/Views/SettingsPages/LocalMcpServerSettingsView.axaml",
+        "src/Asura.App/Views/SettingsPages/NetworkingSettingsPageView.axaml",
+        "src/Asura.App/Views/SettingsPages/QuickTerminalSettingsPageView.axaml",
+        "src/Asura.App/Views/SettingsView.axaml",
+        "src/Asura.App/Views/ShortcutRecorderDialog.axaml",
+        "src/Asura.App/Views/WorkspaceEditorView.axaml",
+        "src/Asura.App/Views/WorkspaceView.axaml",
+    };
+
+    /// <summary>
+    /// Text that is genuinely a caption below the secondary size, by file, with
+    /// the reason it is. Empty: nothing in the markup has needed one. An entry
+    /// needs its reason written here.
+    /// </summary>
+    private static readonly Dictionary<string, string> CaptionExceptions = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The ramp starts at the macOS Caption, 10 pt. ShellFontSize8 and 9 (and
+    /// their line heights) are no longer published, so markup that names them
+    /// silently falls back to the default size.
+    /// </summary>
+    [Fact]
+    public void Application_markup_never_names_the_retired_eight_and_nine_point_tokens()
+    {
+        var violations = GuardedApplicationXaml()
+            .SelectMany(file => RetiredTypeToken().Matches(file.Source)
+                .Select(match => $"{file.Path}: {match.Value}"))
+            .ToArray();
+
+        Assert.True(
+            violations.Length == 0,
+            "Use ShellFontSize10 (or the secondary size for a second line) instead of: "
+            + string.Join(", ", violations));
+    }
+
+    /// <summary>
+    /// Muted text is secondary text, and secondary text is at least the macOS
+    /// Subheadline, 11 pt. Ten is the caption size and belongs to captions
+    /// listed in <see cref="CaptionExceptions"/>, not to every description.
+    /// </summary>
+    [Fact]
+    public void Muted_text_in_application_markup_is_at_least_the_secondary_size()
+    {
+        var violations = GuardedApplicationXaml()
+            .Where(file => !CaptionExceptions.ContainsKey(file.Path))
+            .SelectMany(file => file.Document.Descendants()
+                .Where(element => element.Name.LocalName is "TextBlock" or "SelectableTextBlock")
+                .Where(element => ClassNames(element).Contains("Muted", StringComparer.Ordinal))
+                .Where(element => IsBelowSecondarySize(AttributeValue(element, "FontSize")))
+                .Select(element => $"{file.Path}:{LineOf(element)}"))
+            .ToArray();
+
+        Assert.True(
+            violations.Length == 0,
+            "Muted text below 11 pt; use ShellSecondaryFontSize, or record a caption "
+            + $"exception with its reason: {string.Join(", ", violations)}");
+    }
+
+    /// <summary>
+    /// An icon takes its size from the icon ramp (ShellIconSizeXs to Xl) or
+    /// from <c>{controls:TextScaled N}</c>, so it grows with the text-size
+    /// setting. A literal point size stays small at 200% text.
+    /// </summary>
+    [Fact]
+    public void Icons_in_application_markup_never_take_a_literal_size()
+    {
+        var violations = GuardedApplicationXaml()
+            .SelectMany(file => file.Document.Descendants()
+                .Where(element => IsLiteralNumber(IconFontSize(element)))
+                .Select(element => $"{file.Path}:{LineOf(element)}"))
+            .ToArray();
+
+        Assert.True(
+            violations.Length == 0,
+            "Size icons from ShellIconSize* or {controls:TextScaled N}, not a literal: "
+            + string.Join(", ", violations));
+    }
+
+    private sealed record GuardedXaml(string Path, string Source, XDocument Document);
+
+    private static IEnumerable<GuardedXaml> GuardedApplicationXaml() =>
+        ApplicationXamlFiles()
+            .Select(file => (
+                Path: Path.GetRelativePath(ApplicationViews.RepositoryRoot, file).Replace('\\', '/'),
+                File: file))
+            .Where(entry => !PendingCrossPackageFiles.Contains(entry.Path))
+            .Select(entry =>
+            {
+                var source = File.ReadAllText(entry.File);
+                return new GuardedXaml(
+                    entry.Path,
+                    source,
+                    XDocument.Parse(source, LoadOptions.SetLineInfo));
+            });
+
+    private static string? AttributeValue(XElement element, string name) =>
+        element.Attributes().FirstOrDefault(attribute =>
+            string.Equals(attribute.Name.LocalName, name, StringComparison.Ordinal))?.Value;
+
+    private static string[] ClassNames(XElement element) =>
+        (AttributeValue(element, "Classes") ?? string.Empty)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+    private static bool IsBelowSecondarySize(string? fontSize) =>
+        string.Equals(fontSize, "{DynamicResource ShellFontSize10}", StringComparison.Ordinal)
+        || (double.TryParse(fontSize, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var points)
+            && points < 11);
+
+    private static bool IsLiteralNumber(string? value) =>
+        double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _);
+
+    /// <summary>
+    /// The font size an element gives an icon: a SymbolIcon's own attribute,
+    /// or a FontSize setter in a style whose last selector step is a
+    /// SymbolIcon.
+    /// </summary>
+    private static string? IconFontSize(XElement element)
+    {
+        if (element.Name.LocalName is "SymbolIcon")
+        {
+            return AttributeValue(element, "FontSize");
+        }
+
+        if (element.Name.LocalName is "Setter"
+            && string.Equals(AttributeValue(element, "Property"), "FontSize", StringComparison.Ordinal)
+            && element.Parent is { Name.LocalName: "Style" } style
+            && (AttributeValue(style, "Selector") ?? string.Empty)
+                .Split(',')
+                .Any(selector => SelectorSegment()
+                    .Split(selector.Trim())
+                    .LastOrDefault(segment => segment.Length > 0)?
+                    .Contains("SymbolIcon", StringComparison.Ordinal) == true))
+        {
+            return AttributeValue(element, "Value");
+        }
+
+        return null;
+    }
+
+    private static int LineOf(XElement element) =>
+        ((System.Xml.IXmlLineInfo)element).LineNumber;
+
+    /// <summary>
     /// Elements whose foreground is read as text. An icon only has to clear
     /// 3:1, which the raw accent promises against the window; text has to
     /// clear 4.5:1 on whatever it sits on, which only the accent-text token
@@ -540,6 +738,12 @@ public sealed partial class DesignSystemConventionTests
         RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
         matchTimeoutMilliseconds: 1_000)]
     private static partial Regex SecondaryLineTextBlock();
+
+    [GeneratedRegex(
+        "Shell(FontSize|LineHeight)[89](?![0-9])",
+        RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
+        matchTimeoutMilliseconds: 1_000)]
+    private static partial Regex RetiredTypeToken();
 
     [GeneratedRegex(
         "[\\s>]+",

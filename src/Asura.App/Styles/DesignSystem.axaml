@@ -434,7 +434,7 @@
       <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
       <Setter Property="Width" Value="{DynamicResource ShellTileSizeMd}" />
       <Setter Property="Height" Value="{DynamicResource ShellTileSizeMd}" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize16}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellIconSizeMd}" />
       <!-- The icon's colour is the one the palette guarantees against a filled
            accent. A tile picking white itself is a contrast promise a view is
            not in a position to make. -->
@@ -457,7 +457,7 @@
       <Style Selector="^:small">
         <Setter Property="Width" Value="{DynamicResource ShellTileSizeSm}" />
         <Setter Property="Height" Value="{DynamicResource ShellTileSizeSm}" />
-        <Setter Property="FontSize" Value="{DynamicResource ShellFontSize13}" />
+        <Setter Property="FontSize" Value="{DynamicResource ShellIconSizeSm}" />
         <Setter Property="CornerRadius" Value="{DynamicResource ShellInnerCornerRadius}" />
       </Style>
       <Style Selector="^:large">
@@ -850,7 +850,10 @@
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="IsHitTestVisible" Value="False" />
-      <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+      <!-- Secondary label colour by default: a dot says something is waiting,
+           not that something can be pressed, and the accent is kept for the
+           second. A caller with a tone sets its own fill. -->
+      <Setter Property="Background" Value="{DynamicResource ShellMutedBrush}" />
       <!-- The ring is the page behind it, not a colour of its own: the dot is
            drawn over whatever it marks, and against a tile that happens to be
            accent-coloured an unringed dot is invisible. -->
@@ -914,6 +917,24 @@
       </Style>
       <Style Selector="^:metadata /template/ TextBlock#PART_Metadata">
         <Setter Property="IsVisible" Value="True" />
+      </Style>
+
+      <!--
+        Truncation that keeps what tells two rows apart, chosen by the row:
+        MiddleTruncatedTitle and MiddleTruncatedDetail keep both ends of a
+        name or a reference around a middle ellipsis, and PathDetail drops a
+        path's middle segments so the file name stays, as Finder does. The
+        same trimming the TextBlock.MiddleTruncated and TextBlock.Path
+        classes give a bare text block.
+      -->
+      <Style Selector="^.MiddleTruncatedTitle /template/ TextBlock#PART_Title">
+        <Setter Property="TextTrimming" Value="{x:Static TextTrimming.PrefixCharacterEllipsis}" />
+      </Style>
+      <Style Selector="^.MiddleTruncatedDetail /template/ TextBlock#PART_Detail">
+        <Setter Property="TextTrimming" Value="{x:Static TextTrimming.PrefixCharacterEllipsis}" />
+      </Style>
+      <Style Selector="^.PathDetail /template/ TextBlock#PART_Detail">
+        <Setter Property="TextTrimming" Value="{x:Static TextTrimming.PathSegmentEllipsis}" />
       </Style>
     </ControlTheme>
 
@@ -1036,21 +1057,21 @@
                   Width="54"
                   Height="54"
                   HorizontalAlignment="Center"
-                  Background="{DynamicResource ShellAccentSoftBrush}"
+                  Background="{DynamicResource ShellSurfaceHoverBrush}"
                   CornerRadius="{DynamicResource ShellCardCornerRadius}"
                   IsVisible="{TemplateBinding ShowsGlyph}">
+                <!-- Neutral, not the accent: the empty state is not something
+                     to press, and the accent is kept for what is. -->
                 <icons:SymbolIcon
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Symbol="{TemplateBinding Glyph}"
-                    FontSize="27"
-                    Foreground="{DynamicResource ShellAccentBrush}" />
+                    FontSize="{controls:TextScaled 27}"
+                    Foreground="{DynamicResource ShellMutedBrush}" />
               </Border>
               <TextBlock
                   HorizontalAlignment="Center"
-                  FontSize="{DynamicResource ShellFontSize15}"
-                  FontWeight="SemiBold"
-                  LineHeight="{DynamicResource ShellLineHeight15}"
+                  Classes="Title3"
                   Text="{TemplateBinding Heading}"
                   TextAlignment="Center"
                   TextWrapping="Wrap" />
@@ -1362,9 +1383,9 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Symbol="{TemplateBinding Icon}"
-                    FontSize="{DynamicResource ShellFontSize18}" />
+                    FontSize="{DynamicResource ShellIconSizeMd}" />
               </Border>
-              <TextBlock Name="PART_Title" FontWeight="SemiBold" Text="{TemplateBinding Title}" />
+              <TextBlock Name="PART_Title" Classes="Headline" Text="{TemplateBinding Title}" />
               <TextBlock
                   Classes="Muted"
                   FontSize="{DynamicResource ShellSecondaryFontSize}"
@@ -1479,7 +1500,7 @@
                     FontSize="{DynamicResource ShellFontSize24}"
                     Foreground="{DynamicResource ShellDangerBrush}" />
                 <TextBlock
-                    FontWeight="SemiBold"
+                    Classes="Headline"
                     Text="{TemplateBinding Heading}"
                     TextWrapping="Wrap" />
                 <TextBlock
@@ -1523,8 +1544,8 @@
                   Name="PART_Glyph"
                   VerticalAlignment="Top"
                   Symbol="{TemplateBinding Glyph}"
-                  FontSize="{DynamicResource ShellFontSize16}"
-                  Foreground="{DynamicResource ShellAccentBrush}"
+                  FontSize="{DynamicResource ShellIconSizeMd}"
+                  Foreground="{DynamicResource ShellMutedBrush}"
                   IsVisible="{TemplateBinding ShowsGlyph}" />
               <ContentPresenter
                   Grid.Column="2"
@@ -1533,7 +1554,7 @@
                   IsVisible="{TemplateBinding Action, Converter={x:Static ObjectConverters.IsNotNull}}" />
               <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
                 <TextBlock
-                    FontWeight="SemiBold"
+                    Classes="Headline"
                     Text="{TemplateBinding Title}"
                     TextWrapping="Wrap"
                     IsVisible="{TemplateBinding Title, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1643,8 +1664,7 @@
                 <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock
                       Name="PART_Title"
-                      FontSize="{DynamicResource ShellFontSize15}"
-                      FontWeight="SemiBold"
+                      Classes="Title2"
                       Text="{TemplateBinding Title}" />
                   <TextBlock
                       Name="PART_Subtitle"
@@ -1702,8 +1722,11 @@
         </ControlTemplate>
       </Setter>
 
+      <!-- An editor fills a window of its own, so its title is the window's:
+           Title 1 rather than a dialog's Title 2. -->
       <Style Selector="^:editor /template/ TextBlock#PART_Title">
-        <Setter Property="FontSize" Value="{DynamicResource ShellFontSize18}" />
+        <Setter Property="FontSize" Value="{DynamicResource ShellFontSize22}" />
+        <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight22}" />
       </Style>
       <Style Selector="^[Scrolls=False] /template/ ScrollViewer#PART_Scroll">
         <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
