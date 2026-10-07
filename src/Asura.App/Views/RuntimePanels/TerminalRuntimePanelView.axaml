@@ -155,7 +155,7 @@
           Classes="StatusDot"
           AutomationProperties.LiveSetting="Polite"
           AutomationProperties.Name="Terminal session status"
-          Background="{Binding StatusBrush, ElementName=RuntimeTerminal}" />
+          controls:StatusToneBrush.Background="{Binding StatusTone, ElementName=RuntimeTerminal}" />
     </controls:PanelChrome.Status>
 
     <controls:PanelChrome.Leading>

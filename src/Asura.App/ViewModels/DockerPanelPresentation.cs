@@ -108,7 +108,7 @@ public sealed class DockerResourceItemViewModel : ObservableObject
         string subtitle,
         string tertiary,
         Symbol icon,
-        string statusColor,
+        StatusTone statusTone,
         bool isContainer,
         bool isRunning,
         bool isPaused,
@@ -119,7 +119,7 @@ public sealed class DockerResourceItemViewModel : ObservableObject
         Subtitle = subtitle;
         Tertiary = tertiary;
         Icon = icon;
-        StatusColor = statusColor;
+        StatusTone = statusTone;
         IsContainer = isContainer;
         IsRunning = isRunning;
         IsPaused = isPaused;
@@ -136,7 +136,11 @@ public sealed class DockerResourceItemViewModel : ObservableObject
 
     public Symbol Icon { get; }
 
-    public string StatusColor { get; }
+    /// <summary>
+    /// A container's state, or neutral for the kinds that have none — an
+    /// image, a volume, a network — whose glyph already says what they are.
+    /// </summary>
+    public StatusTone StatusTone { get; }
 
     public bool IsContainer { get; }
 
@@ -161,7 +165,9 @@ public sealed class DockerResourceItemViewModel : ObservableObject
         container.Image,
         container.Status,
         Symbol.Box,
-        container.IsRunning ? "#72B57B" : container.IsPaused ? "#D79B57" : "#77777F",
+        container.IsRunning
+            ? StatusTone.Success
+            : container.IsPaused ? StatusTone.Warning : StatusTone.Neutral,
         true,
         container.IsRunning,
         container.IsPaused,
@@ -176,7 +182,7 @@ public sealed class DockerResourceItemViewModel : ObservableObject
         image.Size,
         image.Created,
         Symbol.Archive,
-        "#6F8FE7",
+        StatusTone.Neutral,
         false,
         false,
         false,
@@ -191,7 +197,7 @@ public sealed class DockerResourceItemViewModel : ObservableObject
         volume.Size,
         $"{volume.Driver} · {volume.Scope}",
         Symbol.HardDrive,
-        "#AE7AD9",
+        StatusTone.Neutral,
         false,
         false,
         false,
@@ -206,7 +212,7 @@ public sealed class DockerResourceItemViewModel : ObservableObject
         network.Driver,
         network.Scope,
         Symbol.Globe,
-        "#54A7A0",
+        StatusTone.Neutral,
         false,
         false,
         false,

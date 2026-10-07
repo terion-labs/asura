@@ -197,7 +197,7 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate>
                 <Grid Margin="{controls:Inset Xs}" ColumnDefinitions="9,110,80,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                  <Ellipse Width="7" Height="7" Fill="{Binding StatusColor}" />
+                  <Ellipse Width="7" Height="7" controls:StatusToneBrush.Fill="{Binding StatusTone}" />
                   <TextBlock Grid.Column="1" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Stage}" />
                   <TextBlock Grid.Column="2" Classes="Eyebrow" Text="{Binding Status}" />
                   <TextBlock Grid.Column="3" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Message}" TextWrapping="Wrap" />

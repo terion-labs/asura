@@ -530,13 +530,13 @@ public sealed class RuntimePanelViewContractTests
 
         var statusTiles = docker.Descendants()
             .Where(element => string.Equals(element.Name.LocalName, "IdentityTile"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Tint"), "{Binding StatusColor}", StringComparison.Ordinal))
+, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "StatusToneBrush.Tint"), "{Binding StatusTone}", StringComparison.Ordinal))
             .ToArray();
         Assert.Single(statusTiles);
         Assert.DoesNotContain(
             docker.Descendants(),
             element => string.Equals(element.Name.LocalName, "Ellipse"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Fill"), "{Binding StatusColor}", StringComparison.Ordinal));
+, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "StatusToneBrush.Fill"), "{Binding StatusTone}", StringComparison.Ordinal));
 
         var resourceRowStyle = Assert.Single(
             docker.Descendants(),

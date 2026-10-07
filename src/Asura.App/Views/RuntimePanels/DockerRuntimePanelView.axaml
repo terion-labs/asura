@@ -27,7 +27,7 @@
         <controls:ListItem.Leading>
           <controls:IdentityTile
               TileSize="Small"
-              Tint="{Binding StatusColor}"
+              controls:StatusToneBrush.Tint="{Binding StatusTone}"
               Symbol="{Binding Icon}" />
         </controls:ListItem.Leading>
         <controls:ListItem.Trailing>

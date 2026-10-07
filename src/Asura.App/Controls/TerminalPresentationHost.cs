@@ -1,3 +1,4 @@
+using Asura.App.ViewModels;
 using Asura.Application;
 using Asura.Core;
 using Avalonia;
@@ -15,7 +16,6 @@ namespace Asura.App.Controls;
 /// </summary>
 public sealed class TerminalPresentationHost : ContentControl
 {
-    private static readonly IBrush StartingBrush = Brush.Parse("#8B8B91");
 
     public static readonly StyledProperty<ISessionHostClient?> SessionClientProperty =
         AvaloniaProperty.Register<TerminalPresentationHost, ISessionHostClient?>(
@@ -67,10 +67,10 @@ public sealed class TerminalPresentationHost : ContentControl
             nameof(StatusText),
             control => control.StatusText);
 
-    public static readonly DirectProperty<TerminalPresentationHost, IBrush> StatusBrushProperty =
-        AvaloniaProperty.RegisterDirect<TerminalPresentationHost, IBrush>(
-            nameof(StatusBrush),
-            control => control.StatusBrush);
+    public static readonly DirectProperty<TerminalPresentationHost, StatusTone> StatusToneProperty =
+        AvaloniaProperty.RegisterDirect<TerminalPresentationHost, StatusTone>(
+            nameof(StatusTone),
+            control => control.StatusTone);
 
     public static readonly DirectProperty<TerminalPresentationHost, bool> ShowFallbackProperty =
         AvaloniaProperty.RegisterDirect<TerminalPresentationHost, bool>(
@@ -86,7 +86,7 @@ public sealed class TerminalPresentationHost : ContentControl
     private bool _isLive;
     private string? _initializationError;
     private string _statusText = "Starting";
-    private IBrush _statusBrush = StartingBrush;
+    private StatusTone _statusTone = StatusTone.Neutral;
     private bool _showFallback;
     private string _statusMessage = string.Empty;
 
@@ -182,10 +182,10 @@ public sealed class TerminalPresentationHost : ContentControl
         private set => SetAndRaise(StatusTextProperty, ref _statusText, value);
     }
 
-    public IBrush StatusBrush
+    public StatusTone StatusTone
     {
-        get => _statusBrush;
-        private set => SetAndRaise(StatusBrushProperty, ref _statusBrush, value);
+        get => _statusTone;
+        private set => SetAndRaise(StatusToneProperty, ref _statusTone, value);
     }
 
     public bool ShowFallback
@@ -302,7 +302,7 @@ public sealed class TerminalPresentationHost : ContentControl
         if (e.Property.Name is nameof(IsLive)
             or nameof(InitializationError)
             or nameof(StatusText)
-            or nameof(StatusBrush)
+            or nameof(StatusTone)
             or nameof(ShowFallback)
             or nameof(StatusMessage))
         {
@@ -315,7 +315,7 @@ public sealed class TerminalPresentationHost : ContentControl
         IsLive = _presentation.IsLive;
         InitializationError = _presentation.InitializationError;
         StatusText = _presentation.StatusText;
-        StatusBrush = _presentation.StatusBrush;
+        StatusTone = _presentation.StatusTone;
         ShowFallback = _presentation.ShowFallback;
         StatusMessage = _presentation.StatusMessage;
 

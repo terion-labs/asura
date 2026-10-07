@@ -34,7 +34,7 @@
     <controls:PanelChrome.Status>
       <Border
           Classes="StatusDot"
-          Background="{Binding StatusBrush, ElementName=RuntimeBrowser}" />
+          controls:StatusToneBrush.Background="{Binding StatusTone, ElementName=RuntimeBrowser}" />
     </controls:PanelChrome.Status>
 
     <controls:PanelChrome.Leading>

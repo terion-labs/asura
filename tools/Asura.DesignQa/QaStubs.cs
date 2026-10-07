@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Reflection;
 using Asura.App;
+using Asura.App.ViewModels;
 using Asura.Application;
 using Asura.Core;
 using Asura.Docker;
@@ -1281,7 +1282,7 @@ internal sealed class QaStatisticsPreview
 
     public string StatusText => "Live · Local";
 
-    public IBrush StatusColor => Brushes.MediumSeaGreen;
+    public StatusTone StatusTone => StatusTone.Success;
 
     public string ConnectionDisplayName => "Local";
 
@@ -1368,7 +1369,7 @@ internal sealed class QaProcessMonitorPreview
 
     public string StatusText => "Live · Local";
 
-    public IBrush StatusColor => Brushes.MediumSeaGreen;
+    public StatusTone StatusTone => StatusTone.Success;
 
     public string ConnectionDisplayName => "Local";
 

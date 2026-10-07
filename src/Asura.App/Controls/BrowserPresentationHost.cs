@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Asura.App.ViewModels;
 using Asura.Application;
 using Asura.Core;
 using Avalonia;
@@ -12,11 +13,6 @@ namespace Asura.App.Controls;
 
 public sealed class BrowserPresentationHost : ContentControl
 {
-    private static readonly IBrush WaitingBrush = Brush.Parse("#8B8B91");
-    private static readonly IBrush ReadyBrush = Brush.Parse("#3FB950");
-    private static readonly IBrush LoadingBrush = Brush.Parse("#D79B57");
-    private static readonly IBrush FailedBrush = Brush.Parse("#FF7A55");
-
     public static readonly StyledProperty<ISessionHostClient?> SessionClientProperty =
         AvaloniaProperty.Register<BrowserPresentationHost, ISessionHostClient?>(
             nameof(SessionClient));
@@ -56,11 +52,11 @@ public sealed class BrowserPresentationHost : ContentControl
                 nameof(StatusMessage),
                 control => control.StatusMessage);
 
-    public static readonly DirectProperty<BrowserPresentationHost, IBrush>
-        StatusBrushProperty =
-            AvaloniaProperty.RegisterDirect<BrowserPresentationHost, IBrush>(
-                nameof(StatusBrush),
-                control => control.StatusBrush);
+    public static readonly DirectProperty<BrowserPresentationHost, StatusTone>
+        StatusToneProperty =
+            AvaloniaProperty.RegisterDirect<BrowserPresentationHost, StatusTone>(
+                nameof(StatusTone),
+                control => control.StatusTone);
 
     public static readonly DirectProperty<BrowserPresentationHost, bool>
         IsLiveProperty =
@@ -171,7 +167,7 @@ public sealed class BrowserPresentationHost : ContentControl
     private string _addressText = string.Empty;
     private string _statusText = "Waiting";
     private string _statusMessage = string.Empty;
-    private IBrush _statusBrush = WaitingBrush;
+    private StatusTone _statusTone = StatusTone.Neutral;
     private bool _isLive;
     private bool _isLoading;
     private bool _canGoBack;
@@ -260,10 +256,11 @@ public sealed class BrowserPresentationHost : ContentControl
             value);
     }
 
-    public IBrush StatusBrush
+    /// <summary>What the status dot says: waiting, loading, ready, or failed.</summary>
+    public StatusTone StatusTone
     {
-        get => _statusBrush;
-        private set => SetAndRaise(StatusBrushProperty, ref _statusBrush, value);
+        get => _statusTone;
+        private set => SetAndRaise(StatusToneProperty, ref _statusTone, value);
     }
 
     public bool IsLive
@@ -969,11 +966,11 @@ public sealed class BrowserPresentationHost : ContentControl
             },
             _ => throw new ArgumentOutOfRangeException(nameof(state)),
         };
-        StatusBrush = state.LoadState switch
+        StatusTone = state.LoadState switch
         {
-            BrowserLoadState.Ready => ReadyBrush,
-            BrowserLoadState.Loading => LoadingBrush,
-            BrowserLoadState.Failed => FailedBrush,
+            BrowserLoadState.Ready => StatusTone.Success,
+            BrowserLoadState.Loading => StatusTone.Warning,
+            BrowserLoadState.Failed => StatusTone.Danger,
             _ => throw new ArgumentOutOfRangeException(nameof(state)),
         };
         StatusMessage = state.Failure?.Message ?? string.Empty;
@@ -986,7 +983,7 @@ public sealed class BrowserPresentationHost : ContentControl
     {
         StatusText = status;
         StatusMessage = message;
-        StatusBrush = WaitingBrush;
+        StatusTone = StatusTone.Neutral;
         ShowFallback = true;
         UpdateAutomationStatus();
     }
@@ -999,7 +996,7 @@ public sealed class BrowserPresentationHost : ContentControl
         CanGoForward = false;
         StatusText = "Error";
         StatusMessage = message;
-        StatusBrush = FailedBrush;
+        StatusTone = StatusTone.Danger;
         ShowFallback = true;
         UpdateAutomationStatus();
     }
