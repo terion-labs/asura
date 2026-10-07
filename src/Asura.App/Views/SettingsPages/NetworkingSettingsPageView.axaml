@@ -82,18 +82,9 @@
     </controls:SettingsGroup>
 
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-        <components:SectionHeader
-            Heading="Network connections"
-            Description="Saved proxy and VPN definitions. Credentials stay in the operating-system vault." />
-        <Button
-            Grid.Column="1"
-            VerticalAlignment="Center"
-            Classes="SecondaryButton"
-            Click="OnAddProfileClick"
-            Content="New Connection…"
-            AutomationProperties.Name="Create a network connection" />
-      </Grid>
+      <components:SectionHeader
+          Heading="Network connections"
+          Description="Saved proxy and VPN definitions. Credentials stay in the operating-system vault." />
 
       <Border IsVisible="{Binding !HasError}">
       <controls:Callout
@@ -111,17 +102,27 @@
           Text="Create a proxy or VPN connection, then choose it as the application default or offer it to a workspace."
           IsVisible="{Binding HasNoProfiles}" />
 
-      <ItemsControl ItemsSource="{Binding Profiles}" IsVisible="{Binding HasProfiles}">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:NetworkConnectionProfileItemViewModel">
-            <controls:SurfaceCard
-                Margin="{controls:Inset Bottom=Sm}"
-                Padding="{DynamicResource ShellCardPaddingCompact}">
-              <controls:ListItem Title="{Binding Name}" Detail="{Binding Summary}">
+      <!-- The Mac list pattern: select a connection, then – below the
+           list, its context menu, or Delete removes it; + adds one. -->
+      <controls:SurfaceCard Padding="0" ClipsContent="True" IsVisible="{Binding HasProfiles}">
+        <ListBox
+            x:Name="ProfileList"
+            Classes="Rows"
+            ItemsSource="{Binding Profiles}"
+            AutomationProperties.Name="Network connections">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:NetworkConnectionProfileItemViewModel">
+              <controls:ListItem ContentPadding="{DynamicResource ShellListRowPadding}" Title="{Binding Name}" Detail="{Binding Summary}">
+                <controls:ListItem.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="Edit…" Click="OnEditProfileClick" />
+                    <MenuItem Header="Delete…" Click="OnDeleteProfileClick" />
+                  </ContextMenu>
+                </controls:ListItem.ContextMenu>
                 <controls:ListItem.Leading>
                   <controls:IdentityTile
                       TileSize="Small"
-                      Tint="{DynamicResource ShellAccentSoftBrush}"
+                      Tint="{DynamicResource ShellSurfaceHoverBrush}"
                       Foreground="{DynamicResource ShellTextBrush}"
                       Symbol="{Binding KindSymbol}" />
                 </controls:ListItem.Leading>
@@ -133,20 +134,32 @@
                         Click="OnEditProfileClick"
                         Content="Edit…"
                         AutomationProperties.Name="{Binding Name, StringFormat=Edit {0}}" />
-                    <Button
-                        Classes="IconButton Danger"
-                        Click="OnDeleteProfileClick"
-                        ToolTip.Tip="Delete network connection"
-                        AutomationProperties.Name="{Binding Name, StringFormat=Delete {0}}">
-                      <icons:SymbolIcon Symbol="Delete" FontSize="13" />
-                    </Button>
                   </StackPanel>
                 </controls:ListItem.Trailing>
               </controls:ListItem>
-            </controls:SurfaceCard>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </controls:SurfaceCard>
+      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+        <Button
+            x:Name="AddProfileButton"
+            Classes="IconButton"
+            Click="OnAddProfileClick"
+            ToolTip.Tip="New Connection…"
+            AutomationProperties.Name="Create a network connection">
+          <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
+        </Button>
+        <Button
+            x:Name="DeleteProfileButton"
+            Classes="IconButton"
+            Click="OnDeleteProfileClick"
+            IsEnabled="False"
+            ToolTip.Tip="Delete Connection…"
+            AutomationProperties.Name="Delete selected network connection">
+          <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
+        </Button>
+      </StackPanel>
     </StackPanel>
   </StackPanel>
 </UserControl>

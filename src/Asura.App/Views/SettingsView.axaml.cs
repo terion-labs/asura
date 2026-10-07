@@ -49,6 +49,43 @@ public sealed partial class SettingsView : UserControl
         {
             content.PropertyChanged += OnPageContentPropertyChanged;
         }
+
+        FollowListSelection(FileProviderList, DeleteFileProviderButton);
+        FollowListSelection(
+            BrowserProfileList,
+            DeleteBrowserProfileButton,
+            item => item is BrowserProfileItemViewModel { IsBuiltIn: false });
+        FollowListSelection(SecretList, DeleteSecretButton);
+        FollowListSelection(AiProviderList, DeleteAiProviderButton);
+        FollowListSelection(McpServerList, DeleteMcpServerButton);
+    }
+
+    /// <summary>
+    /// The Mac list pattern for a Settings list: – below the list acts on
+    /// the selected row, and is dimmed with no selection or one that cannot
+    /// be removed. Delete or Backspace on the list does what – does. The
+    /// button carries the row as its data context, so the same request
+    /// handler serves –, the row's context menu and the key.
+    /// </summary>
+    internal static void FollowListSelection(ListBox list, Button remove, Func<object, bool>? canRemove = null)
+    {
+        void Present()
+        {
+            var selected = list.SelectedItem;
+            remove.DataContext = selected;
+            remove.IsEnabled = selected is not null && (canRemove?.Invoke(selected) ?? true);
+        }
+
+        list.SelectionChanged += (_, _) => Present();
+        list.KeyDown += (_, e) =>
+        {
+            if (IsDeleteKey(e) && remove.IsEnabled)
+            {
+                e.Handled = true;
+                remove.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            }
+        };
+        Present();
     }
 
     public event EventHandler<RoutedEventArgs>? AboutSettingsRequested;
@@ -644,7 +681,7 @@ public sealed partial class SettingsView : UserControl
         }
     }
 
-    private static bool IsDeleteKey(KeyEventArgs e) =>
+    internal static bool IsDeleteKey(KeyEventArgs e) =>
         e.KeyModifiers is Avalonia.Input.KeyModifiers.None or Avalonia.Input.KeyModifiers.Meta
         && e.Key is Key.Delete or Key.Back;
 
