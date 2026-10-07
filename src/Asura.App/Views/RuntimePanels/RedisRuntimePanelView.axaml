@@ -201,7 +201,7 @@
           <Border>
             <Grid RowDefinitions="Auto,*,Auto">
               <Grid Margin="{controls:Inset Sm}" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
-                <TextBox
+                <TextBox x:Name="KeyPatternBox"
                     PlaceholderText="Glob pattern, e.g. user:*"
                     Text="{Binding ScanPattern, Mode=TwoWay}"
                     AutomationProperties.Name="Redis key pattern" />

@@ -675,6 +675,18 @@ public sealed class ManagedTerminalSurface : Control
         return DispatchKeymapStrokeAsync(stroke, timestamp, cancellationToken);
     }
 
+    /// <summary>
+    /// Runs a terminal command chosen from a menu or the command palette. It
+    /// behaves like the command's keymap shortcut, including the status it
+    /// reports when the command cannot run.
+    /// </summary>
+    internal ValueTask<TerminalCommandDispatchResult> ExecuteCommandAsync(
+        CommandId commandId,
+        CancellationToken cancellationToken = default) =>
+        !_isInputReady || IsInteractionModalVisible
+            ? ValueTask.FromResult(TerminalCommandDispatchResult.NotMatched())
+            : ExecuteTerminalCommandAsync(commandId, cancellationToken);
+
     internal async ValueTask<TerminalCommandDispatchResult> DispatchKeymapStrokeAsync(
         KeyStroke stroke,
         DateTimeOffset? timestamp = null,
