@@ -443,10 +443,12 @@ internal static class EffectiveAppearanceResourceMapper
             // wrong side of AppKit's. One step toward the label keeps hover
             // visibly lifted off whatever surface AppKit reports.
             controlHover = Blend(text, controlSurface, ControlHoverStep);
-            // A sidebar selection is the platform's unemphasized selection, a
-            // plain gray plate, not an accent wash a few per cent strong.
-            sidebarSelection = Opaque(host.UnemphasizedSelectedContentBackground);
-            unemphasizedSelection = sidebarSelection;
+            // A selection without focus is the platform's unemphasized
+            // selection, a plain gray plate. The sidebar wash stays the faint
+            // literal: it is what hover and banded rows draw, and a plate as
+            // strong as the selection there made every hovered or banded row
+            // read as selected.
+            unemphasizedSelection = Opaque(host.UnemphasizedSelectedContentBackground);
             hostSelection = Opaque(host.SelectedContentBackground);
         }
 

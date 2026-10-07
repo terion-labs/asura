@@ -692,15 +692,15 @@ public sealed class AvaloniaHostAppearanceAdapterTests
         Assert.Equal(Color.Parse("#DDDDDD"), resources.Text);
         Assert.Equal(Color.Parse("#353535"), resources.Border);
         Assert.Equal(Color.Parse("#565656"), resources.ControlSurface);
-        Assert.Equal(Color.Parse("#464646"), resources.SidebarSelectionSurface);
         Assert.Equal(Color.Parse("#464646"), resources.UnemphasizedSelection);
+        Assert.NotEqual(resources.UnemphasizedSelection, resources.SidebarSelectionSurface);
         Assert.Equal(Color.Parse("#0058D0"), resources.SelectedContent);
         Assert.Equal(Colors.White, resources.SelectedContentForeground);
         Assert.Equal(255, resources.MutedText.A);
         Assert.True(
             EffectiveAppearanceResourceMapper.ContrastRatio(
                 resources.MutedText,
-                resources.SidebarSelectionSurface) >= 4.5);
+                resources.UnemphasizedSelection) >= 4.5);
     }
 
     /// <summary>
