@@ -532,7 +532,7 @@
             <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
               <StackPanel IsVisible="{Binding HasSelection}">
                 <TextBlock Classes="Title2" Text="{Binding SelectedResource.Title}" TextWrapping="Wrap" />
-                <TextBlock Classes="Muted MiddleTruncated" Text="{Binding SelectedResource.Resource.Id}" />
+                <TextBlock Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding SelectedResource.Resource.Id}" />
               </StackPanel>
               <!-- A container's usage leads its info: four figures are not a
                    view of their own, and a sixth segment would be one more

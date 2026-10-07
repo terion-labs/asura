@@ -1197,7 +1197,7 @@
                                   <Border Classes="InspectorRecord">
                                     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                                       <TextBlock Classes="MiddleTruncated" FontSize="{DynamicResource ShellFontSize11}" Text="{Binding Pod.Name}" />
-                                      <TextBlock Grid.Column="1" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Outcome}" />
+                                      <TextBlock Grid.Column="1" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Outcome}" />
                                       <TextBlock Grid.Column="2" Classes="Muted" Text="{Binding ErrorCode}" />
                                     </Grid>
                                   </Border>
@@ -1295,7 +1295,7 @@
                           <StackPanel VerticalAlignment="Center">
                             <TextBlock
                                 HorizontalAlignment="Right"
-                                FontSize="{DynamicResource ShellFontSize10}"
+                                FontSize="{DynamicResource ShellSecondaryFontSize}"
                                 Text="{Binding Status}" />
                             <TextBlock
                                 HorizontalAlignment="Right"
@@ -1328,13 +1328,13 @@
                     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                       <ItemsControl Margin="{controls:Inset Horizontal=Md}" ItemsSource="{Binding HelmHistory}">
                         <ItemsControl.ItemTemplate>
-                          <DataTemplate x:DataType="app:KubernetesHelmRevision">
+                          <DataTemplate x:DataType="vm:KubernetesHelmRevisionRow">
                             <Border Classes="InspectorRecord">
                               <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                                 <TextBlock
                                     FontSize="{DynamicResource ShellFontSize11}"
                                     FontWeight="SemiBold"
-                                    Text="{Binding Revision, StringFormat='Revision {0}'}" />
+                                    Text="{Binding Number, StringFormat='Revision {0}'}" />
                                 <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Status}" />
                                 <TextBlock
                                     Grid.Row="1"

@@ -108,7 +108,7 @@
               AutomationProperties.Name="Kubernetes metrics provider">
             <ComboBox.ItemTemplate>
               <DataTemplate x:DataType="vm:KubernetesMetricsProviderOption">
-                <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="MiddleTruncated" Text="{Binding DisplayName}" />
               </DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>

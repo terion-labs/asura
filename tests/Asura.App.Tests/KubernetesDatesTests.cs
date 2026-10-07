@@ -99,6 +99,27 @@ public sealed class KubernetesDatesTests
         Assert.Equal("Time unknown", DisplayDates.FormatTime(null, "Time unknown"));
     }
 
+    [Theory]
+    [InlineData("2026-09-16 12:30:00.123456789 +0200 CEST")]
+    [InlineData("2026-09-16T12:30:00.123456+02:00")]
+    public void Helm_revision_times_are_written_as_display_dates(string updated)
+    {
+        using var culture = new CultureScope("de-DE");
+        var moment = new DateTimeOffset(2026, 9, 16, 10, 30, 0, TimeSpan.Zero);
+
+        var row = new KubernetesHelmRevisionRow(new(3, "deployed", "redis-19.0.1", "7.2", updated));
+
+        Assert.Equal(DisplayDates.Format(moment), row.Updated);
+        Assert.Equal(3, row.Number);
+    }
+
+    [Fact]
+    public void A_Helm_time_it_cannot_read_is_shown_as_Helm_wrote_it()
+    {
+        Assert.Equal("yesterday", KubernetesHelmRevisionRow.FormatUpdated("yesterday"));
+        Assert.Equal(string.Empty, KubernetesHelmRevisionRow.FormatUpdated(" "));
+    }
+
     private static KubernetesResourceDocument Document(string json) =>
         new(new("", "v1", "pods", "team", "fixture", "pod-uid", "1"), "Pod", "", json);
 }
