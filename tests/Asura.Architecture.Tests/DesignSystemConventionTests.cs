@@ -88,6 +88,31 @@ public sealed partial class DesignSystemConventionTests
         }
     }
 
+    /// <summary>
+    /// The second line under a row's title — a description, a hint, a footnote —
+    /// is at least the macOS Subheadline, 11 pt, never the 10 pt Caption. Once
+    /// the 13 pt floor went, a 10 pt token there would have rendered at 10.
+    /// </summary>
+    [Fact]
+    public void Design_system_secondary_lines_never_render_below_eleven_points()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            ApplicationViews.RepositoryRoot,
+            "src",
+            "Asura.App",
+            "Styles",
+            "DesignSystem.axaml"));
+        var secondaryLines = SecondaryLineTextBlock().Matches(source);
+
+        Assert.NotEmpty(secondaryLines);
+        foreach (Match line in secondaryLines)
+        {
+            Assert.DoesNotMatch(
+                "FontSize=\"\\{DynamicResource ShellFontSize(8|9|10)\\}\"",
+                line.Value);
+        }
+    }
+
     [Fact]
     public void Literal_layout_values_in_application_markup_only_ever_decrease()
     {
@@ -411,4 +436,10 @@ public sealed partial class DesignSystemConventionTests
         RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
         matchTimeoutMilliseconds: 1_000)]
     private static partial Regex LiteralColour();
+
+    [GeneratedRegex(
+        "<TextBlock\\b[^>]*?(Text=\"\\{TemplateBinding (Description|Hint|Footnote|StateText|FooterHint)\\}\"|Name=\"PART_Subtitle\")[^>]*>",
+        RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
+        matchTimeoutMilliseconds: 1_000)]
+    private static partial Regex SecondaryLineTextBlock();
 }

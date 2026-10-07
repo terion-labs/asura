@@ -1074,8 +1074,8 @@
             <TextBlock
                 Margin="{controls:Inset Horizontal=Xs}"
                 Foreground="{DynamicResource ShellMutedBrush}"
-                FontSize="{DynamicResource ShellFontSize10}"
-                LineHeight="{DynamicResource ShellLineHeight10}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
+                LineHeight="{DynamicResource ShellLineHeight11}"
                 Text="{TemplateBinding Hint}"
                 TextWrapping="Wrap"
                 IsVisible="{TemplateBinding Hint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1117,8 +1117,8 @@
                     TextWrapping="Wrap" />
                 <TextBlock
                     Foreground="{DynamicResource ShellMutedBrush}"
-                    FontSize="{DynamicResource ShellFontSize10}"
-                    LineHeight="{DynamicResource ShellLineHeight10}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
+                    LineHeight="{DynamicResource ShellLineHeight11}"
                     Text="{TemplateBinding Description}"
                     TextWrapping="Wrap"
                     IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1163,8 +1163,8 @@
                       TextWrapping="Wrap" />
                   <TextBlock
                       Foreground="{DynamicResource ShellMutedBrush}"
-                      FontSize="{DynamicResource ShellFontSize10}"
-                      LineHeight="{DynamicResource ShellLineHeight10}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                      LineHeight="{DynamicResource ShellLineHeight11}"
                       Text="{TemplateBinding Description}"
                       TextWrapping="Wrap"
                       IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1271,8 +1271,8 @@
               <TextBlock FontWeight="SemiBold" Text="{TemplateBinding Title}" />
               <TextBlock
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize10}"
-                  LineHeight="{DynamicResource ShellLineHeight10}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
+                  LineHeight="{DynamicResource ShellLineHeight11}"
                   Text="{TemplateBinding Description}"
                   TextWrapping="Wrap" />
             </StackPanel>
@@ -1447,8 +1447,8 @@
                     IsVisible="{TemplateBinding Content, Converter={x:Static ObjectConverters.IsNotNull}}" />
                 <TextBlock
                     Classes="Muted"
-                    FontSize="{DynamicResource ShellFontSize10}"
-                    LineHeight="{DynamicResource ShellLineHeight10}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
+                    LineHeight="{DynamicResource ShellLineHeight11}"
                     Text="{TemplateBinding Footnote}"
                     TextWrapping="Wrap"
                     IsVisible="{TemplateBinding Footnote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1502,8 +1502,8 @@
                   TextWrapping="Wrap" />
               <TextBlock
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize10}"
-                  LineHeight="{DynamicResource ShellLineHeight10}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
+                  LineHeight="{DynamicResource ShellLineHeight11}"
                   Text="{TemplateBinding StateText}" />
             </StackPanel>
             <ToggleSwitch
@@ -1540,8 +1540,8 @@
                   <TextBlock
                       Name="PART_Subtitle"
                       Classes="Muted"
-                      FontSize="{DynamicResource ShellFontSize10}"
-                      LineHeight="{DynamicResource ShellLineHeight10}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                      LineHeight="{DynamicResource ShellLineHeight11}"
                       Text="{TemplateBinding Subtitle}"
                       TextWrapping="Wrap"
                       IsVisible="{TemplateBinding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1589,8 +1589,8 @@
                 <TextBlock
                     VerticalAlignment="Center"
                     Classes="Muted"
-                    FontSize="{DynamicResource ShellFontSize10}"
-                    LineHeight="{DynamicResource ShellLineHeight10}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
+                    LineHeight="{DynamicResource ShellLineHeight11}"
                     Text="{TemplateBinding FooterHint}"
                     TextWrapping="Wrap"
                     IsVisible="{TemplateBinding FooterHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />

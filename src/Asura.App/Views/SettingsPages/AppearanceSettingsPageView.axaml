@@ -97,7 +97,7 @@
                   Grid.Column="1"
                   VerticalAlignment="Center"
                   FontWeight="SemiBold"
-                  Foreground="{DynamicResource ShellAccentBrush}"
+                  Foreground="{DynamicResource ShellAccentTextBrush}"
                   Text="*"
                   IsVisible="False"
                   ToolTip.Tip="Density or translucency has been changed from what this profile arrives with."
