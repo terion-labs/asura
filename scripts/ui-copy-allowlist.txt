@@ -1,0 +1,10 @@
+# Exceptions to scripts/check-ui-copy.py. One entry per line:
+#
+#   rule | path glob | text | reason
+#
+# rule is a rule name (spelling, ellipsis, secret-store, preferences, plural,
+# title-case) or "*". The path glob is repository-relative. text must equal the
+# flagged word or phrase, or the whole string. Every entry needs a reason that
+# says why the text is right as written; fix the copy instead when it is not.
+
+preferences | src/Asura.Agent.Runtime/ProviderConversationCompactor.cs | Preferences | Section heading in a model prompt for conversation compaction; never shown in the UI.
