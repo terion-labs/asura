@@ -679,7 +679,13 @@ public sealed partial class RepositoryConventionTests
                 .Descendants()
                 .Where(element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal))
                 .Where(ContainsIconWithoutVisibleText)
-                .Where(element => !HasAttribute(element, "AutomationProperties.Name"))
+                .Where(element => !HasAttribute(element, "AutomationProperties.Name")
+                    // A name built by a multi-binding is written as a
+                    // property element; it is just as explicit.
+                    && !element.Elements().Any(child => string.Equals(
+                        child.Name.LocalName,
+                        "AutomationProperties.Name",
+                        StringComparison.Ordinal)))
                 .Select(DescribeElement)
                 .ToArray();
 

@@ -266,6 +266,12 @@ internal sealed partial class PanelChrome : ContentControl
 
         IsNotificationPulseActiveProperty.Changed.AddClassHandler<PanelChrome>(
             (chrome, _) => chrome.UpdateNotificationPulseClass());
+        // The header's dot is drawn for the eye; the panel's own status is
+        // where a screen reader hears that it is asking for you.
+        HasAttentionProperty.Changed.AddClassHandler<PanelChrome>(
+            (chrome, change) => Avalonia.Automation.AutomationProperties.SetItemStatus(
+                chrome,
+                change.GetNewValue<bool>() ? "Needs attention" : null));
         AffectsArrange<PanelChrome>(MinimumHeaderContentWidthProperty, CanSplitProperty, HasAttentionProperty);
     }
 

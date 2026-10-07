@@ -501,7 +501,6 @@
         ShowNewItemRequested="OnShowNewItemClick"
         AddPanelToSideRequested="OnAddPanelToSideRequested"
         ShowNewPanelRequested="OnShowNewPanelClick"
-        ShowSettingsRequested="OnShowSettingsClick"
         SubmitAgentQuestionRequested="OnSubmitAgentQuestionClick"
         ToggleAgentRequested="OnToggleAgentClick"
         ToggleAgentPinRequested="OnToggleAgentPinClick"

@@ -665,6 +665,22 @@
                 </Transitions>
               </Border.Transitions>
             </Border>
+            <!-- With Differentiate Without Color on, the tile you are in is
+                 not left to its saturation alone: it carries an inner ring in
+                 the ink drawn on it, a shape the resting tiles never have. -->
+            <Border
+                Name="PART_CurrentMark"
+                Width="{DynamicResource ShellTileSizeMd}"
+                Height="{DynamicResource ShellTileSizeMd}"
+                HorizontalAlignment="Left"
+                IsHitTestVisible="False"
+                IsVisible="False">
+              <Border
+                  Margin="{controls:Inset Xs}"
+                  BorderBrush="{TemplateBinding MarkBrush}"
+                  BorderThickness="2"
+                  CornerRadius="{TemplateBinding CornerRadius}" />
+            </Border>
             <controls:SignalDot
                 Name="PART_Attention"
                 HorizontalAlignment="Right"
@@ -818,6 +834,9 @@
         <Setter Property="HorizontalAlignment" Value="Right" />
       </Style>
       <Style Selector="^:expandsleft /template/ Border#PART_Ring">
+        <Setter Property="HorizontalAlignment" Value="Right" />
+      </Style>
+      <Style Selector="^:expandsleft /template/ Border#PART_CurrentMark">
         <Setter Property="HorizontalAlignment" Value="Right" />
       </Style>
       <Style Selector="^:expandsleft /template/ Button#PART_Close">

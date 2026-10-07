@@ -79,6 +79,31 @@ public sealed class WorkspaceNetworkControlViewModelTests
         Assert.Contains("does not support ping or other IP protocols", viewModel.StatusText, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(WorkspaceNetworkState.Direct, FluentIcons.Common.Symbol.Globe)]
+    [InlineData(WorkspaceNetworkState.Connecting, FluentIcons.Common.Symbol.GlobeSync)]
+    [InlineData(WorkspaceNetworkState.Connected, FluentIcons.Common.Symbol.GlobeShield)]
+    [InlineData(WorkspaceNetworkState.Blocked, FluentIcons.Common.Symbol.LockClosed)]
+    public void Each_route_state_has_its_own_glyph(
+        WorkspaceNetworkState state,
+        FluentIcons.Common.Symbol expected)
+    {
+        var snapshot = state == WorkspaceNetworkState.Direct
+            ? WorkspaceNetworkSnapshot.Direct
+            : new WorkspaceNetworkSnapshot(
+                state,
+                state == WorkspaceNetworkState.Blocked
+                    ? WorkspaceNetworkEgress.Blocked
+                    : WorkspaceNetworkEgress.Attached,
+                FirstId);
+        var viewModel = new WorkspaceNetworkControlViewModel(
+            Update(enabled: state != WorkspaceNetworkState.Direct, killSwitch: false, FirstId),
+            new FakeWorkspaceNetworkSession(snapshot),
+            new ImmediateDispatcher());
+
+        Assert.Equal(expected, viewModel.RouteSymbol);
+    }
+
     [Fact]
     public void Direct_policy_reports_the_effective_route()
     {

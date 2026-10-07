@@ -245,8 +245,6 @@ public sealed partial class WorkspaceView : UserControl
 
     public event EventHandler<RoutedEventArgs>? LockShellRequested;
 
-    public event EventHandler<RoutedEventArgs>? ShowSettingsRequested;
-
     public event EventHandler<RoutedEventArgs>? SubmitAgentQuestionRequested;
 
     public event EventHandler<RoutedEventArgs>? ToggleAgentRequested;
@@ -449,29 +447,6 @@ public sealed partial class WorkspaceView : UserControl
     private void OnShowNewItemClick(object? sender, RoutedEventArgs e) =>
         ShowNewItemRequested?.Invoke(sender, e);
 
-    /// <summary>
-    /// The shell reads which workspace was chosen from the sender's data
-    /// context, and hiding the menu first takes that context away with the
-    /// popup — so the click arrived describing nothing and nothing happened.
-    /// </summary>
-    private void OnWorkspacesMenuOpenClick(object? sender, RoutedEventArgs e)
-    {
-        OpenWorkspaceRequested?.Invoke(sender, e);
-        WorkspacesMenuButton.Flyout?.Hide();
-    }
-
-    private void OnWorkspacesMenuCloseClick(object? sender, RoutedEventArgs e)
-    {
-        if (sender is not Control { DataContext: LauncherWorkspaceViewModel { CanClose: true } })
-        {
-            return;
-        }
-
-        CloseWorkspaceRequested?.Invoke(sender, e);
-        WorkspacesMenuButton.Flyout?.Hide();
-    }
-
-
     private void OnShowNewPanelClick(object? sender, RoutedEventArgs e) =>
         ShowNewPanelRequested?.Invoke(sender, e);
 
@@ -501,9 +476,6 @@ public sealed partial class WorkspaceView : UserControl
 
     private void OnLockShellClick(object? sender, RoutedEventArgs e) =>
         LockShellRequested?.Invoke(sender, e);
-
-    private void OnShowSettingsClick(object? sender, RoutedEventArgs e) =>
-        ShowSettingsRequested?.Invoke(sender, e);
 
     private void OnSubmitAgentQuestionClick(object? sender, RoutedEventArgs e) =>
         SubmitAgentQuestionRequested?.Invoke(sender, e);

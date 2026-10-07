@@ -601,13 +601,6 @@ public sealed partial class MainWindow : Window
         ViewModel.HistorySearchQuery = string.Empty;
     }
 
-    private void OnShowSettingsClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        NavigateToSettings();
-    }
-
     private void OnShowAgentSettingsClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;

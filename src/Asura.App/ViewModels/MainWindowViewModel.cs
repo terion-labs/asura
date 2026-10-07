@@ -1272,6 +1272,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             OnPropertyChanged(nameof(IsWorkspaceRailVisible));
             OnPropertyChanged(nameof(HasWorkspaceAttention));
+            OnPropertyChanged(nameof(WorkspacesMenuName));
         }
     }
 
@@ -7839,6 +7840,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
 
         OnPropertyChanged(nameof(HasWorkspaceAttention));
+
+        OnPropertyChanged(nameof(WorkspacesMenuName));
         OnPropertyChanged(nameof(HasWorkspaceAgentActivity));
     }
 
@@ -7852,6 +7855,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     /// </summary>
     public bool HasWorkspaceAttention =>
         !IsWorkspaceRailVisible && Workspaces.Any(item => item.HasAttention);
+
+    /// <summary>
+    /// The Workspaces button as it is heard: "Workspaces", or "Workspaces, 1
+    /// needs attention" while it carries the mark. The mark is a dot, and a
+    /// dot says nothing to a screen reader.
+    /// </summary>
+    public string WorkspacesMenuName => AttentionLabel.Count(
+        "Workspaces",
+        HasWorkspaceAttention ? Workspaces.Count(item => item.HasAttention) : 0);
 
     public bool HasWorkspaceAgentActivity =>
         Workspaces.Any(item => item.HasAgentActivity);
@@ -8857,6 +8869,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         // The mark on the menu stands in for the rail, so turning the rail on
         // or off decides whether it is needed.
         OnPropertyChanged(nameof(HasWorkspaceAttention));
+        OnPropertyChanged(nameof(WorkspacesMenuName));
         OnPropertyChanged(nameof(KeybindingConflictCount));
         RefreshRecentSessionAvailability();
         Launcher.RefreshSearchResults();

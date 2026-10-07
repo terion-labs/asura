@@ -41,7 +41,7 @@ public sealed partial class MainWindow
         }
     }
 
-    private void OnPreviewPanelRequested(object? sender, PointerEventArgs e)
+    private void OnPreviewPanelRequested(object? sender, RoutedEventArgs e)
     {
         if (sender is Control { DataContext: RuntimePanelViewModel panel }
             && ViewModel.RuntimeWorkspace?.ActiveTab is { } tab)

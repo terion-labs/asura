@@ -46,7 +46,6 @@ public sealed class WorkspaceViewContractTests
             ["ShowLauncherRequested"] = "OnShowLauncherClick",
             ["ShowNewItemRequested"] = "OnShowNewItemClick",
             ["ShowNewPanelRequested"] = "OnShowNewPanelClick",
-            ["ShowSettingsRequested"] = "OnShowSettingsClick",
             ["SubmitAgentQuestionRequested"] = "OnSubmitAgentQuestionClick",
             ["ToggleAgentRequested"] = "OnToggleAgentClick",
         };
@@ -241,20 +240,22 @@ public sealed class WorkspaceViewContractTests
             workspacesMenuIcon.Descendants(),
             element => string.Equals(element.Name.LocalName, "SymbolIcon"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Symbol"), "Bot", StringComparison.Ordinal));
-        Assert.Single(
+        // A menu, built as it opens, with no switch inside it: the rail's
+        // own toggle is Show Sidebar in the View menu.
+        Assert.Equal("{Binding WorkspacesMenuName}", AttributeValue(workspacesMenu, "AutomationProperties.Name"));
+        var workspacesFlyout = Assert.Single(
             workspacesMenu.Descendants(),
-            element => string.Equals(element.Name.LocalName, "ItemsControl"
-, StringComparison.Ordinal) && string.Equals(
-                    AttributeValue(element, "ItemsSource"),
-                    "{Binding Workspaces}",
-                    StringComparison.Ordinal));
-        Assert.Single(
+            element => string.Equals(element.Name.LocalName, "MenuFlyout", StringComparison.Ordinal));
+        Assert.Equal("OnWorkspacesMenuOpening", AttributeValue(workspacesFlyout, "Opening"));
+        Assert.DoesNotContain(
             workspacesMenu.Descendants(),
-            element => string.Equals(element.Name.LocalName, "ToggleSwitch"
-, StringComparison.Ordinal) && string.Equals(
-                    AttributeValue(element, "IsChecked"),
-                    "{Binding ShowWorkspacesPanel, Mode=TwoWay}",
-                    StringComparison.Ordinal));
+            element => string.Equals(element.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal));
+
+        // Settings is the app menu's and ⌘,'s, not a title-bar button.
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "SymbolIcon", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Symbol"), "Settings", StringComparison.Ordinal));
 
         // Every edge the setting offers has a host, and each is bound to the
         // stored placement rather than being always visible.

@@ -46,6 +46,7 @@ public sealed partial class MainWindowViewModel
             {
                 OnPropertyChanged(nameof(IsWorkspaceRailVisible));
                 OnPropertyChanged(nameof(HasWorkspaceAttention));
+                OnPropertyChanged(nameof(WorkspacesMenuName));
             }
         }
     }
