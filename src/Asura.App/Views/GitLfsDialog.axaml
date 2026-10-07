@@ -33,7 +33,7 @@
                   <WrapPanel ItemSpacing="{DynamicResource ShellSpaceMd}" LineSpacing="{DynamicResource ShellSpaceXs}">
                     <TextBlock Text="{Binding OwnerName, StringFormat=Owner: {0}}" />
                     <TextBlock Text="{Binding OwnershipLabel}" />
-                    <TextBlock Text="{Binding LockedAt}" />
+                    <TextBlock Text="{Binding LockedAtText}" />
                   </WrapPanel>
                   <TextBlock Classes="Muted" Text="{Binding Id, StringFormat=Lock: {0}}" />
                 </StackPanel>

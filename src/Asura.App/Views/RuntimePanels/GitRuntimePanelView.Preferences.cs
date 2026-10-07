@@ -14,7 +14,7 @@ public sealed partial class GitRuntimePanelView
 
         var state = await viewModel.ReadGitPreferencesAsync();
         var values = await ShowGitFormAsync(new GitWorkflowForm(
-            "Git Settings",
+            "Git Panel Settings",
             "Display choices apply to Git panels. The executable runs on each panel's target connection. Subject length is a guide, and never blocks a valid commit.",
             new GitWorkflowAction("Save"),
             [

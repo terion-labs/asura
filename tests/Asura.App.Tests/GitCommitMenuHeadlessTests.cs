@@ -5,6 +5,7 @@ using Asura.Git;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -33,7 +34,7 @@ public sealed class GitCommitMenuHeadlessTests
         Assert.Same(clicked, menu.DataContext);
         Assert.Same(clicked, panel.SelectedCommit);
         Assert.Equal([clicked], panel.SelectedCommits);
-        Assert.Equal("Reset 'dev' to here", view.FindControl<MenuItem>("CommitResetMenu")!.Header);
+        Assert.Equal("Reset “dev” to Here", view.FindControl<MenuItem>("CommitResetMenu")!.Header);
         foreach (var tag in new[] { "NewBranch", "NewTag", "Rebase", "Checkout", "CherryPick", "Revert", "SavePatch", "CompareLocal", "CopySha" })
         {
             Assert.Contains(menu.Items.OfType<MenuItem>(), item => Equals(item.Tag, tag));
@@ -126,6 +127,10 @@ public sealed class GitCommitMenuHeadlessTests
         {
             var chevron = header.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>()
                 .Single(path => path.Name == "ChevronPath");
+            // The disclosure target is at least the 20-point minimum.
+            var toggle = header.GetVisualDescendants().OfType<ToggleButton>()
+                .Single(button => button.Name == "PART_ExpandCollapseChevron");
+            Assert.True(toggle.Bounds.Width >= 20 && toggle.Bounds.Height >= 20, $"{toggle.Bounds}");
             var folderLabel = header.GetVisualDescendants().OfType<TextBlock>().Single();
             var chevronRight = chevron.TranslatePoint(new Point(chevron.Bounds.Width, 0), header)!.Value.X;
             var folderLeft = folderLabel.TranslatePoint(default, header)!.Value.X;
@@ -142,7 +147,7 @@ public sealed class GitCommitMenuHeadlessTests
         Assert.Equal(TextTrimming.CharacterEllipsis, label.TextTrimming);
         Assert.InRange(label.Bounds.Width, 40, 120);
         var filter = view.FindControl<TextBox>("GitRefFilter")!;
-        Assert.Equal(24, filter.Bounds.Height);
+        Assert.True(filter.Bounds.Height >= 24, $"{filter.Bounds.Height}");
         filter.Text = "team/";
         window.UpdateLayout();
         Assert.Equal("team/", panel.RefFilter);

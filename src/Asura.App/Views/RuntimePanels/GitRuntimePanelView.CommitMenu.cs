@@ -49,12 +49,20 @@ public sealed partial class GitRuntimePanelView
         }
 
         menu.DataContext = commit;
-        CommitResetMenu.Header = $"Reset '{viewModel.BranchName}' to here";
+        CommitResetMenu.Header = $"Reset “{GitMenuText.Literal(viewModel.BranchName)}” to Here";
         foreach (var item in menu.Items.OfType<MenuItem>())
         {
-            item.IsEnabled = item.Tag is "CopySha" || viewModel.CanMutateRepository;
+            item.IsEnabled = (item.Tag is string tag && ReadOnlyHistoryActions.Contains(tag))
+                || viewModel.CanMutateRepository;
         }
     }
+
+    // Commands that only look at a commit or copy it out stay available while
+    // another operation runs; those that move a branch or the checkout wait.
+    private static readonly HashSet<string> ReadOnlyHistoryActions = new(StringComparer.Ordinal)
+    {
+        "CompareLocal", "Compare", "Hosting", "SavePatch", "CopySha",
+    };
 
     private async void OnHistoryContextAction(object? sender, RoutedEventArgs e)
     {

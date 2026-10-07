@@ -144,7 +144,7 @@ public sealed partial class GitRuntimePanelView
         {
             var destination = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                Title = "Save patch",
+                Title = "Save Patch",
                 SuggestedFileName = fileName,
             });
             if (destination is null)

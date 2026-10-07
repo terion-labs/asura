@@ -58,6 +58,19 @@ internal sealed class FakeGitRepositoryClient : IGitRepositoryClient
 
     public List<string> TrustedPaths { get; } = [];
 
+    /// <summary>Every named repository task the panel ran, in order.</summary>
+    public List<GitRepositoryTaskRequest> RepositoryTasks { get; } = [];
+
+    public ValueTask<GitResult<GitTaskOutput>> RunRepositoryTaskAsync(
+        GitRepositoryHandle repository,
+        GitRepositoryTaskRequest request,
+        CancellationToken cancellationToken)
+    {
+        RepositoryTasks.Add(request);
+        return ValueTask.FromResult<GitResult<GitTaskOutput>>(
+            new GitResult<GitTaskOutput>.Success(new GitTaskOutput($"{request.Task} output")));
+    }
+
     public ValueTask<GitResult<GitRepositoryHandle>> OpenRepositoryAsync(
         ConnectionProfile connection,
         string path,

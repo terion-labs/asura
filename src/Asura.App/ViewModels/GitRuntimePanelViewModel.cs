@@ -182,6 +182,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
             preferences.Changed += OnPanelPreferencesChanged;
         }
 
+        PropertyChanged += OnPresentationSourceChanged;
         Initialization = InitializePanelAsync(_repositoryPathInput);
         StartRepositoryTimer();
     }
@@ -724,8 +725,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
                 return "";
             }
 
-            var authored = detail.Commit.AuthoredAt.ToLocalTime()
-                .ToString("f", CultureInfo.CurrentCulture);
+            var authored = GitDateText.Format(detail.Commit.AuthoredAt, CultureInfo.CurrentCulture);
             return $"{detail.Commit.AuthorName} <{detail.Commit.AuthorEmail}> · {authored}";
         }
     }

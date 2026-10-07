@@ -47,8 +47,15 @@ public sealed partial class DesignSystemConventionTests
     /// Re-based at 40 after the August 2026 interface expansion outgrew the stale
     /// budget of 6. This records existing debt; every surviving literal remains
     /// visible to this ratchet and the count may only move downward.
+    /// Raised to 41 when the macOS conformance packages landed together: each
+    /// fitted inside the one spare slot alone, and both add geometry tied to a
+    /// fixed size rather than to the spacing scale — the confirmation alert's
+    /// 30-point caution badge needs a 15-point radius to stay a circle, and the
+    /// Git ref tree's 20-point disclosure target shifts four points into the
+    /// name column with an offsetting right margin, which no single inset
+    /// expresses.
     /// </remarks>
-    private const int LiteralLayoutBudget = 40;
+    private const int LiteralLayoutBudget = 41;
 
     /// <summary>
     /// The design system defines what a value means, so it cannot contain one. A
