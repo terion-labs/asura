@@ -61,6 +61,22 @@ public sealed class MacOsMenuShortcutsTests
             MacOsMenuShortcuts.All.Select(binding => binding.Sequence[0]).Distinct().Count());
     }
 
+    /// <summary>
+    /// The keymap validator and the Quick Terminal hotkey field warn about a
+    /// key the menu bar answers first. That list is kept by hand, so every key
+    /// equivalent the menu bar actually uses has to be on it, or on the
+    /// system's own list.
+    /// </summary>
+    [Fact]
+    public void Every_menu_shortcut_is_reserved_ahead_of_the_keymap()
+    {
+        Assert.All(MacOsMenuShortcuts.All, binding =>
+            Assert.True(
+                MacOsStandardShortcuts.TryFindMenu(binding.Sequence[0], out _)
+                    || MacOsStandardShortcuts.TryFindSystem(binding.Sequence[0], out _),
+                $"{binding.CommandId.Value} {binding.Sequence} is not reserved."));
+    }
+
     [Fact]
     public void Commands_without_a_standard_shortcut_have_none()
     {

@@ -116,6 +116,7 @@ public static class MacOsStandardShortcuts
             Reserved("G", ShiftCommand, "Find Previous"),
             Reserved("E", Command, "Use Selection for Find"),
             Reserved("J", Command, "Jump to Selection"),
+            Reserved("F", OptionCommand, "Search in Panel"),
             Reserved("K", Command, "Command Palette…"),
             Reserved("+", Command, "Bigger", BuiltInCommands.IncreaseFontSize),
             Reserved("=", Command, "Bigger", BuiltInCommands.IncreaseFontSize),
