@@ -1,17 +1,21 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using Asura.App.ViewModels;
 using Asura.Application;
 using Asura.Core;
 using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Input.TextInput;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using AvaloniaKeyModifiers = Avalonia.Input.KeyModifiers;
 
@@ -30,10 +34,14 @@ public sealed class ManagedTerminalSurface : Control
             : OperatingSystem.IsWindows()
                 ? BuiltInKeymaps.WindowsTerminal
                 : BuiltInKeymaps.LinuxTerminal);
-    private static readonly IBrush ConfirmationBackground = Brush.Parse("#1D1D20");
-    private static readonly IBrush ConfirmationBorder = Brush.Parse("#70492E");
-    private static readonly IBrush ConfirmationText = Brush.Parse("#F2F1EF");
-    private static readonly IBrush ConfirmationAccent = Brush.Parse("#D08A4B");
+
+    /// <summary>
+    /// Output is gathered for this long before it is announced, so a burst of
+    /// lines becomes one announcement instead of interrupting itself.
+    /// </summary>
+    private static readonly TimeSpan OutputAnnouncementDelay = TimeSpan.FromMilliseconds(600);
+    private const int MaximumAnnouncedLines = 12;
+    private const int MaximumAnnouncedCharacters = 1_200;
 
     public static readonly StyledProperty<TerminalRenderProfileSnapshot?> ProfileProperty =
         AvaloniaProperty.Register<ManagedTerminalSurface, TerminalRenderProfileSnapshot?>(
@@ -47,6 +55,22 @@ public sealed class ManagedTerminalSurface : Control
     public static readonly StyledProperty<TerminalKeymapSnapshot?> KeymapProperty =
         AvaloniaProperty.Register<ManagedTerminalSurface, TerminalKeymapSnapshot?>(
             nameof(Keymap));
+
+    /// <summary>
+    /// The owning panel's title. Assistive technology names the terminal with it,
+    /// so several terminals in one window are told apart.
+    /// </summary>
+    public static readonly StyledProperty<string?> AccessibleTitleProperty =
+        AvaloniaProperty.Register<ManagedTerminalSurface, string?>(
+            nameof(AccessibleTitle));
+
+    /// <summary>
+    /// Copy mode reviews output without sending keys to the session: the arrow
+    /// keys move a line cursor, Shift extends a line selection, and the copy
+    /// shortcut copies it.
+    /// </summary>
+    public static readonly StyledProperty<bool> IsCopyModeProperty =
+        AvaloniaProperty.Register<ManagedTerminalSurface, bool>(nameof(IsCopyMode));
 
     public static readonly DirectProperty<ManagedTerminalSurface, bool> IsLinkConfirmationVisibleProperty =
         AvaloniaProperty.RegisterDirect<ManagedTerminalSurface, bool>(
@@ -73,7 +97,15 @@ public sealed class ManagedTerminalSurface : Control
             nameof(FindStatusMessage),
             control => control.FindStatusMessage);
 
+    public static readonly DirectProperty<ManagedTerminalSurface, string> PendingLinkTextProperty =
+        AvaloniaProperty.RegisterDirect<ManagedTerminalSurface, string>(
+            nameof(PendingLinkText),
+            control => control.PendingLinkText);
+
     private readonly DispatcherTimer _cursorTimer;
+    private readonly DispatcherTimer _announcementTimer;
+    private readonly TerminalAccessibleText _accessibleText = new();
+    private readonly List<string> _pendingAnnouncement = [];
     private readonly DispatcherTimer _keySequenceTimer;
     private readonly TerminalTextInputMethodClient _imeClient;
     private readonly Dictionary<TerminalKittyImageKey, WriteableBitmap> _kittyBitmaps = [];
@@ -108,27 +140,48 @@ public sealed class ManagedTerminalSurface : Control
     private long _findGeneration;
     private string? _encodedKeyTextAwaitingTextInput;
     private long _encodedKeyTextGeneration;
+    private ManagedTerminalSurfaceAutomationPeer? _automationPeer;
+    private int _pendingAnnouncedLineCount;
+    private bool _rebaselineAccessibleText;
+    private int _viewportMovesInFlight;
+    private bool _viewportMayBeScrolledBack;
+    private bool _snapshotIsNewerThanFrame;
+    private int _copyCursorRow;
+    private int? _copySelectionAnchorRow;
+    private ContextMenu? _contextMenu;
+    private string _pendingLinkText = string.Empty;
 
     static ManagedTerminalSurface()
     {
-        AffectsRender<ManagedTerminalSurface>(ProfileProperty, BackgroundOpacityProperty);
+        AffectsRender<ManagedTerminalSurface>(
+            ProfileProperty,
+            BackgroundOpacityProperty,
+            IsCopyModeProperty);
     }
 
     public ManagedTerminalSurface()
     {
         Focusable = true;
         ClipToBounds = true;
-        AutomationProperties.SetName(this, "Interactive terminal");
+        AutomationProperties.SetName(this, TerminalAccessibleName(null, null));
         AutomationProperties.SetHelpText(
             this,
-            "Terminal output is rendered as a cell grid. Use terminal copy mode to review output without sending keys to the session.");
-        AutomationProperties.SetLiveSetting(this, AutomationLiveSetting.Polite);
+            "The terminal's text is its value. New output is announced as it arrives. Enter copy mode to review output line by line with the arrow keys.");
         AutomationProperties.SetItemStatus(this, "Starting terminal");
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragOverEvent, OnFileDragOver);
+        AddHandler(DragDrop.DropEvent, OnFileDrop);
+        AddHandler(ContextRequestedEvent, OnContextRequested);
         _cursorTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(530),
         };
         _cursorTimer.Tick += OnCursorTimerTick;
+        _announcementTimer = new DispatcherTimer
+        {
+            Interval = OutputAnnouncementDelay,
+        };
+        _announcementTimer.Tick += OnAnnouncementTimerTick;
         _keySequenceTimer = new DispatcherTimer();
         _keySequenceTimer.Tick += OnKeySequenceTimerTick;
         _imeClient = new TerminalTextInputMethodClient(this);
@@ -146,6 +199,30 @@ public sealed class ManagedTerminalSurface : Control
     public event EventHandler<TerminalInputFailureEventArgs>? InputFailed;
 
     public event EventHandler<TerminalCommandDispatchResult>? CommandDispatched;
+
+    /// <summary>
+    /// Text for a polite screen-reader announcement: new output, or the line
+    /// under the copy-mode cursor. Never empty.
+    /// </summary>
+    internal event EventHandler<string>? AnnouncementRequested;
+
+    /// <summary>The find field should take keyboard focus (Find was chosen again).</summary>
+    internal event EventHandler? FindFocusRequested;
+
+    /// <summary>Escape in copy mode asks the owner to leave it.</summary>
+    internal event EventHandler? CopyModeExitRequested;
+
+    /// <summary>A split was chosen from the terminal's context menu.</summary>
+    internal event EventHandler<PanelSplitOrientation>? SplitRequested;
+
+    /// <summary>Whether the owner places a new panel when a split is requested.</summary>
+    internal bool CanSplit { get; set; }
+
+    /// <summary>
+    /// The element whose keyboard focus means the user is working in this terminal.
+    /// The session host sets itself, so its find bar counts too.
+    /// </summary>
+    internal InputElement? FocusScope { get; set; }
 
     public TerminalRenderProfileSnapshot? Profile
     {
@@ -167,6 +244,25 @@ public sealed class ManagedTerminalSurface : Control
     {
         get => GetValue(KeymapProperty);
         set => SetValue(KeymapProperty, value);
+    }
+
+    public string? AccessibleTitle
+    {
+        get => GetValue(AccessibleTitleProperty);
+        set => SetValue(AccessibleTitleProperty, value);
+    }
+
+    public bool IsCopyMode
+    {
+        get => GetValue(IsCopyModeProperty);
+        set => SetValue(IsCopyModeProperty, value);
+    }
+
+    /// <summary>The link awaiting confirmation, shortened for display.</summary>
+    public string PendingLinkText
+    {
+        get => _pendingLinkText;
+        private set => SetAndRaise(PendingLinkTextProperty, ref _pendingLinkText, value);
     }
 
     public bool IsLinkConfirmationVisible
@@ -272,12 +368,23 @@ public sealed class ManagedTerminalSurface : Control
             return;
         }
 
+        var titleChanged = !string.Equals(
+            _snapshot?.WindowTitle,
+            snapshot.WindowTitle,
+            StringComparison.Ordinal);
         _snapshot = snapshot;
+        _snapshotIsNewerThanFrame = true;
+        if (titleChanged)
+        {
+            UpdateAccessibleName();
+        }
+
         UpdateAutomationStatus();
         _imeClient.NotifyCursorRectangleChanged();
         UpdateCursorTimer();
         if (_renderFrame is null)
         {
+            UpdateAccessibleText();
             InvalidateVisual();
         }
     }
@@ -301,7 +408,9 @@ public sealed class ManagedTerminalSurface : Control
         }
 
         _renderFrame = frame;
+        _snapshotIsNewerThanFrame = false;
         RemoveUnusedKittyBitmaps(frame.KittyGraphics.Images.Keys);
+        UpdateAccessibleText();
         UpdateAutomationStatus();
         _imeClient.NotifyCursorRectangleChanged();
         UpdateCursorTimer();
@@ -311,6 +420,10 @@ public sealed class ManagedTerminalSurface : Control
     internal void ClearRenderFrame()
     {
         _renderFrame = null;
+        _accessibleText.Reset();
+        _pendingAnnouncement.Clear();
+        _pendingAnnouncedLineCount = 0;
+        _announcementTimer.Stop();
         DisposeKittyBitmaps();
         UpdateAutomationStatus();
         UpdateCursorTimer();
@@ -324,7 +437,7 @@ public sealed class ManagedTerminalSurface : Control
         ArgumentNullException.ThrowIfNull(text);
         // A paste command is an explicit user action. Agent input is authorized
         // independently by the session host, not by a caller-supplied paste flag.
-        return RequireInputSink().PasteAsync(
+        return RequireSessionInputSink().PasteAsync(
             new TerminalPasteInput(text),
             cancellationToken);
     }
@@ -343,10 +456,61 @@ public sealed class ManagedTerminalSurface : Control
             return false;
         }
 
-        await RequireInputSink()
-            .ScrollViewportAsync(new TerminalViewportScrollInput(lines), cancellationToken)
+        await ScrollViewportAsync(new TerminalViewportScrollInput(lines), cancellationToken)
             .ConfigureAwait(true);
         return true;
+    }
+
+    /// <summary>
+    /// Moves the viewport. The rows that change are scrollback coming into view,
+    /// not output, so assistive technology re-reads the screen without announcing.
+    /// </summary>
+    private ValueTask<bool> ScrollViewportAsync(
+        TerminalViewportScrollInput scrollInput,
+        CancellationToken cancellationToken) =>
+        MoveViewportAsync(async () =>
+        {
+            await RequireInputSink()
+                .ScrollViewportAsync(scrollInput, cancellationToken)
+                .ConfigureAwait(true);
+            return true;
+        });
+
+    /// <summary>
+    /// Runs something that moves the viewport instead of writing output: a scroll,
+    /// or find bringing a match into view. The screen is re-read without
+    /// announcing it or adding to the scrollback window, both while the move runs
+    /// and on the first update after it.
+    /// </summary>
+    private async ValueTask<T> MoveViewportAsync<T>(Func<ValueTask<T>> move)
+    {
+        _viewportMovesInFlight++;
+        try
+        {
+            return await move().ConfigureAwait(true);
+        }
+        finally
+        {
+            _viewportMovesInFlight--;
+            _rebaselineAccessibleText = true;
+            _viewportMayBeScrolledBack = true;
+        }
+    }
+
+    /// <summary>
+    /// The sink, for input the session reads. Input returns a scrolled-back
+    /// viewport to the bottom, which is a viewport move, not output.
+    /// </summary>
+    private IManagedTerminalInputSink RequireSessionInputSink()
+    {
+        var sink = RequireInputSink();
+        if (_viewportMayBeScrolledBack)
+        {
+            _viewportMayBeScrolledBack = false;
+            _rebaselineAccessibleText = true;
+        }
+
+        return sink;
     }
 
     internal async ValueTask<bool> SubmitSelectionAsync(
@@ -357,6 +521,12 @@ public sealed class ManagedTerminalSurface : Control
         if (!_isInputReady || IsInteractionModalVisible || _snapshot is null)
         {
             return false;
+        }
+
+        if (phase is TerminalSelectionPhase.Start or TerminalSelectionPhase.Clear)
+        {
+            // A pointer selection replaces one made with the copy-mode keys.
+            _copySelectionAnchorRow = null;
         }
 
         var (column, row) = Metrics.CellAt(point);
@@ -466,16 +636,12 @@ public sealed class ManagedTerminalSurface : Control
                 == TerminalLinkPolicy.ConfirmBeforeOpen
             && !confirmed)
         {
-            _pendingLink = uri;
-            IsLinkConfirmationVisible = true;
-            InvalidateVisual();
+            SetPendingLink(uri);
             return true;
         }
 
-        _pendingLink = null;
-        IsLinkConfirmationVisible = false;
+        SetPendingLink(null);
         await LinkOpener.OpenAsync(uri!, cancellationToken).ConfigureAwait(true);
-        InvalidateVisual();
         return true;
     }
 
@@ -494,10 +660,8 @@ public sealed class ManagedTerminalSurface : Control
             return false;
         }
 
-        _pendingLink = null;
-        IsLinkConfirmationVisible = false;
+        SetPendingLink(null);
         await LinkOpener.OpenAsync(uri, cancellationToken).ConfigureAwait(true);
-        InvalidateVisual();
         return true;
     }
 
@@ -510,10 +674,16 @@ public sealed class ManagedTerminalSurface : Control
             return false;
         }
 
-        _pendingLink = null;
-        IsLinkConfirmationVisible = false;
-        InvalidateVisual();
+        SetPendingLink(null);
         return true;
+    }
+
+    private void SetPendingLink(Uri? uri)
+    {
+        _pendingLink = uri;
+        var display = uri?.AbsoluteUri ?? string.Empty;
+        PendingLinkText = display.Length > 160 ? display[..159] + "…" : display;
+        IsLinkConfirmationVisible = uri is not null;
     }
 
     public override void Render(DrawingContext context)
@@ -550,19 +720,11 @@ public sealed class ManagedTerminalSurface : Control
         }
 
         DrawPreedit(context, palette);
+        DrawCopyModeCursor(context, palette);
 
-        if (IsLinkConfirmationVisible)
-        {
-            DrawLinkConfirmation(context);
-        }
-        else if (IsFindVisible)
-        {
-            DrawFind(context);
-        }
-        else if (!string.IsNullOrEmpty(CommandStatusMessage))
-        {
-            DrawCommandStatus(context);
-        }
+        // The find bar, link confirmation, and command status are real controls
+        // layered above this surface by the session host, so they follow the
+        // shell's type and colour tokens and are visible to assistive technology.
     }
 
     internal ValueTask SubmitTextInputAsync(
@@ -570,14 +732,9 @@ public sealed class ManagedTerminalSurface : Control
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(text);
-        if (!_isInputReady || IsInteractionModalVisible)
+        if (!_isInputReady || IsInteractionModalVisible || IsCopyMode)
         {
             return ValueTask.CompletedTask;
-        }
-
-        if (IsFindVisible)
-        {
-            return AppendFindTextAsync(text, cancellationToken);
         }
 
         UpdatePreedit(null, null);
@@ -588,7 +745,7 @@ public sealed class ManagedTerminalSurface : Control
 
         return text.Length == 0
             ? ValueTask.CompletedTask
-            : RequireInputSink().SendTextAsync(text, cancellationToken);
+            : RequireSessionInputSink().SendTextAsync(text, cancellationToken);
     }
 
     internal void UpdatePreedit(string? text, int? cursor)
@@ -773,14 +930,27 @@ public sealed class ManagedTerminalSurface : Control
         _isAttached = false;
         _cursorTimer.Stop();
         _keySequenceTimer.Stop();
+        _announcementTimer.Stop();
+        _pendingAnnouncement.Clear();
+        _pendingAnnouncedLineCount = 0;
         _keymapResolver.Reset();
         _pressedPhysicalKeys.Clear();
         _encodedKeyTextAwaitingTextInput = null;
+        _contextMenu?.Close();
+        _contextMenu = null;
         ResetFind();
         ClearCommandStatus();
         ResetLocalSelectionGesture();
         DisposeKittyBitmaps();
         base.OnDetachedFromVisualTree(e);
+    }
+
+    protected override AutomationPeer OnCreateAutomationPeer()
+    {
+        _automationPeer = new ManagedTerminalSurfaceAutomationPeer(this);
+        _rebaselineAccessibleText = true;
+        UpdateAccessibleText();
+        return _automationPeer;
     }
 
     protected override void OnTextInput(TextInputEventArgs e)
@@ -845,23 +1015,28 @@ public sealed class ManagedTerminalSurface : Control
             return;
         }
 
-        if (IsFindVisible)
+        if (ManagedTerminalInput.IsApplicationFocusNavigation(e.Key, e.KeyModifiers))
         {
-            var find = HandleFindKeyAsync(e.Key, e.KeyModifiers);
-            if (!find.IsCompletedSuccessfully)
-            {
-                e.Handled = true;
-                ObserveInputAsync(find.AsValueTask());
-                return;
-            }
-
-            e.Handled = find.Result;
+            // Control-F6 and Control-Shift-F6 move keyboard focus to the next or
+            // previous area of the window, as in AppKit. The shell never gets them.
             return;
         }
 
         if (ApplicationKeyStrokeMapper.IsModifierOnly(e.Key, e.PhysicalKey))
         {
             e.Handled = true;
+            return;
+        }
+
+        if (IsCopyMode)
+        {
+            ObserveKeyHandling(e, HandleCopyModeKeyAsync(e.Key, e.KeyModifiers));
+            return;
+        }
+
+        if (IsFindVisible && IsFindNextGesture(e.Key, e.KeyModifiers))
+        {
+            ObserveKeyHandling(e, HandleFindKeyAsync(e.Key, e.KeyModifiers));
             return;
         }
 
@@ -887,8 +1062,7 @@ public sealed class ManagedTerminalSurface : Control
                 out var scrollInput))
         {
             e.Handled = true;
-            ObserveInputAsync(RequireInputSink()
-                .ScrollViewportAsync(scrollInput!, default));
+            ObserveInputAsync(ScrollViewportAsync(scrollInput!, default).AsValueTask());
             return;
         }
 
@@ -970,11 +1144,18 @@ public sealed class ManagedTerminalSurface : Control
         }
 
         if (button == TerminalMouseButton.Left
-            && e.KeyModifiers.HasFlag(AvaloniaKeyModifiers.Control)
+            && e.KeyModifiers.HasFlag(LinkActivationModifier)
             && TryGetHyperlinkAt(point.Position, out _))
         {
             e.Handled = true;
             ObserveInputAsync(ActivateLinkAtAsync(point.Position).AsValueTask());
+            return;
+        }
+
+        if (OpensContextMenu(button, e.KeyModifiers))
+        {
+            e.Handled = true;
+            OpenContextMenu(fromKeyboard: false);
             return;
         }
 
@@ -1138,11 +1319,13 @@ public sealed class ManagedTerminalSurface : Control
         base.OnPropertyChanged(change);
         if (change.Property == BoundsProperty)
         {
+            _rebaselineAccessibleText = true;
             ViewportChanged?.Invoke(this, EventArgs.Empty);
             _imeClient.NotifyCursorRectangleChanged();
         }
         else if (change.Property == ProfileProperty)
         {
+            _rebaselineAccessibleText = true;
             if (!_isApplyingFontSizeCommand)
             {
                 _launchFontSize = Profile?.FontSize ?? 13;
@@ -1173,13 +1356,21 @@ public sealed class ManagedTerminalSurface : Control
             _keymapResolver = new ManagedTerminalKeymapResolver(Keymap ?? PlatformDefaultKeymap);
             ClearCommandStatus();
         }
+        else if (change.Property == AccessibleTitleProperty)
+        {
+            UpdateAccessibleName();
+        }
+        else if (change.Property == IsCopyModeProperty)
+        {
+            OnCopyModeChanged(change.GetNewValue<bool>());
+        }
     }
 
     private async ValueTask<bool> SendMappedKeyAsync(
         TerminalKeyStroke keyStroke,
         CancellationToken cancellationToken)
     {
-        await RequireInputSink().SendKeyAsync(keyStroke, cancellationToken).ConfigureAwait(true);
+        await RequireSessionInputSink().SendKeyAsync(keyStroke, cancellationToken).ConfigureAwait(true);
         return true;
     }
 
@@ -1187,7 +1378,7 @@ public sealed class ManagedTerminalSurface : Control
         TerminalPhysicalKeyEvent keyEvent,
         CancellationToken cancellationToken)
     {
-        await RequireInputSink().SendPhysicalKeyAsync(
+        await RequireSessionInputSink().SendPhysicalKeyAsync(
             keyEvent,
             cancellationToken).ConfigureAwait(true);
         return true;
@@ -1212,7 +1403,7 @@ public sealed class ManagedTerminalSurface : Control
         string text,
         CancellationToken cancellationToken)
     {
-        await RequireInputSink().SendTextAsync(text, cancellationToken).ConfigureAwait(true);
+        await RequireSessionInputSink().SendTextAsync(text, cancellationToken).ConfigureAwait(true);
         return true;
     }
 
@@ -1301,6 +1492,14 @@ public sealed class ManagedTerminalSurface : Control
     internal async ValueTask<bool> BeginFindAsync(
         CancellationToken cancellationToken = default)
     {
+        if (IsFindVisible)
+        {
+            // Find chosen again while the bar is open returns to the field with
+            // its query selected, as in every Mac find bar.
+            FindFocusRequested?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
+
         var capability = await RequireInputSink()
             .FindAsync(new TerminalFindInput(string.Empty), cancellationToken)
             .ConfigureAwait(true);
@@ -1317,7 +1516,7 @@ public sealed class ManagedTerminalSurface : Control
         UpdateFindStatus();
         UpdateAutomationStatus();
         UpdatePreedit(null, null);
-        InvalidateVisual();
+        FindFocusRequested?.Invoke(this, EventArgs.Empty);
         return true;
     }
 
@@ -1330,11 +1529,60 @@ public sealed class ManagedTerminalSurface : Control
         }
 
         ResetFind();
-        _ = await RequireInputSink()
-            .FindAsync(new TerminalFindInput(string.Empty), cancellationToken)
+        _ = await MoveViewportAsync(() => RequireInputSink()
+                .FindAsync(new TerminalFindInput(string.Empty), cancellationToken))
             .ConfigureAwait(true);
     }
 
+    /// <summary>
+    /// Searches for the find field's text from the first match. The field owns
+    /// editing (caret, selection, paste, undo); the surface only runs the search.
+    /// </summary>
+    internal async ValueTask<TerminalFindResult?> UpdateFindQueryAsync(
+        string query,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        if (!IsFindVisible)
+        {
+            return null;
+        }
+
+        if (query.Length > TerminalFindInput.MaximumQueryLength)
+        {
+            _findGeneration++;
+            _isFindInFlight = false;
+            _findResult = null;
+            FindQuery = query;
+            FindStatusMessage = $"Find is limited to {TerminalFindInput.MaximumQueryLength:N0} characters.";
+            UpdateAutomationStatus();
+            return null;
+        }
+
+        FindQuery = query;
+        return await RunFindAsync(0, cancellationToken).ConfigureAwait(true);
+    }
+
+    /// <summary>Moves to the next match, or the previous one for a negative direction.</summary>
+    internal async ValueTask<bool> FindNextAsync(
+        int direction,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsFindVisible
+            || FindQuery.Length is 0 or > TerminalFindInput.MaximumQueryLength)
+        {
+            return IsFindVisible;
+        }
+
+        var requested = (_findResult?.SelectedMatchIndex ?? -1) + Math.Sign(direction);
+        _ = await RunFindAsync(requested, cancellationToken).ConfigureAwait(true);
+        return true;
+    }
+
+    /// <summary>
+    /// The find bar's keys: Return and the Find Next shortcut move to the next
+    /// match, Shift moves back, and Escape closes the bar.
+    /// </summary>
     internal ValueTask<bool> HandleFindKeyAsync(
         Key key,
         AvaloniaKeyModifiers modifiers,
@@ -1345,69 +1593,37 @@ public sealed class ManagedTerminalSurface : Control
             return ValueTask.FromResult(false);
         }
 
-        if (key == Key.Escape)
+        if (key == Key.Escape && modifiers == AvaloniaKeyModifiers.None)
         {
             return CloseFindAndHandleAsync(cancellationToken);
         }
 
-        if (key is Key.Return or Key.Enter or Key.F3)
-        {
-            var direction = modifiers.HasFlag(AvaloniaKeyModifiers.Shift) ? -1 : 1;
-            var requested = (_findResult?.SelectedMatchIndex ?? -1) + direction;
-            return RunFindAndHandleAsync(requested, cancellationToken);
-        }
-
-        if (key == Key.Back)
-        {
-            if (FindQuery.Length == 0)
-            {
-                return ValueTask.FromResult(true);
-            }
-
-            var elements = StringInfo.ParseCombiningCharacters(FindQuery);
-            FindQuery = FindQuery[..elements[^1]];
-            return RunFindAndHandleAsync(0, cancellationToken);
-        }
-
-        var commandModifiers = modifiers
-            & (AvaloniaKeyModifiers.Control
-                | AvaloniaKeyModifiers.Alt
-                | AvaloniaKeyModifiers.Meta);
-        return ValueTask.FromResult(commandModifiers != AvaloniaKeyModifiers.None);
+        var direction = modifiers.HasFlag(AvaloniaKeyModifiers.Shift) ? -1 : 1;
+        var unshifted = modifiers & ~AvaloniaKeyModifiers.Shift;
+        return (key is Key.Return or Key.Enter && unshifted == AvaloniaKeyModifiers.None)
+            || IsFindNextGesture(key, modifiers)
+                ? FindNextAsync(direction, cancellationToken)
+                : ValueTask.FromResult(false);
     }
 
-    private async ValueTask AppendFindTextAsync(
-        string text,
-        CancellationToken cancellationToken)
+    /// <summary>
+    /// Find Next and Find Previous: Command-G and Shift-Command-G on macOS,
+    /// Ctrl+G and F3 (with Shift for previous) elsewhere.
+    /// </summary>
+    internal static bool IsFindNextGesture(Key key, AvaloniaKeyModifiers modifiers)
     {
-        if (text.Length == 0)
-        {
-            return;
-        }
-
-        if (FindQuery.Length + text.Length > TerminalFindInput.MaximumQueryLength)
-        {
-            FindStatusMessage = $"Find queries are limited to {TerminalFindInput.MaximumQueryLength} characters.";
-            UpdateAutomationStatus();
-            InvalidateVisual();
-            return;
-        }
-
-        FindQuery += text;
-        _ = await RunFindAsync(0, cancellationToken).ConfigureAwait(true);
+        var unshifted = modifiers & ~AvaloniaKeyModifiers.Shift;
+        return (key == Key.F3 && unshifted == AvaloniaKeyModifiers.None)
+            || (key == Key.G && unshifted == CommandModifier);
     }
+
+    private static AvaloniaKeyModifiers CommandModifier => OperatingSystem.IsMacOS()
+        ? AvaloniaKeyModifiers.Meta
+        : AvaloniaKeyModifiers.Control;
 
     private async ValueTask<bool> CloseFindAndHandleAsync(CancellationToken cancellationToken)
     {
         await CloseFindAsync(cancellationToken).ConfigureAwait(true);
-        return true;
-    }
-
-    private async ValueTask<bool> RunFindAndHandleAsync(
-        int requestedMatchIndex,
-        CancellationToken cancellationToken)
-    {
-        _ = await RunFindAsync(requestedMatchIndex, cancellationToken).ConfigureAwait(true);
         return true;
     }
 
@@ -1424,11 +1640,10 @@ public sealed class ManagedTerminalSurface : Control
         _isFindInFlight = true;
         UpdateFindStatus();
         UpdateAutomationStatus();
-        InvalidateVisual();
-        var result = await RequireInputSink()
-            .FindAsync(
-                new TerminalFindInput(FindQuery, requestedMatchIndex),
-                cancellationToken)
+        // The search scrolls an off-screen match into view.
+        var input = new TerminalFindInput(FindQuery, requestedMatchIndex);
+        var result = await MoveViewportAsync(() => RequireInputSink()
+                .FindAsync(input, cancellationToken))
             .ConfigureAwait(true);
         if (generation != _findGeneration || !IsFindVisible)
         {
@@ -1439,7 +1654,6 @@ public sealed class ManagedTerminalSurface : Control
         _findResult = result;
         UpdateFindStatus();
         UpdateAutomationStatus();
-        InvalidateVisual();
         return result;
     }
 
@@ -1447,26 +1661,25 @@ public sealed class ManagedTerminalSurface : Control
     {
         if (_isFindInFlight)
         {
-            FindStatusMessage = "Searching the terminal buffer…";
+            FindStatusMessage = "Searching…";
             return;
         }
 
         if (FindQuery.Length == 0)
         {
-            FindStatusMessage = "Type to search · Enter next · Shift+Enter previous · Esc close";
+            FindStatusMessage = string.Empty;
             return;
         }
 
         FindStatusMessage = _findResult switch
         {
-            null => "Full-buffer find is unavailable for this terminal backend.",
+            null => "Find is unavailable for this terminal.",
             { MatchCount: 0, IsScanTruncated: true } =>
-                "No match in the scanned portion of the terminal buffer.",
-            { MatchCount: 0 } => "No matches in the terminal buffer.",
+                "No matches in the part searched",
+            { MatchCount: 0 } => "No matches",
             { } result =>
                 $"Match {result.SelectedMatchIndex + 1:N0} of {result.MatchCount:N0}"
-                + (result.IsScanTruncated ? " · results truncated" : string.Empty)
-                + " · Enter next · Shift+Enter previous · Esc close",
+                + (result.IsScanTruncated ? " (search truncated)" : string.Empty),
         };
     }
 
@@ -1479,7 +1692,6 @@ public sealed class ManagedTerminalSurface : Control
         FindStatusMessage = string.Empty;
         IsFindVisible = false;
         UpdateAutomationStatus();
-        InvalidateVisual();
     }
 
     private async ValueTask<TerminalCommandDispatchResult> ExecuteTerminalCommandAsync(
@@ -1545,7 +1757,14 @@ public sealed class ManagedTerminalSurface : Control
         }
         else if (commandId == BuiltInCommands.ClearScrollback)
         {
-            result = await RequireInputSink().ClearScrollbackAsync(cancellationToken)
+            var cleared = await RequireInputSink().ClearScrollbackAsync(cancellationToken);
+            if (cleared)
+            {
+                // What was cleared must not stay readable to assistive technology.
+                _accessibleText.ClearScrollback();
+            }
+
+            result = cleared
                 ? TerminalCommandDispatchResult.Executed(commandId)
                 : TerminalCommandDispatchResult.Unavailable(
                     commandId,
@@ -1553,7 +1772,7 @@ public sealed class ManagedTerminalSurface : Control
         }
         else if (CanonicalTerminalEditingText(commandId) is { } text)
         {
-            await RequireInputSink().SendTextAsync(text, cancellationToken);
+            await RequireSessionInputSink().SendTextAsync(text, cancellationToken);
             result = TerminalCommandDispatchResult.Executed(commandId);
         }
         else
@@ -1655,7 +1874,6 @@ public sealed class ManagedTerminalSurface : Control
                     ? result.Message
                     : string.Empty;
             UpdateAutomationStatus();
-            InvalidateVisual();
             CommandDispatched?.Invoke(this, result);
         }
 
@@ -1671,30 +1889,6 @@ public sealed class ManagedTerminalSurface : Control
 
         CommandStatusMessage = string.Empty;
         UpdateAutomationStatus();
-        InvalidateVisual();
-    }
-
-    private void DrawCommandStatus(DrawingContext context)
-    {
-        var message = new FormattedText(
-            CommandStatusMessage,
-            CultureInfo.CurrentUICulture,
-            FlowDirection.LeftToRight,
-            TerminalTypefaceResolver.Resolve(Profile?.FontFamily),
-            Math.Max(10, (Profile?.FontSize ?? 13) - 2),
-            ConfirmationText);
-        var box = new Rect(
-            12,
-            Math.Max(12, Bounds.Height - message.Height - 28),
-            Math.Min(Math.Max(240, message.Width + 24), Math.Max(240, Bounds.Width - 24)),
-            message.Height + 16);
-        context.DrawRectangle(
-            ConfirmationBackground,
-            new Pen(ConfirmationBorder, 1),
-            box,
-            8,
-            8);
-        context.DrawText(message, new Point(box.X + 12, box.Y + 8));
     }
 
     private static string? CanonicalTerminalEditingText(CommandId commandId)
@@ -2245,90 +2439,6 @@ public sealed class ManagedTerminalSurface : Control
         _kittyBitmaps.Clear();
     }
 
-    private void DrawLinkConfirmation(DrawingContext context)
-    {
-        var display = _pendingLink?.AbsoluteUri ?? string.Empty;
-        if (display.Length > 96)
-        {
-            display = display[..93] + "…";
-        }
-
-        var box = new Rect(
-            12,
-            Math.Max(12, Bounds.Height - 76),
-            Math.Max(220, Bounds.Width - 24),
-            62);
-        context.DrawRectangle(
-            ConfirmationBackground,
-            new Pen(ConfirmationBorder, 1),
-            box,
-            8,
-            8);
-        context.DrawText(
-            new FormattedText(
-                $"Open link?  {display}",
-                CultureInfo.CurrentUICulture,
-                FlowDirection.LeftToRight,
-                new Typeface("Inter, SF Pro Text, Segoe UI, sans-serif", FontStyle.Normal, FontWeight.SemiBold),
-                11,
-                ConfirmationText),
-            new Point(box.X + 14, box.Y + 10));
-        context.DrawText(
-            new FormattedText(
-                "Enter to open  ·  Esc to cancel",
-                CultureInfo.CurrentUICulture,
-                FlowDirection.LeftToRight,
-                TerminalTypefaceResolver.Resolve(Profile?.FontFamily),
-                9,
-                ConfirmationAccent),
-            new Point(box.X + 14, box.Y + 35));
-    }
-
-    private void DrawFind(DrawingContext context)
-    {
-        var width = Math.Min(460, Math.Max(260, Bounds.Width - 24));
-        var box = new Rect(
-            Math.Max(12, Bounds.Width - width - 12),
-            12,
-            width,
-            66);
-        context.DrawRectangle(
-            ConfirmationBackground,
-            new Pen(ConfirmationBorder, 1),
-            box,
-            8,
-            8);
-
-        var query = TruncateFindText(FindQuery, 64);
-        var prompt = query.Length == 0 ? "Find: ▏" : $"Find: {query}▏";
-        context.DrawText(
-            new FormattedText(
-                prompt,
-                CultureInfo.CurrentUICulture,
-                FlowDirection.LeftToRight,
-                TerminalTypefaceResolver.Resolve(Profile?.FontFamily),
-                11,
-                ConfirmationText),
-            new Point(box.X + 14, box.Y + 10));
-        context.DrawText(
-            new FormattedText(
-                TruncateFindText(FindStatusMessage, 92),
-                CultureInfo.CurrentUICulture,
-                FlowDirection.LeftToRight,
-                new Typeface("Inter, SF Pro Text, Segoe UI, sans-serif"),
-                9,
-                ConfirmationAccent),
-            new Point(box.X + 14, box.Y + 39));
-    }
-
-    private static string TruncateFindText(string text, int maximumTextElements)
-    {
-        var elements = StringInfo.ParseCombiningCharacters(text);
-        return elements.Length <= maximumTextElements
-            ? text
-            : text[..elements[maximumTextElements]] + "…";
-    }
-
     private bool TryGetHyperlinkAt(Point point, out Uri? uri)
     {
         uri = null;
@@ -2409,7 +2519,7 @@ public sealed class ManagedTerminalSurface : Control
             text,
             new Point(bounds.X, bounds.Y + Math.Max(0, (bounds.Height - text.Height) / 2)));
         context.DrawLine(
-            new Pen(ConfirmationAccent, 1.5),
+            new Pen(foreground, 1.5),
             new Point(bounds.Left, bounds.Bottom - 1),
             new Point(bounds.Right, bounds.Bottom - 1));
 
@@ -2424,7 +2534,7 @@ public sealed class ManagedTerminalSurface : Control
                 foreground);
             var cursorX = bounds.X + prefix.Width;
             context.DrawLine(
-                new Pen(ConfirmationText, 1),
+                new Pen(foreground, 1),
                 new Point(cursorX, bounds.Top + 2),
                 new Point(cursorX, bounds.Bottom - 2));
         }
@@ -2463,6 +2573,572 @@ public sealed class ManagedTerminalSurface : Control
         }
     }
 
+    /// <summary>The text assistive technology reads: the scrollback window and the screen.</summary>
+    internal string AccessibleText => _accessibleText.Text;
+
+    internal int CopyCursorRow => _copyCursorRow;
+
+    internal int? CopySelectionAnchorRow => _copySelectionAnchorRow;
+
+    /// <summary>
+    /// ⌘-click opens a link on macOS, where Control-click is the secondary click;
+    /// Ctrl+click opens it elsewhere.
+    /// </summary>
+    private static AvaloniaKeyModifiers LinkActivationModifier => OperatingSystem.IsMacOS()
+        ? AvaloniaKeyModifiers.Meta
+        : AvaloniaKeyModifiers.Control;
+
+    private int ViewportRowCount => _renderFrame?.Rows ?? _snapshot?.Rows ?? 0;
+
+    private int ViewportColumnCount => _renderFrame?.Columns ?? _snapshot?.Columns ?? 0;
+
+    internal static string TerminalAccessibleName(string? panelTitle, string? windowTitle)
+    {
+        var parts = new List<string> { "Terminal" };
+        foreach (var title in new[] { panelTitle, windowTitle })
+        {
+            var trimmed = title?.Trim();
+            if (!string.IsNullOrEmpty(trimmed)
+                && !parts.Contains(trimmed, StringComparer.OrdinalIgnoreCase))
+            {
+                parts.Add(trimmed);
+            }
+        }
+
+        return string.Join(", ", parts);
+    }
+
+    /// <summary>
+    /// Runs one terminal command as if its shortcut had been pressed. The context
+    /// menu and the application menus use this.
+    /// </summary>
+    internal async ValueTask<TerminalCommandDispatchResult> ExecuteCommandAsync(
+        CommandId commandId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_isInputReady || IsInteractionModalVisible)
+        {
+            return TerminalCommandDispatchResult.NotMatched();
+        }
+
+        if (IsCopyMode && WritesToSession(commandId))
+        {
+            // Copy mode exists so nothing reaches the session, as with keys and drops.
+            return await PublishCommandDispatchAsync(TerminalCommandDispatchResult.Unavailable(
+                commandId,
+                "Leave copy mode to type or paste into the terminal.")).ConfigureAwait(true);
+        }
+
+        if (IsCopyMode && commandId == BuiltInCommands.Copy)
+        {
+            // Copy from a menu in copy mode copies the line under the cursor
+            // when nothing is selected, as the copy shortcut does.
+            _ = await CopyFromCopyModeAsync(cancellationToken).ConfigureAwait(true);
+            return TerminalCommandDispatchResult.Executed(commandId);
+        }
+
+        return await ExecuteTerminalCommandAsync(commandId, cancellationToken)
+            .ConfigureAwait(true);
+    }
+
+    private static bool WritesToSession(CommandId commandId) =>
+        commandId == BuiltInCommands.Paste || CanonicalTerminalEditingText(commandId) is not null;
+
+    /// <summary>
+    /// Only the terminal being worked in speaks its output, as in Terminal and
+    /// iTerm2: a build in another panel must not talk over it.
+    /// </summary>
+    private bool IsUserWorkingHere => (FocusScope ?? this).IsKeyboardFocusWithin;
+
+    /// <summary>Announces gathered output now rather than after the throttle delay.</summary>
+    internal void FlushOutputAnnouncement()
+    {
+        _announcementTimer.Stop();
+        _automationPeer?.NotifyValueChanged();
+        if (_pendingAnnouncedLineCount == 0)
+        {
+            return;
+        }
+
+        if (!IsUserWorkingHere)
+        {
+            _pendingAnnouncement.Clear();
+            _pendingAnnouncedLineCount = 0;
+            return;
+        }
+
+        var text = ComposeOutputAnnouncement(_pendingAnnouncement, _pendingAnnouncedLineCount);
+        _pendingAnnouncement.Clear();
+        _pendingAnnouncedLineCount = 0;
+        Announce(text);
+    }
+
+    /// <summary>
+    /// Reads the most recent output lines. A long burst is summarized by its size
+    /// and its last lines, which usually hold the result and the next prompt.
+    /// </summary>
+    internal static string ComposeOutputAnnouncement(
+        IReadOnlyList<string> recentLines,
+        int totalLines)
+    {
+        ArgumentNullException.ThrowIfNull(recentLines);
+        var shown = recentLines
+            .TakeLast(MaximumAnnouncedLines)
+            .Select(line => line.Trim())
+            .ToArray();
+        var text = string.Join('\n', shown);
+        if (text.Length > MaximumAnnouncedCharacters)
+        {
+            var start = text.Length - MaximumAnnouncedCharacters;
+            if (char.IsLowSurrogate(text[start]))
+            {
+                start++;
+            }
+
+            text = "…" + text[start..];
+        }
+
+        return totalLines > shown.Length
+            ? $"{totalLines:N0} new lines, ending with: {text}"
+            : text;
+    }
+
+    internal ValueTask<bool> HandleCopyModeKeyAsync(
+        Key key,
+        AvaloniaKeyModifiers modifiers,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsCopyMode)
+        {
+            return ValueTask.FromResult(false);
+        }
+
+        var extend = modifiers.HasFlag(AvaloniaKeyModifiers.Shift);
+        if ((modifiers & ~AvaloniaKeyModifiers.Shift) == AvaloniaKeyModifiers.None)
+        {
+            var page = Math.Max(1, ViewportRowCount - 1);
+            switch (key)
+            {
+                case Key.Up:
+                    return MoveCopyCursorAsync(-1, extend, cancellationToken);
+                case Key.Down:
+                    return MoveCopyCursorAsync(1, extend, cancellationToken);
+                case Key.PageUp:
+                    return MoveCopyCursorAsync(-page, extend, cancellationToken);
+                case Key.PageDown:
+                    return MoveCopyCursorAsync(page, extend, cancellationToken);
+                case Key.Home:
+                    return MoveCopyCursorAsync(-_copyCursorRow, extend, cancellationToken);
+                case Key.End:
+                    return MoveCopyCursorAsync(
+                        ViewportRowCount - 1 - _copyCursorRow,
+                        extend,
+                        cancellationToken);
+                case Key.Escape when !extend:
+                    CopyModeExitRequested?.Invoke(this, EventArgs.Empty);
+                    return ValueTask.FromResult(true);
+            }
+        }
+
+        if (IsCopyGesture(key, modifiers))
+        {
+            return CopyFromCopyModeAsync(cancellationToken);
+        }
+
+        // Command shortcuts still belong to the application. Every other key would
+        // type into the session, which copy mode exists to prevent.
+        return ValueTask.FromResult(!modifiers.HasFlag(CommandModifier));
+    }
+
+    /// <summary>
+    /// Moves the copy-mode line cursor, scrolling the viewport at its edges. With
+    /// <paramref name="extendSelection"/>, whole lines from where the selection
+    /// began to the cursor are selected.
+    /// </summary>
+    internal async ValueTask<bool> MoveCopyCursorAsync(
+        int delta,
+        bool extendSelection,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = ViewportRowCount;
+        if (!IsCopyMode || rows == 0 || !_isInputReady)
+        {
+            return IsCopyMode;
+        }
+
+        var sink = RequireInputSink();
+        if (extendSelection)
+        {
+            _copySelectionAnchorRow ??= _copyCursorRow;
+        }
+        else if (_copySelectionAnchorRow is not null)
+        {
+            _copySelectionAnchorRow = null;
+            await sink.UpdateSelectionAsync(
+                new TerminalSelectionInput(TerminalSelectionPhase.Clear),
+                cancellationToken).ConfigureAwait(true);
+        }
+
+        var target = _copyCursorRow + delta;
+        var overflow = target < 0 ? target : Math.Max(0, target - (rows - 1));
+        if (overflow != 0)
+        {
+            var contentMovedDown = await ScrollCopyViewportAsync(overflow, cancellationToken)
+                .ConfigureAwait(true);
+            _copySelectionAnchorRow += contentMovedDown;
+        }
+
+        _copyCursorRow = Math.Clamp(target, 0, rows - 1);
+        if (_copySelectionAnchorRow is { } anchor)
+        {
+            await SelectCopyLinesAsync(anchor, cancellationToken).ConfigureAwait(true);
+        }
+
+        InvalidateVisual();
+        Announce(DescribeCopyLine());
+        return true;
+    }
+
+    private static bool IsCopyGesture(Key key, AvaloniaKeyModifiers modifiers) =>
+        key == Key.C && (OperatingSystem.IsMacOS()
+            ? modifiers == AvaloniaKeyModifiers.Meta
+            : (modifiers & ~AvaloniaKeyModifiers.Shift) == AvaloniaKeyModifiers.Control);
+
+    private void OnCopyModeChanged(bool isCopyMode)
+    {
+        _copySelectionAnchorRow = null;
+        UpdateAutomationStatus();
+        if (!isCopyMode)
+        {
+            Announce("Copy mode off");
+            return;
+        }
+
+        UpdatePreedit(null, null);
+        _copyCursorRow = Math.Clamp(
+            CurrentCursorPosition().Row,
+            0,
+            Math.Max(0, ViewportRowCount - 1));
+        Announce($"Copy mode. {DescribeCopyLine()}");
+    }
+
+    /// <summary>Returns how many rows the content moved down in the viewport.</summary>
+    private async ValueTask<int> ScrollCopyViewportAsync(
+        int lines,
+        CancellationToken cancellationToken)
+    {
+        if (_snapshot?.IsAlternateScreen == true)
+        {
+            return 0;
+        }
+
+        var sink = RequireInputSink();
+        var before = await sink.ReadScreenSnapshotAsync(cancellationToken).ConfigureAwait(true);
+        await ScrollViewportAsync(new TerminalViewportScrollInput(lines), cancellationToken)
+            .ConfigureAwait(true);
+        var after = await sink.ReadScreenSnapshotAsync(cancellationToken).ConfigureAwait(true);
+        if (after is null)
+        {
+            return 0;
+        }
+
+        UpdateSnapshot(after);
+        _snapshotIsNewerThanFrame = true;
+        return before is null ? 0 : before.ScrollbackLinesAbove - after.ScrollbackLinesAbove;
+    }
+
+    private async ValueTask SelectCopyLinesAsync(int anchor, CancellationToken cancellationToken)
+    {
+        var rows = ViewportRowCount;
+        var lastColumn = Math.Max(0, ViewportColumnCount - 1);
+        var forward = anchor <= _copyCursorRow;
+        var sink = RequireInputSink();
+        if (anchor >= 0 && anchor < rows)
+        {
+            await sink.UpdateSelectionAsync(
+                new TerminalSelectionInput(
+                    TerminalSelectionPhase.Start,
+                    forward ? 0 : lastColumn,
+                    anchor),
+                cancellationToken).ConfigureAwait(true);
+        }
+
+        // An anchor scrolled out of view keeps the selection's existing start.
+        await sink.UpdateSelectionAsync(
+            new TerminalSelectionInput(
+                TerminalSelectionPhase.End,
+                forward ? lastColumn : 0,
+                _copyCursorRow),
+            cancellationToken).ConfigureAwait(true);
+    }
+
+    private async ValueTask<bool> CopyFromCopyModeAsync(CancellationToken cancellationToken)
+    {
+        if ((Profile?.ClipboardPolicy.WriteAccess
+                ?? TerminalClipboardPolicy.Default.WriteAccess) == TerminalClipboardAccess.Deny)
+        {
+            _ = await PublishCommandDispatchAsync(TerminalCommandDispatchResult.Unavailable(
+                BuiltInCommands.Copy,
+                CopyUnavailableMessage())).ConfigureAwait(true);
+            return true;
+        }
+
+        if (_copySelectionAnchorRow is null)
+        {
+            // A selection made with the pointer is copied as it is.
+            if (await CopySelectionAsync(cancellationToken).ConfigureAwait(true))
+            {
+                Announce("Copied");
+                return true;
+            }
+
+            // Nothing selected at all: copy the line under the cursor.
+            _copySelectionAnchorRow = _copyCursorRow;
+            await SelectCopyLinesAsync(_copyCursorRow, cancellationToken).ConfigureAwait(true);
+            InvalidateVisual();
+        }
+
+        Announce(await CopySelectionAsync(cancellationToken).ConfigureAwait(true)
+            ? "Copied"
+            : "Nothing to copy");
+        return true;
+    }
+
+    private IReadOnlyList<TerminalAccessibleLine> CurrentLines()
+    {
+        if (_renderFrame is { } frame && !_snapshotIsNewerThanFrame)
+        {
+            return TerminalAccessibleText.ReadLines(frame);
+        }
+
+        return _snapshot is { } snapshot
+            ? TerminalAccessibleText.ReadLines(snapshot)
+            : _renderFrame is { } fallback
+                ? TerminalAccessibleText.ReadLines(fallback)
+                : [];
+    }
+
+    private string DescribeCopyLine()
+    {
+        var lines = CurrentLines();
+        var text = _copyCursorRow < lines.Count
+            ? lines[_copyCursorRow].Text.Trim()
+            : string.Empty;
+        return text.Length == 0 ? "Blank line" : text;
+    }
+
+    private void DrawCopyModeCursor(DrawingContext context, TerminalPalette palette)
+    {
+        var rows = ViewportRowCount;
+        if (!IsCopyMode || rows == 0)
+        {
+            return;
+        }
+
+        var color = Color.FromRgb(palette.Cursor.Red, palette.Cursor.Green, palette.Cursor.Blue);
+        var band = Metrics.CellBounds(
+            Math.Clamp(_copyCursorRow, 0, rows - 1),
+            0,
+            Math.Max(1, ViewportColumnCount));
+        context.DrawRectangle(
+            new SolidColorBrush(color, 0.18),
+            new Pen(new SolidColorBrush(color), 1),
+            band.Deflate(0.5));
+    }
+
+    private void Announce(string text)
+    {
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            AnnouncementRequested?.Invoke(this, text);
+        }
+    }
+
+    private void UpdateAccessibleName() =>
+        AutomationProperties.SetName(
+            this,
+            TerminalAccessibleName(AccessibleTitle, _snapshot?.WindowTitle));
+
+    /// <summary>
+    /// Keeps the accessible text current and gathers new output for the next
+    /// announcement. Skipped until assistive technology has asked for the
+    /// terminal, so there is no cost without it.
+    /// </summary>
+    private void UpdateAccessibleText()
+    {
+        if (_automationPeer is null)
+        {
+            return;
+        }
+
+        var rebaseline = _rebaselineAccessibleText || _viewportMovesInFlight > 0;
+        _rebaselineAccessibleText = false;
+        var output = _accessibleText.Update(
+            CurrentLines(),
+            CurrentCursorPosition().Row,
+            _snapshot?.IsAlternateScreen == true,
+            rebaseline);
+        if (output.Count > 0 && IsUserWorkingHere)
+        {
+            _pendingAnnouncedLineCount += output.Count;
+            _pendingAnnouncement.AddRange(output);
+            if (_pendingAnnouncement.Count > MaximumAnnouncedLines)
+            {
+                _pendingAnnouncement.RemoveRange(
+                    0,
+                    _pendingAnnouncement.Count - MaximumAnnouncedLines);
+            }
+        }
+
+        if (!_announcementTimer.IsEnabled)
+        {
+            _announcementTimer.Start();
+        }
+    }
+
+    private void OnAnnouncementTimerTick(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        FlushOutputAnnouncement();
+    }
+
+    internal bool OpensContextMenu(TerminalMouseButton button, AvaloniaKeyModifiers modifiers)
+    {
+        var secondaryClick = button == TerminalMouseButton.Right
+            || (OperatingSystem.IsMacOS()
+                && button == TerminalMouseButton.Left
+                && modifiers.HasFlag(AvaloniaKeyModifiers.Control));
+
+        // A program that reads the mouse gets the right button, as in Terminal and
+        // iTerm2. Shift asks for the terminal's own menu instead, as it does for
+        // selection.
+        return secondaryClick
+            && (_snapshot?.IsMouseTrackingEnabled != true
+                || modifiers.HasFlag(AvaloniaKeyModifiers.Shift));
+    }
+
+    /// <summary>
+    /// The terminal's context menu: editing first, then find, then layout, with
+    /// the one destructive command last.
+    /// </summary>
+    internal ContextMenu CreateContextMenu()
+    {
+        var menu = new ContextMenu();
+        var canWrite = (Profile?.ClipboardPolicy.WriteAccess
+            ?? TerminalClipboardPolicy.Default.WriteAccess) != TerminalClipboardAccess.Deny;
+        var canRead = (Profile?.ClipboardPolicy.ReadAccess
+            ?? TerminalClipboardPolicy.Default.ReadAccess) != TerminalClipboardAccess.Deny;
+        menu.Items.Add(CommandItem("Copy", BuiltInCommands.Copy, canWrite && HasVisibleSelection()));
+        menu.Items.Add(CommandItem("Paste", BuiltInCommands.Paste, canRead && !IsCopyMode));
+        menu.Items.Add(CommandItem("Select All", BuiltInCommands.SelectAll, ViewportRowCount > 0));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(CommandItem("Find…", BuiltInCommands.Find, isEnabled: true));
+        if (CanSplit)
+        {
+            menu.Items.Add(new Separator());
+            menu.Items.Add(SplitItem("Split Right", PanelSplitOrientation.LeftRight));
+            menu.Items.Add(SplitItem("Split Down", PanelSplitOrientation.TopBottom));
+        }
+
+        menu.Items.Add(new Separator());
+        menu.Items.Add(CommandItem("Clear Scrollback", BuiltInCommands.ClearScrollback, isEnabled: true));
+        return menu;
+
+        MenuItem CommandItem(string header, CommandId command, bool isEnabled)
+        {
+            var item = new MenuItem { Header = header, IsEnabled = isEnabled };
+            item.Click += (_, _) => ObserveInputAsync(ExecuteCommandAsync(command).AsValueTask());
+            return item;
+        }
+
+        MenuItem SplitItem(string header, PanelSplitOrientation orientation)
+        {
+            var item = new MenuItem { Header = header };
+            item.Click += (_, _) => SplitRequested?.Invoke(this, orientation);
+            return item;
+        }
+    }
+
+    private void OpenContextMenu(bool fromKeyboard)
+    {
+        _contextMenu?.Close();
+        var menu = CreateContextMenu();
+        if (fromKeyboard)
+        {
+            menu.Placement = PlacementMode.Bottom;
+            menu.PlacementRect = GetImeCursorRectangle();
+        }
+
+        _contextMenu = menu;
+        menu.Open(this);
+    }
+
+    private void OnContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        _ = sender;
+        e.Handled = true;
+        if (e.TryGetPosition(this, out _))
+        {
+            // A pointer request was answered when the button went down, or it
+            // belongs to the program reading the mouse.
+            return;
+        }
+
+        if (_isInputReady && !IsInteractionModalVisible)
+        {
+            OpenContextMenu(fromKeyboard: true);
+        }
+    }
+
+    private bool HasVisibleSelection() =>
+        _renderFrame?.ViewportRows.Any(row => row.Cells.Any(cell => cell.IsSelected))
+            ?? _snapshot?.StructuredRows.Any(row => row.Cells.Any(cell => cell.IsSelected))
+            ?? false;
+
+    private bool AcceptsFileDrop(DragEventArgs e) =>
+        _isInputReady
+        && !IsInteractionModalVisible
+        && !IsCopyMode
+        && e.DataTransfer.Contains(DataFormat.File);
+
+    private void OnFileDragOver(object? sender, DragEventArgs e)
+    {
+        _ = sender;
+        e.DragEffects = AcceptsFileDrop(e) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// A Finder drop types the files' shell-escaped paths at the prompt, separated
+    /// by spaces and followed by one, as in Terminal. Nothing runs until Return.
+    /// </summary>
+    private void OnFileDrop(object? sender, DragEventArgs e)
+    {
+        _ = sender;
+        var paths = AcceptsFileDrop(e)
+            ? e.DataTransfer.TryGetFiles()?
+                .Select(file => file.TryGetLocalPath())
+                .OfType<string>()
+                .ToArray()
+            : null;
+        if (paths is not { Length: > 0 })
+        {
+            e.DragEffects = DragDropEffects.None;
+            return;
+        }
+
+        e.DragEffects = DragDropEffects.Copy;
+        e.Handled = true;
+        FocusRequested?.Invoke(this, EventArgs.Empty);
+        ObserveInputAsync(InsertDroppedPathsAsync(paths).AsValueTask());
+    }
+
+    internal ValueTask<TerminalPasteResult> InsertDroppedPathsAsync(
+        IReadOnlyList<string> paths,
+        CancellationToken cancellationToken = default) =>
+        PasteTextAsync(ManagedTerminalInput.FormatDroppedPaths(paths) + " ", cancellationToken);
+
     private void ResetLocalSelectionGesture()
     {
         _isSelecting = false;
@@ -2473,7 +3149,9 @@ public sealed class ManagedTerminalSurface : Control
 
     private void UpdateAutomationStatus()
     {
-        var state = _isInputReady ? "input ready" : "input unavailable";
+        var state = !_isInputReady
+            ? "input unavailable"
+            : IsCopyMode ? "copy mode" : "input ready";
         var commandStatus = string.IsNullOrEmpty(CommandStatusMessage)
             ? string.Empty
             : $", {CommandStatusMessage}";
@@ -2537,12 +3215,7 @@ public sealed class ManagedTerminalSurface : Control
             Math.Max(1, Math.Min(cell.Height, surfaceHeight - y)));
     }
 
-    private void ResetPendingLink()
-    {
-        _pendingLink = null;
-        IsLinkConfirmationVisible = false;
-        InvalidateVisual();
-    }
+    private void ResetPendingLink() => SetPendingLink(null);
 
     private void UpdateCursorTimer()
     {
@@ -2631,6 +3304,18 @@ public sealed class ManagedTerminalSurface : Control
 
         ClearCommandStatus();
         return true;
+    }
+
+    private void ObserveKeyHandling(KeyEventArgs e, ValueTask<bool> handling)
+    {
+        if (!handling.IsCompletedSuccessfully)
+        {
+            e.Handled = true;
+            ObserveInputAsync(handling.AsValueTask());
+            return;
+        }
+
+        e.Handled = handling.Result;
     }
 
     private void ObserveInputAsync(ValueTask task)
