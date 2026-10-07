@@ -75,6 +75,44 @@ public sealed class DesignSystemComponentsHeadlessTests
             Assert.Equal(1, Part<ContentPresenter>(Part<Button>(tile, "PART_Open"), "PART_Mark").Opacity);
         });
 
+    /// <summary>
+    /// A click focuses the Open button as well, and switching workspace does
+    /// not move focus away. A tile that opened on that focus stayed widened
+    /// over the canvas, Terminate live, after the pointer had left.
+    /// </summary>
+    [Fact]
+    public Task Rail_tile_stays_closed_when_a_click_focuses_it() =>
+        RunHeadlessAsync(window =>
+        {
+            window.Classes.Add("motion-disabled");
+            var tile = new WorkspaceRailTile { Accent = "#2B62C4", IsRunning = true, CanClose = true, CanSave = true };
+            var elsewhere = new Button { Content = "Canvas" };
+            Show(window, new StackPanel { Children = { tile, elsewhere } });
+
+            var surface = Part<Border>(tile, "PART_Surface");
+            var resting = surface.Bounds.Width;
+            var open = Part<Button>(tile, "PART_Open");
+            var close = Part<Button>(tile, "PART_Close");
+
+            Assert.True(open.Focus(NavigationMethod.Pointer));
+            window.UpdateLayout();
+            Assert.Equal(resting, surface.Bounds.Width);
+            Assert.False(close.IsHitTestVisible);
+            Assert.Equal(0, surface.BoxShadow.Count);
+
+            // The keyboard opens it, and walking between its actions keeps it
+            // open; leaving it closes it again.
+            Assert.True(open.Focus(NavigationMethod.Tab));
+            Assert.True(close.Focus(NavigationMethod.Tab));
+            window.UpdateLayout();
+            Assert.True(surface.Bounds.Width > resting);
+            Assert.True(close.IsHitTestVisible);
+
+            Assert.True(elsewhere.Focus(NavigationMethod.Tab));
+            window.UpdateLayout();
+            Assert.Equal(resting, surface.Bounds.Width);
+        });
+
     [Fact]
     public Task Reduce_motion_leaves_the_agent_glow_as_a_still_outline() =>
         RunHeadlessAsync(window =>
@@ -89,6 +127,22 @@ public sealed class DesignSystemComponentsHeadlessTests
             Assert.Equal(0, glow.BoxShadow.Count);
             Assert.Equal(new Thickness(2), glow.BorderThickness);
             Assert.Equal(1, glow.Opacity);
+        });
+
+    /// <summary>The Quick Terminal draws the glow over a window, not a panel.</summary>
+    [Fact]
+    public Task Reduce_motion_leaves_the_window_glow_as_a_still_outline() =>
+        RunHeadlessAsync(window =>
+        {
+            var glow = new Border { Classes = { "PanelAgentGlow", "WindowGlow" }, Background = Brushes.Transparent };
+            Show(window, glow);
+            Assert.True(glow.BoxShadow.Count > 0);
+            Assert.Equal(new Thickness(1), glow.BorderThickness);
+
+            window.Classes.Add("motion-disabled");
+            window.UpdateLayout();
+            Assert.Equal(0, glow.BoxShadow.Count);
+            Assert.Equal(new Thickness(2), glow.BorderThickness);
         });
 
     [Fact]
@@ -114,6 +168,8 @@ public sealed class DesignSystemComponentsHeadlessTests
     public Task Selection_is_the_accent_while_the_list_has_focus_and_gray_otherwise() =>
         RunHeadlessAsync(window =>
         {
+            // Distinct from the text colour, so the text visibly has to change.
+            window.Resources["ShellAccentForegroundBrush"] = new SolidColorBrush(Colors.Magenta);
             var list = new ListBox { ItemsSource = new[] { "One", "Two" }, SelectedIndex = 0 };
             var other = new Button { Content = "Elsewhere" };
             Show(window, new StackPanel { Children = { list, other } });
@@ -132,6 +188,37 @@ public sealed class DesignSystemComponentsHeadlessTests
             Assert.Equal(accent, Color(presenter.Background));
             var text = row.GetVisualDescendants().OfType<TextBlock>().First();
             Assert.Equal(Brush(window, "ShellAccentForegroundBrush"), Color(text.Foreground));
+        });
+
+    /// <summary>
+    /// A list that draws its own selected row — diff lines, log lines — gets
+    /// neither the accent fill nor the accent's text colour. Text measured
+    /// against an accent the row never shows was white on a near-white diff
+    /// tint.
+    /// </summary>
+    [Fact]
+    public Task A_list_that_draws_its_own_selection_keeps_its_text_colour() =>
+        RunHeadlessAsync(window =>
+        {
+            // A foreground no text in the window draws otherwise, so a row that
+            // took it cannot pass for one that kept its own colour.
+            window.Resources["ShellAccentForegroundBrush"] = new SolidColorBrush(Colors.Magenta);
+            var list = new ListBox { Classes = { "OwnSelection" }, ItemsSource = new[] { "+ added", "- removed" } };
+            Show(window, list);
+
+            var row = Assert.IsType<ListBoxItem>(list.ContainerFromIndex(0));
+            var text = row.GetVisualDescendants().OfType<TextBlock>().First();
+            var resting = Color(text.Foreground);
+
+            list.SelectedIndex = 0;
+            Assert.True(row.Focus(NavigationMethod.Tab));
+            window.UpdateLayout();
+
+            Assert.Equal(resting, Color(text.Foreground));
+            Assert.NotEqual(Colors.Magenta, Color(text.Foreground));
+            Assert.NotEqual(
+                Brush(window, "ShellAccentBrush"),
+                Color(Part<ContentPresenter>(row, "PART_ContentPresenter").Background));
         });
 
     [Fact]
@@ -155,6 +242,7 @@ public sealed class DesignSystemComponentsHeadlessTests
     public Task A_data_table_bands_its_rows_and_selects_like_a_list() =>
         RunHeadlessAsync(window =>
         {
+            window.Resources["ShellAccentForegroundBrush"] = new SolidColorBrush(Colors.Magenta);
             var grid = new DataGrid
             {
                 Classes = { "DatabaseGrid" },
@@ -334,6 +422,39 @@ public sealed class DesignSystemComponentsHeadlessTests
 
             window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
             Assert.Equal(1, escapes);
+        });
+
+    /// <summary>
+    /// A dialog cancels on a tunnelled Escape, which reaches the window before
+    /// the field. Asking the field first lets the first Escape clear the search
+    /// and the second close the sheet.
+    /// </summary>
+    [Fact]
+    public Task A_dialog_leaves_the_first_escape_to_a_search_field_with_text() =>
+        RunHeadlessAsync(window =>
+        {
+            var search = new SearchField { Text = "stage" };
+            var cancels = 0;
+            window.AddHandler(
+                InputElement.KeyDownEvent,
+                (_, args) =>
+                {
+                    if (args.Key == Key.Escape && !SearchField.ClaimsEscape(args))
+                    {
+                        cancels++;
+                        args.Handled = true;
+                    }
+                },
+                Avalonia.Interactivity.RoutingStrategies.Tunnel);
+            Show(window, search);
+            Assert.True(search.Focus());
+
+            window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            Assert.True(string.IsNullOrEmpty(search.Text));
+            Assert.Equal(0, cancels);
+
+            window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            Assert.Equal(1, cancels);
         });
 
     private sealed record TableRow(string Name);

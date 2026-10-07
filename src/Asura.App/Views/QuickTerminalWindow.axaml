@@ -135,15 +135,14 @@
         <!-- Quick Terminal owns a native terminal surface rather than a
              PanelChrome. Mirror the shared, turn-scoped panel-presence glow
              here so its active terminal receives the same signal as every
-             ordinary workspace panel. -->
+             ordinary workspace panel. Its edge and wash come from the
+             WindowGlow style, where Reduce Motion can replace them. -->
         <Border
             Grid.Row="0"
             ZIndex="80"
             Background="Transparent"
             BorderBrush="{DynamicResource ShellAccentBrush}"
-            BorderThickness="1"
-            BoxShadow="{DynamicResource ShellAgentPanelGlowShadow}"
-            Classes="PanelAgentGlow"
+            Classes="PanelAgentGlow WindowGlow"
             CornerRadius="0"
             IsHitTestVisible="False"
             IsVisible="{Binding ActiveTab.HasAgentActivity}" />

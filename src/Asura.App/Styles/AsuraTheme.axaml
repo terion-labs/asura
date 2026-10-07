@@ -385,7 +385,12 @@
     <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
   </Style>
 
-  <Style Selector="ListBox:focus-within ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+  <!-- A list classed OwnSelection draws its selected row itself — a diff
+       line keeps its added or removed tint, a log line stays plain — so the
+       theme gives it neither the accent fill nor the accent's text colour.
+       Text recoloured for an accent fill the row never gets is text measured
+       against the wrong background. -->
+  <Style Selector="ListBox:not(.OwnSelection):focus-within ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
   </Style>
@@ -394,11 +399,11 @@
        never reaches its text by inheritance. Secondary text turns with the
        primary, as it does in a selected Finder row: muted gray on accent is
        the one combination that reads worse than either. -->
-  <Style Selector="ListBox:not(.NeutralSelection):focus-within ListBoxItem:selected TextBlock">
+  <Style Selector="ListBox:not(.NeutralSelection):not(.OwnSelection):focus-within ListBoxItem:selected TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
   </Style>
 
-  <Style Selector="ListBox:not(.NeutralSelection):focus-within ListBoxItem:selected icons|SymbolIcon">
+  <Style Selector="ListBox:not(.NeutralSelection):not(.OwnSelection):focus-within ListBoxItem:selected icons|SymbolIcon">
     <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
   </Style>
 

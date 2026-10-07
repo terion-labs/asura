@@ -41,9 +41,9 @@ public sealed class AccessibilityMarkupContractTests
 
     /// <summary>
     /// A screen reader announces an unnamed field as "edit text" and nothing
-    /// else. A field is named by its own name or label reference, by sitting in
-    /// a component that links its label, or — for a search field — by the
-    /// placeholder that says what it searches.
+    /// else. A field is named by its own name or label reference, by being the
+    /// one control a labelling component links its label to, or — for a search
+    /// field — by the placeholder that says what it searches.
     /// </summary>
     [Fact]
     public void Every_value_input_in_the_application_has_an_accessible_name()
@@ -206,11 +206,34 @@ public sealed class AccessibilityMarkupContractTests
             return true;
         }
 
+        if (element.Ancestors().FirstOrDefault(ancestor => LabellingComponents.Contains(ancestor.Name.LocalName)) is { } component)
+        {
+            return IsLinkedBy(component, element);
+        }
+
         return element.Ancestors().Any(ancestor =>
-            LabellingComponents.Contains(ancestor.Name.LocalName)
-            || (ancestor.Name.LocalName == "ControlTheme"
-                && LabellingComponents.Any(component =>
-                    (Attribute(ancestor, "TargetType") ?? string.Empty).EndsWith(":" + component, StringComparison.Ordinal))));
+            ancestor.Name.LocalName == "ControlTheme"
+            && LabellingComponents.Any(component =>
+                (Attribute(ancestor, "TargetType") ?? string.Empty).EndsWith(":" + component, StringComparison.Ordinal)));
+    }
+
+    /// <summary>
+    /// A labelling component links one control: the first value input in its
+    /// content. Every other input it holds needs a name of its own, and so does
+    /// anything in an item template, which repeats once per row while the link
+    /// reaches only the first row realised.
+    /// </summary>
+    private static bool IsLinkedBy(XElement component, XElement element)
+    {
+        var first = component.Descendants().FirstOrDefault(candidate => ValueInputs.Contains(candidate.Name.LocalName));
+        if (!ReferenceEquals(first, element))
+        {
+            return false;
+        }
+
+        return !element.Ancestors()
+            .TakeWhile(ancestor => !ReferenceEquals(ancestor, component))
+            .Any(ancestor => ancestor.Name.LocalName.EndsWith("DataTemplate", StringComparison.Ordinal));
     }
 
     private static IEnumerable<(string Path, XDocument Document)> ApplicationMarkup() =>

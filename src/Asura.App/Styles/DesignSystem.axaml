@@ -728,10 +728,10 @@
 
       <!-- Where you are, and what the pointer or keyboard is on, all read as
            full colour. Hovering the rail is how you read it. -->
-      <Style Selector="^:current /template/ Border#PART_Wash, ^:pointerover /template/ Border#PART_Wash, ^:focus-within /template/ Border#PART_Wash">
+      <Style Selector="^:current /template/ Border#PART_Wash, ^:pointerover /template/ Border#PART_Wash, ^:keyboard-focus-within /template/ Border#PART_Wash">
         <Setter Property="Opacity" Value="1" />
       </Style>
-      <Style Selector="^:current /template/ Border#PART_IsolationMaskWash, ^:pointerover /template/ Border#PART_IsolationMaskWash, ^:focus-within /template/ Border#PART_IsolationMaskWash">
+      <Style Selector="^:current /template/ Border#PART_IsolationMaskWash, ^:pointerover /template/ Border#PART_IsolationMaskWash, ^:keyboard-focus-within /template/ Border#PART_IsolationMaskWash">
         <Setter Property="Opacity" Value="1" />
       </Style>
       <!-- The tile you are in needs no outline as well: it is already the
@@ -748,33 +748,36 @@
            something to close and somewhere to fall back to. Keyboard focus
            opens the tile the same way: Tab reaches the actions whether or not
            the pointer is there, and an action you can focus but not see is an
-           action you can trigger by accident. -->
-      <Style Selector="^:closable:pointerover /template/ Border#PART_Surface, ^:closable:focus-within /template/ Border#PART_Surface">
+           action you can trigger by accident. Only keyboard focus: a click
+           focuses the button it lands on too, and a tile that stayed open over
+           the canvas after the pointer left, Terminate live, would be a tile
+           left open by accident. -->
+      <Style Selector="^:closable:pointerover /template/ Border#PART_Surface, ^:closable:keyboard-focus-within /template/ Border#PART_Surface">
         <Setter Property="Width" Value="{DynamicResource ShellWorkspaceRailTileExpandedWidth}" />
         <!-- It is standing off the rail and over the canvas, so it casts the
              same shadow anything else that floats above the page does. -->
         <Setter Property="BoxShadow" Value="{DynamicResource ShellOverlayShadow}" />
       </Style>
-      <Style Selector="^:closable:pointerover /template/ Border#PART_Ring, ^:closable:focus-within /template/ Border#PART_Ring">
+      <Style Selector="^:closable:pointerover /template/ Border#PART_Ring, ^:closable:keyboard-focus-within /template/ Border#PART_Ring">
         <Setter Property="Width" Value="{DynamicResource ShellWorkspaceRailTileExpandedWidth}" />
       </Style>
-      <Style Selector="^:saveable:pointerover /template/ Border#PART_Surface, ^:saveable:focus-within /template/ Border#PART_Surface">
+      <Style Selector="^:saveable:pointerover /template/ Border#PART_Surface, ^:saveable:keyboard-focus-within /template/ Border#PART_Surface">
         <Setter Property="Width" Value="{DynamicResource ShellWorkspaceRailTileExpandedWidth}" />
       </Style>
-      <Style Selector="^:saveable:pointerover /template/ Border#PART_Ring, ^:saveable:focus-within /template/ Border#PART_Ring">
+      <Style Selector="^:saveable:pointerover /template/ Border#PART_Ring, ^:saveable:keyboard-focus-within /template/ Border#PART_Ring">
         <Setter Property="Width" Value="{DynamicResource ShellWorkspaceRailTileExpandedWidth}" />
       </Style>
-      <Style Selector="^:saveable:closable:pointerover /template/ Border#PART_Surface, ^:saveable:closable:focus-within /template/ Border#PART_Surface">
+      <Style Selector="^:saveable:closable:pointerover /template/ Border#PART_Surface, ^:saveable:closable:keyboard-focus-within /template/ Border#PART_Surface">
         <Setter Property="Width" Value="{DynamicResource ShellWorkspaceRailTileSaveWidth}" />
       </Style>
-      <Style Selector="^:saveable:closable:pointerover /template/ Border#PART_Ring, ^:saveable:closable:focus-within /template/ Border#PART_Ring">
+      <Style Selector="^:saveable:closable:pointerover /template/ Border#PART_Ring, ^:saveable:closable:keyboard-focus-within /template/ Border#PART_Ring">
         <Setter Property="Width" Value="{DynamicResource ShellWorkspaceRailTileSaveWidth}" />
       </Style>
       <Style Selector="^:saveable /template/ Button#PART_Save">
         <Setter Property="IsVisible" Value="True" />
         <Setter Property="IsHitTestVisible" Value="False" />
       </Style>
-      <Style Selector="^:saveable:pointerover /template/ Button#PART_Save, ^:saveable:focus-within /template/ Button#PART_Save">
+      <Style Selector="^:saveable:pointerover /template/ Button#PART_Save, ^:saveable:keyboard-focus-within /template/ Button#PART_Save">
         <Setter Property="IsHitTestVisible" Value="True" />
       </Style>
       <Style Selector="^:expandsleft /template/ Button#PART_Save">
@@ -803,7 +806,7 @@
         <Setter Property="IsVisible" Value="True" />
         <Setter Property="IsHitTestVisible" Value="False" />
       </Style>
-      <Style Selector="^:closable:pointerover /template/ Button#PART_Close, ^:closable:focus-within /template/ Button#PART_Close">
+      <Style Selector="^:closable:pointerover /template/ Button#PART_Close, ^:closable:keyboard-focus-within /template/ Button#PART_Close">
         <Setter Property="IsHitTestVisible" Value="True" />
       </Style>
 
@@ -1708,6 +1711,13 @@
       </Animation>
     </Style.Animations>
   </Style>
+  <!-- The same glow drawn straight over a window's content rather than in a
+       panel's template — the Quick Terminal's. Set here rather than on the
+       element, where the Reduce Motion form below could not reach it. -->
+  <Style Selector="Border.PanelAgentGlow.WindowGlow">
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BoxShadow" Value="{DynamicResource ShellAgentPanelGlowShadow}" />
+  </Style>
   <Style Selector="Window:not(.motion-disabled) Border.PanelAgentGlow">
     <Style.Animations>
       <Animation Duration="0:0:5" IterationCount="INFINITE">
@@ -1759,6 +1769,7 @@
        the same outline. -->
   <Style Selector="Window.motion-disabled Border.PanelAgentGlow">
     <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="2" />
     <Setter Property="BoxShadow" Value="none" />
   </Style>
   <Style Selector="Window.motion-disabled controls|PanelChrome /template/ Border#PART_NotificationPulse">

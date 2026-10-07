@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using FluentIcons.Common;
@@ -128,6 +129,8 @@ internal sealed class WorkspaceRailTile : TemplatedControl
     {
         RefreshBrushes();
         RefreshStateClasses();
+        AddHandler(GotFocusEvent, OnActionGotFocus);
+        AddHandler(LostFocusEvent, OnActionLostFocus);
     }
 
     /// <summary>Asked for when the tile is clicked.</summary>
@@ -281,6 +284,29 @@ internal sealed class WorkspaceRailTile : TemplatedControl
 
     /// <summary>How far a resting tile is dimmed toward the rail behind it.</summary>
     private const double RestingBrightness = 0.66;
+
+    /// <summary>
+    /// Opens the tile for the keyboard and not for the pointer. A click focuses
+    /// the button it lands on as well, and the workspace switch it starts does
+    /// not take focus anywhere else, so a tile that opened on any focus inside
+    /// it stayed open over the canvas — shadow, Terminate and all — after the
+    /// pointer had left.
+    /// </summary>
+    private void OnActionGotFocus(object? sender, FocusChangedEventArgs e)
+    {
+        _ = sender;
+        PseudoClasses.Set(
+            ":keyboard-focus-within",
+            e.NavigationMethod is NavigationMethod.Tab or NavigationMethod.Directional);
+    }
+
+    private void OnActionLostFocus(object? sender, FocusChangedEventArgs e)
+    {
+        _ = sender;
+        // Focus moving from one action to the next arrives here first and
+        // then as a fresh GotFocus, which sets the class again.
+        PseudoClasses.Set(":keyboard-focus-within", false);
+    }
 
     private void OnOpenClick(object? sender, RoutedEventArgs e)
     {

@@ -4,6 +4,7 @@ using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using FluentIcons.Avalonia;
 using FluentIcons.Common;
 
@@ -70,11 +71,24 @@ internal sealed class SearchField : TextBox
         }
     }
 
+    /// <summary>
+    /// Whether this Escape belongs to a search field that has text to clear.
+    ///
+    /// A dialog cancels on a tunnelled Escape, and a tunnel reaches the window
+    /// before it reaches the field, so the field cannot claim the key first on
+    /// its own. Every window-level Escape handler asks this before it cancels
+    /// or hides, and leaves the key to the field when the answer is yes: the
+    /// first Escape clears the search, the second closes the sheet.
+    /// </summary>
+    public static bool ClaimsEscape(KeyEventArgs e) =>
+        e.Key == Key.Escape
+        && e.KeyModifiers == KeyModifiers.None
+        && (e.Source as Visual)?.FindAncestorOfType<SearchField>(includeSelf: true) is { } field
+        && !string.IsNullOrEmpty(field.Text);
+
     protected override void OnKeyDown(KeyEventArgs e)
     {
-        if (e.Key == Key.Escape
-            && e.KeyModifiers == KeyModifiers.None
-            && !string.IsNullOrEmpty(Text))
+        if (ClaimsEscape(e))
         {
             Clear();
             e.Handled = true;

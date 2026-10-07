@@ -125,7 +125,7 @@
         SelectionMode="Multiple,Toggle"
         SelectionChanged="OnDiffSelection"
         SelectedItem="{Binding DiffSearchMatch}"
-        Classes="GitDiffLines"
+        Classes="GitDiffLines OwnSelection"
         Background="Transparent"
         BorderThickness="0"
         Padding="0"
@@ -176,7 +176,7 @@
     <ListBox
         x:Name="SplitLines"
         Grid.Row="3"
-        Classes="GitDiffLines"
+        Classes="GitDiffLines OwnSelection"
         Background="Transparent"
         BorderThickness="0"
         Padding="0"
