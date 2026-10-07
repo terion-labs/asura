@@ -320,6 +320,37 @@ public sealed class SystemMonitorRuntimePanelViewModelTests
         Assert.Equal("1.0%", panel.Processes[0].Cpu);
     }
 
+    /// <summary>
+    /// Rows are reused slots, so after a re-sort the selected rows show other
+    /// processes. The panel remembers the selected processes themselves and
+    /// hands the table the rows that show them now.
+    /// </summary>
+    [Fact]
+    public async Task ProcessSelectionFollowsTheProcessesAcrossARefreshThatReorders()
+    {
+        var (client, host) = CreateHost();
+        var first = ProcessRange(cpuOffset: 0);
+        host.ProcessResults.Enqueue(ProcessSuccess(first));
+        host.ProcessResults.Enqueue(ProcessSuccess(first with { Processes = [.. first.Processes.Reverse()] }));
+        using var panel = CreateProcessPanel(client);
+        await panel.Start();
+        panel.SetSelectedProcesses([panel.Processes[0], panel.Processes[1]]);
+        var raised = new List<string?>();
+        panel.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        await panel.RefreshAsync();
+
+        Assert.Contains(
+            nameof(ProcessMonitorRuntimePanelViewModel.SelectedProcesses),
+            raised,
+            StringComparer.Ordinal);
+        Assert.Equal(
+            ["process-2", "process-1"],
+            panel.SelectedProcesses.Select(process => process.Name),
+            StringComparer.Ordinal);
+        Assert.Same(panel.Processes[^1], panel.SelectedProcesses[^1]);
+    }
+
     [Fact]
     public async Task DisposalCancelsAnInFlightReadWithoutLateStateMutation()
     {

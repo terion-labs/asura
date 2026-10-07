@@ -350,13 +350,20 @@ public sealed class FileEntryMetadataViewModel
 
     public string Name => Entry.Name;
 
-    public string Kind => Entry.Kind.ToString();
+    /// <summary>The kind in the words the Files panel uses: a folder, not a directory.</summary>
+    public string Kind => Entry.Kind switch
+    {
+        FilePanelEntryKind.Directory => "Folder",
+        FilePanelEntryKind.Link => "Link",
+        FilePanelEntryKind.File => "File",
+        _ => "Other",
+    };
 
     public string Size => Entry.Kind == FilePanelEntryKind.Directory
         ? "Folder"
         : FileEntryViewModel.FormatSize(Entry.Size);
 
-    public string Modified => Entry.LastModifiedAt?.ToLocalTime().ToString("g", System.Globalization.CultureInfo.InvariantCulture) ?? "Unknown";
+    public string Modified => DisplayDates.Format(Entry.LastModifiedAt);
 
     public string Location => FileLocationPresentation.Display(Entry.Location);
 

@@ -10850,7 +10850,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             previewers: null,
             _inMemoryDatabaseRegistry,
             _filePreviewPreferences,
-            FileTransferClipboard);
+            FileTransferClipboard,
+            trash: FileTrash.ForThisMachine);
     }
 
     private FileProviderProfileDescriptor? ResolveFileProfile(

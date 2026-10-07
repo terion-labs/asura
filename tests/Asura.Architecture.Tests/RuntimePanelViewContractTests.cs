@@ -597,15 +597,6 @@ public sealed class RuntimePanelViewContractTests
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Value")
 , "{controls:Inset Horizontal=Xs}", StringComparison.Ordinal));
         }
-
-        var processMonitor = Assert.IsType<XElement>(
-            XDocument.Load(RuntimePanelPath("ProcessMonitorRuntimePanelView", ".axaml")).Root);
-        var processList = Assert.Single(
-            processMonitor.Descendants(),
-            element => string.Equals(element.Name.LocalName, "ListBox"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "AutomationProperties.Name")
-, "Process list", StringComparison.Ordinal));
-        Assert.Equal("{controls:Inset Xs}", AttributeValue(processList, "Margin"));
     }
 
     /// <summary>
@@ -1915,6 +1906,16 @@ public sealed class RuntimePanelViewContractTests
             "DragDrop.DoDragDropAsync(",
             codeBehind,
             StringComparison.Ordinal);
+
+        // A drag between panels stays the shell's own captured drag. Only
+        // once the pointer leaves the window with local files is it handed to
+        // the system, so Finder can take the files.
+        var dragOut = File.ReadAllText(
+            RuntimePanelPath("FileRuntimePanelView", ".DragOut.cs"));
+        Assert.Contains("DragDrop.DoDragDropAsync(", dragOut, StringComparison.Ordinal);
+        Assert.Contains("IsOutside(window,", dragOut, StringComparison.Ordinal);
+        Assert.Contains("DataTransferItem.CreateFile(", dragOut, StringComparison.Ordinal);
+        Assert.Contains("TryHandOffToSystemDrag(e, active, window)", codeBehind, StringComparison.Ordinal);
         Assert.Contains(
             "AddHandler(DragDrop.DragLeaveEvent, OnFileDragLeave)",
             codeBehind,
@@ -1981,107 +1982,48 @@ public sealed class RuntimePanelViewContractTests
             AttributeValue(unavailable, "AutomationProperties.LiveSetting"));
     }
 
+    /// <summary>
+    /// The process list is a Mac table: the shared data-grid theme, sortable
+    /// column headers that ask the host for the order (it bounds the sample by
+    /// that order, so the grid must not reorder rows itself), several rows at
+    /// once, and a menu on the rows. It used to be hand-built from buttons
+    /// and text blocks.
+    /// </summary>
     [Fact]
-    public void Process_monitor_sort_is_owned_by_clickable_column_headers()
+    public void Process_monitor_is_a_sortable_extended_selection_table()
     {
         var document = LoadRuntimePanelView("ProcessMonitorRuntimePanelView");
         var root = Assert.IsType<XElement>(document.Root);
-        var sortHeaders = new Dictionary<
-            string,
-            (string Handler, string StateBinding, string Padding, string? Width)>(StringComparer.Ordinal)
-        {
-            ["Sort processes by PID"] = (
-                "OnSortProcessIdClick",
-                "{Binding IsSortingByProcessId}",
-                "0",
-                "70"),
-            ["Sort processes by name"] = (
-                "OnSortNameClick",
-                "{Binding IsSortingByName}",
-                "{controls:Inset Horizontal=Sm}",
-                null),
-            ["Sort processes by CPU"] = (
-                "OnSortCpuClick",
-                "{Binding IsSortingByCpu}",
-                "{controls:Inset Horizontal=Sm}",
-                "90"),
-            ["Sort processes by memory"] = (
-                "OnSortMemoryClick",
-                "{Binding IsSortingByMemory}",
-                "{controls:Inset Horizontal=Sm}",
-                "110"),
-        };
+        var grid = FindUniqueAccessibleElement(root, "Process list");
 
+        Assert.Equal("DataGrid", grid.Name.LocalName);
+        Assert.True(HasClass(grid, "DatabaseGrid"));
+        Assert.Equal("Extended", AttributeValue(grid, "SelectionMode"));
+        Assert.Equal("True", AttributeValue(grid, "CanUserSortColumns"));
+        Assert.Equal("OnProcessSorting", AttributeValue(grid, "Sorting"));
+        Assert.Equal("{Binding Processes}", AttributeValue(grid, "ItemsSource"));
+        Assert.Contains(
+            grid.Descendants(),
+            element => string.Equals(element.Name.LocalName, "ContextMenu", StringComparison.Ordinal));
         Assert.DoesNotContain(
             root.Descendants(),
-            element => string.Equals(
-                AttributeValue(element, "AutomationProperties.Name"),
-                "Process sort order",
-                StringComparison.Ordinal));
-        foreach (var (accessibleName, sortHeader) in sortHeaders)
-        {
-            var button = FindUniqueAccessibleElement(root, accessibleName);
-            Assert.Equal("Button", button.Name.LocalName);
-            Assert.Equal(sortHeader.Handler, AttributeValue(button, "Click"));
-            Assert.True(HasClass(button, "ProcessColumnHeader"));
-            Assert.Equal(
-                sortHeader.StateBinding,
-                AttributeValue(button, "Classes.sorted"));
-            Assert.Equal(
-                "{Binding IsSortDescending}",
-                AttributeValue(button, "Classes.descending"));
-            Assert.Equal(
-                sortHeader.Padding,
-                AttributeValue(button, "Padding"));
-            Assert.Equal(sortHeader.Width, AttributeValue(button, "Width"));
-            Assert.Null(AttributeValue(button, "Margin"));
-            Assert.Contains(
-                button.Descendants(),
-                element => string.Equals(
-                    AttributeValue(element, "Symbol"),
-                    "ArrowUp",
-                    StringComparison.Ordinal));
-            Assert.Contains(
-                button.Descendants(),
-                element => string.Equals(
-                    AttributeValue(element, "Symbol"),
-                    "ArrowDown",
-                    StringComparison.Ordinal));
-        }
+            element => string.Equals(element.Name.LocalName, "ListBox", StringComparison.Ordinal));
 
-        var startedHeader = Assert.Single(
-            root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "TextBlock", StringComparison.Ordinal)
-                && string.Equals(
-                    AttributeValue(element, "Text"),
-                    "Started",
-                    StringComparison.Ordinal));
-        Assert.True(HasClass(startedHeader, "StartedCell"));
+        var sortable = grid.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "DataGridTextColumn", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "CanUserSort"), "True", StringComparison.Ordinal))
+            .Select(element => AttributeValue(element, "Tag") ?? string.Empty)
+            .ToArray();
+        Assert.Equal(["ProcessId", "Name", "Cpu", "Memory"], sortable);
 
-        var headerStyle = Assert.Single(
-            root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "Style", StringComparison.Ordinal)
-                && string.Equals(
-                    AttributeValue(element, "Selector"),
-                    "Button.ProcessColumnHeader",
-                    StringComparison.Ordinal));
-        Assert.Contains(
-            headerStyle.Elements(),
-            setter => string.Equals(
-                    AttributeValue(setter, "Property"),
-                    "HorizontalAlignment",
-                    StringComparison.Ordinal)
-                && string.Equals(
-                    AttributeValue(setter, "Value"),
-                    "Stretch",
-                    StringComparison.Ordinal));
-        Assert.Contains(
-            root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "Style", StringComparison.Ordinal)
-                && string.Equals(
-                    AttributeValue(element, "Selector"),
-                    "Button.ProcessColumnHeader:pointerover /template/ ContentPresenter",
-                    StringComparison.Ordinal));
+        var filter = FindUniqueAccessibleElement(root, "Filter processes");
+        Assert.Equal("SearchField", filter.Name.LocalName);
+
+        var codeBehind = File.ReadAllText(
+            RuntimePanelPath("ProcessMonitorRuntimePanelView", ".axaml.cs"));
+        Assert.Contains("e.Handled = true;", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("panel.ChangeSort(sort);", codeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain("private async ", codeBehind, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -2122,6 +2064,85 @@ public sealed class RuntimePanelViewContractTests
         Assert.Contains("Network receive", visibleCopy, StringComparison.Ordinal);
         Assert.Contains("Network send", visibleCopy, StringComparison.Ordinal);
         Assert.Contains("Running processes", visibleCopy, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The Files panel follows the Mac's list conventions: every listing jumps
+    /// to a typed name, the filter is the shared search field, the header mark
+    /// follows the connection instead of a fixed green dot, the "more" button
+    /// is a horizontal ellipsis, preview options are checkboxes, and icons sit
+    /// on the icon ramp rather than literal sizes.
+    /// </summary>
+    [Fact]
+    public void File_panel_lists_search_status_and_options_follow_mac_conventions()
+    {
+        var root = Assert.IsType<XElement>(LoadRuntimePanelView("FileRuntimePanelView").Root);
+        var listings = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "ListBox", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "ItemsSource"), "{Binding Entries}", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.Equal(3, listings.Length);
+        Assert.All(listings, list => Assert.Equal("True", AttributeValue(list, "IsTextSearchEnabled")));
+
+        var filter = Assert.Single(
+            root.Descendants(),
+            element => string.Equals(AttributeValue(element, "Name"), "FileFilterBox", StringComparison.Ordinal));
+        Assert.Equal("SearchField", filter.Name.LocalName);
+        Assert.Equal("{Binding FilterPlaceholder}", AttributeValue(filter, "PlaceholderText"));
+
+        var status = Assert.Single(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "PanelChrome.Status", StringComparison.Ordinal));
+        var mark = Assert.Single(status.Elements());
+        Assert.Equal("StatusMark", mark.Name.LocalName);
+        Assert.Equal("{Binding StatusTone}", AttributeValue(mark, "Tone"));
+        Assert.Equal("{Binding StatusDescription}", AttributeValue(mark, "Description"));
+
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => string.Equals(AttributeValue(element, "Symbol"), "MoreVertical", StringComparison.Ordinal));
+        Assert.Contains(
+            root.Descendants(),
+            element => string.Equals(AttributeValue(element, "Symbol"), "MoreCircle", StringComparison.Ordinal));
+        Assert.All(
+            root.Descendants().Where(element => string.Equals(element.Name.LocalName, "SymbolIcon", StringComparison.Ordinal)
+                && AttributeValue(element, "FontSize") is not null),
+            icon => Assert.StartsWith(
+                "{DynamicResource ShellIconSize",
+                AttributeValue(icon, "FontSize"),
+                StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Each chart states its unit so it can label the top of its scale, and
+    /// the failure that replaces the charts is opaque and hidden until the
+    /// panel says otherwise, so it never floats over a chart.
+    /// </summary>
+    [Fact]
+    public void Statistics_charts_state_their_units_and_the_failure_replaces_them()
+    {
+        var root = Assert.IsType<XElement>(LoadRuntimePanelView("StatisticsRuntimePanelView").Root);
+        var charts = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "TimeSeriesChart", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.All(charts, chart =>
+        {
+            Assert.NotNull(AttributeValue(chart, "Unit"));
+            Assert.Equal("{Binding SampleInterval}", AttributeValue(chart, "SampleInterval"));
+            Assert.NotNull(AttributeValue(chart, "LabelBrush"));
+        });
+        Assert.DoesNotContain(
+            root.Descendants().Select(element => AttributeValue(element, "Text")),
+            text => text?.Contains("auto scale", StringComparison.Ordinal) == true);
+
+        var unavailable = FindUniqueAccessibleElement(root, "Statistics unavailable");
+        Assert.Equal("{Binding ShowTerminalError, FallbackValue=False}", AttributeValue(unavailable, "IsVisible"));
+        Assert.Equal("{DynamicResource ShellSurfaceBrush}", AttributeValue(unavailable, "Background"));
     }
 
     private static XElement OverflowMenu(XElement root) => Assert.Single(

@@ -224,7 +224,7 @@ public sealed class FileRuntimePanelViewModelTests
         for (var index = 1; index < panel.MenuActions.Count; index++)
         {
             Assert.Equal(
-                panel.MenuActions[index - 1].Group != panel.MenuActions[index].Group,
+                panel.MenuActions[index - 1].Band != panel.MenuActions[index].Band,
                 panel.MenuActions[index].StartsGroup);
         }
     }
@@ -340,12 +340,12 @@ public sealed class FileRuntimePanelViewModelTests
 
         await panel.StartInitialization();
 
-        Assert.Equal("2 item(s)", panel.Status);
+        Assert.Equal("2 items", panel.Status);
         Assert.Equal("2", panel.ShortStatus);
 
         panel.Filter = "alp";
 
-        Assert.Equal("1 of 2 item(s)", panel.Status);
+        Assert.Equal("1 of 2 items", panel.Status);
         Assert.Equal("1/2", panel.ShortStatus);
     }
 
@@ -511,18 +511,18 @@ public sealed class FileRuntimePanelViewModelTests
             panel.Entries,
             item => Assert.Equal("alpha", item.Name),
             item => Assert.Equal("zeta.txt", item.Name));
-        Assert.Equal("2 item(s)", panel.Status);
+        Assert.Equal("2 items", panel.Status);
 
         panel.Filter = "zeta";
 
         var visible = Assert.Single(panel.Entries);
         Assert.Equal("zeta.txt", visible.Name);
-        Assert.Equal("1 of 2 item(s)", panel.Status);
+        Assert.Equal("1 of 2 items", panel.Status);
 
         panel.Filter = "missing";
 
         Assert.Empty(panel.Entries);
-        Assert.Equal("0 of 2 item(s)", panel.Status);
+        Assert.Equal("0 of 2 items", panel.Status);
         Assert.Equal(FileBrowserContentState.SearchNoResults, panel.ContentState);
         Assert.True(panel.ShowSearchNoResultsState);
         Assert.Equal(
@@ -533,7 +533,7 @@ public sealed class FileRuntimePanelViewModelTests
         panel.Filter = string.Empty;
 
         Assert.Equal(2, panel.Entries.Count);
-        Assert.Equal("2 item(s)", panel.Status);
+        Assert.Equal("2 items", panel.Status);
         Assert.Equal(FileBrowserContentState.Ready, panel.ContentState);
     }
 
@@ -628,7 +628,7 @@ public sealed class FileRuntimePanelViewModelTests
 
         var result = Assert.Single(panel.Entries);
         Assert.Equal(nested, result.Entry.Location);
-        Assert.Equal("1 search result(s)", panel.Status);
+        Assert.Equal("1 search result", panel.Status);
     }
 
     [Fact]

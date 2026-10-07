@@ -22,7 +22,8 @@ public sealed class FileActionViewModel
         Symbol symbol,
         KeyGesture? gesture,
         bool startsGroup,
-        Action<FilePanelAction> request)
+        Action<FilePanelAction> request,
+        bool isDestructive = false)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(label);
@@ -38,11 +39,16 @@ public sealed class FileActionViewModel
         Symbol = symbol;
         Gesture = gesture;
         StartsGroup = startsGroup;
+        Band = FilePanelActionPresentation.Band(state.Action);
+        IsDestructive = isDestructive;
     }
 
     public FilePanelAction Action { get; }
 
     public FilePanelActionGroup Group { get; }
+
+    /// <summary>The band of the menu it is shown in; a rule separates bands.</summary>
+    public FileMenuBand Band { get; }
 
     /// <summary>Whether it acts on what is selected or on the folder shown.</summary>
     public FilePanelActionScope Scope { get; }
@@ -70,8 +76,11 @@ public sealed class FileActionViewModel
     /// </summary>
     public bool StartsGroup { get; }
 
-    /// <summary>Deleting is drawn in the danger colour wherever it appears.</summary>
-    public bool IsDestructive => Action == FilePanelAction.Delete;
+    /// <summary>
+    /// A permanent delete is drawn in the danger colour wherever it appears.
+    /// Moving to the Trash is not: it can be undone.
+    /// </summary>
+    public bool IsDestructive { get; }
 
     /// <summary>
     /// What a button or a menu row invokes. A command rather than a click
@@ -105,30 +114,67 @@ public sealed class FileActionViewModel
 }
 
 /// <summary>
+/// The bands a file menu is drawn in, top to bottom. A menu keeps to a few
+/// groups and puts what destroys data last, behind its own rule, where it is
+/// hardest to choose by accident.
+/// </summary>
+public enum FileMenuBand
+{
+    /// <summary>Reaching what is selected.</summary>
+    Open,
+
+    /// <summary>Moving bytes: transfers and the transfer clipboard.</summary>
+    Move,
+
+    /// <summary>Making, naming, describing and rereading.</summary>
+    Organize,
+
+    /// <summary>Taking it away.</summary>
+    Remove,
+}
+
+/// <summary>
 /// What each action is called and what it looks like. Kept apart from the rules
 /// that decide whether it is possible: one is a matter of language, the other of
 /// what the connection can do.
+///
+/// Labels are title case, as menu items are, and carry an ellipsis when the
+/// action asks for more before it acts.
 /// </summary>
 internal static class FilePanelActionPresentation
 {
-    public static string Label(FilePanelAction action) => action switch
+    public static string Label(FilePanelAction action, bool movesToTrash = false) => action switch
     {
         FilePanelAction.Open => "Open",
-        FilePanelAction.OpenExternally => "Open with default app",
+        FilePanelAction.OpenExternally => "Open With Default App",
         FilePanelAction.Download => "Download…",
         FilePanelAction.Upload => "Upload…",
         FilePanelAction.Transfer => "Transfer…",
         FilePanelAction.Copy => "Copy",
         FilePanelAction.Cut => "Cut",
         FilePanelAction.Paste => "Paste",
-        FilePanelAction.NewFolder => "New folder…",
+        FilePanelAction.NewFolder => "New Folder…",
         FilePanelAction.Rename => "Rename…",
-        FilePanelAction.Delete => "Delete",
-        FilePanelAction.CopyName => "Copy name",
-        FilePanelAction.CopyPath => "Copy path",
+        // Moving to the Trash acts at once; a permanent delete asks first.
+        FilePanelAction.Delete => movesToTrash ? "Move to Trash" : "Delete…",
+        FilePanelAction.CopyName => "Copy Name",
+        FilePanelAction.CopyPath => "Copy Path",
         FilePanelAction.AccessControl => "Permissions…",
         FilePanelAction.Refresh => "Refresh",
         _ => throw new ArgumentOutOfRangeException(nameof(action), action, null),
+    };
+
+    public static FileMenuBand Band(FilePanelAction action) => action switch
+    {
+        FilePanelAction.Open or FilePanelAction.OpenExternally => FileMenuBand.Open,
+        FilePanelAction.Download
+            or FilePanelAction.Upload
+            or FilePanelAction.Transfer
+            or FilePanelAction.Copy
+            or FilePanelAction.Cut
+            or FilePanelAction.Paste => FileMenuBand.Move,
+        FilePanelAction.Delete => FileMenuBand.Remove,
+        _ => FileMenuBand.Organize,
     };
 
     public static Symbol Glyph(FilePanelAction action) => action switch
@@ -152,23 +198,34 @@ internal static class FilePanelActionPresentation
     };
 
     /// <summary>
-    /// The keystroke a menu shows beside the action, where there is one. The
-    /// modifier is the platform's own: a menu that says Ctrl on a Mac is a menu
-    /// nobody trusts.
+    /// The keystroke a menu shows beside the action, where there is one: the
+    /// Finder's keys on a Mac — Command-Down opens, Shift-Command-N makes a
+    /// folder, Command-Delete moves to the Trash — and their Control
+    /// equivalents elsewhere. The panel answers every one of them.
     /// </summary>
     public static KeyGesture? Gesture(FilePanelAction action) => action switch
     {
+        FilePanelAction.Open => new KeyGesture(Key.Down, Accelerator),
         FilePanelAction.Copy => new KeyGesture(Key.C, Accelerator),
         FilePanelAction.Cut => new KeyGesture(Key.X, Accelerator),
         FilePanelAction.Paste => new KeyGesture(Key.V, Accelerator),
+        FilePanelAction.NewFolder => new KeyGesture(Key.N, Accelerator | KeyModifiers.Shift),
+        FilePanelAction.Delete => OperatingSystem.IsMacOS()
+            ? new KeyGesture(Key.Back, KeyModifiers.Meta)
+            : new KeyGesture(Key.Delete),
         _ => null,
     };
 
-    private static KeyModifiers Accelerator => OperatingSystem.IsMacOS()
+    /// <summary>
+    /// The platform's command modifier. A menu that says Ctrl on a Mac is a
+    /// menu nobody trusts, and a Mac list that answers Control-C as if it were
+    /// Command-C takes a key that belongs to something else.
+    /// </summary>
+    internal static KeyModifiers Accelerator => OperatingSystem.IsMacOS()
         ? KeyModifiers.Meta
         : KeyModifiers.Control;
 
-    public static string Description(FilePanelAction action) => action switch
+    public static string Description(FilePanelAction action, bool movesToTrash = false) => action switch
     {
         FilePanelAction.Open => "Open the selected item",
         FilePanelAction.OpenExternally => "Open the selected file in its default application",
@@ -177,7 +234,9 @@ internal static class FilePanelActionPresentation
         FilePanelAction.Transfer => "Transfer the selected item",
         FilePanelAction.NewFolder => "Create a folder here",
         FilePanelAction.Rename => "Rename the selected item",
-        FilePanelAction.Delete => "Delete the selected item",
+        FilePanelAction.Delete => movesToTrash
+            ? "Move the selected items to the Trash"
+            : "Delete the selected item permanently",
         FilePanelAction.Copy => "Copy the selected items, to paste into another folder",
         FilePanelAction.Cut => "Cut the selected items, to move into another folder",
         FilePanelAction.Paste => "Paste what was copied or cut into this folder",

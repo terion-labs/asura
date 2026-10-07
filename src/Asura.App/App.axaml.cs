@@ -840,6 +840,17 @@ public sealed partial class App : Avalonia.Application
                     MidpointRounding.AwayFromZero) / 2);
         }
 
+        // The icon ramp. A glyph is sized from the text it sits beside, so it
+        // grows with the text-size setting instead of staying put while the
+        // label next to it doubles: Xs inside dense data (sort chevrons), Sm in
+        // a line of body text or a menu row, Md on a toolbar button or a list
+        // row, Lg on a grid tile, Xl as the subject of an empty state.
+        Publish("ShellIconSizeXs", resources.ScaleFontSize(10));
+        Publish("ShellIconSizeSm", resources.ScaleFontSize(13));
+        Publish("ShellIconSizeMd", resources.ScaleFontSize(16));
+        Publish("ShellIconSizeLg", resources.ScaleFontSize(32));
+        Publish("ShellIconSizeXl", resources.ScaleFontSize(48));
+
         Publish("ShellControlMinHeight", resources.ControlMinHeight);
         Publish("ShellSurfaceOpacity", SurfaceOpacity);
 
