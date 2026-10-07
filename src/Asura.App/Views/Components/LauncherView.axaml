@@ -196,7 +196,7 @@
             <TextBlock VerticalAlignment="Center" Classes="Headline" Text="Saved screens" />
             <components:CountPill Value="{Binding Screens.Count}" />
           </StackPanel>
-          <Button Grid.Column="1" VerticalAlignment="Center" MinHeight="0" Padding="0" Classes="TextButton" Click="OnShowLayoutDesignerClick" Content="Layouts" />
+          <Button Grid.Column="1" VerticalAlignment="Center" MinHeight="0" Padding="0" Classes="TextButton" Click="OnShowLayoutDesignerClick" Content="Layout Designer…" AutomationProperties.Name="Layout Designer…" />
         </Grid>
         <controls:SurfaceCard Tone="Sunken" ClipsContent="True" Padding="0" Grid.Row="1" VerticalAlignment="Top" MaxHeight="420">
           <ScrollViewer HorizontalScrollBarVisibility="Disabled">

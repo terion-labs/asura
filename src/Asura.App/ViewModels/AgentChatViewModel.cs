@@ -230,6 +230,16 @@ public sealed record AgentModelPickerItemViewModel(
 
     public string DisplayName => Model.DisplayName;
 
+    /// <summary>
+    /// What VoiceOver reads for the row. The check mark is only drawn, so the
+    /// name and the item status both say which model is in use.
+    /// </summary>
+    public string AccessibleName => IsCurrent
+        ? $"{DisplayName}, {ProviderName}, current model"
+        : $"{DisplayName}, {ProviderName}";
+
+    public string AccessibleStatus => IsCurrent ? "Current model" : string.Empty;
+
     public string FavoriteAccessibleName => IsFavorite
         ? $"Remove {DisplayName} from favorite models"
         : $"Add {DisplayName} to favorite models";

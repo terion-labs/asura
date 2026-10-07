@@ -33,16 +33,22 @@ public sealed class LauncherLabelsHeadlessTests
             Assert.Equal("Manage Connections…", manage.Content);
             var add = FindButton(launcher, "Add Connection…");
             Assert.Equal("Add Connection…", add.Content);
+
+            // The layout designer is an editor in its own window too.
+            var layouts = FindButton(launcher, "Layout Designer…");
+            Assert.Equal("Layout Designer…", layouts.Content);
             Assert.DoesNotContain(
                 launcher.GetVisualDescendants().OfType<Button>(),
-                button => button.Content as string is "Manage all" or "Add");
+                button => button.Content as string is "Manage all" or "Add" or "Layouts");
 
             var raised = new List<string>();
             launcher.ManageConnectionsRequested += (_, _) => raised.Add("manage");
             launcher.AddConnectionRequested += (_, _) => raised.Add("add");
+            launcher.ShowLayoutDesignerRequested += (_, _) => raised.Add("layouts");
             manage.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             add.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            Assert.Equal(["manage", "add"], raised, StringComparer.Ordinal);
+            layouts.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.Equal(["manage", "add", "layouts"], raised, StringComparer.Ordinal);
         });
     }
 

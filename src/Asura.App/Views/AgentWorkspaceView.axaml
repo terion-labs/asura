@@ -1377,6 +1377,14 @@
                           ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                           KeyDown="OnModelListKeyDown"
                           AutomationProperties.Name="Models">
+                        <!-- Each row names its model and provider, and says
+                             which model is in use; the check is only drawn. -->
+                        <ListBox.ItemContainerTheme>
+                          <ControlTheme TargetType="ListBoxItem" x:DataType="vm:AgentModelPickerItemViewModel" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                            <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleName}" />
+                            <Setter Property="AutomationProperties.ItemStatus" Value="{Binding AccessibleStatus}" />
+                          </ControlTheme>
+                        </ListBox.ItemContainerTheme>
                         <ListBox.ItemTemplate>
                           <DataTemplate x:DataType="vm:AgentModelPickerItemViewModel">
                             <!-- The row carries its model so the hosts that choose

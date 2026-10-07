@@ -4,6 +4,7 @@ using Asura.App.Views;
 using Asura.Application;
 using Asura.Core;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
@@ -164,6 +165,86 @@ public sealed partial class AgentChatViewModelTests
         });
 
     [Fact]
+    public Task Agent_menus_name_each_model_row_and_say_which_is_current() =>
+        RunAgentComposerHeadlessAsync(async () =>
+        {
+            using var menu = await OpenModelMenuAsync();
+
+            // A drawn check alone is silent to VoiceOver: each row names its
+            // model and provider, and the row in use says so in its name and
+            // its item status, wherever the selection has moved.
+            menu.Models.SelectedIndex = 1;
+            menu.Window.UpdateLayout();
+            var rows = menu.Models.GetRealizedContainers().OfType<ListBoxItem>().ToArray();
+            Assert.Equal(
+                ["Default model, Provider, current model", "Fast model, Provider"],
+                rows.Select(row => ControlAutomationPeer.CreatePeerForElement(row).GetName()),
+                StringComparer.Ordinal);
+            Assert.Equal(
+                ["Current model", string.Empty],
+                rows.Select(row => AutomationProperties.GetItemStatus(row) ?? string.Empty),
+                StringComparer.Ordinal);
+        });
+
+    [Fact]
+    public Task Agent_menus_choose_a_clicked_model_but_not_a_clicked_star() =>
+        RunAgentComposerHeadlessAsync(async () =>
+        {
+            using var menu = await OpenModelMenuAsync();
+            var fast = ModelRow(menu.Models, "model-fast");
+
+            // A click on the star marks a favorite and leaves the menu open.
+            var star = Assert.Single(
+                fast.GetVisualDescendants().OfType<Button>(),
+                button => button.Tag is AgentModelPickerItemViewModel);
+            ReleaseLeftButton(Assert.IsType<SymbolIcon>(star.GetVisualDescendants().OfType<SymbolIcon>().First()));
+            Assert.Equal(0, menu.Chosen);
+            Assert.True(menu.Picker.Flyout!.IsOpen);
+
+            // A click anywhere else on the row, here its name, chooses it.
+            ReleaseLeftButton(Assert.Single(
+                fast.GetVisualDescendants().OfType<TextBlock>(),
+                block => string.Equals(block.Text, "Fast model", StringComparison.Ordinal)));
+            await menu.Selection;
+
+            Assert.Equal(1, menu.Chosen);
+            Assert.False(menu.Picker.Flyout.IsOpen);
+            Assert.Equal("model-fast", menu.ViewModel.SelectedModel?.Id);
+        });
+
+    [Fact]
+    public Task Agent_menus_move_from_the_model_filter_into_the_list_on_Down() =>
+        RunAgentComposerHeadlessAsync(async () =>
+        {
+            using var menu = await OpenModelMenuAsync();
+            var filter = Assert.IsType<SearchField>(menu.View.FindControl<SearchField>("AgentModelFilter"));
+
+            // The menu opened on the model in use; Down puts the keyboard on
+            // that row rather than leaving it in the field.
+            filter.RaiseEvent(new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent,
+                Key = Key.Down,
+            });
+            menu.Window.UpdateLayout();
+            var current = ModelRow(menu.Models, "model");
+            Assert.True(current.IsFocused);
+            Assert.Equal(0, menu.Chosen);
+
+            // With nothing selected, Down starts at the first row.
+            menu.Models.SelectedItem = null;
+            filter.Focus();
+            filter.RaiseEvent(new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent,
+                Key = Key.Down,
+            });
+            menu.Window.UpdateLayout();
+            Assert.Equal(0, menu.Models.SelectedIndex);
+            Assert.True(ModelRow(menu.Models, "model").IsFocused);
+        });
+
+    [Fact]
     public Task Agent_menus_put_Edit_Message_in_the_queued_message_options() =>
         RunAgentComposerHeadlessAsync(async () =>
         {
@@ -311,6 +392,99 @@ public sealed partial class AgentChatViewModelTests
 
             return Task.CompletedTask;
         });
+
+    private static async Task<OpenModelMenu> OpenModelMenuAsync()
+    {
+        var provider = Provider(
+            "provider",
+            "Provider",
+            order: 0,
+            models:
+            [
+                new AiProviderModelDescriptor("model", "Default model"),
+                new AiProviderModelDescriptor("model-fast", "Fast model"),
+            ]);
+        var runtime = new StubGovernedRuntime
+        {
+            Snapshot = Snapshot(
+                providerId: provider.Id,
+                target: Target(),
+                effectivePolicy: Policy(provider)),
+        };
+        var profiles = new StubProfileRuntime { Profiles = [provider] };
+        var viewModel = new AgentChatViewModel(
+            runtime,
+            profiles,
+            ImmediateUiThreadDispatcher.Instance);
+        var view = new AgentWorkspaceView
+        {
+            DataContext = new AgentComposerHost(viewModel),
+        };
+        var window = new Window { Width = 700, Height = 900, Content = view };
+        var menu = new OpenModelMenu(runtime, profiles, viewModel, view, window);
+        view.SelectAgentModelRequested += (sender, _) =>
+        {
+            menu.Chosen++;
+            menu.Selection = viewModel.SelectModelAsync(
+                Assert.IsType<AiProviderModelDescriptor>(Assert.IsAssignableFrom<Control>(sender).Tag),
+                CancellationToken.None);
+        };
+        window.Show();
+        window.UpdateLayout();
+        await Task.Yield();
+        menu.Picker.Flyout!.ShowAt(menu.Picker);
+        window.UpdateLayout();
+        return menu;
+    }
+
+    private static ListBoxItem ModelRow(ListBox models, string id) =>
+        Assert.IsType<ListBoxItem>(models.ContainerFromItem(Assert.Single(
+            models.Items.OfType<AgentModelPickerItemViewModel>(),
+            row => string.Equals(row.Id, id, StringComparison.Ordinal))));
+
+    private static void ReleaseLeftButton(Control target)
+    {
+        var root = Assert.IsAssignableFrom<Avalonia.Visual>(TopLevel.GetTopLevel(target));
+        target.RaiseEvent(new PointerReleasedEventArgs(
+            target,
+            new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true),
+            root,
+            default,
+            0,
+            new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased),
+            Avalonia.Input.KeyModifiers.None,
+            MouseButton.Left));
+    }
+
+    private sealed class OpenModelMenu(
+        StubGovernedRuntime runtime,
+        StubProfileRuntime profiles,
+        AgentChatViewModel viewModel,
+        AgentWorkspaceView view,
+        Window window) : IDisposable
+    {
+        public AgentChatViewModel ViewModel { get; } = viewModel;
+
+        public AgentWorkspaceView View { get; } = view;
+
+        public Window Window { get; } = window;
+
+        public Button Picker => Assert.IsType<Button>(View.FindControl<Button>("AgentModelPickerButton"));
+
+        public ListBox Models => Assert.IsType<ListBox>(View.FindControl<ListBox>("AgentModelList"));
+
+        public int Chosen { get; set; }
+
+        public Task Selection { get; set; } = Task.CompletedTask;
+
+        public void Dispose()
+        {
+            Window.Close();
+            ViewModel.Dispose();
+            profiles.Dispose();
+            runtime.Dispose();
+        }
+    }
 
     private static string[] CheckedRows(ListBox models) =>
     [
