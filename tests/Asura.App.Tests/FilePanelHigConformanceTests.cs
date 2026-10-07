@@ -446,6 +446,43 @@ public sealed class FilePanelHigConformanceTests
         }
     }
 
+    [Fact]
+    public void On_macOS_files_get_the_icon_Finder_shows()
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            return;
+        }
+
+        var root = Directory.CreateTempSubdirectory("asura-icons-");
+        try
+        {
+            var file = Path.Combine(root.FullName, "notes.txt");
+            File.WriteAllText(file, "icon");
+            var client = new StubFilePanelClient();
+
+            byte[]?[] icons =
+            [
+                Views.MacOsFileTypeIcons.Png(Entry(client, "notes.txt"), file),
+                Views.MacOsFileTypeIcons.Png(Entry(client, "config.json"), localPath: null),
+                Views.MacOsFileTypeIcons.Png(Entry(client, "src", FilePanelEntryKind.Directory), localPath: null),
+            ];
+
+            Assert.All(icons, png =>
+            {
+                Assert.NotNull(png);
+                // A PNG's IHDR chunk: the width is the big-endian word at 16.
+                Assert.Equal(0x89, png[0]);
+                var width = (png[16] << 24) | (png[17] << 16) | (png[18] << 8) | png[19];
+                Assert.True(width >= FileTypeIcons.PixelSize, $"The icon is only {width} pixels wide.");
+            });
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+        }
+    }
+
     private static FilePanelEntry Entry(
         StubFilePanelClient client,
         string name,

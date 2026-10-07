@@ -29,12 +29,14 @@ public sealed partial class ProcessMonitorRuntimePanelView : UserControl, IEditT
 
     private readonly TypeSelectBuffer _typeSelect = new();
     private ProcessMonitorRuntimePanelViewModel? _boundPanel;
+    private bool _isRestoringSelection;
 
     public ProcessMonitorRuntimePanelView()
     {
         InitializeComponent();
         DataContextChanged += (_, _) => ObservePanel();
         ProcessGrid.AddHandler(TextInputEvent, OnProcessTextInput, RoutingStrategies.Tunnel);
+        ProcessGrid.SelectionChanged += OnProcessSelectionChanged;
         SizeChanged += (_, change) => UpdateStartedColumn(change.NewSize.Width);
         UpdateSortHeaders();
     }
@@ -87,6 +89,53 @@ public sealed partial class ProcessMonitorRuntimePanelView : UserControl, IEditT
         if (string.Equals(e.PropertyName, nameof(ProcessMonitorRuntimePanelViewModel.Sort), StringComparison.Ordinal))
         {
             UpdateSortHeaders();
+        }
+        else if (string.Equals(e.PropertyName, nameof(ProcessMonitorRuntimePanelViewModel.SelectedProcesses), StringComparison.Ordinal))
+        {
+            RestoreSelection();
+        }
+    }
+
+    private void OnProcessSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (!_isRestoringSelection && _boundPanel is { } panel)
+        {
+            panel.SetSelectedProcesses(SelectedProcesses());
+        }
+    }
+
+    /// <summary>
+    /// Selects the same processes again after a refresh. The rows are reused
+    /// slots, so after a re-sort the rows that were selected may now show
+    /// other processes; the panel knows which processes were meant.
+    /// </summary>
+    private void RestoreSelection()
+    {
+        if (_boundPanel is not { } panel || ProcessGrid.SelectedItems is not { } selection)
+        {
+            return;
+        }
+
+        var wanted = panel.SelectedProcesses;
+        if (wanted.SequenceEqual(SelectedProcesses()))
+        {
+            return;
+        }
+
+        _isRestoringSelection = true;
+        try
+        {
+            selection.Clear();
+            foreach (var process in wanted)
+            {
+                selection.Add(process);
+            }
+        }
+        finally
+        {
+            _isRestoringSelection = false;
         }
     }
 

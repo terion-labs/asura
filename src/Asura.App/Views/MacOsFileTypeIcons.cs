@@ -16,6 +16,7 @@ namespace Asura.App.Views;
 internal static class MacOsFileTypeIcons
 {
     private const string ObjectiveCLibrary = "/usr/lib/libobjc.A.dylib";
+    private const string AppKitLibrary = "/System/Library/Frameworks/AppKit.framework/AppKit";
     private const nuint PngFileType = 4;
 
     /// <summary>
@@ -25,6 +26,13 @@ internal static class MacOsFileTypeIcons
     private const int MaximumCachedIcons = 512;
 
     private static readonly Dictionary<string, Bitmap?> Cache = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// AppKit, loaded before its classes are looked up. The app's windowing
+    /// layer has it loaded already; a process without windows does not, and
+    /// would otherwise find no <c>NSWorkspace</c> to ask.
+    /// </summary>
+    private static readonly bool AppKitLoaded = NativeLibrary.TryLoad(AppKitLibrary, out _);
 
     public static Bitmap? For(FilePanelEntry entry, string? localPath)
     {
@@ -41,19 +49,19 @@ internal static class MacOsFileTypeIcons
             return cached;
         }
 
-        Bitmap? icon;
-        try
+        Bitmap? icon = null;
+        if (Png(entry, localPath) is { } png)
         {
-            icon = localPath is not null
-                ? Render(IconForFile(localPath))
-                : Render(IconForType(isDirectory ? null : extension));
-        }
-        catch (Exception exception) when (exception is DllNotFoundException
-            or EntryPointNotFoundException
-            or ArgumentException
-            or InvalidOperationException)
-        {
-            icon = null;
+            try
+            {
+                using var stream = new MemoryStream(png, writable: false);
+                icon = new Bitmap(stream);
+            }
+            catch (Exception exception) when (exception is ArgumentException
+                or InvalidOperationException)
+            {
+                // An image the decoder will not take leaves the glyph in place.
+            }
         }
 
         if (Cache.Count >= MaximumCachedIcons)
@@ -63,6 +71,37 @@ internal static class MacOsFileTypeIcons
 
         Cache[key] = icon;
         return icon;
+    }
+
+    /// <summary>
+    /// The icon as PNG bytes, or null where the system has none to give.
+    /// Uncached: <see cref="For"/> keeps what it decodes.
+    /// </summary>
+    internal static byte[]? Png(FilePanelEntry entry, string? localPath)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        if (!AppKitLoaded)
+        {
+            return null;
+        }
+
+        var isDirectory = entry.Kind == FilePanelEntryKind.Directory;
+        var pool = objc_autoreleasePoolPush();
+        try
+        {
+            return RenderPng(localPath is not null
+                ? IconForFile(localPath)
+                : IconForType(isDirectory ? null : PreviewText.Extension(entry.Name)));
+        }
+        catch (Exception exception) when (exception is DllNotFoundException
+            or EntryPointNotFoundException)
+        {
+            return null;
+        }
+        finally
+        {
+            objc_autoreleasePoolPop(pool);
+        }
     }
 
     private static nint Workspace() =>
@@ -98,14 +137,13 @@ internal static class MacOsFileTypeIcons
     /// handed over as PNG: the image picks its best representation for that
     /// size, so the result is the crisp rendition, not a scaled thumbnail.
     /// </summary>
-    private static Bitmap? Render(nint image)
+    private static byte[]? RenderPng(nint image)
     {
         if (image == 0)
         {
             return null;
         }
 
-        var pool = objc_autoreleasePoolPush();
         nint representation = 0;
         try
         {
@@ -147,8 +185,7 @@ internal static class MacOsFileTypeIcons
 
             var buffer = new byte[(int)length];
             Marshal.Copy(bytes, buffer, 0, buffer.Length);
-            using var stream = new MemoryStream(buffer, writable: false);
-            return new Bitmap(stream);
+            return buffer;
         }
         finally
         {
@@ -156,8 +193,6 @@ internal static class MacOsFileTypeIcons
             {
                 SendVoid(representation, Selector("release"));
             }
-
-            objc_autoreleasePoolPop(pool);
         }
     }
 

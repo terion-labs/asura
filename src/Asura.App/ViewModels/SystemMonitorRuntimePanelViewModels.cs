@@ -627,6 +627,14 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
     private IReadOnlyList<ProcessMonitorEntry> _latestEntries = [];
     private ProcessMonitorSnapshot? _snapshot;
     private ProcessMonitorEntryViewModel? _selectedProcess;
+
+    /// <summary>
+    /// The processes the table has selected, by identity rather than by row:
+    /// rows are reused slots that show a different process after a re-sort,
+    /// so a selection held by row would wander to whatever took its place.
+    /// </summary>
+    private HashSet<(int ProcessId, DateTimeOffset? StartedAtUtc)> _selectedIdentities = [];
+    private bool _isApplyingRows;
     private ProcessMonitorSort _sort = ProcessMonitorSort.CpuDescending;
     private SystemMonitorPanelState _state = SystemMonitorPanelState.Waiting;
     private string _filter = string.Empty;
@@ -726,6 +734,34 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
         get => _selectedProcess;
         set => SetProperty(ref _selectedProcess, value);
     }
+
+    /// <summary>
+    /// The rows that show the selected processes, in table order. Raised
+    /// after every refresh so the table can select the same processes again
+    /// wherever the new order put them.
+    /// </summary>
+    public IReadOnlyList<ProcessMonitorEntryViewModel> SelectedProcesses =>
+        _selectedIdentities.Count == 0
+            ? []
+            : [.. Processes.Where(process => _selectedIdentities.Contains(Identity(process)))];
+
+    /// <summary>
+    /// Records what the table has selected. Ignored while the panel itself is
+    /// rewriting rows, when the table's selection is briefly stale.
+    /// </summary>
+    public void SetSelectedProcesses(IEnumerable<ProcessMonitorEntryViewModel> processes)
+    {
+        ArgumentNullException.ThrowIfNull(processes);
+        if (_isApplyingRows)
+        {
+            return;
+        }
+
+        _selectedIdentities = [.. processes.Select(Identity)];
+    }
+
+    private static (int ProcessId, DateTimeOffset? StartedAtUtc) Identity(ProcessMonitorEntryViewModel process) =>
+        (process.Entry.ProcessId, process.Entry.StartedAtUtc);
 
     public ProcessMonitorSort Sort
     {
@@ -1160,27 +1196,37 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
         // Rows are stable presentation slots. Rebuilding the collection every two
         // seconds makes Avalonia discard and recreate as many as 250 containers,
         // briefly starving other composited surfaces in the same window.
-        var retainedCount = Math.Min(Processes.Count, visibleEntries.Length);
-        for (var index = 0; index < retainedCount; index++)
+        _isApplyingRows = true;
+        try
         {
-            Processes[index].Update(visibleEntries[index]);
+            var retainedCount = Math.Min(Processes.Count, visibleEntries.Length);
+            for (var index = 0; index < retainedCount; index++)
+            {
+                Processes[index].Update(visibleEntries[index]);
+            }
+
+            while (Processes.Count > visibleEntries.Length)
+            {
+                Processes.RemoveAt(Processes.Count - 1);
+            }
+
+            for (var index = retainedCount; index < visibleEntries.Length; index++)
+            {
+                Processes.Add(new ProcessMonitorEntryViewModel(visibleEntries[index]));
+            }
+
+            SelectedProcess = hadSelection
+                ? Processes.FirstOrDefault(process =>
+                    process.Entry.ProcessId == selectedIdentity.ProcessId
+                    && process.Entry.StartedAtUtc == selectedIdentity.StartedAtUtc)
+                : null;
+        }
+        finally
+        {
+            _isApplyingRows = false;
         }
 
-        while (Processes.Count > visibleEntries.Length)
-        {
-            Processes.RemoveAt(Processes.Count - 1);
-        }
-
-        for (var index = retainedCount; index < visibleEntries.Length; index++)
-        {
-            Processes.Add(new ProcessMonitorEntryViewModel(visibleEntries[index]));
-        }
-
-        SelectedProcess = hadSelection
-            ? Processes.FirstOrDefault(process =>
-                process.Entry.ProcessId == selectedIdentity.ProcessId
-                && process.Entry.StartedAtUtc == selectedIdentity.StartedAtUtc)
-            : null;
+        OnPropertyChanged(nameof(SelectedProcesses));
         OnPropertyChanged(nameof(ShowingText));
     }
 
