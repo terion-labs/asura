@@ -30,6 +30,10 @@ public sealed partial class MainWindowViewModel
             page,
             "Discard network route changes?",
             "The application route you changed hasn't been saved. Discard the change, or keep editing and choose Save Route."),
+        SettingsPage.Browser when BrowserProfileSettingsEditor.HasUnsavedAuthentication => new(
+            page,
+            "Discard HTTP authentication changes?",
+            "The HTTP authentication you entered for this browser profile hasn't been saved. Discard it, or keep editing and choose Save Authentication."),
         SettingsPage.Keybindings when KeybindingEditorSession?.IsDirty == true => new(
             page,
             "Discard keyboard shortcut changes?",
@@ -173,6 +177,9 @@ public sealed partial class MainWindowViewModel
                 break;
             case SettingsPage.Networking when NetworkSettings.Policy.IsDirty:
                 NetworkSettings.DiscardPolicyDraft();
+                break;
+            case SettingsPage.Browser when BrowserProfileSettingsEditor.HasUnsavedAuthentication:
+                BrowserProfileSettingsEditor.DiscardAuthenticationDraft();
                 break;
             case SettingsPage.Keybindings when KeybindingEditorSession?.IsDirty == true:
                 DefinitionSettings.DiscardKeybindingEditor();

@@ -97,7 +97,10 @@ public sealed partial class SettingsWindow : Window
             Show();
         }
 
-        Activate();
+        if (!IsActive)
+        {
+            Activate();
+        }
     }
 
     /// <summary>

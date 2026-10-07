@@ -48,6 +48,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
     private readonly ISecretVault? _secretVault;
     private BrowserProfileItemViewModel? _selectedProfile;
     private string _newProfileName = "Browser profile";
+    private AuthenticationFormState _loadedAuthenticationForm;
     private string _authenticationHost = string.Empty;
     private string _authenticationPort = string.Empty;
     private string _authenticationRealm = string.Empty;
@@ -259,6 +260,27 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
         get => _authenticationPassword;
         set => SetProperty(ref _authenticationPassword, value ?? string.Empty);
     }
+
+    /// <summary>
+    /// Whether the HTTP authentication form holds edits Save Authentication
+    /// has not stored. The form is a draft: Settings asks before leaving it.
+    /// </summary>
+    public bool HasUnsavedAuthentication =>
+        SelectedProfile is { IsBuiltIn: false }
+        && (!string.IsNullOrEmpty(AuthenticationPassword)
+            || AuthenticationForm != _loadedAuthenticationForm);
+
+    /// <summary>Puts the stored authentication back into the form.</summary>
+    public void DiscardAuthenticationDraft() => LoadAuthenticationForm();
+
+    private AuthenticationFormState AuthenticationForm => new(
+        AuthenticationOriginScheme,
+        AuthenticationRoute?.Identity,
+        AuthenticationHost,
+        AuthenticationPort,
+        AuthenticationRealm,
+        AuthenticationScheme,
+        AuthenticationUsername);
 
     public bool HasAuthentication
     {
@@ -758,7 +780,17 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
             ?? BrowserAuthenticationScheme.Basic;
         AuthenticationUsername = authentication?.Username ?? string.Empty;
         AuthenticationPassword = string.Empty;
+        _loadedAuthenticationForm = AuthenticationForm;
     }
+
+    private readonly record struct AuthenticationFormState(
+        string OriginScheme,
+        string? RouteIdentity,
+        string Host,
+        string Port,
+        string Realm,
+        BrowserAuthenticationScheme Scheme,
+        string Username);
 
     private async Task ClearAsync(BrowserProfileDataCategory category)
     {

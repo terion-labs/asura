@@ -341,6 +341,7 @@ internal sealed class QaApplication : Avalonia.Application
         new("settings-secrets", vm => vm.ShowSettings(SettingsPage.Secrets)),
         new("settings-diagnostics", vm => vm.ShowSettings(SettingsPage.Diagnostics)),
         new("settings-about", vm => vm.ShowSettings(SettingsPage.About)),
+        new("settings-notifications", vm => vm.ShowSettings(SettingsPage.Notifications)),
         new("overlay-command-palette", vm =>
         {
             vm.ShowWorkspace();
@@ -2440,7 +2441,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 "Asura.App.EffectiveAppearanceResourceMapper",
                 throwOnError: true)!;
         var mapped = mapper
-            .GetMethod("Map", BindingFlags.Public | BindingFlags.Static)!
+            .GetMethod("Map", BindingFlags.Public | BindingFlags.Static, [effectiveTheme.GetType()])!
             .Invoke(null, [effectiveTheme]);
 
         typeof(Asura.App.App)

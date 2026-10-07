@@ -106,8 +106,22 @@ public sealed partial class MainWindow
                 "The Settings content template is unavailable.");
         }
 
-        settings.DataContext = ViewModel;
+        // The content is kept before it is bound: binding it publishes the
+        // stored appearance into the controls, which raises their change
+        // events, and those must find this content rather than build another.
+        // Those values come from the profile, not from the person, so they
+        // are not edits either.
         _settingsRoute = settings;
+        _applyingAppearanceControls = true;
+        try
+        {
+            settings.DataContext = ViewModel;
+        }
+        finally
+        {
+            _applyingAppearanceControls = false;
+        }
+
         settings.ConfigureAppearanceControls(
             AppearancePlatformProfiles,
             AppearanceTextScaleOptions);
@@ -226,7 +240,10 @@ public sealed partial class MainWindow
     private void OnSettingsPresentationPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         _ = sender;
-        if (string.Equals(e.PropertyName, nameof(MainWindowViewModel.IsSettingsVisible), StringComparison.Ordinal)
+        // A page asked for from elsewhere — Quick Terminal's agent settings —
+        // brings the window forward as well as opening it.
+        if (e.PropertyName is nameof(MainWindowViewModel.IsSettingsVisible)
+                or nameof(MainWindowViewModel.SettingsPage)
             && _settingsPresentationViewModel is { IsSettingsVisible: true })
         {
             PresentSettingsWindow();

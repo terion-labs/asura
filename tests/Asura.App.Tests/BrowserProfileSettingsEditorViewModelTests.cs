@@ -169,6 +169,32 @@ public sealed class BrowserProfileSettingsEditorViewModelTests
     }
 
     [Fact]
+    public void Unsaved_http_authentication_is_a_draft_until_saved_or_discarded()
+    {
+        var profile = Profile(
+            "browser.auth",
+            BrowserProfilePersistence.DurableMetadata);
+        var fixture = Catalog(Store(BuiltInBrowserProfiles.Default, 1), Store(profile, 7));
+        var editor = new BrowserProfileSettingsEditorViewModel(
+            new InMemoryBrowserProfilePreferences(),
+            catalog: fixture.Catalog,
+            secretVault: Vault().Vault);
+        editor.SelectedProfile = Assert.Single(editor.Profiles, item => item.Id == profile.Id);
+
+        Assert.False(editor.HasUnsavedAuthentication);
+
+        editor.AuthenticationHost = "internal.example";
+        Assert.True(editor.HasUnsavedAuthentication);
+
+        editor.DiscardAuthenticationDraft();
+        Assert.False(editor.HasUnsavedAuthentication);
+        Assert.Equal(string.Empty, editor.AuthenticationHost);
+
+        editor.AuthenticationPassword = "secret";
+        Assert.True(editor.HasUnsavedAuthentication);
+    }
+
+    [Fact]
     public async Task HttpAuthenticationReplacementSavesNewReferenceBeforeDeletingOldSecret()
     {
         var oldReference = new SecretRef("browser-old-password");
