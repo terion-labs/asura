@@ -61,9 +61,12 @@ internal sealed class ShellWindowTitle : IDisposable
             return;
         }
 
+        // While an isolated workspace starts, its progress is what the
+        // canvas shows; the workspace behind it is not the window's subject.
+        var starting = _viewModel.WorkspaceIsolationProgressTitle;
         _apply(Compose(
-            _workspace?.Name,
-            _tab?.Title,
+            starting ?? _workspace?.Name,
+            starting is null ? _tab?.Title : null,
             _viewModel.IsSettingsVisible,
             _qualifier()));
     }
@@ -114,6 +117,7 @@ internal sealed class ShellWindowTitle : IDisposable
                 break;
             case nameof(MainWindowViewModel.IsSettingsVisible):
             case nameof(MainWindowViewModel.IsWorkspaceVisible):
+            case nameof(MainWindowViewModel.WorkspaceIsolationProgressTitle):
                 Refresh();
                 break;
         }

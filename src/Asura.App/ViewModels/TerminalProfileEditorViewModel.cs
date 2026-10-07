@@ -64,6 +64,7 @@ public sealed class TerminalProfileEditorViewModel : ObservableObject
     private int _scrollbackLines;
     private TerminalCursorStyle _cursorStyle;
     private bool _cursorBlink;
+    private bool _askBeforeClosing;
     private string _foreground;
     private string _background;
     private string _cursor;
@@ -94,6 +95,7 @@ public sealed class TerminalProfileEditorViewModel : ObservableObject
         _scrollbackLines = profile.ScrollbackLines;
         _cursorStyle = profile.CursorStyle;
         _cursorBlink = profile.CursorBlink;
+        _askBeforeClosing = profile.AskBeforeClosing;
         _foreground = profile.Palette.Foreground.ToString();
         _background = profile.Palette.Background.ToString();
         _cursor = profile.Palette.Cursor.ToString();
@@ -391,6 +393,12 @@ public sealed class TerminalProfileEditorViewModel : ObservableObject
 
     public bool CursorBlink { get => _cursorBlink; set => SetProperty(ref _cursorBlink, value); }
 
+    /// <summary>
+    /// Whether closing or quitting with sessions running asks first. The
+    /// alerts' "Don't ask again" turns it off; this turns it back on.
+    /// </summary>
+    public bool AskBeforeClosing { get => _askBeforeClosing; set => SetProperty(ref _askBeforeClosing, value); }
+
     public string Foreground
     {
         get => _foreground;
@@ -494,8 +502,7 @@ public sealed class TerminalProfileEditorViewModel : ObservableObject
                 ShellIntegration,
                 BellMode,
                 Compatibility,
-                // Not edited here: the close alert owns it until Settings does.
-                _original.AskBeforeClosing),
+                AskBeforeClosing),
             ExpectedRevision);
     }
 

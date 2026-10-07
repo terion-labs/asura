@@ -157,7 +157,11 @@ public sealed partial class App : Avalonia.Application
         _windowPlacements = windowPlacements;
     }
 
-    public override void Initialize() => AvaloniaXamlLoader.Load(this);
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+        AttachWindowlessMenuBar();
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {
@@ -246,6 +250,7 @@ public sealed partial class App : Avalonia.Application
 
     private void RegisterMainWindow(MainWindow window)
     {
+        _windowlessMenuBar?.SetWindowless(false);
         window.Activated += OnMainWindowActivated;
         window.Closed += OnMainWindowClosed;
         TrackPlacement(window);
@@ -1265,6 +1270,7 @@ public sealed partial class App : Avalonia.Application
             if (KeepsRunningWithoutWindows)
             {
                 QuickTerminalController.ReleaseMainWindow();
+                ShowWindowlessMenuBar();
                 return;
             }
 

@@ -4,6 +4,7 @@ using Asura.Application;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Platform;
 using Avalonia.Threading;
 
 namespace Asura.App;
@@ -25,6 +26,7 @@ public sealed partial class App
     private readonly List<WindowPlacement> _placementsToReopen = [];
     private WindowPlacement? _lastClosedPlacement;
     private DispatcherTimer? _placementSaveTimer;
+    private WindowlessMenuBar? _windowlessMenuBar;
     private bool _quitInProgress;
     private bool _quitApproved;
 
@@ -40,9 +42,6 @@ public sealed partial class App
     /// profile — the separate recovery workspace.
     /// </summary>
     public string? WindowTitleQualifier { get; set; }
-
-    /// <summary>Whether quitting has been confirmed and windows may close unasked.</summary>
-    internal bool IsQuitApproved => _quitApproved;
 
     private MainWindow[] OpenMainWindows() =>
         ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
@@ -85,43 +84,41 @@ public sealed partial class App
         try
         {
             var windows = OpenMainWindows();
-            foreach (var window in windows)
-            {
-                if (!await window.ConfirmDiscardPendingEditsForQuitAsync())
-                {
-                    return;
-                }
-            }
-
-            var census = await TakeRunningSessionCensusAsync(windows);
-            if (census.RequiresConfirmation
-                && !await CloseConfirmation(windows).ConfirmAsync(
+            var outcome = await ApplicationQuit.RunAsync(
+                [.. windows.Select(window => new MainWindowQuitParticipant(window))],
+                InspectQuickTerminalAsync,
+                census => CloseConfirmation(windows).ConfirmAsync(
                     () => Confirmations.QuitApplication(census),
-                    ActiveMainWindow()))
-            {
-                return;
-            }
-
-            // Captured before anything closes, so every window is reopened.
-            SaveWindowPlacements();
-            _quitApproved = true;
-            foreach (var window in windows)
-            {
-                if (!await window.CloseForQuitAsync())
+                    ActiveMainWindow()),
+                approve: () =>
                 {
-                    // That window reported why. The ones already closed stay
-                    // closed; the rest stay open and Asura keeps running.
-                    _quitApproved = false;
-                    return;
-                }
+                    // Captured before anything closes, so every window is reopened.
+                    SaveWindowPlacements();
+                    _quitApproved = true;
+                },
+                withdraw: () => _quitApproved = false);
+            if (outcome == QuitOutcome.ReadyToExit)
+            {
+                desktop.Shutdown();
             }
-
-            desktop.Shutdown();
         }
         finally
         {
             _quitInProgress = false;
         }
+    }
+
+    private sealed class MainWindowQuitParticipant(MainWindow window) : IQuitParticipant
+    {
+        public Task<bool> ConfirmDiscardPendingEditsAsync() =>
+            window.ConfirmDiscardPendingEditsForQuitAsync();
+
+        public async Task<IReadOnlyList<ActiveSessionSummary>?> InspectRunningSessionsAsync() =>
+            window.DataContext is MainWindowViewModel viewModel
+                ? await viewModel.InspectRunningSessionsAsync(CancellationToken.None)
+                : [];
+
+        public Task<bool> CloseForQuitAsync() => window.CloseForQuitAsync();
     }
 
     private CloseConfirmationPreference CloseConfirmation(IReadOnlyList<MainWindow> windows)
@@ -137,22 +134,6 @@ public sealed partial class App
             : new CloseConfirmationPreference(
                 () => viewModel.AskBeforeClosing,
                 viewModel.StopAskingBeforeClosingAsync);
-    }
-
-    private async Task<RunningSessionCensus> TakeRunningSessionCensusAsync(
-        IReadOnlyList<MainWindow> windows)
-    {
-        var census = RunningSessionCensus.Empty;
-        foreach (var window in windows)
-        {
-            if (window.DataContext is MainWindowViewModel viewModel)
-            {
-                census = census.WithWindow(
-                    await viewModel.InspectRunningSessionsAsync(CancellationToken.None));
-            }
-        }
-
-        return census.WithQuickTerminal(await InspectQuickTerminalAsync());
     }
 
     private async Task<IReadOnlyList<ActiveSessionSummary>?> InspectQuickTerminalAsync()
@@ -198,6 +179,62 @@ public sealed partial class App
         }
 
         NativeDock.SetMenu(this, CreateDockMenu());
+        if (_windowlessMenuBar is not null)
+        {
+            // Every change of key window can leave the application menu
+            // behind the windowless menus; see MacOsMenuBarOrder.
+            WindowBase.IsActiveProperty.Changed.AddClassHandler<WindowBase>(
+                (window, _) => KeepApplicationMenuFirst(window));
+        }
+    }
+
+    /// <summary>
+    /// Gives the application's menu bar its File and Window menus for when no
+    /// window is open. Done before the platform exports the menu bar, which
+    /// happens once, right after the application is initialized.
+    /// </summary>
+    private void AttachWindowlessMenuBar()
+    {
+        if (!KeepsRunningWithoutWindows
+            || NativeMenu.GetMenu(this) is not { Parent: null } applicationMenu)
+        {
+            return;
+        }
+
+        _windowlessMenuBar = new WindowlessMenuBar(
+            OpenNewWindow,
+            () => _ = OpenTerminalTabFromMenuAsync());
+        _ = _windowlessMenuBar.Attach(applicationMenu);
+    }
+
+    private void ShowWindowlessMenuBar()
+    {
+        if (_windowlessMenuBar is null)
+        {
+            return;
+        }
+
+        _windowlessMenuBar.SetWindowless(true);
+        // After the closing window has handed the menu bar back.
+        Dispatcher.UIThread.Post(MacOsMenuBarOrder.KeepApplicationMenuFirst, DispatcherPriority.Background);
+    }
+
+    private static void KeepApplicationMenuFirst(WindowBase window)
+    {
+        // Only a real AppKit window; a headless one has no menu bar.
+        if (window.TryGetPlatformHandle() is IMacOSTopLevelPlatformHandle)
+        {
+            Dispatcher.UIThread.Post(MacOsMenuBarOrder.KeepApplicationMenuFirst);
+        }
+    }
+
+    private async Task OpenTerminalTabFromMenuAsync()
+    {
+        if (WindowForRequest() is { } window)
+        {
+            ShowWindow(window);
+            await window.RequestNewTerminalAsync();
+        }
     }
 
     private NativeMenu CreateDockMenu()
@@ -205,14 +242,7 @@ public sealed partial class App
         var newWindow = new NativeMenuItem { Header = "New Window" };
         newWindow.Click += (_, _) => OpenNewWindow();
         var newTerminalTab = new NativeMenuItem { Header = "New Terminal Tab" };
-        newTerminalTab.Click += async (_, _) =>
-        {
-            if (WindowForRequest() is { } window)
-            {
-                ShowWindow(window);
-                await window.RequestNewTerminalAsync();
-            }
-        };
+        newTerminalTab.Click += (_, _) => _ = OpenTerminalTabFromMenuAsync();
         var showQuickTerminal = new NativeMenuItem { Header = "Show Quick Terminal" };
         showQuickTerminal.Click += (_, _) =>
         {

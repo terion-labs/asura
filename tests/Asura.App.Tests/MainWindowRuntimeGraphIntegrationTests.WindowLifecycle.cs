@@ -265,6 +265,86 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     }
 
     [Fact]
+    public async Task A_start_finishing_after_another_workspace_was_brought_forward_stays_behind_it()
+    {
+        var snapshot = WithWorkspaceIsolation(CreateCatalogSnapshot(), WorkspaceId);
+        var provider = new RecordingWorkspaceIsolationProvider
+        {
+            PrepareEntered = new(TaskCreationOptions.RunContinuationsAsynchronously),
+            AllowPrepare = new(TaskCreationOptions.RunContinuationsAsynchronously),
+        };
+        var (client, _) = CreateSessionClient();
+        using var viewModel = CreateViewModel(
+            client,
+            snapshot,
+            workspaceIsolationProvider: provider);
+        Assert.True(await viewModel.OpenWorkspaceAsync(SecondWorkspaceId));
+        var other = viewModel.RuntimeWorkspace;
+
+        var opening = viewModel.OpenWorkspaceAsync(WorkspaceId);
+        await provider.PrepareEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(await viewModel.OpenWorkspaceAsync(SecondWorkspaceId));
+
+        provider.AllowPrepare.TrySetResult(true);
+        Assert.True(await opening.WaitAsync(TimeSpan.FromSeconds(5)));
+
+        // The workspace chosen while it started keeps the front.
+        Assert.False(viewModel.IsWorkspaceIsolationStarting);
+        Assert.Same(other, viewModel.RuntimeWorkspace);
+        Assert.True(viewModel.IsWorkspaceCanvasVisible);
+        var started = viewModel.Workspaces.Single(item => item.Id == WorkspaceId);
+        Assert.True(started.IsOpen);
+        Assert.False(started.IsInFront);
+        Assert.True(viewModel.Workspaces.Single(item => item.Id == SecondWorkspaceId).IsInFront);
+
+        // Choosing it brings the already-open workspace forward, without a
+        // second start.
+        Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+        Assert.NotSame(other, viewModel.RuntimeWorkspace);
+        Assert.True(started.IsInFront);
+        Assert.Single(provider.PrepareRequests);
+    }
+
+    [Fact]
+    public async Task A_tab_command_for_the_workspace_behind_the_progress_moves_the_progress_aside()
+    {
+        var snapshot = WithWorkspaceIsolation(CreateCatalogSnapshot(), WorkspaceId);
+        var provider = new RecordingWorkspaceIsolationProvider
+        {
+            PrepareEntered = new(TaskCreationOptions.RunContinuationsAsynchronously),
+            AllowPrepare = new(TaskCreationOptions.RunContinuationsAsynchronously),
+        };
+        var (client, _) = CreateSessionClient();
+        using var viewModel = CreateViewModel(
+            client,
+            snapshot,
+            workspaceIsolationProvider: provider);
+        Assert.True(await viewModel.OpenWorkspaceAsync(SecondWorkspaceId));
+        var other = viewModel.RuntimeWorkspace!;
+        var otherName = other.Name;
+
+        var opening = viewModel.OpenWorkspaceAsync(WorkspaceId);
+        await provider.PrepareEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(viewModel.IsWorkspaceIsolationProgressVisible);
+        var startingName = viewModel.WorkspaceIsolationProgressTitle;
+        Assert.False(string.IsNullOrWhiteSpace(startingName));
+        Assert.False(string.Equals(otherName, startingName, StringComparison.Ordinal));
+
+        // ⌘T acts on the workspace the tab strip shows, so that workspace
+        // comes out from behind the progress.
+        Assert.True(await viewModel.AddLocalTerminalTabAsync());
+        Assert.True(viewModel.IsWorkspaceIsolationStarting);
+        Assert.False(viewModel.IsWorkspaceIsolationProgressVisible);
+        Assert.True(viewModel.IsWorkspaceCanvasVisible);
+        Assert.Null(viewModel.WorkspaceIsolationProgressTitle);
+        Assert.Same(other, viewModel.RuntimeWorkspace);
+
+        provider.AllowPrepare.TrySetResult(true);
+        Assert.True(await opening.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.Same(other, viewModel.RuntimeWorkspace);
+    }
+
+    [Fact]
     public async Task A_window_closed_on_its_own_empties_its_recovery_slot()
     {
         var recoveryStore = new PanelMoveRecoveryStore();

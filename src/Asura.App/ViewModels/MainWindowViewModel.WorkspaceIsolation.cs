@@ -18,6 +18,7 @@ public sealed partial class MainWindowViewModel
     private string? _workspaceIsolationStartingStatus;
     private double? _workspaceIsolationStartingFraction;
     private bool _workspaceIsolationStartupInFront;
+    private RuntimeWorkspaceViewModel? _workspaceBehindIsolationProgress;
     private CancellationTokenSource? _workspaceIsolationStartupCancellation;
     private AsyncActionCommand? _cancelWorkspaceIsolationStartupCommand;
 
@@ -196,6 +197,72 @@ public sealed partial class MainWindowViewModel
     }
 
     /// <summary>
+    /// Whether this start's progress was moved aside for another workspace,
+    /// which then keeps the front when the start finishes.
+    /// </summary>
+    private bool IsWorkspaceIsolationStartupSteppedAside(Guid activationId) =>
+        _workspaceIsolationStartupId == activationId && !_workspaceIsolationStartupInFront;
+
+    /// <summary>
+    /// The name the window title carries while the starting workspace's
+    /// progress is in front. The workspace behind the progress is not what
+    /// the window shows, so its name and tab are not the title.
+    /// </summary>
+    public string? WorkspaceIsolationProgressTitle =>
+        IsWorkspaceIsolationProgressVisible ? _workspaceIsolationStartingWorkspaceName : null;
+
+    /// <summary>
+    /// The progress covers only the canvas, so the tab strip still belongs
+    /// to the workspace behind it. Picking one of its tabs, opening or
+    /// closing one, moves the progress aside to show what that changed,
+    /// instead of acting out of sight behind the progress.
+    /// </summary>
+    private void FollowWorkspaceBehindIsolationProgress()
+    {
+        var covered = IsWorkspaceIsolationProgressVisible ? RuntimeWorkspace : null;
+        if (ReferenceEquals(covered, _workspaceBehindIsolationProgress))
+        {
+            return;
+        }
+
+        if (_workspaceBehindIsolationProgress is { } previous)
+        {
+            previous.PropertyChanged -= OnWorkspaceBehindIsolationProgressChanged;
+            previous.Tabs.CollectionChanged -= OnWorkspaceBehindIsolationProgressTabsChanged;
+        }
+
+        _workspaceBehindIsolationProgress = covered;
+        if (covered is not null)
+        {
+            covered.PropertyChanged += OnWorkspaceBehindIsolationProgressChanged;
+            covered.Tabs.CollectionChanged += OnWorkspaceBehindIsolationProgressTabsChanged;
+        }
+    }
+
+    private void OnWorkspaceBehindIsolationProgressChanged(
+        object? sender,
+        System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        _ = sender;
+        if (string.Equals(
+            e.PropertyName,
+            nameof(RuntimeWorkspaceViewModel.ActiveTab),
+            StringComparison.Ordinal))
+        {
+            StepWorkspaceIsolationStartupAside();
+        }
+    }
+
+    private void OnWorkspaceBehindIsolationProgressTabsChanged(
+        object? sender,
+        System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        StepWorkspaceIsolationStartupAside();
+    }
+
+    /// <summary>
     /// The workspace that is starting was chosen again: show its progress
     /// rather than trying to open it a second time.
     /// </summary>
@@ -225,6 +292,8 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(WorkspaceIsolationStartingPercent));
         OnPropertyChanged(nameof(HasWorkspaceIsolationStartingPercent));
         OnPropertyChanged(nameof(IsWorkspaceCanvasVisible));
+        OnPropertyChanged(nameof(WorkspaceIsolationProgressTitle));
+        FollowWorkspaceBehindIsolationProgress();
         RefreshWorkspaceRuntimeFlags();
     }
 

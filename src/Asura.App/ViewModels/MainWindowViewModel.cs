@@ -1113,6 +1113,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 // this setter is still running. Without a mark here that cost
                 // would be charged to whatever came next.
                 ShowCanvasOf(value, insteadOf: previous);
+                FollowWorkspaceBehindIsolationProgress();
                 _activation?.Mark("bindings");
                 StopRuntimeGraphWatch();
                 _activation?.Mark("graph stop");
@@ -3091,6 +3092,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (_shutdownStarted || operationCancellation.IsCancellationRequested)
             {
                 return false;
+            }
+
+            if (IsWorkspaceIsolationStartupSteppedAside(activationId)
+                && RuntimeWorkspace is not null)
+            {
+                // Another workspace was brought forward while this one
+                // started. It stays in front; this one joins the open set
+                // behind it and is a click on the rail away.
+                AdmitRuntimeWorkspaceBehindFront(runtime, workspace.Key, workspace.Name);
+                QueueRuntimeRecoverySnapshot();
+                return true;
             }
 
             ActivateRuntimeWorkspace(runtime, workspace.Key, workspace.Name);
@@ -7978,6 +7990,27 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         StartRuntimeGraphWatch(runtime);
         RefreshWorkspaceRuntimeFlags();
         MarkVisibleNotificationsSeen();
+    }
+
+    /// <summary>
+    /// Opens a workspace without bringing it forward: its panels start and
+    /// the rail shows it running, while the workspace in front stays there.
+    /// Choosing it later reactivates it like any other open workspace.
+    /// </summary>
+    private void AdmitRuntimeWorkspaceBehindFront(
+        RuntimeWorkspaceViewModel runtime,
+        DefinitionKey sourceDefinition,
+        string durableTitle)
+    {
+        _runtimeSources[runtime.Id] = new RuntimeHistorySource(sourceDefinition, durableTitle);
+        WorkspaceAutoSave.TrackLayout(runtime);
+        // Just behind the one in front, so closing that one falls back here.
+        var front = RuntimeWorkspace is { } current ? _openWorkspaces.IndexOf(current) : -1;
+        _openWorkspaces.Insert(front < 0 ? _openWorkspaces.Count : front, runtime);
+        Notifications.Watch(runtime);
+        StartAcceptedRuntimePanels(runtime);
+        TrackRecentSessions(runtime.Tabs.SelectMany(tab => tab.Panels));
+        RefreshWorkspaceRuntimeFlags();
     }
 
     /// <summary>

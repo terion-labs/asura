@@ -907,6 +907,12 @@
                       <ToggleSwitch IsChecked="{Binding TerminalSettingsEditor.ImeEnabled}" AutomationProperties.Name="Enable IME input" />
                     </StackPanel>
                   </Grid>
+                  <!-- Turns back on what "Don't ask again" in a close or quit
+                       alert turned off. -->
+                  <controls:ToggleField
+                      Label="Ask before closing running sessions"
+                      IsChecked="{Binding TerminalSettingsEditor.AskBeforeClosing}"
+                      AutomationProperties.Name="Ask before closing running sessions" />
                 </StackPanel>
               </controls:SurfaceCard>
 
