@@ -1,5 +1,6 @@
 using Asura.App.ViewModels;
 using Asura.Core;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -9,6 +10,7 @@ namespace Asura.App.Views;
 
 public partial class AgentWorkspaceView
 {
+    private const string ComposerDropTargetClass = "dropTarget";
     private bool _pasteInProgress;
 
     private void OnRemoveAgentImageClick(object? sender, RoutedEventArgs e)
@@ -30,6 +32,72 @@ public partial class AgentWorkspaceView
             agent.RemovePendingFile(file);
         }
     }
+
+    /// <summary>
+    /// Files and images dragged onto the composer attach to the next message,
+    /// exactly as if they had been chosen with the attach button or pasted.
+    /// The composer lights up only while it can take them.
+    /// </summary>
+    private void OnAgentComposerDragOver(object? sender, DragEventArgs e)
+    {
+        _ = sender;
+        var accepts = DataContext is IAgentWorkspaceHost { AgentChat.CanAttachFiles: true }
+            && CarriesAttachments(e.DataTransfer);
+        AgentComposer.Classes.Set(ComposerDropTargetClass, accepts);
+        e.DragEffects = accepts ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnAgentComposerDragLeave(object? sender, DragEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        // Every leave ends the highlight, including a drag cancelled with Esc
+        // over the composer. Moving between the composer's own children
+        // raises DragEnter on the new child right after, which restores it.
+        AgentComposer.Classes.Remove(ComposerDropTargetClass);
+    }
+
+    private async void OnAgentComposerDrop(object? sender, DragEventArgs e)
+    {
+        _ = sender;
+        AgentComposer.Classes.Remove(ComposerDropTargetClass);
+        if (DataContext is not IAgentWorkspaceHost { AgentChat: { } agent }
+            || !CarriesAttachments(e.DataTransfer))
+        {
+            e.DragEffects = DragDropEffects.None;
+            return;
+        }
+
+        e.DragEffects = DragDropEffects.Copy;
+        e.Handled = true;
+        // Read the payload now: the drag source may release it once the
+        // drop event returns.
+        var files = e.DataTransfer.TryGetFiles();
+        using var bitmap = files is { Length: > 0 } ? null : e.DataTransfer.TryGetBitmap();
+        try
+        {
+            if (files is { Length: > 0 })
+            {
+                await AgentAttachmentImport.AddFilesAsync(agent, files, CancellationToken.None);
+                return;
+            }
+
+            if (bitmap is not null)
+            {
+                AgentAttachmentImport.RequireAvailable(agent);
+                agent.AddPendingImage(AgentAttachmentImport.EncodePastedImage(bitmap));
+            }
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            agent.AttachmentError = exception.Message;
+        }
+    }
+
+    private static bool CarriesAttachments(IDataTransfer dataTransfer) =>
+        dataTransfer.Contains(DataFormat.File)
+        || dataTransfer.Contains(DataFormat.Bitmap);
 
     private async void OnAgentPromptPasting(object? sender, RoutedEventArgs e)
     {

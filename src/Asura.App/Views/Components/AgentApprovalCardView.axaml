@@ -9,11 +9,12 @@
     Focusable="False"
     HorizontalContentAlignment="Stretch">
   <controls:SurfaceCard Tone="Raised"
+      x:Name="AgentApprovalRequest"
       Padding="{DynamicResource ShellCardPaddingCompact}"
       Focusable="True"
       KeyboardNavigation.TabNavigation="Local"
-      AutomationProperties.Name="AI agent action approval request"
-      AutomationProperties.HelpText="Review the exact tool, target, host, working directory, material arguments, and input-yield warning before choosing. Approval applies once to this exact action.">
+      AutomationProperties.Name="{Binding AgentChat.PendingApproval.AccessibleName, FallbackValue='AI agent action approval request'}"
+      AutomationProperties.HelpText="Review the action, where it runs, and its arguments before choosing. Exact identifiers are under Details. Approval applies once to this exact action.">
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
       <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
         <icons:SymbolIcon Symbol="Shield" FontSize="{DynamicResource ShellFontSize13}"
@@ -28,7 +29,7 @@
         <TextBlock FontSize="{DynamicResource ShellFontSize15}" FontWeight="SemiBold"
             Text="{Binding AgentChat.PendingApproval.ToolTitle}" TextWrapping="Wrap" />
         <SelectableTextBlock FontSize="{DynamicResource ShellFontSize10}"
-            Text="{Binding AgentChat.PendingApproval.TargetTitle}" TextWrapping="Wrap" />
+            Text="{Binding AgentChat.PendingApproval.TargetDisplayTitle, StringFormat={}In {0}}" TextWrapping="Wrap" />
         <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}"
             Text="{Binding AgentChat.PendingApproval.Host}" TextWrapping="Wrap"
             IsVisible="{Binding AgentChat.PendingApproval.HasHost}" />
@@ -53,15 +54,18 @@
           </ItemsControl.ItemTemplate>
         </ItemsControl>
       </controls:SurfaceCard>
+      <!-- Identifiers bind the decision to one exact action. They are here to
+           check, not to read: the heading above already says what and where. -->
       <Expander Header="Details" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
           FontSize="{DynamicResource ShellFontSize10}">
         <ScrollViewer MaxHeight="200" HorizontalScrollBarVisibility="Disabled">
           <StackPanel Spacing="{DynamicResource ShellSpaceSm}" Margin="{controls:Inset Top=Sm}">
-            <TextBlock Classes="Muted" Text="{Binding AgentChat.PendingApproval.ToolName}" TextWrapping="Wrap" />
+            <SelectableTextBlock Classes="Muted" Text="{Binding AgentChat.PendingApproval.ToolName, StringFormat={}Tool: {0}}" TextWrapping="Wrap" />
             <TextBlock Classes="Muted" Text="{Binding AgentChat.PendingApproval.Risk, StringFormat={}Risk: {0}}" TextWrapping="Wrap" />
             <TextBlock Classes="Muted" Text="{Binding AgentChat.PendingApproval.Permission, StringFormat={}Permission: {0}}" TextWrapping="Wrap" />
             <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
               <TextBlock Classes="Muted" Text="Target" />
+              <SelectableTextBlock Text="{Binding AgentChat.PendingApproval.TargetTitle}" TextWrapping="Wrap" />
               <SelectableTextBlock Text="{Binding AgentChat.PendingApproval.ExactTarget}" TextWrapping="Wrap" />
             </StackPanel>
             <ItemsControl ItemsSource="{Binding AgentChat.PendingApproval.Arguments}"

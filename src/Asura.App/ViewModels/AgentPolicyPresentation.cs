@@ -43,6 +43,22 @@ internal static class AgentPolicyPresentation
             ? "Full access"
             : permission.ToString();
 
+    /// <summary>
+    /// What an action can do, in the words of the person deciding on it. The
+    /// policy engine's own risk names ("Mutation", "Observation") describe its
+    /// classification, not the consequence someone is approving.
+    /// </summary>
+    public static string RiskName(AgentActionRisk risk) =>
+        risk switch
+        {
+            AgentActionRisk.Observation => "Read only",
+            AgentActionRisk.Routine => "Routine",
+            AgentActionRisk.Mutation => "Makes changes",
+            AgentActionRisk.Destructive => "Can delete data",
+            AgentActionRisk.Privileged => "Needs elevated access",
+            _ => throw new ArgumentOutOfRangeException(nameof(risk)),
+        };
+
     public static string CapabilityDescription(AgentCapability capability) =>
         capability switch
         {

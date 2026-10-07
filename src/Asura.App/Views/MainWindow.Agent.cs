@@ -234,6 +234,14 @@ public sealed partial class MainWindow
             return;
         }
 
+        // Clearing deletes the saved conversation, so it is confirmed exactly
+        // like deleting that conversation from the history list.
+        if (agentChat.ConversationDeletedByClear is { } saved
+            && !await Confirmations.AgentConversationDelete(saved.Title).ShowDialog<bool>(this))
+        {
+            return;
+        }
+
         try
         {
             await agentChat.ClearAsync(_lifetime.Token);

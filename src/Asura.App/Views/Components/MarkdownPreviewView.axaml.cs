@@ -31,15 +31,6 @@ public sealed partial class MarkdownPreviewView : UserControl
         AvaloniaProperty.Register<MarkdownPreviewView, bool>(nameof(ContinuousSelection));
 
     /// <summary>
-    /// Heading sizes, largest first. Markdown allows six levels; the shell's
-    /// type scale is what decides how big each one is here.
-    /// </summary>
-    private static readonly double[] HeadingSizes = [23, 19, 16, 14, 13, 13];
-
-    /// <summary>Body size for prose, a step above the shell's dense UI text.</summary>
-    private const double BodyFontSize = 13;
-
-    /// <summary>
     /// Below this width a table column stops being readable. Tables with more
     /// columns keep this floor and scroll inside their own viewport.
     /// </summary>
@@ -636,10 +627,10 @@ public sealed partial class MarkdownPreviewView : UserControl
 
     private Control Heading(MarkdownBlock block)
     {
-        var text = Prose(block.Runs);
-        var size = HeadingSizes[Math.Clamp(block.Level, 1, HeadingSizes.Length) - 1];
-        text.FontSize = size;
-        text.LineHeight = Math.Round(size * 1.3);
+        var text = Prose(
+            block.Runs,
+            MarkdownTypography.HeadingPointsFor(block.Level),
+            MarkdownTypography.HeadingLineHeight);
         text.FontWeight = FontWeight.SemiBold;
         // Space above a heading, not below: a heading belongs to what follows
         // it, and an even gap on both sides makes it float between sections.
@@ -653,20 +644,28 @@ public sealed partial class MarkdownPreviewView : UserControl
     {
         // The bullet is its own column so wrapped lines line up under the text
         // rather than under the marker.
+        // A right-to-left item mirrors the whole row, so its marker sits on
+        // the edge where its text starts. The margin is laid out by the
+        // left-to-right parent, outside the mirror, so the indent moves to
+        // the right side explicitly.
+        var direction = Direction(block.Runs);
+        var indent = (Math.Max(0, block.Level - 1) * 18) + 2;
         var grid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("Auto,*"),
-            Margin = new Thickness((Math.Max(0, block.Level - 1) * 18) + 2, 0, 0, 0),
+            Margin = direction == FlowDirection.RightToLeft
+                ? new Thickness(0, 0, indent, 0)
+                : new Thickness(indent, 0, 0, 0),
+            FlowDirection = direction,
         };
         var bullet = new SelectableTextBlock
         {
             Text = string.IsNullOrEmpty(block.Bullet) ? string.Empty : block.Bullet,
             MinWidth = 20,
-            // The same size and line height as the text beside it, or the
-            // marker rides above the first line instead of sitting on it.
-            FontSize = BodyFontSize,
-            LineHeight = Math.Round(BodyFontSize * 1.55),
         };
+        // The same size and line height as the text beside it, or the
+        // marker rides above the first line instead of sitting on it.
+        FollowTypeSize(bullet, MarkdownTypography.BodyPoints, MarkdownTypography.ProseLineHeight);
         Paint(bullet, "ShellMutedBrush");
         var content = Prose(block.Runs);
         Grid.SetColumn(content, 1);
@@ -684,6 +683,7 @@ public sealed partial class MarkdownPreviewView : UserControl
         {
             BorderThickness = new Thickness(2, 0, 0, 0),
             Child = content,
+            FlowDirection = content.FlowDirection,
         };
         if (Brush("ShellAccentBrush") is { } accent)
         {
@@ -732,7 +732,7 @@ public sealed partial class MarkdownPreviewView : UserControl
         {
             LaTeX = block.Text,
             DisplayErrorInline = false,
-            FontSize = (float)BodyFontSize,
+            FontSize = (float)MarkdownTypography.FontSize(this, MarkdownTypography.BodyPoints),
             HorizontalAlignment = HorizontalAlignment.Left,
             Margin = new Thickness(0, 4),
         };
@@ -741,14 +741,18 @@ public sealed partial class MarkdownPreviewView : UserControl
             formula.TextColor = foreground.Color;
         }
 
-        return formula.ErrorMessage is null
-            ? formula
-            : new SelectableTextBlock
-            {
-                Text = block.Text,
-                FontSize = BodyFontSize,
-                TextWrapping = TextWrapping.Wrap,
-            };
+        if (formula.ErrorMessage is null)
+        {
+            return formula;
+        }
+
+        var source = new SelectableTextBlock
+        {
+            Text = block.Text,
+            TextWrapping = TextWrapping.Wrap,
+        };
+        FollowTypeSize(source, MarkdownTypography.BodyPoints, MarkdownTypography.ProseLineHeight);
+        return source;
     }
 
     private Control ThematicBreak()
@@ -878,16 +882,20 @@ public sealed partial class MarkdownPreviewView : UserControl
     /// One selectable block of text carrying every run's appearance as inlines,
     /// so a whole paragraph selects and copies as one piece of prose.
     /// </summary>
-    private SelectableTextBlock Prose(ImmutableArray<MarkdownRun> runs)
+    private SelectableTextBlock Prose(ImmutableArray<MarkdownRun> runs) =>
+        Prose(runs, MarkdownTypography.BodyPoints, MarkdownTypography.ProseLineHeight);
+
+    private SelectableTextBlock Prose(
+        ImmutableArray<MarkdownRun> runs,
+        int points,
+        Func<double, double> lineHeight)
     {
         var text = new SelectableTextBlock
         {
-            FontSize = BodyFontSize,
-            // Prose at a terminal's line spacing reads as a wall; 1.55 is the
-            // ratio the shell's own documentation surfaces use.
-            LineHeight = Math.Round(BodyFontSize * 1.55),
             TextWrapping = TextWrapping.Wrap,
+            FlowDirection = Direction(runs),
         };
+        FollowTypeSize(text, points, lineHeight);
         foreach (var run in runs)
         {
             text.Inlines?.Add(Inline(run));
@@ -908,7 +916,7 @@ public sealed partial class MarkdownPreviewView : UserControl
             {
                 LaTeX = run.Text,
                 DisplayErrorInline = false,
-                FontSize = (float)BodyFontSize,
+                FontSize = (float)MarkdownTypography.FontSize(this, MarkdownTypography.BodyPoints),
             };
             if (Brush("ShellTextBrush") is ISolidColorBrush foreground)
             {
@@ -956,6 +964,32 @@ public sealed partial class MarkdownPreviewView : UserControl
         }
 
         return inline;
+    }
+
+    private static FlowDirection Direction(ImmutableArray<MarkdownRun> runs) =>
+        MarkdownTypography.ParagraphDirection(string.Concat(runs.Select(run => run.Text)));
+
+    /// <summary>
+    /// Sizes text from the shell's type ramp and keeps following it, so a
+    /// text-size change reaches a preview that is already on screen instead
+    /// of waiting for the document to be rebuilt.
+    /// </summary>
+    private static void FollowTypeSize(
+        TextBlock text,
+        int points,
+        Func<double, double> lineHeight)
+    {
+        var key = MarkdownTypography.FontSizeKey(points);
+        text.Bind(
+            TextBlock.FontSizeProperty,
+            text.GetResourceObservable(
+                key,
+                value => MarkdownTypography.SizeOrDefault(value, points)));
+        text.Bind(
+            TextBlock.LineHeightProperty,
+            text.GetResourceObservable(
+                key,
+                value => lineHeight(MarkdownTypography.SizeOrDefault(value, points))));
     }
 
     /// <summary>

@@ -11,6 +11,16 @@ public sealed partial class AgentQuestionCardView : UserControl
         InitializeComponent();
     }
 
+    /// <summary>
+    /// Moves keyboard focus to the request when it appears, so it is read
+    /// aloud and can be answered without hunting for it in the transcript.
+    /// </summary>
+    internal bool FocusRequest()
+    {
+        AgentPendingQuestion.BringIntoView();
+        return AgentPendingQuestion.Focus(NavigationMethod.Tab);
+    }
+
     public event EventHandler<RoutedEventArgs>? DeclineRequested;
 
     public event EventHandler<KeyEventArgs>? ResponseKeyDownRequested;

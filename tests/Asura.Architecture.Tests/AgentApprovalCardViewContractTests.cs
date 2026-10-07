@@ -48,9 +48,12 @@ public sealed class AgentApprovalCardViewContractTests
         Assert.Equal("True", AttributeValue(card, "Focusable"));
         Assert.Equal("Local", AttributeValue(card, "KeyboardNavigation.TabNavigation"));
         Assert.Null(AttributeValue(card, "AutomationProperties.LiveSetting"));
+        // Focus moves to the card when it appears, so its name is what a
+        // screen reader says first: the action, where, and its consequence.
         Assert.Equal(
-            "AI agent action approval request",
+            "{Binding AgentChat.PendingApproval.AccessibleName, FallbackValue='AI agent action approval request'}",
             AttributeValue(card, "AutomationProperties.Name"));
+        Assert.Equal("AgentApprovalRequest", AttributeValue(card, "Name"));
         Assert.Contains(
             "Approval applies once",
             AttributeValue(card, "AutomationProperties.HelpText"),
@@ -89,8 +92,25 @@ public sealed class AgentApprovalCardViewContractTests
     {
         var document = LoadComponent();
         var target = Assert.Single(document.Descendants(), element =>
-            AttributeValue(element, "Text") == "{Binding AgentChat.PendingApproval.TargetTitle}");
+            AttributeValue(element, "Text") == "{Binding AgentChat.PendingApproval.TargetDisplayTitle, StringFormat={}In {0}}");
         Assert.DoesNotContain(target.Ancestors(), element => element.Name.LocalName == "Expander");
+    }
+
+    [Fact]
+    public void Approval_identifiers_stay_available_in_details_only()
+    {
+        var document = LoadComponent();
+        foreach (var identifier in new[]
+                 {
+                     "{Binding AgentChat.PendingApproval.TargetTitle}",
+                     "{Binding AgentChat.PendingApproval.ExactTarget}",
+                     "{Binding AgentChat.PendingApproval.ToolName, StringFormat={}Tool: {0}}",
+                 })
+        {
+            var element = Assert.Single(document.Descendants(), element =>
+                AttributeValue(element, "Text") == identifier);
+            Assert.Contains(element.Ancestors(), ancestor => ancestor.Name.LocalName == "Expander");
+        }
     }
 
     private static XElement FindButton(XDocument document, string content) =>

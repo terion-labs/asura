@@ -153,9 +153,19 @@ public sealed partial class QuickTerminalWindow
         await RunAgentActionFromDataContextAsync(
             (agent, token) => agent.CancelActiveActionAsync(token));
 
-    private async void OnClearAgentChatClick(object? sender, RoutedEventArgs e) =>
+    private async void OnClearAgentChatClick(object? sender, RoutedEventArgs e)
+    {
+        // Clearing deletes the saved conversation, so it is confirmed exactly
+        // like deleting that conversation from the history list.
+        if (DataContext is QuickTerminalViewModel { AgentChat.ConversationDeletedByClear: { } saved }
+            && !await Confirmations.AgentConversationDelete(saved.Title).ShowDialog<bool>(this))
+        {
+            return;
+        }
+
         await RunAgentActionFromDataContextAsync(
             (agent, token) => agent.ClearAsync(token));
+    }
 
     private async void OnStartNewAgentConversationClick(object? sender, RoutedEventArgs e) =>
         await RunQuickAgentConversationActionAsync(

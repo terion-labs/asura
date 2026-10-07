@@ -1,4 +1,7 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Media;
 
@@ -33,6 +36,9 @@ public sealed class ContextWindowDonut : Control
             IndicatorBrushProperty,
             StrokeThicknessProperty);
     }
+
+    protected override AutomationPeer OnCreateAutomationPeer() =>
+        new ContextWindowDonutAutomationPeer(this);
 
     public double Percentage
     {
@@ -117,5 +123,54 @@ public sealed class ContextWindowDonut : Control
         }
 
         context.DrawGeometry(null, pen, arc);
+    }
+
+    /// <summary>
+    /// A read-only level, so assistive technology hears how full the context
+    /// window is instead of an unlabeled drawing.
+    /// </summary>
+    private sealed class ContextWindowDonutAutomationPeer
+        : ControlAutomationPeer, IRangeValueProvider
+    {
+        public ContextWindowDonutAutomationPeer(ContextWindowDonut owner)
+            : base(owner)
+        {
+            owner.PropertyChanged += (_, change) =>
+            {
+                if (change.Property == PercentageProperty)
+                {
+                    RaisePropertyChangedEvent(
+                        RangeValuePatternIdentifiers.ValueProperty,
+                        Math.Clamp(change.GetOldValue<double>(), 0, 100),
+                        Math.Clamp(change.GetNewValue<double>(), 0, 100));
+                }
+            };
+        }
+
+        private ContextWindowDonut Donut => (ContextWindowDonut)Owner;
+
+        public bool IsReadOnly => true;
+
+        public double Minimum => 0;
+
+        public double Maximum => 100;
+
+        public double Value => Math.Clamp(Donut.Percentage, 0, 100);
+
+        public double SmallChange => 1;
+
+        public double LargeChange => 10;
+
+        public void SetValue(double value) =>
+            throw new InvalidOperationException("Context window usage is read-only.");
+
+        protected override AutomationControlType GetAutomationControlTypeCore() =>
+            AutomationControlType.ProgressBar;
+
+        protected override string GetClassNameCore() => "ContextWindowGauge";
+
+        protected override bool IsContentElementCore() => true;
+
+        protected override bool IsControlElementCore() => true;
     }
 }
