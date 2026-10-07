@@ -551,6 +551,17 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
             cancellationToken);
     }
 
+    public ValueTask<HostResult<IReadOnlyList<ActiveSessionSummary>>> InspectWindowCloseAsync(
+        CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return RequireSessionClient().InspectCloseAsync(
+            CloseScopeKind.Window,
+            _windowId.Value,
+            OperationContext.ForHuman(_clientId),
+            cancellationToken);
+    }
+
     public async ValueTask<WorkspaceGraphSnapshot?> ObserveWorkspaceAsync(
         WorkspaceInstanceId workspaceId,
         CancellationToken cancellationToken)

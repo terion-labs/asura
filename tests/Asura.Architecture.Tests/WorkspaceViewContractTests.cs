@@ -276,7 +276,8 @@ public sealed class WorkspaceViewContractTests
             AttributeValue(FindNamedElement(root, "RuntimeTabStripSide"), "Orientation"));
 
         // The rail's edge and visibility follow the stored appearance profile, so
-        // both are bindings rather than fixed values.
+        // both are bindings rather than fixed values. Visibility also gives way
+        // to a narrow window, where the Workspaces menu stands in for the rail.
         var rail = Assert.Single(
             root.Descendants(),
             element => string.Equals(element.Name.LocalName, "Border"
@@ -286,7 +287,7 @@ public sealed class WorkspaceViewContractTests
                     StringComparison.Ordinal));
         Assert.True(HasClass(rail, "FloatingSidebar"));
         Assert.Equal(
-            "{Binding ShowWorkspacesPanel}",
+            "{Binding IsWorkspaceRailVisible}",
             AttributeValue(rail, "IsVisible"));
 
         // The agent panel is an in-window overlay in both of its states: the
@@ -313,14 +314,16 @@ public sealed class WorkspaceViewContractTests
         // later clear back to the style's defaults.
         Assert.Null(AttributeValue(agentWorkspace, "Margin"));
         Assert.Null(AttributeValue(agentWorkspace, "Width"));
+        // A pinned panel floats while the window is too narrow to give it a
+        // column, and docks again when the window is widened.
         Assert.Equal(
-            "{Binding !IsAgentPanelDocked}",
+            "{Binding IsAgentPanelFloating}",
             AttributeValue(agentWorkspace, "Classes.floating"));
         Assert.Equal(
-            "{Binding IsAgentPanelDocked}",
+            "{Binding !IsAgentPanelFloating}",
             AttributeValue(agentWorkspace, "Classes.edgeResizable"));
         Assert.Equal(
-            "{Binding IsAgentPanelDocked}",
+            "{Binding !IsAgentPanelFloating}",
             AttributeValue(agentWorkspace, "Classes.edgeRight"));
         Assert.Equal(
             "{Binding #AgentWorkspaceSurface.Bounds.Width}",
@@ -356,7 +359,7 @@ public sealed class WorkspaceViewContractTests
         Assert.Equal("AgentViewport", AttributeValue(agentViewport, "Name"));
         Assert.Null(AttributeValue(agentViewport, "Background"));
         Assert.Equal("False", AttributeValue(agentViewport, "ClipToBounds"));
-        Assert.Equal("{Binding !IsAgentPanelDocked}", AttributeValue(agentViewport, "Classes.floating"));
+        Assert.Equal("{Binding IsAgentPanelFloating}", AttributeValue(agentViewport, "Classes.floating"));
         Assert.Equal("{Binding #AgentViewport.Bounds.Width}", AttributeValue(agentWorkspace, "MaxWidth"));
         Assert.Equal("{Binding #AgentViewport.Bounds.Height}", AttributeValue(agentWorkspace, "MaxHeight"));
         var agentOverlay = agentViewport.Parent!;

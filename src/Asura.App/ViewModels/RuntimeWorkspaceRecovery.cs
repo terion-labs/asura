@@ -11,6 +11,21 @@ internal static class RuntimeWorkspaceRecoveryCodec
     public const string SnapshotKey = "desktop.main-window";
     public const int SchemaVersion = 10;
 
+    /// <summary>
+    /// The snapshot key for one window's recovery slot. The first slot keeps
+    /// the key every earlier version wrote, so a single-window session from
+    /// before windows had slots still restores into the first window.
+    /// </summary>
+    public static string SnapshotKeyFor(int slot)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(slot);
+        return slot == 0
+            ? SnapshotKey
+            : string.Create(
+                System.Globalization.CultureInfo.InvariantCulture,
+                $"{SnapshotKey}.{slot + 1}");
+    }
+
     private const int MaximumTabs = WorkspaceInstance.MaximumPanelCount;
     private const int MaximumPanelsPerTab = WorkspaceInstance.MaximumPanelCount;
     private const int MaximumGridDimension = 64;

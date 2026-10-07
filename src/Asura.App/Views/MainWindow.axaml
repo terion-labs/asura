@@ -13,8 +13,8 @@
     Title="Asura"
     Width="1440"
     Height="900"
-    MinWidth="1080"
-    MinHeight="680"
+    MinWidth="640"
+    MinHeight="480"
     WindowDecorations="Full"
     ExtendClientAreaToDecorationsHint="True"
     ExtendClientAreaTitleBarHeightHint="-1"
@@ -640,20 +640,64 @@
          airspace layer. -->
     <controls:NativeSurfaceLayer x:Name="NativeSurfaces" />
 
-    <!-- Runtime preparation is a foreground workspace state. It deliberately
-         sits above native surfaces and the route behind it while the requested
-         isolate and its persistent container are brought online. -->
-    <Border
+    <!-- Starting an isolated workspace is that workspace's state, so it takes
+         that workspace's canvas and nothing else. The code-behind fits it to
+         the space the workspace body leaves for the canvas, which keeps the
+         rail, the tab strip and the title band live: another workspace can be
+         brought forward, and the window can still be dragged. It sits above
+         native surfaces while the isolate and its container come online, says
+         how far an image pull has got when the provider can measure it, and
+         can be cancelled while the environment is being prepared. -->
+    <controls:SurfaceCard
+        x:Name="WorkspaceIsolationProgress"
         ZIndex="1100"
-        Background="{DynamicResource ShellBackgroundBrush}"
-        IsVisible="{Binding IsWorkspaceIsolationStarting}"
+        Tone="Panel"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Top"
         IsHitTestVisible="True">
-      <controls:StateOverlay
-          Kind="Loading"
-          Heading="{Binding WorkspaceIsolationStartingHeading}"
-          Body="{Binding WorkspaceIsolationStartingBody}"
-          IsVisible="{Binding IsWorkspaceIsolationStarting}" />
-    </Border>
+      <controls:SurfaceCard.IsVisible>
+        <MultiBinding Converter="{x:Static BoolConverters.And}">
+          <Binding Path="IsWorkspaceIsolationProgressVisible" />
+          <Binding Path="IsWorkspaceVisible" />
+        </MultiBinding>
+      </controls:SurfaceCard.IsVisible>
+      <StackPanel
+          MaxWidth="420"
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center"
+          Spacing="{DynamicResource ShellSpaceSm}"
+          AutomationProperties.LiveSetting="Polite"
+          AutomationProperties.Name="{Binding WorkspaceIsolationStartingHeading}">
+        <ProgressBar
+            Width="220"
+            HorizontalAlignment="Center"
+            Minimum="0"
+            Maximum="100"
+            IsIndeterminate="{Binding !HasWorkspaceIsolationStartingPercent}"
+            Value="{Binding WorkspaceIsolationStartingPercent}" />
+        <TextBlock
+            HorizontalAlignment="Center"
+            FontWeight="SemiBold"
+            Text="{Binding WorkspaceIsolationStartingHeading}"
+            TextAlignment="Center"
+            TextWrapping="Wrap" />
+        <TextBlock
+            HorizontalAlignment="Center"
+            Classes="Muted"
+            FontSize="{DynamicResource ShellFontSize11}"
+            LineHeight="{DynamicResource ShellLineHeight11}"
+            Text="{Binding WorkspaceIsolationStartingBody}"
+            TextAlignment="Center"
+            TextWrapping="Wrap" />
+        <Button
+            Margin="{controls:Inset Top=Sm}"
+            HorizontalAlignment="Center"
+            Content="Cancel"
+            Command="{Binding CancelWorkspaceIsolationStartupCommand}"
+            IsVisible="{Binding CanCancelWorkspaceIsolationStartup}"
+            AutomationProperties.Name="Cancel starting the workspace" />
+      </StackPanel>
+    </controls:SurfaceCard>
     </Grid>
 
     <!-- Last child of the root grid on purpose: when the shell is locked,

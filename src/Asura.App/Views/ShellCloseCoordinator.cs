@@ -106,37 +106,89 @@ internal sealed class ShellCloseCoordinator(
             detail);
     }
 
+    /// <summary>
+    /// The unsaved-edit questions this window asks before it can close. A quit
+    /// asks every window these first, so cancelling one leaves all of them
+    /// open.
+    /// </summary>
+    public async Task<bool> ConfirmDiscardPendingEditsAsync(string closingPhrase)
+    {
+        if (viewModel.LayoutDesignerEditor?.RequestCancel()
+                == LayoutDesignerCancelDisposition.ConfirmDiscard
+            && !await _presentation.ConfirmLayoutDiscardAsync())
+        {
+            return false;
+        }
+
+        if (viewModel.KeybindingEditorSession?.IsDirty == true
+            && !await _presentation.ConfirmDiscardAsync(
+                "Discard keybinding changes?",
+                $"The unsaved shortcuts, prefix, and conflict resolutions will be lost when {closingPhrase}."))
+        {
+            return false;
+        }
+
+        if (viewModel.WorkspaceEditor?.RequestCancel()
+                == WorkspaceEditorCancelDisposition.ConfirmDiscard
+            && !await _presentation.ConfirmDiscardAsync(
+                "Discard workspace changes?",
+                $"The unsaved workspace order, tabs, panels, and startup settings will be lost when {closingPhrase}."))
+        {
+            return false;
+        }
+
+        return await ConfirmDiscardDatabaseChangesAsync(
+            viewModel.OpenWorkspaces.SelectMany(workspace =>
+                workspace.Tabs.SelectMany(tab => tab.Panels)));
+    }
+
+    /// <summary>
+    /// Closes this window as part of a quit the user has already confirmed
+    /// once for every window, so its running sessions end without a second
+    /// question.
+    /// </summary>
+    public async Task<bool> CloseForQuitAsync()
+    {
+        if (_windowCloseApproved)
+        {
+            return true;
+        }
+
+        if (_windowCloseInProgress)
+        {
+            return false;
+        }
+
+        _windowCloseInProgress = true;
+        try
+        {
+            if (!await RunHostCloseAsync((_, cancellationToken) =>
+                    viewModel.CloseWindowAsync(CloseDecision.Confirm, cancellationToken)))
+            {
+                return false;
+            }
+
+            await viewModel.QuiesceForShutdownAsync(CancellationToken.None);
+            _windowCloseApproved = true;
+            _presentation.CloseWindow();
+            return true;
+        }
+        finally
+        {
+            if (!_windowCloseApproved)
+            {
+                viewModel.ResumeAfterWindowCloseAttempt();
+            }
+
+            _windowCloseInProgress = false;
+        }
+    }
+
     private async Task CloseWindowCoreAsync()
     {
         try
         {
-            if (viewModel.LayoutDesignerEditor?.RequestCancel()
-                    == LayoutDesignerCancelDisposition.ConfirmDiscard
-                && !await _presentation.ConfirmLayoutDiscardAsync())
-            {
-                return;
-            }
-
-            if (viewModel.KeybindingEditorSession?.IsDirty == true
-                && !await _presentation.ConfirmDiscardAsync(
-                    "Discard keybinding changes?",
-                    "The unsaved shortcuts, prefix, and conflict resolutions will be lost when Asura closes."))
-            {
-                return;
-            }
-
-            if (viewModel.WorkspaceEditor?.RequestCancel()
-                    == WorkspaceEditorCancelDisposition.ConfirmDiscard
-                && !await _presentation.ConfirmDiscardAsync(
-                    "Discard workspace changes?",
-                    "The unsaved workspace order, tabs, panels, and startup settings will be lost when Asura closes."))
-            {
-                return;
-            }
-
-            if (!await ConfirmDiscardDatabaseChangesAsync(
-                viewModel.OpenWorkspaces.SelectMany(workspace =>
-                    workspace.Tabs.SelectMany(tab => tab.Panels))))
+            if (!await ConfirmDiscardPendingEditsAsync("this window closes"))
             {
                 return;
             }

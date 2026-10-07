@@ -47,6 +47,12 @@ internal sealed record ConfirmationDialogOptions
     public string? ConfirmAutomationName { get; init; }
 
     public string? CancelAutomationName { get; init; }
+
+    /// <summary>
+    /// A "Don't ask again" checkbox under the buttons' question. Only a
+    /// confirmation backed by a setting that can turn it back on offers one.
+    /// </summary>
+    public string? SuppressionLabel { get; init; }
 }
 
 /// <summary>
@@ -76,6 +82,9 @@ public sealed partial class ConfirmationDialog : Window
         ConfirmLabel = options.ConfirmLabel.Trim();
         CancelLabel = options.CancelLabel.Trim();
         ShowsCancel = options.ShowsCancel;
+        SuppressionLabel = string.IsNullOrWhiteSpace(options.SuppressionLabel)
+            ? null
+            : options.SuppressionLabel.Trim();
         InitializeComponent();
         DataContext = this;
         Title = options.Title;
@@ -120,6 +129,36 @@ public sealed partial class ConfirmationDialog : Window
 
     public bool ShowsCancel { get; }
 
+    public string? SuppressionLabel { get; }
+
+    public bool HasSuppression => SuppressionLabel is not null;
+
+    /// <summary>Whether "Don't ask again" was ticked when the dialog closed.</summary>
+    public bool IsSuppressionChecked { get; set; }
+
+    /// <summary>
+    /// Shows the confirmation over <paramref name="owner"/>, or on its own when
+    /// there is no window left to own it — quitting from the Dock with only
+    /// background sessions running still has to ask.
+    /// </summary>
+    internal Task<bool> ShowAsync(Window? owner)
+    {
+        if (owner is not null)
+        {
+            return ShowDialog<bool>(owner);
+        }
+
+        var answer = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        Closed += (_, _) => answer.TrySetResult(_confirmed);
+        WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        Show();
+        Activate();
+        return answer.Task;
+    }
+
+    private bool _confirmed;
+
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         _ = sender;
@@ -143,6 +182,7 @@ public sealed partial class ConfirmationDialog : Window
     {
         _ = sender;
         _ = e;
+        _confirmed = true;
         Close(true);
     }
 

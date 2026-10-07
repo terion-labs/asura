@@ -1271,6 +1271,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             OnPropertyChanged(eventArgs.PropertyName);
         }
+
+        if (string.Equals(eventArgs.PropertyName, nameof(ShowWorkspacesPanel), StringComparison.Ordinal))
+        {
+            OnPropertyChanged(nameof(IsWorkspaceRailVisible));
+            OnPropertyChanged(nameof(HasWorkspaceAttention));
+        }
     }
 
     private void OnAppearanceBackgroundSaveStarting(object? sender, EventArgs eventArgs)
@@ -2177,7 +2183,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     public bool IsSettingsVisible => _navigation.IsSettingsVisible;
 
     public bool IsWorkspaceCanvasVisible =>
-        _navigation.IsWorkspaceCanvasVisible && !IsWorkspaceIsolationStarting;
+        _navigation.IsWorkspaceCanvasVisible && !IsWorkspaceIsolationProgressVisible;
 
     public bool IsAppearanceSettingsVisible => _navigation.IsAppearanceSettingsVisible;
 
@@ -2281,13 +2287,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (SetProperty(ref _isAgentPanelDocked, value))
             {
                 OnPropertyChanged(nameof(IsAgentPanelDockedVisible));
+                OnPropertyChanged(nameof(IsAgentPanelFloating));
                 OnPropertyChanged(nameof(AgentPanelPinTip));
             }
         }
     }
 
-    /// <summary>The layout reserves the agent panel's width only while a pinned panel is on screen.</summary>
-    public bool IsAgentPanelDockedVisible => IsAgentPanelVisible && IsAgentPanelDocked;
+    /// <summary>
+    /// The layout reserves the agent panel's width only while a pinned panel
+    /// is on screen and the window is wide enough to spare it.
+    /// </summary>
+    public bool IsAgentPanelDockedVisible =>
+        IsAgentPanelVisible && IsAgentPanelDocked && !IsNarrowWindow;
 
     public string AgentPanelPinTip => IsAgentPanelDocked
         ? "Unpin — float over the workspace"
@@ -2862,12 +2873,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
 
         var workspace = storedWorkspace.Value;
+        if (TryBringWorkspaceIsolationStartupForward(workspace.Id))
+        {
+            // Already starting: its progress comes back to the front and the
+            // open under way finishes it. This call opened nothing itself.
+            return false;
+        }
 
         // Already open: bring it forward rather than building a second one. The
         // sessions in it are the point — rebuilding them from the definition is
         // what "switching killed my processes" was.
         if (FindOpenWorkspace(workspace.Key) is { } alreadyOpen)
         {
+            StepWorkspaceIsolationStartupAside();
             if (!IsolationIntentMatches(alreadyOpen))
             {
                 SetError(
@@ -3796,7 +3814,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             _runtimeGraphLifetime.Token);
         var operationCancellation = operationLifetime.Token;
         var snapshot = snapshots
-            .Where(item => string.Equals(item.Key, RuntimeWorkspaceRecoveryCodec.SnapshotKey, StringComparison.Ordinal))
+            .Where(item => string.Equals(item.Key, RuntimeRecovery.SnapshotKey, StringComparison.Ordinal))
             .OrderByDescending(item => item.UpdatedAt)
             .FirstOrDefault();
         if (snapshot is null)
@@ -7829,7 +7847,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 new DefinitionKey(WorkspaceDefinition.Kind, item.Id.Value));
             item.IsOpen = runtime is not null;
             item.CanSaveLayout = runtime is not null && WorkspaceAutoSave.CanSaveLayout(runtime, item.Id);
-            item.IsInFront = _workspaceIsolationStartingWorkspaceId is { } startingId
+            item.IsInFront = IsWorkspaceIsolationProgressVisible
+                && _workspaceIsolationStartingWorkspaceId is { } startingId
                 ? item.Id == startingId
                 : runtime is not null && ReferenceEquals(runtime, RuntimeWorkspace);
             item.HasAttention = runtime?.HasAttention == true;
@@ -7854,7 +7873,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     /// rail is still visible from the chrome.
     /// </summary>
     public bool HasWorkspaceAttention =>
-        !ShowWorkspacesPanel && Workspaces.Any(item => item.HasAttention);
+        !IsWorkspaceRailVisible && Workspaces.Any(item => item.HasAttention);
 
     public bool HasWorkspaceAgentActivity =>
         Workspaces.Any(item => item.HasAgentActivity);

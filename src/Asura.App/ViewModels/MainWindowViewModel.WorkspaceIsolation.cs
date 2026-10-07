@@ -16,9 +16,61 @@ public sealed partial class MainWindowViewModel
     private WorkspaceId? _workspaceIsolationStartingWorkspaceId;
     private string? _workspaceIsolationStartingWorkspaceName;
     private string? _workspaceIsolationStartingStatus;
+    private double? _workspaceIsolationStartingFraction;
+    private bool _workspaceIsolationStartupInFront;
+    private CancellationTokenSource? _workspaceIsolationStartupCancellation;
+    private AsyncActionCommand? _cancelWorkspaceIsolationStartupCommand;
 
     public bool IsWorkspaceIsolationStarting =>
         _workspaceIsolationStartupId is not null;
+
+    /// <summary>
+    /// Whether the starting workspace's progress is what the canvas shows.
+    /// Only the canvas: the rail, tab strip and title band stay live, so
+    /// another workspace can be brought forward while this one starts, and
+    /// choosing this one again brings its progress back.
+    /// </summary>
+    public bool IsWorkspaceIsolationProgressVisible =>
+        IsWorkspaceIsolationStarting && _workspaceIsolationStartupInFront;
+
+    /// <summary>
+    /// The provider's measured progress, 0-100, when it can measure the
+    /// current step; otherwise the bar is indeterminate.
+    /// </summary>
+    public double WorkspaceIsolationStartingPercent =>
+        (_workspaceIsolationStartingFraction ?? 0) * 100;
+
+    public bool HasWorkspaceIsolationStartingPercent =>
+        _workspaceIsolationStartingFraction is not null;
+
+    /// <summary>
+    /// Cancel is offered while the isolated environment is being prepared -
+    /// the image pull and container start, which are the long part. Once the
+    /// panels are being restored there is nothing left worth stopping.
+    /// </summary>
+    public bool CanCancelWorkspaceIsolationStartup =>
+        _workspaceIsolationStartupCancellation is { IsCancellationRequested: false };
+
+    public System.Windows.Input.ICommand CancelWorkspaceIsolationStartupCommand =>
+        _cancelWorkspaceIsolationStartupCommand ??= new AsyncActionCommand(
+            () =>
+            {
+                CancelWorkspaceIsolationStartup();
+                return Task.CompletedTask;
+            },
+            () => CanCancelWorkspaceIsolationStartup);
+
+    /// <summary>Stops preparing the starting workspace; the one before it stays.</summary>
+    public void CancelWorkspaceIsolationStartup()
+    {
+        if (_workspaceIsolationStartupCancellation is not { IsCancellationRequested: false } startup)
+        {
+            return;
+        }
+
+        startup.Cancel();
+        RaiseWorkspaceIsolationCancellationChanged();
+    }
 
     public string WorkspaceIsolationStartingHeading =>
         _workspaceIsolationStartingStatus
@@ -101,11 +153,9 @@ public sealed partial class MainWindowViewModel
         _workspaceIsolationStartingWorkspaceId = workspace.Id;
         _workspaceIsolationStartingWorkspaceName = workspace.Name;
         _workspaceIsolationStartingStatus = null;
-        OnPropertyChanged(nameof(IsWorkspaceIsolationStarting));
-        OnPropertyChanged(nameof(WorkspaceIsolationStartingHeading));
-        OnPropertyChanged(nameof(WorkspaceIsolationStartingBody));
-        OnPropertyChanged(nameof(IsWorkspaceCanvasVisible));
-        RefreshWorkspaceRuntimeFlags();
+        _workspaceIsolationStartingFraction = null;
+        _workspaceIsolationStartupInFront = true;
+        RaiseWorkspaceIsolationStartupChanged();
 
         // Navigation changes before runtime preparation is awaited. The
         // requested workspace is therefore the foreground surface while its
@@ -125,26 +175,82 @@ public sealed partial class MainWindowViewModel
         _workspaceIsolationStartingWorkspaceId = null;
         _workspaceIsolationStartingWorkspaceName = null;
         _workspaceIsolationStartingStatus = null;
+        _workspaceIsolationStartingFraction = null;
+        _workspaceIsolationStartupInFront = false;
+        RaiseWorkspaceIsolationStartupChanged();
+    }
+
+    /// <summary>
+    /// Another open workspace was chosen while this one starts. Its progress
+    /// steps aside so that workspace's canvas shows; the start carries on.
+    /// </summary>
+    private void StepWorkspaceIsolationStartupAside()
+    {
+        if (!IsWorkspaceIsolationProgressVisible)
+        {
+            return;
+        }
+
+        _workspaceIsolationStartupInFront = false;
+        RaiseWorkspaceIsolationStartupChanged();
+    }
+
+    /// <summary>
+    /// The workspace that is starting was chosen again: show its progress
+    /// rather than trying to open it a second time.
+    /// </summary>
+    private bool TryBringWorkspaceIsolationStartupForward(WorkspaceId workspaceId)
+    {
+        if (_workspaceIsolationStartingWorkspaceId != workspaceId)
+        {
+            return false;
+        }
+
+        if (!_workspaceIsolationStartupInFront)
+        {
+            _workspaceIsolationStartupInFront = true;
+            RaiseWorkspaceIsolationStartupChanged();
+        }
+
+        Route = ShellRoute.Workspace;
+        return true;
+    }
+
+    private void RaiseWorkspaceIsolationStartupChanged()
+    {
         OnPropertyChanged(nameof(IsWorkspaceIsolationStarting));
+        OnPropertyChanged(nameof(IsWorkspaceIsolationProgressVisible));
         OnPropertyChanged(nameof(WorkspaceIsolationStartingHeading));
         OnPropertyChanged(nameof(WorkspaceIsolationStartingBody));
+        OnPropertyChanged(nameof(WorkspaceIsolationStartingPercent));
+        OnPropertyChanged(nameof(HasWorkspaceIsolationStartingPercent));
         OnPropertyChanged(nameof(IsWorkspaceCanvasVisible));
         RefreshWorkspaceRuntimeFlags();
+    }
+
+    private void RaiseWorkspaceIsolationCancellationChanged()
+    {
+        OnPropertyChanged(nameof(CanCancelWorkspaceIsolationStartup));
+        _cancelWorkspaceIsolationStartupCommand?.RaiseCanExecuteChanged();
     }
 
     private void ReportWorkspaceIsolationProgress(WorkspaceIsolationProgress progress)
     {
         if (_workspaceIsolationStartupId is null
-            || string.Equals(
-                _workspaceIsolationStartingStatus,
-                progress.Status,
-                StringComparison.Ordinal))
+            || (string.Equals(
+                    _workspaceIsolationStartingStatus,
+                    progress.Status,
+                    StringComparison.Ordinal)
+                && _workspaceIsolationStartingFraction == progress.Fraction))
         {
             return;
         }
 
         _workspaceIsolationStartingStatus = progress.Status;
+        _workspaceIsolationStartingFraction = progress.Fraction;
         OnPropertyChanged(nameof(WorkspaceIsolationStartingHeading));
+        OnPropertyChanged(nameof(WorkspaceIsolationStartingPercent));
+        OnPropertyChanged(nameof(HasWorkspaceIsolationStartingPercent));
     }
 
     private ValueTask<WorkspaceIsolationPreparation> PrepareWorkspaceIsolationAsync(
@@ -191,12 +297,32 @@ public sealed partial class MainWindowViewModel
             TaskCompletionSource completion,
             CancellationToken cancellationToken)
     {
+        // Only the visible start of this workspace can be cancelled from its
+        // progress; a preparation nobody can see has no Cancel to press.
+        using var userCancellation = _workspaceIsolationStartingWorkspaceId == workspace.Id
+            ? new CancellationTokenSource()
+            : null;
+        using var preparation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            userCancellation?.Token ?? CancellationToken.None);
+        if (userCancellation is not null)
+        {
+            _workspaceIsolationStartupCancellation = userCancellation;
+            RaiseWorkspaceIsolationCancellationChanged();
+        }
+
         try
         {
-            return await PrepareWorkspaceIsolationCoreAsync(workspace, cancellationToken);
+            return await PrepareWorkspaceIsolationCoreAsync(workspace, preparation.Token);
         }
         catch (OperationCanceledException) when (_runtimeGraphLifetime.IsCancellationRequested)
         {
+            return WorkspaceIsolationPreparation.Failed;
+        }
+        catch (OperationCanceledException) when (userCancellation?.IsCancellationRequested == true)
+        {
+            // Asked for, so nothing to report: the workspace that was in front
+            // before the start comes back.
             return WorkspaceIsolationPreparation.Failed;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -214,6 +340,13 @@ public sealed partial class MainWindowViewModel
         }
         finally
         {
+            if (userCancellation is not null
+                && ReferenceEquals(_workspaceIsolationStartupCancellation, userCancellation))
+            {
+                _workspaceIsolationStartupCancellation = null;
+                RaiseWorkspaceIsolationCancellationChanged();
+            }
+
             _workspaceRuntimeLeases.CompletePreparation(preparationId, completion);
         }
     }

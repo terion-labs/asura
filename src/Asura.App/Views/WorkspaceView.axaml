@@ -461,7 +461,7 @@
           Classes.workspaceLeft="{Binding IsWorkspacePanelOnLeft}"
           Classes.workspaceRight="{Binding IsWorkspacePanelOnRight}"
           DockPanel.Dock="{Binding WorkspacePanelDock}"
-          IsVisible="{Binding ShowWorkspacesPanel}">
+          IsVisible="{Binding IsWorkspaceRailVisible}">
         <!-- The add button belongs under the last workspace, not pinned to the
              far end of the rail: with two workspaces it was stranded most of a
              screen below them, reading as an unrelated control. -->
@@ -788,16 +788,16 @@
       <Panel
           x:Name="AgentViewport"
           ClipToBounds="False"
-          Classes.floating="{Binding !IsAgentPanelDocked}">
+          Classes.floating="{Binding IsAgentPanelFloating}">
         <views:AgentWorkspaceView
             x:Name="AgentWorkspaceSurface"
             ClipToBounds="False"
             MaxWidth="{Binding #AgentViewport.Bounds.Width}"
             MaxHeight="{Binding #AgentViewport.Bounds.Height}"
             HorizontalAlignment="Right"
-            Classes.floating="{Binding !IsAgentPanelDocked}"
-            Classes.edgeResizable="{Binding IsAgentPanelDocked}"
-            Classes.edgeRight="{Binding IsAgentPanelDocked}"
+            Classes.floating="{Binding IsAgentPanelFloating}"
+            Classes.edgeResizable="{Binding !IsAgentPanelFloating}"
+            Classes.edgeRight="{Binding !IsAgentPanelFloating}"
             AgentQuestionResponseKeyDownRequested="OnAgentQuestionResponseKeyDown"
             ApproveAgentActionRequested="OnApproveAgentActionClick"
             CancelAgentActionRequested="OnCancelAgentActionClick"
