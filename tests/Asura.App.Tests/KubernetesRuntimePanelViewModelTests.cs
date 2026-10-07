@@ -245,6 +245,91 @@ public sealed class KubernetesRuntimePanelViewModelTests
     private static KubernetesRuntimePanelViewModel Create(KubernetesUiSession session) => new(
         PanelInstanceId.New(), "Kubernetes", new(KubernetesConnectionProfileId.New(), 1, "Cluster", "/test/config", "production", "restricted"),
         _ => ValueTask.FromResult<IKubernetesClientSession>(session));
+    /// <summary>
+    /// The header's status mark follows the cluster: connecting, connected,
+    /// and unreachable each have their own tone, glyph and name. It was green
+    /// for any saved connection.
+    /// </summary>
+    [Fact]
+    public async Task ConnectionStatusFollowsTheSession()
+    {
+        var attempts = 0;
+        var session = new KubernetesUiSession();
+        using var panel = new KubernetesRuntimePanelViewModel(PanelInstanceId.New(), "Kubernetes",
+            new(KubernetesConnectionProfileId.New(), 1, "Cluster", "/test/config", "production", "restricted"),
+            _ => ++attempts == 1
+                ? ValueTask.FromException<IKubernetesClientSession>(new KubernetesRequestException(
+                    KubernetesErrorCode.ConnectionFailed, "The backend could not start.", retryable: true))
+                : ValueTask.FromResult<IKubernetesClientSession>(session));
+        await panel.Initialization;
+        Assert.Equal(StatusTone.Danger, panel.ConnectionStatusTone);
+        Assert.Equal("Cannot reach production", panel.ConnectionStatusLabel);
+        Assert.Equal(FluentIcons.Common.Symbol.ErrorCircle, panel.ConnectionStatusGlyph);
+
+        await panel.RefreshAsync();
+        Assert.Equal(StatusTone.Success, panel.ConnectionStatusTone);
+        Assert.Equal("Connected to production", panel.ConnectionStatusLabel);
+
+        using var unbound = new KubernetesRuntimePanelViewModel(PanelInstanceId.New(), "Kubernetes", null, null);
+        Assert.Equal(StatusTone.Neutral, unbound.ConnectionStatusTone);
+        Assert.Equal("No Kubernetes connection", unbound.ConnectionStatusLabel);
+    }
+
+    /// <summary>
+    /// Row status is a status tone, not a colour name, and carries a glyph.
+    /// </summary>
+    [Fact]
+    public void ResourceRowStatusIsAToneWithAGlyph()
+    {
+        var row = KubernetesResourceRow.Create(KubernetesUiSession.Pod with
+        {
+            Json = """{"kind":"Pod","status":{"phase":"Running","containerStatuses":[{"ready":true,"restartCount":0}]},"spec":{"containers":[{"name":"app"}]}}""",
+        }, []);
+        Assert.Equal(StatusTone.Success, row.StatusTone);
+        Assert.True(row.IsHealthy);
+        Assert.Equal(FluentIcons.Common.Symbol.CheckmarkCircle, row.StatusGlyph);
+    }
+
+    /// <summary>
+    /// The Actions view is offered when there is something to do — a pod's
+    /// terminal or reviewed operations — and a delete can be asked for from
+    /// the kind's verbs before the selection's inspection arrives.
+    /// </summary>
+    [Fact]
+    public async Task ActionsAndDeleteAvailabilityFollowTheSelection()
+    {
+        var session = new KubernetesUiSession { AllowPatching = true };
+        using var panel = Create(session);
+        await panel.Initialization;
+        Assert.False(panel.HasInspectorActions);
+        Assert.False(panel.CanRequestDelete);
+
+        panel.SelectedResource = panel.Resources[0];
+        Assert.True(panel.CanRequestDelete);
+        await panel.SelectionLoading;
+        Assert.True(panel.HasInspectorActions);
+        Assert.True(panel.CanDelete);
+
+        var readOnly = new KubernetesUiSession();
+        using var viewer = Create(readOnly);
+        await viewer.Initialization;
+        viewer.SelectedResource = viewer.Resources[0];
+        await viewer.SelectionLoading;
+        Assert.False(viewer.CanRequestDelete);
+        Assert.False(viewer.HasInspectorActions);
+    }
+
+    [Fact]
+    public async Task HistorySeriesIndexChoosesCpuOrMemory()
+    {
+        using var panel = Create(new KubernetesUiSession());
+        await panel.Initialization;
+        Assert.Equal(0, panel.HistorySeriesIndex);
+        panel.HistorySeriesIndex = 1;
+        Assert.True(panel.MemoryHistory);
+        panel.MemoryHistory = false;
+        Assert.Equal(0, panel.HistorySeriesIndex);
+    }
 }
 
 internal sealed class KubernetesUiSession : IKubernetesClientSession

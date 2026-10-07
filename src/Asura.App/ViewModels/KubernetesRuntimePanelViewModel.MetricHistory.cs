@@ -13,7 +13,10 @@ public sealed partial class KubernetesRuntimePanelViewModel
     private string _historyStatus = "Choose an in-cluster Prometheus service. History covers this pod name, including replacements.";
     private IReadOnlyList<KubernetesHistoryRow> _metricHistory = [];
     public bool HasMetricHistory => CanReadLogs && _session?.Features.HasFlag(KubernetesSessionFeatures.MetricHistory) == true;
-    public bool MemoryHistory { get => _memoryHistory; set { if (SetProperty(ref _memoryHistory, value)) { MetricHistoryLoading = LoadSelectedHistoryAsync(); } } }
+    public bool MemoryHistory { get => _memoryHistory; set { if (SetProperty(ref _memoryHistory, value)) { OnPropertyChanged(nameof(HistorySeriesIndex)); MetricHistoryLoading = LoadSelectedHistoryAsync(); } } }
+
+    /// <summary>The series as a position in its segmented control: CPU, then memory.</summary>
+    public int HistorySeriesIndex { get => MemoryHistory ? 1 : 0; set => MemoryHistory = value == 1; }
     public string HistoryStatus { get => _historyStatus; private set => SetProperty(ref _historyStatus, value); }
     public IReadOnlyList<KubernetesHistoryRow> MetricHistory { get => _metricHistory; private set => SetProperty(ref _metricHistory, value); }
     public Task LoadMetricHistoryAsync() => LoadSelectedHistoryAsync();

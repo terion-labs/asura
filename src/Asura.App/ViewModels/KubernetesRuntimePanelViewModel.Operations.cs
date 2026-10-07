@@ -14,6 +14,21 @@ public sealed partial class KubernetesRuntimePanelViewModel
     public bool HasResourceActions => _session?.Features.HasFlag(KubernetesSessionFeatures.Mutations) == true && _inspection is not null
         && (SelectedKind?.Verbs.Contains("delete", StringComparer.Ordinal) == true || SelectedKind?.Verbs.Contains("patch", StringComparer.Ordinal) == true);
     public bool CanDelete => CanMutateSelection && SelectedKind?.Verbs.Contains("delete", StringComparer.Ordinal) == true;
+
+    /// <summary>
+    /// Whether a delete can be asked for at all — the kind allows it and the
+    /// session can mutate — before the selection's inspection has arrived.
+    /// The review itself still waits for the inspection and the dry run.
+    /// </summary>
+    public bool CanRequestDelete => HasSelection && !HasUnsavedChanges
+        && _session?.Features.HasFlag(KubernetesSessionFeatures.Mutations) == true
+        && SelectedKind?.Verbs.Contains("delete", StringComparer.Ordinal) == true;
+
+    /// <summary>
+    /// Whether the inspector's Actions view has anything to offer: a pod's
+    /// terminal, a node's maintenance, or reviewed operations.
+    /// </summary>
+    public bool HasInspectorActions => HasResourceActions || HasNodeMaintenance || CanOpenShell;
     public bool CanScale => CanMutateSelection && SelectedKind?.Verbs.Contains("patch", StringComparer.Ordinal) == true
         && SelectedResource?.Kind is "Deployment" or "StatefulSet" or "ReplicaSet" or "ReplicationController";
     public bool CanRestart => CanMutateSelection && SelectedKind?.Verbs.Contains("patch", StringComparer.Ordinal) == true
@@ -99,6 +114,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
     private void PublishOperationState()
     {
         OnPropertyChanged(nameof(HasResourceActions)); OnPropertyChanged(nameof(CanDelete)); OnPropertyChanged(nameof(CanScale)); OnPropertyChanged(nameof(CanRestart));
+        OnPropertyChanged(nameof(CanRequestDelete)); OnPropertyChanged(nameof(HasInspectorActions));
         OnPropertyChanged(nameof(HasOperationReview)); OnPropertyChanged(nameof(CanConfirmOperation));
     }
 }

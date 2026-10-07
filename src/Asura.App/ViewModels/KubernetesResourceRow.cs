@@ -39,10 +39,13 @@ public sealed record KubernetesResourceRow(KubernetesResourceDocument Document)
     public string DiskDetail { get; init; } = "Root filesystem (/) usage unavailable";
     public string Type { get; init; } = "—";
     public string Detail => Document.Summary;
-    public string StatusTone { get; init; } = "Muted";
-    public bool IsHealthy => StatusTone is "Success";
-    public bool IsWarning => StatusTone is "Warning";
-    public bool IsError => StatusTone is "Danger";
+    public StatusTone StatusTone { get; init; } = StatusTone.Neutral;
+    public bool IsHealthy => StatusTone is StatusTone.Success;
+    public bool IsWarning => StatusTone is StatusTone.Warning;
+    public bool IsError => StatusTone is StatusTone.Danger;
+
+    /// <summary>The status's shape, shown beside its text where colour cannot carry it.</summary>
+    public FluentIcons.Common.Symbol StatusGlyph => StatusToneGlyph.For(StatusTone);
 
     public static KubernetesResourceRow Create(KubernetesResourceDocument document, IEnumerable<KubernetesUsageEntry> usage, IReadOnlyList<KubernetesApiResource>? discovered = null)
     {
@@ -116,7 +119,7 @@ public sealed record KubernetesResourceRow(KubernetesResourceDocument Document)
                         ? new("", "v1", "nodes", null, node, "", "") : null,
                     Qos = Text(state, "qosClass", "—"),
                     Status = status,
-                    StatusTone = status is "Running" or "Succeeded" ? "Success" : status is "Pending" or "ContainerCreating" or "PodInitializing" or "Terminating" or "Running / Not ready" ? "Warning" : "Danger",
+                    StatusTone = status is "Running" or "Succeeded" ? StatusTone.Success : status is "Pending" or "ContainerCreating" or "PodInitializing" or "Terminating" or "Running / Not ready" ? StatusTone.Warning : StatusTone.Danger,
                 };
             }
             if (document.Reference.Resource is "nodes" && document.Reference.Group.Length == 0)
@@ -133,7 +136,7 @@ public sealed record KubernetesResourceRow(KubernetesResourceDocument Document)
                 return row with
                 {
                     Status = unknown ? "Unknown" : healthy ? cordoned ? "Ready / Cordoned" : "Ready" : "Not ready",
-                    StatusTone = unknown ? "Warning" : healthy ? cordoned ? "Warning" : "Success" : "Danger",
+                    StatusTone = unknown ? StatusTone.Warning : healthy ? cordoned ? StatusTone.Warning : StatusTone.Success : StatusTone.Danger,
                     Roles = roles.Length == 0 ? "node" : string.Join(", ", roles),
                     Version = Text(Property(state, "nodeInfo"), "kubeletVersion", "—"),
                     Taints = Elements(Property(spec, "taints")).Length.ToString(CultureInfo.InvariantCulture),
@@ -151,7 +154,7 @@ public sealed record KubernetesResourceRow(KubernetesResourceDocument Document)
             {
                 Ready = replicas > 0 ? $"{Number(state, "readyReplicas")}/{replicas}" : "—",
                 Status = resourceStatus,
-                StatusTone = resourceStatus is "Active" or "Bound" or "Available" or "Ready" or "Complete" ? "Success" : resourceStatus is "Failed" or "Not ready" ? "Danger" : "Muted",
+                StatusTone = resourceStatus is "Active" or "Bound" or "Available" or "Ready" or "Complete" ? StatusTone.Success : resourceStatus is "Failed" or "Not ready" ? StatusTone.Danger : StatusTone.Neutral,
             };
         }
         catch (JsonException) { return row; }

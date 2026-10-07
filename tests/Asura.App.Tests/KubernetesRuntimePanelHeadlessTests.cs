@@ -4,9 +4,11 @@ using Asura.App.ViewModels;
 using Asura.App.Views.RuntimePanels;
 using Asura.Application;
 using Asura.Core;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -287,6 +289,186 @@ public sealed class KubernetesRuntimePanelHeadlessTests
             Dispatcher.UIThread.RunJobs();
             Assert.True(browser.IsVisible);
             Assert.False(inspector.IsEnabled);
+            window.Close();
+            return true;
+        }, timeout.Token));
+    }
+
+    /// <summary>
+    /// The inspector is five stable views in one segmented control. A view
+    /// that does not apply is dimmed rather than removed, and when the view
+    /// showing stops applying the inspector steps back to Overview.
+    /// </summary>
+    [Fact]
+    public async Task InspectorViewsAreFiveStableSegmentsThatDimInsteadOfDisappearing()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            var deployments = new KubernetesApiResource("apps", "v1", "deployments", "Deployment", true, ["list", "get", "patch", "delete"]);
+            var client = new KubernetesUiSession
+            {
+                AllowPatching = true,
+                DiscoveryResources = [KubernetesUiSession.Pods, deployments],
+                ListItems = request => request.ApiResource.Resource is "deployments"
+                    ? [new(new("apps", "v1", "deployments", "restricted", "api", "deploy-uid", "10"), "Deployment", "Available", "{\"kind\":\"Deployment\"}")]
+                    : [KubernetesUiSession.Pod],
+            };
+            var profile = new KubernetesConnectionProfile(KubernetesConnectionProfileId.New(), 1, "Cluster", "/config", "context", "restricted");
+            using var model = new KubernetesRuntimePanelViewModel(PanelInstanceId.New(), "Kubernetes", profile,
+                _ => ValueTask.FromResult<IKubernetesClientSession>(client));
+            await model.Initialization;
+            var view = new KubernetesRuntimePanelView { DataContext = model };
+            var window = new Window { Content = view, Width = 1400, Height = 700 };
+            window.Classes.Add("motion-disabled");
+            window.Show();
+            model.SelectedResource = model.Resources[0];
+            await model.SelectionLoading;
+            Dispatcher.UIThread.RunJobs();
+
+            var segments = view.FindControl<Asura.App.Controls.SegmentedControl>("InspectorSegments")!;
+            var host = view.FindControl<TabControl>("InspectorTabs")!;
+            var radios = segments.GetVisualDescendants().OfType<RadioButton>().ToArray();
+            Assert.Equal(["Overview", "Manifest", "Logs", "Ports", "Actions"], radios.Select(radio => radio.Content as string), StringComparer.Ordinal);
+            Assert.Equal(0, segments.SelectedIndex);
+            Assert.True(radios[2].IsEffectivelyEnabled);
+
+            segments.SelectedIndex = 2;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(2, host.SelectedIndex);
+            Assert.Equal("Logs", Assert.IsType<TabItem>(host.SelectedItem).Header);
+
+            model.SelectedKind = deployments;
+            await model.SelectionLoading;
+            model.SelectedResource = model.Resources[0];
+            await model.SelectionLoading;
+            Dispatcher.UIThread.RunJobs();
+            Assert.All(radios, radio => Assert.True(radio.IsVisible));
+            Assert.False(radios[2].IsEffectivelyEnabled);
+            Assert.True(radios[4].IsEffectivelyEnabled);
+            Assert.Equal(0, segments.SelectedIndex);
+            Assert.Equal(0, host.SelectedIndex);
+            window.Close();
+            return true;
+        }, timeout.Token));
+    }
+
+    /// <summary>
+    /// The resource table takes an extended selection, and its context menu
+    /// offers the inspector's tools, copying, and Delete… last. Commands for
+    /// one resource are dimmed while several are selected; copying takes them all.
+    /// </summary>
+    [Fact]
+    public async Task ResourceTableSelectsSeveralRowsAndOffersAContextMenu()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            var client = new KubernetesUiSession
+            {
+                AllowPatching = true,
+                ExtraFeatures = KubernetesSessionFeatures.Exec,
+                ListItems = _ => [Pod("pod-a"), Pod("pod-b"), Pod("pod-c")],
+            };
+            using var model = new KubernetesRuntimePanelViewModel(PanelInstanceId.New(), "Kubernetes",
+                new(KubernetesConnectionProfileId.New(), 1, "Cluster", "/config", "context"),
+                _ => ValueTask.FromResult<IKubernetesClientSession>(client));
+            await model.Initialization;
+            var view = new KubernetesRuntimePanelView { DataContext = model };
+            var window = new Window { Content = view, Width = 1400, Height = 700 };
+            window.Classes.Add("motion-disabled");
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var grid = view.FindControl<DataGrid>("ResourceList")!;
+            Assert.Equal(DataGridSelectionMode.Extended, grid.SelectionMode);
+
+            grid.SelectedItem = model.Rows[0];
+            await model.SelectionLoading;
+            Dispatcher.UIThread.RunJobs();
+            var menu = view.CreateResourceContextMenu();
+            Assert.Equal(
+                ["Show Logs", "Open Shell", "Port Forward…", "Edit Manifest…", "-", "Copy Name", "-", "Delete…"],
+                Headers(menu),
+                StringComparer.Ordinal);
+            Assert.All(menu.Items.OfType<MenuItem>().Where(item => !Equals(item.Header, "Port Forward…")), item => Assert.True(item.IsEnabled));
+
+            grid.SelectedItems.Add(model.Rows[1]);
+            await model.SelectionLoading;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(2, grid.SelectedItems.Count);
+            menu = view.CreateResourceContextMenu();
+            var items = menu.Items.OfType<MenuItem>().ToDictionary(item => (string)item.Header!, StringComparer.Ordinal);
+            Assert.True(items["Copy Names"].IsEnabled);
+            Assert.False(items["Show Logs"].IsEnabled);
+            Assert.False(items["Delete…"].IsEnabled);
+
+            grid.SelectedItem = model.Rows[2];
+            await model.SelectionLoading;
+            Dispatcher.UIThread.RunJobs();
+            menu = view.CreateResourceContextMenu();
+            menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, "Delete…"))
+                .RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            for (var attempt = 0; attempt < 100 && client.Mutations.Count == 0; attempt++)
+            {
+                await Task.Delay(10);
+                Dispatcher.UIThread.RunJobs();
+            }
+
+            var review = Assert.Single(client.Mutations);
+            Assert.Equal(KubernetesMutationKind.Delete, review.Kind);
+            Assert.True(review.DryRun);
+            Assert.Equal("pod-c", model.SelectedResource?.Reference.Name);
+            Assert.True(model.HasOperationReview);
+            Assert.Equal(4, view.FindControl<Asura.App.Controls.SegmentedControl>("InspectorSegments")!.SelectedIndex);
+            window.Close();
+            return true;
+
+            static string[] Headers(ContextMenu menu) => [.. menu.Items.Select(item => item switch
+            {
+                MenuItem menuItem => menuItem.Header as string ?? string.Empty,
+                Separator => "-",
+                _ => "?",
+            })];
+        }, timeout.Token));
+
+        static KubernetesResourceDocument Pod(string name) => KubernetesUiSession.Pod with
+        { Reference = KubernetesUiSession.Pod.Reference with { Name = name, Uid = name } };
+    }
+
+    /// <summary>
+    /// The header's mark names the cluster's state, and becomes a glyph where
+    /// colour cannot carry it.
+    /// </summary>
+    [Fact]
+    public async Task ConnectionStatusMarkGainsAGlyphWithoutColor()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            using var model = new KubernetesRuntimePanelViewModel(PanelInstanceId.New(), "Kubernetes",
+                new(KubernetesConnectionProfileId.New(), 1, "Cluster", "/config", "context"),
+                _ => ValueTask.FromResult<IKubernetesClientSession>(new KubernetesUiSession()));
+            await model.Initialization;
+            var view = new KubernetesRuntimePanelView { DataContext = model };
+            var window = new Window { Content = view, Width = 1100, Height = 700 };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var dot = Assert.Single(view.GetVisualDescendants().OfType<Border>(), border => border.Classes.Contains("KubernetesStatusDot"));
+            var glyph = Assert.Single(
+                view.GetVisualDescendants().OfType<FluentIcons.Avalonia.SymbolIcon>(),
+                icon => icon.Classes.Contains("KubernetesStatusGlyph") && ReferenceEquals(icon.Parent, dot.Parent));
+            Assert.Equal("Connected to context", AutomationProperties.GetName(dot));
+            Assert.True(dot.IsEffectivelyVisible);
+            Assert.False(glyph.IsEffectivelyVisible);
+
+            window.Classes.Add("differentiate-without-color");
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(dot.IsEffectivelyVisible);
+            Assert.True(glyph.IsEffectivelyVisible);
+            Assert.Equal(FluentIcons.Common.Symbol.CheckmarkCircle, glyph.Symbol);
             window.Close();
             return true;
         }, timeout.Token));
