@@ -17,20 +17,19 @@
       <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
     </Style>
     <Style Selector="Border.PropertyRow TextBlock.Muted">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
     </Style>
     <Style Selector="Border.PropertyRow TextBlock.Value">
       <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
     </Style>
 
-    <Style Selector="TextBlock.SectionTitle">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
-      <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+    <!-- A section's heading is the shared SectionHeading role; this only
+         places it in the drawer. -->
+    <Style Selector="TextBlock.SectionHeading.SectionTitle">
       <Setter Property="Margin" Value="{controls:Inset Left=Md, Right=Md, Top=Lg, Bottom=Xs}" />
     </Style>
     <Style Selector="TextBlock.SectionNote">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
       <Setter Property="Margin" Value="{controls:Inset Horizontal=Md}" />
       <Setter Property="TextWrapping" Value="Wrap" />
@@ -69,7 +68,7 @@
   <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="{controls:Inset Bottom=Lg}">
       <StackPanel IsVisible="{Binding HasResourceMetrics}">
-        <TextBlock Classes="SectionTitle" Text="Metrics" />
+        <TextBlock Classes="SectionHeading SectionTitle" Text="Metrics" />
         <ProgressBar
             Classes="WorkingStripe"
             IsVisible="{Binding IsMetricsLoading}"
@@ -109,7 +108,7 @@
               AutomationProperties.Name="Kubernetes metrics provider">
             <ComboBox.ItemTemplate>
               <DataTemplate x:DataType="vm:KubernetesMetricsProviderOption">
-                <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="MiddleTruncated" Text="{Binding DisplayName}" />
               </DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>
@@ -137,7 +136,7 @@
               <DataTemplate x:DataType="vm:KubernetesHistoryRow">
                 <StackPanel Margin="{controls:Inset Bottom=Sm}" Spacing="{DynamicResource ShellSpaceXs}">
                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <TextBlock Classes="Eyebrow" Text="{Binding Container}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="Eyebrow MiddleTruncated" Text="{Binding Container}" />
                     <TextBlock Grid.Column="1" Classes="Eyebrow" Text="{Binding Scale}" />
                   </Grid>
                   <controls:TimeSeriesChart
@@ -155,7 +154,7 @@
         </StackPanel>
       </StackPanel>
 
-      <TextBlock Classes="SectionTitle" Text="Properties" />
+      <TextBlock Classes="SectionHeading SectionTitle" Text="Properties" />
       <TextBlock Classes="SectionNote" Text="{Binding DetailsStatus}" />
       <ItemsControl ItemsSource="{Binding DetailProperties}">
         <ItemsControl.ItemTemplate>
@@ -232,7 +231,7 @@
       </ItemsControl>
 
       <StackPanel IsVisible="{Binding HasDetailConditions}">
-        <TextBlock Classes="SectionTitle" Text="Conditions" />
+        <TextBlock Classes="SectionHeading SectionTitle" Text="Conditions" />
         <ItemsControl ItemsSource="{Binding DetailConditions}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:KubernetesDetailCondition">
@@ -253,14 +252,14 @@
       </StackPanel>
 
       <StackPanel IsVisible="{Binding HasDetailContainers}">
-        <TextBlock Classes="SectionTitle" Text="Containers" />
+        <TextBlock Classes="SectionHeading SectionTitle" Text="Containers" />
         <ItemsControl ItemsSource="{Binding DetailContainers}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:KubernetesDetailContainer">
               <Border Classes="PropertyRow">
                 <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <TextBlock FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="MiddleTruncated" FontWeight="SemiBold" Text="{Binding Name}" />
                     <TextBlock Grid.Column="1" Classes="Muted" Text="{Binding State}" />
                   </Grid>
                   <TextBlock Classes="Muted Value" Text="{Binding Image}" TextWrapping="Wrap" />
@@ -274,7 +273,7 @@
         </ItemsControl>
       </StackPanel>
 
-      <TextBlock Classes="SectionTitle" Text="Events" />
+      <TextBlock Classes="SectionHeading SectionTitle" Text="Events" />
       <TextBlock Classes="SectionNote" Text="{Binding EventsStatus}" />
       <ItemsControl ItemsSource="{Binding RelatedEvents}">
         <ItemsControl.ItemTemplate>

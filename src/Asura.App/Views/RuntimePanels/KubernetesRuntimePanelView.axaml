@@ -141,7 +141,7 @@
       <Setter Property="Spacing" Value="{DynamicResource ShellSpaceMd}" />
     </Style>
     <Style Selector="StackPanel.InspectorForm TextBlock.Muted">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
     </Style>
     <Style Selector="StackPanel.ActionRow">
       <Setter Property="Orientation" Value="Horizontal" />
@@ -179,7 +179,7 @@
          the dot gives way to a glyph with a shape for each state. -->
     <Style Selector="icons|SymbolIcon.KubernetesStatusGlyph">
       <Setter Property="IsVisible" Value="False" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize12}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellIconSizeXs}" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
     </Style>
@@ -238,14 +238,14 @@
             Click="OnToggleNavigatorClick"
             ToolTip.Tip="Toggle navigator"
             AutomationProperties.Name="Toggle Kubernetes navigator">
-          <icons:SymbolIcon Symbol="Navigation" FontSize="13" />
+          <icons:SymbolIcon Symbol="Navigation" FontSize="{DynamicResource ShellIconSizeMd}" />
         </Button>
         <Button
             Classes="IconButton"
             Command="{Binding RefreshCommand}"
             ToolTip.Tip="Refresh resources"
             AutomationProperties.Name="Refresh Kubernetes resources">
-          <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="13" />
+          <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellIconSizeMd}" />
         </Button>
       </StackPanel>
     </controls:PanelChrome.Actions>
@@ -255,7 +255,7 @@
         <controls:LiveRegionTextBlock
             VerticalAlignment="Center"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding Status}"
             TextTrimming="CharacterEllipsis"
             AutomationProperties.LiveSetting="Polite"
@@ -264,10 +264,9 @@
         <TextBlock
             Grid.Column="1"
             VerticalAlignment="Center"
-            Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            Classes="Muted MiddleTruncated"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding ContextName}"
-            TextTrimming="CharacterEllipsis"
             AutomationProperties.Name="Kubernetes context" />
       </Grid>
     </controls:PanelChrome.Footer>
@@ -307,15 +306,15 @@
               <icons:SymbolIcon
                   VerticalAlignment="Center"
                   Symbol="Cloud"
-                  FontSize="12"
+                  FontSize="{DynamicResource ShellIconSizeSm}"
                   Foreground="{DynamicResource ShellMutedBrush}" />
               <TextBlock
                   Grid.Column="1"
                   VerticalAlignment="Center"
+                  Classes="MiddleTruncated"
                   FontSize="{DynamicResource ShellFontSize11}"
                   FontWeight="SemiBold"
-                  Text="{Binding ContextName}"
-                  TextTrimming="CharacterEllipsis" />
+                  Text="{Binding ContextName}" />
             </Grid>
 
             <controls:SearchField
@@ -339,7 +338,7 @@
                 <icons:SymbolIcon
                     VerticalAlignment="Center"
                     Symbol="Box"
-                    FontSize="12"
+                    FontSize="{DynamicResource ShellIconSizeSm}"
                     Foreground="{DynamicResource ShellMutedBrush}" />
                 <TextBlock
                     Grid.Column="1"
@@ -354,7 +353,7 @@
                 Grid.Row="3"
                 Margin="{controls:Inset Horizontal=Lg, Vertical=Sm}"
                 Classes="Muted"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
                 IsVisible="{Binding !HasNavigationMatches}"
                 Text="No resource types match."
                 TextWrapping="Wrap" />
@@ -364,6 +363,7 @@
                 HorizontalScrollBarVisibility="Disabled"
                 VerticalScrollBarVisibility="Auto">
               <ItemsControl
+                  x:Name="NavigationList"
                   Classes="KubernetesNavigation"
                   Classes.helmActive="{Binding #HelmTab.IsSelected}"
                   ItemsSource="{Binding NavigationGroups}">
@@ -462,12 +462,12 @@
                       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                         <TextBlock
                             VerticalAlignment="Center"
-                            Text="{Binding NamespaceSelection}"
-                            TextTrimming="CharacterEllipsis" />
+                            Classes="MiddleTruncated"
+                            Text="{Binding NamespaceSelection}" />
                         <icons:SymbolIcon
                             Grid.Column="1"
                             VerticalAlignment="Center"
-                            FontSize="10"
+                            FontSize="{DynamicResource ShellIconSizeXs}"
                             Foreground="{DynamicResource ShellMutedBrush}"
                             Symbol="ChevronDown" />
                       </Grid>
@@ -489,6 +489,7 @@
                                 Grid.Row="1"
                                 MaxHeight="320"
                                 Classes="Rows"
+                                IsTextSearchEnabled="True"
                                 ItemsSource="{Binding FilteredNamespaceChoices}"
                                 SelectedItem="{Binding NamespaceSelection, Mode=OneWay}"
                                 Tapped="OnNamespaceListTapped"
@@ -498,9 +499,9 @@
                                 <DataTemplate x:DataType="x:String">
                                   <TextBlock
                                       Margin="{controls:Inset Horizontal=Sm, Vertical=Sm}"
+                                      Classes="MiddleTruncated"
                                       FontSize="{DynamicResource ShellFontSize11}"
-                                      Text="{Binding}"
-                                      TextTrimming="CharacterEllipsis" />
+                                      Text="{Binding}" />
                                 </DataTemplate>
                               </ListBox.ItemTemplate>
                             </ListBox>
@@ -525,7 +526,7 @@
                         Grid.Column="3"
                         VerticalAlignment="Center"
                         Classes="Muted"
-                        FontSize="{DynamicResource ShellFontSize9}"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
                         Text="{Binding ResourceCountLabel}" />
                   </Grid>
                 </Border>
@@ -556,8 +557,8 @@
                           <TextBlock
                               Margin="{controls:Inset Horizontal=Sm}"
                               VerticalAlignment="Center"
+                              Classes="MiddleTruncated"
                               Text="{Binding Name}"
-                              TextTrimming="CharacterEllipsis"
                               ToolTip.Tip="{Binding Name}" />
                         </DataTemplate>
                       </DataGridTemplateColumn.CellTemplate>
@@ -575,15 +576,15 @@
                                 Margin="{controls:Inset Horizontal=Sm}"
                                 VerticalAlignment="Center"
                                 IsVisible="{Binding !CanNavigateNamespace}"
+                                Classes="MiddleTruncated"
                                 Text="{Binding Namespace}"
-                                TextTrimming="CharacterEllipsis"
                                 ToolTip.Tip="{Binding Namespace}" />
                             <Button
                                 Classes="KubernetesTableLink"
                                 Command="{Binding NamespaceCommand}"
                                 IsVisible="{Binding CanNavigateNamespace}"
                                 ToolTip.Tip="{Binding Namespace, StringFormat=Show namespace {0}}">
-                              <TextBlock Text="{Binding Namespace}" TextTrimming="CharacterEllipsis" />
+                              <TextBlock Classes="MiddleTruncated" Text="{Binding Namespace}" />
                             </Button>
                           </Grid>
                         </DataTemplate>
@@ -633,15 +634,15 @@
                                 Margin="{controls:Inset Horizontal=Sm}"
                                 VerticalAlignment="Center"
                                 IsVisible="{Binding !CanNavigateOwner}"
+                                Classes="MiddleTruncated"
                                 Text="{Binding Owner}"
-                                TextTrimming="CharacterEllipsis"
                                 ToolTip.Tip="{Binding Owner}" />
                             <Button
                                 Classes="KubernetesTableLink"
                                 Command="{Binding ControlledByCommand}"
                                 IsVisible="{Binding CanNavigateOwner}"
                                 ToolTip.Tip="{Binding Owner, StringFormat=Show {0}}">
-                              <TextBlock Text="{Binding Owner}" TextTrimming="CharacterEllipsis" />
+                              <TextBlock Classes="MiddleTruncated" Text="{Binding Owner}" />
                             </Button>
                           </Grid>
                         </DataTemplate>
@@ -660,15 +661,15 @@
                                 Margin="{controls:Inset Horizontal=Sm}"
                                 VerticalAlignment="Center"
                                 IsVisible="{Binding !CanNavigateNode}"
+                                Classes="MiddleTruncated"
                                 Text="{Binding Node}"
-                                TextTrimming="CharacterEllipsis"
                                 ToolTip.Tip="{Binding Node}" />
                             <Button
                                 Classes="KubernetesTableLink"
                                 Command="{Binding NodeCommand}"
                                 IsVisible="{Binding CanNavigateNode}"
                                 ToolTip.Tip="{Binding Node, StringFormat=Show node {0}}">
-                              <TextBlock Text="{Binding Node}" TextTrimming="CharacterEllipsis" />
+                              <TextBlock Classes="MiddleTruncated" Text="{Binding Node}" />
                             </Button>
                           </Grid>
                         </DataTemplate>
@@ -813,7 +814,7 @@
                           IsVisible="{Binding IsBackButtonVisible}"
                           ToolTip.Tip="Back to resources"
                           AutomationProperties.Name="Back to resources">
-                        <icons:SymbolIcon Symbol="ArrowLeft" FontSize="12" />
+                        <icons:SymbolIcon Symbol="ArrowLeft" FontSize="{DynamicResource ShellIconSizeSm}" />
                       </Button>
                       <StackPanel
                           Grid.Column="1"
@@ -821,14 +822,14 @@
                           VerticalAlignment="Center"
                           Spacing="{DynamicResource ShellSpaceXs}">
                         <TextBlock
+                            Classes="MiddleTruncated"
                             FontSize="{DynamicResource ShellFontSize11}"
                             FontWeight="SemiBold"
                             Text="{Binding SelectionTitle}"
-                            TextTrimming="CharacterEllipsis"
                             ToolTip.Tip="{Binding SelectionTitle}" />
                         <TextBlock
                             Classes="Muted"
-                            FontSize="{DynamicResource ShellFontSize10}"
+                            FontSize="{DynamicResource ShellSecondaryFontSize}"
                             Text="{Binding Summary}"
                             TextTrimming="CharacterEllipsis"
                             ToolTip.Tip="{Binding Summary}" />
@@ -841,7 +842,7 @@
                           IsVisible="{Binding !IsBackButtonVisible}"
                           ToolTip.Tip="Close details"
                           AutomationProperties.Name="Close resource details">
-                        <icons:SymbolIcon Symbol="Dismiss" FontSize="11" />
+                        <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeSm}" />
                       </Button>
                     </Grid>
                   </Border>
@@ -905,7 +906,7 @@
                             Grid.Row="1"
                             Margin="{controls:Inset Horizontal=Md, Vertical=Xs}"
                             Classes="Muted"
-                            FontSize="{DynamicResource ShellFontSize10}"
+                            FontSize="{DynamicResource ShellSecondaryFontSize}"
                             IsVisible="{Binding CanEditManifest}"
                             Text="{Binding MutationStatus}"
                             TextWrapping="Wrap" />
@@ -1171,7 +1172,7 @@
                                 <DataTemplate x:DataType="app:KubernetesDrainPod">
                                   <Border Classes="InspectorRecord">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                                      <TextBlock FontSize="{DynamicResource ShellFontSize11}" Text="{Binding Pod.Name}" TextTrimming="CharacterEllipsis" />
+                                      <TextBlock Classes="MiddleTruncated" FontSize="{DynamicResource ShellFontSize11}" Text="{Binding Pod.Name}" />
                                       <TextBlock Grid.Column="1" Classes="Muted" Text="{Binding Disposition}" />
                                     </Grid>
                                   </Border>
@@ -1189,8 +1190,8 @@
                                 <DataTemplate x:DataType="app:KubernetesDrainPodResult">
                                   <Border Classes="InspectorRecord">
                                     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                                      <TextBlock FontSize="{DynamicResource ShellFontSize11}" Text="{Binding Pod.Name}" TextTrimming="CharacterEllipsis" />
-                                      <TextBlock Grid.Column="1" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Outcome}" />
+                                      <TextBlock Classes="MiddleTruncated" FontSize="{DynamicResource ShellFontSize11}" Text="{Binding Pod.Name}" />
+                                      <TextBlock Grid.Column="1" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Outcome}" />
                                       <TextBlock Grid.Column="2" Classes="Muted" Text="{Binding ErrorCode}" />
                                     </Grid>
                                   </Border>
@@ -1270,8 +1271,11 @@
 
               <Grid Grid.Row="1" ColumnDefinitions="*,Auto,*">
                 <ListBox
+                    x:Name="HelmReleaseList"
                     Margin="{controls:Inset Vertical=Xs}"
                     Classes="Rows"
+                    IsTextSearchEnabled="True"
+                    TextSearch.TextBinding="{Binding Name, DataType={x:Type app:KubernetesHelmRelease}}"
                     ItemsSource="{Binding Releases}"
                     SelectedItem="{Binding SelectedRelease, Mode=TwoWay}"
                     AutomationProperties.Name="Helm releases">
@@ -1285,12 +1289,12 @@
                           <StackPanel VerticalAlignment="Center">
                             <TextBlock
                                 HorizontalAlignment="Right"
-                                FontSize="{DynamicResource ShellFontSize10}"
+                                FontSize="{DynamicResource ShellSecondaryFontSize}"
                                 Text="{Binding Status}" />
                             <TextBlock
                                 HorizontalAlignment="Right"
                                 Classes="Muted"
-                                FontSize="{DynamicResource ShellFontSize10}"
+                                FontSize="{DynamicResource ShellSecondaryFontSize}"
                                 Text="{Binding Namespace}" />
                           </StackPanel>
                         </controls:ListItem.Trailing>
@@ -1318,25 +1322,24 @@
                     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                       <ItemsControl Margin="{controls:Inset Horizontal=Md}" ItemsSource="{Binding HelmHistory}">
                         <ItemsControl.ItemTemplate>
-                          <DataTemplate x:DataType="app:KubernetesHelmRevision">
+                          <DataTemplate x:DataType="vm:KubernetesHelmRevisionRow">
                             <Border Classes="InspectorRecord">
                               <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                                 <TextBlock
                                     FontSize="{DynamicResource ShellFontSize11}"
                                     FontWeight="SemiBold"
-                                    Text="{Binding Revision, StringFormat='Revision {0}'}" />
-                                <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Status}" />
+                                    Text="{Binding Number, StringFormat='Revision {0}'}" />
+                                <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Status}" />
                                 <TextBlock
                                     Grid.Row="1"
-                                    Classes="Muted"
-                                    FontSize="{DynamicResource ShellFontSize10}"
-                                    Text="{Binding Chart}"
-                                    TextTrimming="CharacterEllipsis" />
+                                    Classes="Muted MiddleTruncated"
+                                    FontSize="{DynamicResource ShellSecondaryFontSize}"
+                                    Text="{Binding Chart}" />
                                 <TextBlock
                                     Grid.Row="1"
                                     Grid.Column="1"
                                     Classes="Muted"
-                                    FontSize="{DynamicResource ShellFontSize10}"
+                                    FontSize="{DynamicResource ShellSecondaryFontSize}"
                                     Text="{Binding Updated}" />
                               </Grid>
                             </Border>
@@ -1414,7 +1417,7 @@
             HorizontalAlignment="Center"
             Classes="SecondaryButton"
             Click="OnNewConnectionRequested"
-            Content="Add Kubernetes connection" />
+            Content="Add Kubernetes Connection…" />
       </StackPanel>
 
       <ProgressBar

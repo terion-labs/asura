@@ -190,29 +190,20 @@ public sealed class RuntimePanelViewContractTests
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "IsVisible")
 , "{Binding SelectedResource.IsPaused}", StringComparison.Ordinal));
 
-        var lifecycleSurface = Assert.Single(
+        // The lifecycle actions are one toolbar group — a capsule around the
+        // icons, as a Mac toolbar groups related items — not separately
+        // bordered squares, each with its own surface.
+        var group = Assert.IsType<XElement>(actions.Parent);
+        Assert.Equal("Border", group.Name.LocalName);
+        Assert.True(HasClass(group, "ToolbarGroup"));
+        Assert.Equal("{Binding SelectedResource.IsContainer}", AttributeValue(group, "IsVisible"));
+        Assert.All(
+            actions.Descendants().Where(element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal)),
+            button => Assert.True(HasClass(button, "ToolbarGroupAction")));
+        Assert.DoesNotContain(
             root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "Style"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Selector")
-, "Button.IconButton.DockerToolbarAction /template/ ContentPresenter", StringComparison.Ordinal));
-        Assert.Contains(
-            lifecycleSurface.Elements(),
-            element => string.Equals(element.Name.LocalName, "Setter"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Property"), "Background"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Value")
-, "{DynamicResource ShellControlSurfaceBrush}", StringComparison.Ordinal));
-
-        var disabledLifecycleSurface = Assert.Single(
-            root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "Style"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Selector")
-, "Button.IconButton.DockerToolbarAction:disabled /template/ ContentPresenter", StringComparison.Ordinal));
-        Assert.Contains(
-            disabledLifecycleSurface.Elements(),
-            element => string.Equals(element.Name.LocalName, "Setter"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Property"), "Background"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Value")
-, "{DynamicResource ShellControlSurfaceBrush}", StringComparison.Ordinal));
+            element => string.Equals(element.Name.LocalName, "Style", StringComparison.Ordinal)
+                && AttributeValue(element, "Selector")?.Contains("DockerToolbarAction", StringComparison.Ordinal) == true);
 
         // "Shell" is named once, as a view. The toolbar keeps only the move of
         // that shell into a tab of its own, as a plain icon shown with the
@@ -2225,6 +2216,68 @@ public sealed class RuntimePanelViewContractTests
                 "{DynamicResource ShellIconSize",
                 AttributeValue(icon, "FontSize"),
                 StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Docker, Kubernetes and Processes follow the same conventions: lists
+    /// jump to a typed name, toolbar icons sit together in toolbar groups,
+    /// icons are on the icon ramp, no text is set below ten points, and the
+    /// button that opens the connection editor says so with an ellipsis.
+    /// </summary>
+    [Theory]
+    [InlineData("DockerRuntimePanelView")]
+    [InlineData("KubernetesRuntimePanelView")]
+    [InlineData("KubernetesInspectorOverviewView")]
+    [InlineData("ProcessMonitorRuntimePanelView")]
+    public void Container_and_process_panels_use_the_shared_ramps_and_toolbar_groups(string panelView)
+    {
+        var root = Assert.IsType<XElement>(LoadRuntimePanelView(panelView).Root);
+
+        Assert.All(
+            root.Descendants().Where(element => string.Equals(element.Name.LocalName, "SymbolIcon", StringComparison.Ordinal)
+                && AttributeValue(element, "FontSize") is not null),
+            icon => Assert.Matches(
+                @"^\{(DynamicResource ShellIconSize(Xs|Sm|Md|Lg|Xl)|controls:TextScaled \d+)\}$",
+                AttributeValue(icon, "FontSize")));
+        Assert.DoesNotContain(
+            root.DescendantsAndSelf().SelectMany(element => element.Attributes()),
+            attribute => attribute.Value.Contains("ShellFontSize8", StringComparison.Ordinal)
+                || attribute.Value.Contains("ShellFontSize9", StringComparison.Ordinal)
+                || attribute.Value.Contains("ShellPillFontSize", StringComparison.Ordinal));
+        Assert.All(
+            root.Descendants().Where(element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal)
+                && HasClass(element, "ToolbarGroupAction")),
+            button => Assert.True(
+                button.Ancestors().Any(ancestor => string.Equals(ancestor.Name.LocalName, "Border", StringComparison.Ordinal)
+                    && HasClass(ancestor, "ToolbarGroup")),
+                $"{AttributeValue(button, "AutomationProperties.Name")} sits outside a toolbar group."));
+    }
+
+    [Fact]
+    public void Container_lists_answer_to_typing_and_the_connection_editor_is_named_with_an_ellipsis()
+    {
+        var docker = Assert.IsType<XElement>(LoadRuntimePanelView("DockerRuntimePanelView").Root);
+        var resources = Assert.Single(
+            docker.Descendants(),
+            element => string.Equals(AttributeValue(element, "Name"), "FlatResourceHost", StringComparison.Ordinal));
+        Assert.Equal("True", AttributeValue(resources, "IsTextSearchEnabled"));
+        Assert.StartsWith("{Binding Title", AttributeValue(resources, "TextSearch.TextBinding"), StringComparison.Ordinal);
+
+        var kubernetes = Assert.IsType<XElement>(LoadRuntimePanelView("KubernetesRuntimePanelView").Root);
+        foreach (var name in new[] { "NamespaceList", "HelmReleaseList" })
+        {
+            var list = Assert.Single(
+                kubernetes.Descendants(),
+                element => string.Equals(AttributeValue(element, "Name"), name, StringComparison.Ordinal));
+            Assert.Equal("True", AttributeValue(list, "IsTextSearchEnabled"));
+        }
+
+        Assert.Contains(
+            kubernetes.Descendants(),
+            element => string.Equals(AttributeValue(element, "Content"), "Add Kubernetes Connection…", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            kubernetes.Descendants(),
+            element => string.Equals(AttributeValue(element, "Content"), "Add Kubernetes connection", StringComparison.Ordinal));
     }
 
     /// <summary>

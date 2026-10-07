@@ -7,7 +7,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
 {
     private IReadOnlyList<KubernetesUsageRow> _usage = [];
     private IReadOnlyList<KubernetesHelmRelease> _releases = [];
-    private IReadOnlyList<KubernetesHelmRevision> _helmHistory = [];
+    private IReadOnlyList<KubernetesHelmRevisionRow> _helmHistory = [];
     private KubernetesHelmRelease? _selectedRelease;
     private string _metricsStatus = "Load current usage from the cluster metrics API.";
     private bool _nodeMetrics;
@@ -19,7 +19,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
     public string MetricsStatus { get => _metricsStatus; private set => SetProperty(ref _metricsStatus, value); }
     public IReadOnlyList<KubernetesUsageRow> Usage { get => _usage; private set => SetProperty(ref _usage, value); }
     public IReadOnlyList<KubernetesHelmRelease> Releases { get => _releases; private set => SetProperty(ref _releases, value); }
-    public IReadOnlyList<KubernetesHelmRevision> HelmHistory { get => _helmHistory; private set => SetProperty(ref _helmHistory, value); }
+    public IReadOnlyList<KubernetesHelmRevisionRow> HelmHistory { get => _helmHistory; private set => SetProperty(ref _helmHistory, value); }
     public bool HasMoreHelm => _helmOffset is not null && Releases.Count < 2000;
     public Task HelmHistoryLoading { get; private set; } = Task.CompletedTask;
     public KubernetesHelmRelease? SelectedRelease
@@ -83,7 +83,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             Usage = [.. snapshot.Entries.Select(entry => new KubernetesUsageRow(entry))];
             MetricsStatus = snapshot.Availability switch
             {
-                KubernetesDataAvailability.Available when snapshot.Entries.Count > 0 => $"{source} · {snapshot.Entries.Max(entry => entry.Timestamp)?.ToString("HH:mm:ss", CultureInfo.InvariantCulture) ?? "Time unknown"} UTC",
+                KubernetesDataAvailability.Available when snapshot.Entries.Count > 0 => $"{source} · {DisplayDates.FormatTime(snapshot.Entries.Max(entry => entry.Timestamp), "Time unknown")}",
                 KubernetesDataAvailability.Forbidden => "Metrics access denied. Resource browsing remains available.",
                 _ => nodes && provider is not null ? "Node usage unavailable. The metrics service needs node-exporter samples linked to Kubernetes nodes."
                     : "Current usage unavailable. " + (apiFailure ?? MetricsProviderStatus),
@@ -134,7 +134,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
         try
         {
             var history = await _session.ReadHelmHistoryAsync(new(release.Namespace, release.Name), _lifetime.Token);
-            if (!_disposed && SelectedRelease == release) { HelmHistory = history.Revisions; }
+            if (!_disposed && SelectedRelease == release) { HelmHistory = [.. history.Revisions.Select(revision => new KubernetesHelmRevisionRow(revision))]; }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (KubernetesRequestException exception) { if (SelectedRelease == release) { PresentError(exception); } }
@@ -149,7 +149,36 @@ public sealed partial class KubernetesRuntimePanelViewModel
 public sealed record KubernetesUsageRow(KubernetesUsageEntry Entry)
 {
     public string Identity => $"{Entry.Namespace}/{Entry.Name}{(Entry.Container is null ? "" : $" · {Entry.Container}")}";
-    public string Usage => $"CPU {Format(Entry.CpuCores)} cores · Memory {Format(Entry.MemoryBytes / (1024 * 1024))} MiB";
-    public string Sample => $"{Entry.Timestamp?.ToString("u", CultureInfo.InvariantCulture) ?? "Timestamp unavailable"} · Window {Entry.Window}";
+    public string Usage => $"CPU {Format(Entry.CpuCores)} cores · Memory {(Entry.MemoryBytes is { } bytes ? KubernetesResourceRow.FormatBytes(bytes) : "unavailable")}";
+    public string Sample => $"{DisplayDates.Format(Entry.Timestamp, "Timestamp unavailable")} · Window {Entry.Window}";
     private static string Format(decimal? value) => value?.ToString("0.###", CultureInfo.InvariantCulture) ?? "unavailable";
+}
+
+/// <summary>
+/// One revision in a release's history. Helm writes when a revision was made
+/// in Go's own notation ("2026-09-16 10:30:00.123456789 +0000 UTC") or as
+/// RFC 3339; the row writes it the way the rest of the window writes a
+/// moment, and keeps Helm's text only when it is neither.
+/// </summary>
+public sealed record KubernetesHelmRevisionRow(KubernetesHelmRevision Revision)
+{
+    public int Number => Revision.Revision;
+    public string Status => Revision.Status;
+    public string Chart => Revision.Chart;
+    public string Updated => FormatUpdated(Revision.Updated);
+
+    internal static string FormatUpdated(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) { return string.Empty; }
+        var text = value.Trim();
+        var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 3 && parts[2].Length == 5 && parts[2][0] is '+' or '-')
+        {
+            text = $"{parts[0]}T{parts[1]}{parts[2][..3]}:{parts[2][3..]}";
+        }
+
+        return DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var moment)
+            ? DisplayDates.Format(moment)
+            : value;
+    }
 }

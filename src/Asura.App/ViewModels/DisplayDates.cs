@@ -24,4 +24,30 @@ internal static class DisplayDates
     /// <summary>A time of day with seconds, for "captured at" readings.</summary>
     public static string FormatTime(DateTimeOffset value) =>
         value.ToLocalTime().ToString("T", CultureInfo.CurrentCulture);
+
+    /// <summary>The same, or a word for a moment nobody recorded.</summary>
+    public static string FormatTime(DateTimeOffset? value, string missing) =>
+        value is { } moment ? FormatTime(moment) : missing;
+
+    /// <summary>
+    /// A time of day without seconds, for the ends of a span such as the
+    /// hour a chart covers.
+    /// </summary>
+    public static string FormatShortTime(DateTimeOffset value) =>
+        value.ToLocalTime().ToString("t", CultureInfo.CurrentCulture);
+
+    /// <summary>
+    /// A time of day to the millisecond, for log lines, where many lines
+    /// share one second. The reader's own time pattern, with the fraction
+    /// written after the seconds the way that culture writes decimals.
+    /// </summary>
+    public static string FormatPreciseTime(DateTimeOffset value)
+    {
+        var culture = CultureInfo.CurrentCulture;
+        var pattern = culture.DateTimeFormat.LongTimePattern;
+        var precise = pattern.Contains("ss", StringComparison.Ordinal)
+            ? pattern.Replace("ss", $"ss'{culture.NumberFormat.NumberDecimalSeparator}'fff", StringComparison.Ordinal)
+            : pattern;
+        return value.ToLocalTime().ToString(precise, culture);
+    }
 }

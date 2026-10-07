@@ -26,6 +26,9 @@ public sealed partial class DockerRuntimePanelView : UserControl
         Patterns = ["*.log", "*.txt"],
         MimeTypes = ["text/plain"],
     };
+    private static readonly TimeSpan ContainerTypeSelectPause = TimeSpan.FromSeconds(1);
+    private readonly TypeSelectBuffer _containerTypeSelect = new(ContainerTypeSelectPause);
+    private readonly DispatcherTimer _containerTypeSelectSettle = new() { Interval = ContainerTypeSelectPause };
     private ScrollViewer? _logScrollViewer;
     private DockerRuntimePanelViewModel? _observedViewModel;
     private bool _isLoadingOlderLogs;
@@ -38,6 +41,8 @@ public sealed partial class DockerRuntimePanelView : UserControl
     {
         InitializeComponent();
         DockerDetailHeader.SizeChanged += OnDetailHeaderSizeChanged;
+        ContainerStackList.AddHandler(TextInputEvent, OnContainerTextInput, RoutingStrategies.Tunnel);
+        _containerTypeSelectSettle.Tick += OnContainerTypeSelectSettled;
         LogList.AddHandler(
             PointerWheelChangedEvent,
             OnLogPointerWheelChanged,
@@ -117,6 +122,7 @@ public sealed partial class DockerRuntimePanelView : UserControl
         _observedViewModel?.PropertyChanged -= OnViewModelPropertyChanged;
 
         _observedViewModel = viewModel;
+        _containerTypeSelectSettle.Stop();
         _logScrollGeneration++;
         _isScrollingLogsToEnd = false;
         _logScrollToEndPending = viewModel?.HasLogs == true;
@@ -137,6 +143,7 @@ public sealed partial class DockerRuntimePanelView : UserControl
         _ = e;
         _logScrollViewer?.ScrollChanged -= OnLogScrollChanged;
         _logScrollViewer = null;
+        _containerTypeSelectSettle.Stop();
 
         _logScrollGeneration++;
         _isScrollingLogsToEnd = false;
@@ -501,10 +508,59 @@ public sealed partial class DockerRuntimePanelView : UserControl
         SelectResource(panel, resource);
     }
 
+    /// <summary>
+    /// Typing a name selects the first container, among the stacks that are
+    /// open, whose name starts with it, and moves focus to its row — the
+    /// type-to-select every Mac list has. The other resource types are a list
+    /// box, which does the same on its own. A partly typed name only selects:
+    /// the shell view opens a shell once the typing pauses, so passing over a
+    /// container on the way to another never starts a session in it.
+    /// </summary>
+    private void OnContainerTextInput(object? sender, TextInputEventArgs e)
+    {
+        _ = sender;
+        if (ViewModel is not { } panel
+            || _containerTypeSelect.Append(e.Text, DateTimeOffset.UtcNow) is not { } prefix
+            || TypeSelectBuffer.FindMatch(
+                panel.ContainerStacks
+                    .Where(stack => stack.IsExpanded)
+                    .SelectMany(stack => stack.Containers),
+                container => container.Title,
+                prefix) is not { } match)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        panel.SelectResource(match);
+        _containerTypeSelectSettle.Stop();
+        _containerTypeSelectSettle.Start();
+        if (ContainerStackList.GetVisualDescendants()
+            .OfType<Button>()
+            .FirstOrDefault(row => row.Classes.Contains("DockerResourceRow")
+                && ReferenceEquals(row.DataContext, match)) is { } row)
+        {
+            row.Focus(NavigationMethod.Directional);
+            row.BringIntoView();
+        }
+    }
+
+    private void OnContainerTypeSelectSettled(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        _containerTypeSelectSettle.Stop();
+        if (ViewModel is { IsShellDetail: true, CanOpenShell: true } panel)
+        {
+            RequestInlineShell(panel);
+        }
+    }
+
     private void SelectResource(
         DockerRuntimePanelViewModel panel,
         DockerResourceItemViewModel resource)
     {
+        _containerTypeSelectSettle.Stop();
         panel.SelectResource(resource);
         if (panel.IsShellDetail && panel.CanOpenShell)
         {

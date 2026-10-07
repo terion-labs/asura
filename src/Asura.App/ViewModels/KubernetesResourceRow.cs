@@ -184,9 +184,10 @@ public sealed record KubernetesResourceRow(KubernetesResourceDocument Document)
         try { return array.Length == 0 || array.Any(item => item is null) ? null : array.Sum(); }
         catch (OverflowException) { return null; }
     }
-    private static string FormatBytes(decimal bytes) => bytes >= 1024 * 1024 * 1024
-        ? (bytes / (1024 * 1024 * 1024)).ToString("0.##", CultureInfo.InvariantCulture) + " GiB"
-        : (bytes / (1024 * 1024)).ToString("0.#", CultureInfo.InvariantCulture) + " MiB";
+    // Sizes are written by the application's one formatter, so a pod's memory
+    // reads in the same units as a file's size or the Statistics panel.
+    internal static string FormatBytes(decimal bytes) =>
+        ByteSize.Format(bytes <= 0 ? 0 : bytes >= long.MaxValue ? long.MaxValue : decimal.ToInt64(decimal.Round(bytes)));
     private static (double TotalSeconds, string Display) AgeOf(string value)
     {
         if (!DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var timestamp)) { return (0, "—"); }

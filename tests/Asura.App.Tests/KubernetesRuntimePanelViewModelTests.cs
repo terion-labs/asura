@@ -236,7 +236,8 @@ public sealed class KubernetesRuntimePanelViewModelTests
         Assert.Equal(1, row.Values[0]);
         Assert.Null(row.Values[1]);
         Assert.Null(row.Values[2]);
-        Assert.Equal("MiB", row.Unit);
+        Assert.Equal("MB", row.Unit);
+        Assert.Equal("0–1.1 MB", row.Scale);
         var usage = new KubernetesUsageRow(new("pod", "namespace", "app", null, "30s", null, null));
         Assert.Contains("CPU unavailable", usage.Usage, StringComparison.Ordinal);
         Assert.Contains("Memory unavailable", usage.Usage, StringComparison.Ordinal);

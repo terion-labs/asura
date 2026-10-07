@@ -51,7 +51,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             var review = await _session.ReviewHelmChangeAsync(request, _lifetime.Token);
             if (_disposed || generation != _helmEditGeneration || SelectedRelease != release) { return; }
             _helmReview = review;
-            HelmChangeStatus = $"{review.Kind}: {ContextName} · {review.Namespace}/{review.Release} · revision {review.ExpectedRevision}.\nChart: {review.PinnedChartReference ?? "unchanged"} · version {review.ChartVersion ?? "unchanged"} · rollback {review.RollbackRevision?.ToString(CultureInfo.InvariantCulture) ?? "none"}\nValues SHA256: {review.ValuesSha256 ?? "none"}\nHooks: {review.AllowHooks} · Reuse values: {review.ReuseValues} · Expires {review.ExpiresAt:HH:mm:ss} UTC. Helm checks the revision before dispatch; concurrent release changes can still race.";
+            HelmChangeStatus = $"{review.Kind}: {ContextName} · {review.Namespace}/{review.Release} · revision {review.ExpectedRevision}.\nChart: {review.PinnedChartReference ?? "unchanged"} · version {review.ChartVersion ?? "unchanged"} · rollback {review.RollbackRevision?.ToString(CultureInfo.InvariantCulture) ?? "none"}\nValues SHA256: {review.ValuesSha256 ?? "none"}\nHooks: {review.AllowHooks} · Reuse values: {review.ReuseValues} · Expires {DisplayDates.FormatTime(review.ExpiresAt)}. Helm checks the revision before dispatch; concurrent release changes can still race.";
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (KubernetesRequestException exception) { PresentError(exception); }

@@ -49,36 +49,42 @@
         <controls:LiveRegionTextBlock
             VerticalAlignment="Center"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding StatusText}"
             AutomationProperties.LiveSetting="Polite"
             AutomationProperties.Name="Process monitor state" />
-        <Button
-            Classes="IconButton"
-            Command="{Binding RefreshCommand}"
-            ToolTip.Tip="Refresh processes"
-            AutomationProperties.Name="Refresh processes">
-          <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellIconSizeMd}" />
-        </Button>
       </StackPanel>
     </controls:PanelChrome.Actions>
 
     <controls:PanelChrome.Footer>
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding ShowingText}" />
-        <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding CapturedAtText}" />
+        <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ShowingText}" />
+        <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding CapturedAtText}" />
       </Grid>
     </controls:PanelChrome.Footer>
 
     <Grid RowDefinitions="46,*">
       <Border Grid.Row="0" Classes="PanelToolbar">
-        <Grid Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}">
+        <Grid Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
           <controls:SearchField
               x:Name="ProcessFilterBox"
               VerticalAlignment="Center"
               Text="{Binding Filter}"
               PlaceholderText="Filter by name or PID"
               AutomationProperties.Name="Filter processes" />
+          <!-- The table's commands sit in the toolbar beside its filter, in a
+               toolbar group, as the Files panel keeps its own. -->
+          <Border Grid.Column="1" Classes="ToolbarGroup" VerticalAlignment="Center">
+            <Button
+                Width="32"
+                Height="32"
+                Classes="IconButton ToolbarGroupAction"
+                Command="{Binding RefreshCommand}"
+                ToolTip.Tip="Refresh processes"
+                AutomationProperties.Name="Refresh processes">
+              <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellIconSizeMd}" />
+            </Button>
+          </Border>
         </Grid>
       </Border>
 

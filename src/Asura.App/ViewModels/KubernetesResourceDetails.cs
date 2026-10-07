@@ -231,6 +231,6 @@ public sealed record KubernetesResourceDetails(
         var age = elapsed.TotalDays >= 1 ? $"{(int)elapsed.TotalDays}d {(int)elapsed.Hours}h"
             : elapsed.TotalHours >= 1 ? $"{(int)elapsed.TotalHours}h {elapsed.Minutes}m"
             : elapsed.TotalMinutes >= 1 ? $"{(int)elapsed.TotalMinutes}m" : "just now";
-        return $"{age}{(age is "just now" ? "" : " ago")} · {timestamp.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture)}";
+        return $"{age}{(age is "just now" ? "" : " ago")} · {DisplayDates.Format(timestamp)}";
     }
 }
