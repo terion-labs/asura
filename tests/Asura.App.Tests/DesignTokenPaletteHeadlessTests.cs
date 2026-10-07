@@ -109,6 +109,45 @@ public sealed class DesignTokenPaletteHeadlessTests
         }
     });
 
+    /// <summary>
+    /// Any panel groups its related actions with the generic names and gets
+    /// exactly what the Files panel's original names give.
+    /// </summary>
+    [Fact]
+    public Task The_generic_toolbar_group_names_draw_like_the_file_ones() => RunAsync(() =>
+    {
+        _ = PublishedApp();
+        var generic = Group("ToolbarGroup", "ToolbarGroupAction");
+        var files = Group("FileToolbarGroup", "FileToolbarAction");
+        var window = new Window { Content = new StackPanel { Children = { generic.Group, files.Group } } };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            Assert.Equal(files.Group.CornerRadius, generic.Group.CornerRadius);
+            Assert.Equal(new Thickness(1), generic.Group.BorderThickness);
+            Assert.True(generic.Group.ClipToBounds);
+            Assert.Same(files.Group.Background, generic.Group.Background);
+            Assert.Equal(32, generic.Action.Width);
+            Assert.Equal(files.Action.Height, generic.Action.Height);
+            Assert.Equal(files.Action.CornerRadius, generic.Action.CornerRadius);
+        }
+        finally
+        {
+            window.Close();
+        }
+    });
+
+    private static (Border Group, Button Action) Group(string groupClass, string actionClass)
+    {
+        var action = new Button { Content = "A" };
+        action.Classes.Add("IconButton");
+        action.Classes.Add(actionClass);
+        var group = new Border { Child = action };
+        group.Classes.Add(groupClass);
+        return (group, action);
+    }
+
     [Theory]
     [InlineData("MiddleTruncatedTitle", "PART_Title", "PrefixCharacterEllipsis")]
     [InlineData("MiddleTruncatedDetail", "PART_Detail", "PrefixCharacterEllipsis")]
