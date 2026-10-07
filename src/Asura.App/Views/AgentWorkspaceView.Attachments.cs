@@ -51,13 +51,10 @@ public partial class AgentWorkspaceView
     private void OnAgentComposerDragLeave(object? sender, DragEventArgs e)
     {
         _ = sender;
-        // Moving between the composer's own children raises a leave for the
-        // child; only leaving the composer ends the drop target.
-        if (new Rect(AgentComposer.Bounds.Size).Contains(e.GetPosition(AgentComposer)))
-        {
-            return;
-        }
-
+        _ = e;
+        // Every leave ends the highlight, including a drag cancelled with Esc
+        // over the composer. Moving between the composer's own children
+        // raises DragEnter on the new child right after, which restores it.
         AgentComposer.Classes.Remove(ComposerDropTargetClass);
     }
 

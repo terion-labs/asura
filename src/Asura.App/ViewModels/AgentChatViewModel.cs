@@ -271,41 +271,53 @@ public sealed record AgentApprovalArgumentViewModel(
     public string DisplayName => Name switch
     {
         "address" => "Destination",
-        "text" => "Text",
-        "command" => "Command",
-        "path" => "Path",
-        "tab_id" => "Tab",
-        "panel_id" => "Panel",
-        _ => Name,
+        "kind" => "Type",
+        "operation_detail" => "Description",
+        "orientation" => "Split",
+        "offset" => "Starting at",
+        "reviewed_json" => "Reviewed change (JSON)",
+        "url_pattern" => "URL pattern",
+        _ => Humanize(Name),
     };
 
     /// <summary>
-    /// Identifiers that route an action rather than describe it. The card's
-    /// heading already names the panel, so these stay in Details.
+    /// Values that identify or bind an action rather than describe it: the
+    /// panel, tab, and session it routes to, the tool that runs it, opaque
+    /// references, and revision stamps. The card's heading already says what
+    /// runs and where, so these stay in Details.
     /// </summary>
-    public bool IsRoutingIdentifier => Name is
-        "session_id" or "window_id" or "workspace_id" or "tab_id" or "panel_id";
-}
+    public bool IsRoutingIdentifier =>
+        Name is "session_id" or "window_id" or "workspace_id" or "tab_id"
+            or "panel_id" or "operation" or "reference" or "uid"
+            or "resource_version"
+        || Name.EndsWith("_ref", StringComparison.Ordinal)
+        || Name.EndsWith("_id", StringComparison.Ordinal)
+        || Name.EndsWith("_identity", StringComparison.Ordinal)
+        || Name.EndsWith("_revision", StringComparison.Ordinal)
+        || Name.EndsWith("_epoch", StringComparison.Ordinal);
 
-/// <summary>
-/// Approval and run cards name where an action runs by the panel's own title.
-/// The trusted runtime title also carries the exact panel and session
-/// identifiers that bind the decision; those remain available in Details.
-/// </summary>
-internal static class AgentTargetPresentation
-{
-    private static readonly string[] IdentifierSuffixes =
-        [" — panel ", " — session ", " · panel ", " · session "];
-
-    public static string ReadableTitle(string targetTitle)
+    // "maximum_matches" → "Maximum matches", "timeout_ms" → "Timeout (ms)".
+    private static string Humanize(string name)
     {
-        ArgumentNullException.ThrowIfNull(targetTitle);
-        var end = IdentifierSuffixes
-            .Select(suffix => targetTitle.IndexOf(suffix, StringComparison.Ordinal))
-            .Where(index => index > 0)
-            .DefaultIfEmpty(targetTitle.Length)
-            .Min();
-        return targetTitle[..end];
+        var words = name.Split('_', StringSplitOptions.RemoveEmptyEntries)
+            .Select(word => word switch
+            {
+                "url" => "URL",
+                "uid" => "UID",
+                "json" => "JSON",
+                "http" => "HTTP",
+                "ms" => "(ms)",
+                { Length: 1 } => word.ToUpperInvariant(),
+                _ => word,
+            })
+            .ToArray();
+        if (words.Length == 0)
+        {
+            return name;
+        }
+
+        words[0] = char.ToUpperInvariant(words[0][0]) + words[0][1..];
+        return string.Join(' ', words);
     }
 }
 
@@ -327,7 +339,8 @@ public sealed record AgentApprovalCardViewModel(
 
     public string Risk => AgentPolicyPresentation.RiskName(RiskLevel);
 
-    public string TargetDisplayTitle => AgentTargetPresentation.ReadableTitle(TargetTitle);
+    /// <summary>The place the action runs, without identifiers or jargon.</summary>
+    public string TargetDisplayTitle { get; init; } = AgentTargetPresentation.HumanTitle(TargetTitle);
 
     public string AccessibleName =>
         $"Approval required · {ToolTitle} · in {TargetDisplayTitle} · {Risk}";
@@ -358,7 +371,8 @@ public sealed record AgentToolActivityViewModel(
 {
     public string Risk => AgentPolicyPresentation.RiskName(RiskLevel);
 
-    public string TargetDisplayTitle => AgentTargetPresentation.ReadableTitle(TargetTitle);
+    /// <summary>The place the action runs, without identifiers or jargon.</summary>
+    public string TargetDisplayTitle { get; init; } = AgentTargetPresentation.HumanTitle(TargetTitle);
 }
 
 /// <summary>
@@ -3153,13 +3167,13 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         _runHasTerminal = snapshot.ContextItems.Length == 0
             || snapshot.ContextItems.Any(item => item.Kind == PanelKind.Terminal);
         CapabilityNotice = ResolveCapabilityNotice(snapshot);
-        PendingApproval = CreateApproval(snapshot.PendingApproval);
+        PendingApproval = CreateApproval(snapshot.PendingApproval, snapshot.ContextItems);
         ActiveTool = snapshot.ActiveTool is null
             ? null
-            : CreateToolActivity(snapshot.ActiveTool);
+            : CreateToolActivity(snapshot.ActiveTool, snapshot.ContextItems);
         PanelActivity = IsActiveRunState(snapshot.State)
             && snapshot.PanelActivity is not null
-                ? CreateToolActivity(snapshot.PanelActivity)
+                ? CreateToolActivity(snapshot.PanelActivity, snapshot.ContextItems)
                 : null;
         _terminalMutationPermission = snapshot.TerminalMutationPermission;
         if (!_approvalModeInitialized)
@@ -3241,19 +3255,23 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     {
         if (PendingApproval is { } approval && approval.Id != previousApprovalId)
         {
-            Announcement =
-                $"Approval required: {approval.ToolTitle} in {approval.TargetDisplayTitle}";
+            AnnounceDecision(
+                $"Approval required: {approval.ToolTitle} in {approval.TargetDisplayTitle}");
         }
         else if (PendingQuestion is { } question && question.Id != previousQuestionId)
         {
-            Announcement = $"The agent asks: {question.Question}";
+            AnnounceDecision($"The agent asks: {question.Question}");
         }
         else if (PendingCapabilityRequest is { } request
             && request.Id != previousCapabilityRequestId)
         {
-            Announcement = $"Permission requested: {request.DisplayTitle}";
+            AnnounceDecision($"Permission requested: {request.DisplayTitle}");
         }
-        else if (State != previousState && IsActiveRunState(previousState))
+        else if (State != previousState
+            && IsActiveRunState(previousState)
+            && State is GovernedAgentState.Ready
+                or GovernedAgentState.Failed
+                or GovernedAgentState.Cancelled)
         {
             Announcement = State switch
             {
@@ -3261,14 +3279,32 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 GovernedAgentState.Failed => Status.Length > 0
                     ? $"{FailureHeading}. {Status}"
                     : FailureHeading,
-                GovernedAgentState.Cancelled => "Run stopped",
-                _ => Announcement,
+                _ => "Run stopped",
             };
         }
-        else if (State != previousState && IsActiveRunState(State))
+        else if ((State != previousState && IsActiveRunState(State) && !IsActiveRunState(previousState))
+            || (previousApprovalId is not null && PendingApproval is null)
+            || (previousQuestionId is not null && PendingQuestion is null)
+            || (previousCapabilityRequestId is not null && PendingCapabilityRequest is null))
+        {
+            // A new run starts with a clear region. An answered decision is
+            // no longer news either: clearing it means the next request, even
+            // a word-for-word repeat such as a second command in the same
+            // terminal, is a change the live region announces.
+            Announcement = string.Empty;
+        }
+    }
+
+    // A live region speaks only when its text changes, so a request that
+    // repeats the previous one word for word is first cleared.
+    private void AnnounceDecision(string text)
+    {
+        if (string.Equals(Announcement, text, StringComparison.Ordinal))
         {
             Announcement = string.Empty;
         }
+
+        Announcement = text;
     }
 
     private static bool IsActiveRunState(GovernedAgentState state) => state is
@@ -3693,7 +3729,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     }
 
     private static AgentApprovalCardViewModel? CreateApproval(
-        GovernedAgentApproval? approval)
+        GovernedAgentApproval? approval,
+        IReadOnlyCollection<GovernedAgentContextItem> context)
     {
         if (approval is null)
         {
@@ -3716,7 +3753,13 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                     argument.DisplayValue,
                     argument.IsSensitive))],
             AgentPresentationTime.Friendly(approval.ExpiresAtUtc),
-            approval.TemporarilyYieldsTerminalInput);
+            approval.TemporarilyYieldsTerminalInput)
+        {
+            TargetDisplayTitle = AgentTargetPresentation.HumanTitle(
+                approval.Presentation.TargetTitle,
+                approval.Target,
+                context: context),
+        };
     }
 
     private static AgentCapabilityRequestCardViewModel? CreateCapabilityRequest(
@@ -3860,14 +3903,21 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     }
 
     private static AgentToolActivityViewModel CreateToolActivity(
-        GovernedAgentToolActivity activity) =>
+        GovernedAgentToolActivity activity,
+        IReadOnlyCollection<GovernedAgentContextItem> context) =>
         new(
             activity.ToolName,
             activity.ToolTitle,
             activity.Risk,
             activity.TargetTitle,
             activity.CancellationRequested,
-            activity.PanelId);
+            activity.PanelId)
+        {
+            TargetDisplayTitle = AgentTargetPresentation.HumanTitle(
+                activity.TargetTitle,
+                panelId: activity.PanelId,
+                context: context),
+        };
 
     private void SynchronizeQueuedFollowUps(
         IReadOnlyList<GovernedAgentQueuedFollowUp> queued)

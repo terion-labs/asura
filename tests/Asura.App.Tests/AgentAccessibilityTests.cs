@@ -68,6 +68,302 @@ public sealed partial class AgentChatViewModelTests
         Assert.DoesNotContain("01a0df93", approval.AccessibleName, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("Kubernetes mutation", "Kubernetes")]
+    [InlineData("Kubernetes observation", "Kubernetes")]
+    [InlineData("Docker observation", "Docker")]
+    [InlineData("Database read", "Database")]
+    [InlineData("Git repository change", "Git repository")]
+    [InlineData("Workspace 01a0df93caed736baaa598b6c213744d", "this workspace")]
+    [InlineData("Panel 01a0df93caed736baaa598b6c213744d", "this panel")]
+    [InlineData("Tab 01a0df93caed736baaa598b6c213744d", "this tab")]
+    [InlineData("Connection session 01a0df93caed736baaa598b6c213744d", "this connection")]
+    [InlineData("Selected panels in workspace 01a0df93caed736baaa598b6c213744d", "selected panels")]
+    [InlineData("Tab 3", "Tab 3")]
+    [InlineData("Workspace 2", "Workspace 2")]
+    public void Card_target_is_a_place_not_a_category_or_identifier(string targetTitle, string human) =>
+        Assert.Equal(human, AgentTargetPresentation.HumanTitle(targetTitle));
+
+    [Theory]
+    [InlineData("maximum_matches", "Maximum matches")]
+    [InlineData("timeout_ms", "Timeout (ms)")]
+    [InlineData("dry_run", "Dry run")]
+    [InlineData("kind", "Type")]
+    [InlineData("operation_detail", "Description")]
+    [InlineData("delta_x", "Delta X")]
+    public void Action_arguments_have_readable_names(string name, string displayName) =>
+        Assert.Equal(displayName, new AgentApprovalArgumentViewModel(name, "value", false).DisplayName);
+
+    [Theory]
+    [InlineData("resource_ref")]
+    [InlineData("container_ref")]
+    [InlineData("connection_ref")]
+    [InlineData("repository_identity")]
+    [InlineData("operation")]
+    [InlineData("uid")]
+    [InlineData("resource_version")]
+    [InlineData("document_revision")]
+    [InlineData("reference")]
+    [InlineData("attachment_id")]
+    public void Opaque_references_stay_in_details(string name) =>
+        Assert.True(new AgentApprovalArgumentViewModel(name, "ref:01a0df93", false).IsRoutingIdentifier);
+
+    [Fact]
+    public void Workspace_layout_approval_names_the_workspace_by_its_title()
+    {
+        var provider = Provider("provider", "Provider", order: 0);
+        var runId = new AgentRunId("run-layout");
+        var workspace = new AgentTarget.Workspace(
+            new WindowInstanceId("window-1"),
+            new WorkspaceInstanceId("workspace-1"));
+        var context = new[]
+        {
+            ContextItem("panel-1", "session-1", "API shell", "Deploy", true, true, false, []),
+        };
+        using var runtime = new StubGovernedRuntime
+        {
+            Snapshot = Snapshot(
+                state: GovernedAgentState.StreamingProvider,
+                runId: runId,
+                providerId: provider.Id,
+                target: workspace,
+                contextItems: context),
+        };
+        using var profiles = new StubProfileRuntime { Profiles = [provider] };
+        using var viewModel = new AgentChatViewModel(
+            runtime,
+            profiles,
+            ImmediateUiThreadDispatcher.Instance);
+
+        // The composer's own title and arguments, as the runtime sends them.
+        runtime.Snapshot = runtime.Snapshot with
+        {
+            State = GovernedAgentState.AwaitingApproval,
+            PendingApproval = new GovernedAgentApproval(
+                new AgentApprovalId("approval-layout"),
+                "workspace.panel_split",
+                "Split panel",
+                AgentActionRisk.Mutation,
+                AgentPermission.Ask,
+                workspace,
+                new AgentApprovalPresentation(
+                    "Workspace workspace-1",
+                    host: null,
+                    workingDirectory: null,
+                    [
+                        new AgentApprovalArgument("panel_id", "panel-1"),
+                        new AgentApprovalArgument("orientation", "Right"),
+                        new AgentApprovalArgument("kind", "Terminal"),
+                        new AgentApprovalArgument("connection_ref", "connection:7f3a"),
+                    ]),
+                DateTimeOffset.UtcNow.AddMinutes(5),
+                TemporarilyYieldsTerminalInput: false),
+        };
+        runtime.RaiseChanged();
+
+        var approval = Assert.IsType<AgentApprovalCardViewModel>(viewModel.PendingApproval);
+        Assert.Equal("Production workspace", approval.TargetDisplayTitle);
+        Assert.Equal("Approval required: Split panel in Production workspace", viewModel.Announcement);
+        Assert.DoesNotContain("workspace-1", approval.AccessibleName, StringComparison.Ordinal);
+        Assert.Equal(
+            ["Split", "Type"],
+            approval.ActionArguments.Select(argument => argument.DisplayName),
+            StringComparer.Ordinal);
+        // The exact identifiers are still there to check.
+        Assert.Equal("Workspace workspace-1", approval.TargetTitle);
+        Assert.Contains(approval.Arguments, argument => argument.Name == "connection_ref");
+
+        // The run card that follows names the same place.
+        runtime.Snapshot = runtime.Snapshot with
+        {
+            State = GovernedAgentState.RunningTool,
+            PendingApproval = null,
+            ActiveTool = new GovernedAgentToolActivity(
+                "workspace.panel_split",
+                "Split panel",
+                AgentActionRisk.Mutation,
+                "Workspace workspace-1"),
+        };
+        runtime.RaiseChanged();
+        Assert.Equal("Production workspace", viewModel.ActiveTool?.TargetDisplayTitle);
+    }
+
+    [Fact]
+    public void Kubernetes_control_approval_reads_without_jargon_or_tool_ids()
+    {
+        var provider = Provider("provider", "Provider", order: 0);
+        var runId = new AgentRunId("run-kubernetes");
+        var context = new[]
+        {
+            ContextItem(
+                "panel-1",
+                "session-1",
+                "Production cluster",
+                "Ops",
+                true,
+                true,
+                false,
+                [],
+                PanelKind.Kubernetes),
+        };
+        using var runtime = new StubGovernedRuntime
+        {
+            Snapshot = Snapshot(
+                state: GovernedAgentState.StreamingProvider,
+                runId: runId,
+                providerId: provider.Id,
+                target: Target(),
+                contextItems: context),
+        };
+        using var profiles = new StubProfileRuntime { Profiles = [provider] };
+        using var viewModel = new AgentChatViewModel(
+            runtime,
+            profiles,
+            ImmediateUiThreadDispatcher.Instance);
+
+        runtime.Snapshot = runtime.Snapshot with
+        {
+            State = GovernedAgentState.AwaitingApproval,
+            PendingApproval = new GovernedAgentApproval(
+                new AgentApprovalId("approval-kubernetes"),
+                "kubernetes.scale",
+                "Scale workload",
+                AgentActionRisk.Mutation,
+                AgentPermission.Ask,
+                Target(),
+                new AgentApprovalPresentation(
+                    "Kubernetes mutation",
+                    "Production cluster",
+                    workingDirectory: null,
+                    [
+                        new AgentApprovalArgument("panel_id", "panel-1"),
+                        new AgentApprovalArgument("operation", "kubernetes.scale"),
+                        new AgentApprovalArgument("operation_detail", "Scale api to 3 replicas"),
+                        new AgentApprovalArgument("resource", "deployments"),
+                        new AgentApprovalArgument("namespace", "default"),
+                        new AgentApprovalArgument("name", "api"),
+                        new AgentApprovalArgument("uid", "5d2c9a1e-0b7f-4c1a-9a51-0e0c1f8f4b11"),
+                        new AgentApprovalArgument("resource_version", "81723"),
+                        new AgentApprovalArgument("dry_run", "False"),
+                    ]),
+                DateTimeOffset.UtcNow.AddMinutes(5),
+                TemporarilyYieldsTerminalInput: false),
+        };
+        runtime.RaiseChanged();
+
+        var approval = Assert.IsType<AgentApprovalCardViewModel>(viewModel.PendingApproval);
+        Assert.Equal("Production cluster", approval.TargetDisplayTitle);
+        Assert.Equal("Approval required: Scale workload in Production cluster", viewModel.Announcement);
+        Assert.DoesNotContain("mutation", approval.AccessibleName, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(
+            ["Description", "Resource", "Namespace", "Name", "Dry run"],
+            approval.ActionArguments.Select(argument => argument.DisplayName),
+            StringComparer.Ordinal);
+        Assert.DoesNotContain(
+            approval.ActionArguments,
+            argument => argument.DisplayValue.Contains("kubernetes.", StringComparison.Ordinal));
+
+        runtime.Snapshot = runtime.Snapshot with
+        {
+            State = GovernedAgentState.RunningTool,
+            PendingApproval = null,
+            ActiveTool = new GovernedAgentToolActivity(
+                "kubernetes.scale",
+                "Scale workload",
+                AgentActionRisk.Mutation,
+                "Kubernetes mutation",
+                PanelId: new PanelInstanceId("panel-1")),
+        };
+        runtime.RaiseChanged();
+        Assert.Equal("Production cluster", viewModel.ActiveTool?.TargetDisplayTitle);
+
+        // Without a panel title to use, the run card falls back to a plain noun.
+        Assert.Equal(
+            "Kubernetes",
+            new AgentToolActivityViewModel(
+                "kubernetes.scale",
+                "Scale workload",
+                AgentActionRisk.Mutation,
+                "Kubernetes mutation",
+                CancellationRequested: false,
+                PanelId: null).TargetDisplayTitle);
+    }
+
+    [Fact]
+    public void A_repeated_approval_in_the_same_run_is_announced_again()
+    {
+        var provider = Provider("provider", "Provider", order: 0);
+        var runId = new AgentRunId("run-repeat");
+        using var runtime = new StubGovernedRuntime
+        {
+            Snapshot = Snapshot(
+                state: GovernedAgentState.StreamingProvider,
+                runId: runId,
+                providerId: provider.Id,
+                target: Target()),
+        };
+        using var profiles = new StubProfileRuntime { Profiles = [provider] };
+        using var viewModel = new AgentChatViewModel(
+            runtime,
+            profiles,
+            ImmediateUiThreadDispatcher.Instance);
+        var announced = new List<string>();
+        viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(AgentChatViewModel.Announcement))
+            {
+                announced.Add(viewModel.Announcement);
+            }
+        };
+        static GovernedAgentApproval Approval(string id) => new(
+            new AgentApprovalId(id),
+            "terminal.send_text",
+            "Send text to terminal",
+            AgentActionRisk.Mutation,
+            AgentPermission.Ask,
+            Target(),
+            new AgentApprovalPresentation(
+                "Production API shell — panel panel-1 — session s-1",
+                "api.example.test",
+                "/srv/api",
+                [new AgentApprovalArgument("text", "uptime")]),
+            DateTimeOffset.UtcNow.AddMinutes(5),
+            TemporarilyYieldsTerminalInput: false);
+        const string Expected = "Approval required: Send text to terminal in Production API shell";
+
+        runtime.Snapshot = runtime.Snapshot with
+        {
+            State = GovernedAgentState.AwaitingApproval,
+            PendingApproval = Approval("approval-1"),
+        };
+        runtime.RaiseChanged();
+        Assert.Equal([Expected], announced);
+
+        // Approved: the command runs and the model streams again.
+        runtime.Snapshot = runtime.Snapshot with
+        {
+            State = GovernedAgentState.RunningTool,
+            PendingApproval = null,
+        };
+        runtime.RaiseChanged();
+        runtime.Snapshot = runtime.Snapshot with { State = GovernedAgentState.StreamingProvider };
+        runtime.RaiseChanged();
+
+        // The second, word-for-word identical request is a change again.
+        runtime.Snapshot = runtime.Snapshot with
+        {
+            State = GovernedAgentState.AwaitingApproval,
+            PendingApproval = Approval("approval-2"),
+        };
+        runtime.RaiseChanged();
+        Assert.Equal([Expected, string.Empty, Expected], announced);
+
+        // Even when one request replaces another directly.
+        runtime.Snapshot = runtime.Snapshot with { PendingApproval = Approval("approval-3") };
+        runtime.RaiseChanged();
+        Assert.Equal([Expected, string.Empty, Expected, string.Empty, Expected], announced);
+    }
+
     [Fact]
     public void Agent_announces_decisions_and_outcomes_but_not_the_stream()
     {
@@ -337,6 +633,67 @@ public sealed partial class AgentChatViewModelTests
         });
 
     [Fact]
+    public Task Approval_leaves_focus_in_a_composer_that_holds_unsent_text() =>
+        RunAgentComposerHeadlessAsync(async () =>
+        {
+            var provider = Provider("provider", "Provider", order: 0);
+            using var runtime = new StubGovernedRuntime
+            {
+                Snapshot = Snapshot(
+                    state: GovernedAgentState.StreamingProvider,
+                    runId: new AgentRunId("run-typing"),
+                    providerId: provider.Id,
+                    target: Target(),
+                    messages: [new AgentChatMessage(AgentChatMessageRole.User, "Restart the API")]),
+            };
+            using var profiles = new StubProfileRuntime { Profiles = [provider] };
+            using var viewModel = new AgentChatViewModel(
+                runtime,
+                profiles,
+                ImmediateUiThreadDispatcher.Instance);
+            var view = new AgentWorkspaceView { DataContext = new AgentComposerHost(viewModel) };
+            var window = new Window { Width = 800, Height = 900, Content = view };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                var prompt = view.FindControl<TextBox>("AgentChatPromptInput")!;
+                Assert.True(prompt.Focus());
+                prompt.Text = "also check the";
+
+                runtime.Snapshot = runtime.Snapshot with
+                {
+                    State = GovernedAgentState.AwaitingApproval,
+                    PendingApproval = new GovernedAgentApproval(
+                        new AgentApprovalId("approval-typing"),
+                        "terminal.send_text",
+                        "Send text to terminal",
+                        AgentActionRisk.Mutation,
+                        AgentPermission.Ask,
+                        Target(),
+                        new AgentApprovalPresentation(
+                            "Production API shell — panel panel-1 — session s-1",
+                            "api.example.test",
+                            "/srv/api",
+                            [new AgentApprovalArgument("text", "uptime")]),
+                        DateTimeOffset.UtcNow.AddMinutes(5),
+                        TemporarilyYieldsTerminalInput: false),
+                };
+                runtime.RaiseChanged();
+                window.UpdateLayout();
+                await Task.Delay(50);
+                window.UpdateLayout();
+
+                Assert.True(prompt.IsFocused);
+                Assert.StartsWith("Approval required", viewModel.Announcement, StringComparison.Ordinal);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+    [Fact]
     public Task Send_raw_secrets_checkbox_meets_the_minimum_hit_target() =>
         RunAgentComposerHeadlessAsync(() =>
         {
@@ -401,10 +758,26 @@ public sealed partial class AgentChatViewModelTests
                     new Point(composer.Bounds.Width / 2, composer.Bounds.Height / 2),
                     window)!.Value;
 
+                var resting = composer.BorderBrush;
+                Assert.NotNull(resting);
+
                 window.DragDrop(center, RawDragEventType.DragEnter, data, DragDropEffects.Copy, RawInputModifiers.None);
                 window.DragDrop(center, RawDragEventType.DragOver, data, DragDropEffects.Copy, RawInputModifiers.None);
                 Assert.Contains("dropTarget", composer.Classes, StringComparer.Ordinal);
+                // The highlight border shows, not only the focus ring: the
+                // resting border is a style the drop target style replaces.
+                Assert.NotNull(composer.BorderBrush);
+                Assert.NotSame(resting, composer.BorderBrush);
 
+                // A drag cancelled over the composer (Esc) leaves at a point
+                // inside it; the highlight still ends.
+                window.DragDrop(center, RawDragEventType.DragLeave, data, DragDropEffects.Copy, RawInputModifiers.None);
+                Assert.DoesNotContain("dropTarget", composer.Classes, StringComparer.Ordinal);
+                Assert.Same(resting, composer.BorderBrush);
+
+                window.DragDrop(center, RawDragEventType.DragEnter, data, DragDropEffects.Copy, RawInputModifiers.None);
+                window.DragDrop(center, RawDragEventType.DragOver, data, DragDropEffects.Copy, RawInputModifiers.None);
+                Assert.Contains("dropTarget", composer.Classes, StringComparer.Ordinal);
                 window.DragDrop(center, RawDragEventType.Drop, data, DragDropEffects.Copy, RawInputModifiers.None);
                 Assert.DoesNotContain("dropTarget", composer.Classes, StringComparer.Ordinal);
                 await WaitUntilAsync(() => model.HasPendingFiles);

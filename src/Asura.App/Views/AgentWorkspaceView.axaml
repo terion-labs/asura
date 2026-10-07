@@ -31,6 +31,11 @@
   <UserControl.Styles>
     <!-- A file dragged over the composer lights the composer itself, so
          the place it will land is the place that reacts. -->
+    <!-- The resting border is a style, not a local value, so the drop
+         target style below can replace it. -->
+    <Style Selector="Border#AgentComposer">
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+    </Style>
     <Style Selector="Border#AgentComposer.dropTarget">
       <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
       <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
@@ -1059,7 +1064,6 @@
           Margin="{controls:Inset Horizontal=Md, Bottom=Md}"
           Padding="{controls:Inset Sm}"
           Background="{DynamicResource ShellSurfaceBrush}"
-          BorderBrush="{DynamicResource ShellBorderBrush}"
           BorderThickness="1"
           CornerRadius="{DynamicResource ShellCardCornerRadius}"
           IsVisible="{Binding AgentChat.ShowComposer, FallbackValue=False}">

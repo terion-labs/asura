@@ -12,8 +12,9 @@ namespace Asura.App.Views;
 /// When a new approval, question, or permission request appears while
 /// keyboard focus is in the agent panel, or nowhere at all, focus moves to it
 /// so it is read aloud and can be answered from the keyboard. Focus that is
-/// somewhere else, a terminal mid-command for instance, is left alone; the
-/// agent's status announcement still says that a decision is waiting.
+/// somewhere else, a terminal mid-command for instance, or in a text field
+/// that holds unsent text, is left alone; the agent's status announcement
+/// still says that a decision is waiting.
 /// </summary>
 public partial class AgentWorkspaceView
 {
@@ -84,9 +85,20 @@ public partial class AgentWorkspaceView
     private bool KeyboardFocusIsAvailable()
     {
         var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
-        return focused is not Visual visual
-            || ReferenceEquals(visual, this)
-            || this.IsVisualAncestorOf(visual);
+        if (focused is not Visual visual)
+        {
+            return true;
+        }
+
+        // A text field that holds unsent text, such as a steering message
+        // being typed, keeps focus: moving it would send the rest of the
+        // word to the card.
+        if (visual is TextBox { Text.Length: > 0 })
+        {
+            return false;
+        }
+
+        return ReferenceEquals(visual, this) || this.IsVisualAncestorOf(visual);
     }
 
     /// <summary>

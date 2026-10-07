@@ -115,7 +115,7 @@ public sealed partial class AgentChatViewModelTests
     public Task Right_to_left_paragraphs_flow_from_the_right_in_both_renderers() =>
         RunAgentComposerHeadlessAsync(async () =>
         {
-            const string markdown = "The service is healthy.\n\nהשירות תקין.\n\n- פריט ראשון";
+            const string markdown = "The service is healthy.\n\nהשירות תקין.\n\n- פריט ראשון\n  - פריט מקונן";
             var continuous = new MarkdownPreviewView { Text = markdown, ContinuousSelection = true };
             var blocks = new MarkdownPreviewView { Text = markdown, ContinuousSelection = false };
             var window = new Window
@@ -133,11 +133,17 @@ public sealed partial class AgentChatViewModelTests
                     candidate => candidate.Bounds.Height > 0,
                     "the continuous document");
                 Assert.Equal(
-                    new[] { FlowDirection.LeftToRight, FlowDirection.RightToLeft, FlowDirection.RightToLeft },
+                    new[]
+                    {
+                        FlowDirection.LeftToRight,
+                        FlowDirection.RightToLeft,
+                        FlowDirection.RightToLeft,
+                        FlowDirection.RightToLeft,
+                    },
                     document.BlockDirections);
-                // The right-to-left list item's marker moves to the right edge.
-                var item = Assert.Single(document.ListLayouts);
-                Assert.True(item.MarkerX > item.ContentX);
+                // The right-to-left list items' markers move to the right edge.
+                Assert.Equal(2, document.ListLayouts.Length);
+                Assert.All(document.ListLayouts, item => Assert.True(item.MarkerX > item.ContentX));
 
                 var hebrew = await WaitForVisualAsync<SelectableTextBlock>(
                     blocks,
@@ -148,10 +154,28 @@ public sealed partial class AgentChatViewModelTests
                     .Single(candidate => RenderedText(candidate).Contains("healthy", StringComparison.Ordinal));
                 Assert.Equal(FlowDirection.RightToLeft, hebrew.FlowDirection);
                 Assert.Equal(FlowDirection.LeftToRight, english.FlowDirection);
+
+                // A nested right-to-left item is indented from the right. Its
+                // margin is laid out by the left-to-right parent, so the
+                // indent has to be on the right side explicitly.
+                var top = ListRow(blocks, "ראשון");
+                var nested = ListRow(blocks, "מקונן");
+                Assert.Equal(FlowDirection.RightToLeft, nested.FlowDirection);
+                Assert.Equal(0, nested.Margin.Left);
+                Assert.Equal(0, top.Margin.Left);
+                Assert.True(
+                    nested.Margin.Right > top.Margin.Right,
+                    $"nested {nested.Margin} vs top {top.Margin}");
             }
             finally
             {
                 window.Close();
             }
         });
+
+    private static Grid ListRow(MarkdownPreviewView view, string text) =>
+        view.GetVisualDescendants().OfType<SelectableTextBlock>()
+            .Single(candidate => RenderedText(candidate).Contains(text, StringComparison.Ordinal))
+            .GetVisualAncestors().OfType<Grid>()
+            .First(grid => grid.ColumnDefinitions.Count == 2);
 }

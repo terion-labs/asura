@@ -644,13 +644,19 @@ public sealed partial class MarkdownPreviewView : UserControl
     {
         // The bullet is its own column so wrapped lines line up under the text
         // rather than under the marker.
-        // A right-to-left item mirrors the whole row, so its marker and
-        // indent sit on the edge where its text starts.
+        // A right-to-left item mirrors the whole row, so its marker sits on
+        // the edge where its text starts. The margin is laid out by the
+        // left-to-right parent, outside the mirror, so the indent moves to
+        // the right side explicitly.
+        var direction = Direction(block.Runs);
+        var indent = (Math.Max(0, block.Level - 1) * 18) + 2;
         var grid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("Auto,*"),
-            Margin = new Thickness((Math.Max(0, block.Level - 1) * 18) + 2, 0, 0, 0),
-            FlowDirection = Direction(block.Runs),
+            Margin = direction == FlowDirection.RightToLeft
+                ? new Thickness(0, 0, indent, 0)
+                : new Thickness(indent, 0, 0, 0),
+            FlowDirection = direction,
         };
         var bullet = new SelectableTextBlock
         {
