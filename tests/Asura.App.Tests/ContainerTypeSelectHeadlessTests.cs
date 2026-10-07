@@ -95,6 +95,61 @@ public sealed class ContainerTypeSelectHeadlessTests
         }
     });
 
+    /// <summary>
+    /// On the shell view a click opens a shell in the container clicked, but a
+    /// typed name passes over other containers on the way: "wo" matches web
+    /// before worker. Only the container the typing stops at gets a shell.
+    /// </summary>
+    [Fact]
+    public Task Typing_on_the_shell_view_opens_a_shell_only_where_the_typing_stops() => RunHeadlessAsync(async () =>
+    {
+        using var panel = new DockerRuntimePanelViewModel(
+            PanelInstanceId.New(), "Docker", new NamedResourcesDockerClient(), BuiltInConnections.Local);
+        await panel.Initialization;
+        panel.SelectResource(panel.ContainerStacks.SelectMany(stack => stack.Containers)
+            .Single(container => string.Equals(container.Title, "api", StringComparison.Ordinal)));
+        panel.SelectDetail(DockerPanelDetail.Shell);
+        var view = new DockerRuntimePanelView { DataContext = panel };
+        var requested = new List<string?>();
+        view.InlineShellRequested += (_, shellPanel) => requested.Add(shellPanel.SelectedResource?.Title);
+        var window = new Window { Width = 1_200, Height = 700, Content = view };
+        try
+        {
+            window.Show();
+            var rows = Array.Empty<Button>();
+            await WaitUntilAsync(() =>
+            {
+                window.UpdateLayout();
+                rows = [.. view.GetVisualDescendants()
+                    .OfType<Button>()
+                    .Where(button => button.Classes.Contains("DockerResourceRow"))];
+                return rows.Length == 3;
+            });
+            rows[0].Focus();
+
+            window.KeyTextInput("w");
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("web", panel.SelectedResource?.Title);
+            window.KeyTextInput("o");
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("worker", panel.SelectedResource?.Title);
+            Assert.True(panel.IsShellDetail);
+            Assert.Empty(requested);
+
+            await WaitUntilAsync(() =>
+            {
+                Dispatcher.UIThread.RunJobs();
+                return requested.Count > 0;
+            });
+            Assert.Equal(["worker"], requested);
+        }
+        finally
+        {
+            window.Close();
+        }
+    });
+
     [Fact]
     public async Task Typing_a_name_in_the_Kubernetes_navigator_shows_that_resource_type()
     {

@@ -35,4 +35,19 @@ internal static class DisplayDates
     /// </summary>
     public static string FormatShortTime(DateTimeOffset value) =>
         value.ToLocalTime().ToString("t", CultureInfo.CurrentCulture);
+
+    /// <summary>
+    /// A time of day to the millisecond, for log lines, where many lines
+    /// share one second. The reader's own time pattern, with the fraction
+    /// written after the seconds the way that culture writes decimals.
+    /// </summary>
+    public static string FormatPreciseTime(DateTimeOffset value)
+    {
+        var culture = CultureInfo.CurrentCulture;
+        var pattern = culture.DateTimeFormat.LongTimePattern;
+        var precise = pattern.Contains("ss", StringComparison.Ordinal)
+            ? pattern.Replace("ss", $"ss'{culture.NumberFormat.NumberDecimalSeparator}'fff", StringComparison.Ordinal)
+            : pattern;
+        return value.ToLocalTime().ToString(precise, culture);
+    }
 }

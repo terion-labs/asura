@@ -233,26 +233,20 @@
             IsVisible="{Binding HasForwards}"
             ToolTip.Tip="Show active port forwards"
             AutomationProperties.Name="Show active Kubernetes port forwards" />
-        <!-- The panel's view commands are one toolbar group, a capsule around
-             both, as a Mac toolbar groups related items. -->
-        <Border Classes="ToolbarGroup" VerticalAlignment="Center">
-          <StackPanel Orientation="Horizontal">
-            <Button
-                Classes="IconButton ToolbarGroupAction"
-                Click="OnToggleNavigatorClick"
-                ToolTip.Tip="Toggle navigator"
-                AutomationProperties.Name="Toggle Kubernetes navigator">
-              <icons:SymbolIcon Symbol="Navigation" FontSize="{DynamicResource ShellIconSizeMd}" />
-            </Button>
-            <Button
-                Classes="IconButton ToolbarGroupAction"
-                Command="{Binding RefreshCommand}"
-                ToolTip.Tip="Refresh resources"
-                AutomationProperties.Name="Refresh Kubernetes resources">
-              <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellIconSizeMd}" />
-            </Button>
-          </StackPanel>
-        </Border>
+        <Button
+            Classes="IconButton"
+            Click="OnToggleNavigatorClick"
+            ToolTip.Tip="Toggle navigator"
+            AutomationProperties.Name="Toggle Kubernetes navigator">
+          <icons:SymbolIcon Symbol="Navigation" FontSize="{DynamicResource ShellIconSizeMd}" />
+        </Button>
+        <Button
+            Classes="IconButton"
+            Command="{Binding RefreshCommand}"
+            ToolTip.Tip="Refresh resources"
+            AutomationProperties.Name="Refresh Kubernetes resources">
+          <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellIconSizeMd}" />
+        </Button>
       </StackPanel>
     </controls:PanelChrome.Actions>
 

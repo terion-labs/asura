@@ -649,8 +649,8 @@
                         <TextBlock
                             Classes="Muted"
                             FontFamily="{DynamicResource ShellDataFontFamily}"
-                            FontSize="{DynamicResource ShellFontSize10}"
-                            LineHeight="{DynamicResource ShellLineHeight10}"
+                            FontSize="{DynamicResource ShellSecondaryFontSize}"
+                            LineHeight="{DynamicResource ShellLineHeight11}"
                             Text="{Binding DisplayTimestamp}" />
                         <ItemsControl
                             Grid.Column="1"
@@ -665,8 +665,8 @@
                               <Border Classes="DockerLogMessageSegment" Classes.match="{Binding IsMatch}">
                                 <TextBlock
                                     FontFamily="{DynamicResource ShellDataFontFamily}"
-                                    FontSize="{DynamicResource ShellFontSize10}"
-                                    LineHeight="{DynamicResource ShellLineHeight10}"
+                                    FontSize="{DynamicResource ShellSecondaryFontSize}"
+                                    LineHeight="{DynamicResource ShellLineHeight11}"
                                     Text="{Binding Text}" />
                               </Border>
                             </DataTemplate>

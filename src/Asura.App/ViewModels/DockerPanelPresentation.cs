@@ -1,3 +1,4 @@
+using System.Globalization;
 using Asura.Docker;
 using FluentIcons.Common;
 
@@ -35,9 +36,49 @@ public sealed record DockerLogRowViewModel(
     bool StartsContextBlock,
     IReadOnlyList<DockerLogTextSegmentViewModel> MessageSegments)
 {
-    public string DisplayTimestamp => Timestamp.Length > 11
-        ? Timestamp[11..].TrimEnd('Z')
+    /// <summary>
+    /// When the engine wrote the line, in the reader's local time and
+    /// culture. The engine sends UTC to the nanosecond; a line it sends in
+    /// some other shape is shown as sent.
+    /// </summary>
+    public string DisplayTimestamp => ParseEngineTime(Timestamp) is { } moment
+        ? DisplayDates.FormatPreciseTime(moment)
         : Timestamp;
+
+    /// <summary>
+    /// Reads an RFC 3339 time as the engine writes it. .NET reads at most
+    /// seven fractional digits, so the nanoseconds past them are dropped.
+    /// </summary>
+    internal static DateTimeOffset? ParseEngineTime(string text)
+    {
+        if (!text.Contains('T', StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var point = text.IndexOf('.', StringComparison.Ordinal);
+        if (point >= 0)
+        {
+            var end = point + 1;
+            while (end < text.Length && char.IsAsciiDigit(text[end]))
+            {
+                end++;
+            }
+
+            if (end - point - 1 > 7)
+            {
+                text = string.Concat(text.AsSpan(0, point + 8), text.AsSpan(end));
+            }
+        }
+
+        return DateTimeOffset.TryParse(
+            text,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal,
+            out var moment)
+            ? moment
+            : null;
+    }
 }
 
 public sealed class DockerContainerStackViewModel : ObservableObject
