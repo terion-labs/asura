@@ -815,10 +815,16 @@ public sealed partial class App : Avalonia.Application
                 + "inset 0 0 17.6 0 "
                 + $"#C0{resources.Accent.R:X2}{resources.Accent.G:X2}{resources.Accent.B:X2}"));
         Publish("ShellUiFontFamily", resources.FontFamily);
-        // Data surfaces (result grids, SQL editors) read in a monospace stack;
-        // interface chrome stays on the UI family.
-        Publish("ShellDataFontFamily", new FontFamily(
-            "SF Mono,Menlo,Monaco,Cascadia Mono,Consolas,monospace"));
+        // Data surfaces (result grids, SQL editors, logs) read in the terminal's
+        // own face: the one monospace the application ships and so can always
+        // resolve. The old stack led with SF Mono, which a stock Mac does not
+        // resolve by name, so data fell to Menlo while logs and diagrams drew in
+        // this face — three monospaces in one window.
+        Publish("ShellDataFontFamily", AsuraTerminalFontCollection.Family);
+        // Fluent styles popups from its own pair of font resources; these make
+        // a menu or a tooltip read in the same face and size as the window.
+        Publish("ContentControlThemeFontFamily", resources.FontFamily);
+        Publish("ControlContentThemeFontSize", resources.BaseFontSize);
         Publish("ShellBaseFontSize", resources.BaseFontSize);
         Publish("ShellPillFontSize", resources.PillFontSize);
         foreach (var baseFontSize in ScalableFontSizes)

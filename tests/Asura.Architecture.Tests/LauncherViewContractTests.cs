@@ -395,8 +395,21 @@ public sealed class LauncherViewContractTests
                     AttributeValue(element, "Selector"),
                     "Button.NavButton.active",
                     StringComparison.Ordinal));
+        // The current page is a full step of gray; the faint sidebar wash is
+        // the pointer's, so the two are never the same fill.
         AssertStyleSetter(
             activeNavigationStyle,
+            "Background",
+            "{DynamicResource ShellSurfaceHoverBrush}");
+        var hoverNavigationStyle = Assert.Single(
+            theme.Descendants(),
+            element => string.Equals(element.Name.LocalName, "Style", StringComparison.Ordinal)
+                && string.Equals(
+                    AttributeValue(element, "Selector"),
+                    "Button.NavButton:pointerover /template/ ContentPresenter",
+                    StringComparison.Ordinal));
+        AssertStyleSetter(
+            hoverNavigationStyle,
             "Background",
             "{DynamicResource ShellSidebarSelectionBrush}");
         AssertStyleSetter(

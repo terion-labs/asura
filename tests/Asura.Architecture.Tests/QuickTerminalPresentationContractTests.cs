@@ -68,18 +68,15 @@ public sealed class QuickTerminalPresentationContractTests
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Tabs"), "{Binding Tabs}"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "IconPickerPlacement"), "TopEdgeAlignedLeft"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "AddTabRequested"), "OnAddTabRequested", StringComparison.Ordinal));
-        Assert.Contains(
-            root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "Border"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Classes"), "PanelAgentGlow"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "BoxShadow")
-, "{DynamicResource ShellAgentPanelGlowShadow}"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "IsVisible")
-, "{Binding ActiveTab.HasAgentActivity}", StringComparison.Ordinal));
+        // The glow's edge and wash come from the shared WindowGlow style, not
+        // the element, so the Reduce Motion still form can replace them.
         var agentGlow = Assert.Single(
             root.Descendants(),
             element => string.Equals(element.Name.LocalName, "Border"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Classes"), "PanelAgentGlow", StringComparison.Ordinal));
+, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Classes"), "PanelAgentGlow WindowGlow", StringComparison.Ordinal));
+        Assert.Equal("{Binding ActiveTab.HasAgentActivity}", AttributeValue(agentGlow, "IsVisible"));
+        Assert.Null(AttributeValue(agentGlow, "BoxShadow"));
+        Assert.Null(AttributeValue(agentGlow, "BorderThickness"));
         Assert.Null(AttributeValue(agentGlow, "Margin"));
         Assert.Equal("0", AttributeValue(agentGlow, "CornerRadius"));
         var controlBar = Assert.Single(

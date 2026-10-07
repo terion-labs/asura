@@ -23,7 +23,7 @@
       <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="{DynamicResource ShellSpaceXs}">
         <TextBlock FontWeight="SemiBold" Text="{Binding FileName}" TextTrimming="CharacterEllipsis" />
         <Border Grid.Column="1" Classes="Keycap"><TextBlock Text="{Binding ModeLabel}" /></Border>
-        <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Directory}" TextTrimming="CharacterEllipsis" />
+        <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="Muted Path" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Directory}" />
         <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Summary}" />
       </Grid>
     </controls:SurfaceCard>
@@ -59,7 +59,7 @@
           <DataTemplate x:DataType="application:DefinitionExecutionReviewItem">
             <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
               <TextBlock Text="{Binding Heading}" FontWeight="SemiBold" TextWrapping="Wrap" />
-              <TextBox Text="{Binding Details}" IsReadOnly="True" AcceptsReturn="True" MaxHeight="160" TextWrapping="Wrap" />
+              <TextBox Text="{Binding Details}" IsReadOnly="True" AcceptsReturn="True" MaxHeight="160" TextWrapping="Wrap" AutomationProperties.Name="{Binding Heading}" />
             </StackPanel>
           </DataTemplate>
         </ListBox.ItemTemplate>

@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
+using Avalonia.Interactivity;
 
 namespace Asura.App.Controls;
 
@@ -14,8 +15,12 @@ namespace Asura.App.Controls;
 /// (300, 280, 212, 240), the insets disagreed (16,12 and 16,10 and 12), and the
 /// description font was restated at every single one. A row that is a component
 /// can only disagree with itself.
+///
+/// The label is the control's accessible name and the description its help
+/// text: the row links them, so no use site has to name its control twice.
 /// </summary>
 [TemplatePart("PART_Row", typeof(Grid))]
+[TemplatePart("PART_Label", typeof(TextBlock))]
 internal sealed class SettingRow : ContentControl
 {
     public static readonly StyledProperty<string> LabelProperty =
@@ -59,6 +64,10 @@ internal sealed class SettingRow : ContentControl
     {
         DescriptionProperty.Changed.AddClassHandler<SettingRow>(
             (row, _) => row.UpdateStateClasses());
+        DescriptionProperty.Changed.AddClassHandler<SettingRow>(
+            (row, _) => row.UpdateAutomation());
+        ContentProperty.Changed.AddClassHandler<SettingRow>(
+            (row, _) => row.UpdateAutomation());
         IsLastProperty.Changed.AddClassHandler<SettingRow>(
             (row, _) => row.UpdateStateClasses());
         ControlWidthProperty.Changed.AddClassHandler<SettingRow>(
@@ -105,10 +114,23 @@ internal sealed class SettingRow : ContentControl
     {
         base.OnApplyTemplate(e);
         _row = e.NameScope.Find<Grid>("PART_Row");
+        _label = e.NameScope.Find<TextBlock>("PART_Label");
         ApplyControlWidth();
+        UpdateAutomation();
     }
 
+    protected override void OnLoaded(RoutedEventArgs e)
+    {
+        base.OnLoaded(e);
+        UpdateAutomation();
+    }
+
+    private readonly FieldLabelLink _link = new();
     private Grid? _row;
+    private TextBlock? _label;
+
+    private void UpdateAutomation() =>
+        _link.Update(FieldLabelLink.FindTarget(Content), _label, Description);
 
     private void ApplyControlWidth()
     {

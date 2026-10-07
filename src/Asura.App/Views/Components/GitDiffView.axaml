@@ -71,8 +71,8 @@
             FontFamily="{DynamicResource ShellDataFontFamily}"
             FontSize="{DynamicResource ShellFontSize10}"
             LineHeight="{DynamicResource ShellLineHeight10}"
-            Text="{Binding DiffFileName}"
-            TextTrimming="CharacterEllipsis" />
+            Classes="Path"
+            Text="{Binding DiffFileName}" />
         <controls:StatusChip
             Grid.Column="1"
             VerticalAlignment="Center"
@@ -125,7 +125,7 @@
         SelectionMode="Multiple,Toggle"
         SelectionChanged="OnDiffSelection"
         SelectedItem="{Binding DiffSearchMatch}"
-        Classes="GitDiffLines"
+        Classes="GitDiffLines OwnSelection"
         Background="Transparent"
         BorderThickness="0"
         Padding="0"
@@ -176,7 +176,7 @@
     <ListBox
         x:Name="SplitLines"
         Grid.Row="3"
-        Classes="GitDiffLines"
+        Classes="GitDiffLines OwnSelection"
         Background="Transparent"
         BorderThickness="0"
         Padding="0"

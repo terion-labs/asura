@@ -434,7 +434,7 @@
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                       <icons:SymbolIcon VerticalAlignment="Center" Symbol="Folder" FontSize="13" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding IsDirectory}" />
                       <icons:SymbolIcon VerticalAlignment="Center" Symbol="Code" FontSize="13" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding !IsDirectory}" />
-                      <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                      <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize10}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
                     </Grid>
                     <TextBlock Grid.Column="2" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Size}" />
                     <TextBlock Grid.Column="4" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Modified}" />
@@ -462,7 +462,7 @@
                   <Grid MinHeight="30" Margin="{controls:Inset Horizontal=Md}" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                     <icons:SymbolIcon VerticalAlignment="Center" Symbol="Folder" FontSize="13" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding IsDirectory}" />
                     <icons:SymbolIcon VerticalAlignment="Center" Symbol="Code" FontSize="13" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding !IsDirectory}" />
-                    <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                    <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize10}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
                     <TextBlock Grid.Column="2" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Size}" />
                   </Grid>
                 </DataTemplate>
@@ -492,7 +492,7 @@
                     <StackPanel Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceXs}">
                       <icons:SymbolIcon Symbol="Folder" FontSize="20" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding IsDirectory}" />
                       <icons:SymbolIcon Symbol="Code" FontSize="20" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding !IsDirectory}" />
-                      <TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                      <TextBlock FontSize="{DynamicResource ShellFontSize10}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
                       <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Size}" />
                     </StackPanel>
                   </controls:SurfaceCard>

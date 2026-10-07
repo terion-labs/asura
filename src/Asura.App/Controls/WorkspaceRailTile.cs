@@ -1,6 +1,8 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using FluentIcons.Common;
@@ -93,6 +95,9 @@ internal sealed class WorkspaceRailTile : TemplatedControl
     private IBrush? _accentBrush;
     private IBrush? _restingBrush;
     private IBrush? _markBrush;
+    private Button? _open;
+    private Button? _close;
+    private Button? _save;
 
     static WorkspaceRailTile()
     {
@@ -104,6 +109,14 @@ internal sealed class WorkspaceRailTile : TemplatedControl
             (tile, _) => tile.RefreshStateClasses());
         HasAttentionProperty.Changed.AddClassHandler<WorkspaceRailTile>(
             (tile, _) => tile.RefreshStateClasses());
+        HasAgentActivityProperty.Changed.AddClassHandler<WorkspaceRailTile>(
+            (tile, _) => tile.RefreshAutomation());
+        IsIsolatedProperty.Changed.AddClassHandler<WorkspaceRailTile>(
+            (tile, _) => tile.RefreshAutomation());
+        // Both use sites name the tile after its workspace, and that is the
+        // name every action inside it has to carry as well.
+        AutomationProperties.NameProperty.Changed.AddClassHandler<WorkspaceRailTile>(
+            (tile, _) => tile.RefreshAutomation());
         CanCloseProperty.Changed.AddClassHandler<WorkspaceRailTile>(
             (tile, _) => tile.RefreshStateClasses());
         CanSaveProperty.Changed.AddClassHandler<WorkspaceRailTile>(
@@ -116,6 +129,8 @@ internal sealed class WorkspaceRailTile : TemplatedControl
     {
         RefreshBrushes();
         RefreshStateClasses();
+        AddHandler(GotFocusEvent, OnActionGotFocus);
+        AddHandler(LostFocusEvent, OnActionLostFocus);
     }
 
     /// <summary>Asked for when the tile is clicked.</summary>
@@ -205,22 +220,59 @@ internal sealed class WorkspaceRailTile : TemplatedControl
         private set => SetAndRaise(MarkBrushProperty, ref _markBrush, value);
     }
 
+    /// <summary>
+    /// The tile's state in words: what its colour, ring and dot draw. A screen
+    /// reader hears this where a sighted user reads saturation.
+    /// </summary>
+    public string StatusDescription
+    {
+        get
+        {
+            var parts = new List<string>(5);
+            if (IsCurrent)
+            {
+                parts.Add("Current");
+            }
+
+            if (IsRunning)
+            {
+                parts.Add("Running");
+            }
+
+            if (HasAttention)
+            {
+                parts.Add("Needs attention");
+            }
+
+            if (HasAgentActivity)
+            {
+                parts.Add("Agent working");
+            }
+
+            if (IsIsolated)
+            {
+                parts.Add("Isolated");
+            }
+
+            return string.Join(", ", parts);
+        }
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
-        if (e.NameScope.Find<Button>("PART_Open") is { } open)
-        {
-            open.Click += OnOpenClick;
-        }
+        _open?.Click -= OnOpenClick;
+        _close?.Click -= OnCloseClick;
+        _save?.Click -= OnSaveClick;
 
-        if (e.NameScope.Find<Button>("PART_Close") is { } close)
-        {
-            close.Click += OnCloseClick;
-        }
-        if (e.NameScope.Find<Button>("PART_Save") is { } save)
-        {
-            save.Click += OnSaveClick;
-        }
+        _open = e.NameScope.Find<Button>("PART_Open");
+        _close = e.NameScope.Find<Button>("PART_Close");
+        _save = e.NameScope.Find<Button>("PART_Save");
+
+        _open?.Click += OnOpenClick;
+        _close?.Click += OnCloseClick;
+        _save?.Click += OnSaveClick;
+        RefreshAutomation();
     }
 
     /// <summary>
@@ -232,6 +284,29 @@ internal sealed class WorkspaceRailTile : TemplatedControl
 
     /// <summary>How far a resting tile is dimmed toward the rail behind it.</summary>
     private const double RestingBrightness = 0.66;
+
+    /// <summary>
+    /// Opens the tile for the keyboard and not for the pointer. A click focuses
+    /// the button it lands on as well, and the workspace switch it starts does
+    /// not take focus anywhere else, so a tile that opened on any focus inside
+    /// it stayed open over the canvas — shadow, Terminate and all — after the
+    /// pointer had left.
+    /// </summary>
+    private void OnActionGotFocus(object? sender, FocusChangedEventArgs e)
+    {
+        _ = sender;
+        PseudoClasses.Set(
+            ":keyboard-focus-within",
+            e.NavigationMethod is NavigationMethod.Tab or NavigationMethod.Directional);
+    }
+
+    private void OnActionLostFocus(object? sender, FocusChangedEventArgs e)
+    {
+        _ = sender;
+        // Focus moving from one action to the next arrives here first and
+        // then as a fresh GotFocus, which sets the class again.
+        PseudoClasses.Set(":keyboard-focus-within", false);
+    }
 
     private void OnOpenClick(object? sender, RoutedEventArgs e)
     {
@@ -313,5 +388,34 @@ internal sealed class WorkspaceRailTile : TemplatedControl
         PseudoClasses.Set(":closable", CanClose);
         PseudoClasses.Set(":saveable", CanSave);
         PseudoClasses.Set(":expandsleft", ExpandsLeft);
+        RefreshAutomation();
+    }
+
+    /// <summary>
+    /// Names each action after the workspace it acts on, and states the tile's
+    /// state on the action a screen reader lands on. "Terminate this
+    /// workspace", heard out of context in a rail of six, did not say which.
+    /// </summary>
+    private void RefreshAutomation()
+    {
+        var name = AutomationProperties.GetName(this);
+        var workspace = string.IsNullOrWhiteSpace(name) ? "this workspace" : name;
+        var status = StatusDescription;
+        AutomationProperties.SetItemStatus(this, status);
+        if (_open is not null)
+        {
+            AutomationProperties.SetName(_open, $"Open {workspace}");
+            AutomationProperties.SetItemStatus(_open, status);
+        }
+
+        if (_close is not null)
+        {
+            AutomationProperties.SetName(_close, $"Terminate {workspace}");
+        }
+
+        if (_save is not null)
+        {
+            AutomationProperties.SetName(_save, $"Save the layout of {workspace}");
+        }
     }
 }

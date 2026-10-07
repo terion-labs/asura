@@ -1095,7 +1095,10 @@ public sealed class RuntimePanelViewContractTests
         }
 
         // The create sheet is a form, so it names every input with the kit's
-        // field: a placeholder leaves the moment it is used. The two other
+        // field: a placeholder leaves the moment it is used. Sitting in the
+        // field is the structure; that it actually names the control for a
+        // screen reader is checked against the control's automation peer in
+        // RedisRuntimePanelViewHeadlessTests. The two other
         // shapes are deliberately not held to this — a repeated row is named
         // once by the group above it, and the panel's dense bars (the value
         // editor's footer, the Pub/Sub column) state their options inline the
@@ -1629,7 +1632,10 @@ public sealed class RuntimePanelViewContractTests
         Assert.Equal(3, fileNameLabels.Length);
         Assert.All(fileNameLabels, label =>
         {
-            Assert.Equal("CharacterEllipsis", AttributeValue(label, "TextTrimming"));
+            // A long name loses its middle, as Finder truncates, so the
+            // extension and the end that tells two names apart stay visible.
+            Assert.Equal("MiddleTruncated", AttributeValue(label, "Classes"));
+            Assert.Null(AttributeValue(label, "TextTrimming"));
             Assert.Equal("{Binding Name}", AttributeValue(label, "ToolTip.Tip"));
         });
         Assert.Contains(

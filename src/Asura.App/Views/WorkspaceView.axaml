@@ -43,8 +43,9 @@
   <UserControl.Styles>
     <!-- A workspace calling for attention. Slow and shallow on purpose: this
          sits in a menu the user opened to read, and anything sharper reads as
-         an error rather than as activity. -->
-    <Style Selector="Ellipse.calling">
+         an error rather than as activity. With Reduce Motion it is a still
+         badge instead: a ring in the text colour around the workspace's dot. -->
+    <Style Selector="Window:not(.motion-disabled) Ellipse.calling">
       <Style.Animations>
         <Animation Duration="0:0:1.4" IterationCount="INFINITE" PlaybackDirection="Alternate">
           <KeyFrame Cue="0%">
@@ -55,6 +56,10 @@
           </KeyFrame>
         </Animation>
       </Style.Animations>
+    </Style>
+    <Style Selector="Window.motion-disabled Ellipse.calling">
+      <Setter Property="Stroke" Value="{DynamicResource ShellTextBrush}" />
+      <Setter Property="StrokeThickness" Value="2" />
     </Style>
     <!-- All of the panel's geometry lives here, not on the element: an inline
          value would silence whichever of these the state asks for, and the

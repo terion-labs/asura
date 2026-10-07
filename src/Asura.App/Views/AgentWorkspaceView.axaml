@@ -76,8 +76,10 @@
     <!-- A live run is visible from every surface hosting the shared agent
          panel. The ordinary icon remains beneath this accent copy, so the
          five-second opacity cycle reads as a slow colour pulse rather than a
-         blinking status light. -->
-    <Style Selector="icons|SymbolIcon.AgentActivityPulse.running">
+         blinking status light. Reduce Motion holds the accent copy at full
+         strength instead (the still form lives with the shell's other motion
+         rules in DesignSystem.axaml). -->
+    <Style Selector="Window:not(.motion-disabled) icons|SymbolIcon.AgentActivityPulse.running">
       <Style.Animations>
         <Animation Duration="0:0:5" IterationCount="INFINITE">
           <KeyFrame Cue="0%">

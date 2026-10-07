@@ -378,7 +378,7 @@ public sealed class AgentWorkspaceViewContractTests
             root.Descendants(),
             element => string.Equals(element.Name.LocalName, "Style"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Selector")
-, "icons|SymbolIcon.AgentActivityPulse.running", StringComparison.Ordinal));
+, "Window:not(.motion-disabled) icons|SymbolIcon.AgentActivityPulse.running", StringComparison.Ordinal));
         var animation = Assert.Single(
             pulseStyle.Descendants(),
             element => string.Equals(element.Name.LocalName, "Animation", StringComparison.Ordinal));

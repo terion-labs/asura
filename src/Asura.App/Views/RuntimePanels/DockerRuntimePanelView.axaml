@@ -78,9 +78,6 @@
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="Padding" Value="0" />
     </Style>
-    <Style Selector="ListBox.DockerResources ListBoxItem:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
-    </Style>
     <Style Selector="ListBox.DockerLogs ListBoxItem">
       <Setter Property="Padding" Value="0" />
       <Setter Property="Margin" Value="0" />
@@ -564,7 +561,7 @@
             <Grid Grid.Row="1">
               <ListBox
                   x:Name="LogList"
-                  Classes="DockerLogs"
+                  Classes="DockerLogs OwnSelection"
                   ItemsSource="{Binding LogRows}"
                   SelectionMode="Single"
                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -581,7 +578,7 @@
                       <Grid Grid.Row="1" MinHeight="22" Margin="{controls:Inset Horizontal=Md, Vertical=Xs}" ColumnDefinitions="150,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                         <TextBlock
                             Classes="Muted"
-                            FontFamily="avares://Asura.App/Assets/Fonts/JetBrainsMono#JetBrains Mono"
+                            FontFamily="{DynamicResource ShellDataFontFamily}"
                             FontSize="{DynamicResource ShellFontSize9}"
                             LineHeight="{DynamicResource ShellLineHeight9}"
                             Text="{Binding DisplayTimestamp}" />
@@ -597,7 +594,7 @@
                             <DataTemplate>
                               <Border Classes="DockerLogMessageSegment" Classes.match="{Binding IsMatch}">
                                 <TextBlock
-                                    FontFamily="avares://Asura.App/Assets/Fonts/JetBrainsMono#JetBrains Mono"
+                                    FontFamily="{DynamicResource ShellDataFontFamily}"
                                     FontSize="{DynamicResource ShellFontSize10}"
                                     LineHeight="{DynamicResource ShellLineHeight10}"
                                     Text="{Binding Text}" />
