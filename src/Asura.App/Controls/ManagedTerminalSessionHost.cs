@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Asura.App.ViewModels;
 using Asura.Application;
 using Asura.Core;
 using Avalonia;
@@ -18,10 +19,6 @@ namespace Asura.App.Controls;
 public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTerminalInputSink
 {
     private const int StatePollInterval = 10;
-    private static readonly IBrush StartingBrush = Brush.Parse("#8B8B91");
-    private static readonly IBrush LiveBrush = Brush.Parse("#3FB950");
-    private static readonly IBrush UnavailableBrush = Brush.Parse("#FF7A55");
-    private static readonly IBrush ExitedBrush = Brush.Parse("#FFB224");
     private static readonly TimeSpan HumanInputLeaseDuration =
         TimeSpan.FromHours(8);
 
@@ -74,10 +71,10 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
             nameof(StatusText),
             control => control.StatusText);
 
-    public static readonly DirectProperty<ManagedTerminalSessionHost, IBrush> StatusBrushProperty =
-        AvaloniaProperty.RegisterDirect<ManagedTerminalSessionHost, IBrush>(
-            nameof(StatusBrush),
-            control => control.StatusBrush);
+    public static readonly DirectProperty<ManagedTerminalSessionHost, StatusTone> StatusToneProperty =
+        AvaloniaProperty.RegisterDirect<ManagedTerminalSessionHost, StatusTone>(
+            nameof(StatusTone),
+            control => control.StatusTone);
 
     public static readonly DirectProperty<ManagedTerminalSessionHost, bool> ShowFallbackProperty =
         AvaloniaProperty.RegisterDirect<ManagedTerminalSessionHost, bool>(
@@ -116,7 +113,7 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
     private bool _isLive;
     private string? _initializationError;
     private string _statusText = "Starting";
-    private IBrush _statusBrush = StartingBrush;
+    private StatusTone _statusTone = StatusTone.Neutral;
     private bool _showFallback;
     private string _statusMessage = string.Empty;
 
@@ -214,10 +211,10 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
         private set => SetAndRaise(StatusTextProperty, ref _statusText, value);
     }
 
-    public IBrush StatusBrush
+    public StatusTone StatusTone
     {
-        get => _statusBrush;
-        private set => SetAndRaise(StatusBrushProperty, ref _statusBrush, value);
+        get => _statusTone;
+        private set => SetAndRaise(StatusToneProperty, ref _statusTone, value);
     }
 
     public bool ShowFallback
@@ -1348,18 +1345,18 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
         ShowFallback = state is TerminalHostState.Error
             or TerminalHostState.Unavailable
             or TerminalHostState.Exited;
-        (StatusText, StatusBrush, StatusMessage) = state switch
+        (StatusText, StatusTone, StatusMessage) = state switch
         {
-            TerminalHostState.Waiting => ("Waiting", StartingBrush, string.Empty),
-            TerminalHostState.Starting => ("Starting", StartingBrush, detail ?? string.Empty),
-            TerminalHostState.Live => ("Live", LiveBrush, string.Empty),
+            TerminalHostState.Waiting => ("Waiting", StatusTone.Neutral, string.Empty),
+            TerminalHostState.Starting => ("Starting", StatusTone.Neutral, detail ?? string.Empty),
+            TerminalHostState.Live => ("Live", StatusTone.Success, string.Empty),
             TerminalHostState.Unavailable =>
-                ("Unavailable", UnavailableBrush, detail ?? "Terminal unavailable."),
+                ("Unavailable", StatusTone.Danger, detail ?? "Terminal unavailable."),
             TerminalHostState.Exited =>
-                ("Exited", ExitedBrush, detail ?? "The terminal session ended."),
+                ("Exited", StatusTone.Warning, detail ?? "The terminal session ended."),
             TerminalHostState.Error =>
-                ("Error", UnavailableBrush, detail ?? "Unable to start the terminal."),
-            TerminalHostState.Stopped => ("Stopped", StartingBrush, string.Empty),
+                ("Error", StatusTone.Danger, detail ?? "Unable to start the terminal."),
+            TerminalHostState.Stopped => ("Stopped", StatusTone.Neutral, string.Empty),
             _ => throw new ArgumentOutOfRangeException(nameof(state), state, null),
         };
     }

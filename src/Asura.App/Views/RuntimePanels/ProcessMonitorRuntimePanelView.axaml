@@ -71,7 +71,7 @@
       SplitRequested="OnSplitRequested"
       Title="{Binding Title}">
     <controls:PanelChrome.Status>
-      <Border Classes="StatusDot" Background="{Binding StatusColor}" />
+      <Border Classes="StatusDot" controls:StatusToneBrush.Background="{Binding StatusTone}" />
     </controls:PanelChrome.Status>
 
     <controls:PanelChrome.Leading>

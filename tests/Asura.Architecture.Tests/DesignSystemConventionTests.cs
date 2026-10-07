@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using Asura.Testing;
 
 namespace Asura.Architecture.Tests;
@@ -86,6 +87,121 @@ public sealed partial class DesignSystemConventionTests
                 $"{Path.GetRelativePath(ApplicationViews.RepositoryRoot, file)} contains a "
                 + "literal colour. Every colour must come from a Shell* brush token.");
         }
+    }
+
+    /// <summary>
+    /// The second line under a row's title — a description, a hint, a footnote —
+    /// is at least the macOS Subheadline, 11 pt, never the 10 pt Caption. Once
+    /// the 13 pt floor went, a 10 pt token there would have rendered at 10.
+    /// </summary>
+    [Fact]
+    public void Design_system_secondary_lines_never_render_below_eleven_points()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            ApplicationViews.RepositoryRoot,
+            "src",
+            "Asura.App",
+            "Styles",
+            "DesignSystem.axaml"));
+        var secondaryLines = SecondaryLineTextBlock().Matches(source);
+
+        Assert.NotEmpty(secondaryLines);
+        foreach (Match line in secondaryLines)
+        {
+            Assert.DoesNotMatch(
+                "FontSize=\"\\{DynamicResource ShellFontSize(8|9|10)\\}\"",
+                line.Value);
+        }
+    }
+
+    /// <summary>
+    /// Elements whose foreground is read as text. An icon only has to clear
+    /// 3:1, which the raw accent promises against the window; text has to
+    /// clear 4.5:1 on whatever it sits on, which only the accent-text token
+    /// promises.
+    /// </summary>
+    private static readonly HashSet<string> TextForegroundTargets = new(StringComparer.Ordinal)
+    {
+        "AccessText",
+        "Button",
+        "CheckBox",
+        "ContentPresenter",
+        "HyperlinkButton",
+        "Label",
+        "ListBoxItem",
+        "MenuItem",
+        "RadioButton",
+        "Run",
+        "SelectableTextBlock",
+        "TabItem",
+        "TextBlock",
+        "TextBox",
+        "ToggleButton",
+    };
+
+    /// <summary>
+    /// Text never takes the raw accent as its colour. The accent fill is held
+    /// to 3:1 against the window; on its own soft tint — a selected row — it
+    /// fell to about 3.2:1. Accent-coloured text uses ShellAccentTextBrush,
+    /// which is held to 4.5:1 on every plate and fill it is read on. Icon-only
+    /// buttons and glyphs may keep the raw accent.
+    /// </summary>
+    [Fact]
+    public void Text_never_takes_the_raw_accent_as_its_colour()
+    {
+        const string rawAccent = "{DynamicResource ShellAccentBrush}";
+        var appRoot = Path.Combine(ApplicationViews.RepositoryRoot, "src", "Asura.App");
+        var violations = new List<string>();
+        foreach (var path in Directory
+                     .EnumerateFiles(appRoot, "*.axaml", SearchOption.AllDirectories)
+                     .Order(StringComparer.Ordinal))
+        {
+            var relative = Path.GetRelativePath(ApplicationViews.RepositoryRoot, path);
+            foreach (var element in XDocument.Load(path).Descendants())
+            {
+                if (TextForegroundTargets.Contains(element.Name.LocalName)
+                    && string.Equals(
+                        (string?)element.Attribute("Foreground"),
+                        rawAccent,
+                        StringComparison.Ordinal))
+                {
+                    violations.Add($"{relative}: <{element.Name.LocalName}> Foreground");
+                }
+
+                if (!string.Equals(element.Name.LocalName, "Style", StringComparison.Ordinal)
+                    || !element.Elements().Any(setter =>
+                        string.Equals(setter.Name.LocalName, "Setter", StringComparison.Ordinal)
+                        && string.Equals((string?)setter.Attribute("Property"), "Foreground", StringComparison.Ordinal)
+                        && string.Equals((string?)setter.Attribute("Value"), rawAccent, StringComparison.Ordinal)))
+                {
+                    continue;
+                }
+
+                foreach (var selector in ((string?)element.Attribute("Selector") ?? string.Empty)
+                             .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (TargetsText(selector))
+                    {
+                        violations.Add($"{relative}: Style \"{selector}\"");
+                    }
+                }
+            }
+        }
+
+        Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));
+    }
+
+    private static bool TargetsText(string selector)
+    {
+        if (selector.Contains(".IconButton", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var target = SelectorSegment().Split(selector)[^1];
+        var type = TypeSeparator().Split(target)[0];
+        var unqualified = type[(type.IndexOf('|', StringComparison.Ordinal) + 1)..];
+        return TextForegroundTargets.Contains(unqualified);
     }
 
     [Fact]
@@ -232,11 +348,11 @@ public sealed partial class DesignSystemConventionTests
 
     /// <summary>
     /// How many literal colours the application's markup may still contain.
-    /// The survivors are deliberate — the appearance page's mode-preview tiles
-    /// render each mode's own values, which must not follow the live theme —
-    /// but a new one is a theme and a contrast guarantee silently bypassed.
+    /// None: even the appearance page's mode-preview tiles draw each mode from
+    /// the mapper's published preview tokens. A new literal is a theme and a
+    /// contrast guarantee silently bypassed.
     /// </summary>
-    private const int LiteralColourBudget = 14;
+    private const int LiteralColourBudget = 0;
 
     [Fact]
     public void Literal_colours_in_application_markup_only_ever_decrease()
@@ -411,4 +527,22 @@ public sealed partial class DesignSystemConventionTests
         RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
         matchTimeoutMilliseconds: 1_000)]
     private static partial Regex LiteralColour();
+
+    [GeneratedRegex(
+        "<TextBlock\\b[^>]*?(Text=\"\\{TemplateBinding (Description|Hint|Error|Footnote|StateText|StateDescription|FooterHint)\\}\"|Name=\"PART_Subtitle\")[^>]*>",
+        RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
+        matchTimeoutMilliseconds: 1_000)]
+    private static partial Regex SecondaryLineTextBlock();
+
+    [GeneratedRegex(
+        "[\\s>]+",
+        RegexOptions.CultureInvariant,
+        matchTimeoutMilliseconds: 1_000)]
+    private static partial Regex SelectorSegment();
+
+    [GeneratedRegex(
+        "[.:#/\\[]",
+        RegexOptions.CultureInvariant,
+        matchTimeoutMilliseconds: 1_000)]
+    private static partial Regex TypeSeparator();
 }

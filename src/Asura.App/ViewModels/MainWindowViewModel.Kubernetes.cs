@@ -202,7 +202,7 @@ public sealed partial class MainWindowViewModel
                 "Kubernetes connection tab creation", cancellationToken);
         }
         var runtimeWorkspace = new RuntimeWorkspaceViewModel(WorkspaceInstanceId.New(), profile.Name,
-            ThemePreference.BronzeFallback.ToString(), [], CurrentAgentPolicyProvenance());
+            ThemePreference.BrandAccent.ToString(), [], CurrentAgentPolicyProvenance());
         try
         {
             RegisterWorkspaceConnectionRuntime(runtimeWorkspace);

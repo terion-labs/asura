@@ -13,8 +13,9 @@ namespace Asura.App.Views;
 /// most of the way opaque to look right: the fill was doing the work the
 /// material should be doing.
 ///
-/// It also leaves the view's state at its default, which follows whether the
-/// window is active, so the glass goes flat whenever focus moves elsewhere.
+/// The view's state follows whether the window is active, as every other Mac
+/// window's material does: an inactive window's glass goes flat, which is how
+/// people tell which of several windows has focus.
 /// </summary>
 internal static class MacOsWindowMaterial
 {
@@ -26,8 +27,11 @@ internal static class MacOsWindowMaterial
     /// <summary>NSVisualEffectBlendingModeBehindWindow.</summary>
     private const nint BlendsBehindWindow = 0;
 
-    /// <summary>NSVisualEffectStateActive: the glass does not dull when unfocused.</summary>
-    private const nint AlwaysActive = 1;
+    /// <summary>
+    /// NSVisualEffectStateFollowsWindowActiveState: active while the window is
+    /// key or main, flat while another window is.
+    /// </summary>
+    private const nint FollowsWindowActiveState = 0;
 
     public static bool TrySit(Window window, MacOsMaterial material)
     {
@@ -72,7 +76,7 @@ internal static class MacOsWindowMaterial
                 }
 
                 SendNIntArgument(subview, Selector("setMaterial:"), (nint)material);
-                SendNIntArgument(subview, Selector("setState:"), AlwaysActive);
+                SendNIntArgument(subview, Selector("setState:"), FollowsWindowActiveState);
                 return true;
             }
 

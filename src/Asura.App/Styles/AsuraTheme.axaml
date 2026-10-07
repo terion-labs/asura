@@ -125,7 +125,8 @@
     <Setter Property="BorderThickness" Value="0,0,0,1" />
   </Style>
 
-  <!-- File actions live inside one macOS-style toolbar capsule. Their disabled
+  <!-- File actions live inside one macOS-style toolbar group: a capsule on the
+       Liquid Glass profile, a rounded rectangle elsewhere. Their disabled
        state must remain quiet; the Fluent template otherwise paints a separate
        rounded lozenge behind every unavailable action. -->
   <Style Selector="Border.FileToolbarGroup">
@@ -133,7 +134,7 @@
     <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellGroupCornerRadius}" />
   </Style>
 
   <Style Selector="Button.IconButton.FileToolbarAction">
@@ -242,7 +243,7 @@
   <Style Selector="Button.SecondaryButton.painting">
     <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
   </Style>
 
   <Style Selector="Button.SecondaryButton.active">
@@ -308,7 +309,7 @@
   </Style>
 
   <Style Selector="Button.TextButton.Accent">
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
   </Style>
 
   <!--
@@ -381,8 +382,11 @@
     <Setter Property="Background" Value="{DynamicResource ShellSidebarSelectionBrush}" />
   </Style>
 
+  <!-- A list that does not have keyboard focus shows its selection the way
+       the platform does: the unemphasized plate rather than the accent, so
+       only the focused list wears the accent. -->
   <Style Selector="ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellUnemphasizedSelectionBrush}" />
   </Style>
 
   <!-- A list classed OwnSelection draws its selected row itself — a diff
@@ -454,7 +458,7 @@
        the text colour alone said which row was the page you were on. -->
   <Style Selector="Button.NavButton.active">
     <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
     <Setter Property="FontWeight" Value="Medium" />
     <Setter Property="AutomationProperties.ItemStatus" Value="Current page" />
   </Style>
@@ -468,7 +472,7 @@
   </Style>
 
   <Style Selector="Button.NavButton.active TextBlock">
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
   </Style>
 
   <!-- The current route's icon carries the accent, as in the reference nav. -->
@@ -697,7 +701,7 @@
   </Style>
 
   <Style Selector="TextBlock.Eyebrow.Accent">
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
   </Style>
 
   <!--
@@ -966,18 +970,24 @@
     <Setter Property="Opacity" Value="1" />
   </Style>
 
+  <!--
+    A selected grid row is the platform's selection, not an accent wash: the
+    strong selected-content colour with its own label colour while the grid
+    has keyboard focus, and the quiet unemphasized plate once focus is
+    elsewhere — so the row that keystrokes act on is the one that looks it.
+  -->
   <Style Selector="DataGrid.DatabaseGrid DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
-    <Setter Property="Fill" Value="{DynamicResource ShellSurfaceHoverBrush}" />
+    <Setter Property="Fill" Value="{DynamicResource ShellUnemphasizedSelectionBrush}" />
     <Setter Property="Opacity" Value="1" />
   </Style>
 
   <Style Selector="DataGrid.DatabaseGrid:focus-within DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
-    <Setter Property="Fill" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Fill" Value="{DynamicResource ShellSelectedContentBrush}" />
     <Setter Property="Opacity" Value="1" />
   </Style>
 
   <Style Selector="DataGrid.DatabaseGrid:focus-within DataGridRow:selected TextBlock">
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellSelectedContentForegroundBrush}" />
   </Style>
 
   <!--
@@ -1060,7 +1070,7 @@
   </Style>
 
   <Style Selector="RadioButton.PresetCard:checked TextBlock.PresetName">
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
   </Style>
 
   <Style Selector="RadioButton.PresetCard icons|SymbolIcon.PresetCheck">
@@ -1109,7 +1119,7 @@
   <Style Selector="Button.IconChoice.selected, ToggleButton.IconChoice:checked">
     <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
   </Style>
 
   <!-- A centred empty state. A StackPanel is only as wide as its widest child, so

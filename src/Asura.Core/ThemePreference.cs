@@ -60,9 +60,9 @@ public sealed record ThemePreference : IDurableDefinition
 
     /// <summary>
     /// Whether the panels standing on the base are glass too, rather than
-    /// near-solid slabs on it. This remains off as the durable fallback for
-    /// older documents and platforms whose first-run preference does not opt
-    /// into glass panels.
+    /// solid slabs on it. Off everywhere, macOS included: glass belongs to the
+    /// chrome that floats over content, and terminal output, diffs, and grids
+    /// read on an opaque surface whatever the desktop picture is.
     /// </summary>
     public const bool DefaultHasGlassPanels = false;
 
@@ -89,7 +89,18 @@ public sealed record ThemePreference : IDurableDefinition
     // glass rather than in front of it.
     public const int DefaultBackdropOpacityPercent = 78;
 
-    public static RgbColor BronzeFallback { get; } = RgbColor.Parse("#B8793A");
+    /// <summary>
+    /// The one brand orange: the accent used when the host has none to offer
+    /// (macOS reports Multicolor as no accent) and when Asura's own accent is
+    /// chosen. The app icon carries the same orange in Display P3.
+    /// </summary>
+    public static RgbColor BrandAccent { get; } = RgbColor.Parse("#FF8400");
+
+    /// <summary>
+    /// The bronze older releases seeded into the default workspace. Kept only
+    /// so that seed can still be recognised and removed; nothing draws it.
+    /// </summary>
+    public static RgbColor LegacyBronzeSeed { get; } = RgbColor.Parse("#B8793A");
 
     public static ThemePreference Default { get; } = new(
         new ThemePreferenceId("builtin.theme.automatic"),
@@ -109,9 +120,26 @@ public sealed record ThemePreference : IDurableDefinition
                 density: InterfaceDensity.Cozy,
                 isTranslucent: true,
                 backdropOpacityPercent: DefaultBackdropOpacityPercent,
-                hasGlassPanels: true,
+                hasGlassPanels: DefaultHasGlassPanels,
                 overridesBackdropOpacity: false)
             : Default;
+
+    /// <summary>
+    /// The macOS first-run theme older releases seeded, which put the content
+    /// panels on glass. Kept only so a stored copy nobody edited can be
+    /// recognised and moved to the current default; nothing seeds it.
+    /// </summary>
+    public static ThemePreference LegacyMacOsDefault { get; } = new(
+        Default.Id,
+        Default.Name,
+        Default.Appearance,
+        Default.PlatformProfile,
+        Default.Accent,
+        density: InterfaceDensity.Cozy,
+        isTranslucent: true,
+        backdropOpacityPercent: DefaultBackdropOpacityPercent,
+        hasGlassPanels: true,
+        overridesBackdropOpacity: false);
 
     public ThemePreference(
         ThemePreferenceId id,
@@ -287,7 +315,9 @@ public sealed record ThemePreference : IDurableDefinition
             TabStripPlacement,
             WorkspacePanelPlacement,
             materialDisposition,
-            PlatformProfile);
+            PlatformProfile,
+            host.DifferentiateWithoutColor,
+            materialDisposition == MaterialDisposition.Enabled && HasGlassPanels);
     }
 
     private PlatformProfile ResolvePlatformProfile(HostAppearance host)
@@ -317,6 +347,6 @@ public sealed record ThemePreference : IDurableDefinition
     {
         AccentPreferenceKind.Custom => (Accent.CustomColor!.Value, AccentSource.Custom),
         AccentPreferenceKind.FollowHost when host.Accent is { } hostAccent => (hostAccent, AccentSource.Host),
-        _ => (BronzeFallback, AccentSource.AsuraFallback),
+        _ => (BrandAccent, AccentSource.AsuraFallback),
     };
 }

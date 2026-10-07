@@ -135,7 +135,7 @@ public sealed partial class AppearanceSettingsPageView : UserControl
                 theme.Accent.Kind switch
                 {
                     AccentPreferenceKind.Custom => "Custom",
-                    AccentPreferenceKind.AsuraBronze => "Asura bronze",
+                    AccentPreferenceKind.AsuraBronze => "Asura orange",
                     _ => "Follow host",
                 });
 
@@ -145,7 +145,7 @@ public sealed partial class AppearanceSettingsPageView : UserControl
                     : [.. _appearanceTextScaleOptions, selectedTextScale];
             ApplicationTextScalePicker.SelectedItem = selectedTextScale;
             CustomAccentText.Text = theme.Accent.CustomColor?.ToString()
-                ?? ThemePreference.BronzeFallback.ToString();
+                ?? ThemePreference.BrandAccent.ToString();
             UpdateCustomAccentAvailability();
 
             // A null override means "follow the platform profile"; the slider has no
@@ -192,8 +192,8 @@ public sealed partial class AppearanceSettingsPageView : UserControl
         var accent = SelectedText(AccentModePicker, nameof(AccentModePicker)) switch
         {
             "Custom" => AccentPreference.Custom(
-                RgbColor.Parse(CustomAccentText.Text ?? "#B8793A")),
-            "Asura bronze" => AccentPreference.AsuraBronze,
+                RgbColor.Parse(CustomAccentText.Text ?? ThemePreference.BrandAccent.ToString())),
+            "Asura orange" => AccentPreference.AsuraBronze,
             _ => AccentPreference.FollowHost,
         };
         var textScale =

@@ -73,9 +73,11 @@
         <Setter Property="Background" Value="{DynamicResource ShellSidebarBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource ShellSidebarBorderBrush}" />
       </Style>
+      <!-- A notice is information, in its own tone. Drawn in the accent it
+           read as a warning whenever the accent was orange or yellow. -->
       <Style Selector="^:tone-notice">
-        <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource ShellNoticeBorderBrush}" />
+        <Setter Property="Background" Value="{DynamicResource ShellInfoSoftBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ShellInfoBorderBrush}" />
       </Style>
       <Style Selector="^:tone-danger">
         <Setter Property="Background" Value="{DynamicResource ShellDangerSoftBrush}" />
@@ -954,9 +956,9 @@
         <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
       </Style>
       <Style Selector="^.Notice">
-        <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource ShellNoticeBorderBrush}" />
-        <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+        <Setter Property="Background" Value="{DynamicResource ShellInfoSoftBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ShellInfoBorderBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource ShellInfoBrush}" />
       </Style>
 
       <Style Selector="^:tone-default">
@@ -970,9 +972,9 @@
         <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
       </Style>
       <Style Selector="^:tone-notice">
-        <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource ShellNoticeBorderBrush}" />
-        <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+        <Setter Property="Background" Value="{DynamicResource ShellInfoSoftBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ShellInfoBorderBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource ShellInfoBrush}" />
       </Style>
       <Style Selector="^:tone-danger">
         <Setter Property="Background" Value="{DynamicResource ShellDangerSoftBrush}" />
@@ -1091,8 +1093,8 @@
               <TextBlock
                   Grid.Column="1"
                   Foreground="{DynamicResource ShellDangerBrush}"
-                  FontSize="{DynamicResource ShellFontSize10}"
-                  LineHeight="{DynamicResource ShellLineHeight10}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
+                  LineHeight="{DynamicResource ShellLineHeight11}"
                   Text="{TemplateBinding Error}"
                   TextWrapping="Wrap" />
             </Grid>
@@ -1100,8 +1102,8 @@
                 Name="PART_Hint"
                 Margin="{controls:Inset Horizontal=Xs}"
                 Foreground="{DynamicResource ShellMutedBrush}"
-                FontSize="{DynamicResource ShellFontSize10}"
-                LineHeight="{DynamicResource ShellLineHeight10}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
+                LineHeight="{DynamicResource ShellLineHeight11}"
                 Text="{TemplateBinding Hint}"
                 TextWrapping="Wrap"
                 IsVisible="{TemplateBinding Hint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1184,8 +1186,8 @@
                     TextWrapping="Wrap" />
                 <TextBlock
                     Foreground="{DynamicResource ShellMutedBrush}"
-                    FontSize="{DynamicResource ShellFontSize10}"
-                    LineHeight="{DynamicResource ShellLineHeight10}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
+                    LineHeight="{DynamicResource ShellLineHeight11}"
                     Text="{TemplateBinding Description}"
                     TextWrapping="Wrap"
                     IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1230,8 +1232,8 @@
                       TextWrapping="Wrap" />
                   <TextBlock
                       Foreground="{DynamicResource ShellMutedBrush}"
-                      FontSize="{DynamicResource ShellFontSize10}"
-                      LineHeight="{DynamicResource ShellLineHeight10}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                      LineHeight="{DynamicResource ShellLineHeight11}"
                       Text="{TemplateBinding Description}"
                       TextWrapping="Wrap"
                       IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1339,8 +1341,8 @@
               <TextBlock FontWeight="SemiBold" Text="{TemplateBinding Title}" />
               <TextBlock
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize10}"
-                  LineHeight="{DynamicResource ShellLineHeight10}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
+                  LineHeight="{DynamicResource ShellLineHeight11}"
                   Text="{TemplateBinding Description}"
                   TextWrapping="Wrap" />
             </StackPanel>
@@ -1514,8 +1516,8 @@
                     IsVisible="{TemplateBinding Content, Converter={x:Static ObjectConverters.IsNotNull}}" />
                 <TextBlock
                     Classes="Muted"
-                    FontSize="{DynamicResource ShellFontSize10}"
-                    LineHeight="{DynamicResource ShellLineHeight10}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
+                    LineHeight="{DynamicResource ShellLineHeight11}"
                     Text="{TemplateBinding Footnote}"
                     TextWrapping="Wrap"
                     IsVisible="{TemplateBinding Footnote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1553,6 +1555,9 @@
       <Style Selector="^:tone-success /template/ icons|SymbolIcon#PART_Glyph">
         <Setter Property="Foreground" Value="{DynamicResource ShellSuccessBrush}" />
       </Style>
+      <Style Selector="^:tone-notice /template/ icons|SymbolIcon#PART_Glyph">
+        <Setter Property="Foreground" Value="{DynamicResource ShellInfoBrush}" />
+      </Style>
     </ControlTheme>
 
     <ControlTheme x:Key="{x:Type controls:ToggleField}" TargetType="controls:ToggleField">
@@ -1567,8 +1572,8 @@
               <TextBlock
                   Name="PART_Description"
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize10}"
-                  LineHeight="{DynamicResource ShellLineHeight10}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
+                  LineHeight="{DynamicResource ShellLineHeight11}"
                   Text="{TemplateBinding StateDescription}"
                   TextWrapping="Wrap"
                   IsVisible="False" />
@@ -1612,8 +1617,8 @@
                   <TextBlock
                       Name="PART_Subtitle"
                       Classes="Muted"
-                      FontSize="{DynamicResource ShellFontSize10}"
-                      LineHeight="{DynamicResource ShellLineHeight10}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                      LineHeight="{DynamicResource ShellLineHeight11}"
                       Text="{TemplateBinding Subtitle}"
                       TextWrapping="Wrap"
                       IsVisible="{TemplateBinding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1661,8 +1666,8 @@
                 <TextBlock
                     VerticalAlignment="Center"
                     Classes="Muted"
-                    FontSize="{DynamicResource ShellFontSize10}"
-                    LineHeight="{DynamicResource ShellLineHeight10}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
+                    LineHeight="{DynamicResource ShellLineHeight11}"
                     Text="{TemplateBinding FooterHint}"
                     TextWrapping="Wrap"
                     IsVisible="{TemplateBinding FooterHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />

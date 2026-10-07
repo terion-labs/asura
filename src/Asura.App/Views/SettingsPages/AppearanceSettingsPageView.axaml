@@ -22,7 +22,8 @@
           Description="Follow the host colour scheme or pin an explicit one." />
       <!--
         The tile is the control. Each one previews the chrome its mode produces
-        using that mode's literal surface, border, and text values.
+        with the surface, border, and text colours the appearance mapper
+        publishes for that mode, so the tile and the window agree.
         Sibling radio buttons use their logical parent as the group, so detached
         settings pages cannot change selections in another page.
       -->
@@ -35,10 +36,10 @@
           <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
             <Border Height="72" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
               <Grid ColumnDefinitions="*,*">
-                <Border Background="#111111" BorderBrush="#38383C" BorderThickness="1,1,0,1" CornerRadius="8,0,0,8" />
-                <Border Grid.Column="1" Background="#F2F3F0" BorderBrush="#B8BAB6" BorderThickness="0,1,1,1" CornerRadius="0,8,8,0" />
-                <TextBlock Margin="{controls:Inset Left=Sm}" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize9}" Foreground="#B8B9B6" Text="❯ dev" />
-                <TextBlock Grid.Column="1" Margin="{controls:Inset Right=Sm}" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize9}" Foreground="#5C5E5A" Text="❯ dev" />
+                <Border Background="{DynamicResource ShellThemePreviewDarkBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewDarkBorderBrush}" BorderThickness="1,1,0,1" CornerRadius="8,0,0,8" />
+                <Border Grid.Column="1" Background="{DynamicResource ShellThemePreviewLightBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewLightBorderBrush}" BorderThickness="0,1,1,1" CornerRadius="0,8,8,0" />
+                <TextBlock Margin="{controls:Inset Left=Sm}" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize9}" Foreground="{DynamicResource ShellThemePreviewDarkMutedBrush}" Text="❯ dev" />
+                <TextBlock Grid.Column="1" Margin="{controls:Inset Right=Sm}" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize9}" Foreground="{DynamicResource ShellThemePreviewLightMutedBrush}" Text="❯ dev" />
               </Grid>
             </Border>
             <Grid ColumnDefinitions="*,Auto">
@@ -53,11 +54,11 @@
             IsCheckedChanged="OnAppearanceChanged"
             AutomationProperties.Name="Color mode Dark">
           <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-            <Border Height="72" Background="#111111" BorderBrush="#38383C" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
+            <Border Height="72" Background="{DynamicResource ShellThemePreviewDarkBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewDarkBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
               <StackPanel Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceXs}">
-                <TextBlock FontSize="{DynamicResource ShellFontSize9}" Foreground="#B8B9B6" Text="❯ npm run dev" />
-                <TextBlock FontSize="{DynamicResource ShellFontSize9}" Foreground="#77D797" Text="✓ ready in 312ms" />
-                <TextBlock FontSize="{DynamicResource ShellFontSize9}" Foreground="{DynamicResource ShellAccentBrush}" Text="▸ localhost:3000" />
+                <TextBlock FontSize="{DynamicResource ShellFontSize9}" Foreground="{DynamicResource ShellThemePreviewDarkMutedBrush}" Text="❯ npm run dev" />
+                <TextBlock FontSize="{DynamicResource ShellFontSize9}" Foreground="{DynamicResource ShellThemePreviewDarkSuccessBrush}" Text="✓ ready in 312ms" />
+                <TextBlock FontSize="{DynamicResource ShellFontSize9}" Foreground="{DynamicResource ShellThemePreviewDarkAccentTextBrush}" Text="▸ localhost:3000" />
               </StackPanel>
             </Border>
             <Grid ColumnDefinitions="*,Auto">
@@ -72,11 +73,11 @@
             IsCheckedChanged="OnAppearanceChanged"
             AutomationProperties.Name="Color mode Light">
           <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-            <Border Height="72" Background="#F2F3F0" BorderBrush="#B8BAB6" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
+            <Border Height="72" Background="{DynamicResource ShellThemePreviewLightBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewLightBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
               <StackPanel Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceXs}">
-                <TextBlock FontSize="{DynamicResource ShellFontSize9}" Foreground="#5C5E5A" Text="❯ npm run dev" />
-                <TextBlock FontSize="{DynamicResource ShellFontSize9}" Foreground="#147A3F" Text="✓ ready in 312ms" />
-                <TextBlock FontSize="{DynamicResource ShellFontSize9}" Foreground="{DynamicResource ShellAccentBrush}" Text="▸ localhost:3000" />
+                <TextBlock FontSize="{DynamicResource ShellFontSize9}" Foreground="{DynamicResource ShellThemePreviewLightMutedBrush}" Text="❯ npm run dev" />
+                <TextBlock FontSize="{DynamicResource ShellFontSize9}" Foreground="{DynamicResource ShellThemePreviewLightSuccessBrush}" Text="✓ ready in 312ms" />
+                <TextBlock FontSize="{DynamicResource ShellFontSize9}" Foreground="{DynamicResource ShellThemePreviewLightAccentTextBrush}" Text="▸ localhost:3000" />
               </StackPanel>
             </Border>
             <Grid ColumnDefinitions="*,Auto">
@@ -96,7 +97,7 @@
                   Grid.Column="1"
                   VerticalAlignment="Center"
                   FontWeight="SemiBold"
-                  Foreground="{DynamicResource ShellAccentBrush}"
+                  Foreground="{DynamicResource ShellAccentTextBrush}"
                   Text="*"
                   IsVisible="False"
                   ToolTip.Tip="Density or translucency has been changed from what this profile arrives with."
@@ -291,7 +292,7 @@
                   SelectionChanged="OnAccentModeSelectionChanged"
                   AutomationProperties.Name="Accent mode">
                 <ComboBoxItem Content="Follow host" />
-                <ComboBoxItem Content="Asura bronze" />
+                <ComboBoxItem Content="Asura orange" />
                 <ComboBoxItem Content="Custom" />
               </ComboBox>
               <Border

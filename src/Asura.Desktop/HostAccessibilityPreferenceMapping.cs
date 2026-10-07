@@ -6,10 +6,12 @@ internal static class HostAccessibilityPreferenceMapping
 {
     public static HostAccessibilityPreferences FromMacOs(
         bool? reducedMotion,
-        bool? reducedTransparency) => new(
+        bool? reducedTransparency,
+        bool? differentiateWithoutColor = null) => new(
             reducedMotion ?? false,
             reducedTransparency ?? false,
-            textScale: 1);
+            textScale: 1,
+            differentiateWithoutColor ?? false);
 
     public static HostAccessibilityPreferences FromWindows(
         bool? animationsEnabled,

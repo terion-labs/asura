@@ -59,7 +59,7 @@
       <Setter Property="Background" Value="Transparent" />
     </Style>
     <Style Selector="Button.PropertyLink TextBlock">
-      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
     </Style>
     <Style Selector="Button.PropertyLink:pointerover TextBlock">
       <Setter Property="TextDecorations" Value="Underline" />

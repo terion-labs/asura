@@ -566,7 +566,7 @@ internal sealed class SelectableMarkdownDocument : Control
 
     private IBrush MutedBrush() => ResourceBrush("ShellMutedBrush", Brushes.Gray);
 
-    private IBrush AccentBrush() => ResourceBrush("ShellAccentBrush", Brushes.Orange);
+    private IBrush AccentBrush() => ResourceBrush("ShellAccentTextBrush", Brushes.Orange);
 
     private IBrush BorderBrush() => ResourceBrush("ShellBorderBrush", Brushes.Gray);
 

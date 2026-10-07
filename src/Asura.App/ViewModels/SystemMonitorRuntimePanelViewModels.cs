@@ -166,7 +166,7 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (SetProperty(ref _state, value))
             {
-                OnPropertyChanged(nameof(StatusColor));
+                OnPropertyChanged(nameof(StatusTone));
                 OnPropertyChanged(nameof(ShowLoading));
                 OnPropertyChanged(nameof(ShowContent));
                 OnPropertyChanged(nameof(ShowTerminalError));
@@ -239,13 +239,12 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
 
     public bool ShowTerminalError => !HasSnapshot && State == SystemMonitorPanelState.Failed;
 
-    public string StatusColor => State switch
+    public StatusTone StatusTone => State switch
     {
-        SystemMonitorPanelState.Live => "#72B57B",
-        SystemMonitorPanelState.Stale => "#D79B57",
-        SystemMonitorPanelState.Failed => "#D96B6B",
-        SystemMonitorPanelState.Disposed => "#77777F",
-        _ => "#9A9AA2",
+        SystemMonitorPanelState.Live => StatusTone.Success,
+        SystemMonitorPanelState.Stale => StatusTone.Warning,
+        SystemMonitorPanelState.Failed => StatusTone.Danger,
+        _ => StatusTone.Neutral,
     };
 
     public string CpuText => Snapshot?.ObservedCpuPercent is { } value
@@ -789,7 +788,7 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (SetProperty(ref _state, value))
             {
-                OnPropertyChanged(nameof(StatusColor));
+                OnPropertyChanged(nameof(StatusTone));
                 OnPropertyChanged(nameof(ShowLoading));
                 OnPropertyChanged(nameof(ShowContent));
                 OnPropertyChanged(nameof(ShowTerminalError));
@@ -866,13 +865,12 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
 
     public bool ShowInlineIssue => HasSnapshot && HasIssue;
 
-    public string StatusColor => State switch
+    public StatusTone StatusTone => State switch
     {
-        SystemMonitorPanelState.Live => "#72B57B",
-        SystemMonitorPanelState.Stale => "#D79B57",
-        SystemMonitorPanelState.Failed => "#D96B6B",
-        SystemMonitorPanelState.Disposed => "#77777F",
-        _ => "#9A9AA2",
+        SystemMonitorPanelState.Live => StatusTone.Success,
+        SystemMonitorPanelState.Stale => StatusTone.Warning,
+        SystemMonitorPanelState.Failed => StatusTone.Danger,
+        _ => StatusTone.Neutral,
     };
 
     public string CapturedAtText => Snapshot is { } snapshot

@@ -177,7 +177,7 @@ public sealed class DesignSystemComponentsHeadlessTests
             var row = Assert.IsType<ListBoxItem>(list.ContainerFromIndex(0));
             var presenter = Part<ContentPresenter>(row, "PART_ContentPresenter");
             var accent = Brush(window, "ShellAccentBrush");
-            var gray = Brush(window, "ShellSurfaceHoverBrush");
+            var gray = Brush(window, "ShellUnemphasizedSelectionBrush");
 
             Assert.True(other.Focus());
             window.UpdateLayout();
@@ -236,13 +236,14 @@ public sealed class DesignSystemComponentsHeadlessTests
 
     /// <summary>
     /// A Mac table: no ruled grid, alternate rows banded, and the selection
-    /// drawn as a list's is — gray until the table has focus, then the accent.
+    /// drawn as a list's is — the unemphasized gray until the table has focus,
+    /// then the platform's selected-content colour.
     /// </summary>
     [Fact]
     public Task A_data_table_bands_its_rows_and_selects_like_a_list() =>
         RunHeadlessAsync(window =>
         {
-            window.Resources["ShellAccentForegroundBrush"] = new SolidColorBrush(Colors.Magenta);
+            window.Resources["ShellSelectedContentForegroundBrush"] = new SolidColorBrush(Colors.Magenta);
             var grid = new DataGrid
             {
                 Classes = { "DatabaseGrid" },
@@ -271,14 +272,14 @@ public sealed class DesignSystemComponentsHeadlessTests
             var selection = rows[0].GetVisualDescendants()
                 .OfType<Avalonia.Controls.Shapes.Rectangle>()
                 .First(rectangle => rectangle.Name == "BackgroundRectangle");
-            Assert.Equal(Brush(window, "ShellSurfaceHoverBrush"), Color(selection.Fill));
+            Assert.Equal(Brush(window, "ShellUnemphasizedSelectionBrush"), Color(selection.Fill));
 
             Assert.True(grid.Focus(NavigationMethod.Tab));
             window.UpdateLayout();
-            Assert.Equal(Brush(window, "ShellAccentBrush"), Color(selection.Fill));
+            Assert.Equal(Brush(window, "ShellSelectedContentBrush"), Color(selection.Fill));
             Assert.All(
                 rows[0].GetVisualDescendants().OfType<TextBlock>(),
-                text => Assert.Equal(Brush(window, "ShellAccentForegroundBrush"), Color(text.Foreground)));
+                text => Assert.Equal(Brush(window, "ShellSelectedContentForegroundBrush"), Color(text.Foreground)));
         });
 
     [Fact]

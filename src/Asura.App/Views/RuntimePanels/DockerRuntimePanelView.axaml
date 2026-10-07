@@ -27,7 +27,10 @@
         <controls:ListItem.Leading>
           <controls:IdentityTile
               TileSize="Small"
-              Tint="{Binding StatusColor}"
+              Classes.DockerImage="{Binding IsImage}"
+              Classes.DockerVolume="{Binding IsVolume}"
+              Classes.DockerNetwork="{Binding IsNetwork}"
+              controls:StatusToneBrush.Tint="{Binding StatusTone}"
               Symbol="{Binding Icon}" />
         </controls:ListItem.Leading>
         <controls:ListItem.Trailing>
@@ -41,6 +44,15 @@
     </DataTemplate>
   </UserControl.Resources>
   <UserControl.Styles>
+    <Style Selector="controls|IdentityTile.DockerImage">
+      <Setter Property="Tint" Value="{DynamicResource ShellDockerImageBrush}" />
+    </Style>
+    <Style Selector="controls|IdentityTile.DockerVolume">
+      <Setter Property="Tint" Value="{DynamicResource ShellDockerVolumeBrush}" />
+    </Style>
+    <Style Selector="controls|IdentityTile.DockerNetwork">
+      <Setter Property="Tint" Value="{DynamicResource ShellDockerNetworkBrush}" />
+    </Style>
     <Style Selector="Button.DockerNav">
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -54,7 +66,7 @@
     </Style>
     <Style Selector="Button.DockerNav.selected">
       <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
-      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
     </Style>
     <Style Selector="Button.DockerTab">
       <Setter Property="Background" Value="Transparent" />
@@ -93,7 +105,7 @@
       <Setter Property="CornerRadius" Value="2" />
     </Style>
     <Style Selector="Border.DockerLogMessageSegment.match TextBlock">
-      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
     <Style Selector="Button.DockerResourceRow">
@@ -176,7 +188,7 @@
     </Style>
     <Style Selector="Button.DockerCompactSection.selected">
       <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
-      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
     </Style>
     <Style Selector="runtimePanels|DockerRuntimePanelView.narrowPanel Border.DockerFamilyRail">
       <Setter Property="IsVisible" Value="False" />
@@ -217,7 +229,7 @@
     </Style>
     <Style Selector="MenuItem.DockerDetailMenuItem.active">
       <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
-      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
     </Style>
     <Style Selector="runtimePanels|DockerRuntimePanelView.narrowPanel TextBlock.DockerSearchLabel">
       <Setter Property="IsVisible" Value="False" />

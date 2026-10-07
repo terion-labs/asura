@@ -74,7 +74,10 @@ internal sealed class MacOsHostAccessibilityPreferencesSource :
                 Selector("accessibilityDisplayShouldReduceMotion")),
             SendBoolean(
                 workspace,
-                Selector("accessibilityDisplayShouldReduceTransparency"))));
+                Selector("accessibilityDisplayShouldReduceTransparency")),
+            SendBoolean(
+                workspace,
+                Selector("accessibilityDisplayShouldDifferentiateWithoutColor"))));
     }
 
     private void DisposeNativeObserver()

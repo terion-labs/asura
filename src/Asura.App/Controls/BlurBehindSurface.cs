@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Media;
 using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
@@ -21,6 +22,11 @@ namespace Asura.App.Controls;
 /// What never blurs: content that does not pass through the compositor at
 /// all — native surfaces such as webviews — because it is not on the canvas
 /// to be photographed.
+///
+/// Nothing blurs at all when the shell has no translucency to offer — the
+/// person turned it off, or the host asks for reduced transparency or
+/// increased contrast. The surface then paints its base colour solid, so the
+/// overlay standing on it reads on an opaque plate.
 /// </summary>
 public sealed class BlurBehindSurface : Control
 {
@@ -40,12 +46,32 @@ public sealed class BlurBehindSurface : Control
     public static readonly StyledProperty<IBrush?> BaseBrushProperty =
         AvaloniaProperty.Register<BlurBehindSurface, IBrush?>(nameof(BaseBrush));
 
+    /// <summary>
+    /// Whether the live blur runs. Follows the shell's
+    /// <c>ShellBlurBehindEnabled</c> token unless set explicitly.
+    /// </summary>
+    public static readonly StyledProperty<bool> IsBlurEnabledProperty =
+        AvaloniaProperty.Register<BlurBehindSurface, bool>(nameof(IsBlurEnabled), true);
+
+    internal const string BlurEnabledResourceKey = "ShellBlurBehindEnabled";
+
     static BlurBehindSurface()
     {
         AffectsRender<BlurBehindSurface>(
             BlurRadiusProperty,
             CornerRadiusProperty,
-            BaseBrushProperty);
+            BaseBrushProperty,
+            IsBlurEnabledProperty);
+    }
+
+    public BlurBehindSurface()
+    {
+        Bind(
+            IsBlurEnabledProperty,
+            this.GetResourceObservable(
+                BlurEnabledResourceKey,
+                value => value is not false),
+            BindingPriority.Style);
     }
 
     public double BlurRadius
@@ -66,6 +92,12 @@ public sealed class BlurBehindSurface : Control
         set => SetValue(BaseBrushProperty, value);
     }
 
+    public bool IsBlurEnabled
+    {
+        get => GetValue(IsBlurEnabledProperty);
+        set => SetValue(IsBlurEnabledProperty, value);
+    }
+
     private bool _framePending;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -77,7 +109,8 @@ public sealed class BlurBehindSurface : Control
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == IsVisibleProperty)
+        if (change.Property == IsVisibleProperty
+            || change.Property == IsBlurEnabledProperty)
         {
             RequestLiveFrame();
         }
@@ -101,6 +134,7 @@ public sealed class BlurBehindSurface : Control
     private void RequestLiveFrame()
     {
         if (_framePending
+            || !IsBlurEnabled
             || !IsEffectivelyVisible
             || VisualRoot is null
             || TopLevel.GetTopLevel(this) is not { } topLevel)
@@ -112,7 +146,7 @@ public sealed class BlurBehindSurface : Control
         topLevel.RequestAnimationFrame(_ =>
         {
             _framePending = false;
-            if (IsEffectivelyVisible && VisualRoot is not null)
+            if (IsBlurEnabled && IsEffectivelyVisible && VisualRoot is not null)
             {
                 InvalidateVisual();
                 RequestLiveFrame();
@@ -122,6 +156,21 @@ public sealed class BlurBehindSurface : Control
 
     public override void Render(DrawingContext context)
     {
+        if (!IsBlurEnabled)
+        {
+            if (BaseBrush is ISolidColorBrush ground)
+            {
+                context.DrawRectangle(
+                    new SolidColorBrush(Color.FromRgb(ground.Color.R, ground.Color.G, ground.Color.B)),
+                    null,
+                    new Rect(Bounds.Size),
+                    CornerRadius.TopLeft,
+                    CornerRadius.TopLeft);
+            }
+
+            return;
+        }
+
         context.Custom(new BlurBehindRenderOperation(
             new Rect(Bounds.Size),
             BlurRadius,

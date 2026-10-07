@@ -42,7 +42,7 @@
                     VerticalAlignment="Center"
                     FontSize="{DynamicResource ShellFontSize10}"
                     FontWeight="Bold"
-                    Foreground="{DynamicResource ShellBackgroundBrush}"
+                    Foreground="{DynamicResource ShellSlotBadgeInkBrush}"
                     Text="{Binding Order}" />
               </Border>
               <controls:PanelDockHandle
@@ -184,7 +184,7 @@
                             Classes.green="{Binding UsesGreenPalette}"
                             Classes.pink="{Binding UsesPinkPalette}"
                             CornerRadius="{DynamicResource ShellControlCornerRadius}">
-                          <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" Foreground="{DynamicResource ShellBackgroundBrush}" Text="{Binding Order}" />
+                          <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" Foreground="{DynamicResource ShellSlotBadgeInkBrush}" Text="{Binding Order}" />
                         </Border>
                         <TextBlock Grid.Column="1" VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding OrderLabel}" />
                         <components:CountPill Grid.Column="2" Value="{Binding SizeLabel}" />

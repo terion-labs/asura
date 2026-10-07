@@ -232,6 +232,62 @@ public sealed partial class RepositoryConventionTests
     }
 
     [Fact]
+    public void The_app_icon_fill_is_the_brand_accent_in_display_p3()
+    {
+        // One brand orange: the icon document states it in Display P3, the
+        // interface in sRGB, and the two have to be the same colour.
+        using var icon = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(
+            RepositoryRoot,
+            "assets",
+            "macos",
+            "Asura.icon",
+            "icon.json")));
+        var fill = icon.RootElement
+            .GetProperty("fill-specializations")
+            .EnumerateArray()
+            .Single(item => !item.TryGetProperty("appearance", out _))
+            .GetProperty("value")
+            .GetProperty("solid")
+            .GetString()!;
+        Assert.StartsWith("display-p3:", fill, StringComparison.Ordinal);
+        var components = fill["display-p3:".Length..]
+            .Split(',')
+            .Select(value => double.Parse(value, System.Globalization.CultureInfo.InvariantCulture))
+            .ToArray();
+
+        var brand = Asura.Core.ThemePreference.BrandAccent;
+        var expected = SrgbToDisplayP3(brand.Red, brand.Green, brand.Blue);
+        for (var channel = 0; channel < 3; channel++)
+        {
+            Assert.InRange(components[channel], expected[channel] - 0.002, expected[channel] + 0.002);
+        }
+    }
+
+    /// <summary>
+    /// sRGB to Display P3: both use the sRGB transfer curve and a D65 white,
+    /// so only the primaries change between the linear values.
+    /// </summary>
+    private static double[] SrgbToDisplayP3(byte red, byte green, byte blue)
+    {
+        static double Linear(byte value)
+        {
+            var c = value / 255d;
+            return c <= 0.04045 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
+        }
+
+        static double Encode(double c) =>
+            c <= 0.0031308 ? c * 12.92 : (1.055 * Math.Pow(c, 1 / 2.4)) - 0.055;
+
+        var (r, g, b) = (Linear(red), Linear(green), Linear(blue));
+        return
+        [
+            Encode((0.8224621 * r) + (0.1775380 * g)),
+            Encode((0.0331941 * r) + (0.9668058 * g)),
+            Encode((0.0170827 * r) + (0.0723974 * g) + (0.9105199 * b)),
+        ];
+    }
+
+    [Fact]
     public void Macos_product_identity_is_reviewed_hashed_and_compiled_by_xcode()
     {
         var manifestPath = Path.Combine(

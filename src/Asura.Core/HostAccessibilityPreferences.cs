@@ -13,7 +13,8 @@ public sealed record HostAccessibilityPreferences
     public HostAccessibilityPreferences(
         bool reducedMotion,
         bool reducedTransparency,
-        double textScale)
+        double textScale,
+        bool differentiateWithoutColor = false)
     {
         if (!double.IsFinite(textScale) || textScale is < 0.5 or > 4)
         {
@@ -26,6 +27,7 @@ public sealed record HostAccessibilityPreferences
         ReducedMotion = reducedMotion;
         ReducedTransparency = reducedTransparency;
         TextScale = textScale;
+        DifferentiateWithoutColor = differentiateWithoutColor;
     }
 
     public bool ReducedMotion { get; }
@@ -33,4 +35,9 @@ public sealed record HostAccessibilityPreferences
     public bool ReducedTransparency { get; }
 
     public double TextScale { get; }
+
+    /// <summary>
+    /// Whether state must be told apart by shape or text as well as by colour.
+    /// </summary>
+    public bool DifferentiateWithoutColor { get; }
 }
