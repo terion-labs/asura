@@ -83,7 +83,7 @@ public sealed partial class GitRuntimePanelView
             },
             Validate = current => string.Equals(current["action"], "Delete saved command", StringComparison.Ordinal)
                 ? null
-                : ExecutableError(current["executable"]) is { } problem
+                : GitPreferenceRules.ExecutableError(current["executable"]) is { } problem
                     ? new GitWorkflowFieldError("executable", problem)
                     : null,
         });

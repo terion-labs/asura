@@ -60,7 +60,7 @@
                 <DataTemplate>
                   <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                     <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Description}" TextWrapping="Wrap" />
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Description}" TextWrapping="Wrap" />
                   </StackPanel>
                 </DataTemplate>
               </ComboBox.ItemTemplate>
@@ -108,7 +108,7 @@
               <TextBlock Classes="SectionHeading" Text="Ordered arguments" />
               <TextBlock
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize10}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
                   Text="Each row is one exact argv value. Rows are never joined into a shell command."
                   TextWrapping="Wrap" />
             </StackPanel>
@@ -139,7 +139,7 @@
                       Click="OnMoveArgumentUpClick"
                       ToolTip.Tip="Move argument up"
                       AutomationProperties.Name="{Binding AccessibleName, StringFormat={}Move {0} up}">
-                    <icons:SymbolIcon Symbol="ArrowUp" FontSize="13" />
+                    <icons:SymbolIcon Symbol="ArrowUp" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                   <Button
                       Grid.Column="3"
@@ -147,15 +147,15 @@
                       Click="OnMoveArgumentDownClick"
                       ToolTip.Tip="Move argument down"
                       AutomationProperties.Name="{Binding AccessibleName, StringFormat={}Move {0} down}">
-                    <icons:SymbolIcon Symbol="ArrowDown" FontSize="13" />
+                    <icons:SymbolIcon Symbol="ArrowDown" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                   <Button
                       Grid.Column="4"
-                      Classes="IconButton Danger"
+                      Classes="IconButton"
                       Click="OnRemoveArgumentClick"
                       ToolTip.Tip="Remove argument"
                       AutomationProperties.Name="{Binding AccessibleName, StringFormat={}Remove {0}}">
-                    <icons:SymbolIcon Symbol="Delete" FontSize="13" />
+                    <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                 </Grid>
               </DataTemplate>
@@ -171,7 +171,7 @@
               <TextBlock Classes="SectionHeading" Text="Environment bindings" />
               <TextBlock
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize10}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
                   Text="Choose an environment variable name and the saved credential it should use."
                   TextWrapping="Wrap" />
             </StackPanel>
@@ -198,11 +198,11 @@
                       AutomationProperties.HelpText="Select a saved credential; do not enter the secret value." />
                   <Button
                       Grid.Column="2"
-                      Classes="IconButton Danger"
+                      Classes="IconButton"
                       Click="OnRemoveEnvironmentBindingClick"
                       ToolTip.Tip="Remove environment binding"
                       AutomationProperties.Name="{Binding RemoveAccessibleName}">
-                    <icons:SymbolIcon Symbol="Delete" FontSize="13" />
+                    <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                 </Grid>
               </DataTemplate>
@@ -218,7 +218,7 @@
               <TextBlock Classes="SectionHeading" Text="Secret HTTP headers" />
               <TextBlock
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize10}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
                   Text="Choose an HTTP header name and the saved credential it should use."
                   TextWrapping="Wrap" />
             </StackPanel>
@@ -245,11 +245,11 @@
                       AutomationProperties.HelpText="Select a saved credential; do not enter the HTTP header value." />
                   <Button
                       Grid.Column="2"
-                      Classes="IconButton Danger"
+                      Classes="IconButton"
                       Click="OnRemoveHttpHeaderBindingClick"
                       ToolTip.Tip="Remove HTTP header binding"
                       AutomationProperties.Name="{Binding RemoveAccessibleName}">
-                    <icons:SymbolIcon Symbol="Delete" FontSize="13" />
+                    <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                 </Grid>
               </DataTemplate>
@@ -265,7 +265,7 @@
               <TextBlock Classes="SectionHeading" Text="Enabled tools" />
               <TextBlock
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize10}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
                   Text="Only exact, case-sensitive names in this list can enter a frozen agent-run manifest."
                   TextWrapping="Wrap" />
             </StackPanel>
@@ -286,11 +286,11 @@
                       AutomationProperties.Name="{Binding NameAccessibleName}" />
                   <Button
                       Grid.Column="1"
-                      Classes="IconButton Danger"
+                      Classes="IconButton"
                       Click="OnRemoveEnabledToolClick"
                       ToolTip.Tip="Remove enabled tool"
                       AutomationProperties.Name="{Binding RemoveAccessibleName}">
-                    <icons:SymbolIcon Symbol="Delete" FontSize="13" />
+                    <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                 </Grid>
               </DataTemplate>

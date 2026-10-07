@@ -17,6 +17,7 @@ public static class SettingsPanes
         SettingsPage.Browser,
         SettingsPage.Terminal,
         SettingsPage.QuickTerminal,
+        SettingsPage.Git,
         SettingsPage.Notifications,
         SettingsPage.Secrets,
         SettingsPage.Diagnostics,
@@ -34,6 +35,7 @@ public static class SettingsPanes
         SettingsPage.Browser => "Browser",
         SettingsPage.Terminal => "Terminal",
         SettingsPage.QuickTerminal => "Quick Terminal",
+        SettingsPage.Git => "Git",
         SettingsPage.Notifications => "Notifications",
         SettingsPage.Secrets => "Security & Secrets",
         SettingsPage.Diagnostics => "Data & Diagnostics",
@@ -78,6 +80,7 @@ public sealed class SettingsSearchIndex
             [SettingsPage.Terminal] =
                 "terminal shell cursor scrollback clipboard bell ime multiplex tmux screen ssh links keymap close running sessions",
             [SettingsPage.QuickTerminal] = "quick terminal hotkey drop-down dropdown escape display monitor",
+            [SettingsPage.Git] = "git executable commit subject spelling dictionary diff whitespace fetch custom commands",
             [SettingsPage.Notifications] = "notification notifications alert alerts banner badge permission",
             [SettingsPage.Secrets] =
                 "security secret secrets credential credentials password keychain encryption pin lock history privacy",

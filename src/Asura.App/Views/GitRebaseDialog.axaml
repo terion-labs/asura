@@ -21,7 +21,7 @@
                 <TextBlock Text="{Binding Subject}" TextTrimming="CharacterEllipsis" />
                 <TextBox Text="{Binding Message}" AcceptsReturn="True" TextWrapping="Wrap" AutomationProperties.Name="Reworded commit message" />
               </StackPanel>
-              <TextBlock Grid.Column="4" Text="{Binding Sha}" MaxWidth="90" TextTrimming="CharacterEllipsis" PointerPressed="OnDragStart" ToolTip.Tip="Drag this commit to reorder it. The arrow buttons offer the same action." />
+              <TextBlock Grid.Column="4" Classes="MiddleTruncated" FontFamily="{DynamicResource ShellDataFontFamily}" Text="{Binding Sha}" MaxWidth="90" PointerPressed="OnDragStart" ToolTip.Tip="Drag this commit to reorder it. The arrow buttons offer the same action." />
             </Grid>
           </DataTemplate>
         </ListBox.ItemTemplate>

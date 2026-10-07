@@ -80,7 +80,7 @@ public sealed partial class GitRuntimePanelViewModel
         var dictionary = _gitPreferences.SpellingDictionary;
         if (dictionary.Length == 0)
         {
-            return "Choose a spelling dictionary in Git Panel Settings. Use a UTF-8 file with one word per line.";
+            return "Choose a spelling dictionary in Settings ▸ Git. Use a UTF-8 file with one word per line.";
         }
 
         try

@@ -1,4 +1,5 @@
 using Asura.App.Controls;
+using Asura.Application;
 using Asura.Git;
 using Avalonia;
 using Avalonia.Controls;
@@ -62,9 +63,18 @@ public sealed partial class GitStatisticsDialog : DialogWindow
             BorderBrush = this.FindResource("ShellBorderBrush") as IBrush,
             BorderThickness = new Thickness(1),
             ClipToBounds = true,
-            Child = new TextBlock { Text = $"{item.Path}\n{item.Bytes:N0} bytes", TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(4) }
+            // The folder keeps its last segment, as Finder truncates a path.
+            Child = new StackPanel
+            {
+                Margin = new Thickness(4),
+                Children =
+                {
+                    new TextBlock { Text = item.Path, TextTrimming = TextTrimming.PathSegmentEllipsis },
+                    new TextBlock { Text = ByteSize.Format(item.Bytes), TextTrimming = TextTrimming.CharacterEllipsis },
+                },
+            },
         };
-        ToolTip.SetTip(card, $"{item.Path}: {item.Files} files, {item.Bytes:N0} bytes");
+        ToolTip.SetTip(card, $"{item.Path}: {item.Files:N0} files, {ByteSize.Format(item.Bytes)}");
         Canvas.SetLeft(card, rectangle.X); Canvas.SetTop(card, rectangle.Y);
         Treemap.Children.Add(card);
     }

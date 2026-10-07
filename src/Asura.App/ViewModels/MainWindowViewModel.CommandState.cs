@@ -18,6 +18,11 @@ public sealed partial class MainWindowViewModel
         [BuiltInCommands.GitPull] = git => git.PullCommand,
         [BuiltInCommands.GitPush] = git => git.PushCommand,
         [BuiltInCommands.GitSync] = git => git.SyncCommand,
+        [BuiltInCommands.GitFetch] = git => git.FetchRequestCommand,
+        [BuiltInCommands.GitNewBranch] = git => git.NewBranchRequestCommand,
+        [BuiltInCommands.GitMerge] = git => git.MergeRequestCommand,
+        [BuiltInCommands.GitRebase] = git => git.RebaseRequestCommand,
+        [BuiltInCommands.GitStash] = git => git.StashRequestCommand,
     };
 
     /// <summary>

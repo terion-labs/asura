@@ -21,6 +21,9 @@ public sealed partial class DialogContractTests
     private static readonly string ViewsRoot =
         Path.Combine(RepositoryRoot, "src", "Asura.App", "Views");
 
+    private static readonly string ControlsRoot =
+        Path.Combine(RepositoryRoot, "src", "Asura.App", "Controls");
+
     /// <summary>
     /// Dialogs whose confirm button is deliberately never the default, with
     /// the reason. Everything else marks a default, or styles its confirm as
@@ -35,20 +38,46 @@ public sealed partial class DialogContractTests
     /// <summary>
     /// The words that destroy something. A button that starts with one wears
     /// the destructive style, so it is never mistaken for a routine action.
+    /// "Forget" drops a stored record, such as a managed remote session.
     /// </summary>
     private static readonly string[] DestructiveVerbs =
-        ["Delete", "Discard", "Remove", "Reset", "Clear", "Drop", "Force"];
+        ["Delete", "Discard", "Remove", "Reset", "Clear", "Drop", "Force", "Forget"];
 
     /// <summary>
-    /// Buttons whose verb sounds destructive but only edits what the dialog
-    /// itself holds, before anything is saved.
+    /// Buttons whose verb sounds destructive but only resets what the view or
+    /// dialog itself holds, before anything is saved, keyed by the markup
+    /// file (relative to Views, or Controls/ for a control) and the button's
+    /// label, with the reason. Nothing stored is lost by any of them.
     /// </summary>
-    private static readonly HashSet<(string Dialog, string Label)> RoutineEdits =
-    [
-        // Both change the keys being recorded, not a saved shortcut.
-        ("ShortcutRecorderDialog.axaml", "Clear"),
-        ("ShortcutRecorderDialog.axaml", "Remove Last"),
-    ];
+    private static readonly Dictionary<(string File, string Label), string> RoutineEdits = new()
+    {
+        [("ShortcutRecorderDialog.axaml", "Clear")] =
+            "changes the keys being recorded, not a saved shortcut",
+        [("ShortcutRecorderDialog.axaml", "Remove Last")] =
+            "changes the keys being recorded, not a saved shortcut",
+        [("RuntimePanels/KubernetesRuntimePanelView.axaml", "Discard")] =
+            "drops unapplied edits in the manifest editor; the cluster is untouched",
+        [("SettingsView.axaml", "Reset")] =
+            "returns one row of the unsaved shortcut draft to its default; Save Shortcuts commits it",
+        [("Overlays/LayoutDesignerView.axaml", "Reset")] =
+            "restores the saved layout over the designer's unsaved edits",
+        [("SettingsPages/AppearanceSettingsPageView.axaml", "Reset Palette")] =
+            "resets the previewed palette draft; Apply Terminal commits it",
+        [("WorkspaceEditorView.axaml", "Reset")] =
+            "returns the open editor to the saved workspace, enabled only while it holds edits",
+        [("DesignSystemGalleryWindow.axaml", "Clear")] =
+            "a specimen of the text button style in the developer gallery; it acts on nothing",
+    };
+
+    /// <summary>
+    /// Views another fix package owns, whose destructive buttons are being
+    /// restyled there. Emptied at integration, once those branches merge.
+    /// </summary>
+    private static readonly HashSet<string> PendingCrossPackageFiles = new(StringComparer.Ordinal)
+    {
+        // "Clear agent session", fixed by g-agent-connections.
+        "AgentWorkspaceView.axaml",
+    };
 
     private static readonly string[] MinorWords =
     [
@@ -155,19 +184,86 @@ public sealed partial class DialogContractTests
     [MemberData(nameof(Dialogs))]
     public void Destructive_verbs_wear_the_destructive_style(string dialog)
     {
-        var offenders = Buttons(dialog)
+        Assert.Empty(UnstyledDestructiveButtons(dialog, Root(dialog)));
+    }
+
+    public static TheoryData<string> MarkupFiles()
+    {
+        var data = new TheoryData<string>();
+        foreach (var file in ViewAndControlMarkup())
+        {
+            data.Add(file);
+        }
+
+        return data;
+    }
+
+    /// <summary>
+    /// The same rule outside dialogs. A Discard Selection… in a diff toolbar
+    /// or a Forget in a Settings list loses data just as a dialog's button
+    /// does, and such buttons were styled as destructive one time in three.
+    /// Menu rows are exempt: a menu separates and orders its destructive
+    /// items instead.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(MarkupFiles))]
+    public void Destructive_verbs_wear_the_destructive_style_in_every_view(string file)
+    {
+        if (PendingCrossPackageFiles.Contains(file))
+        {
+            return;
+        }
+
+        var root = Assert.IsType<XElement>(XDocument.Load(MarkupPath(file)).Root);
+        Assert.Empty(UnstyledDestructiveButtons(file, root));
+    }
+
+    [Fact]
+    public void Every_view_and_control_is_checked_for_destructive_verbs()
+    {
+        var files = ViewAndControlMarkup().ToArray();
+        Assert.True(files.Length >= 90, "The view catalog looks truncated.");
+        Assert.Contains("Components/GitDiffView.axaml", files, StringComparer.Ordinal);
+        Assert.Contains("RuntimePanels/GitRuntimePanelView.axaml", files, StringComparer.Ordinal);
+        Assert.All(RoutineEdits.Keys, key => Assert.Contains(key.File, files, StringComparer.Ordinal));
+        Assert.All(PendingCrossPackageFiles, file => Assert.Contains(file, files, StringComparer.Ordinal));
+    }
+
+    private static string[] UnstyledDestructiveButtons(string file, XElement root) =>
+    [
+        .. root.Descendants()
+            .Where(element => element.Name.LocalName == "Button")
+            .Where(button => !HasClass(button, "FlyoutMenuItem"))
             .Where(button => Attribute(button, "Content") is { } label
                 && DestructiveVerbs.Any(verb => label.StartsWith(verb + " ", StringComparison.Ordinal)
                     || string.Equals(label, verb, StringComparison.Ordinal)))
-            .Where(button => !RoutineEdits.Contains((dialog, Attribute(button, "Content")!)))
-            .Where(button => !(Attribute(button, "Classes") ?? string.Empty)
-                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .Contains("DestructiveButton", StringComparer.Ordinal))
-            .Select(button => Attribute(button, "Content"))
-            .ToArray();
+            .Where(button => !RoutineEdits.ContainsKey((file, Attribute(button, "Content")!)))
+            .Where(button => !HasClass(button, "DestructiveButton"))
+            .Select(button => Attribute(button, "Content")!),
+    ];
 
-        Assert.Empty(offenders);
-    }
+    private static bool HasClass(XElement element, string name) =>
+        (Attribute(element, "Classes") ?? string.Empty)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Contains(name, StringComparer.Ordinal);
+
+    /// <summary>
+    /// Every view's and control's markup, as a path relative to Views, or
+    /// Controls/ and the file name for a control, with forward slashes on
+    /// every platform.
+    /// </summary>
+    private static IEnumerable<string> ViewAndControlMarkup() => Directory
+        .EnumerateFiles(ViewsRoot, "*.axaml", SearchOption.AllDirectories)
+        .Select(path => Path.GetRelativePath(ViewsRoot, path).Replace(Path.DirectorySeparatorChar, '/'))
+        .Concat(Directory
+            .EnumerateFiles(ControlsRoot, "*.axaml", SearchOption.TopDirectoryOnly)
+            .Select(path => "Controls/" + Path.GetFileName(path)))
+        .Order(StringComparer.Ordinal);
+
+    private static string MarkupPath(string file) =>
+        file.StartsWith("Controls/", StringComparison.Ordinal)
+            ? Path.Combine(ControlsRoot, file["Controls/".Length..])
+            : Path.Combine(ViewsRoot, file.Replace('/', Path.DirectorySeparatorChar));
 
     [Theory]
     [MemberData(nameof(Dialogs))]

@@ -60,11 +60,22 @@ public sealed partial class GitRuntimePanelView
 
     private async void OnNetworkOptions(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel is not { } viewModel || OwnerWindow is not { } window || sender is not MenuItem { Tag: string action }
-            || !Enum.TryParse<GitNetworkAction>(action, out var networkAction))
+        _ = e;
+        if (sender is MenuItem { Tag: string action } && Enum.TryParse<GitNetworkAction>(action, out var networkAction))
+        {
+            await ShowNetworkOptionsAsync(networkAction);
+        }
+    }
+
+    /// <summary>Fetch…, Pull… or Push… with its options, from the Remote menu or the Git menu.</summary>
+    private async Task ShowNetworkOptionsAsync(GitNetworkAction networkAction)
+    {
+        if (ViewModel is not { } viewModel || OwnerWindow is not { } window)
         {
             return;
         }
+
+        var action = networkAction.ToString();
 
         List<GitWorkflowField> fields = [new("remote", "Remote", viewModel.Remotes.FirstOrDefault()?.Name ?? "origin"),
             new("source", networkAction == GitNetworkAction.Push ? "Source branch or revision (optional)" : "Remote branch (optional)", Required: false)];

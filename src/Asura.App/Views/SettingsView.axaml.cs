@@ -49,6 +49,43 @@ public sealed partial class SettingsView : UserControl
         {
             content.PropertyChanged += OnPageContentPropertyChanged;
         }
+
+        FollowListSelection(FileProviderList, DeleteFileProviderButton);
+        FollowListSelection(
+            BrowserProfileList,
+            DeleteBrowserProfileButton,
+            item => item is BrowserProfileItemViewModel { IsBuiltIn: false });
+        FollowListSelection(SecretList, DeleteSecretButton);
+        FollowListSelection(AiProviderList, DeleteAiProviderButton);
+        FollowListSelection(McpServerList, DeleteMcpServerButton);
+    }
+
+    /// <summary>
+    /// The Mac list pattern for a Settings list: – below the list acts on
+    /// the selected row, and is dimmed with no selection or one that cannot
+    /// be removed. Delete or Backspace on the list does what – does. The
+    /// button carries the row as its data context, so the same request
+    /// handler serves –, the row's context menu and the key.
+    /// </summary>
+    internal static void FollowListSelection(ListBox list, Button remove, Func<object, bool>? canRemove = null)
+    {
+        void Present()
+        {
+            var selected = list.SelectedItem;
+            remove.DataContext = selected;
+            remove.IsEnabled = selected is not null && (canRemove?.Invoke(selected) ?? true);
+        }
+
+        list.SelectionChanged += (_, _) => Present();
+        list.KeyDown += (_, e) =>
+        {
+            if (IsDeleteKey(e) && remove.IsEnabled)
+            {
+                e.Handled = true;
+                remove.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            }
+        };
+        Present();
     }
 
     public event EventHandler<RoutedEventArgs>? AboutSettingsRequested;
@@ -142,6 +179,8 @@ public sealed partial class SettingsView : UserControl
     public event EventHandler<RoutedEventArgs>? NetworkingSettingsRequested;
 
     public event EventHandler<RoutedEventArgs>? QuickTerminalSettingsRequested;
+
+    public event EventHandler<RoutedEventArgs>? GitSettingsRequested;
 
     public event EventHandler<RoutedEventArgs>? RecordKeybindingPrefixRequested;
 
@@ -516,6 +555,9 @@ public sealed partial class SettingsView : UserControl
     private void OnQuickTerminalSettingsClick(object? sender, RoutedEventArgs e) =>
         QuickTerminalSettingsRequested?.Invoke(sender, e);
 
+    private void OnGitSettingsClick(object? sender, RoutedEventArgs e) =>
+        GitSettingsRequested?.Invoke(sender, e);
+
     private void OnRecordKeybindingPrefixClick(object? sender, RoutedEventArgs e) =>
         RecordKeybindingPrefixRequested?.Invoke(sender, e);
 
@@ -639,7 +681,7 @@ public sealed partial class SettingsView : UserControl
         }
     }
 
-    private static bool IsDeleteKey(KeyEventArgs e) =>
+    internal static bool IsDeleteKey(KeyEventArgs e) =>
         e.KeyModifiers is Avalonia.Input.KeyModifiers.None or Avalonia.Input.KeyModifiers.Meta
         && e.Key is Key.Delete or Key.Back;
 
@@ -669,6 +711,7 @@ public sealed partial class SettingsView : UserControl
         yield return (SettingsPage.Browser, BrowserNavigationItem, BrowserSettingsPage);
         yield return (SettingsPage.Terminal, TerminalNavigationItem, TerminalSettingsPage);
         yield return (SettingsPage.QuickTerminal, QuickTerminalNavigationItem, QuickTerminalSettingsPage);
+        yield return (SettingsPage.Git, GitNavigationItem, GitSettingsPage);
         yield return (SettingsPage.Notifications, NotificationsNavigationItem, NotificationsSettingsPage);
         yield return (SettingsPage.Secrets, SecretsNavigationItem, SecretsSettingsPage);
         yield return (SettingsPage.Diagnostics, DiagnosticsNavigationItem, DiagnosticsSettingsPage);

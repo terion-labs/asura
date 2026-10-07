@@ -435,7 +435,13 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
     public IReadOnlyList<GitRefItemViewModel> LocalBranches
     {
         get => _localBranches;
-        private set => SetProperty(ref _localBranches, value);
+        private set
+        {
+            if (SetProperty(ref _localBranches, value))
+            {
+                RaiseRequestCommands();
+            }
+        }
     }
 
     public IReadOnlyList<GitRefItemViewModel> RemoteBranches
@@ -2339,6 +2345,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         _pullCommand.RaiseCanExecuteChanged();
         _pushCommand.RaiseCanExecuteChanged();
         _syncCommand.RaiseCanExecuteChanged();
+        RaiseRequestCommands();
         OnPropertyChanged(nameof(CanMutateRepository));
         OnPropertyChanged(nameof(CanApplyPartialDiff));
         OnPropertyChanged(nameof(CanContinueOperation));

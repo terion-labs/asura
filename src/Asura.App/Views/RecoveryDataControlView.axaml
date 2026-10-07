@@ -14,7 +14,7 @@
           <TextBlock FontWeight="SemiBold" Text="Crash recovery data" />
           <TextBlock
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               Text="Review recovery snapshots from previous runs."
               TextWrapping="Wrap" />
         </StackPanel>
@@ -42,7 +42,7 @@
 
       <controls:LiveRegionTextBlock
           Classes="Muted"
-          FontSize="{DynamicResource ShellFontSize9}"
+          FontSize="{DynamicResource ShellSecondaryFontSize}"
           Text="{Binding StatusMessage}"
           IsVisible="{Binding !HasError}"
           TextWrapping="Wrap"
@@ -81,9 +81,9 @@
                 <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
                   <WrapPanel Orientation="Horizontal">
-                    <TextBlock Margin="{controls:Inset Right=Md}" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding SnapshotLabel}" />
-                    <TextBlock Margin="{controls:Inset Right=Md}" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding SizeLabel}" />
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding UpdatedLabel}" />
+                    <TextBlock Margin="{controls:Inset Right=Md}" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding SnapshotLabel}" />
+                    <TextBlock Margin="{controls:Inset Right=Md}" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding SizeLabel}" />
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding UpdatedLabel}" />
                   </WrapPanel>
                 </StackPanel>
                 <Button

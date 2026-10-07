@@ -1,5 +1,6 @@
 using Asura.App.Controls;
 using Asura.App.ViewModels;
+using Asura.App.Views;
 using Asura.App.Views.Components;
 using Asura.App.Views.RuntimePanels;
 using Asura.Application;
@@ -60,12 +61,23 @@ public sealed class GitPanelConformanceHeadlessTests
             }
         }
 
-        var tools = ((MenuFlyout)view.FindControl<Button>("GitToolsMenuButton")!.Flyout!).Items.OfType<MenuItem>().ToArray();
-        Assert.Contains(tools, item => Equals(item.Header, "Git Panel Settings…"));
-        Assert.Contains(tools, item => Equals(item.Header, "Identity and Signing…"));
-        Assert.DoesNotContain(tools, item => (item.Header as string)?.Contains("preferences", StringComparison.OrdinalIgnoreCase) == true);
+        // Tools keeps seven entries at the top. The choices every Git panel
+        // shares moved to Settings, which Git Settings… opens; the
+        // repository's own identity stays with the repository.
+        var toolsFlyout = (MenuFlyout)view.FindControl<Button>("GitToolsMenuButton")!.Flyout!;
+        var tools = toolsFlyout.Items.OfType<MenuItem>().ToArray();
+        Assert.InRange(tools.Length, 1, 7);
+        Assert.Equal(
+            ["Investigate", "Patches", "Repository", "Submodules", "Git LFS", "Open In", "Git Settings…"],
+            tools.Select(item => item.Header as string),
+            StringComparer.Ordinal);
+        var everyItem = tools.SelectMany(item => item.Items.OfType<MenuItem>().Prepend(item)).ToArray();
+        Assert.DoesNotContain(everyItem, item => (item.Header as string)?.Contains("Panel Settings", StringComparison.Ordinal) == true);
+        Assert.DoesNotContain(everyItem, item => (item.Header as string)?.Contains("preferences", StringComparison.OrdinalIgnoreCase) == true);
+        var repository = Assert.Single(tools, item => Equals(item.Header, "Repository"));
+        Assert.Contains(repository.Items.OfType<MenuItem>(), item => Equals(item.Header, "Repository Identity and Signing…"));
         var benchmark = view.FindControl<MenuItem>("GitBenchmarkMenuItem")!;
-        Assert.Equal(GitRuntimePanelViewModel.IsDiagnosticsBuild, tools.Contains(benchmark));
+        Assert.Equal(GitRuntimePanelViewModel.IsDiagnosticsBuild, everyItem.Contains(benchmark));
         return Task.CompletedTask;
     });
 
@@ -92,13 +104,53 @@ public sealed class GitPanelConformanceHeadlessTests
         Assert.True(Item(flyout.Items, "Activity Log…").IsEnabled);
         Assert.True(Item(flyout.Items, "File History and Blame…").IsEnabled);
         Assert.False(ignore.IsEnabled);
-        Assert.False(Item(flyout.Items, "Identity and Signing…").IsEnabled);
+        Assert.False(Item(flyout.Items, "Repository Identity and Signing…").IsEnabled);
+        Assert.True(Item(flyout.Items, "Git Settings…").IsEnabled);
 
         client.StageGate.SetResult();
         await WaitForAsync(() => !panel.IsMutating);
         flyout.Hide();
     }, client);
     }
+
+    [Fact]
+    public async Task Git_menu_requests_wait_for_a_repository_and_a_branch_to_choose()
+    {
+        var client = new FakeGitRepositoryClient
+        {
+            RefsOverride =
+            [
+                new GitRefItem("refs/heads/dev", "dev", GitRefKind.LocalBranch, "0000000000000000000000000000000000000001", IsCurrent: true),
+            ],
+        };
+        using var panel = new GitRuntimePanelViewModel(PanelInstanceId.New(), "Git", client, BuiltInConnections.Local);
+        Assert.False(panel.FetchRequestCommand.CanExecute(null));
+
+        await panel.OpenRepositoryAsync("/repo");
+        var requests = new List<GitPanelRequest>();
+        panel.Requested += (_, request) => requests.Add(request);
+        Assert.True(panel.FetchRequestCommand.CanExecute(null));
+        Assert.True(panel.NewBranchRequestCommand.CanExecute(null));
+        Assert.True(panel.StashRequestCommand.CanExecute(null));
+        // Only the current branch exists, so there is nothing to merge or rebase onto.
+        Assert.False(panel.MergeRequestCommand.CanExecute(null));
+        Assert.False(panel.RebaseRequestCommand.CanExecute(null));
+
+        panel.FetchRequestCommand.Execute(null);
+        panel.StashRequestCommand.Execute(null);
+        Assert.Equal([GitPanelRequest.Fetch, GitPanelRequest.Stash], requests);
+        Assert.Same(panel.FetchRequestCommand, MainWindowViewModel.GitCommand(panel, BuiltInCommands.GitFetch));
+        Assert.Same(panel.MergeRequestCommand, MainWindowViewModel.GitCommand(panel, BuiltInCommands.GitMerge));
+    }
+
+    [Fact]
+    public Task Stash_from_the_Git_menu_opens_the_panel_stash_dialog() => RunPanelAsync(async (view, panel, window) =>
+    {
+        panel.StashRequestCommand.Execute(null);
+        await WaitForAsync(() => window.OwnedWindows.Count > 0);
+        var dialog = Assert.IsType<GitStashPushDialog>(Assert.Single(window.OwnedWindows));
+        dialog.Close();
+    });
 
     [Fact]
     public Task Section_switchers_are_a_source_list_and_segmented_controls_bound_to_the_view_model() => RunPanelAsync((view, panel, window) =>
@@ -147,6 +199,35 @@ public sealed class GitPanelConformanceHeadlessTests
         Assert.True(branches.IsChecked);
         return Task.CompletedTask;
     });
+
+    [Fact]
+    public Task Typing_a_name_in_the_branch_list_selects_the_first_branch_that_starts_with_it()
+    {
+        const string sha = "0000000000000000000000000000000000000001";
+        var client = new FakeGitRepositoryClient
+        {
+            RefsOverride =
+            [
+                new GitRefItem("refs/heads/dev", "dev", GitRefKind.LocalBranch, sha, IsCurrent: true),
+                new GitRefItem("refs/heads/main", "main", GitRefKind.LocalBranch, sha, IsCurrent: false),
+                new GitRefItem("refs/heads/release", "release", GitRefKind.LocalBranch, sha, IsCurrent: false),
+                new GitRefItem("refs/heads/rework", "rework", GitRefKind.LocalBranch, sha, IsCurrent: false),
+            ],
+        };
+        return RunPanelAsync((view, panel, window) =>
+        {
+            var tree = view.FindControl<TreeView>("GitLocalBranchTree")!;
+            window.UpdateLayout();
+            Assert.True(Assert.IsType<TreeViewItem>(tree.ContainerFromIndex(0)).Focus());
+
+            window.KeyTextInput("r");
+            Assert.Equal("release", Assert.IsType<GitRefTreeNodeViewModel>(tree.SelectedItem).Name);
+            window.KeyTextInput("e");
+            window.KeyTextInput("w");
+            Assert.Equal("rework", Assert.IsType<GitRefTreeNodeViewModel>(tree.SelectedItem).Name);
+            return Task.CompletedTask;
+        }, client);
+    }
 
     [Fact]
     public Task The_ref_filter_is_a_search_field_and_Escape_clears_it() => RunPanelAsync((view, panel, window) =>

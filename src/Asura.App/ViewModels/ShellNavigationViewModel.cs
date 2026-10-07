@@ -22,6 +22,7 @@ public enum SettingsPage
     Browser,
     Terminal,
     QuickTerminal,
+    Git,
     Secrets,
     Diagnostics,
     Agent,
@@ -86,6 +87,7 @@ public sealed class ShellNavigationViewModel : ObservableObject
                 OnPropertyChanged(nameof(IsBrowserSettingsVisible));
                 OnPropertyChanged(nameof(IsTerminalSettingsVisible));
                 OnPropertyChanged(nameof(IsQuickTerminalSettingsVisible));
+                OnPropertyChanged(nameof(IsGitSettingsVisible));
                 OnPropertyChanged(nameof(IsSecretsSettingsVisible));
                 OnPropertyChanged(nameof(IsDiagnosticsSettingsVisible));
                 OnPropertyChanged(nameof(IsAgentSettingsVisible));
@@ -144,6 +146,8 @@ public sealed class ShellNavigationViewModel : ObservableObject
     public bool IsTerminalSettingsVisible => SettingsPage == SettingsPage.Terminal;
 
     public bool IsQuickTerminalSettingsVisible => SettingsPage == SettingsPage.QuickTerminal;
+
+    public bool IsGitSettingsVisible => SettingsPage == SettingsPage.Git;
 
     public bool IsSecretsSettingsVisible => SettingsPage == SettingsPage.Secrets;
 

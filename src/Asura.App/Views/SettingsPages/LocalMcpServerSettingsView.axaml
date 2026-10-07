@@ -73,7 +73,7 @@
               IsEnabled="{Binding CanEdit}"
               ToolTip.Tip="Copy server URL"
               AutomationProperties.Name="Copy Asura MCP server URL">
-            <icons:SymbolIcon Symbol="Copy" FontSize="14" />
+            <icons:SymbolIcon Symbol="Copy" FontSize="{DynamicResource ShellIconSizeSm}" />
           </Button>
         </Grid>
       </controls:SettingRow>
