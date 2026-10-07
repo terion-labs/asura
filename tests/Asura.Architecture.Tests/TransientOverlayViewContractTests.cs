@@ -149,17 +149,23 @@ public sealed class TransientOverlayViewContractTests
         Assert.Equal(
             "{Binding SelectedLauncherSearchResult, Mode=TwoWay}",
             AttributeValue(results, "SelectedItem"));
+        // Rows are list items that open on Return or a click, not a column
+        // of buttons, and they never show a command's identifier.
+        Assert.DoesNotContain(
+            results.Descendants(),
+            element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal));
         Assert.Contains(
             results.Descendants(),
-            element => string.Equals(element.Name.LocalName, "Button"
-, StringComparison.Ordinal) && string.Equals(
-                    AttributeValue(element, "Click"),
-                    "OnActivateSearchResultClick",
-                    StringComparison.Ordinal)
-                && string.Equals(
-                    AttributeValue(element, "IsEnabled"),
-                    "{Binding IsAvailable}",
-                    StringComparison.Ordinal));
+            element => string.Equals(
+                AttributeValue(element, "Tapped"),
+                "OnActivateSearchResultTapped",
+                StringComparison.Ordinal));
+        Assert.Contains(
+            results.Descendants(),
+            element => string.Equals(element.Name.LocalName, "Setter", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Property"), "IsEnabled", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Value"), "{Binding IsAvailable}", StringComparison.Ordinal));
+        Assert.Equal("SearchField", search.Name.LocalName);
 
         Assert.Contains(
             root.Descendants(),
@@ -314,12 +320,8 @@ public sealed class TransientOverlayViewContractTests
         var choices = catalogRoot.Descendants()
             .Where(element => string.Equals(element.Name.LocalName, "ChooserTile", StringComparison.Ordinal))
             .ToArray();
-        Assert.Equal(
-        [
-            "New terminal", "New browser", "Statistics", "File Viewer", "Process monitor", "Database", "Docker", "Kubernetes", "Git",
-        ], choices.Select(element => AttributeValue(element, "Title")), StringComparer.Ordinal);
-        Assert.Contains(choices, element => string.Equals(AttributeValue(element, "Click"), "OnNewKubernetesClick", StringComparison.Ordinal)
-            && string.Equals(AttributeValue(element, "AutomationProperties.Name"), "Open a Kubernetes panel", StringComparison.Ordinal));
+        Assert.Equal(PanelTypeTitles, choices.Select(element => AttributeValue(element, "Title")), StringComparer.Ordinal);
+        Assert.Contains(choices, element => string.Equals(AttributeValue(element, "Click"), "OnNewKubernetesClick", StringComparison.Ordinal));
 
         var initialAction = FindNamedElement(catalogRoot, "NewTerminalButton");
         Assert.Equal(
@@ -328,12 +330,12 @@ public sealed class TransientOverlayViewContractTests
         Assert.Contains(
             choices,
             element => string.Equals(
-                AttributeValue(element, "AutomationProperties.Name"),
-                "Open a new browser",
+                AttributeValue(element, "IsEnabled"),
+                "{Binding CanStartBrowserSession}",
                 StringComparison.Ordinal)
                 && string.Equals(
-                    AttributeValue(element, "IsEnabled"),
-                    "{Binding CanStartBrowserSession}",
+                    AttributeValue(element, "UnavailableReason"),
+                    "{Binding BrowserSessionUnavailableReason}",
                     StringComparison.Ordinal));
 
         // The reusable catalog, not the overlay wrapper, owns all collections.
@@ -433,12 +435,11 @@ public sealed class TransientOverlayViewContractTests
         var choices = root.Descendants()
             .Where(element => string.Equals(element.Name.LocalName, "ChooserTile", StringComparison.Ordinal))
             .ToArray();
-        Assert.Equal(
-        [
-            "Terminal", "Browser", "Statistics", "Files", "Processes", "Database", "Docker", "Kubernetes", "Git",
-        ], choices.Select(element => AttributeValue(element, "Title")), StringComparer.Ordinal);
-        Assert.Contains(choices, element => string.Equals(AttributeValue(element, "Click"), "OnAddKubernetesPanelClick", StringComparison.Ordinal)
-            && string.Equals(AttributeValue(element, "AutomationProperties.Name"), "Add Kubernetes panel", StringComparison.Ordinal));
+        Assert.Equal(PanelTypeTitles, choices.Select(element => AttributeValue(element, "Title")), StringComparer.Ordinal);
+        Assert.Contains(choices, element => string.Equals(AttributeValue(element, "Click"), "OnAddKubernetesPanelClick", StringComparison.Ordinal));
+        Assert.Contains(
+            root.Descendants(),
+            element => string.Equals(AttributeValue(element, "Text"), "Choose a panel type", StringComparison.Ordinal));
 
         var initialAction = FindNamedElement(root, "NewPanelTerminalButton");
         Assert.Equal(
@@ -447,19 +448,19 @@ public sealed class TransientOverlayViewContractTests
         Assert.Contains(
             choices,
             element => string.Equals(
-                AttributeValue(element, "AutomationProperties.Name"),
-                "Add browser panel",
+                AttributeValue(element, "IsEnabled"),
+                "{Binding CanCreateBrowserPanel}",
                 StringComparison.Ordinal)
                 && string.Equals(
-                    AttributeValue(element, "IsEnabled"),
-                    "{Binding CanCreateBrowserPanel}",
+                    AttributeValue(element, "UnavailableReason"),
+                    "{Binding BrowserPanelUnavailableReason}",
                     StringComparison.Ordinal));
         Assert.Contains(
             root.Descendants(),
             element => string.Equals(element.Name.LocalName, "Button"
 , StringComparison.Ordinal) && string.Equals(
                     AttributeValue(element, "Content"),
-                    "Open layout designer instead",
+                    "Open Layout Designer…",
                     StringComparison.Ordinal)
                 && string.Equals(
                     AttributeValue(element, "Click"),
@@ -642,6 +643,23 @@ public sealed class TransientOverlayViewContractTests
             previous = current;
         }
     }
+
+    /// <summary>
+    /// The launcher and the Add Panel chooser name every type from the one
+    /// catalog, in the same order.
+    /// </summary>
+    private static readonly string[] PanelTypeTitles =
+    [
+        "{x:Static vm:PanelTypes.Terminal}",
+        "{x:Static vm:PanelTypes.Browser}",
+        "{x:Static vm:PanelTypes.Statistics}",
+        "{x:Static vm:PanelTypes.Files}",
+        "{x:Static vm:PanelTypes.Processes}",
+        "{x:Static vm:PanelTypes.Database}",
+        "{x:Static vm:PanelTypes.Docker}",
+        "{x:Static vm:PanelTypes.Kubernetes}",
+        "{x:Static vm:PanelTypes.Git}",
+    ];
 
     private static readonly string[] ExtractedControlNames =
     [

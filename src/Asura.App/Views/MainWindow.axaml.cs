@@ -1833,7 +1833,7 @@ public sealed partial class MainWindow : Window
     private async void OnCommandSearchKeyDown(object? sender, KeyEventArgs e)
     {
         _ = sender;
-        if (e.Key == Key.Escape)
+        if (e.Key == Key.Escape && !SearchField.ClaimsEscape(e))
         {
             _ = await TryCloseOverlayAsync();
             e.Handled = true;
@@ -1909,6 +1909,14 @@ public sealed partial class MainWindow : Window
 
         if (e.Key == Key.Escape && ViewModel.HasOverlay)
         {
+            // The first Escape clears a search field that has text — the
+            // palette's, the chooser's, the designer's — and the next one
+            // closes the overlay.
+            if (SearchField.ClaimsEscape(e))
+            {
+                return;
+            }
+
             e.Handled = true;
             _ = await TryCloseOverlayAsync();
             return;

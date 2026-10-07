@@ -880,6 +880,14 @@
     <Setter Property="Background" Value="{DynamicResource ShellSuccessBrush}" />
   </Style>
 
+  <!-- With Differentiate Without Color on, the two states differ in shape as
+       well: available stays a disc, anything else becomes a ring. -->
+  <Style Selector="Window.differentiate-without-color Border.StatusDot:not(.available)">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellMutedBrush}" />
+    <Setter Property="BorderThickness" Value="1.5" />
+  </Style>
+
   <!--
     The working stripe: a 2px indeterminate run under a panel's header while it
     is busy. The track is transparent so only the moving segment shows — the

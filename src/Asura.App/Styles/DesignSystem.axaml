@@ -1165,7 +1165,13 @@
           </Border>
         </ControlTemplate>
       </Setter>
-      <Style Selector="^:disabled">
+      <!-- Disabled dims the icon and the name, not the sentence: the
+           sentence is the reason the tile cannot be used, and it has to stay
+           readable to be any use. -->
+      <Style Selector="^:disabled /template/ Border#PART_Icon">
+        <Setter Property="Opacity" Value="0.48" />
+      </Style>
+      <Style Selector="^:disabled /template/ TextBlock#PART_Title">
         <Setter Property="Opacity" Value="0.48" />
       </Style>
     </ControlTheme>
@@ -1347,6 +1353,7 @@
                 VerticalAlignment="Top"
                 Spacing="{DynamicResource ShellSpaceSm}">
               <Border
+                  Name="PART_Icon"
                   Classes="ChooserIconTile"
                   HorizontalAlignment="Left"
                   Width="{DynamicResource ShellTileSizeMd}"
@@ -1357,12 +1364,12 @@
                     Symbol="{TemplateBinding Icon}"
                     FontSize="{DynamicResource ShellFontSize18}" />
               </Border>
-              <TextBlock FontWeight="SemiBold" Text="{TemplateBinding Title}" />
+              <TextBlock Name="PART_Title" FontWeight="SemiBold" Text="{TemplateBinding Title}" />
               <TextBlock
                   Classes="Muted"
                   FontSize="{DynamicResource ShellSecondaryFontSize}"
                   LineHeight="{DynamicResource ShellLineHeight11}"
-                  Text="{TemplateBinding Description}"
+                  Text="{TemplateBinding EffectiveDescription}"
                   TextWrapping="Wrap" />
             </StackPanel>
           </Border>
@@ -1378,7 +1385,13 @@
       <Style Selector="^:focus-visible /template/ Border#PART_Surface">
         <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
       </Style>
-      <Style Selector="^:disabled">
+      <!-- Disabled dims the icon and the name, not the sentence: the
+           sentence is the reason the tile cannot be used, and it has to stay
+           readable to be any use. -->
+      <Style Selector="^:disabled /template/ Border#PART_Icon">
+        <Setter Property="Opacity" Value="0.48" />
+      </Style>
+      <Style Selector="^:disabled /template/ TextBlock#PART_Title">
         <Setter Property="Opacity" Value="0.48" />
       </Style>
     </ControlTheme>

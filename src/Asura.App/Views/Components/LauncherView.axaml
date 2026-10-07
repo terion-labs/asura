@@ -109,15 +109,18 @@
     <StackPanel Grid.Row="2" Spacing="{DynamicResource ShellSpaceSm}">
       <TextBlock FontSize="{DynamicResource ShellFontSize14}" FontWeight="SemiBold" Text="Start something new" />
       <controls:CardGridPanel MinItemWidth="150" Spacing="{DynamicResource ShellSpaceSm}">
-        <controls:ChooserTile x:Name="NewTerminalButton" Icon="WindowConsole" Title="New terminal" Description="Open the default local shell" Click="OnNewLocalTerminalClick" AutomationProperties.Name="Open a new local terminal" />
-        <controls:ChooserTile Icon="Globe" Title="New browser" Description="Embedded Chromium browser panel" Click="OnNewBrowserClick" IsEnabled="{Binding CanStartBrowserSession}" AutomationProperties.Name="Open a new browser" />
-        <controls:ChooserTile Icon="PulseSquare" Title="Statistics" Description="Live system metrics" Click="OnNewStatisticsClick" AutomationProperties.Name="Open local host statistics" />
-        <controls:ChooserTile Icon="Folder" Title="File Viewer" Description="Browse configured providers" Click="OnNewFileViewerClick" AutomationProperties.Name="Open a new File Viewer" />
-        <controls:ChooserTile Icon="Gauge" Title="Process monitor" Description="Watch running processes" Click="OnNewProcessMonitorClick" AutomationProperties.Name="Open local process monitor" />
-        <controls:ChooserTile Icon="Database" Title="Database" Description="Query SQLite, Postgres, MySQL" Click="OnNewDatabaseClick" AutomationProperties.Name="Open a new database viewer" />
-        <controls:ChooserTile Icon="Box" Title="Docker" Description="Manage local or remote engines" Click="OnNewDockerClick" AutomationProperties.Name="Open a Docker panel" />
-        <controls:ChooserTile Icon="Grid" Title="Kubernetes" Description="Browse Kubernetes resources" Click="OnNewKubernetesClick" AutomationProperties.Name="Open a Kubernetes panel" />
-        <controls:ChooserTile Icon="BranchFork" Title="Git" Description="Stage, commit, and browse history" Click="OnNewGitClick" AutomationProperties.Name="Open a Git panel" />
+        <!-- Each type by its one name and sentence, the ones the Add Panel
+             chooser, the palette and Settings use. A tile is named by its
+             title; the section heading says what choosing one does. -->
+        <controls:ChooserTile x:Name="NewTerminalButton" Icon="WindowConsole" Title="{x:Static vm:PanelTypes.Terminal}" Description="{x:Static vm:PanelTypes.TerminalDescription}" Click="OnNewLocalTerminalClick" />
+        <controls:ChooserTile Icon="Globe" Title="{x:Static vm:PanelTypes.Browser}" Description="{x:Static vm:PanelTypes.BrowserDescription}" Click="OnNewBrowserClick" IsEnabled="{Binding CanStartBrowserSession}" UnavailableReason="{Binding BrowserSessionUnavailableReason}" />
+        <controls:ChooserTile Icon="PulseSquare" Title="{x:Static vm:PanelTypes.Statistics}" Description="{x:Static vm:PanelTypes.StatisticsDescription}" Click="OnNewStatisticsClick" />
+        <controls:ChooserTile Icon="Folder" Title="{x:Static vm:PanelTypes.Files}" Description="{x:Static vm:PanelTypes.FilesDescription}" Click="OnNewFileViewerClick" />
+        <controls:ChooserTile Icon="Gauge" Title="{x:Static vm:PanelTypes.Processes}" Description="{x:Static vm:PanelTypes.ProcessesDescription}" Click="OnNewProcessMonitorClick" />
+        <controls:ChooserTile Icon="Database" Title="{x:Static vm:PanelTypes.Database}" Description="{x:Static vm:PanelTypes.DatabaseDescription}" Click="OnNewDatabaseClick" />
+        <controls:ChooserTile Icon="Box" Title="{x:Static vm:PanelTypes.Docker}" Description="{x:Static vm:PanelTypes.DockerDescription}" Click="OnNewDockerClick" />
+        <controls:ChooserTile Icon="Grid" Title="{x:Static vm:PanelTypes.Kubernetes}" Description="{x:Static vm:PanelTypes.KubernetesDescription}" Click="OnNewKubernetesClick" />
+        <controls:ChooserTile Icon="BranchFork" Title="{x:Static vm:PanelTypes.Git}" Description="{x:Static vm:PanelTypes.GitDescription}" Click="OnNewGitClick" />
       </controls:CardGridPanel>
     </StackPanel>
 

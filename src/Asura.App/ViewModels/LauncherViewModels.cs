@@ -343,5 +343,15 @@ public sealed record LauncherSearchResultViewModel(
         ? Detail
         : UnavailableReason ?? Detail;
 
+    /// <summary>
+    /// The line under a palette row's title: where the row belongs, then what
+    /// it does or why it cannot be used. "Tabs", "New Tab · Your default shell
+    /// on this computer".
+    /// </summary>
+    public string Caption => DisplayDetail.Length == 0
+        ? Group
+        : $"{Group} · {DisplayDetail}";
+
+    /// <summary>Whether the row has a shortcut to show.</summary>
     public bool HasTrailingText => TrailingText.Length > 0;
 }

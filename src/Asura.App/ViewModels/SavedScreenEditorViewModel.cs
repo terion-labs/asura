@@ -712,16 +712,20 @@ public sealed class SavedScreenPanelEditorViewModel : ObservableObject
 {
     private static readonly IReadOnlyList<ScreenPanelKindOption> SupportedKinds =
     [
-        new(ScreenPanelKind.Terminal, "Terminal"),
-        new(ScreenPanelKind.Browser, "Browser"),
-        new(ScreenPanelKind.FileViewer, "File viewer"),
-        new(ScreenPanelKind.Statistics, "Statistics"),
-        new(ScreenPanelKind.ProcessMonitor, "Process monitor"),
-        new(ScreenPanelKind.DatabaseViewer, "Database"),
-        new(ScreenPanelKind.Docker, "Docker"),
-        new(ScreenPanelKind.Git, "Git"),
-        new(ScreenPanelKind.Kubernetes, "Kubernetes"),
+        KindOption(ScreenPanelKind.Terminal),
+        KindOption(ScreenPanelKind.Browser),
+        KindOption(ScreenPanelKind.FileViewer),
+        KindOption(ScreenPanelKind.Statistics),
+        KindOption(ScreenPanelKind.ProcessMonitor),
+        KindOption(ScreenPanelKind.DatabaseViewer),
+        KindOption(ScreenPanelKind.Docker),
+        KindOption(ScreenPanelKind.Git),
+        KindOption(ScreenPanelKind.Kubernetes),
     ];
+
+    /// <summary>Settings offers each type by the name the launcher and chooser use.</summary>
+    private static ScreenPanelKindOption KindOption(ScreenPanelKind kind) =>
+        new(kind, PanelTypes.Name(kind));
 
     private readonly ScreenPanelDefinition _original;
     private ScreenPanelKindOption _selectedKind;

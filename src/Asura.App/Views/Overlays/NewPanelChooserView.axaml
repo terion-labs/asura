@@ -17,29 +17,29 @@
     <StackPanel Margin="{controls:Inset Xl}" Spacing="{DynamicResource ShellSpaceLg}">
       <Grid ColumnDefinitions="*,Auto">
         <StackPanel>
-          <TextBlock FontSize="{DynamicResource ShellFontSize20}" FontWeight="SemiBold" Text="Add a panel" />
-          <TextBlock Classes="Muted" Text="Choose an adapter supported by this desktop milestone." />
+          <TextBlock FontSize="{DynamicResource ShellFontSize20}" FontWeight="SemiBold" Text="Add a Panel" />
+          <TextBlock Classes="Muted" Text="Choose a panel type" />
         </StackPanel>
         <Button Grid.Column="1" Classes="IconButton" Click="OnCloseClick" AutomationProperties.Name="Close panel chooser">
           <icons:SymbolIcon Symbol="Dismiss" FontSize="14" />
         </Button>
       </Grid>
       <controls:CardGridPanel MinItemWidth="128" Spacing="{DynamicResource ShellSpaceSm}">
-        <controls:ChooserTile x:Name="NewPanelTerminalButton" Icon="WindowConsole" Title="Terminal" Description="Local PTY" Click="OnAddTerminalPanelClick" />
-        <controls:ChooserTile Icon="Globe" Title="Browser" Description="Embedded Chromium" Click="OnAddBrowserPanelClick" IsEnabled="{Binding CanCreateBrowserPanel}" AutomationProperties.Name="Add browser panel" />
-        <controls:ChooserTile Icon="PulseSquare" Title="Statistics" Description="Live metrics" Click="OnAddStatisticsPanelClick" AutomationProperties.Name="Add Statistics panel" />
-        <controls:ChooserTile Icon="Folder" Title="Files" Description="Saved providers" Click="OnAddFilePanelClick" />
-        <controls:ChooserTile Icon="Gauge" Title="Processes" Description="Running processes" Click="OnAddProcessMonitorPanelClick" AutomationProperties.Name="Add Process Monitor panel" />
-        <controls:ChooserTile Icon="Database" Title="Database" Description="SQL viewer" Click="OnAddDatabasePanelClick" AutomationProperties.Name="Add database panel" />
-        <controls:ChooserTile Icon="Box" Title="Docker" Description="Containers &amp; images" Click="OnAddDockerPanelClick" AutomationProperties.Name="Add Docker panel" />
-        <controls:ChooserTile Icon="Grid" Title="Kubernetes" Description="Cluster resources" Click="OnAddKubernetesPanelClick" AutomationProperties.Name="Add Kubernetes panel" />
-        <controls:ChooserTile Icon="BranchFork" Title="Git" Description="Stage, commit &amp; history" Click="OnAddGitPanelClick" AutomationProperties.Name="Add Git panel" />
+        <controls:ChooserTile x:Name="NewPanelTerminalButton" Icon="WindowConsole" Title="{x:Static vm:PanelTypes.Terminal}" Description="{x:Static vm:PanelTypes.TerminalDescription}" Click="OnAddTerminalPanelClick" />
+        <controls:ChooserTile Icon="Globe" Title="{x:Static vm:PanelTypes.Browser}" Description="{x:Static vm:PanelTypes.BrowserDescription}" Click="OnAddBrowserPanelClick" IsEnabled="{Binding CanCreateBrowserPanel}" UnavailableReason="{Binding BrowserPanelUnavailableReason}" />
+        <controls:ChooserTile Icon="PulseSquare" Title="{x:Static vm:PanelTypes.Statistics}" Description="{x:Static vm:PanelTypes.StatisticsDescription}" Click="OnAddStatisticsPanelClick" />
+        <controls:ChooserTile Icon="Folder" Title="{x:Static vm:PanelTypes.Files}" Description="{x:Static vm:PanelTypes.FilesDescription}" Click="OnAddFilePanelClick" />
+        <controls:ChooserTile Icon="Gauge" Title="{x:Static vm:PanelTypes.Processes}" Description="{x:Static vm:PanelTypes.ProcessesDescription}" Click="OnAddProcessMonitorPanelClick" />
+        <controls:ChooserTile Icon="Database" Title="{x:Static vm:PanelTypes.Database}" Description="{x:Static vm:PanelTypes.DatabaseDescription}" Click="OnAddDatabasePanelClick" />
+        <controls:ChooserTile Icon="Box" Title="{x:Static vm:PanelTypes.Docker}" Description="{x:Static vm:PanelTypes.DockerDescription}" Click="OnAddDockerPanelClick" />
+        <controls:ChooserTile Icon="Grid" Title="{x:Static vm:PanelTypes.Kubernetes}" Description="{x:Static vm:PanelTypes.KubernetesDescription}" Click="OnAddKubernetesPanelClick" />
+        <controls:ChooserTile Icon="BranchFork" Title="{x:Static vm:PanelTypes.Git}" Description="{x:Static vm:PanelTypes.GitDescription}" Click="OnAddGitPanelClick" />
       </controls:CardGridPanel>
       <controls:SurfaceCard Padding="{DynamicResource ShellCardPaddingCompact}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceLg}">
           <StackPanel VerticalAlignment="Center">
             <TextBlock FontWeight="SemiBold" Text="Browser profile" />
-            <TextBlock Classes="Muted" Text="Pinned only for the new browser panel" />
+            <TextBlock Classes="Muted" Text="Used by the new browser panel only" />
           </StackPanel>
           <ComboBox
               Grid.Column="1"
@@ -126,7 +126,7 @@
         </Grid>
       </Grid>
 
-      <Button Classes="TextButton Accent" Click="OnShowLayoutDesignerClick" Content="Open layout designer instead" />
+      <Button Classes="TextButton Accent" Click="OnShowLayoutDesignerClick" Content="Open Layout Designer…" />
     </StackPanel>
   </controls:SurfaceCard>
 </UserControl>

@@ -513,8 +513,14 @@
         x:Name="SettingsRouteHost"
         IsVisible="{Binding IsSettingsVisible}" />
 
-    <!-- Docked overlays. Runtime native views are hidden while these are open. -->
-    <Grid IsVisible="{Binding HasOverlay}" Background="{DynamicResource ShellScrimBrush}">
+    <!-- Docked overlays. Runtime native views are hidden while these are open.
+         A click on the scrim around the palette or the Add Panel chooser
+         closes it, as a click outside a popover does. -->
+    <Grid
+        x:Name="OverlayScrim"
+        IsVisible="{Binding HasOverlay}"
+        Background="{DynamicResource ShellScrimBrush}"
+        PointerPressed="OnOverlayScrimPointerPressed">
       <ContentControl
           x:Name="CommandPaletteOverlayHost"
           IsVisible="{Binding IsCommandPaletteVisible}" />

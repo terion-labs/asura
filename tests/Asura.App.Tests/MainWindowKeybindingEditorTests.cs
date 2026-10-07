@@ -235,7 +235,11 @@ public sealed class MainWindowKeybindingEditorTests
                 && command.Arguments.TryGetValue("direction", out var direction)
                 && string.Equals(direction, "right", StringComparison.Ordinal));
         Assert.Contains("right", right.Title, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("direction=right", right.Detail, StringComparison.Ordinal);
+        // The palette names the invocation and never shows the command's
+        // identifier or its raw arguments; both stay searchable.
+        Assert.DoesNotContain("direction=right", right.Caption, StringComparison.Ordinal);
+        Assert.DoesNotContain(BuiltInCommands.FocusPanel.Value, right.Caption, StringComparison.Ordinal);
+        Assert.Contains("direction=right", right.SearchTerms, StringComparer.Ordinal);
         Assert.NotEqual("Unbound", right.TrailingText, StringComparer.Ordinal);
     }
 
@@ -259,7 +263,7 @@ public sealed class MainWindowKeybindingEditorTests
             item => item.Target == new LauncherSearchTarget.CreatePanel(PanelKind.Browser));
         Assert.False(browser.IsAvailable);
         Assert.Contains(
-            "embedded browser is unavailable",
+            "doesn't include the browser engine",
             browser.DisplayDetail,
             StringComparison.OrdinalIgnoreCase);
 
@@ -291,7 +295,7 @@ public sealed class MainWindowKeybindingEditorTests
         {
             Assert.NotEqual("Unbound", item.TrailingText, StringComparer.Ordinal);
             Assert.False(item.IsAvailable);
-            Assert.Equal("Unavailable in the current route.", item.UnavailableReason);
+            Assert.Equal("Not available here", item.UnavailableReason);
         });
     }
 

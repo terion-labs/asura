@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading.Channels;
 using Asura.App;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views;
 using Asura.App.Views.Components;
@@ -5166,8 +5167,8 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
                 Assert.True(tab.FloatPanel(panels[0].Id));
                 window.UpdateLayout();
                 var launcher = Assert.Single(launcherHost.GetVisualDescendants().OfType<LauncherView>());
-                var databaseButton = Assert.Single(launcher.GetVisualDescendants().OfType<Button>(),
-                    button => AutomationProperties.GetName(button) == "Open a new database viewer");
+                var databaseButton = Assert.Single(launcher.GetVisualDescendants().OfType<ChooserTile>(),
+                    tile => tile.Title == PanelTypes.Database);
                 var launched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 tab.Panels.CollectionChanged += (_, _) => launched.TrySetResult();
                 databaseButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -5570,7 +5571,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(1, runtime.HostRevision);
         Assert.Equal(1, runtime.HostSequence);
         Assert.Contains(
-            "invalid File Viewer creation receipt",
+            "invalid Files panel creation receipt",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -6003,8 +6004,9 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         using var viewModel = CreateViewModel(client, CreateTabAppendCatalogSnapshot());
         Assert.Equal("New Session", viewModel.NewItemLauncherTitle);
         viewModel.LauncherSearchQuery = "Secondary local";
+        // A palette row carries no action label of its own: Return opens it.
         Assert.Equal(
-            "Open",
+            string.Empty,
             Assert.Single(
                 viewModel.LauncherSearchResults,
                 result => result.Target
@@ -6019,7 +6021,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             .ToArray();
         Assert.Equal("New Tab", viewModel.NewItemLauncherTitle);
         Assert.Equal(
-            "Add tab",
+            string.Empty,
             Assert.Single(
                 viewModel.LauncherSearchResults,
                 result => result.Target
