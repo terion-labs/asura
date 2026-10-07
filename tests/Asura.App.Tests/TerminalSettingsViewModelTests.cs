@@ -112,18 +112,17 @@ public sealed class TerminalSettingsViewModelTests
         var fixture = CreateCatalog(Snapshot());
         using var viewModel = new TerminalSettingsViewModel(fixture.Catalog);
         var configured = new KeyStroke("K", KeyModifiers.Meta);
-        var fallback = QuickTerminalSettings.Default.Hotkey;
         var failure = new GlobalHotkeyRegistrationResult.Failure(new(
             GlobalHotkeyRegistrationErrorCode.Conflict,
             "global_hotkey_conflict",
             "Another application owns the shortcut."));
 
-        viewModel.ApplyQuickTerminalRegistration(configured, fallback, failure);
+        viewModel.ApplyQuickTerminalRegistration(configured, failure);
 
         var editor = Assert.IsType<QuickTerminalSettingsEditorViewModel>(
             viewModel.QuickTerminalEditor);
         Assert.Contains("Another application", editor.RegistrationStatus);
-        Assert.Contains("remains active", editor.RegistrationStatus);
+        Assert.Contains("no global hotkey", editor.RegistrationStatus);
     }
 
     [Fact]

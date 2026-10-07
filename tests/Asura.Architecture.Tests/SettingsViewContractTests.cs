@@ -755,7 +755,7 @@ public sealed class SettingsViewContractTests
         var toggles = root.Descendants()
             .Where(element => string.Equals(element.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal))
             .ToArray();
-        Assert.Equal(6, toggles.Length);
+        Assert.Equal(7, toggles.Length);
         Assert.Equal(
             new[]
             {
@@ -763,6 +763,7 @@ public sealed class SettingsViewContractTests
                 "{Binding QuickTerminalSettingsEditor.AnimateSlide}",
                 "{Binding QuickTerminalSettingsEditor.ReduceMotion}",
                 "{Binding QuickTerminalSettingsEditor.HideOnFocusLoss}",
+                "{Binding QuickTerminalSettingsEditor.HideOnEscape}",
                 "{Binding QuickTerminalSettingsEditor.RestoreLastSession}",
                 "{Binding QuickTerminalSettingsEditor.RestoreOnStart}",
             },
@@ -995,6 +996,7 @@ public sealed class SettingsViewContractTests
         "Reduce Quick Terminal motion",
         "Quick Terminal animation duration",
         "Hide Quick Terminal on focus loss",
+        "Escape hides Quick Terminal",
         "Keep Quick Terminal session",
     ];
 

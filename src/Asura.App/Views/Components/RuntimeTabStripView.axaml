@@ -70,7 +70,7 @@
         VerticalAlignment="Center"
         Classes="IconButton"
         Click="OnAddTab"
-        ToolTip.Tip="New tab"
+        ToolTip.Tip="{x:Static vm:ShortcutTips.NewTab}"
         AutomationProperties.Name="Open a new tab">
       <icons:SymbolIcon Symbol="Add" FontSize="12" />
     </Button>

@@ -25,6 +25,34 @@ internal static class MacOsQuickTerminalReveal
     private const nint AlwaysActive = 1;
     private const nint WidthSizable = 2;
     private const nint PlaceBelow = -1;
+    private const nint CanJoinAllSpaces = 1 << 0;
+    private const nint Transient = 1 << 3;
+    private const nint IgnoresCycle = 1 << 6;
+    private const nint FullScreenAuxiliary = 1 << 8;
+
+    /// <summary>
+    /// Sets the AppKit collection behavior of a floating panel. Without it a
+    /// summoned Quick Terminal over another app's full-screen Space switches
+    /// Spaces or does not appear, and Command-Grave cycles into it.
+    ///
+    /// A non-activating NSPanel would also leave the frontmost app active, but
+    /// Avalonia owns the NSWindow subclass, and Quick Terminal must become key
+    /// to take typing and return focus to the previous app on hide, which
+    /// <see cref="MacOsQuickTerminalFocus"/> already does.
+    /// </summary>
+    public static bool TryConfigurePanelBehavior(Window window)
+    {
+        if (!TryGetNativeWindow(window, out var nsWindow))
+        {
+            return false;
+        }
+
+        SendNIntArgument(
+            nsWindow,
+            Selector("setCollectionBehavior:"),
+            CanJoinAllSpaces | FullScreenAuxiliary | IgnoresCycle | Transient);
+        return true;
+    }
     public static bool TryClearWindowBacking(Window window)
     {
         if (!TryGetNativeWindow(window, out var nsWindow))

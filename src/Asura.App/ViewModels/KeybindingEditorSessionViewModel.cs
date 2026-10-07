@@ -49,15 +49,25 @@ public sealed record KeybindingEditorRowItemViewModel(
 
     public bool CanResetShortcut => CanEdit && CanReset;
 
+    /// <summary>
+    /// A read-only preset has nothing to record, unbind, or reset, so its rows
+    /// show no actions at all rather than three disabled buttons each.
+    /// </summary>
+    public bool ShowsActions => CanEdit;
+
     public bool HasIssue => Row.Issues.Count > 0;
 
     public string Status => Row.HasBlockingConflict
         ? "Conflict"
         : Row.IsUnknownCommand
             ? "Unknown"
-            : Row.IsBound
-                ? "Active"
-                : "Unbound";
+            : Row.Issues.Any(issue => issue.Kind
+                is KeymapIssueKind.SystemShortcut
+                or KeymapIssueKind.MenuShortcut)
+                ? "Never fires"
+                : Row.IsBound
+                    ? "Active"
+                    : "Unbound";
 
     public string IssueSummary => string.Join(' ', Row.Issues.Select(issue => issue.Message));
 }

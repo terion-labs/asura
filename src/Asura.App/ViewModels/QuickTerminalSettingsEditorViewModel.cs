@@ -24,6 +24,7 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
     private bool _restoreLastSession;
     private bool _restoreOnStart;
     private bool _hideOnFocusLoss;
+    private bool _hideOnEscape;
     private string _registrationStatus = "Shortcut registration has not been checked yet.";
     private string _registrationStatusBrush = "#8B8B91";
 
@@ -48,6 +49,7 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
         _restoreLastSession = settings.RestoreLastSession;
         _restoreOnStart = settings.RestoreOnStart;
         _hideOnFocusLoss = settings.HideOnFocusLoss;
+        _hideOnEscape = settings.HideOnEscape;
     }
 
     public QuickTerminalSettingsId SettingsId { get; }
@@ -83,8 +85,26 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
     public string HotkeyText
     {
         get => _hotkeyText;
-        set => SetProperty(ref _hotkeyText, value);
+        set
+        {
+            if (SetProperty(ref _hotkeyText, value))
+            {
+                OnPropertyChanged(nameof(HotkeyWarning));
+                OnPropertyChanged(nameof(HasHotkeyWarning));
+            }
+        }
     }
+
+    /// <summary>
+    /// Warns while the field holds a shortcut that macOS or Asura's own menu
+    /// bar already answers. Saving is still allowed; the warning says what the
+    /// hotkey would take away.
+    /// </summary>
+    public string? HotkeyWarning => ShortcutText.TryParseStroke(HotkeyText, out var stroke)
+        ? QuickTerminalHotkeyText.ReservedWarning(stroke, HostPlatform.Current)
+        : null;
+
+    public bool HasHotkeyWarning => HotkeyWarning is not null;
 
     public QuickTerminalMonitorPolicy MonitorPolicy
     {
@@ -152,6 +172,30 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
         set => SetProperty(ref _hideOnFocusLoss, value);
     }
 
+    public bool HideOnEscape
+    {
+        get => _hideOnEscape;
+        set
+        {
+            if (SetProperty(ref _hideOnEscape, value))
+            {
+                OnPropertyChanged(nameof(DismissSummary));
+            }
+        }
+    }
+
+    /// <summary>Every way the panel can be dismissed with these settings.</summary>
+    public string DismissSummary
+    {
+        get
+        {
+            var close = QuickTerminalHotkeyText.FormatApplicationCommand("W");
+            return HideOnEscape
+                ? $"Hide the panel with its global hotkey, {close}, or Escape."
+                : $"Hide the panel with its global hotkey or {close}. Escape goes to the terminal.";
+        }
+    }
+
     public string RegistrationStatus
     {
         get => _registrationStatus;
@@ -179,13 +223,18 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
             RestoreLastSession,
             HideOnFocusLoss,
             IsTranslucent,
-            RestoreOnStart);
+            RestoreOnStart,
+            HideOnEscape);
         return new QuickTerminalSettingsSaveRequest(settings, ExpectedRevision);
     }
 
+    /// <summary>
+    /// Reports what the system made of the configured hotkey. A failure is
+    /// final: no other shortcut is registered in its place, so the status says
+    /// that Quick Terminal has no hotkey until another one is chosen.
+    /// </summary>
     public void ApplyRegistration(
         KeyStroke configuredGesture,
-        KeyStroke? activeGesture,
         GlobalHotkeyRegistrationResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
@@ -198,10 +247,10 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
         }
 
         var error = ((GlobalHotkeyRegistrationResult.Failure)result).Error;
-        var fallback = activeGesture is null
-            ? string.Empty
-            : $" {QuickTerminalHotkeyText.Format(activeGesture.Value)} remains active.";
-        RegistrationStatus = $"{error.Message}{fallback}";
+        RegistrationStatus =
+            $"{configured} could not be registered: {error.Message} "
+            + "Quick Terminal has no global hotkey until you choose another shortcut. "
+            + "Show Quick Terminal from the View menu meanwhile.";
         RegistrationStatusBrush = "#FFB224";
     }
 }

@@ -74,13 +74,10 @@ public sealed class GlobalHotkeyServiceSelectorTests
             GlobalHotkeyUnavailableReason.Wayland);
 
         var registration = Assert.IsType<GlobalHotkeyRegistrationResult.Failure>(
-            service.Register(new KeyStroke("GRAVE", KeyModifiers.Meta)));
-        var escape = Assert.IsType<GlobalHotkeyRegistrationResult.Failure>(
-            service.BeginEscapeCapture());
+            service.Register(new KeyStroke("GRAVE", KeyModifiers.Control)));
 
         Assert.Equal(GlobalHotkeyRegistrationErrorCode.Unsupported, registration.Error.Code);
         Assert.Equal("global_hotkey_wayland_unsupported", registration.Error.StableCode);
         Assert.Contains("Wayland", registration.Error.Message, StringComparison.Ordinal);
-        Assert.Equal("escape_capture_wayland_unsupported", escape.Error.StableCode);
     }
 }

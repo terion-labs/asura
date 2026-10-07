@@ -349,6 +349,7 @@
                     Heading="Keybindings"
                     Description="Record, unbind, reset, and validate application or terminal shortcuts. Blocking conflicts cannot be saved." />
                 <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding ActiveApplicationKeymapName, StringFormat={}Active application profile · {0}}" />
+                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" TextWrapping="Wrap" Text="Your newest custom application profile is the active one. To use the tmux-like prefix, choose its preset and clone it." />
               </StackPanel>
 
               <Grid ColumnDefinitions="*,320" ColumnSpacing="{DynamicResource ShellSpaceLg}">
@@ -458,15 +459,30 @@
                   <ItemsControl Grid.Row="1" ItemsSource="{Binding KeybindingEditorSession.Rows}">
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
-                        <Border BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="0,1,0,0" ToolTip.Tip="{Binding IssueSummary}">
+                        <!-- Row actions appear on the row being pointed at or
+                             holding keyboard focus, as list rows do on macOS.
+                             They stay in the tab order while transparent, and a
+                             read-only preset has none at all. -->
+                        <Border Classes="KeybindingRow" Background="Transparent" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="0,1,0,0" ToolTip.Tip="{Binding IssueSummary}">
+                          <Border.Styles>
+                            <Style Selector="Border.KeybindingRow StackPanel.KeybindingRowActions">
+                              <Setter Property="Opacity" Value="0" />
+                            </Style>
+                            <Style Selector="Border.KeybindingRow:pointerover StackPanel.KeybindingRowActions">
+                              <Setter Property="Opacity" Value="1" />
+                            </Style>
+                            <Style Selector="Border.KeybindingRow:focus-within StackPanel.KeybindingRowActions">
+                              <Setter Property="Opacity" Value="1" />
+                            </Style>
+                          </Border.Styles>
                           <Grid Margin="{controls:Inset Horizontal=Md, Vertical=Sm}" ColumnDefinitions="130,*,190,130,90,220" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                             <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Category}" />
                             <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize11}" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
                             <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Shortcut}" TextTrimming="CharacterEllipsis" />
                             <TextBlock Grid.Column="3" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Contexts}" TextTrimming="CharacterEllipsis" />
                             <TextBlock Grid.Column="4" VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding Status}" />
-                            <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                              <Button Classes="SecondaryButton" Click="OnRecordKeybindingClick" Content="Record" IsEnabled="{Binding CanEdit}" />
+                            <StackPanel Grid.Column="5" Classes="KeybindingRowActions" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}" IsVisible="{Binding ShowsActions}">
+                              <Button Classes="SecondaryButton" Click="OnRecordKeybindingClick" Content="Record…" IsEnabled="{Binding CanEdit}" AutomationProperties.Name="{Binding Title, StringFormat={}Record a shortcut for {0}}" />
                               <Button Classes="TextButton" Click="OnUnbindKeybindingClick" Content="Unbind" IsEnabled="{Binding CanUnbind}" />
                               <Button Classes="TextButton" Click="OnResetKeybindingClick" Content="Reset" IsEnabled="{Binding CanResetShortcut}" />
                             </StackPanel>

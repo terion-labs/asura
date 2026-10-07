@@ -45,7 +45,7 @@
             <NativeMenuItem Header="Launcher" Click="OnLauncherMenuClick" />
             <NativeMenuItem Header="Quick Terminal" Click="OnQuickTerminalMenuClick" />
             <NativeMenuItemSeparator />
-            <NativeMenuItem Header="Toggle Agent Panel" Gesture="Meta+Shift+A" Click="OnToggleAgentMenuClick" />
+            <NativeMenuItem Header="Toggle Agent Panel" Gesture="Ctrl+Meta+A" Click="OnToggleAgentMenuClick" />
           </NativeMenu>
         </NativeMenuItem.Menu>
       </NativeMenuItem>

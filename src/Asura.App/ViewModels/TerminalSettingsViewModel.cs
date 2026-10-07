@@ -13,6 +13,7 @@ public sealed class TerminalSettingsViewModel : ObservableObject, IDisposable
     private DefinitionCatalogSnapshot _snapshot;
     private TerminalProfileEditorViewModel? _terminalEditor;
     private QuickTerminalSettingsEditorViewModel? _quickTerminalEditor;
+    private (KeyStroke Gesture, GlobalHotkeyRegistrationResult Result)? _lastQuickTerminalRegistration;
     private bool _disposed;
 
     public TerminalSettingsViewModel(IDefinitionCatalog catalog)
@@ -137,14 +138,12 @@ public sealed class TerminalSettingsViewModel : ObservableObject, IDisposable
 
     public void ApplyQuickTerminalRegistration(
         KeyStroke configuredGesture,
-        KeyStroke? activeGesture,
         GlobalHotkeyRegistrationResult result)
     {
         ThrowIfDisposed();
-        QuickTerminalEditor?.ApplyRegistration(
-            configuredGesture,
-            activeGesture,
-            result);
+        ArgumentNullException.ThrowIfNull(result);
+        _lastQuickTerminalRegistration = (configuredGesture, result);
+        QuickTerminalEditor?.ApplyRegistration(configuredGesture, result);
     }
 
     public void Dispose()
@@ -206,6 +205,13 @@ public sealed class TerminalSettingsViewModel : ObservableObject, IDisposable
         QuickTerminalEditor = new QuickTerminalSettingsEditorViewModel(
             quickTerminal.Value,
             quickTerminal.Revision);
+        // A saved edit replaces the editor. The registration it reported still
+        // describes the hotkey until the controller registers a new one.
+        if (_lastQuickTerminalRegistration is { } last
+            && last.Gesture == quickTerminal.Value.Hotkey)
+        {
+            QuickTerminalEditor.ApplyRegistration(last.Gesture, last.Result);
+        }
     }
 
     private static DefinitionStoreResult<T> Fail<T>(string message) =>

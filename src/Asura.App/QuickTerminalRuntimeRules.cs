@@ -2,7 +2,8 @@ namespace Asura.App;
 
 internal enum QuickTerminalEscapeAction
 {
-    Ignore,
+    /// <summary>Escape is the terminal's: let it reach the running program.</summary>
+    PassToTerminal,
     CancelPendingInteraction,
     Hide,
 }
@@ -18,14 +19,22 @@ internal static class QuickTerminalRuntimeRules
         bool hideOnFocusLoss) =>
         isVisible && hideOnFocusLoss;
 
+    /// <summary>
+    /// Escape first cancels a prompt Asura itself is showing. Otherwise it
+    /// belongs to the program in the terminal, unless the person asked for
+    /// Escape to hide the panel.
+    /// </summary>
     public static QuickTerminalEscapeAction ResolveEscape(
         bool isVisible,
-        bool pendingInteractionCancelled) =>
+        bool pendingInteractionCancelled,
+        bool hideOnEscape) =>
         !isVisible
-            ? QuickTerminalEscapeAction.Ignore
+            ? QuickTerminalEscapeAction.PassToTerminal
             : pendingInteractionCancelled
                 ? QuickTerminalEscapeAction.CancelPendingInteraction
-                : QuickTerminalEscapeAction.Hide;
+                : hideOnEscape
+                    ? QuickTerminalEscapeAction.Hide
+                    : QuickTerminalEscapeAction.PassToTerminal;
 
     public static bool ShouldResetAfterHide(bool restoreLastSession) =>
         !restoreLastSession;
