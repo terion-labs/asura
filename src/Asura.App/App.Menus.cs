@@ -92,7 +92,7 @@ public sealed partial class App : IApplicationCommandService
         IApplicationMenuHost host = window switch
         {
             MainWindow main => main,
-            SettingsWindow settings => new SettingsWindowMenuHost(settings, this, lifetime.Token),
+            SettingsWindow or EditorWindow => new SettingsWindowMenuHost(window, this, lifetime.Token),
             QuickTerminalWindow quick when _quickTerminalController is { } controller =>
                 new QuickTerminalMenuHost(quick, controller, this, lifetime.Token),
             _ => new AuxiliaryWindowMenuHost(window, this, lifetime.Token),

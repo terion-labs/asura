@@ -216,18 +216,20 @@
             </Grid>
           </Button>
           <!--
-            Where before what. The plus asks which edge the panel goes against, and
-            the panel itself then asks what to open — rather than a modal asking
-            what to open and the layout deciding where it lands.
+            Where before what. The plus asks which edge the panel goes against,
+            then what to open there in a popover anchored to the plus itself —
+            rather than a modal asking what to open and the layout deciding
+            where it lands. Add Panel… from the menu bar opens the same popover
+            here.
           -->
-          <Button Classes="IconButton" ToolTip.Tip="{x:Static vm:ShortcutTips.AddPanel}" AutomationProperties.Name="Add panel">
+          <Button x:Name="AddPanelButton" Classes="IconButton" ToolTip.Tip="{x:Static vm:ShortcutTips.AddPanel}" AutomationProperties.Name="Add panel">
             <icons:SymbolIcon Symbol="LayoutColumnTwoSplitRight" FontSize="{DynamicResource ShellIconSizeMd}" />
             <Button.Flyout>
               <MenuFlyout Placement="Bottom">
-                <MenuItem Click="OnAddPanelLeftClick" Header="Add to the left" />
-                <MenuItem Click="OnAddPanelRightClick" Header="Add to the right" />
-                <MenuItem Click="OnAddPanelTopClick" Header="Add above" />
-                <MenuItem Click="OnAddPanelBottomClick" Header="Add below" />
+                <MenuItem Click="OnAddPanelLeftClick" Header="Add to the Left" />
+                <MenuItem Click="OnAddPanelRightClick" Header="Add to the Right" />
+                <MenuItem Click="OnAddPanelTopClick" Header="Add Above" />
+                <MenuItem Click="OnAddPanelBottomClick" Header="Add Below" />
               </MenuFlyout>
             </Button.Flyout>
           </Button>

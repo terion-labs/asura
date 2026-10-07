@@ -24,8 +24,11 @@
       <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
     </Style>
   </UserControl.Styles>
+  <!-- 680 wide where there is room; the code-behind caps it at the window's
+       width less its margins, so a window tiled to half a laptop screen
+       still shows the whole palette. -->
   <controls:SurfaceCard Elevation="Overlay" Padding="0"
-      Width="680"
+      x:Name="PaletteCard"
       MaxHeight="700"
       HorizontalAlignment="Center"
       VerticalAlignment="Center"

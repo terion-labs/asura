@@ -68,6 +68,22 @@ internal static class Confirmations
             ConfirmAutomationName = "Discard unsaved changes",
         });
 
+    /// <summary>
+    /// The save alert a window with unsaved edits asks as it closes: Save,
+    /// Don't Save, or Cancel to keep editing.
+    /// </summary>
+    public static ConfirmationDialog SaveChanges(string subject, string detail) =>
+        new(new ConfirmationDialogOptions
+        {
+            Heading = $"Do you want to save the changes to {subject}?",
+            Detail = detail,
+            ConfirmLabel = "Save",
+            AlternateLabel = "Don't Save",
+            Intent = ConfirmationIntent.Confirm,
+            ConfirmAutomationName = "Save changes",
+            CancelAutomationName = "Keep editing",
+        });
+
     public static ConfirmationDialog WorkspaceIsolationRestart(
         string workspaceName,
         bool rebuildsIsolate = false) =>

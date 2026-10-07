@@ -146,6 +146,13 @@ public sealed class LayoutDesignerViewModel : ObservableObject
         || !_matchesOriginal
         || !StringComparer.Ordinal.Equals(_name, _original.Name);
 
+    /// <summary>
+    /// Whether anything was changed since the designer opened. A new layout
+    /// is never saved yet, but one closed untouched has nothing to ask about.
+    /// </summary>
+    public bool HasChanges => !_matchesOriginal
+        || !StringComparer.Ordinal.Equals(_name, _original.Name);
+
     public string DirtyStatus => IsNew
         ? "Unsaved new layout"
         : IsDirty

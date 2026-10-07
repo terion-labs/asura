@@ -416,7 +416,8 @@ public sealed class MainWindowKeybindingEditorTests
         // Settings opens in its own window, so the unsaved editor is neither
         // replaced nor asked about.
         Assert.Equal(ShellRoute.Workspace, viewModel.Route);
-        Assert.Equal(ShellOverlay.DefinitionEditor, viewModel.Overlay);
+        Assert.True(viewModel.IsDefinitionEditorVisible);
+        Assert.False(viewModel.HasOverlay);
         Assert.Equal("Changed", viewModel.WorkspaceEditor?.Name);
         Assert.True(viewModel.IsSettingsVisible);
     }

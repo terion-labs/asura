@@ -80,6 +80,7 @@ public sealed partial class MainWindow
     private void OnLifecycleViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         _ = sender;
+        OnEditorSessionPropertyChanged(e);
         if (e.PropertyName is nameof(MainWindowViewModel.IsWorkspaceIsolationProgressVisible)
             or nameof(MainWindowViewModel.IsWorkspaceVisible))
         {

@@ -9,6 +9,7 @@
     xmlns:panelViews="using:Asura.App.Views.RuntimePanels"
     xmlns:views="using:Asura.App.Views"
     xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:sys="using:System"
     x:DataType="vm:MainWindowViewModel"
     Title="Asura"
     Width="1440"
@@ -157,7 +158,7 @@
           SearchKeyDownRequested="OnCommandSearchKeyDown" />
     </DataTemplate>
 
-    <DataTemplate x:Key="NewPanelOverlayTemplate" x:DataType="vm:MainWindowViewModel">
+    <DataTemplate x:Key="NewPanelChooserTemplate" x:DataType="vm:MainWindowViewModel">
       <overlays:NewPanelChooserView
           AddBrowserPanelRequested="OnAddBrowserPanelClick"
           AddConnectionPanelRequested="OnAddConnectionPanelClick"
@@ -169,15 +170,14 @@
           AddProcessMonitorPanelRequested="OnAddProcessMonitorPanelClick"
           AddStatisticsPanelRequested="OnAddStatisticsPanelClick"
           AddTerminalPanelRequested="OnAddTerminalPanelClick"
-          CloseRequested="OnCloseOverlayClick"
           OpenScreenRequested="OnOpenScreenClick"
           ShowLayoutDesignerRequested="OnShowLayoutDesignerClick" />
     </DataTemplate>
 
-    <DataTemplate x:Key="LayoutDesignerOverlayTemplate" x:DataType="vm:MainWindowViewModel">
+    <DataTemplate x:Key="LayoutDesignerTemplate" x:DataType="vm:MainWindowViewModel">
       <overlays:LayoutDesignerView
           AddSlotRequested="OnLayoutAddSlotClick"
-          CloseRequested="OnCloseOverlayClick"
+          CloseRequested="OnLayoutDesignerCancelClick"
           EditLayoutRequested="OnEditLayoutClick"
           RemoveSlotRequested="OnLayoutRemoveSlotClick"
           ResetRequested="OnResetLayoutClick"
@@ -187,25 +187,18 @@
           SplitSlotRightRequested="OnLayoutSplitSlotRightClick" />
     </DataTemplate>
 
-    <DataTemplate x:Key="DefinitionEditorOverlayTemplate" x:DataType="vm:MainWindowViewModel">
-      <controls:SurfaceCard Elevation="Overlay" Padding="0"
-          Margin="42,58,42,34"
-          MaxWidth="1280"
-          HorizontalAlignment="Center"
-          VerticalAlignment="Stretch"
-          ClipToBounds="True"
-          KeyboardNavigation.TabNavigation="Cycle">
-        <views:WorkspaceEditorView
-            x:Name="WorkspaceDefinitionEditor"
-            DataContext="{Binding WorkspaceEditor}"
-            PickAccentRequested="OnWorkspaceAccentPickRequested"
-            InstallWorkspaceIsolationRuntimeRequested="OnInstallWorkspaceIsolationRuntimeClick"
-            RecreateWorkspaceIsolationRequested="OnRecreateWorkspaceIsolationRequested"
-            SaveRequested="OnWorkspaceEditorSaveRequested"
-            CancelRequested="OnWorkspaceEditorCancelRequested"
-            WorkspaceSelectionRequested="OnWorkspaceSelectionRequested"
-            CreateWorkspaceRequested="OnCreateWorkspaceRequested" />
-      </controls:SurfaceCard>
+    <!-- The workspace editor, shown in its own window (WorkspaceEditorWindow)
+         beside this one. -->
+    <DataTemplate x:Key="WorkspaceEditorTemplate" x:DataType="vm:MainWindowViewModel">
+      <views:WorkspaceEditorView
+          DataContext="{Binding WorkspaceEditor}"
+          PickAccentRequested="OnWorkspaceAccentPickRequested"
+          InstallWorkspaceIsolationRuntimeRequested="OnInstallWorkspaceIsolationRuntimeClick"
+          RecreateWorkspaceIsolationRequested="OnRecreateWorkspaceIsolationRequested"
+          SaveRequested="OnWorkspaceEditorSaveRequested"
+          CancelRequested="OnWorkspaceEditorCancelRequested"
+          WorkspaceSelectionRequested="OnWorkspaceSelectionRequested"
+          CreateWorkspaceRequested="OnCreateWorkspaceRequested" />
     </DataTemplate>
   </Window.Resources>
 
@@ -225,6 +218,15 @@
   <Window.Styles>
     <Style Selector="WindowDrawnDecorations /template/ Panel#PART_TitleTextPanel > TextBlock">
       <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <!-- The Add Panel popover sizes itself to the window it opens over and
+         scrolls on its own, so the presenter neither caps nor scrolls it. -->
+    <Style Selector="FlyoutPresenter.AddPanelChooser">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MaxWidth" Value="{x:Static sys:Double.PositiveInfinity}" />
+      <Setter Property="MaxHeight" Value="{x:Static sys:Double.PositiveInfinity}" />
+      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+      <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
     </Style>
   </Window.Styles>
 
@@ -507,9 +509,11 @@
         WorkspaceNetworkToggleRequested="OnWorkspaceNetworkToggleRequested"
         NetworkingSettingsRequested="OnNetworkingSettingsClick" />
 
-    <!-- Docked overlays. Runtime native views are hidden while these are open.
-         A click on the scrim around the palette or the Add Panel chooser
-         closes it, as a click outside a popover does. -->
+    <!-- The command palette, the one overlay left. Runtime native views are
+         hidden while it is open, and a click on the scrim around it closes
+         it, as a click outside a popover does. Add Panel is a flyout on its
+         "+" button, and the workspace editor and the Layout Designer have
+         windows of their own. -->
     <Grid
         x:Name="OverlayScrim"
         IsVisible="{Binding HasOverlay}"
@@ -518,15 +522,6 @@
       <ContentControl
           x:Name="CommandPaletteOverlayHost"
           IsVisible="{Binding IsCommandPaletteVisible}" />
-      <ContentControl
-          x:Name="NewPanelOverlayHost"
-          IsVisible="{Binding IsNewPanelVisible}" />
-      <ContentControl
-          x:Name="LayoutDesignerOverlayHost"
-          IsVisible="{Binding IsLayoutDesignerVisible}" />
-      <ContentControl
-          x:Name="DefinitionEditorOverlayHost"
-          IsVisible="{Binding IsDefinitionEditorVisible}" />
 
       <Border
           x:Name="OverlayTitleBarDragRegion"

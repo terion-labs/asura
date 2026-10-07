@@ -270,11 +270,12 @@ internal sealed class QuickTerminalMenuHost(
 }
 
 /// <summary>
-/// The Settings window has no tabs, so Close Tab (⌘W) closes the window, as it
-/// closes any Mac window without tabs.
+/// The Settings window, the workspace editor and the Layout Designer have no
+/// tabs, so Close Tab (⌘W) closes the window, as it closes any Mac window
+/// without tabs.
 /// </summary>
 internal sealed class SettingsWindowMenuHost(
-    SettingsWindow window,
+    Window window,
     IApplicationCommandService application,
     CancellationToken lifetime) : AuxiliaryWindowMenuHost(window, application, lifetime)
 {

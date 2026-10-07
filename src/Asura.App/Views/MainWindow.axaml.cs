@@ -167,6 +167,7 @@ public sealed partial class MainWindow : Window
         // only ask about sessions that have already ended.
         if (e.CloseReason == WindowCloseReason.ApplicationShutdown && e.IsProgrammatic)
         {
+            ApproveEditorWindowsClose();
             base.OnClosing(e);
             return;
         }
@@ -178,6 +179,10 @@ public sealed partial class MainWindow : Window
             {
                 _ = CloseCoordinator.RequestWindowCloseAsync();
             }
+        }
+        else
+        {
+            ApproveEditorWindowsClose();
         }
 
         base.OnClosing(e);
@@ -369,7 +374,7 @@ public sealed partial class MainWindow : Window
         this,
         ViewModel,
         () => SettingsRoute,
-        () => LayoutDesignerOverlay,
+        EnsureLayoutDesignerView,
         () => _workspaceDefinitionEditor,
         _lifetime.Token);
 
@@ -389,14 +394,6 @@ public sealed partial class MainWindow : Window
     private CommandPaletteView CommandPaletteOverlay => _commandPaletteOverlay
         ?? throw new InvalidOperationException(
             "The command palette overlay has not been opened.");
-
-    private LayoutDesignerView LayoutDesignerOverlay => _layoutDesignerOverlay
-        ?? throw new InvalidOperationException(
-            "The layout designer overlay has not been opened.");
-
-    private NewPanelChooserView NewPanelChooserOverlay => _newPanelChooserOverlay
-        ?? throw new InvalidOperationException(
-            "The new panel chooser overlay has not been opened.");
 
     private T MaterializeRoute<T>(string templateKey, string hostName)
         where T : Control
@@ -425,34 +422,6 @@ public sealed partial class MainWindow : Window
         _commandPaletteOverlay ??= MaterializeRoute<CommandPaletteView>(
             "CommandPaletteOverlayTemplate",
             "CommandPaletteOverlayHost");
-
-    private void EnsureNewPanelChooserOverlay() =>
-        _newPanelChooserOverlay ??= MaterializeRoute<NewPanelChooserView>(
-            "NewPanelOverlayTemplate",
-            "NewPanelOverlayHost");
-
-    private void EnsureLayoutDesignerOverlay() =>
-        _layoutDesignerOverlay ??= MaterializeRoute<LayoutDesignerView>(
-            "LayoutDesignerOverlayTemplate",
-            "LayoutDesignerOverlayHost");
-
-    private void EnsureDefinitionEditorOverlay()
-    {
-        if (_workspaceDefinitionEditor is not null)
-        {
-            return;
-        }
-
-        var card = MaterializeRoute<SurfaceCard>(
-            "DefinitionEditorOverlayTemplate",
-            "DefinitionEditorOverlayHost");
-        _workspaceDefinitionEditor = card
-            .GetLogicalDescendants()
-            .OfType<WorkspaceEditorView>()
-            .SingleOrDefault()
-            ?? throw new InvalidOperationException(
-                "The workspace definition editor is unavailable.");
-    }
 
     public void ShowCommandPalette()
     {
@@ -507,54 +476,22 @@ public sealed partial class MainWindow : Window
     public async Task NavigateToLauncherAsync() => await ShowNewItemLauncherAsync();
 
 
-    public async Task ShowNewPanelChooserAsync()
+    /// <summary>
+    /// Opens the Layout Designer over a new layout, or brings its window
+    /// forward when a layout is already being designed.
+    /// </summary>
+    public Task ShowLayoutDesignerAsync()
     {
-        if (ViewModel.HasOverlay && !await TryCloseOverlayAsync())
+        if (!ViewModel.IsLayoutDesignerVisible)
         {
-            return;
+            // The palette that asked has done its job.
+            ViewModel.CloseOverlay();
+            ViewModel.BeginCreateLayout();
         }
 
-        if (ViewModel.RuntimeWorkspace?.ActiveTab is null)
-        {
-            ViewModel.SetError("Open a workspace tab before adding a panel.");
-            return;
-        }
-
-        ViewModel.ShowWorkspace();
-        if (!ViewModel.IsWorkspaceVisible)
-        {
-            return;
-        }
-
-        EnsureNewPanelChooserOverlay();
-        ViewModel.ShowOverlay(ShellOverlay.NewPanel);
-        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-        {
-            if (ViewModel.IsNewPanelVisible)
-            {
-                NewPanelChooserOverlay.FocusInitialAction();
-            }
-        });
+        PresentLayoutDesigner();
+        return Task.CompletedTask;
     }
-
-    public async Task ShowLayoutDesignerAsync()
-    {
-        if (ViewModel.IsLayoutDesignerVisible)
-        {
-            FocusNavigator.FocusLayoutDesignerName();
-            return;
-        }
-
-        if (ViewModel.HasOverlay && !await TryCloseOverlayAsync())
-        {
-            return;
-        }
-
-        EnsureLayoutDesignerOverlay();
-        ViewModel.BeginCreateLayout();
-        FocusNavigator.FocusLayoutDesignerName();
-    }
-
 
     internal static bool IsExactGlobalGesture(
         Key actualKey,
@@ -610,16 +547,14 @@ public sealed partial class MainWindow : Window
         NavigateToSettings();
     }
 
-    private void OnShowAgentSettingsClick(object? sender, RoutedEventArgs e)
+    private async void OnShowAgentSettingsClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
         if (ViewModel.RuntimeWorkspace is { } runtime
             && ViewModel.TryGetWorkspaceDefinitionId(runtime.Id, out var workspaceId))
         {
-            EnsureDefinitionEditorOverlay();
-            ViewModel.BeginEditWorkspace(workspaceId);
-            FocusNavigator.FocusDefinitionEditor();
+            await EditWorkspaceAsync(workspaceId);
             return;
         }
 
@@ -803,8 +738,16 @@ public sealed partial class MainWindow : Window
         _ = await TryCloseOverlayAsync();
     }
 
-    private Task<bool> TryCloseOverlayAsync() =>
-        CloseCoordinator.TryCloseOverlayAsync();
+    /// <summary>
+    /// Closes the command palette. The editors that used to be overlays have
+    /// windows of their own and close with them.
+    /// </summary>
+    private Task<bool> TryCloseOverlayAsync()
+    {
+        ViewModel.CloseOverlay();
+        FocusNavigator.FocusCurrentRoute();
+        return Task.FromResult(true);
+    }
 
     private async void OnOpenWorkspaceClick(object? sender, RoutedEventArgs e)
     {
@@ -1376,8 +1319,8 @@ public sealed partial class MainWindow : Window
         var result = await ViewModel.SaveLayoutDesignerAsync(_lifetime.Token);
         if (result.IsSuccess)
         {
+            // Its window closes with the session.
             ViewModel.DismissLayoutDesigner();
-            FocusCurrentRoute();
         }
     }
 
@@ -1389,18 +1332,24 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        BringForwardForEditor();
+        if (ViewModel.LayoutDesignerEditor is { IsNew: false } designing
+            && designing.Id == layout.Id)
+        {
+            // The same layout again: its window, with the edits as they are.
+            PresentLayoutDesigner();
+            return;
+        }
+
         if (ViewModel.LayoutDesignerEditor?.RequestCancel()
                 == LayoutDesignerCancelDisposition.ConfirmDiscard
-            && !await Confirmations.DiscardChanges().ShowDialog<bool>(this))
+            && !await Confirmations.DiscardChanges().ShowDialog<bool>(LayoutDesignerDialogOwner))
         {
             return;
         }
 
-        BringForwardForEditor();
-        ViewModel.DismissLayoutDesigner();
-        EnsureLayoutDesignerOverlay();
-        ViewModel.BeginEditLayout(layout.Id);
-        FocusNavigator.FocusLayoutDesignerName();
+        ViewModel.BeginEditLayout(layout.Id, replaceCurrent: true);
+        PresentLayoutDesigner();
     }
 
     private void OnLayoutSlotClick(object? sender, RoutedEventArgs e)
@@ -1441,25 +1390,23 @@ public sealed partial class MainWindow : Window
         LayoutDesignerInteractions.Reset();
     }
 
-    private void OnCreateWorkspaceClick(object? sender, RoutedEventArgs e)
+    private async void OnCreateWorkspaceClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        BringForwardForEditor();
-        EnsureDefinitionEditorOverlay();
-        ViewModel.BeginCreateWorkspace();
-        FocusNavigator.FocusDefinitionEditor();
+        await CreateWorkspaceAsync();
     }
 
-    private void OnEditWorkspaceClick(object? sender, RoutedEventArgs e)
+    /// <summary>
+    /// Edit Workspace… from Settings, the launcher or a rail tile's menu:
+    /// the editor window for that workspace.
+    /// </summary>
+    private async void OnEditWorkspaceClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
         if (sender is Control { DataContext: LauncherWorkspaceViewModel workspace })
         {
-            BringForwardForEditor();
-            EnsureDefinitionEditorOverlay();
-            ViewModel.BeginEditWorkspace(workspace.Id);
-            FocusNavigator.FocusDefinitionEditor();
+            await EditWorkspaceAsync(workspace.Id);
         }
     }
 
@@ -1510,11 +1457,8 @@ public sealed partial class MainWindow : Window
         WorkspaceEditorSaveRequestedEventArgs e)
     {
         _ = sender;
-        var result = await SaveWorkspaceEditorFromWindowAsync(e.Request);
-        if (result.IsSuccess)
-        {
-            FocusCurrentRoute();
-        }
+        // On success the session ends and its window closes with it.
+        _ = await SaveWorkspaceEditorFromWindowAsync(e.Request);
     }
 
     private async void OnRecreateWorkspaceIsolationRequested(
@@ -1534,7 +1478,7 @@ public sealed partial class MainWindow : Window
         }
 
         if (!await Confirmations.RecreateWorkspaceIsolation(editor.Name)
-                .ShowDialog<bool>(this))
+                .ShowDialog<bool>(WorkspaceEditorDialogOwner))
         {
             return;
         }
@@ -1556,7 +1500,7 @@ public sealed partial class MainWindow : Window
         if (!await Confirmations.WorkspaceIsolationRestart(
                     request.Definition.Name,
                     ViewModel.WorkspaceEditorImageChangeRebuildsIsolate(request))
-                .ShowDialog<bool>(this))
+                .ShowDialog<bool>(WorkspaceEditorDialogOwner))
         {
             return DefinitionStoreResult<StoredDefinition<WorkspaceDefinition>>.Failure(
                 new DefinitionStoreError(
@@ -1584,7 +1528,7 @@ public sealed partial class MainWindow : Window
         }
 
         ViewModel.BeginEditWorkspace(id);
-        FocusNavigator.FocusDefinitionEditor();
+        PresentWorkspaceEditor();
     }
 
     private async void OnCreateWorkspaceRequested(object? sender, EventArgs e)
@@ -1597,7 +1541,7 @@ public sealed partial class MainWindow : Window
         }
 
         ViewModel.BeginCreateWorkspace();
-        FocusNavigator.FocusDefinitionEditor();
+        PresentWorkspaceEditor();
     }
 
     private async Task<bool> CommitWorkspaceEditsBeforeSwitchAsync()
@@ -1612,7 +1556,7 @@ public sealed partial class MainWindow : Window
             if (!await Confirmations.DiscardChanges(
                     "Discard workspace changes?",
                     "These changes cannot be saved yet, and switching workspaces loses them.\n\n"
-                    + editor.ValidationSummary).ShowDialog<bool>(this))
+                    + editor.ValidationSummary).ShowDialog<bool>(WorkspaceEditorDialogOwner))
             {
                 return false;
             }
@@ -1633,13 +1577,13 @@ public sealed partial class MainWindow : Window
             && !await Confirmations.DiscardChanges(
                     "Discard workspace changes?",
                     "The unsaved workspace order, tabs, panels, and startup settings will be lost.")
-                .ShowDialog<bool>(this))
+                .ShowDialog<bool>(WorkspaceEditorDialogOwner))
         {
             return;
         }
 
+        // Its window closes with the session.
         ViewModel.DismissWorkspaceEditor();
-        FocusCurrentRoute();
     }
 
     /// <summary>
@@ -1965,11 +1909,6 @@ public sealed partial class MainWindow : Window
         {
             FocusNavigator.FocusActivePanel();
             e.Handled = true;
-            return;
-        }
-
-        if (ViewModel.IsLayoutDesignerVisible)
-        {
             return;
         }
 

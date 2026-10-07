@@ -103,17 +103,21 @@ public sealed class RuntimeDockControlHeadlessTests
         RunHeadlessAsync(() =>
         {
             var window = new MainWindow();
-            foreach (var hostName in new[]
+            var paletteHost = window.FindControl<ContentControl>("CommandPaletteOverlayHost");
+            Assert.NotNull(paletteHost);
+            Assert.Null(paletteHost.Content);
+
+            // Add Panel is a popover and the editors are windows of their
+            // own: their views are built from this window's templates, but
+            // nothing here hosts them.
+            foreach (var retired in new[]
                      {
-                         "CommandPaletteOverlayHost",
                          "NewPanelOverlayHost",
                          "LayoutDesignerOverlayHost",
                          "DefinitionEditorOverlayHost",
                      })
             {
-                var host = window.FindControl<ContentControl>(hostName);
-                Assert.NotNull(host);
-                Assert.Null(host.Content);
+                Assert.Null(window.FindControl<ContentControl>(retired));
             }
 
             // Settings content is built from this window's template too, but
@@ -121,12 +125,9 @@ public sealed class RuntimeDockControlHeadlessTests
             Assert.Null(window.FindControl<ContentControl>("SettingsRouteHost"));
             Assert.IsType<SettingsView>(Build(window, "SettingsRouteTemplate"));
             Assert.IsType<CommandPaletteView>(Build(window, "CommandPaletteOverlayTemplate"));
-            Assert.IsType<NewPanelChooserView>(Build(window, "NewPanelOverlayTemplate"));
-            Assert.IsType<LayoutDesignerView>(Build(window, "LayoutDesignerOverlayTemplate"));
-            var definitionEditor = Assert.IsType<SurfaceCard>(
-                Build(window, "DefinitionEditorOverlayTemplate"));
-            Assert.Single(
-                definitionEditor.GetLogicalDescendants().OfType<WorkspaceEditorView>());
+            Assert.IsType<NewPanelChooserView>(Build(window, "NewPanelChooserTemplate"));
+            Assert.IsType<LayoutDesignerView>(Build(window, "LayoutDesignerTemplate"));
+            Assert.IsType<WorkspaceEditorView>(Build(window, "WorkspaceEditorTemplate"));
             return Task.CompletedTask;
 
             static Control Build(MainWindow owner, string key)

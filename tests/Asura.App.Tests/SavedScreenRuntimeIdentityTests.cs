@@ -50,7 +50,7 @@ public sealed class SavedScreenRuntimeIdentityTests
     }
 
     [Fact]
-    public async Task Direct_new_terminal_mutation_cannot_close_a_dirty_layout_overlay()
+    public async Task A_new_terminal_tab_leaves_a_dirty_layout_designer_open()
     {
         var connection = LocalConnection("modal-terminal", "Modal terminal");
         var snapshot = new DefinitionCatalogSnapshot(
@@ -62,12 +62,14 @@ public sealed class SavedScreenRuntimeIdentityTests
         var editor = Assert.IsType<LayoutDesignerViewModel>(viewModel.LayoutDesignerEditor);
         editor.Name = "Unsaved layout";
 
-        Assert.False(await viewModel.AddLocalTerminalTabAsync());
+        // The designer is a window beside the workspace, not an overlay over
+        // it: the workspace stays usable, and the unsaved layout stays put.
+        Assert.True(await viewModel.AddLocalTerminalTabAsync());
 
-        Assert.Single(runtime.Tabs);
+        Assert.Equal(2, runtime.Tabs.Count);
         Assert.Same(editor, viewModel.LayoutDesignerEditor);
-        Assert.Equal(ShellOverlay.LayoutDesigner, viewModel.Overlay);
-        Assert.Contains("overlay", viewModel.OperationError, StringComparison.OrdinalIgnoreCase);
+        Assert.True(editor.IsDirty);
+        Assert.True(viewModel.IsLayoutDesignerVisible);
     }
 
     /// <summary>

@@ -1102,6 +1102,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     internal ShellNotificationCenter Notifications { get; }
 
     private readonly ObservableCollection<RuntimeWorkspaceViewModel> _openWorkspaces = [];
+    private bool _isLayoutDesignerOpen;
+    private bool _isWorkspaceEditorOpen;
 
     /// <summary>
     /// What each open workspace was opened from. The active one's is
@@ -2255,9 +2257,27 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public bool IsNewPanelVisible => _navigation.IsNewPanelVisible;
 
-    public bool IsLayoutDesignerVisible => _navigation.IsLayoutDesignerVisible;
+    /// <summary>
+    /// Whether this window's Layout Designer window is open: a layout is being
+    /// designed. It is a window of its own beside the workspace now, not an
+    /// overlay over it, so the workspace stays live and usable meanwhile.
+    /// </summary>
+    public bool IsLayoutDesignerVisible
+    {
+        get => _isLayoutDesignerOpen;
+        private set => SetProperty(ref _isLayoutDesignerOpen, value);
+    }
 
-    public bool IsDefinitionEditorVisible => _navigation.IsDefinitionEditorVisible;
+    /// <summary>
+    /// Whether this window's workspace editor window is open: a workspace is
+    /// being edited or created. Like the designer, it no longer covers the
+    /// workspace.
+    /// </summary>
+    public bool IsDefinitionEditorVisible
+    {
+        get => _isWorkspaceEditorOpen;
+        private set => SetProperty(ref _isWorkspaceEditorOpen, value);
+    }
 
     public string EditorTitle => DefinitionEdit.EditorTitle;
 
@@ -2593,24 +2613,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public void ShowOverlay(ShellOverlay overlay)
     {
-        if (Overlay == ShellOverlay.LayoutDesigner
-            && overlay != ShellOverlay.LayoutDesigner
-            && LayoutDesignerEditor?.RequestCancel()
-                == LayoutDesignerCancelDisposition.ConfirmDiscard)
-        {
-            SetError("Save or discard the layout changes before opening another overlay.");
-            return;
-        }
-
-        if (Overlay == ShellOverlay.DefinitionEditor
-            && overlay != ShellOverlay.DefinitionEditor
-            && WorkspaceEditor?.RequestCancel()
-                == WorkspaceEditorCancelDisposition.ConfirmDiscard)
-        {
-            SetError("Save or discard the workspace changes before opening another overlay.");
-            return;
-        }
-
         Overlay = overlay;
         if (overlay == ShellOverlay.CommandPalette)
         {
@@ -2625,10 +2627,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     {
         WorkspaceSettings.Dismiss();
         DefinitionEdit.Clear();
-        if (Overlay == ShellOverlay.DefinitionEditor)
-        {
-            Overlay = ShellOverlay.None;
-        }
+        IsDefinitionEditorVisible = false;
     }
 
     public void BeginCreateLayout()
@@ -2640,28 +2639,35 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
 
         ClearError();
-        Overlay = ShellOverlay.LayoutDesigner;
+        IsLayoutDesignerVisible = true;
     }
 
-    public void BeginEditLayout(LayoutId id)
+    /// <param name="replaceCurrent">
+    /// The layout being designed is replaced even with unsaved edits: the
+    /// person has already chosen to discard them.
+    /// </param>
+    public void BeginEditLayout(LayoutId id, bool replaceCurrent = false)
     {
+        if (replaceCurrent)
+        {
+            DefinitionSettings.DismissLayoutDesigner();
+        }
+
         if (!DefinitionSettings.TryBeginEditLayout(id, out var error))
         {
+            IsLayoutDesignerVisible = LayoutDesignerEditor is not null;
             SetError(error!);
             return;
         }
 
         ClearError();
-        Overlay = ShellOverlay.LayoutDesigner;
+        IsLayoutDesignerVisible = true;
     }
 
     public void DismissLayoutDesigner()
     {
         DefinitionSettings.DismissLayoutDesigner();
-        if (Overlay == ShellOverlay.LayoutDesigner)
-        {
-            Overlay = ShellOverlay.None;
-        }
+        IsLayoutDesignerVisible = false;
     }
 
     public async ValueTask<DefinitionStoreResult<StoredDefinition<LayoutDefinition>>>
@@ -2723,7 +2729,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             identity.Name,
             identity.Description);
         ClearError();
-        Overlay = ShellOverlay.DefinitionEditor;
+        IsDefinitionEditorVisible = true;
     }
 
     public bool TryGetWorkspaceDefinitionId(
@@ -2759,7 +2765,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             identity.Name,
             identity.Description);
         ClearError();
-        Overlay = ShellOverlay.DefinitionEditor;
+        IsDefinitionEditorVisible = true;
     }
 
     public async ValueTask<DefinitionStoreResult<StoredDefinition<WorkspaceDefinition>>>
@@ -2820,18 +2826,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 _workspaceTerminalMultiplexingModes.Remove(runtime.Id);
             }
         }
-    }
-
-    public void BeginEditScreen(ScreenId id)
-    {
-        var stored = _catalog.Snapshot.Screens.SingleOrDefault(item => item.Value.Id == id);
-        if (stored is null)
-        {
-            SetError("That saved screen no longer exists.");
-            return;
-        }
-
-        BeginEdit(stored.Value.Key, stored.Revision, stored.Value.Name, stored.Value.Description);
     }
 
     public void ToggleAgentPanel() => IsAgentPanelVisible = !IsAgentPanelVisible;
@@ -8832,35 +8826,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, null),
         };
 
-    private void BeginEdit(
-        DefinitionKey key,
-        long revision,
-        string name,
-        string? description)
-    {
-        DefinitionEdit.Begin(key, revision, name, description);
-        ShowOverlay(ShellOverlay.DefinitionEditor);
-    }
-
+    /// <summary>
+    /// Leaving for the workspace closes the transient overlay. The workspace
+    /// editor and the Layout Designer are windows beside this one now, so
+    /// using the workspace leaves them, and their edits, alone.
+    /// </summary>
     private bool TryDismissOverlayForNavigation()
     {
-        if (LayoutDesignerEditor?.RequestCancel()
-            == LayoutDesignerCancelDisposition.ConfirmDiscard)
-        {
-            SetError("Save or discard the layout changes before leaving this view.");
-            return false;
-        }
-
-        if (WorkspaceEditor?.RequestCancel()
-            == WorkspaceEditorCancelDisposition.ConfirmDiscard)
-        {
-            SetError("Save or discard the workspace changes before leaving this view.");
-            return false;
-        }
-
-        DefinitionSettings.DismissLayoutDesigner();
-        WorkspaceSettings.Dismiss();
-        DefinitionEdit.Clear();
         Overlay = ShellOverlay.None;
         return true;
     }
