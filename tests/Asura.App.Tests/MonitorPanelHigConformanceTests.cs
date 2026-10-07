@@ -8,6 +8,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
+using Avalonia.VisualTree;
 using FluentIcons.Common;
 
 namespace Asura.App.Tests;
@@ -231,6 +232,38 @@ public sealed class MonitorPanelHigConformanceTests
             row.Started);
         Assert.Equal("sshd", row.ToString());
     }
+
+    [Fact]
+    public Task The_three_panels_load_with_their_mac_controls() => RunAsync(() =>
+    {
+        var processes = new ProcessMonitorRuntimePanelView();
+        var statistics = new StatisticsRuntimePanelView();
+        var files = new FileRuntimePanelView();
+        var window = new Window
+        {
+            Width = 900,
+            Height = 700,
+            Content = new StackPanel { Children = { processes, statistics, files } },
+        };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var grid = processes.FindControl<DataGrid>("ProcessGrid");
+            Assert.NotNull(grid);
+            Assert.Equal(DataGridSelectionMode.Extended, grid.SelectionMode);
+            Assert.All(
+                grid.Columns.Where(column => column.Tag is "ProcessId" or "Cpu" or "Memory"),
+                column => Assert.Contains("NumericCell", column.CellStyleClasses, StringComparer.Ordinal));
+            Assert.Equal(3, files.GetVisualDescendants().OfType<StatusMark>().Count()
+                + statistics.GetVisualDescendants().OfType<StatusMark>().Count()
+                + processes.GetVisualDescendants().OfType<StatusMark>().Count());
+        }
+        finally
+        {
+            window.Close();
+        }
+    });
 
     private static async Task RunAsync(Action action)
     {

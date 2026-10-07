@@ -15,6 +15,13 @@
     VerticalContentAlignment="Stretch"
     IsVisible="{Binding IsVisibleInLayout}"
     AutomationProperties.Name="Process monitor panel">
+  <UserControl.Styles>
+    <!-- Numbers line up on the right in the data face, as a Mac table's
+         numeric columns do, so magnitudes read down the column. -->
+    <Style Selector="DataGridCell.NumericCell">
+      <Setter Property="HorizontalContentAlignment" Value="Right" />
+    </Style>
+  </UserControl.Styles>
   <controls:PanelChrome
       CloseLabel="Close Process Monitor panel"
       CloseRequested="OnCloseClick"
@@ -112,6 +119,8 @@
             <DataGridTextColumn
                 x:DataType="vm:ProcessMonitorEntryViewModel"
                 Tag="ProcessId"
+                CellStyleClasses="NumericCell"
+                FontFamily="{DynamicResource ShellDataFontFamily}"
                 Header="PID"
                 Binding="{Binding ProcessId}"
                 CanUserSort="True"
@@ -127,6 +136,8 @@
             <DataGridTextColumn
                 x:DataType="vm:ProcessMonitorEntryViewModel"
                 Tag="Cpu"
+                CellStyleClasses="NumericCell"
+                FontFamily="{DynamicResource ShellDataFontFamily}"
                 Header="CPU"
                 Binding="{Binding Cpu}"
                 CanUserSort="True"
@@ -134,6 +145,8 @@
             <DataGridTextColumn
                 x:DataType="vm:ProcessMonitorEntryViewModel"
                 Tag="Memory"
+                CellStyleClasses="NumericCell"
+                FontFamily="{DynamicResource ShellDataFontFamily}"
                 Header="Memory"
                 Binding="{Binding Memory}"
                 CanUserSort="True"
