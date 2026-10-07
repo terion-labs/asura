@@ -51,6 +51,75 @@ public sealed partial class App
             ? [.. desktop.Windows.OfType<MainWindow>()]
             : [];
 
+    /// <summary>
+    /// Move to New Window: opens a window one title bar down and across from
+    /// <paramref name="source"/> and moves <paramref name="tab"/> into a
+    /// workspace of its own there. The tab's sessions change owner rather
+    /// than restart. Returns the new window, or null with the reason in the
+    /// source window once the empty window has closed again.
+    /// </summary>
+    internal async Task<MainWindow?> MoveTabToNewWindowAsync(
+        MainWindow source,
+        RuntimeTabViewModel tab)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(tab);
+        if (IsQuitting || source.DataContext is not MainWindowViewModel sourceViewModel)
+        {
+            return null;
+        }
+
+        if (_startupState is not null)
+        {
+            await _startupState.Initialized;
+        }
+
+        // A new window cascades from the one in front, which is the source
+        // whenever its tab's menu was used; a source behind another window
+        // is cascaded from explicitly.
+        var cascadedFromSource = ReferenceEquals(ActiveMainWindow(), source);
+        MainWindow window;
+        try
+        {
+            window = OpenWindow(restored: null, opensLauncher: false);
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+
+        if (!cascadedFromSource && source.IsVisible)
+        {
+            Cascade(window, from: source);
+        }
+
+        var moved = false;
+        if (window.DataContext is MainWindowViewModel destination)
+        {
+            try
+            {
+                moved = await sourceViewModel.MoveTabToWindowAsync(tab, destination);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        if (moved)
+        {
+            return window;
+        }
+
+        window.Close();
+        if (string.IsNullOrEmpty(sourceViewModel.OperationError))
+        {
+            sourceViewModel.SetError("The tab could not move to a new window.");
+        }
+
+        source.Activate();
+        return null;
+    }
+
     private void OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
     {
         _ = sender;

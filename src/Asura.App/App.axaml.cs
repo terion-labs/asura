@@ -285,9 +285,10 @@ public sealed partial class App : Avalonia.Application
     /// <summary>
     /// Opens another main window: where a restored one was, or cascaded one
     /// title bar from the window in front. A restored window comes back to its
-    /// own workspace; a new one opens the launcher.
+    /// own workspace; a new one opens the launcher, unless it is opened to
+    /// receive something — a tab moved to a new window brings its own.
     /// </summary>
-    private MainWindow OpenWindow(WindowPlacement? restored)
+    private MainWindow OpenWindow(WindowPlacement? restored, bool opensLauncher = true)
     {
         if (_desktopExitStarted || _quitApproved)
         {
@@ -304,7 +305,11 @@ public sealed partial class App : Avalonia.Application
             _additionalMainWindowViewModels.Add(viewModel);
             PlaceNewWindow(window, viewModel, restored);
             RegisterMainWindow(window);
-            window.Opened += OnAdditionalWindowOpened;
+            if (opensLauncher || restored is not null)
+            {
+                window.Opened += OnAdditionalWindowOpened;
+            }
+
             window.Show();
             window.Activate();
             return window;

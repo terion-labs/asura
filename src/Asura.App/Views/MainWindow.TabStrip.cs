@@ -2,6 +2,7 @@ using Asura.App.ViewModels;
 using Asura.App.Views.Components;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 
 namespace Asura.App.Views;
 
@@ -69,6 +70,12 @@ public sealed partial class MainWindow
         RuntimeTabMoveRequestedEventArgs e)
     {
         _ = sender;
+        if (e.IsNewWindow)
+        {
+            await MoveRuntimeTabToNewWindowAsync(e.Tab);
+            return;
+        }
+
         if (e.Tab is not RuntimeTabViewModel tab
             || e.Destination is not RuntimeWorkspaceViewModel destination
             || ViewModel.RuntimeWorkspace is not { } workspace
@@ -99,5 +106,33 @@ public sealed partial class MainWindow
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
         {
         }
+    }
+
+    /// <summary>
+    /// Move to New Window. The app opens the window and moves the tab; this
+    /// window keeps the error when the tab has to stay, and the new one comes
+    /// forward with the moved tab focused.
+    /// </summary>
+    private async Task MoveRuntimeTabToNewWindowAsync(object tab)
+    {
+        if (tab is not RuntimeTabViewModel runtimeTab
+            || ViewModel.RuntimeWorkspace is not { } workspace
+            || !workspace.Tabs.Contains(runtimeTab)
+            || Avalonia.Application.Current is not App app)
+        {
+            return;
+        }
+
+        if (await app.MoveTabToNewWindowAsync(this, runtimeTab) is { } window)
+        {
+            window.ShowMovedTab();
+        }
+    }
+
+    /// <summary>Brings this window forward with its active panel focused.</summary>
+    internal void ShowMovedTab()
+    {
+        Activate();
+        Dispatcher.UIThread.Post(FocusActivePanel, DispatcherPriority.Background);
     }
 }

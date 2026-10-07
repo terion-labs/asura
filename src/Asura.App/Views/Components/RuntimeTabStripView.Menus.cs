@@ -136,6 +136,16 @@ public sealed partial class RuntimeTabStripView
                 PopulateMoveTargets(move, tab, tabCount);
             }
         }
+
+        // The same rule as Move to Workspace: the workspace keeps its last
+        // tab, and the item says so rather than doing nothing.
+        foreach (var newWindow in items.OfType<MenuItem>()
+                     .Where(item => item.Classes.Contains("MoveTabToNewWindow")))
+        {
+            newWindow.IsVisible = canMove;
+            newWindow.IsEnabled = tabCount > 1;
+            ToolTip.SetTip(newWindow, tabCount > 1 ? null : LastTabHint);
+        }
     }
 
     private static void SetVisible(IEnumerable<Control> items, string className, bool visible)
@@ -183,9 +193,27 @@ public sealed partial class RuntimeTabStripView
             move.Items.Add(new Separator());
             move.Items.Add(new MenuItem
             {
-                Header = "A Workspace Keeps Its Last Tab",
+                Header = LastTabHint,
                 IsEnabled = false,
             });
+        }
+    }
+
+    private const string LastTabHint = "A Workspace Keeps Its Last Tab";
+
+    /// <summary>
+    /// Raised as a Move to Workspace request whose destination is
+    /// <see cref="RuntimeTabMoveRequestedEventArgs.NewWindow"/>, so the hosts
+    /// that relay a move relay this one unchanged.
+    /// </summary>
+    private void OnMoveTabToNewWindowMenuClick(object? sender, RoutedEventArgs e)
+    {
+        _ = e;
+        if (sender is MenuItem { DataContext: { } tab } && CountTabs() > 1)
+        {
+            MoveToWorkspaceRequested?.Invoke(
+                this,
+                new RuntimeTabMoveRequestedEventArgs(tab, RuntimeTabMoveRequestedEventArgs.NewWindow));
         }
     }
 
@@ -247,8 +275,18 @@ public sealed partial class RuntimeTabStripView
 
 public sealed class RuntimeTabMoveRequestedEventArgs(object tab, object destination) : EventArgs
 {
+    /// <summary>The destination that asks for a new window rather than an open workspace.</summary>
+    public static object NewWindow { get; } = new NewWindowDestination();
+
     public object Tab { get; } = tab ?? throw new ArgumentNullException(nameof(tab));
 
     public object Destination { get; } =
         destination ?? throw new ArgumentNullException(nameof(destination));
+
+    public bool IsNewWindow => ReferenceEquals(Destination, NewWindow);
+
+    private sealed class NewWindowDestination
+    {
+        public override string ToString() => "New Window";
+    }
 }
