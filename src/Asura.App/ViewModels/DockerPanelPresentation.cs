@@ -11,11 +11,15 @@ public enum DockerPanelSection
     Networks,
 }
 
+/// <summary>
+/// The views of the selected resource, in the order the segmented control
+/// shows them. Five is as many as a segmented control holds, so a container's
+/// usage figures are part of Info rather than a sixth view of their own.
+/// </summary>
 public enum DockerPanelDetail
 {
     Info,
     Logs,
-    Stats,
     Shell,
     Files,
     Json,
@@ -87,11 +91,15 @@ public sealed class DockerContainerStackViewModel : ObservableObject
             if (SetProperty(ref _isExpanded, value))
             {
                 OnPropertyChanged(nameof(ExpandIcon));
+                OnPropertyChanged(nameof(ToggleLabel));
             }
         }
     }
 
     public Symbol ExpandIcon => IsExpanded ? Symbol.ChevronDown : Symbol.ChevronRight;
+
+    /// <summary>What the disclosure button does next, naming the group it does it to.</summary>
+    public string ToggleLabel => IsExpanded ? $"Collapse {Name}" : $"Expand {Name}";
 
     public string Summary => RunningCount == 0
         ? $"{Count} stopped"

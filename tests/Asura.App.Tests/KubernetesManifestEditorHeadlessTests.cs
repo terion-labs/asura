@@ -34,7 +34,8 @@ public sealed class KubernetesManifestEditorHeadlessTests
             try
             {
                 window.Show();
-                view.FindControl<TabControl>("InspectorTabs")!.SelectedIndex = 1;
+                view.FindControl<Asura.App.Controls.SegmentedControl>("InspectorSegments")!.SelectedIndex = 1;
+                Assert.Equal(1, view.FindControl<TabControl>("InspectorTabs")!.SelectedIndex);
                 Dispatcher.UIThread.RunJobs();
                 var code = view.FindControl<CodeEditBox>("ManifestEditor")!;
                 var editor = code.EditorForTesting;

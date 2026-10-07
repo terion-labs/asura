@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Asura.Application;
 using Asura.Core;
+using FluentIcons.Common;
 
 namespace Asura.App.ViewModels;
 
@@ -77,6 +78,26 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
     public string ContextName => Profile?.ContextName ?? "No context selected";
     public bool HasConnection => Profile is not null;
     public bool HasIssue => Issue is not null;
+
+    /// <summary>
+    /// The cluster's state for the header's status mark. It was green for any
+    /// saved connection, reachable or not.
+    /// </summary>
+    public StatusTone ConnectionStatusTone => Profile is null ? StatusTone.Neutral
+        : _session is null ? HasIssue ? StatusTone.Danger : IsBusy ? StatusTone.Warning : StatusTone.Neutral
+        : HasIssue ? StatusTone.Warning
+        : StatusTone.Success;
+
+    public string ConnectionStatusLabel => ConnectionStatusTone switch
+    {
+        StatusTone.Success => $"Connected to {ContextName}",
+        StatusTone.Danger => $"Cannot reach {ContextName}",
+        StatusTone.Warning when _session is null => $"Connecting to {ContextName}",
+        StatusTone.Warning => $"Connected to {ContextName} with a problem",
+        _ => Profile is null ? "No Kubernetes connection" : $"Not connected to {ContextName}",
+    };
+
+    public Symbol ConnectionStatusGlyph => StatusToneGlyph.For(ConnectionStatusTone);
     public bool HasSelection => SelectedResource is not null;
     public bool IsEmpty => HasConnection && !IsBusy && Resources.Count == 0 && !HasIssue;
     public bool CanReadLogs => SelectedResource is { Reference.Group: "", Reference.Resource: "pods" };
@@ -138,7 +159,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
     public string? Issue
     {
         get => _issue;
-        private set { ReportError(value, "Kubernetes error"); SetProperty(ref _issue, value); OnPropertyChanged(nameof(HasIssue)); OnPropertyChanged(nameof(IsEmpty)); }
+        private set { ReportError(value, "Kubernetes error"); SetProperty(ref _issue, value); OnPropertyChanged(nameof(HasIssue)); OnPropertyChanged(nameof(IsEmpty)); PublishConnectionStatus(); }
     }
     public bool IsBusy
     {
@@ -151,7 +172,15 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
             _moreCommand.RaiseCanExecuteChanged();
             OnPropertyChanged(nameof(IsEmpty));
             PublishMutationState();
+            PublishConnectionStatus();
         }
+    }
+
+    private void PublishConnectionStatus()
+    {
+        OnPropertyChanged(nameof(ConnectionStatusTone));
+        OnPropertyChanged(nameof(ConnectionStatusLabel));
+        OnPropertyChanged(nameof(ConnectionStatusGlyph));
     }
 
     public async Task RefreshAsync()
@@ -172,6 +201,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
                 var session = await _connect(_lifetime.Token);
                 if (_disposed) { await session.DisposeAsync(); return; }
                 _session = session;
+                PublishConnectionStatus();
                 OnPropertyChanged(nameof(HasMetrics)); OnPropertyChanged(nameof(HasHelm));
                 OnPropertyChanged(nameof(IsHelmNavigationVisible)); OnPropertyChanged(nameof(HasNavigationMatches));
             }
@@ -308,6 +338,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
         _logsCommand.RaiseCanExecuteChanged();
         OnPropertyChanged(nameof(CanFollowLogs));
         OnPropertyChanged(nameof(CanOpenShell)); OnPropertyChanged(nameof(ContainerChoices)); OnPropertyChanged(nameof(CanLaunchShell));
+        OnPropertyChanged(nameof(HasInspectorActions));
         OnPropertyChanged(nameof(IsServiceForward)); OnPropertyChanged(nameof(IsPodForward));
         OnPropertyChanged(nameof(CanForward)); OnPropertyChanged(nameof(HasForwardTools)); OnPropertyChanged(nameof(DeclaredPorts));
         PublishMutationState();

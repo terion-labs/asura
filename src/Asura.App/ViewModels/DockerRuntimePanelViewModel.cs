@@ -3,6 +3,7 @@ using System.Windows.Input;
 using Asura.Application;
 using Asura.Core;
 using Asura.Docker;
+using FluentIcons.Common;
 
 namespace Asura.App.ViewModels;
 
@@ -57,8 +58,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     private long _logScrollToEndRequest;
     private string _statusText = "Connecting to Docker…";
     private string _shellStateTitle = "Opening container shell…";
-    private string _shellStateMessage =
-        "This shell stays in the Docker panel. Use New tab when you want it beside other work.";
+    private string _shellStateMessage = InlineShellMessage;
     private string? _issueTitle;
     private string? _issueMessage;
     private bool _showsDockerInstallHelp;
@@ -66,6 +66,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     private bool _isLoadingDetail;
     private bool _isResolvingShell;
     private bool _isCalculatingVolumeSizes;
+    private bool _isEngineUnavailable;
     private bool _isRunningStackAction;
     private bool _volumeUsageLoaded;
     private bool _disposed;
@@ -75,6 +76,8 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     private CancellationTokenSource? _volumeUsageCancellation;
     private Task _volumeUsageLoading = Task.CompletedTask;
     private readonly string? _connectionDisplayName;
+    private const string InlineShellMessage =
+        "This shell stays in the Docker panel. Choose Open in New Tab to keep it beside other work.";
 
     public DockerRuntimePanelViewModel(
         PanelInstanceId id,
@@ -176,6 +179,22 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             if (SetProperty(ref _section, value))
             {
                 PublishSectionState();
+            }
+        }
+    }
+
+    /// <summary>
+    /// The section as a position in the section list and the narrow segmented
+    /// control, both of which bind to it two-way.
+    /// </summary>
+    public int SectionIndex
+    {
+        get => (int)Section;
+        set
+        {
+            if (Enum.IsDefined((DockerPanelSection)value))
+            {
+                SelectSection((DockerPanelSection)value);
             }
         }
     }
@@ -321,10 +340,23 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
 
     public ObservableCollection<DockerLogRowViewModel> LogRows => _logRows;
 
+    /// <summary>
+    /// The search field's text. A search runs on Return; emptying the field —
+    /// its clear button, Escape, or deleting the last character — ends the
+    /// search that is showing, as clearing a search field does everywhere.
+    /// </summary>
     public string LogSearchText
     {
         get => _logSearchText;
-        set => SetProperty(ref _logSearchText, value);
+        set
+        {
+            if (SetProperty(ref _logSearchText, value ?? string.Empty)
+                && _logSearchText.Length == 0
+                && IsLogSearchActive)
+            {
+                _ = ClearLogSearchAsync();
+            }
+        }
     }
 
     public int LogSearchContext
@@ -454,6 +486,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (SetProperty(ref _isRefreshing, value))
             {
+                PublishEngineStatus();
                 _refreshCommand.RaiseCanExecuteChanged();
                 PublishContainerActionState();
                 RaiseContainerActionCanExecuteChanged();
@@ -521,8 +554,6 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     public bool IsInfoDetail => Detail == DockerPanelDetail.Info;
 
     public bool IsLogsDetail => Detail == DockerPanelDetail.Logs;
-
-    public bool IsStatsDetail => Detail == DockerPanelDetail.Stats;
 
     public bool IsShellDetail => Detail == DockerPanelDetail.Shell;
 
@@ -604,15 +635,51 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             or DockerResourceKind.Image
             or DockerResourceKind.Volume;
 
-    public bool ShowLogsTab => SelectedResource?.IsContainer == true;
+    /// <summary>
+    /// Whether each view applies to the selection. The views stay in place
+    /// and are dimmed when they do not apply, so none moves under the pointer
+    /// as the selection changes.
+    /// </summary>
+    public bool CanShowLogs => SelectedResource?.IsContainer == true;
 
-    public bool ShowStatsTab => SelectedResource?.IsContainer == true;
+    public bool CanShowShell => CanOpenShell;
 
-    public bool ShowShellTab => CanOpenShell;
+    public bool CanShowFiles => CanBrowseFiles;
 
-    public bool ShowFilesTab => CanBrowseFiles;
+    public bool CanShowJson => HasSelection;
 
-    public bool ShowJsonTab => HasSelection;
+    /// <summary>The detail view's position in the segmented control.</summary>
+    public int DetailIndex => (int)Detail;
+
+    /// <summary>The current view's name, which the narrow view pop-up shows.</summary>
+    public string DetailTitle => Detail switch
+    {
+        DockerPanelDetail.Logs => "Logs",
+        DockerPanelDetail.Shell => "Shell",
+        DockerPanelDetail.Files => "Files",
+        DockerPanelDetail.Json => "JSON",
+        _ => "Info",
+    };
+
+    /// <summary>
+    /// The engine's state for the header's status mark: reachable, still
+    /// being reached, or not answering. It was a green dot whatever happened.
+    /// </summary>
+    public StatusTone EngineStatusTone => _isEngineUnavailable
+        ? StatusTone.Danger
+        : HasSnapshot ? StatusTone.Success
+        : IsRefreshing ? StatusTone.Warning
+        : StatusTone.Neutral;
+
+    public string EngineStatusLabel => EngineStatusTone switch
+    {
+        StatusTone.Success => $"Docker engine connected · {ConnectionDisplayName}",
+        StatusTone.Danger => $"Docker engine unavailable · {ConnectionDisplayName}",
+        StatusTone.Warning => $"Connecting to the Docker engine · {ConnectionDisplayName}",
+        _ => $"Docker engine not connected · {ConnectionDisplayName}",
+    };
+
+    public Symbol EngineStatusGlyph => StatusToneGlyph.For(EngineStatusTone);
 
     public int ContainerCount => Snapshot?.Containers.Count ?? 0;
 
@@ -833,10 +900,12 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             var result = await _client.ReadSnapshotAsync(_connection, _lifetime.Token);
             if (result is DockerResult<DockerEngineSnapshot>.Failure failure)
             {
+                SetEngineUnavailable(true);
                 PresentFailure(failure.Error, "Docker unavailable");
                 return;
             }
 
+            SetEngineUnavailable(false);
             Snapshot = ((DockerResult<DockerEngineSnapshot>.Success)result).Value;
             ProjectResources(Section);
             SelectedResource = selected is null
@@ -1661,8 +1730,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     private void ResetShellState()
     {
         ShellStateTitle = "Opening container shell…";
-        ShellStateMessage =
-            "This shell stays in the Docker panel. Use New tab when you want it beside other work.";
+        ShellStateMessage = InlineShellMessage;
         IsResolvingShell = false;
     }
 
@@ -1688,10 +1756,10 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     private bool IsDetailAvailable(DockerPanelDetail detail) => detail switch
     {
         DockerPanelDetail.Info => HasSelection,
-        DockerPanelDetail.Logs or DockerPanelDetail.Stats => ShowLogsTab,
-        DockerPanelDetail.Shell => ShowShellTab,
-        DockerPanelDetail.Files => ShowFilesTab,
-        DockerPanelDetail.Json => ShowJsonTab,
+        DockerPanelDetail.Logs => CanShowLogs,
+        DockerPanelDetail.Shell => CanShowShell,
+        DockerPanelDetail.Files => CanShowFiles,
+        DockerPanelDetail.Json => CanShowJson,
         _ => false,
     };
 
@@ -1709,6 +1777,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
         OnPropertyChanged(nameof(IsImagesSection));
         OnPropertyChanged(nameof(IsVolumesSection));
         OnPropertyChanged(nameof(IsNetworksSection));
+        OnPropertyChanged(nameof(SectionIndex));
         OnPropertyChanged(nameof(ResourceSummary));
         OnPropertyChanged(nameof(ShowVolumeSizeLoading));
         OnPropertyChanged(nameof(ShowResourceProgress));
@@ -1718,10 +1787,11 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     {
         OnPropertyChanged(nameof(IsInfoDetail));
         OnPropertyChanged(nameof(IsLogsDetail));
-        OnPropertyChanged(nameof(IsStatsDetail));
         OnPropertyChanged(nameof(IsShellDetail));
         OnPropertyChanged(nameof(IsFilesDetail));
         OnPropertyChanged(nameof(IsJsonDetail));
+        OnPropertyChanged(nameof(DetailIndex));
+        OnPropertyChanged(nameof(DetailTitle));
     }
 
     private void PublishSelectionState()
@@ -1729,11 +1799,10 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(CanOpenShell));
         OnPropertyChanged(nameof(CanBrowseFiles));
-        OnPropertyChanged(nameof(ShowLogsTab));
-        OnPropertyChanged(nameof(ShowStatsTab));
-        OnPropertyChanged(nameof(ShowShellTab));
-        OnPropertyChanged(nameof(ShowFilesTab));
-        OnPropertyChanged(nameof(ShowJsonTab));
+        OnPropertyChanged(nameof(CanShowLogs));
+        OnPropertyChanged(nameof(CanShowShell));
+        OnPropertyChanged(nameof(CanShowFiles));
+        OnPropertyChanged(nameof(CanShowJson));
         OnPropertyChanged(nameof(ShowEmptyState));
         PublishContainerActionState();
         RaiseContainerActionCanExecuteChanged();
@@ -1759,8 +1828,25 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
         _resumeCommand.RaiseCanExecuteChanged();
     }
 
+    private void SetEngineUnavailable(bool unavailable)
+    {
+        if (_isEngineUnavailable != unavailable)
+        {
+            _isEngineUnavailable = unavailable;
+            PublishEngineStatus();
+        }
+    }
+
+    private void PublishEngineStatus()
+    {
+        OnPropertyChanged(nameof(EngineStatusTone));
+        OnPropertyChanged(nameof(EngineStatusLabel));
+        OnPropertyChanged(nameof(EngineStatusGlyph));
+    }
+
     private void PublishSnapshotState()
     {
+        PublishEngineStatus();
         OnPropertyChanged(nameof(HasSnapshot));
         OnPropertyChanged(nameof(ShowLoading));
         OnPropertyChanged(nameof(ShowEmptyState));

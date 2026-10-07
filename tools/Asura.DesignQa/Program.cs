@@ -541,7 +541,7 @@ internal sealed class QaApplication : Avalonia.Application
         {
             vm.ShowWorkspace();
             AddSampleKubernetesPanel(vm, narrow: false, selected: true);
-        }, Width: 1840, Height: 1196, PrepareCapture: window => SelectKubernetesInspectorTab(window, "YAML / JSON")),
+        }, Width: 1840, Height: 1196, PrepareCapture: window => SelectKubernetesInspectorTab(window, "Manifest")),
         new("workspace-kubernetes-namespaces", vm =>
         {
             vm.ShowWorkspace();
@@ -557,7 +557,7 @@ internal sealed class QaApplication : Avalonia.Application
             vm.ShowWorkspace();
             var panel = AddSampleKubernetesPanel(vm, narrow: false, selected: true, nodes: true);
             panel.ReviewNodeDrainAsync().GetAwaiter().GetResult();
-        }, Width: 1840, Height: 1196, PrepareCapture: window => SelectKubernetesInspectorTab(window, "Node")),
+        }, Width: 1840, Height: 1196, PrepareCapture: window => SelectKubernetesInspectorTab(window, "Actions")),
         new("workspace-kubernetes-actions", vm =>
         {
             vm.ShowWorkspace();
@@ -576,7 +576,7 @@ internal sealed class QaApplication : Avalonia.Application
         {
             vm.ShowWorkspace();
             AddSampleKubernetesPanel(vm, narrow: false, selected: true);
-        }, Width: 1840, Height: 1196, PrepareCapture: window => SelectKubernetesInspectorTab(window, "Shell")),
+        }, Width: 1840, Height: 1196, PrepareCapture: window => SelectKubernetesInspectorTab(window, "Actions")),
         new("workspace-kubernetes-logs", vm =>
         {
             vm.ShowWorkspace();
@@ -609,10 +609,12 @@ internal sealed class QaApplication : Avalonia.Application
             vm.ShowWorkspace();
             AddSampleDockerPanel(vm);
         }),
+        // A container's usage figures lead its Info view now that the views
+        // are five segments; the capture keeps its name and shows them there.
         new("workspace-docker-stats", vm =>
         {
             vm.ShowWorkspace();
-            AddSampleDockerPanel(vm).SelectDetail(DockerPanelDetail.Stats);
+            AddSampleDockerPanel(vm).SelectDetail(DockerPanelDetail.Info);
         }),
         new("workspace-docker-logs", vm =>
         {
@@ -3020,12 +3022,17 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         }
     }
 
-    private static void SelectKubernetesInspectorTab(MainWindow window, string header)
+    // The inspector's views are a segmented control over a headless tab
+    // host, so a capture chooses the segment, as a person would.
+    private static void SelectKubernetesInspectorTab(MainWindow window, string view) =>
+        SelectSegment(window, "InspectorSegments", view);
+
+    private static void SelectSegment(MainWindow window, string controlName, string segment)
     {
-        var inspector = window.GetVisualDescendants().OfType<TabControl>()
-            .Single(control => string.Equals(control.Name, "InspectorTabs", StringComparison.Ordinal));
-        inspector.SelectedItem = inspector.Items.OfType<TabItem>()
-            .Single(tab => string.Equals(tab.Header as string, header, StringComparison.Ordinal));
+        var segments = window.GetVisualDescendants().OfType<SegmentedControl>()
+            .Single(control => string.Equals(control.Name, controlName, StringComparison.Ordinal));
+        segments.SelectedIndex = segments.Items.OfType<RadioButton>().ToList()
+            .FindIndex(item => string.Equals(AutomationProperties.GetName(item), segment, StringComparison.Ordinal));
     }
 
     private static void ShowKubernetesHelm(MainWindow window) =>
@@ -3037,9 +3044,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
     {
         ShowKubernetesHelm(window);
         Dispatcher.UIThread.RunJobs();
-        var change = window.GetVisualDescendants().OfType<TabItem>()
-            .Single(tab => string.Equals(tab.Header as string, "Change release", StringComparison.Ordinal));
-        change.IsSelected = true;
+        SelectSegment(window, "HelmViewSegments", "Change Release");
     }
 
     private static void OpenKubernetesNamespaceSelector(MainWindow window)

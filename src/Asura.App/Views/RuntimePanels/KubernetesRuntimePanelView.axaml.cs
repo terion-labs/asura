@@ -1,14 +1,30 @@
+using System.ComponentModel;
 using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace Asura.App.Views.RuntimePanels;
 
+/// <summary>The inspector's views, in the order its segmented control shows them.</summary>
+internal enum KubernetesInspectorView
+{
+    Overview,
+    Manifest,
+    Logs,
+    Ports,
+    Actions,
+}
+
 public sealed partial class KubernetesRuntimePanelView : UserControl
 {
+    private const int ManifestEditMode = 0;
+    private const int ManifestReviewMode = 1;
     private KubernetesRuntimePanelViewModel? _observed;
     private bool _resizingNavigator;
     private double _resizeOriginX;
@@ -37,8 +53,68 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
 
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
+        _observed?.PropertyChanged -= OnModelPropertyChanged;
         _observed = DataContext as KubernetesRuntimePanelViewModel;
+        _observed?.PropertyChanged += OnModelPropertyChanged;
         UpdateLayoutMode();
+        KeepInspectorViewAvailable();
+    }
+
+    /// <summary>
+    /// A view whose segment has just been dimmed — Logs when the selection
+    /// stops being a pod, Review when the dry run is invalidated — is not left
+    /// showing: the inspector steps back to a view that applies.
+    /// </summary>
+    private void OnModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(KubernetesRuntimePanelViewModel.HasSelection)
+            or nameof(KubernetesRuntimePanelViewModel.CanReadLogs)
+            or nameof(KubernetesRuntimePanelViewModel.HasForwardTools)
+            or nameof(KubernetesRuntimePanelViewModel.HasInspectorActions)
+            or nameof(KubernetesRuntimePanelViewModel.HasMutationPreview)
+            or nameof(KubernetesRuntimePanelViewModel.HasInspectorContent))
+        {
+            KeepInspectorViewAvailable();
+        }
+    }
+
+    internal KubernetesInspectorView InspectorView
+    {
+        get => (KubernetesInspectorView)Math.Max(0, InspectorSegments.SelectedIndex);
+        set => InspectorSegments.SelectedIndex = (int)value;
+    }
+
+    private bool IsInspectorViewAvailable(KubernetesInspectorView view) => _observed is { } model && view switch
+    {
+        KubernetesInspectorView.Overview or KubernetesInspectorView.Manifest => model.HasSelection,
+        KubernetesInspectorView.Logs => model.CanReadLogs,
+        KubernetesInspectorView.Ports => model.HasForwardTools,
+        KubernetesInspectorView.Actions => model.HasInspectorActions,
+        _ => false,
+    };
+
+    private void KeepInspectorViewAvailable()
+    {
+        if (_observed is not { } model)
+        {
+            return;
+        }
+
+        if (!IsInspectorViewAvailable(InspectorView))
+        {
+            var fallback = model.HasSelection ? KubernetesInspectorView.Overview
+                : model.HasForwardTools ? KubernetesInspectorView.Ports
+                : (KubernetesInspectorView?)null;
+            if (fallback is { } view && view != InspectorView)
+            {
+                InspectorView = view;
+            }
+        }
+
+        if (!model.HasMutationPreview && ManifestModeSegments.SelectedIndex == ManifestReviewMode)
+        {
+            ManifestModeSegments.SelectedIndex = ManifestEditMode;
+        }
     }
 
     private void UpdateLayoutMode() => _observed?.SetViewportWidth(Bounds.Width);
@@ -48,7 +124,7 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
     private void OnNavigationClick(object? sender, RoutedEventArgs e)
     {
         ResourcesTab.IsSelected = true;
-        OverviewTab.IsSelected = true;
+        InspectorView = KubernetesInspectorView.Overview;
         _observed?.CompleteNavigation();
     }
 
@@ -126,7 +202,7 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
     {
         if (_observed is { } model) { model.ShowForwardManager = true; }
         ResourcesTab.IsSelected = true;
-        ForwardTab.IsSelected = true;
+        InspectorView = KubernetesInspectorView.Ports;
         UpdateLayoutMode();
     }
 
@@ -134,6 +210,12 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
     {
         if (_observed is { } model) { model.ShowForwardManager = false; model.SelectedResource = null; }
         UpdateLayoutMode();
+    }
+
+    private void OnShowDryRunResultClick(object? sender, RoutedEventArgs e)
+    {
+        InspectorView = KubernetesInspectorView.Manifest;
+        ManifestModeSegments.SelectedIndex = ManifestReviewMode;
     }
 
     private async void OnFollowLogsClick(object? sender, RoutedEventArgs e)
@@ -185,6 +267,134 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
     private void OnShellClick(object? sender, RoutedEventArgs e)
     {
         if (_observed is { } model) { ShellRequested?.Invoke(this, model); }
+    }
+
+    /// <summary>
+    /// A secondary click on a row selects it, as Finder does, unless it is
+    /// already part of a multiple selection, and offers what the inspector
+    /// offers for it. Commands that act on one resource are dimmed while more
+    /// than one is selected; copying names works on all of them.
+    /// </summary>
+    private void OnResourceContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (_observed is null || e.Source is not Control source)
+        {
+            return;
+        }
+
+        var row = source.GetSelfAndVisualAncestors().OfType<DataGridRow>().FirstOrDefault()?.DataContext as KubernetesResourceRow;
+        if (row is null && ResourceList.SelectedItem is KubernetesResourceRow selected && !e.TryGetPosition(ResourceList, out _))
+        {
+            row = selected;
+        }
+
+        if (row is null)
+        {
+            return;
+        }
+
+        if (!ResourceList.SelectedItems.Contains(row))
+        {
+            ResourceList.SelectedItem = row;
+        }
+
+        e.Handled = true;
+        CreateResourceContextMenu().Open(source);
+    }
+
+    /// <summary>
+    /// The resource menu: its views and tools first, then copying, then the
+    /// one destructive command on its own at the end.
+    /// </summary>
+    internal ContextMenu CreateResourceContextMenu()
+    {
+        var model = _observed;
+        var names = ResourceList.SelectedItems.OfType<KubernetesResourceRow>().Select(row => row.Name).ToArray();
+        var single = names.Length == 1 && model?.HasSelection == true;
+        var menu = new ContextMenu();
+        menu.Items.Add(Item("Show Logs", single && model!.CanReadLogs, ShowLogsAsync));
+        menu.Items.Add(Item("Open Shell", single && model!.CanOpenShell, OpenShellAsync));
+        menu.Items.Add(Item("Port Forward…", single && model!.CanForward, () =>
+        {
+            InspectorView = KubernetesInspectorView.Ports;
+            return Task.CompletedTask;
+        }));
+        menu.Items.Add(Item("Edit Manifest…", single, EditManifestAsync));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item(names.Length > 1 ? "Copy Names" : "Copy Name", names.Length > 0, () => CopyTextAsync(string.Join(Environment.NewLine, names))));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item("Delete…", single && model!.CanRequestDelete, ReviewDeleteAsync));
+        return menu;
+
+        static MenuItem Item(string header, bool isEnabled, Func<Task> action)
+        {
+            var item = new MenuItem { Header = header, IsEnabled = isEnabled };
+            item.Click += async (_, _) => await action();
+            return item;
+        }
+    }
+
+    private async Task ShowLogsAsync()
+    {
+        InspectorView = KubernetesInspectorView.Logs;
+        if (_observed is { Logs.Length: 0 } model)
+        {
+            await model.LoadLogsAsync();
+        }
+    }
+
+    /// <summary>
+    /// Opens the shell straight away when the pod leaves nothing to choose,
+    /// and otherwise shows the terminal's container choice in Actions.
+    /// </summary>
+    private async Task OpenShellAsync()
+    {
+        if (_observed is not { } model)
+        {
+            return;
+        }
+
+        await model.SelectionLoading;
+        if (model.CanLaunchShell)
+        {
+            ShellRequested?.Invoke(this, model);
+            return;
+        }
+
+        InspectorView = KubernetesInspectorView.Actions;
+    }
+
+    private Task EditManifestAsync()
+    {
+        InspectorView = KubernetesInspectorView.Manifest;
+        ManifestModeSegments.SelectedIndex = ManifestEditMode;
+        Dispatcher.UIThread.Post(() => ManifestEditor.FocusEditor(caretToEnd: false), DispatcherPriority.Loaded);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Delete is reviewed before it is done: this asks the server for its dry
+    /// run and shows the result in Actions beside the confirmation, which is
+    /// what the ellipsis promises.
+    /// </summary>
+    private async Task ReviewDeleteAsync()
+    {
+        if (_observed is not { } model)
+        {
+            return;
+        }
+
+        InspectorView = KubernetesInspectorView.Actions;
+        await model.SelectionLoading;
+        await model.ReviewDeleteAsync();
+    }
+
+    private async Task CopyTextAsync(string text)
+    {
+        if (text.Length > 0 && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        {
+            await clipboard.SetTextAsync(text);
+        }
     }
 
     private void OnCloseClick(object? sender, RoutedEventArgs e) => CloseRequested?.Invoke(this, e);

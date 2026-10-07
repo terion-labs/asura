@@ -274,32 +274,158 @@ public sealed class DockerRuntimePanelViewModelTests
             BuiltInConnections.Local);
         await panel.Initialization;
 
-        Assert.True(panel.ShowLogsTab);
-        Assert.True(panel.ShowStatsTab);
-        Assert.True(panel.ShowShellTab);
-        Assert.True(panel.ShowFilesTab);
-        Assert.True(panel.ShowJsonTab);
+        Assert.True(panel.CanShowLogs);
+        Assert.True(panel.CanShowShell);
+        Assert.True(panel.CanShowFiles);
+        Assert.True(panel.CanShowJson);
 
         panel.SelectSection(DockerPanelSection.Images);
 
-        Assert.False(panel.ShowLogsTab);
-        Assert.False(panel.ShowStatsTab);
-        Assert.False(panel.ShowShellTab);
-        Assert.True(panel.ShowFilesTab);
-        Assert.True(panel.ShowJsonTab);
+        Assert.False(panel.CanShowLogs);
+        Assert.False(panel.CanShowShell);
+        Assert.True(panel.CanShowFiles);
+        Assert.True(panel.CanShowJson);
         panel.SelectDetail(DockerPanelDetail.Files);
         Assert.True(panel.IsFilesDetail);
 
         panel.SelectSection(DockerPanelSection.Volumes);
-        Assert.True(panel.ShowFilesTab);
+        Assert.True(panel.CanShowFiles);
         panel.SelectDetail(DockerPanelDetail.Files);
         Assert.True(panel.IsFilesDetail);
 
         panel.SelectSection(DockerPanelSection.Networks);
-        Assert.False(panel.ShowFilesTab);
+        Assert.False(panel.CanShowFiles);
         panel.SelectDetail(DockerPanelDetail.Files);
         Assert.True(panel.IsInfoDetail);
-        Assert.True(panel.ShowJsonTab);
+        Assert.True(panel.CanShowJson);
+    }
+
+    /// <summary>
+    /// The views are five, the most a segmented control holds, in the order
+    /// the control shows them, and the narrow pop-up names the current one.
+    /// </summary>
+    [Fact]
+    public async Task DetailViewsAreFiveStableSegmentsNamedByThePopUp()
+    {
+        using var panel = new DockerRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Docker",
+            new FakeDockerEngineClient(Snapshot()),
+            BuiltInConnections.Local);
+        await panel.Initialization;
+
+        Assert.Equal(
+            [DockerPanelDetail.Info, DockerPanelDetail.Logs, DockerPanelDetail.Shell, DockerPanelDetail.Files, DockerPanelDetail.Json],
+            Enum.GetValues<DockerPanelDetail>());
+        Assert.Equal(0, panel.DetailIndex);
+        Assert.Equal("Info", panel.DetailTitle);
+
+        var changed = new List<string?>();
+        panel.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        panel.SelectDetail(DockerPanelDetail.Json);
+
+        Assert.Equal(4, panel.DetailIndex);
+        Assert.Equal("JSON", panel.DetailTitle);
+        Assert.Contains(nameof(DockerRuntimePanelViewModel.DetailIndex), changed, StringComparer.Ordinal);
+        Assert.Contains(nameof(DockerRuntimePanelViewModel.DetailTitle), changed, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// The section list and the narrow segmented control both bind the
+    /// section by position, and a position that is not a section is ignored.
+    /// </summary>
+    [Fact]
+    public async Task SectionIndexSelectsTheSectionAtThatPosition()
+    {
+        using var panel = new DockerRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Docker",
+            new FakeDockerEngineClient(Snapshot()),
+            BuiltInConnections.Local);
+        await panel.Initialization;
+
+        var changed = new List<string?>();
+        panel.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        panel.SectionIndex = (int)DockerPanelSection.Volumes;
+
+        Assert.True(panel.IsVolumesSection);
+        Assert.Equal(2, panel.SectionIndex);
+        Assert.Contains(nameof(DockerRuntimePanelViewModel.SectionIndex), changed, StringComparer.Ordinal);
+
+        panel.SectionIndex = -1;
+        Assert.True(panel.IsVolumesSection);
+        panel.SectionIndex = 9;
+        Assert.True(panel.IsVolumesSection);
+    }
+
+    /// <summary>
+    /// The header's status mark follows the engine — it was a green dot
+    /// whatever happened — and says which state it shows, with a glyph for
+    /// each so the state does not rest on colour.
+    /// </summary>
+    [Fact]
+    public async Task EngineStatusFollowsTheEngineAndNamesItsState()
+    {
+        var pending = new TaskCompletionSource<DockerEngineSnapshot>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        using var panel = new DockerRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Docker",
+            new FakeDockerEngineClient(Snapshot()) { SnapshotCompletion = pending },
+            BuiltInConnections.Local);
+
+        Assert.Equal(StatusTone.Warning, panel.EngineStatusTone);
+        Assert.StartsWith("Connecting to the Docker engine", panel.EngineStatusLabel, StringComparison.Ordinal);
+        Assert.Equal(Symbol.Warning, panel.EngineStatusGlyph);
+
+        pending.SetResult(Snapshot());
+        await panel.Initialization;
+
+        Assert.Equal(StatusTone.Success, panel.EngineStatusTone);
+        Assert.StartsWith("Docker engine connected", panel.EngineStatusLabel, StringComparison.Ordinal);
+        Assert.Equal(Symbol.CheckmarkCircle, panel.EngineStatusGlyph);
+
+        using var unavailable = new DockerRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Docker",
+            new FakeDockerEngineClient(new DockerError(
+                DockerErrorCode.RuntimeUnavailable,
+                "The daemon is not running.",
+                true)),
+            BuiltInConnections.Local);
+        await unavailable.Initialization;
+
+        Assert.Equal(StatusTone.Danger, unavailable.EngineStatusTone);
+        Assert.StartsWith("Docker engine unavailable", unavailable.EngineStatusLabel, StringComparison.Ordinal);
+        Assert.Equal(Symbol.ErrorCircle, unavailable.EngineStatusGlyph);
+    }
+
+    /// <summary>
+    /// Emptying the search field — its clear button, Escape, or deleting the
+    /// last character — ends the search on the engine, as clearing a search
+    /// field does; it used to leave the old results showing.
+    /// </summary>
+    [Fact]
+    public async Task EmptyingTheSearchFieldEndsTheSearch()
+    {
+        var client = new FakeDockerEngineClient(Snapshot());
+        using var panel = new DockerRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Docker",
+            client,
+            BuiltInConnections.Local);
+        await panel.Initialization;
+        panel.LogSearchText = "ready";
+        await panel.SearchLogsAsync();
+        Assert.True(panel.IsLogSearchActive);
+        var requests = client.LogRequests.Count;
+
+        panel.LogSearchText = string.Empty;
+
+        Assert.False(panel.IsLogSearchActive);
+        Assert.True(panel.CanFollowLogs);
+        await WaitUntilAsync(() => client.LogRequests.Count > requests);
+        Assert.Null(client.LogRequests[^1].SearchText);
     }
 
     [Fact]
@@ -383,19 +509,18 @@ public sealed class DockerRuntimePanelViewModelTests
     }
 
     [Fact]
-    public void LogSearchClearActionIsComposedInsideTheSearchField()
+    public void LogSearchIsTheSharedSearchFieldWithItsOwnClearButton()
     {
         var search = ApplicationViews
             .FindUniqueNamedElement("LogSearchBox")
             .Element;
-        var clear = ApplicationViews
-            .FindUniqueNamedElement("LogSearchClearButton")
-            .Element;
 
-        Assert.Equal("Grid", search.Parent?.Name.LocalName);
-        Assert.Same(search.Parent, clear.Parent);
-        Assert.Equal("Right", clear.Attribute("HorizontalAlignment")?.Value);
-        Assert.Contains("Right=Xxl", search.Attribute("Padding")?.Value);
+        // The shared field draws the magnifier and the clear button and
+        // clears on Escape; a hand-placed clear button over a padded text box
+        // is what every search field used to be.
+        Assert.Equal("SearchField", search.Name.LocalName);
+        Assert.Equal("OnLogSearchKeyDown", search.Attribute("KeyDown")?.Value);
+        Assert.Null(search.Attribute("Padding"));
     }
 
     [Fact]
@@ -640,6 +765,21 @@ string.Equals(state, "running", StringComparison.Ordinal) ? "Up 2 hours" : "Exit
         "—",
         "—",
         "—");
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        for (var attempt = 0; attempt < 200; attempt++)
+        {
+            if (condition())
+            {
+                return;
+            }
+
+            await Task.Delay(10);
+        }
+
+        Assert.Fail("The Docker panel did not reach the expected state in time.");
+    }
 
     private sealed class FakeDockerEngineClient : IDockerEngineClient
     {

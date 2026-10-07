@@ -13,6 +13,7 @@ using Avalonia.Media;
 using Avalonia.VisualTree;
 using DockerListItem = Asura.App.Controls.ListItem;
 using IdentityTile = Asura.App.Controls.IdentityTile;
+using SegmentedControl = Asura.App.Controls.SegmentedControl;
 
 namespace Asura.App.Tests;
 
@@ -53,10 +54,10 @@ public sealed class DockerRuntimePanelViewHeadlessTests
                         .Any(button => button.Classes.Contains("DockerResourceRow"));
                 });
 
-                var familyNavigation = view.FindControl<StackPanel>("DockerFamilyNavigation")!;
+                var familyNavigation = view.FindControl<ListBox>("DockerFamilyNavigation")!;
                 var familyButtons = familyNavigation.GetVisualDescendants()
-                    .OfType<Button>()
-                    .Where(button => button.Classes.Contains("DockerNav"))
+                    .OfType<ListBoxItem>()
+                    .Where(item => item.Classes.Contains("DockerNav"))
                     .ToArray();
                 Assert.Equal(4, familyButtons.Length);
                 Assert.All(
@@ -138,13 +139,14 @@ public sealed class DockerRuntimePanelViewHeadlessTests
                 var stackToggle = Assert.Single(
                     stack.GetVisualDescendants().OfType<Button>(),
                     button => string.Equals(AutomationProperties.GetName(button)
-, "Expand or collapse stack", StringComparison.Ordinal));
+, "Collapse demo", StringComparison.Ordinal));
                 var stackViewModel = Assert.IsType<DockerContainerStackViewModel>(
                     stackToggle.DataContext);
                 stackToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 window.UpdateLayout();
                 Assert.False(stackViewModel.IsExpanded);
                 Assert.False(containerList.IsVisible);
+                Assert.Equal("Expand demo", AutomationProperties.GetName(stackToggle));
                 stackToggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 window.UpdateLayout();
                 Assert.True(stackViewModel.IsExpanded);
@@ -152,7 +154,9 @@ public sealed class DockerRuntimePanelViewHeadlessTests
 
                 var stopStack = Assert.Single(
                     stack.GetVisualDescendants().OfType<Button>(),
-                    button => string.Equals(AutomationProperties.GetName(button), "Stop stack", StringComparison.Ordinal));
+                    button => string.Equals(AutomationProperties.GetName(button), "Stop demo", StringComparison.Ordinal));
+                Assert.Equal("Stop every container in demo", ToolTip.GetTip(stopStack));
+                Assert.True(stopStack.Bounds.Width >= 28 && stopStack.Bounds.Height >= 28);
                 var stopStackCenter = stopStack.TranslatePoint(
                     new Point(stopStack.Bounds.Width / 2, stopStack.Bounds.Height / 2),
                     window);
@@ -168,8 +172,12 @@ public sealed class DockerRuntimePanelViewHeadlessTests
                 var containerActions = Assert.Single(
                     view.GetVisualDescendants().OfType<StackPanel>(),
                     candidate => candidate.Classes.Contains("DockerContainerActions"));
+                // Restart, and moving the shell to a tab; the latter shows
+                // only with the shell view.
                 var actionButtons = containerActions.Children.OfType<Button>().ToArray();
                 Assert.Equal(2, actionButtons.Length);
+                Assert.False(actionButtons[^1].IsVisible);
+                actionButtons = [.. actionButtons.Where(button => button.IsVisible)];
                 Assert.All(
                     actionButtons,
                     button => Assert.InRange(
@@ -467,12 +475,12 @@ public sealed class DockerRuntimePanelViewHeadlessTests
                     return detailHeader.Classes.Contains("compactDetails");
                 });
                 var tabHost = Assert.Single(
-                    detailHeader.GetVisualDescendants().OfType<StackPanel>(),
+                    detailHeader.GetVisualDescendants().OfType<SegmentedControl>(),
                     panel => panel.Classes.Contains("DockerDetailTabs"));
                 var menuButton = Assert.Single(
                     detailHeader.GetVisualDescendants().OfType<Button>(),
                     button => string.Equals(AutomationProperties.GetName(button)
-, "Open container view menu", StringComparison.Ordinal));
+, "Resource view", StringComparison.Ordinal));
                 Assert.False(tabHost.IsEffectivelyVisible);
                 Assert.True(menuButton.IsEffectivelyVisible);
                 var menuButtonCenter = menuButton.TranslatePoint(
@@ -483,6 +491,19 @@ public sealed class DockerRuntimePanelViewHeadlessTests
                 window.MouseUp(menuButtonCenter.Value, MouseButton.Left);
                 await WaitUntilAsync(() => menuButton.Flyout?.IsOpen == true);
                 Assert.True(menuButton.Flyout?.IsOpen);
+                // The pop-up's menu checks the current view, and a view that
+                // does not apply is there but dimmed.
+                var views = Assert.IsType<MenuFlyout>(menuButton.Flyout).Items.OfType<MenuItem>().ToArray();
+                Assert.Equal(
+                    ["Info", "Logs", "Shell", "Files", "JSON"],
+                    views.Select(item => item.Header as string),
+                    StringComparer.Ordinal);
+                Assert.All(views, item => Assert.Equal(MenuItemToggleType.Radio, item.ToggleType));
+                Assert.Equal([true, false, false, false, false], views.Select(item => item.IsChecked));
+                views[1].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                Assert.True(panel.IsLogsDetail);
+                Assert.True(views[1].IsChecked);
+                Assert.False(views[0].IsChecked);
                 menuButton.Flyout!.IsOpen = false;
 
                 window.Width = 1_200;
@@ -683,6 +704,224 @@ public sealed class DockerRuntimePanelViewHeadlessTests
         });
         return value!;
     }
+
+    /// <summary>
+    /// The views are a segmented control: choosing a segment shows that view,
+    /// a change the view model makes moves the segment with it, and a view
+    /// that does not apply to the selection stays in place, dimmed.
+    /// </summary>
+    [Fact]
+    public Task DetailSegmentsFollowTheViewModelBothWays() =>
+        RunHeadlessAsync(async () =>
+        {
+            var client = new PagedLogDockerClient();
+            using var panel = new DockerRuntimePanelViewModel(
+                PanelInstanceId.New(),
+                "Docker",
+                client,
+                BuiltInConnections.Local);
+            await panel.Initialization;
+
+            var view = new DockerRuntimePanelView { DataContext = panel };
+            var window = new Window { Width = 1_400, Height = 700, Content = view };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                var segments = view.FindControl<SegmentedControl>("DockerDetailSegments")!;
+                var radios = segments.GetVisualDescendants().OfType<RadioButton>().ToArray();
+                Assert.Equal(5, radios.Length);
+                Assert.True(radios[0].IsChecked);
+
+                radios[4].IsChecked = true;
+                Assert.True(panel.IsJsonDetail);
+                Assert.Equal(4, segments.SelectedIndex);
+
+                panel.SelectDetail(DockerPanelDetail.Logs);
+                window.UpdateLayout();
+                Assert.Equal(1, segments.SelectedIndex);
+                Assert.True(radios[1].IsChecked);
+
+                panel.SelectSection(DockerPanelSection.Networks);
+                window.UpdateLayout();
+                Assert.Equal(0, segments.SelectedIndex);
+                Assert.Equal(5, segments.GetVisualDescendants().OfType<RadioButton>().Count());
+                Assert.All(radios, radio => Assert.True(radio.IsVisible));
+                Assert.Equal(
+                    [true, false, false, false, true],
+                    radios.Select(radio => radio.IsEffectivelyEnabled));
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+    /// <summary>
+    /// The resource types are a list whose selected row is the current type,
+    /// so a screen reader hears which one is selected.
+    /// </summary>
+    [Fact]
+    public Task ResourceTypesAreASelectableList() =>
+        RunHeadlessAsync(async () =>
+        {
+            using var panel = new DockerRuntimePanelViewModel(
+                PanelInstanceId.New(),
+                "Docker",
+                new PagedLogDockerClient(),
+                BuiltInConnections.Local);
+            await panel.Initialization;
+
+            var view = new DockerRuntimePanelView { DataContext = panel };
+            var window = new Window { Width = 1_400, Height = 700, Content = view };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                var list = view.FindControl<ListBox>("DockerFamilyNavigation")!;
+                Assert.Equal(0, list.SelectedIndex);
+                Assert.Equal("Containers, 1", AutomationProperties.GetName(Assert.IsType<ListBoxItem>(list.ContainerFromIndex(0))));
+
+                list.SelectedIndex = 1;
+                Assert.True(panel.IsImagesSection);
+                panel.SelectSection(DockerPanelSection.Volumes);
+                Assert.Equal(2, list.SelectedIndex);
+                Assert.True(Assert.IsType<ListBoxItem>(list.ContainerFromIndex(2)).IsSelected);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+    /// <summary>
+    /// A secondary click on a container selects it and offers what the
+    /// toolbar offers: its views, its lifecycle, and copying its name.
+    /// </summary>
+    [Fact]
+    public Task ResourcesOfferAContextMenuThatMirrorsTheToolbar() =>
+        RunHeadlessAsync(async () =>
+        {
+            var client = new PagedLogDockerClient();
+            using var panel = new DockerRuntimePanelViewModel(
+                PanelInstanceId.New(),
+                "Docker",
+                client,
+                BuiltInConnections.Local);
+            await panel.Initialization;
+
+            var view = new DockerRuntimePanelView { DataContext = panel };
+            var window = new Window { Width = 1_400, Height = 700, Content = view };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                var container = Assert.Single(panel.Resources);
+                var menu = view.CreateResourceContextMenu(panel, container);
+                Assert.Equal(
+                    ["Show Logs", "Browse Files", "Open Shell in New Tab", "-", "Stop", "Restart", "Pause", "-", "Copy Name", "Copy ID"],
+                    Headers(menu),
+                    StringComparer.Ordinal);
+                var stop = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, "Stop"));
+                Assert.Same(panel.StopCommand, stop.Command);
+
+                var shellRequested = false;
+                view.ShellRequested += (_, _) => shellRequested = true;
+                menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, "Open Shell in New Tab"))
+                    .RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                Assert.True(shellRequested);
+                menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, "Show Logs"))
+                    .RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                Assert.True(panel.IsLogsDetail);
+
+                // A right-click is the pointer's way to ask for that menu: it
+                // selects the row under it first, as Finder does.
+                var row = Assert.Single(
+                    view.GetVisualDescendants().OfType<Button>(),
+                    button => button.Classes.Contains("DockerResourceRow"));
+                var args = new ContextRequestedEventArgs();
+                row.RaiseEvent(args);
+                Assert.True(args.Handled);
+                Assert.Same(container, panel.SelectedResource);
+
+                panel.SelectSection(DockerPanelSection.Volumes);
+                var volume = Assert.Single(panel.Resources);
+                Assert.Equal(
+                    ["Browse Files", "Show JSON", "-", "Copy Name"],
+                    Headers(view.CreateResourceContextMenu(panel, volume)),
+                    StringComparer.Ordinal);
+                panel.SelectSection(DockerPanelSection.Networks);
+                Assert.Equal(
+                    ["Show JSON", "-", "Copy Name", "Copy ID"],
+                    Headers(view.CreateResourceContextMenu(panel, Assert.Single(panel.Resources))),
+                    StringComparer.Ordinal);
+
+                panel.SelectSection(DockerPanelSection.Containers);
+                var stack = Assert.Single(panel.ContainerStacks);
+                Assert.Equal(
+                    ["Start All", "Stop All", "Restart Running", "Pause Running", "-", "Collapse"],
+                    Headers(view.CreateStackContextMenu(panel, stack)),
+                    StringComparer.Ordinal);
+            }
+            finally
+            {
+                window.Close();
+            }
+
+            static string[] Headers(ContextMenu menu) => [.. menu.Items.Select(item => item switch
+            {
+                MenuItem menuItem => menuItem.Header as string ?? string.Empty,
+                Separator => "-",
+                _ => "?",
+            })];
+        });
+
+    /// <summary>
+    /// The engine's status mark is a dot named for the engine's state, and
+    /// where colour cannot carry that state it becomes a glyph with a shape
+    /// of its own.
+    /// </summary>
+    [Fact]
+    public Task EngineStatusMarkGainsAGlyphWithoutColor() =>
+        RunHeadlessAsync(async () =>
+        {
+            using var panel = new DockerRuntimePanelViewModel(
+                PanelInstanceId.New(),
+                "Docker",
+                new PagedLogDockerClient(),
+                BuiltInConnections.Local);
+            await panel.Initialization;
+
+            var view = new DockerRuntimePanelView { DataContext = panel };
+            var window = new Window { Width = 1_200, Height = 700, Content = view };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                var dot = Assert.Single(
+                    view.GetVisualDescendants().OfType<Border>(),
+                    border => border.Classes.Contains("DockerEngineStatusDot"));
+                var glyph = Assert.Single(
+                    view.GetVisualDescendants().OfType<FluentIcons.Avalonia.SymbolIcon>(),
+                    icon => icon.Classes.Contains("DockerEngineStatusGlyph"));
+                Assert.StartsWith("Docker engine connected", AutomationProperties.GetName(dot), StringComparison.Ordinal);
+                Assert.True(dot.IsEffectivelyVisible);
+                Assert.False(glyph.IsEffectivelyVisible);
+                var success = Assert.IsAssignableFrom<ISolidColorBrush>(dot.Background).Color;
+                Assert.True(dot.TryFindResource("ShellSuccessBrush", dot.ActualThemeVariant, out var successToken));
+                Assert.Equal(Assert.IsAssignableFrom<ISolidColorBrush>(successToken).Color, success);
+
+                window.Classes.Add("differentiate-without-color");
+                window.UpdateLayout();
+                Assert.False(dot.IsEffectivelyVisible);
+                Assert.True(glyph.IsEffectivelyVisible);
+                Assert.Equal(FluentIcons.Common.Symbol.CheckmarkCircle, glyph.Symbol);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
 
     private static async Task WaitUntilAsync(Func<bool> condition)
     {

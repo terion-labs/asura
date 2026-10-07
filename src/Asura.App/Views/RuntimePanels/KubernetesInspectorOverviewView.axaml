@@ -113,26 +113,16 @@
               </DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>
-          <!-- Which series the history draws: the same either-or the rest of
-               the shell writes as a segmented picker. -->
-          <Border
+          <!-- Which series the history draws: the shell's one segmented
+               control, so it is announced and keyed like every other. -->
+          <controls:SegmentedControl
               Grid.Column="1"
-              VerticalAlignment="Center"
-              Classes="Segmented"
-              IsVisible="{Binding HasMetricHistory}">
-            <UniformGrid Columns="2">
-              <RadioButton
-                  Classes="Segment"
-                  Content="CPU"
-                  IsChecked="{Binding !MemoryHistory, Mode=OneWay}"
-                  AutomationProperties.Name="Show CPU history" />
-              <RadioButton
-                  Classes="Segment"
-                  Content="Memory"
-                  IsChecked="{Binding MemoryHistory, Mode=TwoWay}"
-                  AutomationProperties.Name="Show memory history" />
-            </UniformGrid>
-          </Border>
+              IsVisible="{Binding HasMetricHistory}"
+              SelectedIndex="{Binding HistorySeriesIndex, Mode=TwoWay}"
+              AutomationProperties.Name="Metric history series">
+            <RadioButton Content="CPU" AutomationProperties.Name="CPU" />
+            <RadioButton Content="Memory" AutomationProperties.Name="Memory" />
+          </controls:SegmentedControl>
         </Grid>
       </StackPanel>
 

@@ -371,41 +371,51 @@ public sealed partial class DockerRuntimePanelView : UserControl
     private void OnSplitRequested(object? sender, PanelSplitOrientation orientation) =>
         SplitRequested?.Invoke(sender, orientation);
 
-    private void OnContainersClick(object? sender, RoutedEventArgs e) =>
-        ViewModel?.SelectSection(DockerPanelSection.Containers);
-
-    private void OnImagesClick(object? sender, RoutedEventArgs e) =>
-        ViewModel?.SelectSection(DockerPanelSection.Images);
-
-    private void OnVolumesClick(object? sender, RoutedEventArgs e) =>
-        ViewModel?.SelectSection(DockerPanelSection.Volumes);
-
-    private void OnNetworksClick(object? sender, RoutedEventArgs e) =>
-        ViewModel?.SelectSection(DockerPanelSection.Networks);
-
     private void OnInfoClick(object? sender, RoutedEventArgs e) =>
-        ViewModel?.SelectDetail(DockerPanelDetail.Info);
+        ShowDetail(DockerPanelDetail.Info);
 
     private void OnLogsClick(object? sender, RoutedEventArgs e) =>
-        ViewModel?.SelectDetail(DockerPanelDetail.Logs);
+        ShowDetail(DockerPanelDetail.Logs);
 
-    private async void OnLogSearchClick(object? sender, RoutedEventArgs e)
+    /// <summary>
+    /// A segment the person chose. The segments follow the view model one
+    /// way, so a change that is only the view model's own selection coming
+    /// back — a new resource resetting to Info — is already the current view
+    /// and is left alone.
+    /// </summary>
+    private void OnDetailSegmentSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        _ = sender;
         _ = e;
-        if (ViewModel is { } panel)
+        if (sender is SegmentedControl { SelectedIndex: >= 0 } segments
+            && ViewModel is { } panel
+            && Enum.IsDefined((DockerPanelDetail)segments.SelectedIndex)
+            && (DockerPanelDetail)segments.SelectedIndex != panel.Detail)
         {
-            await panel.SearchLogsAsync();
+            ShowDetail((DockerPanelDetail)segments.SelectedIndex);
         }
     }
 
-    private async void OnClearLogSearchClick(object? sender, RoutedEventArgs e)
+    /// <summary>
+    /// Shows one view of the selection. The shell view starts its shell the
+    /// first time it is shown, which no other view needs.
+    /// </summary>
+    private void ShowDetail(DockerPanelDetail detail)
     {
-        _ = sender;
-        _ = e;
-        if (ViewModel is { } panel)
+        if (ViewModel is not { } panel)
         {
-            await panel.ClearLogSearchAsync();
+            return;
+        }
+
+        if (detail != DockerPanelDetail.Shell)
+        {
+            panel.SelectDetail(detail);
+            return;
+        }
+
+        if (panel.CanOpenShell)
+        {
+            panel.SelectDetail(DockerPanelDetail.Shell);
+            RequestInlineShell(panel);
         }
     }
 
@@ -452,27 +462,14 @@ public sealed partial class DockerRuntimePanelView : UserControl
         await panel.DownloadLogsAsync(stream);
     }
 
-    private void OnStatsClick(object? sender, RoutedEventArgs e) =>
-        ViewModel?.SelectDetail(DockerPanelDetail.Stats);
-
-    private void OnShellClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (ViewModel is not { CanOpenShell: true } panel)
-        {
-            return;
-        }
-
-        panel.SelectDetail(DockerPanelDetail.Shell);
-        RequestInlineShell(panel);
-    }
+    private void OnShellClick(object? sender, RoutedEventArgs e) =>
+        ShowDetail(DockerPanelDetail.Shell);
 
     private void OnJsonClick(object? sender, RoutedEventArgs e) =>
-        ViewModel?.SelectDetail(DockerPanelDetail.Json);
+        ShowDetail(DockerPanelDetail.Json);
 
     private void OnFilesClick(object? sender, RoutedEventArgs e) =>
-        ViewModel?.SelectDetail(DockerPanelDetail.Files);
+        ShowDetail(DockerPanelDetail.Files);
 
     private void OnOpenShellClick(object? sender, RoutedEventArgs e)
     {
@@ -501,10 +498,138 @@ public sealed partial class DockerRuntimePanelView : UserControl
             return;
         }
 
+        SelectResource(panel, resource);
+    }
+
+    private void SelectResource(
+        DockerRuntimePanelViewModel panel,
+        DockerResourceItemViewModel resource)
+    {
         panel.SelectResource(resource);
         if (panel.IsShellDetail && panel.CanOpenShell)
         {
             RequestInlineShell(panel);
+        }
+    }
+
+    /// <summary>
+    /// A secondary click on a resource, or the context-menu key on one,
+    /// selects it as Finder does and offers what the toolbar offers for it.
+    /// A stack's heading offers the stack's own lifecycle commands.
+    /// </summary>
+    private void OnResourceContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        _ = sender;
+        if (ViewModel is not { } panel || e.Source is not Control source)
+        {
+            return;
+        }
+
+        ContextMenu? menu = null;
+        switch (source.DataContext)
+        {
+            case DockerResourceItemViewModel resource when panel.Resources.Contains(resource):
+                SelectResource(panel, resource);
+                menu = CreateResourceContextMenu(panel, resource);
+                break;
+            case DockerContainerStackViewModel { HasLifecycleControls: true } stack
+                when panel.ContainerStacks.Contains(stack):
+                menu = CreateStackContextMenu(panel, stack);
+                break;
+        }
+
+        if (menu is null)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        menu.Open(source);
+    }
+
+    /// <summary>
+    /// What can be done to one resource: its views first, then a container's
+    /// lifecycle, then copying what identifies it. Docker resources here are
+    /// never removed, so there is no destructive group to put last.
+    /// </summary>
+    internal ContextMenu CreateResourceContextMenu(
+        DockerRuntimePanelViewModel panel,
+        DockerResourceItemViewModel resource)
+    {
+        var menu = new ContextMenu();
+        if (resource.IsContainer)
+        {
+            menu.Items.Add(Item("Show Logs", panel.CanShowLogs, () => ShowDetail(DockerPanelDetail.Logs)));
+            menu.Items.Add(Item("Browse Files", panel.CanShowFiles, () => ShowDetail(DockerPanelDetail.Files)));
+            menu.Items.Add(Item(
+                "Open Shell in New Tab",
+                panel.CanOpenShell,
+                () => ShellRequested?.Invoke(this, panel)));
+            menu.Items.Add(new Separator());
+            menu.Items.Add(resource.IsRunning || resource.IsPaused
+                ? CommandItem("Stop", panel.StopCommand)
+                : CommandItem("Start", panel.StartCommand));
+            menu.Items.Add(CommandItem("Restart", panel.RestartCommand));
+            menu.Items.Add(resource.IsPaused
+                ? CommandItem("Resume", panel.ResumeCommand)
+                : CommandItem("Pause", panel.PauseCommand));
+        }
+        else
+        {
+            if (!resource.IsNetwork)
+            {
+                menu.Items.Add(Item("Browse Files", panel.CanShowFiles, () => ShowDetail(DockerPanelDetail.Files)));
+            }
+
+            menu.Items.Add(Item("Show JSON", panel.CanShowJson, () => ShowDetail(DockerPanelDetail.Json)));
+        }
+
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item("Copy Name", isEnabled: true, () => _ = CopyTextAsync(resource.Title)));
+        if (!resource.IsVolume)
+        {
+            menu.Items.Add(Item("Copy ID", isEnabled: true, () => _ = CopyTextAsync(resource.Resource.Id)));
+        }
+
+        return menu;
+
+        static MenuItem CommandItem(string header, System.Windows.Input.ICommand command) =>
+            new() { Header = header, Command = command };
+    }
+
+    /// <summary>The stack heading's own buttons, as a menu on the heading.</summary>
+    internal ContextMenu CreateStackContextMenu(
+        DockerRuntimePanelViewModel panel,
+        DockerContainerStackViewModel stack)
+    {
+        var menu = new ContextMenu();
+        menu.Items.Add(Item("Start All", stack.CanStart, () => _ = panel.RunStackActionAsync(stack, DockerContainerAction.Start)));
+        menu.Items.Add(Item("Stop All", stack.CanStop, () => _ = panel.RunStackActionAsync(stack, DockerContainerAction.Stop)));
+        menu.Items.Add(Item("Restart Running", stack.CanRestart, () => _ = panel.RunStackActionAsync(stack, DockerContainerAction.Restart)));
+        menu.Items.Add(stack.CanResume && !stack.CanPause
+            ? Item("Resume Paused", isEnabled: true, () => _ = panel.RunStackActionAsync(stack, DockerContainerAction.Resume))
+            : Item("Pause Running", stack.CanPause, () => _ = panel.RunStackActionAsync(stack, DockerContainerAction.Pause)));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item(
+            stack.IsExpanded ? "Collapse" : "Expand",
+            isEnabled: true,
+            () => stack.IsExpanded = !stack.IsExpanded));
+        return menu;
+    }
+
+    private static MenuItem Item(string header, bool isEnabled, Action action)
+    {
+        var item = new MenuItem { Header = header, IsEnabled = isEnabled };
+        item.Click += (_, _) => action();
+        return item;
+    }
+
+    private async Task CopyTextAsync(string text)
+    {
+        if (!string.IsNullOrEmpty(text)
+            && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        {
+            await clipboard.SetTextAsync(text);
         }
     }
 
@@ -650,14 +775,8 @@ public sealed partial class DockerRuntimePanelView : UserControl
         }
     }
 
-    private async Task CopyEmbeddedFileTextAsync(string? text)
-    {
-        if (!string.IsNullOrEmpty(text)
-            && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
-        {
-            await clipboard.SetTextAsync(text);
-        }
-    }
+    private Task CopyEmbeddedFileTextAsync(string? text) =>
+        string.IsNullOrEmpty(text) ? Task.CompletedTask : CopyTextAsync(text);
 
     private void RequestInlineShell(DockerRuntimePanelViewModel panel)
     {
