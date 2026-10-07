@@ -2,8 +2,13 @@ using System.ComponentModel;
 using Asura.App.ViewModels;
 using Asura.App.Views.Overlays;
 using Asura.Core;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
+using Dock.Avalonia.Controls;
 
 namespace Asura.App.Views;
 
@@ -128,6 +133,8 @@ public sealed partial class MainWindow
         var window = new LayoutDesignerWindow();
         window.Closed += OnLayoutDesignerWindowClosed;
         _layoutDesignerWindow = window;
+        TrackDockPresses(window, track: true);
+        TrackDockPresses(this, track: true);
         window.Present(this, designer, ConfirmCloseLayoutDesignerAsync);
         FocusNavigator.FocusLayoutDesignerName();
     }
@@ -197,8 +204,7 @@ public sealed partial class MainWindow
     private async Task<bool> ConfirmCloseLayoutDesignerAsync()
     {
         if (ViewModel.LayoutDesignerEditor is not { } designer
-            || designer.RequestCancel() != LayoutDesignerCancelDisposition.ConfirmDiscard
-            || (designer.IsNew && !designer.HasChanges))
+            || designer.RequestCancel() != LayoutDesignerCancelDisposition.ConfirmDiscard)
         {
             return true;
         }
@@ -230,7 +236,6 @@ public sealed partial class MainWindow
         _ = e;
         if (ViewModel.LayoutDesignerEditor is { } designer
             && designer.RequestCancel() == LayoutDesignerCancelDisposition.ConfirmDiscard
-            && !(designer.IsNew && !designer.HasChanges)
             && !await Confirmations.DiscardChanges().ShowDialog<bool>(LayoutDesignerDialogOwner))
         {
             return;
@@ -318,12 +323,60 @@ public sealed partial class MainWindow
         }
 
         _layoutDesignerWindow = null;
+        if (sender is Window closed)
+        {
+            TrackDockPresses(closed, track: false);
+        }
+
+        TrackDockPresses(this, track: false);
+        (DataContext as MainWindowViewModel)?.SetDockDragOrigin(DockDragOrigin.None);
         if (DataContext is MainWindowViewModel { IsLayoutDesignerVisible: true } viewModel)
         {
             viewModel.DismissLayoutDesigner();
         }
 
         ReturnFromEditorWindow();
+    }
+
+    /// <summary>
+    /// While the designer is open beside the workspace, a press on a panel in
+    /// one of them stops the other taking drops until the button is let go,
+    /// so a slot cannot land in the live workspace or a live panel in the
+    /// design. Otherwise both dock as usual.
+    /// </summary>
+    private void TrackDockPresses(Window window, bool track)
+    {
+        if (track)
+        {
+            window.AddHandler(PointerPressedEvent, OnDockPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+            window.AddHandler(PointerReleasedEvent, OnDockPointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
+        }
+        else
+        {
+            window.RemoveHandler(PointerPressedEvent, OnDockPointerPressed);
+            window.RemoveHandler(PointerReleasedEvent, OnDockPointerReleased);
+        }
+    }
+
+    private void OnDockPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel viewModel
+            || e.Source is not Visual source
+            || source.FindAncestorOfType<DockControl>(includeSelf: true) is null)
+        {
+            return;
+        }
+
+        viewModel.SetDockDragOrigin(ReferenceEquals(sender, this)
+            ? DockDragOrigin.Workspace
+            : DockDragOrigin.LayoutDesigner);
+    }
+
+    private void OnDockPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        (DataContext as MainWindowViewModel)?.SetDockDragOrigin(DockDragOrigin.None);
     }
 
     private void ReturnFromEditorWindow()

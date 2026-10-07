@@ -1103,6 +1103,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     private readonly ObservableCollection<RuntimeWorkspaceViewModel> _openWorkspaces = [];
     private bool _isLayoutDesignerOpen;
+    private DockDragOrigin _dockDragOrigin;
     private bool _isWorkspaceEditorOpen;
 
     /// <summary>
@@ -2269,6 +2270,36 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     }
 
     /// <summary>
+    /// Whether the workspace's panels can be docked: always, except while a
+    /// panel is held in the Layout Designer. Dock resolves drop targets across
+    /// every dock control, so a designer slot could otherwise land in the live
+    /// workspace.
+    /// </summary>
+    public bool IsWorkspaceDockingEnabled => _dockDragOrigin != DockDragOrigin.LayoutDesigner;
+
+    /// <summary>
+    /// Whether the designer's slots can be docked: always, except while a live
+    /// panel is held in the workspace, which must not land in the designer.
+    /// </summary>
+    public bool IsLayoutDesignerDockingEnabled => _dockDragOrigin != DockDragOrigin.Workspace;
+
+    /// <summary>
+    /// A panel is pressed in the workspace or the designer, or let go. Only
+    /// the other one stops taking drops meanwhile; both stay usable otherwise.
+    /// </summary>
+    public void SetDockDragOrigin(DockDragOrigin origin)
+    {
+        if (_dockDragOrigin == origin)
+        {
+            return;
+        }
+
+        _dockDragOrigin = origin;
+        OnPropertyChanged(nameof(IsWorkspaceDockingEnabled));
+        OnPropertyChanged(nameof(IsLayoutDesignerDockingEnabled));
+    }
+
+    /// <summary>
     /// Whether this window's workspace editor window is open: a workspace is
     /// being edited or created. Like the designer, it no longer covers the
     /// workspace.
@@ -2668,6 +2699,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     {
         DefinitionSettings.DismissLayoutDesigner();
         IsLayoutDesignerVisible = false;
+        SetDockDragOrigin(DockDragOrigin.None);
     }
 
     public async ValueTask<DefinitionStoreResult<StoredDefinition<LayoutDefinition>>>

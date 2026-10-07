@@ -146,7 +146,7 @@
                 VerticalAlignment="Stretch"
                 Layout="{Binding LayoutDesignerEditor.DockLayout}"
                 Factory="{Binding LayoutDesignerEditor.DockFactory}"
-                IsDockingEnabled="True"
+                IsDockingEnabled="{Binding IsLayoutDesignerDockingEnabled}"
                 InitializeFactory="True"
                 InitializeLayout="False"
                 AutomationProperties.Name="Editable layout canvas" />

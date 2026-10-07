@@ -460,13 +460,13 @@ public sealed class WorkspaceViewContractTests
         // dock control builds only what it is showing.
         Assert.Equal("{Binding IsCanvasShown}", AttributeValue(dockControl, "IsVisible"));
         Assert.Equal("{Binding CanvasDepth}", AttributeValue(dockControl, "ZIndex"));
-        // Docking pauses while the layout designer overlay is open: Dock resolves
-        // drop targets across every registered DockControl, and the designer's
-        // canvas must not be able to dock a slot into the live workspace beneath.
-        Assert.Contains(
-            "IsLayoutDesignerVisible",
-            AttributeValue(dockControl, "IsDockingEnabled") ?? string.Empty,
-            StringComparison.Ordinal);
+        // Docking pauses only while a slot is held in the Layout Designer
+        // window: Dock resolves drop targets across every registered
+        // DockControl, and a designer slot must not land in the live workspace.
+        // The rest of the time the workspace docks as usual beside the designer.
+        Assert.Equal(
+            "{Binding $parent[ItemsControl].DataContext.IsWorkspaceDockingEnabled}",
+            AttributeValue(dockControl, "IsDockingEnabled"));
         Assert.Equal("True", AttributeValue(dockControl, "InitializeFactory"));
         Assert.Equal("False", AttributeValue(dockControl, "InitializeLayout"));
         // Dock windows are real platform windows. The managed-window layer would

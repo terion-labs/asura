@@ -537,7 +537,7 @@
             IsVisible="{Binding IsCanvasShown}"
             ZIndex="{Binding CanvasDepth}"
             RuntimeTab="{Binding ActiveTab}"
-            IsDockingEnabled="{Binding $parent[ItemsControl].DataContext.IsLayoutDesignerVisible, Converter={x:Static BoolConverters.Not}}"
+            IsDockingEnabled="{Binding $parent[ItemsControl].DataContext.IsWorkspaceDockingEnabled}"
             InitializeFactory="True"
             InitializeLayout="False">
           <components:RuntimeDockControl.Styles>

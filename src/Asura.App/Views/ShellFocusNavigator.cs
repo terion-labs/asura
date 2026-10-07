@@ -41,8 +41,15 @@ internal sealed class ShellFocusNavigator(
     public void FocusSavedScreenUndo() => Post(() =>
         settingsRoute().FocusSavedScreenUndo());
 
-    public void FocusDefinitionDeleteUndo() => Post(() =>
-        window.FindControl<Button>("UndoDeletedDefinitionButton")?.Focus(NavigationMethod.Tab));
+    /// <summary>
+    /// Focuses Undo in the delete notice of <paramref name="host"/>: this
+    /// window, or the Settings window showing its settings.
+    /// </summary>
+    public void FocusDefinitionDeleteUndo(Window host) => Post(() =>
+        host.GetVisualDescendants()
+            .OfType<DefinitionDeleteUndoNoticeView>()
+            .FirstOrDefault()
+            ?.FocusUndo());
 
     public void FocusLayoutDesignerName() => Post(() =>
     {

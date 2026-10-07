@@ -1005,7 +1005,7 @@ public sealed partial class MainWindow : Window
     {
         if (FindSavedConnection(shortcut) is { } connection)
         {
-            await DeleteSavedConnectionAsync(connection);
+            await DeleteSavedConnectionAsync(connection, sender);
         }
     }
 
@@ -1014,7 +1014,7 @@ public sealed partial class MainWindow : Window
         _ = e;
         if (sender is Control { DataContext: LauncherConnectionViewModel connection })
         {
-            await DeleteSavedConnectionAsync(connection);
+            await DeleteSavedConnectionAsync(connection, sender);
         }
     }
 
@@ -1022,9 +1022,10 @@ public sealed partial class MainWindow : Window
     /// Deletes the connection at once, without a question: the notice it
     /// leaves can put it back, credentials and all, and asking about an
     /// undoable action only teaches people to stop reading the questions that
-    /// matter. Settings and the launcher both come here.
+    /// matter. Settings and the launcher both come here; Undo takes focus in
+    /// the window <paramref name="origin"/> is in.
     /// </summary>
-    private async Task DeleteSavedConnectionAsync(LauncherConnectionViewModel connection)
+    private async Task DeleteSavedConnectionAsync(LauncherConnectionViewModel connection, object? origin)
     {
         var kind = connection.Family switch
         {
@@ -1039,7 +1040,7 @@ public sealed partial class MainWindow : Window
             _lifetime.Token);
         if (result.IsSuccess)
         {
-            FocusDefinitionDeleteUndo();
+            FocusDefinitionDeleteUndo(origin);
         }
     }
 
@@ -1596,33 +1597,35 @@ public sealed partial class MainWindow : Window
         _ = e;
         if (sender is Control { DataContext: LauncherWorkspaceViewModel workspace })
         {
-            var result = await ViewModel.DeleteWorkspaceWithUndoAsync(
-                workspace.Id,
-                workspace.Revision,
-                _lifetime.Token);
-            if (result.IsSuccess)
-            {
-                FocusDefinitionDeleteUndo();
-            }
+            await DeleteWorkspaceWithUndoAsync(workspace, sender);
         }
     }
 
-    private async void OnUndoDefinitionDeleteClick(object? sender, RoutedEventArgs e)
+    /// <summary>
+    /// Deletes <paramref name="workspace"/> as asked from the control
+    /// <paramref name="origin"/>, in Settings or in this window, whose notice
+    /// then takes focus on Undo.
+    /// </summary>
+    internal async Task DeleteWorkspaceWithUndoAsync(LauncherWorkspaceViewModel workspace, object? origin)
     {
-        _ = sender;
-        _ = e;
-        var result = await ViewModel.UndoDefinitionDeleteAsync(_lifetime.Token);
-        if (result.IsSuccess && IsActive)
+        var result = await ViewModel.DeleteWorkspaceWithUndoAsync(
+            workspace.Id,
+            workspace.Revision,
+            _lifetime.Token);
+        if (result.IsSuccess)
         {
-            FocusNavigator.FocusCurrentRoute();
+            FocusDefinitionDeleteUndo(origin);
         }
     }
 
-    private async void OnDismissDefinitionDeleteUndoClick(object? sender, RoutedEventArgs e)
+    /// <summary>
+    /// Undo or Dismiss in either notice, this window's or Settings': focus
+    /// goes back to this window's work when the notice was in it.
+    /// </summary>
+    private void OnDefinitionDeleteUndoFinished(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        await ViewModel.DismissDefinitionDeleteUndoAsync();
         if (IsActive)
         {
             FocusNavigator.FocusCurrentRoute();
@@ -1631,14 +1634,17 @@ public sealed partial class MainWindow : Window
 
     /// <summary>
     /// Keyboard focus goes to Undo, as it does after a saved screen is
-    /// deleted, when the delete was made in this window. A delete made in
-    /// Settings leaves focus there.
+    /// deleted, in the window the delete was made in: this one, or Settings.
     /// </summary>
-    private void FocusDefinitionDeleteUndo()
+    private void FocusDefinitionDeleteUndo(object? origin)
     {
-        if (IsActive)
+        if (DialogOwnerFor(origin) is SettingsWindow settings && ReferenceEquals(settings.Host, this))
         {
-            FocusNavigator.FocusDefinitionDeleteUndo();
+            FocusNavigator.FocusDefinitionDeleteUndo(settings);
+        }
+        else if (IsActive)
+        {
+            FocusNavigator.FocusDefinitionDeleteUndo(this);
         }
     }
 

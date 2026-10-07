@@ -336,7 +336,11 @@ public sealed class LayoutDesignerViewModel : ObservableObject
         PublishState();
     }
 
-    public LayoutDesignerCancelDisposition RequestCancel() => IsDirty
+    /// <summary>
+    /// Whether closing the designer has to ask first. A new layout nobody
+    /// touched has nothing to lose, so it closes like a saved one.
+    /// </summary>
+    public LayoutDesignerCancelDisposition RequestCancel() => HasChanges
         ? LayoutDesignerCancelDisposition.ConfirmDiscard
         : LayoutDesignerCancelDisposition.Close;
 

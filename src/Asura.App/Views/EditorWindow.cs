@@ -10,7 +10,8 @@ namespace Asura.App.Views;
 ///
 /// One per main window and kind, owned by that window so it stays in front
 /// of it and closes with it. Closing it ends the edit; with unsaved edits it
-/// asks to save first, and the main window gets focus back.
+/// asks to save first, and the main window gets focus back. When the main
+/// window or the app closes, that close asks about the edits instead, once.
 /// </summary>
 public abstract class EditorWindow : Window
 {
@@ -81,6 +82,16 @@ public abstract class EditorWindow : Window
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         ArgumentNullException.ThrowIfNull(e);
+        // Avalonia asks owned windows before their owner. When the main
+        // window or the application is closing, its own close flow asks about
+        // these edits, and this window only closes if that flow lets the main
+        // window go; holding it here would keep the main window open.
+        if (e.CloseReason is WindowCloseReason.OwnerWindowClosing or WindowCloseReason.ApplicationShutdown)
+        {
+            base.OnClosing(e);
+            return;
+        }
+
         if (!_closeApproved && _confirmClose is { } confirm)
         {
             e.Cancel = true;

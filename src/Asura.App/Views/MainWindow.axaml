@@ -544,50 +544,15 @@
       <TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding ApplicationKeySequenceHint}" TextWrapping="Wrap" />
     </controls:SurfaceCard>
 
-    <!-- A deleted connection or workspace leaves this behind instead of a
-         question asked first: Undo puts back exactly what was deleted, and
-         the next delete, Dismiss or closing the window makes it final. -->
-    <controls:SurfaceCard Tone="Notice"
+    <!-- A deleted connection or workspace leaves Undo behind instead of a
+         question asked first. Settings shows the same notice. -->
+    <components:DefinitionDeleteUndoNoticeView
         x:Name="DefinitionDeleteUndoNotice"
         Margin="{controls:Inset Left=Lg, Bottom=Lg}"
-        Padding="{DynamicResource ShellCardPaddingCompact}"
         HorizontalAlignment="Left"
         VerticalAlignment="Bottom"
         MaxWidth="520"
-        IsVisible="{CompiledBinding DefinitionDeleteUndo.HasPending}"
-        AutomationProperties.LiveSetting="Polite"
-        AutomationProperties.Name="{CompiledBinding DefinitionDeleteUndo.Status}"
-        AutomationProperties.HelpText="Undo restores the exact saved definition that was deleted.">
-      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-        <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-          <TextBlock Text="{CompiledBinding DefinitionDeleteUndo.Status}" TextWrapping="Wrap" />
-          <TextBlock
-              Classes="Muted"
-              FontSize="{DynamicResource ShellSecondaryFontSize}"
-              Text="{CompiledBinding DefinitionDeleteUndo.Detail}"
-              TextWrapping="Wrap"
-              IsVisible="{CompiledBinding DefinitionDeleteUndo.HasDetail}" />
-        </StackPanel>
-        <Button
-            x:Name="UndoDeletedDefinitionButton"
-            Grid.Column="1"
-            VerticalAlignment="Center"
-            Classes="SecondaryButton"
-            Click="OnUndoDefinitionDeleteClick"
-            Content="Undo"
-            IsEnabled="{CompiledBinding DefinitionDeleteUndo.CanUndo}"
-            AutomationProperties.Name="Undo delete"
-            AutomationProperties.HelpText="Restore the exact saved definition that was just deleted." />
-        <Button
-            Grid.Column="2"
-            VerticalAlignment="Center"
-            Classes="TextButton"
-            Click="OnDismissDefinitionDeleteUndoClick"
-            Content="Dismiss"
-            IsEnabled="{CompiledBinding DefinitionDeleteUndo.CanUndo}"
-            AutomationProperties.Name="Dismiss delete notice" />
-      </Grid>
-    </controls:SurfaceCard>
+        Finished="OnDefinitionDeleteUndoFinished" />
 
     <Border IsVisible="{CompiledBinding !ApplicationSecurityEditor.IsLocked}"
             Margin="{controls:Inset Right=Lg, Bottom=Lg}"

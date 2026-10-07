@@ -27,6 +27,12 @@
         x:Name="SettingsHost"
         HorizontalContentAlignment="Stretch"
         VerticalContentAlignment="Stretch" />
+    <!-- A connection or workspace deleted here leaves its Undo here too. -->
+    <components:DefinitionDeleteUndoNoticeView
+        Margin="{controls:Inset Left=Lg, Bottom=Lg}"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Bottom"
+        MaxWidth="520" />
     <Border
         Margin="{controls:Inset Right=Lg, Bottom=Lg}"
         HorizontalAlignment="Right"

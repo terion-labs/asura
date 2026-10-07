@@ -894,17 +894,15 @@ public sealed partial class MainWindow
             return;
         }
 
-        var confirmed = await Confirmations.DefinitionDelete("file provider", profile.Name)
-            .ShowDialog<bool>(SettingsDialogOwner);
-        if (!confirmed)
-        {
-            return;
-        }
-
-        _ = await ViewModel.DeleteAsync(
+        // At once, with Undo, like every other saved connection.
+        var result = await ViewModel.DeleteConnectionWithUndoAsync(
             new DefinitionKey(FileProviderProfile.Kind, profile.Id.Value),
             profile.Revision,
             _lifetime.Token);
+        if (result.IsSuccess)
+        {
+            FocusDefinitionDeleteUndo(sender);
+        }
     }
 
     private async Task ShowFileProviderEditorAsync(FileProviderProfileId? profileId)

@@ -175,7 +175,9 @@ public sealed class ShellWindowOverlaySizeHeadlessTests
             }
             finally
             {
-                window.Close();
+                // Closed for good: an open main window left behind would be
+                // handed the next test's Settings window.
+                await window.CloseForQuitAsync();
             }
         }, CancellationToken.None));
     }

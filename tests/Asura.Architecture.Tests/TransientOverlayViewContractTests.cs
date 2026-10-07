@@ -225,7 +225,8 @@ public sealed class TransientOverlayViewContractTests
         Assert.Equal(
             "{Binding LayoutDesignerEditor.DockFactory}",
             AttributeValue(canvas, "Factory"));
-        Assert.Equal("True", AttributeValue(canvas, "IsDockingEnabled"));
+        // It stops taking drops only while a live panel is held in the workspace.
+        Assert.Equal("{Binding IsLayoutDesignerDockingEnabled}", AttributeValue(canvas, "IsDockingEnabled"));
         Assert.Equal("False", AttributeValue(canvas, "InitializeLayout"));
         Assert.DoesNotContain(
             root.Descendants(),
