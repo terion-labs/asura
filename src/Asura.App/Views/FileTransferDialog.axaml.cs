@@ -6,7 +6,7 @@ using Avalonia.Interactivity;
 
 namespace Asura.App.Views;
 
-public sealed partial class FileTransferDialog : Window
+public sealed partial class FileTransferDialog : DialogWindow
 {
     public FileTransferDialog()
     {

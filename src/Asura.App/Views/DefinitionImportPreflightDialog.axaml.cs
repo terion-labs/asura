@@ -1,10 +1,11 @@
+using Asura.App.Controls;
 using Asura.Application;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
 namespace Asura.App.Views;
 
-public sealed partial class DefinitionImportPreflightDialog : Window
+public sealed partial class DefinitionImportPreflightDialog : DialogWindow
 {
     private readonly bool _canCommit;
     private bool _executionReviewed;

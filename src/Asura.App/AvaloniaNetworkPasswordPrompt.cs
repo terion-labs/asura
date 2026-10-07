@@ -19,12 +19,12 @@ public sealed class AvaloniaNetworkPasswordPrompt : INetworkPasswordPrompt
         NetworkPasswordPromptRequest request, CancellationToken cancellationToken) =>
         ShowConfirmationAsync(new ConfirmationDialogOptions
         {
-            Title = "Update stored password",
-            Heading = "The replacement password worked",
-            Detail = $"Update the stored password for {request.ConnectionName}?",
-            Notice = "If you decline, this connection keeps using the replacement until it disconnects. The stored password stays unchanged.",
-            ConfirmLabel = "Update stored password",
-            CancelLabel = "Keep for this connection",
+            Heading = $"Update the stored password for {request.ConnectionName}?",
+            Detail = "The replacement password worked.",
+            Notice = "If you don't update it, this connection keeps using the replacement until it disconnects, and the stored password stays unchanged.",
+            ConfirmLabel = "Update Password",
+            CancelLabel = "Don't Update",
+            Intent = ConfirmationIntent.Confirm,
         }, cancellationToken);
 
     public async ValueTask NotifyPasswordUpdateFailedAsync(
@@ -32,7 +32,6 @@ public sealed class AvaloniaNetworkPasswordPrompt : INetworkPasswordPrompt
     {
         _ = await ShowConfirmationAsync(new ConfirmationDialogOptions
         {
-            Title = "Password not saved",
             Heading = "The stored password was not replaced",
             Detail = $"Asura could not update the password for {request.ConnectionName}. It may have been edited while the prompt was open, or the credential store may be unavailable.",
             Notice = "This does not disconnect your connection. You can replace the stored password in connection settings.",

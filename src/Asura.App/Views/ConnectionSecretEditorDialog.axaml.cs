@@ -1,10 +1,11 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
 namespace Asura.App.Views;
 
-public sealed partial class ConnectionSecretEditorDialog : Window
+public sealed partial class ConnectionSecretEditorDialog : DialogWindow
 {
     private readonly CancellationTokenSource _lifetime = new();
 

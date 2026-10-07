@@ -1,32 +1,24 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.McpServerTrustConfirmationDialog"
     x:DataType="vm:McpServerTrustReview"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
-    Title="Trust MCP server changes"
     Width="620"
     MinWidth="500"
     MaxHeight="820"
     SizeToContent="Height"
     CanResize="True"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner"
     Opened="OnOpened">
-  <controls:DialogShell Chrome="Utility" Title="Trust MCP server changes">
+  <!-- An alert people must read: the confirm button stays disabled until
+       the acknowledgement is ticked, and it is never the default, so Return
+       cannot trust a server nobody reviewed. -->
+  <controls:DialogShell
+      Chrome="Utility"
+      Title="Trust These MCP Server Changes?"
+      Subtitle="{Binding ServerName, StringFormat={}Review the changes to “{0}” before saving.}">
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-      <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-        <TextBlock
-            FontSize="{DynamicResource ShellFontSize18}"
-            FontWeight="SemiBold"
-            Text="Trust these MCP server changes?"
-            TextWrapping="Wrap" />
-        <TextBlock
-            Classes="Muted"
-            Text="{Binding ServerName, StringFormat={}Review the changes to “{0}” before saving.}"
-            TextWrapping="Wrap" />
-      </StackPanel>
 
       <controls:Callout
           Tone="Warning"
@@ -259,11 +251,10 @@
             x:Name="ConfirmButton"
             Classes="PrimaryButton"
             Click="OnConfirmClick"
-            Content="Trust and save"
+            Content="Trust and Save"
             IsEnabled="False"
-            IsDefault="True"
             AutomationProperties.Name="Trust and save MCP server changes" />
       </StackPanel>
     </controls:DialogShell.Footer>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

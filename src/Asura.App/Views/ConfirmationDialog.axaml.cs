@@ -1,20 +1,33 @@
 using Asura.App.Controls;
 using Avalonia.Automation;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using FluentIcons.Avalonia;
 
 namespace Asura.App.Views;
 
 /// <summary>
-/// What the confirm button does when pressed, which decides how it dresses:
-/// a destructive action wears the danger label and is deliberately not the
-/// default, so Enter cannot destroy anything; an acknowledgement is default.
+/// What answering yes does, which decides how the alert dresses. There is no
+/// default: a question that looks like a deletion when it is not one teaches
+/// people to stop reading the deletions, so every caller says which it asks.
 /// </summary>
 internal enum ConfirmationIntent
 {
+    /// <summary>
+    /// A routine action that needs a yes — merge, push, trust, authorize. The
+    /// app's icon, an accent confirm button, and Return answers it.
+    /// </summary>
+    Confirm,
+
+    /// <summary>
+    /// Something that loses data or work and cannot be undone. A caution mark
+    /// on the icon and a destructive confirm button that is deliberately not
+    /// the default, so Return cannot destroy anything.
+    /// </summary>
     Destructive,
+
+    /// <summary>A notice with nothing to decide: one OK, which Return presses.</summary>
     Acknowledge,
 }
 
@@ -23,17 +36,16 @@ internal enum ConfirmationIntent
 /// </summary>
 internal sealed record ConfirmationDialogOptions
 {
-    public required string Title { get; init; }
-
+    /// <summary>
+    /// The question, in bold. It is also the window's title — the alert has no
+    /// separate title to repeat it.
+    /// </summary>
     public required string Heading { get; init; }
 
     public required string Detail { get; init; }
 
     /// <summary>The blast radius: what the action does and does not touch.</summary>
     public string? Notice { get; init; }
-
-    /// <summary>The notice card's tone; a session list reads Warning, a scope note Notice.</summary>
-    public SurfaceTone NoticeTone { get; init; } = SurfaceTone.Notice;
 
     public required string ConfirmLabel { get; init; }
 
@@ -42,7 +54,7 @@ internal sealed record ConfirmationDialogOptions
     /// <summary>An error acknowledgement has nothing to cancel.</summary>
     public bool ShowsCancel { get; init; } = true;
 
-    public ConfirmationIntent Intent { get; init; } = ConfirmationIntent.Destructive;
+    public required ConfirmationIntent Intent { get; init; }
 
     public string? ConfirmAutomationName { get; init; }
 
@@ -60,15 +72,15 @@ internal sealed record ConfirmationDialogOptions
 /// <see cref="ConfirmationDialogOptions"/> and await <c>ShowDialog&lt;bool&gt;</c>;
 /// true means the action was confirmed.
 /// </summary>
-public sealed partial class ConfirmationDialog : Window
+public sealed partial class ConfirmationDialog : DialogWindow
 {
     public ConfirmationDialog()
         : this(new ConfirmationDialogOptions
         {
-            Title = "Confirm",
             Heading = "Are you sure?",
             Detail = "This action needs a second look before it runs.",
             ConfirmLabel = "Confirm",
+            Intent = ConfirmationIntent.Confirm,
         })
     {
     }
@@ -76,6 +88,7 @@ public sealed partial class ConfirmationDialog : Window
     internal ConfirmationDialog(ConfirmationDialogOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
+        Intent = options.Intent;
         Heading = options.Heading.Trim();
         Detail = options.Detail.Trim();
         Notice = string.IsNullOrWhiteSpace(options.Notice) ? null : options.Notice.Trim();
@@ -87,33 +100,28 @@ public sealed partial class ConfirmationDialog : Window
             : options.SuppressionLabel.Trim();
         InitializeComponent();
         DataContext = this;
-        Title = options.Title;
+        Title = Heading;
 
         var confirm = this.FindControl<Button>("ConfirmButton")!;
         var cancel = this.FindControl<Button>("CancelButton")!;
-        this.FindControl<StateOverlay>("ConfirmationState")!.Kind =
-            options.Intent == ConfirmationIntent.Destructive
-                ? StateOverlayKind.DestructiveAction
-                : StateOverlayKind.TerminalError;
-        this.FindControl<SurfaceCard>("NoticeCard")!.Tone = options.NoticeTone;
-        if (options.Intent == ConfirmationIntent.Destructive)
+        if (Intent == ConfirmationIntent.Destructive)
         {
+            // Pressed on purpose or not at all: no default, and Escape still
+            // reaches Cancel.
             confirm.Classes.Add("DestructiveButton");
         }
         else
         {
-            // Only an acknowledgement answers to Enter. A destructive confirm
-            // must be pressed on purpose.
+            confirm.Classes.Add("PrimaryButton");
             confirm.IsDefault = true;
         }
 
+        PresentIcon();
         AutomationProperties.SetName(confirm, options.ConfirmAutomationName ?? ConfirmLabel);
         AutomationProperties.SetName(cancel, options.CancelAutomationName ?? CancelLabel);
-
-        // Tunnelled, so Escape closes even while focus sits in a child that
-        // would otherwise swallow the key.
-        AddHandler(KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel);
     }
+
+    internal ConfirmationIntent Intent { get; }
 
     public string Heading { get; }
 
@@ -159,16 +167,31 @@ public sealed partial class ConfirmationDialog : Window
 
     private bool _confirmed;
 
-    private void OnWindowKeyDown(object? sender, KeyEventArgs e)
+    /// <summary>
+    /// The app's icon, as the host's alerts carry it; a destructive question
+    /// adds the caution badge. Where the platform has no icon to read, the
+    /// state's own glyph stands in.
+    /// </summary>
+    private void PresentIcon()
     {
-        _ = sender;
-        if (e.Key != Key.Escape)
+        var destructive = Intent == ConfirmationIntent.Destructive;
+        var caution = StateOverlayPresentation.For(StateOverlayKind.DestructiveAction).Glyph;
+        this.FindControl<SymbolIcon>("CautionGlyph")!.Symbol = caution;
+        var icon = MacOsApplicationIconImage.Read();
+        if (icon is not null)
         {
+            this.FindControl<Image>("ApplicationIcon")!.Source = icon;
+            this.FindControl<Border>("CautionBadge")!.IsVisible = destructive;
             return;
         }
 
-        e.Handled = true;
-        Close(false);
+        var fallback = this.FindControl<SymbolIcon>("FallbackGlyph")!;
+        fallback.IsVisible = true;
+        if (destructive)
+        {
+            fallback.Symbol = caution;
+            fallback.Foreground = this.FindResource("ShellWarningBrush") as Avalonia.Media.IBrush;
+        }
     }
 
     private void OnCancelClick(object? sender, RoutedEventArgs e)

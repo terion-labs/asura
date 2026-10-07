@@ -1,4 +1,4 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.ShortcutRecorderDialog"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -6,9 +6,7 @@
     Title="Record shortcut"
     Width="560"
     Height="330"
-    CanResize="False"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner">
+    CanResize="False">
   <controls:DialogShell
       x:Name="Shell"
       Title="Record shortcut"
@@ -49,4 +47,4 @@
       </StackPanel>
     </StackPanel>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

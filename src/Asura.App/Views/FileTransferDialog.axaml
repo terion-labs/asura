@@ -1,4 +1,4 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.FileTransferDialog"
     x:DataType="vm:FileTransferEditorViewModel"
     xmlns="https://github.com/avaloniaui"
@@ -9,8 +9,6 @@
     Width="620"
     Height="430"
     CanResize="False"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner"
     Title="Queue transfer">
   <controls:DialogShell
       Title="Queue file transfer"
@@ -49,4 +47,4 @@
       </controls:LabeledField>
     </StackPanel>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

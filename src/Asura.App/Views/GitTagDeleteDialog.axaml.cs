@@ -1,6 +1,5 @@
 using Asura.App.Controls;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 
 namespace Asura.App.Views;
@@ -12,7 +11,7 @@ public sealed record GitTagDeleteResult(bool AlsoOnRemotes);
 /// Confirms deleting a tag, with the one choice a plain confirmation cannot
 /// carry: whether the deletion also travels to the repository's remotes.
 /// </summary>
-public sealed partial class GitTagDeleteDialog : Window
+public sealed partial class GitTagDeleteDialog : DialogWindow
 {
     public GitTagDeleteDialog()
     {
@@ -24,7 +23,7 @@ public sealed partial class GitTagDeleteDialog : Window
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tagName);
         ArgumentNullException.ThrowIfNull(remoteNames);
-        this.FindControl<DialogShell>("Shell")!.Title = $"Delete tag “{tagName}”?";
+        this.FindControl<DialogShell>("Shell")!.Title = $"Delete Tag “{tagName}”?";
         var checkbox = this.FindControl<CheckBox>("RemotesCheckBox")!;
         if (remoteNames.Count == 0)
         {
@@ -33,18 +32,6 @@ public sealed partial class GitTagDeleteDialog : Window
         else
         {
             checkbox.Content = $"Also delete on remotes ({string.Join(", ", remoteNames)})";
-        }
-
-        AddHandler(KeyDownEvent, OnWindowKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
-    }
-
-    private void OnWindowKeyDown(object? sender, KeyEventArgs e)
-    {
-        _ = sender;
-        if (e.Key == Key.Escape)
-        {
-            Close(null);
-            e.Handled = true;
         }
     }
 

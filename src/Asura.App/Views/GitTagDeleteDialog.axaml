@@ -1,24 +1,22 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.GitTagDeleteDialog"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Asura.App.Controls"
-    Title="Delete tag"
     Width="440"
     SizeToContent="Height"
-    CanResize="False"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner">
+    CanResize="False">
   <!-- Not a ConfirmationDialog: the remote checkbox is a real choice, and
        the shared confirmation window deliberately has no slot for one. -->
   <controls:DialogShell x:Name="Shell" Scrolls="False">
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" />
+        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
+        <!-- Destructive, so never the default: Return does not delete. -->
         <Button
             Classes="DestructiveButton"
             Click="OnConfirmClick"
-            Content="Delete tag"
+            Content="Delete Tag"
             AutomationProperties.Name="Confirm delete tag" />
       </StackPanel>
     </controls:DialogShell.Footer>
@@ -33,4 +31,4 @@
           AutomationProperties.Name="Also delete the tag on remotes" />
     </StackPanel>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

@@ -1,4 +1,4 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.AddWorkspaceTabDialog"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -9,9 +9,7 @@
     Title="Add a tab"
     Width="560"
     Height="620"
-    CanResize="False"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner">
+    CanResize="False">
   <!--
     One list, because a tab holds one thing. The three flyouts this replaces
     made the choice look like three unrelated actions, and put "create one just
@@ -121,4 +119,4 @@
       </StackPanel>
     </controls:DialogShell.Footer>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

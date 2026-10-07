@@ -1,6 +1,6 @@
+using Asura.App.Controls;
 using Avalonia.Automation;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 
 namespace Asura.App.Views;
@@ -10,7 +10,7 @@ namespace Asura.App.Views;
 /// with the typed value and the user's explicit persistence choice, or null
 /// on cancel.
 /// </summary>
-public sealed partial class DatabasePasswordPromptDialog : Window
+public sealed partial class DatabasePasswordPromptDialog : DialogWindow
 {
     public DatabasePasswordPromptDialog()
     {
@@ -24,8 +24,7 @@ public sealed partial class DatabasePasswordPromptDialog : Window
         string? description = null)
         : this()
     {
-        Title = $"{connectionName} password";
-        PromptTitle.Text = $"{connectionName} password";
+        Shell.Title = $"{connectionName} Password";
         AutomationProperties.SetName(PasswordInput, $"{connectionName} password");
         if (canSavePassword)
         {
@@ -41,15 +40,6 @@ public sealed partial class DatabasePasswordPromptDialog : Window
         }
 
         Opened += (_, _) => PasswordInput.Focus();
-    }
-
-    private void OnPasswordKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Enter)
-        {
-            e.Handled = true;
-            Submit();
-        }
     }
 
     private void OnPasswordTextChanged(object? sender, TextChangedEventArgs e)
@@ -74,10 +64,8 @@ public sealed partial class DatabasePasswordPromptDialog : Window
     {
         _ = sender;
         _ = e;
-        Submit();
+        Close(new DatabasePasswordPromptResult(
+            PasswordInput.Text ?? string.Empty,
+            SavePasswordCheckBox.IsVisible && SavePasswordCheckBox.IsChecked == true));
     }
-
-    private void Submit() => Close(new DatabasePasswordPromptResult(
-        PasswordInput.Text ?? string.Empty,
-        SavePasswordCheckBox.IsVisible && SavePasswordCheckBox.IsChecked == true));
 }

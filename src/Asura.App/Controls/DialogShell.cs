@@ -1,7 +1,5 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
-using Avalonia.Interactivity;
 
 namespace Asura.App.Controls;
 
@@ -13,7 +11,7 @@ internal enum DialogChrome
     /// <summary>A focused task: a name prompt, a transfer, a recorder.</summary>
     Utility,
 
-    /// <summary>A definition editor: larger title, identity subtitle, close glyph.</summary>
+    /// <summary>A definition editor: larger title and an identity subtitle.</summary>
     Editor,
 }
 
@@ -26,6 +24,12 @@ internal enum DialogChrome
 /// came in three variants and whose close glyph was a literal "×" in three of
 /// four. A dialog states its title, its body, and its buttons; the frame is
 /// decided here.
+///
+/// There is no close glyph. Every dialog has a Cancel button in its footer,
+/// and a second way out in the corner only competed with it. The header's
+/// title is also the window's: the shell writes it to the window it sits in,
+/// so the Window menu and VoiceOver name the dialog in exactly the words the
+/// header shows, and a bound title keeps the two in step.
 /// </summary>
 internal sealed class DialogShell : ContentControl
 {
@@ -50,9 +54,6 @@ internal sealed class DialogShell : ContentControl
     public static readonly StyledProperty<DialogChrome> ChromeProperty =
         AvaloniaProperty.Register<DialogShell, DialogChrome>(nameof(Chrome));
 
-    public static readonly StyledProperty<bool> ShowsCloseProperty =
-        AvaloniaProperty.Register<DialogShell, bool>(nameof(ShowsClose));
-
     /// <summary>
     /// Whether the body scrolls. On for editors; a fixed-size utility dialog
     /// sizes itself to its content instead.
@@ -66,7 +67,6 @@ internal sealed class DialogShell : ContentControl
             shell => shell.IsFooterVisible);
 
     private bool _isFooterVisible;
-    private Button? _close;
 
     static DialogShell()
     {
@@ -76,6 +76,8 @@ internal sealed class DialogShell : ContentControl
             (shell, _) => shell.UpdateFooterVisibility());
         FooterHintProperty.Changed.AddClassHandler<DialogShell>(
             (shell, _) => shell.UpdateFooterVisibility());
+        TitleProperty.Changed.AddClassHandler<DialogShell>(
+            (shell, _) => shell.NameWindow());
     }
 
     public DialogShell()
@@ -83,9 +85,6 @@ internal sealed class DialogShell : ContentControl
         UpdateChromeClass();
         UpdateFooterVisibility();
     }
-
-    /// <summary>Raised when the user presses the header's close glyph.</summary>
-    public event EventHandler<RoutedEventArgs>? CloseRequested;
 
     public string? Title
     {
@@ -123,12 +122,6 @@ internal sealed class DialogShell : ContentControl
         set => SetValue(ChromeProperty, value);
     }
 
-    public bool ShowsClose
-    {
-        get => GetValue(ShowsCloseProperty);
-        set => SetValue(ShowsCloseProperty, value);
-    }
-
     public bool Scrolls
     {
         get => GetValue(ScrollsProperty);
@@ -141,19 +134,19 @@ internal sealed class DialogShell : ContentControl
         private set => SetAndRaise(IsFooterVisibleProperty, ref _isFooterVisible, value);
     }
 
-    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        base.OnApplyTemplate(e);
-        _close?.Click -= OnCloseClick;
-
-        _close = e.NameScope.Find<Button>("PART_Close");
-        _close?.Click += OnCloseClick;
+        base.OnAttachedToVisualTree(e);
+        NameWindow();
     }
 
-    private void OnCloseClick(object? sender, RoutedEventArgs e)
+    /// <summary>The window is titled with the header's words, whatever they bind to.</summary>
+    private void NameWindow()
     {
-        _ = sender;
-        CloseRequested?.Invoke(this, e);
+        if (!string.IsNullOrWhiteSpace(Title) && TopLevel.GetTopLevel(this) is Window window)
+        {
+            window.Title = Title;
+        }
     }
 
     private void UpdateChromeClass() =>

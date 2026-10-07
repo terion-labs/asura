@@ -1,4 +1,4 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.SavedScreenEditorDialog"
     x:DataType="vm:SavedScreenEditorViewModel"
     xmlns="https://github.com/avaloniaui"
@@ -11,13 +11,9 @@
     Height="820"
     MinWidth="720"
     MinHeight="640"
-    CanResize="True"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner">
+    CanResize="True">
   <controls:DialogShell
       Chrome="Editor"
-      ShowsClose="True"
-      CloseRequested="OnCancelClick"
       Title="{Binding EditorTitle}"
       Subtitle="Choose a layout, then configure the panel assigned to each slot."
       FooterHint="Saving changes only future opens; running instances stay independent.">
@@ -368,4 +364,4 @@
       </StackPanel>
     </controls:DialogShell.Footer>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

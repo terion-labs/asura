@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -7,7 +8,7 @@ using Avalonia.Markup.Xaml;
 
 namespace Asura.App.Views;
 
-public sealed partial class SavedScreenEditorDialog : Window
+public sealed partial class SavedScreenEditorDialog : DialogWindow
 {
     private readonly CancellationTokenSource _lifetime = new();
     private readonly SavedScreenPersistenceOperation? _persist;

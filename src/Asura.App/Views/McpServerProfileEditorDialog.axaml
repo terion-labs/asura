@@ -1,4 +1,4 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.McpServerProfileEditorDialog"
     x:DataType="vm:McpServerProfileEditorViewModel"
     xmlns="https://github.com/avaloniaui"
@@ -7,25 +7,21 @@
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia"
-    Title="MCP server"
     Width="840"
     Height="820"
     MinWidth="700"
     MinHeight="620"
     CanResize="True"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner"
     Opened="OnOpened">
   <controls:DialogShell
       Chrome="Editor"
-      ShowsClose="True"
-      CloseRequested="OnCancelClick"
       Title="{Binding EditorTitle}"
       Subtitle="{Binding ProfileId, StringFormat={}Profile: {0}}"
       FooterHint="Server settings and saved credentials are managed separately.">
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
         <Button
+            Classes="SecondaryButton"
             Click="OnCancelClick"
             Content="Cancel"
             IsCancel="True"
@@ -33,7 +29,7 @@
         <Button
             Classes="PrimaryButton"
             Click="OnSaveClick"
-            Content="Review and save"
+            Content="Review and Save"
             IsDefault="True"
             AutomationProperties.Name="Review and save MCP server" />
       </StackPanel>
@@ -301,4 +297,4 @@
       <components:ErrorNoticesView x:Name="ValidationError" DataContext="{Binding ErrorNotices}" Focusable="True" AutomationProperties.Name="MCP server validation errors" />
     </StackPanel>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

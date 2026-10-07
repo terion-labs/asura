@@ -7,7 +7,7 @@ using Avalonia.Interactivity;
 
 namespace Asura.App.Views;
 
-public sealed partial class ShortcutRecorderDialog : Window
+public sealed partial class ShortcutRecorderDialog : DialogWindow
 {
     public const int DefaultMaximumStrokes = 8;
     private readonly List<KeyStroke> _strokes = [];

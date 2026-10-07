@@ -1,10 +1,11 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
 namespace Asura.App.Views;
 
-public sealed partial class SavedConnectionsDialog : Window
+public sealed partial class SavedConnectionsDialog : DialogWindow
 {
     public SavedConnectionsDialog() => InitializeComponent();
 

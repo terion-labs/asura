@@ -1,4 +1,4 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.FileAccessControlDialog"
     x:DataType="vm:FileAccessControlEditorViewModel"
     xmlns="https://github.com/avaloniaui"
@@ -7,9 +7,7 @@
     xmlns:vm="using:Asura.App.ViewModels"
     Width="520"
     Height="400"
-    CanResize="False"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner">
+    CanResize="False">
   <controls:DialogShell
       Chrome="Utility"
       Title="{Binding ItemName}"
@@ -110,4 +108,4 @@
       </StackPanel>
     </controls:DialogShell.Footer>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Git;
 using Avalonia.Controls;
@@ -5,7 +6,7 @@ using Avalonia.Interactivity;
 
 namespace Asura.App.Views;
 
-public sealed partial class GitHostingDialog : Window
+public sealed partial class GitHostingDialog : DialogWindow
 {
     private GitHostingBrowserViewModel? ViewModel => DataContext as GitHostingBrowserViewModel;
     public GitHostingDialog() => InitializeComponent();

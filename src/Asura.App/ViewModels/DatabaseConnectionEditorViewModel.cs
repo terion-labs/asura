@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Asura.Application;
 using Asura.Core;
 
@@ -363,7 +364,7 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(Name))
         {
-            throw new ArgumentException("Connection name is required.");
+            throw InvalidField.Exception(nameof(Name), "Connection name is required.");
         }
 
         var details = ResolveDetails();
@@ -553,7 +554,7 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         {
             if (string.IsNullOrWhiteSpace(ConnectionStringInput))
             {
-                throw new ArgumentException("Enter a connection string or URL first.");
+                throw InvalidField.Exception(nameof(ConnectionStringInput), "Enter a connection string or URL first.");
             }
 
             return _client.ParseConnectionDetails(
@@ -565,7 +566,7 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         {
             if (string.IsNullOrWhiteSpace(FilePath))
             {
-                throw new ArgumentException("Database file path is required.");
+                throw InvalidField.Exception(nameof(FilePath), "Database file path is required.");
             }
 
             return new DatabaseConnectionDetails(
@@ -586,14 +587,15 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(TunnelHost))
         {
-            throw new ArgumentException("The SSH tunnel needs a host.");
+            throw InvalidField.Exception(nameof(TunnelHost), "The SSH tunnel needs a host.");
         }
 
         var useAgent = !TunnelUsesPassword;
         var password = string.IsNullOrEmpty(TunnelPassword) ? null : TunnelPassword;
         if (!useAgent && password is null && !HasStoredTunnelPassword)
         {
-            throw new ArgumentException(
+            throw InvalidField.Exception(
+                nameof(TunnelPassword),
                 "The SSH tunnel needs a password, or switch it to the SSH agent.");
         }
 
@@ -718,7 +720,10 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         }
     }
 
-    private static int? ParsePort(string value, string label)
+    private static int? ParsePort(
+        string value,
+        string label,
+        [CallerArgumentExpression(nameof(value))] string field = "")
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -732,7 +737,7 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
                 out var parsed)
             || parsed is < 1 or > 65_535)
         {
-            throw new ArgumentException($"{label} must be a number between 1 and 65535.");
+            throw InvalidField.Exception(field, $"{label} must be a number between 1 and 65535.");
         }
 
         return parsed;

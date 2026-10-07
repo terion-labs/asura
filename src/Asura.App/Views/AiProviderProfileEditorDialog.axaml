@@ -1,4 +1,4 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.AiProviderProfileEditorDialog"
     x:DataType="vm:AiProviderProfileEditorViewModel"
     xmlns="https://github.com/avaloniaui"
@@ -11,13 +11,9 @@
     Height="720"
     MinWidth="680"
     MinHeight="600"
-    CanResize="True"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner">
+    CanResize="True">
   <controls:DialogShell
       Chrome="Editor"
-      ShowsClose="True"
-      CloseRequested="OnCancelClick"
       Title="{Binding EditorTitle}"
       Subtitle="{Binding ProfileId, StringFormat={}Profile: {0}}"
       FooterHint="Tests load the provider's model list.">
@@ -210,4 +206,4 @@
       <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
     </StackPanel>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

@@ -20,7 +20,7 @@ public sealed partial class GitRuntimePanelView
         }
 
         var repository = selection.Repository;
-        var values = await ShowGitFormAsync("Clone " + repository.Name, $"Target: {viewModel.ConnectionDisplayName}",
+        var values = await ShowGitFormAsync("Clone " + repository.Name, "Clone", $"Target: {viewModel.ConnectionDisplayName}",
             new("protocol", "Protocol", "HTTPS", Choices: ["HTTPS", "SSH"]), new("path", "Destination path", viewModel.RepositoryPathInput));
         if (values is not null)
         {
@@ -53,7 +53,7 @@ public sealed partial class GitRuntimePanelView
         var gitlab = parsed.Host.Contains("gitlab", StringComparison.OrdinalIgnoreCase);
         if (string.Equals(action, "PullRequest", StringComparison.Ordinal))
         {
-            var values = await ShowGitFormAsync("Open pull request", "The hosting site opens with these branches. Review and submit the pull request there.",
+            var values = await ShowGitFormAsync("Open Pull Request", "Open Pull Request", "The hosting site opens with these branches. Review and submit the pull request there.",
                 new("base", "Target branch", "main"), new("head", "Source branch", viewModel.CurrentBranchName ?? ""));
             if (values is null)
             {

@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -11,7 +12,7 @@ namespace Asura.App.Views;
 /// frame, and it closes itself when the draft is gone — saved, discarded, or
 /// deleted from under it.
 /// </summary>
-public sealed partial class NetworkConnectionEditorDialog : Window
+public sealed partial class NetworkConnectionEditorDialog : DialogWindow
 {
     private bool _closing;
 

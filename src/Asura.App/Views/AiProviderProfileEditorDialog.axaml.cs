@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -6,7 +7,7 @@ using Avalonia.Markup.Xaml;
 
 namespace Asura.App.Views;
 
-public sealed partial class AiProviderProfileEditorDialog : Window
+public sealed partial class AiProviderProfileEditorDialog : DialogWindow
 {
     private readonly CancellationTokenSource _lifetime = new();
 

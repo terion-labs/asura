@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -5,7 +6,7 @@ using Avalonia.Markup.Xaml;
 
 namespace Asura.App.Views;
 
-public sealed partial class McpServerTrustConfirmationDialog : Window
+public sealed partial class McpServerTrustConfirmationDialog : DialogWindow
 {
     public McpServerTrustConfirmationDialog()
         : this(new McpServerTrustReview(

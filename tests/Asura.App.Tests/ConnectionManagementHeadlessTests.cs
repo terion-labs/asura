@@ -57,17 +57,23 @@ public sealed class ConnectionManagementHeadlessTests
                 Assert.True(add.IsEffectivelyVisible);
                 add.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await Idle();
-                var secretDialog = Assert.Single(dialog.OwnedWindows.OfType<ConnectionSecretEditorDialog>());
-                var draft = Assert.IsType<ConnectionSecretEditorViewModel>(secretDialog.DataContext);
+                // The credential is written in place, under its field; no
+                // second window opens over the editor.
+                Assert.Empty(dialog.OwnedWindows);
+                var draftView = Assert.Single(
+                    dialog.GetVisualDescendants().OfType<ConnectionCredentialDraftView>(),
+                    candidate => candidate.IsEffectivelyVisible);
+                var draft = Assert.IsType<ConnectionSecretEditorViewModel>(draftView.DataContext);
                 draft.Value = kind == SecretKind.Other
                     ? "{\"accessKeyId\":\"test-key\",\"secretAccessKey\":\"test-secret\"}"
                     : "secret-canary";
-                var save = secretDialog.GetVisualDescendants().OfType<Button>()
-                    .Single(button => Equals(button.Content, "Save credential"));
+                var save = draftView.GetVisualDescendants().OfType<Button>()
+                    .Single(button => Equals(button.Content, "Save Credential"));
+                Assert.True(save.IsDefault);
                 save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await Idle();
 
-                Assert.False(secretDialog.IsVisible);
+                Assert.False(draftView.IsVisible);
                 Assert.Empty(draft.Value);
                 Assert.True(recorded.Material!.IsDisposed);
                 var request = Assert.Single(recorded.CreateRequests);
@@ -165,15 +171,39 @@ public sealed class ConnectionManagementHeadlessTests
         await session.Dispatch(async () =>
         {
             var vault = DispatchProxy.Create<ISecretVault, VaultProxy>();
-            var draft = new ConnectionSecretEditorViewModel(vault,
-                new SecretScope(SecretScopeKind.Connection, "draft"), SecretKind.Password, "Password")
-            { Value = "secret-canary" };
-            var dialog = new ConnectionSecretEditorDialog(draft);
-            dialog.Show();
-            await Idle();
-            dialog.Close();
-            Assert.Empty(draft.Value);
-            Assert.Empty(((VaultProxy)(object)vault).CreateRequests);
+            var terminal = new ConnectionEditorViewModel(DispatchProxy.Create<IConnectionRuntime, UnusedRuntimeProxy>());
+            var editor = new UnifiedConnectionEditorViewModel(terminal, null, null, secretVault: vault);
+            editor.SelectedType = editor.TypeOptions.Single(option =>
+                option.TerminalKind == ConnectionKind.Ssh && !option.GitRepository);
+            terminal.Authentication = ConnectionAuthenticationChoice.Password;
+            var dialog = new ConnectionEditorDialog(editor);
+            try
+            {
+                dialog.Show();
+                await Idle();
+                FindButton(dialog, "Add connection credential").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await Idle();
+                var draftView = Assert.Single(
+                    dialog.GetVisualDescendants().OfType<ConnectionCredentialDraftView>(),
+                    candidate => candidate.IsEffectivelyVisible);
+                var draft = Assert.IsType<ConnectionSecretEditorViewModel>(draftView.DataContext);
+                draft.Value = "secret-canary";
+                FindButton(draftView, "Cancel the new credential").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await Idle();
+
+                // Folded away, nothing typed left behind, nothing written, and
+                // the editor itself still open with Return back on its Save.
+                Assert.False(draftView.IsVisible);
+                Assert.Empty(draft.Value);
+                Assert.Empty(((VaultProxy)(object)vault).CreateRequests);
+                Assert.True(dialog.IsVisible);
+                Assert.True(dialog.FindControl<Button>("SubmitButton")!.IsDefault);
+            }
+            finally
+            {
+                dialog.Close();
+            }
+
             return true;
         }, timeout.Token);
     }

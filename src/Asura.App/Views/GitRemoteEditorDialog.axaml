@@ -1,32 +1,29 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.GitRemoteEditorDialog"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Asura.App.Controls"
     Width="440"
     SizeToContent="Height"
-    CanResize="False"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner">
+    CanResize="False">
   <controls:DialogShell
       Scrolls="False"
       x:Name="Shell"
       Subtitle="The remote's Git decides whether the URL is reachable when it is next used.">
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" />
-        <Button x:Name="ConfirmButton" Classes="PrimaryButton" Click="OnConfirmClick" />
+        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
+        <Button x:Name="ConfirmButton" Classes="PrimaryButton" Click="OnConfirmClick" IsDefault="True" />
       </StackPanel>
     </controls:DialogShell.Footer>
 
     <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-      <controls:LabeledField Label="Name">
-        <TextBox x:Name="NameInput" KeyDown="OnFieldKeyDown" AutomationProperties.Name="Remote name" />
+      <controls:LabeledField Label="Name" controls:FieldValidation.For="Name">
+        <TextBox x:Name="NameInput" AutomationProperties.Name="Remote name" />
       </controls:LabeledField>
-      <controls:LabeledField Label="URL">
-        <TextBox x:Name="UrlInput" KeyDown="OnFieldKeyDown" AutomationProperties.Name="Remote URL" />
+      <controls:LabeledField Label="URL" controls:FieldValidation.For="Url">
+        <TextBox x:Name="UrlInput" AutomationProperties.Name="Remote URL" />
       </controls:LabeledField>
-      <TextBlock x:Name="ValidationMessage" Foreground="{DynamicResource ShellDangerBrush}" IsVisible="False" TextWrapping="Wrap" />
     </StackPanel>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

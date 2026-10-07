@@ -1,4 +1,4 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.NetworkConnectionEditorDialog"
     x:DataType="vm:NetworkSettingsViewModel"
     xmlns="https://github.com/avaloniaui"
@@ -11,9 +11,7 @@
     Height="720"
     MinWidth="620"
     MinHeight="520"
-    CanResize="True"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner">
+    CanResize="True">
   <!--
     The editor for one proxy or VPN definition. It is a dialog like every other
     definition editor, rather than a card appended to the bottom of the
@@ -24,8 +22,6 @@
       Title="{Binding ProfileEditor.EditorTitle}"
       Subtitle="The connection stores references to credentials; the values stay in the operating-system vault."
       Chrome="Editor"
-      ShowsClose="True"
-      CloseRequested="OnCancelClick"
       FooterHint="{Binding ProfileEditor.FooterHint}">
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
@@ -288,4 +284,4 @@
       </Border>
     </StackPanel>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>
