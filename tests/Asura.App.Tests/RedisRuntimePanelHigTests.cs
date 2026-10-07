@@ -5,6 +5,8 @@ using Asura.App.Views.RuntimePanels;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Input;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 namespace Asura.App.Tests;
@@ -92,7 +94,7 @@ public sealed class RedisRuntimePanelHigTests
             using var panel = RedisPanelFixtures.Panel(session);
             await panel.Initialization;
             panel.SelectedKey = panel.Keys[0];
-            panel.SelectedValueEntry = panel.ValueEntries[0];
+            panel.SelectedValueEntry = null;
 
             var view = new RedisRuntimePanelView { DataContext = panel };
             var window = new Window { Width = 1_400, Height = 950, Content = view };
@@ -125,6 +127,19 @@ public sealed class RedisRuntimePanelHigTests
                 panel.Perspective = RedisWorkspacePerspective.Browser;
                 window.UpdateLayout();
 
+                // With no field selected the entry form has no Save, so Add
+                // Fields is the value area's one primary action.
+                Assert.False(panel.ShowsEntrySave);
+                var unselected = view.GetVisualDescendants().OfType<Button>()
+                    .Where(button => button.IsEffectivelyVisible)
+                    .ToArray();
+                var onlyPrimary = Assert.Single(unselected, button => button.Classes.Contains("PrimaryButton"));
+                Assert.Equal("Add Fields", onlyPrimary.Content);
+
+                panel.SelectedValueEntry = panel.ValueEntries[0];
+                window.UpdateLayout();
+                Assert.True(panel.ShowsEntrySave);
+
                 // Save Field is the value area's one primary action; Add Fields
                 // beside it is secondary.
                 var visible = view.GetVisualDescendants().OfType<Button>()
@@ -155,6 +170,60 @@ public sealed class RedisRuntimePanelHigTests
                     var button = Assert.Single(pubSub, button => Equals(button.Content, label));
                     Assert.Contains("SecondaryButton", button.Classes, StringComparer.Ordinal);
                 }
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+    [Fact]
+    public Task ReturnFiltersTheKeysAndClearingTheFieldListsThemAll() =>
+        RunHeadlessAsync(async () =>
+        {
+            var session = new RedisPanelFixtures.StubSession(null, searchAvailable: true);
+            using var panel = RedisPanelFixtures.Panel(session);
+            await panel.Initialization;
+
+            var view = new RedisRuntimePanelView { DataContext = panel };
+            var window = new Window { Width = 1_400, Height = 950, Content = view };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+
+                // Typing alone does not reach the server; Return does.
+                var filter = view.FindControl<TextBox>("KeyPatternBox")!;
+                filter.Focus();
+                filter.Text = "user:*";
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal("*", session.LastScanPattern);
+                window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+                await WaitUntilAsync(() => session.LastScanPattern == "user:*");
+                Assert.True(panel.IsFilteringKeys);
+
+                // Escape clears the field, and a cleared filter lists every key.
+                window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(string.Empty, filter.Text);
+                await WaitUntilAsync(() => session.LastScanPattern == "*");
+                Assert.False(panel.IsFilteringKeys);
+
+                // Return in the search query runs the query.
+                panel.Perspective = RedisWorkspacePerspective.Search;
+                panel.SearchIndex = "idx:users";
+                window.UpdateLayout();
+                var query = view.GetVisualDescendants().OfType<TextBox>()
+                    .Single(box => string.Equals(
+                        AutomationProperties.GetName(box),
+                        "Redis search query",
+                        StringComparison.Ordinal));
+                query.Focus();
+                query.Text = "@name:ada";
+                Dispatcher.UIThread.RunJobs();
+                Assert.Null(session.LastSearchQuery);
+                window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+                await WaitUntilAsync(() => session.LastSearchQuery == "@name:ada");
             }
             finally
             {

@@ -2075,7 +2075,7 @@ public sealed partial class DatabaseViewerConformanceTests
         public Button AddRowButton => NamedControl<Button>("Add a database row");
 
         public Button DeleteRowButton =>
-            NamedControl<Button>("Delete the selected database row");
+            NamedControl<Button>("Delete the selected database rows");
 
         public Button RevertButton =>
             NamedControl<Button>("Revert unsaved database changes");

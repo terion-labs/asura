@@ -581,13 +581,13 @@
                       </StackPanel>
                     </StackPanel>
 
-                    <!-- Secondary when the entry form beside it is showing its
+                    <!-- Secondary while the entry form beside it is showing its
                          primary Save, so the value area has one default-looking
-                         action rather than two competing ones. -->
+                         action rather than two competing ones, and never none. -->
                     <Button
                         HorizontalAlignment="Right"
-                        Classes.PrimaryButton="{Binding !MutationForm.CanEditEntry}"
-                        Classes.SecondaryButton="{Binding MutationForm.CanEditEntry}"
+                        Classes.PrimaryButton="{Binding !ShowsEntrySave}"
+                        Classes.SecondaryButton="{Binding ShowsEntrySave}"
                         Command="{Binding SaveValueCommand}"
                         Content="{Binding MutationForm.ActionLabel}"
                         AutomationProperties.Name="Write the Redis value" />

@@ -293,7 +293,14 @@ public sealed partial class DatabaseWorkspaceView
         CopyRowMenuItem.IsEnabled = true;
         CopyCellMenuItem.IsEnabled = true;
         CopyColumnMenuItem.IsEnabled = panel.ResultRows.Count > 0;
-        CopyRowAsMenuItem.IsEnabled = true;
+        // Copy Row As and Duplicate Row act on one row. With several selected
+        // they are unavailable and say why, rather than quietly acting on the
+        // clicked row alone while Copy and Delete take the whole selection.
+        var oneRowOnly = panel.HasMultipleSelectedRows
+            ? "Select a single row to use this."
+            : null;
+        CopyRowAsMenuItem.IsEnabled = !panel.HasMultipleSelectedRows;
+        ToolTip.SetTip(CopyRowAsMenuItem, oneRowOnly);
         CopyRowInsertMenuItem.IsEnabled = panel.CanCopySelectedRowAsInsert;
         ToolTip.SetTip(
             CopyRowInsertMenuItem,
@@ -314,7 +321,7 @@ public sealed partial class DatabaseWorkspaceView
         DuplicateRowMenuItem.IsEnabled = panel.CanDuplicateSelectedRow;
         ToolTip.SetTip(PasteCellMenuItem, mutationUnavailableReason);
         ToolTip.SetTip(AddRowMenuItem, mutationUnavailableReason);
-        ToolTip.SetTip(DuplicateRowMenuItem, mutationUnavailableReason);
+        ToolTip.SetTip(DuplicateRowMenuItem, mutationUnavailableReason ?? oneRowOnly);
 
         SetEmptyMenuItem.IsVisible = target.Cell.CanSetEmpty && !isOracle;
         SetEmptyMenuItem.IsEnabled = panel.CanSetSelectedCellEmpty(target.Ordinal);

@@ -97,7 +97,7 @@ public sealed class DatabaseWorkspaceHigHeadlessTests
             window.UpdateLayout();
 
             var add = Named<Button>(view, "Add a database row");
-            var delete = Named<Button>(view, "Delete the selected database row");
+            var delete = Named<Button>(view, "Delete the selected database rows");
             var revert = Named<Button>(view, "Revert unsaved database changes");
             var save = Named<Button>(view, "Save database changes");
             var apply = Named<Button>(view, "Apply the table filter");
@@ -216,6 +216,23 @@ public sealed class DatabaseWorkspaceHigHeadlessTests
 
             var (text, _) = await panel.BuildRowsTsvAsync(panel.SelectedRows);
             Assert.Equal(2, text.Split(Environment.NewLine).Length);
+
+            // Copy Row As and Duplicate Row act on one row, so with two
+            // selected they are unavailable instead of acting on one silently.
+            Assert.True(panel.HasMultipleSelectedRows);
+            Assert.False(panel.CanDuplicateSelectedRow);
+            grid.CurrentColumn = grid.Columns[0];
+            grid.RaiseEvent(new ContextRequestedEventArgs { RoutedEvent = InputElement.ContextRequestedEvent });
+            window.UpdateLayout();
+            var menu = Assert.IsType<ContextMenu>(grid.ContextMenu);
+            Assert.True(menu.IsOpen);
+            Assert.Equal(2, panel.SelectedRows.Count);
+            var menuItems = Flatten(menu).ToArray();
+            Assert.False(Assert.Single(menuItems, item => Equals(item.Header, "Copy Row As")).IsEnabled);
+            Assert.False(Assert.Single(menuItems, item => Equals(item.Header, "Duplicate Row")).IsEnabled);
+            Assert.Equal("Delete 2 Rows", Assert.Single(menuItems, item => item.Name == "DeleteRowMenuItem").Header);
+            menu.Close();
+            window.UpdateLayout();
 
             // Delete takes every selected row.
             Assert.True(panel.CanDeleteSelectedRow);

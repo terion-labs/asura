@@ -386,10 +386,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         DeleteKeyCommand = new AsyncActionCommand(DeleteSelectedKeyAsync, () => SelectedKey is not null && IsConnected);
         SaveEntryCommand = new AsyncActionCommand(
             SaveEntryAsync,
-            () => IsConnected
-                && !IsBusy
-                && MutationForm.CanEditEntry
-                && (MutationForm.HasWholeValue || SelectedValueEntry is not null));
+            () => IsConnected && !IsBusy && ShowsEntrySave);
         SetExpiryCommand = new AsyncActionCommand(
             ApplyExpiryAsync,
             () => IsConnected && !IsBusy && SelectedKey is not null);
@@ -773,6 +770,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             OnPropertyChanged(nameof(HasSelectedKey));
             OnPropertyChanged(nameof(CanMutateSelectedKey));
             OnPropertyChanged(nameof(MutationForm));
+            OnPropertyChanged(nameof(ShowsEntrySave));
             _ = value is null ? ClearSelectionAsync() : ReadSelectedKeyAsync();
         }
     }
@@ -796,6 +794,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             EditValue = value?.Value ?? string.Empty;
             EditScore = value?.Score is { Length: > 0 } score ? score : "0";
             OnPropertyChanged(nameof(HasSelectedValueEntry));
+            OnPropertyChanged(nameof(ShowsEntrySave));
             OnPropertyChanged(nameof(EditIdentity));
             RemoveEntryCommand.RaiseCanExecuteChanged();
             SaveEntryCommand.RaiseCanExecuteChanged();
@@ -803,6 +802,12 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     }
 
     public bool HasSelectedValueEntry => SelectedValueEntry is not null;
+
+    /// <summary>Whether the entry form is showing its Save button: the key's
+    /// type can edit an entry, and there is a whole value or a selected entry
+    /// to edit. The add form's button is the area's primary action otherwise.</summary>
+    public bool ShowsEntrySave => MutationForm.CanEditEntry
+        && (MutationForm.HasWholeValue || SelectedValueEntry is not null);
 
     /// <summary>What the selected entry is addressed by — a field name, a
     /// position, a member, a stream id.</summary>
@@ -1854,6 +1859,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         OnPropertyChanged(nameof(HasSelectedKeyLimitation));
         OnPropertyChanged(nameof(CanMutateSelectedKey));
         OnPropertyChanged(nameof(MutationForm));
+        OnPropertyChanged(nameof(ShowsEntrySave));
         OnPropertyChanged(nameof(RemoveEntryLabel));
         SaveValueCommand.RaiseCanExecuteChanged();
         RemoveEntryCommand.RaiseCanExecuteChanged();

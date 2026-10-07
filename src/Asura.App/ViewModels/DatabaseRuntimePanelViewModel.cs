@@ -733,7 +733,13 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                 ? KeyModifiers.Alt | KeyModifiers.Meta
                 : KeyModifiers.Control | KeyModifiers.Shift));
 
-    public bool CanDuplicateSelectedRow => CanMutateRows && SelectedRow?.IsValid == true;
+    /// <summary>
+    /// Duplicate copies one row. With several selected it is unavailable
+    /// rather than quietly copying only the inspected one.
+    /// </summary>
+    public bool CanDuplicateSelectedRow => CanMutateRows
+        && SelectedRow?.IsValid == true
+        && !HasMultipleSelectedRows;
 
     public bool CanCopySelectedRowAsInsert => _selectedObjectDetails?.Object.Kind
         == DatabaseTableKind.Table
@@ -1072,6 +1078,9 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     /// </summary>
     public IReadOnlyList<DatabaseResultRowViewModel> SelectedRows => _selectedRows;
 
+    /// <summary>Whether the grid's selection is more than one row.</summary>
+    public bool HasMultipleSelectedRows => _selectedRows.Count > 1;
+
     public string SelectedRowTitle => _selectedRow is not { } row
         ? string.Empty
         : _selectedRows.Count > 1
@@ -1106,6 +1115,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         OnPropertyChanged(nameof(HasSelectedRow));
         OnPropertyChanged(nameof(SelectedRowTitle));
         OnPropertyChanged(nameof(SelectedRows));
+        OnPropertyChanged(nameof(HasMultipleSelectedRows));
         PublishInteractionStates();
     }
 
@@ -1134,7 +1144,9 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
 
         _selectedRows = rows;
         OnPropertyChanged(nameof(SelectedRows));
+        OnPropertyChanged(nameof(HasMultipleSelectedRows));
         OnPropertyChanged(nameof(SelectedRowTitle));
+        OnPropertyChanged(nameof(CanDuplicateSelectedRow));
     }
 
     private void RefreshSelectedRowFields()

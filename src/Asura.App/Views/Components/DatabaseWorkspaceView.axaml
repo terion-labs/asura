@@ -536,7 +536,7 @@
                           Click="OnDeleteRowClick"
                           IsEnabled="{Binding CanDeleteSelectedRow}"
                           ToolTip.Tip="Delete the selected rows"
-                          AutomationProperties.Name="Delete the selected database row">
+                          AutomationProperties.Name="Delete the selected database rows">
                         <Panel>
                           <TextBlock Classes="rowActionLabel" Text="Delete" />
                           <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Delete" FontSize="12" />
