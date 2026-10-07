@@ -42,6 +42,12 @@ public sealed partial class SettingsWindow : Window
     /// <summary>Where the window's page and frame are kept between runs.</summary>
     internal static ISettingsWindowStateStore? StateStore { get; set; }
 
+    /// <summary>
+    /// Forgets the page and frame read from <see cref="StateStore"/>, so the
+    /// next window reads them again. Tests start from a known state with it.
+    /// </summary>
+    internal static void ResetState() => s_state = null;
+
     /// <summary>The page Settings was last left on, this run or a previous one.</summary>
     internal static SettingsPage? RememberedPage => SettingsPanes.Parse(State.LastPage);
 
@@ -83,6 +89,7 @@ public sealed partial class SettingsWindow : Window
 
         var window = new SettingsWindow();
         window.Attach(host, viewModel, view);
+        window.RestoreFrame();
         Current = window;
         window.Show();
         window.Activate();
@@ -127,6 +134,20 @@ public sealed partial class SettingsWindow : Window
         base.OnClosing(e);
     }
 
+    /// <summary>
+    /// The main window this one belonged to is closing and another is open:
+    /// the window stays where it is and shows that window's Settings instead.
+    /// That window has already asked about anything unsaved.
+    /// </summary>
+    internal void Retarget(MainWindow host, MainWindowViewModel viewModel, SettingsView view)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(viewModel);
+        ArgumentNullException.ThrowIfNull(view);
+        Detach();
+        Attach(host, viewModel, view);
+    }
+
     protected override void OnClosed(EventArgs e)
     {
         SaveState();
@@ -135,13 +156,7 @@ public sealed partial class SettingsWindow : Window
             Current = null;
         }
 
-        _viewModel?.PropertyChanged -= OnViewModelPropertyChanged;
-        // The view belongs to its main window, which keeps it for the next
-        // time; it must leave this window's tree before then.
-        this.FindControl<ContentControl>("SettingsHost")!.Content = null;
-        _viewModel?.HideSettings();
-        _viewModel = null;
-        _host = null;
+        Detach();
         base.OnClosed(e);
     }
 
@@ -153,24 +168,56 @@ public sealed partial class SettingsWindow : Window
         this.FindControl<ContentControl>("SettingsHost")!.Content = view;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         RefreshTitle();
-        RestoreFrame();
+    }
+
+    private void Detach()
+    {
+        _viewModel?.PropertyChanged -= OnViewModelPropertyChanged;
+        // The view belongs to its main window, which keeps it for the next
+        // time; it must leave this window's tree before then.
+        this.FindControl<ContentControl>("SettingsHost")!.Content = null;
+        _viewModel?.HideSettings();
+        _viewModel = null;
+        _host = null;
     }
 
     /// <summary>
-    /// The first time, the window takes its natural size, but never more of
-    /// the screen than there is: a page longer than that scrolls.
+    /// The first time, the window takes its natural width, but never more of
+    /// the screen than there is.
     /// </summary>
     private void FitToScreen()
     {
-        var screens = Screens;
-        if ((screens.Primary ?? screens.All.FirstOrDefault()) is not { } screen)
+        if (AvailableScreenSize() is not { } available)
         {
             return;
         }
 
-        var available = screen.WorkingArea.Size.ToSize(screen.Scaling);
         Width = Math.Max(MinWidth, Math.Min(Width, available.Width * 0.9));
-        Height = Math.Max(MinHeight, Math.Min(Height, available.Height * 0.9));
+    }
+
+    /// <summary>
+    /// The window is as tall as the page on show, as a Mac settings window
+    /// is: a short page leaves no empty space below it, and one longer than
+    /// the screen allows scrolls. Choosing another page fits it again, even
+    /// after the window was resized by hand.
+    /// </summary>
+    private void FitHeightToPage()
+    {
+        if (AvailableScreenSize() is { } available)
+        {
+            MaxHeight = Math.Max(MinHeight, available.Height * 0.9);
+        }
+
+        SizeToContent = SizeToContent.Height;
+    }
+
+    private Size? AvailableScreenSize()
+    {
+        var screens = Screens;
+        var screen = (IsVisible ? screens.ScreenFromWindow(this) : null)
+            ?? screens.Primary
+            ?? screens.All.FirstOrDefault();
+        return screen?.WorkingArea.Size.ToSize(screen.Scaling);
     }
 
     private async Task ConfirmCloseAsync(MainWindow host)
@@ -197,6 +244,7 @@ public sealed partial class SettingsWindow : Window
         {
             RefreshTitle();
             Remember(_viewModel?.SettingsPage);
+            FitHeightToPage();
         }
     }
 
@@ -220,6 +268,7 @@ public sealed partial class SettingsWindow : Window
     private void RestoreFrame()
     {
         var state = State;
+        FitHeightToPage();
         if (!state.HasFrame)
         {
             FitToScreen();
@@ -245,8 +294,8 @@ public sealed partial class SettingsWindow : Window
         var size = frame.Size.ToSize(scaling);
         WindowStartupLocation = WindowStartupLocation.Manual;
         Position = frame.Position;
+        // The width is the person's; the height follows the page.
         Width = Math.Max(MinWidth, size.Width);
-        Height = Math.Max(MinHeight, size.Height);
     }
 
     private void SaveState()

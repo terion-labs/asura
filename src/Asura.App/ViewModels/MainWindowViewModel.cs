@@ -562,6 +562,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public AgentChatViewModel? AgentHistoryOwner => _settingsAgentHistoryOwner ?? AgentChat;
 
+    /// <summary>
+    /// The agent Settings was asked to show the history of, when it is not
+    /// this window's own — Quick Terminal's.
+    /// </summary>
+    internal AgentChatViewModel? SettingsAgentHistoryOwner => _settingsAgentHistoryOwner;
+
     internal void ReplaceAgentHistoryOwner(AgentChatViewModel? previousOwner, AgentChatViewModel? replacement)
     {
         if (previousOwner is not null && ReferenceEquals(_settingsAgentHistoryOwner, previousOwner))

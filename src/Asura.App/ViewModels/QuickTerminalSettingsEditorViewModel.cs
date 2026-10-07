@@ -56,7 +56,14 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
 
     public string Name { get; }
 
-    public long ExpectedRevision { get; }
+    /// <summary>
+    /// The revision the next save is checked against. It moves forward when a
+    /// save from this editor lands, so edits made meanwhile are kept and saved
+    /// on top of it.
+    /// </summary>
+    public long ExpectedRevision { get; private set; }
+
+    public void AcceptSavedRevision(long revision) => ExpectedRevision = revision;
 
     public IReadOnlyList<QuickTerminalMonitorOption> MonitorOptions { get; } =
     [

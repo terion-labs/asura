@@ -128,6 +128,18 @@ internal sealed class ShellCloseCoordinator(
             return false;
         }
 
+        // The Settings window closes with this one. Its other drafts — a
+        // previewed terminal palette, an unsaved network route or HTTP
+        // authentication — are asked about here; shortcuts were just above.
+        var settingsDraft = viewModel.IsSettingsVisible
+            ? viewModel.PendingSettingsDraft(viewModel.SettingsPage)
+            : null;
+        if (settingsDraft is { Page: not SettingsPage.Keybindings } draft
+            && !await _presentation.ConfirmDiscardAsync(draft.Heading, draft.Detail))
+        {
+            return false;
+        }
+
         if (viewModel.WorkspaceEditor?.RequestCancel()
                 == WorkspaceEditorCancelDisposition.ConfirmDiscard
             && !await _presentation.ConfirmDiscardAsync(

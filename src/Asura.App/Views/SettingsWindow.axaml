@@ -18,8 +18,9 @@
     Settings… opens this one window, whichever main window asked. It is not
     modal: the workspace stays live beside it, so a terminal setting can be
     watched taking effect. Its title names the page on show, minimize and zoom
-    are dimmed as they are for every Mac settings window, and it reopens on
-    the page it was left on, where it was left.
+    are dimmed as they are for every Mac settings window, its height follows
+    the page on show, and it reopens on the page it was left on, where it
+    was left.
   -->
   <Grid Background="{DynamicResource ShellBackgroundBrush}">
     <ContentControl

@@ -748,6 +748,8 @@ public sealed partial class MainWindow : Window
         _ = sender;
         _ = e;
         ViewModel.Onboarding?.ShowReview();
+        // The review shows in this window's launcher, behind Settings.
+        BringForwardForEditor();
         _ = NavigateToLauncherAsync();
     }
 

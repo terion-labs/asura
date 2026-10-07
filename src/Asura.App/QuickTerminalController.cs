@@ -812,13 +812,14 @@ public sealed class QuickTerminalController : IDisposable
             return;
         }
 
-        (mainWindow.DataContext as MainWindowViewModel)?.ShowSettings(SettingsPage.Agent, _viewModel.AgentChat);
         if (!mainWindow.IsVisible)
         {
             mainWindow.Show();
         }
 
-        mainWindow.Activate();
+        // Through the window, so a draft on the page Settings is leaving is
+        // asked about and the Settings window, not the main one, comes forward.
+        mainWindow.NavigateToSettings(SettingsPage.Agent, _viewModel.AgentChat);
     }
 
     private async void OnNewConnectionRequested(object? sender, EventArgs e)

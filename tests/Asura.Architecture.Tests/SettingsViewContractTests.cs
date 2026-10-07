@@ -848,7 +848,7 @@ public sealed class SettingsViewContractTests
         }
 
         Assert.Contains(
-            "new AvaloniaDiagnosticsBundleDestinationPicker(this)",
+            "new AvaloniaDiagnosticsBundleDestinationPicker(() => SettingsDialogOwner)",
             mainWindowCode,
             StringComparison.Ordinal);
         Assert.Contains("_recoveryDataControlViewModel.Start();", mainWindowCode);

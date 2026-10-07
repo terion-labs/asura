@@ -107,6 +107,95 @@ public sealed class TerminalSettingsViewModelTests
     }
 
     [Fact]
+    public async Task A_quick_terminal_edit_made_while_its_save_is_in_flight_survives_the_refresh()
+    {
+        var fixture = CreateCatalog(Snapshot());
+        fixture.Proxy.HoldSaves = true;
+        using var viewModel = new TerminalSettingsViewModel(fixture.Catalog);
+        var editor = Assert.IsType<QuickTerminalSettingsEditorViewModel>(
+            viewModel.QuickTerminalEditor);
+        editor.HeightPercent = 60;
+
+        var save = viewModel.SaveQuickTerminalSettingsAsync(CancellationToken.None).AsTask();
+        editor.HeightPercent = 70;
+        // The catalog publishes the stored value before the save returns.
+        fixture.Proxy.PublishHeldSave();
+        viewModel.ApplyCatalog(fixture.Proxy.CurrentSnapshot);
+        fixture.Proxy.ReleaseHeldSave();
+
+        Assert.True((await save).IsSuccess);
+        Assert.Same(editor, viewModel.QuickTerminalEditor);
+        Assert.Equal(70, editor.HeightPercent);
+        Assert.Equal(QuickTerminalRevision + 1, editor.ExpectedRevision);
+
+        fixture.Proxy.HoldSaves = false;
+        var second = await viewModel.SaveQuickTerminalSettingsAsync(CancellationToken.None);
+
+        Assert.True(second.IsSuccess);
+        Assert.Equal(QuickTerminalRevision + 1, fixture.Proxy.LastExpectedQuickTerminalRevision);
+        Assert.Equal(0.70, second.Value!.Value.HeightFraction, 3);
+    }
+
+    [Fact]
+    public async Task A_terminal_edit_made_while_its_save_is_in_flight_survives_the_refresh()
+    {
+        var fixture = CreateCatalog(Snapshot());
+        fixture.Proxy.HoldSaves = true;
+        using var viewModel = new TerminalSettingsViewModel(fixture.Catalog);
+        var editor = Assert.IsType<TerminalProfileEditorViewModel>(viewModel.TerminalEditor);
+        editor.FontSize = 15;
+
+        var save = viewModel.SaveTerminalProfileAsync(CancellationToken.None).AsTask();
+        editor.FontSize = 16;
+        // Here the save returns first and the refresh follows it.
+        fixture.Proxy.PublishHeldSave();
+        fixture.Proxy.ReleaseHeldSave();
+        Assert.True((await save).IsSuccess);
+        viewModel.ApplyCatalog(fixture.Proxy.CurrentSnapshot);
+
+        Assert.Same(editor, viewModel.TerminalEditor);
+        Assert.Equal(16, editor.FontSize);
+        Assert.Equal(TerminalRevision + 1, editor.ExpectedRevision);
+
+        fixture.Proxy.HoldSaves = false;
+        var second = await viewModel.SaveTerminalProfileAsync(CancellationToken.None);
+
+        Assert.True(second.IsSuccess);
+        Assert.Equal(TerminalRevision + 1, fixture.Proxy.LastExpectedTerminalRevision);
+        Assert.Equal(16, second.Value!.Value.FontSize);
+    }
+
+    [Fact]
+    public async Task A_refresh_holding_another_value_still_replaces_the_editor()
+    {
+        var snapshot = Snapshot();
+        var fixture = CreateCatalog(snapshot);
+        fixture.Proxy.HoldSaves = true;
+        using var viewModel = new TerminalSettingsViewModel(fixture.Catalog);
+        var editor = Assert.IsType<QuickTerminalSettingsEditorViewModel>(
+            viewModel.QuickTerminalEditor);
+        editor.HeightPercent = 60;
+        _ = viewModel.SaveQuickTerminalSettingsAsync(CancellationToken.None).AsTask();
+
+        // Something else stored a different value meanwhile.
+        var elsewhere = new QuickTerminalSettingsEditorViewModel(
+            QuickTerminalSettings.Default,
+            QuickTerminalRevision)
+        {
+            HeightPercent = 40,
+        }.CreateSaveRequest().Settings;
+        viewModel.ApplyCatalog(snapshot with
+        {
+            QuickTerminalSettings = [Store(elsewhere, QuickTerminalRevision + 1)],
+        });
+
+        var replaced = Assert.IsType<QuickTerminalSettingsEditorViewModel>(
+            viewModel.QuickTerminalEditor);
+        Assert.NotSame(editor, replaced);
+        Assert.Equal(40, replaced.HeightPercent);
+    }
+
+    [Fact]
     public void Registration_result_is_forwarded_to_the_live_quick_terminal_editor()
     {
         var fixture = CreateCatalog(Snapshot());
@@ -194,6 +283,15 @@ public sealed class TerminalSettingsViewModelTests
 
         public long? LastExpectedQuickTerminalRevision { get; private set; }
 
+        /// <summary>Keeps each save in flight until the test releases it.</summary>
+        public bool HoldSaves { get; set; }
+
+        private (Action Publish, Action Release)? _held;
+
+        public void PublishHeldSave() => _held!.Value.Publish();
+
+        public void ReleaseHeldSave() => _held!.Value.Release();
+
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
             ArgumentNullException.ThrowIfNull(targetMethod);
@@ -217,7 +315,9 @@ public sealed class TerminalSettingsViewModelTests
             long? expectedRevision)
         {
             LastExpectedTerminalRevision = expectedRevision;
-            return Complete(definition, expectedRevision, RejectTerminalSave);
+            return HoldSaves
+                ? Hold(definition, expectedRevision, stored => CurrentSnapshot with { TerminalProfiles = [stored] })
+                : Complete(definition, expectedRevision, RejectTerminalSave);
         }
 
         private ValueTask<DefinitionStoreResult<StoredDefinition<QuickTerminalSettings>>>
@@ -226,7 +326,24 @@ public sealed class TerminalSettingsViewModelTests
                 long? expectedRevision)
         {
             LastExpectedQuickTerminalRevision = expectedRevision;
-            return Complete(definition, expectedRevision, RejectQuickTerminalSave);
+            return HoldSaves
+                ? Hold(definition, expectedRevision, stored => CurrentSnapshot with { QuickTerminalSettings = [stored] })
+                : Complete(definition, expectedRevision, RejectQuickTerminalSave);
+        }
+
+        private ValueTask<DefinitionStoreResult<StoredDefinition<T>>> Hold<T>(
+            T definition,
+            long? expectedRevision,
+            Func<StoredDefinition<T>, DefinitionCatalogSnapshot> publish)
+            where T : IDurableDefinition
+        {
+            var stored = Store(definition, (expectedRevision ?? 0) + 1);
+            var completion = new TaskCompletionSource<DefinitionStoreResult<StoredDefinition<T>>>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _held = (
+                () => CurrentSnapshot = publish(stored),
+                () => completion.SetResult(DefinitionStoreResult<StoredDefinition<T>>.Success(stored)));
+            return new(completion.Task);
         }
 
         private static ValueTask<DefinitionStoreResult<StoredDefinition<T>>> Complete<T>(

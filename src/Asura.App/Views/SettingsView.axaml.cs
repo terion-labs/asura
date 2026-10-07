@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.VisualTree;
 
 namespace Asura.App.Views;
 
@@ -715,7 +716,7 @@ public sealed partial class SettingsView : UserControl
             return;
         }
 
-        var matches = SearchIndex.Match(SearchQuery);
+        var matches = MatchingPages(SearchQuery);
         if (matches.Count > 0)
         {
             e.Handled = true;
@@ -747,9 +748,32 @@ public sealed partial class SettingsView : UserControl
             .FirstOrDefault();
 
     /// <summary>
+    /// The pages that match, in sidebar order: by what the index holds, or by
+    /// a list on the page — a saved workspace, a shortcut's command — whose
+    /// rows are made from data rather than written into the page.
+    /// </summary>
+    private List<SettingsPage> MatchingPages(string query)
+    {
+        var indexed = SearchIndex.Match(query);
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return [.. indexed];
+        }
+
+        return
+        [
+            .. Pages()
+                .Where(page => indexed.Contains(page.Page)
+                    || ListText(page.Content).Any(text => SettingsSearchIndex.Matches(text, query)))
+                .Select(page => page.Page),
+        ];
+    }
+
+    /// <summary>
     /// Lists only the pages that match, and on the page in view hides the
     /// sections and rows that don't — unless the page itself is what was
-    /// asked for, when all of it stays.
+    /// asked for, when all of it stays. A page left with nothing that
+    /// matches says so rather than going blank.
     /// </summary>
     private void ApplySearch()
     {
@@ -759,8 +783,9 @@ public sealed partial class SettingsView : UserControl
         }
 
         _hiddenBySearch.Clear();
+        SettingsPageNoResults.IsVisible = false;
         var query = SearchQuery;
-        var matches = SearchIndex.Match(query);
+        var matches = MatchingPages(query);
         foreach (var (page, navigation, _) in Pages())
         {
             if (!matches.Contains(page))
@@ -782,14 +807,15 @@ public sealed partial class SettingsView : UserControl
             return;
         }
 
-        foreach (var section in content.Children.OfType<Control>())
+        var sections = content.Children
+            .OfType<Control>()
+            .Where(section => section is not SettingsPageHeader)
+            .ToArray();
+        foreach (var section in sections)
         {
-            if (section is SettingsPageHeader)
-            {
-                continue;
-            }
-
-            if (!SearchableText(section).Any(text => SettingsSearchIndex.Matches(text, query)))
+            if (!SearchableText(section)
+                    .Concat(ListText(section))
+                    .Any(text => SettingsSearchIndex.Matches(text, query)))
             {
                 Hide(section);
                 continue;
@@ -809,6 +835,51 @@ public sealed partial class SettingsView : UserControl
                     {
                         Hide(row);
                     }
+                }
+            }
+        }
+
+        if (sections.Length > 0 && sections.All(section => !section.IsVisible))
+        {
+            ShowPageNoResults(content.Children.OfType<SettingsPageHeader>().FirstOrDefault());
+        }
+    }
+
+    /// <summary>Places the page's "No Results" a section's space below its heading.</summary>
+    private void ShowPageNoResults(SettingsPageHeader? header)
+    {
+        var spacing = this.TryFindResource("ShellSpaceXxl", ActualThemeVariant, out var value)
+            && value is double space
+                ? space
+                : 0;
+        var top = header is not null
+            && SettingsPageNoResults.GetVisualParent() is { } host
+            && Avalonia.VisualExtensions.TranslatePoint(header, new Avalonia.Point(0, header.Bounds.Height), host) is { } bottom
+                ? bottom.Y
+                : 0;
+        SettingsPageNoResults.Margin = new Avalonia.Thickness(0, top + spacing, 0, 0);
+        SettingsPageNoResults.IsVisible = true;
+    }
+
+    /// <summary>
+    /// The text of the rows a page's lists show. Those rows come from data,
+    /// so they are read as drawn; a list the page has not drawn yet is found
+    /// once it has been shown.
+    /// </summary>
+    private static IEnumerable<string> ListText(Control root)
+    {
+        foreach (var list in root.GetSelfAndLogicalDescendants().OfType<ItemsControl>())
+        {
+            if (list is ComboBox)
+            {
+                continue;
+            }
+
+            foreach (var block in list.GetVisualDescendants().OfType<TextBlock>())
+            {
+                if (!string.IsNullOrWhiteSpace(block.Text))
+                {
+                    yield return block.Text;
                 }
             }
         }

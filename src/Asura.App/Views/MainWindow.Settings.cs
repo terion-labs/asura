@@ -8,7 +8,6 @@ using Asura.Application;
 using Asura.Core;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
@@ -132,7 +131,7 @@ public sealed partial class MainWindow
         {
             _definitionBundles = new DefinitionBundleController(
                 _definitionBundleStore,
-                new AvaloniaDefinitionBundlePathPicker(this),
+                new AvaloniaDefinitionBundlePathPicker(() => SettingsDialogOwner),
                 new DefinitionCatalogImportRefresh(_definitionCatalog),
                 _workspaceDefinitionOccupancy);
         }
@@ -141,7 +140,7 @@ public sealed partial class MainWindow
         {
             _historyExport = new RecentSessionHistoryExportController(
                 _recentSessionHistoryExporter,
-                new AvaloniaRecentSessionHistoryPathPicker(this));
+                new AvaloniaRecentSessionHistoryPathPicker(() => SettingsDialogOwner));
         }
 
         if (_diagnosticsExporter is not null
@@ -153,7 +152,7 @@ public sealed partial class MainWindow
             var diagnostics = new DiagnosticsExportViewModel(
                 _diagnosticsExporter,
                 _diagnosticsRequestSource,
-                new AvaloniaDiagnosticsBundleDestinationPicker(this),
+                new AvaloniaDiagnosticsBundleDestinationPicker(() => SettingsDialogOwner),
                 _diagnosticsArtifactPresenter,
                 TimeProvider.System);
             settings.BindOperationalViewModels(
@@ -172,16 +171,20 @@ public sealed partial class MainWindow
     /// Settings…: opens the Settings window on <paramref name="page"/>, or on
     /// the page it was last left on. When the Settings window is already open
     /// for another main window it comes forward instead, showing the page
-    /// asked for.
+    /// asked for. Moving off a page that holds a draft asks first.
+    /// <paramref name="agentHistoryOwner"/> is the agent whose history the AI
+    /// page shows, when Quick Terminal asks for it.
     /// </summary>
-    public void NavigateToSettings(SettingsPage? page = null)
+    public void NavigateToSettings(
+        SettingsPage? page = null,
+        AgentChatViewModel? agentHistoryOwner = null)
     {
         if (SettingsWindow.Current is { Host: { } owner } open
             && !ReferenceEquals(owner, this))
         {
             if (page is { } requested)
             {
-                _ = owner.RequestSettingsPageAsync(requested);
+                _ = owner.RequestSettingsPageAsync(requested, agentHistoryOwner);
             }
 
             open.BringForward();
@@ -192,7 +195,7 @@ public sealed partial class MainWindow
         {
             if (page is { } requested)
             {
-                _ = RequestSettingsPageAsync(requested);
+                _ = RequestSettingsPageAsync(requested, agentHistoryOwner);
             }
 
             PresentSettingsWindow();
@@ -201,7 +204,7 @@ public sealed partial class MainWindow
 
         var target = page ?? SettingsWindow.RememberedPage ?? ViewModel.SettingsPage;
         _ = SettingsRoute;
-        ViewModel.ShowSettings(target);
+        ViewModel.ShowSettings(target, agentHistoryOwner);
         if (target == SettingsPage.Appearance)
         {
             RefreshAppearanceControlsFromStoredProfile();
@@ -223,6 +226,11 @@ public sealed partial class MainWindow
         }
 
         DetachSettingsPresentation();
+        if (!s_openMainWindows.Contains(this))
+        {
+            s_openMainWindows.Add(this);
+        }
+
         _settingsPresentationViewModel = viewModel;
         viewModel.PropertyChanged += OnSettingsPresentationPropertyChanged;
         if (viewModel.IsSettingsVisible)
@@ -252,7 +260,8 @@ public sealed partial class MainWindow
 
     private void PresentSettingsWindow()
     {
-        if (DataContext is not MainWindowViewModel viewModel
+        if (_adoptingSettingsWindow
+            || DataContext is not MainWindowViewModel viewModel
             || !viewModel.IsSettingsVisible
             || !IsVisible)
         {
@@ -265,8 +274,9 @@ public sealed partial class MainWindow
             // One Settings window serves every main window: this window's
             // request goes to the one already open.
             var page = viewModel.SettingsPage;
+            var agentHistoryOwner = viewModel.SettingsAgentHistoryOwner;
             viewModel.HideSettings();
-            _ = owner.RequestSettingsPageAsync(page);
+            _ = owner.RequestSettingsPageAsync(page, agentHistoryOwner);
             open.BringForward();
             return;
         }
@@ -275,25 +285,70 @@ public sealed partial class MainWindow
     }
 
     /// <summary>
-    /// This window is closing: its Settings window closes with it and, when
-    /// another main window is open, reopens for that one on the same page.
+    /// This window is closing. When another main window is open, the Settings
+    /// window stays where it is and shows that window's Settings on the same
+    /// page; otherwise, or while Asura quits, it closes with this one.
     /// </summary>
     private void HandOffSettingsWindow()
     {
+        _ = s_openMainWindows.Remove(this);
         DetachSettingsPresentation();
         if (SettingsWindow.Current is not { } open || !ReferenceEquals(open.Host, this))
         {
             return;
         }
 
-        var page = (DataContext as MainWindowViewModel)?.SettingsPage;
-        open.CloseForHost();
-        var next = (Avalonia.Application.Current?.ApplicationLifetime
-                as IClassicDesktopStyleApplicationLifetime)?
-            .Windows
-            .OfType<MainWindow>()
-            .FirstOrDefault(window => !ReferenceEquals(window, this) && window.IsVisible);
-        next?.NavigateToSettings(page);
+        var viewModel = DataContext as MainWindowViewModel;
+        var next = Avalonia.Application.Current is App { IsQuitting: true }
+            ? null
+            : OpenMainWindows().FirstOrDefault(window => !ReferenceEquals(window, this)
+                && window.IsVisible
+                && window.DataContext is MainWindowViewModel);
+        if (next is null)
+        {
+            open.CloseForHost();
+            return;
+        }
+
+        next.AdoptSettingsWindow(
+            open,
+            viewModel?.SettingsPage,
+            viewModel?.SettingsAgentHistoryOwner);
+    }
+
+    private bool _adoptingSettingsWindow;
+
+    private static readonly List<MainWindow> s_openMainWindows = [];
+
+    /// <summary>
+    /// The main windows open on this UI thread, in the order they opened —
+    /// the ones the Settings window can be handed to.
+    /// </summary>
+    private static IEnumerable<MainWindow> OpenMainWindows()
+    {
+        _ = s_openMainWindows.RemoveAll(window => !window.CheckAccess());
+        return [.. s_openMainWindows];
+    }
+
+    /// <summary>Takes over the open Settings window from a main window that is closing.</summary>
+    private void AdoptSettingsWindow(
+        SettingsWindow open,
+        SettingsPage? page,
+        AgentChatViewModel? agentHistoryOwner)
+    {
+        var target = page ?? ViewModel.SettingsPage;
+        open.Retarget(this, ViewModel, SettingsRoute);
+        // The window is already on screen: showing the page must not bring
+        // it forward over whatever the person turns to next.
+        _adoptingSettingsWindow = true;
+        try
+        {
+            SetSettingsPage(target, agentHistoryOwner);
+        }
+        finally
+        {
+            _adoptingSettingsWindow = false;
+        }
     }
 
     /// <summary>Whether the Settings page on show holds a draft that leaving it would lose.</summary>
@@ -334,7 +389,9 @@ public sealed partial class MainWindow
     /// Shows another Settings page, after asking about a draft on the one
     /// being left.
     /// </summary>
-    internal async Task<bool> RequestSettingsPageAsync(SettingsPage page)
+    internal async Task<bool> RequestSettingsPageAsync(
+        SettingsPage page,
+        AgentChatViewModel? agentHistoryOwner = null)
     {
         if (DataContext is not MainWindowViewModel viewModel)
         {
@@ -348,7 +405,7 @@ public sealed partial class MainWindow
             return false;
         }
 
-        SetSettingsPage(page);
+        SetSettingsPage(page, agentHistoryOwner);
         return true;
     }
 
@@ -555,9 +612,11 @@ public sealed partial class MainWindow
     private void OnAboutSettingsClick(object? sender, RoutedEventArgs e) =>
         _ = RequestSettingsPageAsync(SettingsPage.About);
 
-    private void SetSettingsPage(SettingsPage page)
+    private void SetSettingsPage(
+        SettingsPage page,
+        AgentChatViewModel? agentHistoryOwner = null)
     {
-        ViewModel.ShowSettings(page);
+        ViewModel.ShowSettings(page, agentHistoryOwner);
         if (page == SettingsPage.Appearance)
         {
             RefreshAppearanceControlsFromStoredProfile();

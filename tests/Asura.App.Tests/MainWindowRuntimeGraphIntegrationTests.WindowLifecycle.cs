@@ -83,6 +83,53 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     }
 
     [Fact]
+    public async Task Closing_the_window_asks_about_a_settings_draft_and_keeps_it_on_cancel()
+    {
+        var profile = new BrowserProfileDefinition(
+            new BrowserProfileId("browser.close-draft"),
+            BrowserProfileDefinition.CurrentSchemaVersion,
+            "Close draft",
+            BrowserProfilePersistence.DurableMetadata,
+            BrowserProfilePrivacyPolicy.Strict);
+        var snapshot = CreateCatalogSnapshot() with
+        {
+            BrowserProfiles = [Store(BuiltInBrowserProfiles.Default), Store(profile, revision: 4)],
+        };
+        var (client, _) = CreateSessionClient();
+        using var viewModel = CreateViewModel(client, snapshot);
+        viewModel.ShowSettings(SettingsPage.Browser);
+        var editor = viewModel.BrowserProfileSettingsEditor;
+        editor.SelectedProfile = Assert.Single(editor.Profiles, item => item.Id == profile.Id);
+        editor.AuthenticationHost = "internal.example";
+        var questions = new List<string>();
+        var answer = false;
+        var coordinator = new ShellCloseCoordinator(
+            viewModel,
+            new ShellClosePresentation(
+                () => Task.FromResult(true),
+                (title, _) => { questions.Add(title); return Task.FromResult(answer); },
+                _ => Task.FromResult(true),
+                _ => Task.CompletedTask,
+                () => { },
+                () => { },
+                () => { }),
+            CancellationToken.None);
+
+        Assert.False(await coordinator.ConfirmDiscardPendingEditsAsync("this window closes"));
+        Assert.Equal(["Discard HTTP authentication changes?"], questions);
+        Assert.True(editor.HasUnsavedAuthentication);
+
+        answer = true;
+        Assert.True(await coordinator.ConfirmDiscardPendingEditsAsync("Asura quits"));
+        Assert.Equal(2, questions.Count);
+
+        // Once Settings is closed nothing on it is asked about.
+        viewModel.HideSettings();
+        Assert.True(await coordinator.ConfirmDiscardPendingEditsAsync("Asura quits"));
+        Assert.Equal(2, questions.Count);
+    }
+
+    [Fact]
     public async Task Each_window_restores_only_the_snapshot_in_its_own_recovery_slot()
     {
         var snapshot = CreateCatalogSnapshot();

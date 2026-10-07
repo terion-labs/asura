@@ -325,14 +325,15 @@ public sealed partial class MainWindow
 
     private async void OnExportAgentHistoryClick(object? sender, RoutedEventArgs e)
     {
-        _ = sender;
         _ = e;
         if (ViewModel.AgentHistoryOwner is not { CanExportHistory: true } agent)
         {
             return;
         }
 
-        var selected = await StorageProvider.SaveFilePickerAsync(
+        // The save panel attaches to the window the button is in: Settings, or
+        // this window's history flyout.
+        var selected = await DialogOwnerFor(sender).StorageProvider.SaveFilePickerAsync(
             new FilePickerSaveOptions
             {
                 Title = "Export metadata-only agent history",

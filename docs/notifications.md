@@ -41,9 +41,10 @@ runs, File transfers) and a row showing what the operating system allows
 (Allowed, Turned off, Not yet asked, Unavailable). When notifications are
 turned off for Asura, the row offers to open the system's notification
 settings. A source switch governs only native delivery: the in-app attention
-marks still appear. The choices apply at once and are kept in
-`notification-preferences.json` beside the profile, so they are known before a
-startup PIN unlocks the profile database.
+marks still appear. "Background Work Finished", posted for a workspace
+behind the one on show, follows the Terminal switch. The choices apply at once
+and are kept in `notification-preferences.json` beside the profile, so they are
+known before a startup PIN unlocks the profile database.
 
 Notification titles use title case and name what happened ("Agent Finished",
 "File Transfer Failed", "Background Work Finished"); the body carries the

@@ -148,6 +148,16 @@
                which reads as the page having been pushed down rather than as
                room to breathe. -->
           <Grid Margin="{controls:Inset Horizontal=Xxl, Top=Sm, Bottom=Xxl}">
+            <!-- Shown under the page heading when a search leaves nothing on
+                 the page; the sidebar lists the pages that do match. -->
+            <TextBlock
+                x:Name="SettingsPageNoResults"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Classes="Muted"
+                IsVisible="False"
+                Text="No Results on This Page"
+                AutomationProperties.LiveSetting="Polite" />
             <settingsPages:AppearanceSettingsPageView
                 x:Name="AppearanceSettingsPage"
                 IsVisible="{Binding IsAppearanceSettingsVisible}"
@@ -1745,7 +1755,7 @@
                   IsEnabled="{Binding NotificationSettings.IsAvailable}">
                 <controls:SettingRow
                     Label="Terminal"
-                    Description="Notifications programs send with OSC 9 or OSC 777, and the bell when the terminal profile sends it to the system.">
+                    Description="Notifications programs send with OSC 9 or OSC 777, the bell when the terminal profile sends it to the system, and work that finishes in a workspace behind the one on show.">
                   <ToggleSwitch
                       IsChecked="{Binding NotificationSettings.ShowsTerminal}"
                       AutomationProperties.Name="Terminal notifications" />
