@@ -39,6 +39,16 @@ public sealed partial class WorkspaceView : UserControl
                 KeepFileTransfersBesideAgentPanel();
             }
         };
+        // The composer moves inside the panel as a prompt grows or a card
+        // opens above it, without the panel's own bounds changing; a
+        // transfers card stacked above the composer has to follow it.
+        AgentWorkspaceSurface.LayoutUpdated += (_, _) =>
+        {
+            if (FileTransferManager.IsVisible && AgentOverlay.IsVisible)
+            {
+                KeepFileTransfersBesideAgentPanel();
+            }
+        };
     }
 
     /// <summary>
@@ -46,31 +56,56 @@ public sealed partial class WorkspaceView : UserControl
     /// bottom-right corner. Open together, the transfers card would cover the
     /// composer's send button and model picker, so it moves to the agent
     /// panel's left edge, leaving the same gap it keeps from the window edge,
-    /// and narrows to the room left there. Only a window too narrow to hold a
-    /// readable card beside the panel puts it back over the panel.
+    /// and narrows to the room left there. A window too narrow to hold a
+    /// readable card beside the panel stacks the card above the composer
+    /// instead, so it never covers the place where a message is written.
     /// </summary>
     private void KeepFileTransfersBesideAgentPanel()
     {
         const double minimumTransferWidth = 280;
+        const double designedMaxHeight = 400;
         var gap = this.TryFindResource("ShellSpaceSm", ActualThemeVariant, out var space)
             && space is double spacing
                 ? spacing
                 : 8;
         var right = gap;
+        var bottom = gap;
+        var maxWidth = double.PositiveInfinity;
+        var maxHeight = designedMaxHeight;
         if (AgentOverlay.IsVisible
             && FileTransferManager.Parent is Visual host
-            && AgentWorkspaceSurface.TranslatePoint(default, host) is { } agentPanelLeft
-            && agentPanelLeft.X - (2 * gap) >= minimumTransferWidth)
+            && AgentWorkspaceSurface.TranslatePoint(default, host) is { } agentPanelLeft)
         {
-            right = host.Bounds.Width - agentPanelLeft.X + gap;
-            FileTransferManager.MaxWidth = agentPanelLeft.X - (2 * gap);
-        }
-        else
-        {
-            FileTransferManager.ClearValue(MaxWidthProperty);
+            if (agentPanelLeft.X - (2 * gap) >= minimumTransferWidth)
+            {
+                right = host.Bounds.Width - agentPanelLeft.X + gap;
+                maxWidth = agentPanelLeft.X - (2 * gap);
+            }
+            else if (AgentWorkspaceSurface.FindControl<Control>("AgentComposer") is { IsVisible: true } composer
+                && composer.TranslatePoint(default, host) is { } composerTop)
+            {
+                bottom = Math.Max(gap, host.Bounds.Height - composerTop.Y + gap);
+                maxHeight = Math.Clamp(composerTop.Y - (2 * gap), 0, designedMaxHeight);
+            }
         }
 
-        FileTransferManager.Margin = new Thickness(0, 0, right, gap);
+        // Runs after every agent layout pass, so it writes only what changed:
+        // an equal value set again would start another pass.
+        var margin = new Thickness(0, 0, right, bottom);
+        if (FileTransferManager.Margin != margin)
+        {
+            FileTransferManager.Margin = margin;
+        }
+
+        if (!FileTransferManager.MaxWidth.Equals(maxWidth))
+        {
+            FileTransferManager.MaxWidth = maxWidth;
+        }
+
+        if (!FileTransferManager.MaxHeight.Equals(maxHeight))
+        {
+            FileTransferManager.MaxHeight = maxHeight;
+        }
     }
 
     /// <summary>

@@ -56,6 +56,54 @@ public sealed class WorkspaceAgentOverlayHeadlessTests
     }
 
     [Fact]
+    public async Task File_transfers_stack_above_the_composer_when_there_is_no_room_beside_the_agent_panel()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(() =>
+        {
+            var workspace = new WorkspaceView();
+            var window = new Window { Width = 560, Height = 900, Content = workspace };
+            try
+            {
+                window.Show();
+                var transfers = workspace.FindControl<SurfaceCard>("FileTransferManager")!;
+                var overlay = workspace.FindControl<Panel>("AgentOverlay")!;
+                var agent = workspace.FindControl<AgentWorkspaceView>("AgentWorkspaceSurface")!;
+                var composer = agent.FindControl<Border>("AgentComposer")!;
+                // Without an agent conversation bound the composer is hidden;
+                // show it as a bound conversation would.
+                composer.IsVisible = true;
+                transfers.IsVisible = true;
+                overlay.IsVisible = true;
+                window.UpdateLayout();
+                Assert.True(
+                    transfers.TranslatePoint(new Point(transfers.Bounds.Width, 0), workspace)!.Value.X
+                        > agent.TranslatePoint(default, workspace)!.Value.X,
+                    "The window is too narrow for the card to sit beside the agent panel.");
+
+                // The card follows the composer after each agent layout pass,
+                // so it settles on the pass after the one that placed the
+                // composer.
+                window.UpdateLayout();
+
+                var composerTop = composer.TranslatePoint(default, workspace)!.Value.Y;
+                var transfersBottom = transfers.TranslatePoint(
+                    new Point(0, transfers.Bounds.Height),
+                    workspace)!.Value.Y;
+                Assert.True(
+                    transfersBottom < composerTop,
+                    $"Transfers end at {transfersBottom}; the composer starts at {composerTop}.");
+                return true;
+            }
+            finally
+            {
+                window.Close();
+            }
+        }, timeout.Token));
+    }
+
+    [Fact]
     public async Task Agent_panel_grows_with_the_text_size_setting()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
