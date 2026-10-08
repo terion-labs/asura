@@ -3092,6 +3092,31 @@ public sealed class ManagedTerminalSurface : Control
         }
     }
 
+    /// <summary>
+    /// The text of the selected cells on screen, one line per row, for Use
+    /// Selection for Find. Null when nothing visible is selected.
+    /// </summary>
+    internal string? VisibleSelectedText()
+    {
+        var lines = _renderFrame is { } frame
+            ? frame.ViewportRows
+                .Select(row => string.Concat(row.Cells
+                    .Where(cell => cell.IsSelected && cell.HasText)
+                    .Select(cell => cell.Text)))
+            : _snapshot?.StructuredRows
+                .Select(row => string.Concat(row.Cells
+                    .Where(cell => cell.IsSelected && cell.Width > 0)
+                    .Select(cell => cell.Text)))
+            ?? [];
+        var text = string.Join('\n', lines
+            .Select(line => line.TrimEnd())
+            .SkipWhile(line => line.Length == 0)
+            .Reverse()
+            .SkipWhile(line => line.Length == 0)
+            .Reverse());
+        return text.Length == 0 ? null : text;
+    }
+
     private bool HasVisibleSelection() =>
         _renderFrame?.ViewportRows.Any(row => row.Cells.Any(cell => cell.IsSelected))
             ?? _snapshot?.StructuredRows.Any(row => row.Cells.Any(cell => cell.IsSelected))

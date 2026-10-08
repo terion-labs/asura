@@ -5,7 +5,8 @@ public sealed class ShortcutTextTests
     [Theory]
     [InlineData("ARROWLEFT", "←", "←")]
     [InlineData("ARROWRIGHT", "→", "→")]
-    [InlineData("ENTER", "↩", "Enter")]
+    [InlineData("ENTER", "↩\uFE0E", "Enter")]
+    [InlineData("HOME", "↖\uFE0E", "Home")]
     [InlineData("BACKSPACE", "⌫", "Backspace")]
     [InlineData("DELETE", "⌦", "Delete")]
     [InlineData("ESCAPE", "⎋", "Esc")]
@@ -24,6 +25,25 @@ public sealed class ShortcutTextTests
     {
         Assert.Equal(macOs, ShortcutText.Format(new KeyStroke(key), HostOperatingSystem.MacOS));
         Assert.Equal(windows, ShortcutText.Format(new KeyStroke(key), HostOperatingSystem.Windows));
+    }
+
+    [Theory]
+    [InlineData("↩")]
+    [InlineData("↩\uFE0E")]
+    [InlineData("⌘↩")]
+    public void Return_reads_back_with_or_without_its_text_presentation_selector(string text)
+    {
+        Assert.True(ShortcutText.TryParseStroke(text, out var stroke));
+        Assert.Equal("ENTER", stroke.Key);
+    }
+
+    [Fact]
+    public void Glyphs_with_an_emoji_form_ask_for_their_text_form()
+    {
+        foreach (var key in new[] { "ENTER", "HOME", "END" })
+        {
+            Assert.EndsWith("\uFE0E", ShortcutText.Format(new KeyStroke(key), HostOperatingSystem.MacOS), StringComparison.Ordinal);
+        }
     }
 
     [Fact]

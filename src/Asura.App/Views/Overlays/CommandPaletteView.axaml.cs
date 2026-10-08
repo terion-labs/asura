@@ -17,11 +17,21 @@ public sealed partial class CommandPaletteView : UserControl
         InitializeComponent();
     }
 
+    /// <summary>The close keycap: ⎋ on macOS, Esc elsewhere.</summary>
+    public static string CloseKeyText { get; } = Key("ESCAPE");
+
+    /// <summary>The keys the palette answers, written as the menus write them.</summary>
+    public static string KeyHintText { get; } =
+        $"{Key("ARROWUP")}{Key("ARROWDOWN")} to choose · {Key("ENTER")} to open · {Key("ESCAPE")} to close";
+
     public event EventHandler<RoutedEventArgs>? ActivateSearchResultRequested;
 
     public event EventHandler<RoutedEventArgs>? CloseRequested;
 
     public event EventHandler<KeyEventArgs>? SearchKeyDownRequested;
+
+    private static string Key(string name) =>
+        ViewModels.KeySequenceDisplay.Format(new Core.KeyStroke(name));
 
     internal void FocusSearch() =>
         CommandSearchBox.Focus();

@@ -1,3 +1,5 @@
+using Asura.App.Controls;
+using Asura.Application;
 using Asura.Core;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -112,6 +114,87 @@ public sealed class FocusedCommandTargetsTests
         }, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task Use_selection_for_find_reads_the_terminal_cells_that_are_selected()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(() =>
+        {
+            var surface = new ManagedTerminalSurface();
+            var edit = FocusedCommandTargets.TerminalEdit(surface, CancellationToken.None);
+            var find = FocusedCommandTargets.TerminalFind(surface, CancellationToken.None);
+            var state = new List<KeyValuePair<string, bool>>();
+
+            surface.UpdateSnapshot(TerminalScreen(selectedFrom: -1));
+            FocusedCommandTargets.AddState(state, edit, find);
+            Assert.Null(edit.SelectedText);
+            Assert.False(Fact(state, CommandStates.CanUseSelectionForFind));
+
+            state.Clear();
+            surface.UpdateSnapshot(TerminalScreen(selectedFrom: 4));
+            FocusedCommandTargets.AddState(state, edit, find);
+            Assert.Equal("needle", edit.SelectedText);
+            Assert.True(Fact(state, CommandStates.CanUseSelectionForFind));
+            return Task.FromResult(true);
+        }, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Use_selection_for_find_reads_a_web_page_selection_when_chosen()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            var page = new FakeBrowserPage { Focusable = true };
+            var window = new Window { Content = page };
+            window.Show();
+            page.Focus();
+            Dispatcher.UIThread.RunJobs();
+
+            var edit = FocusedCommandTargets.EditTargetFor(window.FocusManager?.GetFocusedElement(), CancellationToken.None);
+            var find = new RecordingFind();
+            var state = new List<KeyValuePair<string, bool>>();
+            FocusedCommandTargets.AddState(state, edit, find);
+
+            // The page's selection lives in the renderer: the item stays on
+            // while the page has focus and reads the selection when chosen.
+            Assert.NotNull(edit);
+            Assert.True(Fact(state, CommandStates.CanUseSelectionForFind));
+
+            await FocusedCommandTargets.ExecuteAsync(BuiltInCommands.EditUseSelectionForFind, edit, find);
+            Assert.Empty(find.Queries);
+
+            page.Selection = "needle";
+            await FocusedCommandTargets.ExecuteAsync(BuiltInCommands.EditUseSelectionForFind, edit, find);
+            Assert.Equal(["needle"], find.Queries);
+            window.Close();
+            return true;
+        }, CancellationToken.None));
+    }
+
+    private static TerminalScreenSnapshot TerminalScreen(int selectedFrom)
+    {
+        const string text = "the needle";
+        var cells = text
+            .Select((character, column) => new TerminalScreenCell(
+                character.ToString(),
+                1,
+                TerminalCellColor.Default,
+                TerminalCellColor.Default,
+                IsSelected: selectedFrom >= 0 && column >= selectedFrom))
+            .ToArray();
+        return new TerminalScreenSnapshot(
+            text,
+            0,
+            0,
+            1,
+            text.Length,
+            false,
+            null,
+            DateTimeOffset.UtcNow,
+            StructuredRows: [new TerminalScreenRow(0, cells)]);
+    }
+
     private static bool Fact(IEnumerable<KeyValuePair<string, bool>> state, string name) =>
         state.Single(item => string.Equals(item.Key, name, StringComparison.Ordinal)).Value;
 
@@ -122,6 +205,28 @@ public sealed class FocusedCommandTargetsTests
         public Task ExecuteAsync(CommandId command, TopLevel origin) => Task.CompletedTask;
 
         public MenuShortcutResolver CreateShortcutResolver() => new([], []);
+    }
+
+    private sealed class FakeBrowserPage : Control, IBrowserEditCommandTarget
+    {
+        public string? Selection { get; set; }
+
+        public bool ExecuteEditCommand(BrowserEditCommand command) => true;
+
+        public Task<string?> ReadSelectedTextAsync() => Task.FromResult(Selection);
+    }
+
+    private sealed class RecordingFind : IFindTarget
+    {
+        public List<string?> Queries { get; } = [];
+
+        public bool CanBeginFind => true;
+
+        public Task BeginFindAsync(string? searchText)
+        {
+            Queries.Add(searchText);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class SearchablePanel(TextBox search) : ContentControl, IFindTarget

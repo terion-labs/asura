@@ -119,6 +119,13 @@ internal sealed class CefBrowserAutomationAdapter
     public Task<NativeBrowserAutomationResult> ExtractReadableArticleAsync() =>
         CaptureOutcomeAsync(ExtractReadableArticleCoreAsync);
 
+    /// <summary>
+    /// The page's selected text, read in an isolated world for Use Selection
+    /// for Find. Bounded to the longest query the find bar takes.
+    /// </summary>
+    public Task<NativeBrowserAutomationResult> ReadSelectedTextAsync() =>
+        CaptureOutcomeAsync(ReadSelectedTextCoreAsync);
+
     private async Task<NativeBrowserAutomationResult> DispatchMouseCoreAsync(
         BrowserMouseRequest request,
         CancellationToken cancellationToken = default)
@@ -437,6 +444,25 @@ internal sealed class CefBrowserAutomationAdapter
                 ReadLinks(root),
                 articleLength > captureLength
                     || root.GetProperty("linksTruncated").GetBoolean()));
+    }
+
+    private async Task<NativeBrowserAutomationResult> ReadSelectedTextCoreAsync()
+    {
+        var contextId = await CreateIsolatedWorldAsync().ConfigureAwait(false);
+        if (contextId == 0)
+        {
+            return NativeBrowserAutomationResult.Rejected(
+                "script_context_unavailable");
+        }
+
+        return await EvaluateSourceAsync(
+                "String(window.getSelection() || '').slice(0, 512)",
+                awaitPromise: false,
+                TimeSpan.FromSeconds(2),
+                // DOM getters are not on V8's side-effect-free list.
+                throwOnSideEffect: false,
+                contextId)
+            .ConfigureAwait(false);
     }
 
     private async Task<NativeBrowserAutomationResult>

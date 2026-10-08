@@ -19,6 +19,11 @@ public static class ShortcutText
     private const string MacShift = "⇧";
     private const string MacCommand = "⌘";
 
+    // Variation Selector-15. Return, Home and End have emoji presentations, and
+    // without it Apple Color Emoji draws them as colour pictures in a menu
+    // font's fallback chain.
+    private const string TextPresentation = "\uFE0E";
+
     private static readonly Dictionary<string, string> MacKeyLabels = new(StringComparer.Ordinal)
     {
         ["ARROWLEFT"] = "←",
@@ -31,11 +36,11 @@ public static class ShortcutText
         ["DOWN"] = "↓",
         ["PAGEUP"] = "⇞",
         ["PAGEDOWN"] = "⇟",
-        ["HOME"] = "↖",
-        ["END"] = "↘",
+        ["HOME"] = "↖" + TextPresentation,
+        ["END"] = "↘" + TextPresentation,
         ["ESCAPE"] = "⎋",
-        ["ENTER"] = "↩",
-        ["RETURN"] = "↩",
+        ["ENTER"] = "↩" + TextPresentation,
+        ["RETURN"] = "↩" + TextPresentation,
         ["SPACE"] = "Space",
         ["TAB"] = "⇥",
         ["BACKSPACE"] = "⌫",
@@ -302,11 +307,14 @@ public static class ShortcutText
 
     private static bool TryReadKey(string token, out string key)
     {
-        var trimmed = token.Trim();
+        var trimmed = token.Replace(TextPresentation, string.Empty, StringComparison.Ordinal).Trim();
         foreach (var labels in new[] { MacKeyLabels, TextKeyLabels })
         {
             var named = labels.FirstOrDefault(item =>
-                string.Equals(item.Value, trimmed, StringComparison.OrdinalIgnoreCase));
+                string.Equals(
+                    item.Value.Replace(TextPresentation, string.Empty, StringComparison.Ordinal),
+                    trimmed,
+                    StringComparison.OrdinalIgnoreCase));
             if (named.Key is not null)
             {
                 key = CanonicalNamedKey(named.Key);

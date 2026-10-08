@@ -198,7 +198,7 @@
               x:Name="AgentToggleButton"
               Classes="IconButton"
               Click="OnToggleAgentClick"
-              ToolTip.Tip="{x:Static vm:ShortcutTips.ToggleAgentPanel}"
+              ToolTip.Tip="{Binding ToggleAgentPanel, Source={x:Static vm:ShortcutTips.Current}}"
               AutomationProperties.Name="Show or hide the agent panel">
             <Grid>
               <icons:SymbolIcon
@@ -222,7 +222,7 @@
             where it lands. Add Panel… from the menu bar opens the same popover
             here.
           -->
-          <Button x:Name="AddPanelButton" Classes="IconButton" ToolTip.Tip="{x:Static vm:ShortcutTips.AddPanel}" AutomationProperties.Name="Add panel">
+          <Button x:Name="AddPanelButton" Classes="IconButton" ToolTip.Tip="{Binding AddPanel, Source={x:Static vm:ShortcutTips.Current}}" AutomationProperties.Name="Add panel">
             <icons:SymbolIcon Symbol="LayoutColumnTwoSplitRight" FontSize="{DynamicResource ShellIconSizeMd}" />
             <Button.Flyout>
               <MenuFlyout Placement="Bottom">

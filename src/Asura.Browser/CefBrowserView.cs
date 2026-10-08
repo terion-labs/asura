@@ -477,6 +477,10 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         await DispatchAutomationAsync(
             static adapter => adapter.ExtractRenderedDocumentAsync());
 
+    public async Task<NativeBrowserAutomationResult> ReadSelectedTextAsync() =>
+        await DispatchAutomationAsync(
+            static adapter => adapter.ReadSelectedTextAsync());
+
     public void Dispose()
     {
         if (_disposed)

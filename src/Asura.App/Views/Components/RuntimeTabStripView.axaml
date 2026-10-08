@@ -100,7 +100,7 @@
         VerticalAlignment="Center"
         Classes="IconButton"
         Click="OnAddTab"
-        ToolTip.Tip="{x:Static vm:ShortcutTips.NewTab}"
+        ToolTip.Tip="{Binding NewTab, Source={x:Static vm:ShortcutTips.Current}}"
         AutomationProperties.Name="New Tab">
       <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
     </Button>
@@ -312,7 +312,7 @@
                 Classes="IconButton RuntimeTabClose"
                 Classes.closable="{Binding CanClose}"
                 Click="OnClose"
-                ToolTip.Tip="{x:Static vm:ShortcutTips.CloseTab}"
+                ToolTip.Tip="{Binding CloseTab, Source={x:Static vm:ShortcutTips.Current}}"
                 AutomationProperties.Name="{Binding DisplayTitle, StringFormat={}Close {0}}"
                 AutomationProperties.HelpText="Closes this tab. A tab with running sessions asks first.">
 

@@ -36,6 +36,16 @@ internal interface IEditTarget
     /// <summary>The selected text for Use Selection for Find, when the target can read it.</summary>
     string? SelectedText => null;
 
+    /// <summary>
+    /// Whether Use Selection for Find is offered. A target that reads its
+    /// selection only on demand, such as a web page, offers it while it has
+    /// focus and finds nothing to use when nothing is selected.
+    /// </summary>
+    bool CanUseSelectionForFind => !string.IsNullOrEmpty(SelectedText);
+
+    /// <summary>The text Use Selection for Find searches for.</summary>
+    Task<string?> ReadSelectionForFindAsync() => Task.FromResult(SelectedText);
+
     bool CanJumpToSelection => false;
 
     void JumpToSelection()
@@ -157,7 +167,7 @@ internal static class FocusedCommandTargets
         state.Add(new(CommandStates.CanFindNext, find?.CanFindNext == true));
         state.Add(new(
             CommandStates.CanUseSelectionForFind,
-            canFind && !string.IsNullOrEmpty(edit?.SelectedText)));
+            canFind && edit?.CanUseSelectionForFind == true));
         state.Add(new(CommandStates.CanJumpToSelection, edit?.CanJumpToSelection == true));
     }
 
@@ -186,8 +196,8 @@ internal static class FocusedCommandTargets
 
         if (command == BuiltInCommands.EditUseSelectionForFind)
         {
-            return find?.CanBeginFind == true && edit?.SelectedText is { Length: > 0 } text
-                ? find.BeginFindAsync(text)
+            return find?.CanBeginFind == true && edit?.CanUseSelectionForFind == true
+                ? UseSelectionForFindAsync(edit, find)
                 : Task.CompletedTask;
         }
 
@@ -206,6 +216,14 @@ internal static class FocusedCommandTargets
         }
 
         return Task.CompletedTask;
+    }
+
+    private static async Task UseSelectionForFindAsync(IEditTarget edit, IFindTarget find)
+    {
+        if (await edit.ReadSelectionForFindAsync() is { Length: > 0 } text)
+        {
+            await find.BeginFindAsync(text);
+        }
     }
 
     private sealed class TextBoxEditTarget(TextBox box) : IEditTarget
@@ -333,6 +351,9 @@ internal static class FocusedCommandTargets
         ManagedTerminalSurface terminal,
         CancellationToken lifetime) : IEditTarget
     {
+        /// <summary>The selected cells on screen, as Use Selection for Find reads them.</summary>
+        public string? SelectedText => terminal.VisibleSelectedText();
+
         public bool CanExecute(EditAction action) => action is EditAction.Copy
             or EditAction.Paste
             or EditAction.PasteAndMatchStyle
@@ -411,8 +432,17 @@ internal static class FocusedCommandTargets
         }
     }
 
+    /// <summary>
+    /// A web page. Its selection lives in the renderer, so Use Selection for
+    /// Find stays offered while the page has focus and reads the selection
+    /// when chosen; with nothing selected it does nothing, as in Safari.
+    /// </summary>
     private sealed class BrowserEditTarget(IBrowserEditCommandTarget browser) : IEditTarget
     {
+        public bool CanUseSelectionForFind => true;
+
+        public Task<string?> ReadSelectionForFindAsync() => browser.ReadSelectedTextAsync();
+
         public bool CanExecute(EditAction action) => action != EditAction.Delete;
 
         public Task ExecuteAsync(EditAction action)
@@ -441,8 +471,20 @@ internal static class FocusedCommandTargets
 
         public async Task BeginFindAsync(string? searchText)
         {
-            _ = searchText;
-            _ = await terminal.BeginFindAsync(lifetime);
+            if (!await terminal.BeginFindAsync(lifetime) || string.IsNullOrEmpty(searchText))
+            {
+                return;
+            }
+
+            // Use Selection for Find: the selection becomes the query, and the
+            // find field shows it, ready for Find Next. Terminal matches never
+            // span rows, so a selection over several rows searches for its first.
+            var query = searchText.Split('\n', 2)[0];
+            if (query.Length > TerminalFindInput.MaximumQueryLength)
+            {
+                query = query[..TerminalFindInput.MaximumQueryLength];
+            }
+            _ = await terminal.UpdateFindQueryAsync(query, lifetime);
         }
 
         public async Task FindNextAsync(FindDirection direction) =>

@@ -22,4 +22,10 @@ public interface IBrowserEditCommandTarget
     /// ready or user input is currently withheld from it.
     /// </summary>
     bool ExecuteEditCommand(BrowserEditCommand command);
+
+    /// <summary>
+    /// The page's selected text, read on demand for Use Selection for Find.
+    /// Null when nothing is selected or the page can't be read.
+    /// </summary>
+    Task<string?> ReadSelectedTextAsync() => Task.FromResult<string?>(null);
 }

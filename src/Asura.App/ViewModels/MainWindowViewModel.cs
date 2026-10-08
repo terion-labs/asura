@@ -1255,6 +1255,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             OnPropertyChanged(propertyName);
         }
+
+        if (eventArgs.PropertyName is nameof(DefinitionSettingsViewModel.ActiveApplicationKeymap)
+            or nameof(DefinitionSettingsViewModel.ActiveApplicationKeymapRevision))
+        {
+            // Toolbar tooltips name the keys the menu shows, so they follow
+            // a rebinding.
+            ShortcutTips.Current.Update(CreateMenuShortcutResolver());
+        }
     }
 
     private void OnTerminalSettingsPropertyChanged(
@@ -9622,7 +9630,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         // takes a walk of the visual tree.
         var captured = CaptureCommandInvocation();
         var menuShortcuts = OperatingSystem.IsMacOS()
-            ? new MenuShortcutResolver(ActiveApplicationKeymap.Bindings, [])
+            ? CreateMenuShortcutResolver()
             : null;
         foreach (var command in BuiltInCommands.Registry.Commands)
         {
@@ -9648,14 +9656,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 .ToArray();
             if (invocations.Length == 0)
             {
-                // The menu bar's standard shortcut, so both surfaces agree.
-                var standard = menuShortcuts?.Resolve(
-                    command.Id,
-                    ImmutableDictionary<string, string>.Empty);
                 candidates.Add(CreateCommandLauncherResult(
                     command,
                     ImmutableDictionary<string, string>.Empty,
-                    standard is { } stroke ? KeySequenceDisplay.Format(stroke) : string.Empty,
+                    PaletteShortcut(menuShortcuts, command.Id, ImmutableDictionary<string, string>.Empty, null),
                     captured));
                 continue;
             }
@@ -9664,9 +9668,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 CreateCommandLauncherResult(
                     command,
                     invocation.Target.Arguments,
-                    isBoundHere
-                        ? KeySequenceDisplay.Format(invocation.Binding.Sequence)
-                        : string.Empty,
+                    PaletteShortcut(
+                        menuShortcuts,
+                        command.Id,
+                        invocation.Target.Arguments,
+                        isBoundHere ? invocation.Binding.Sequence : null),
                     captured)));
         }
 
@@ -9765,6 +9771,41 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             ])));
 
         return candidates;
+    }
+
+    /// <summary>
+    /// The shortcut a palette row shows. On macOS that is the one the menu bar
+    /// shows for the command, found the way the menu finds it: the active
+    /// application keymap, then the active terminal's keymap, then Apple's
+    /// standard key. A command only a key sequence reaches, such as a tmux
+    /// prefix, shows that sequence.
+    /// </summary>
+    private static string PaletteShortcut(
+        MenuShortcutResolver? menuShortcuts,
+        CommandId command,
+        IReadOnlyDictionary<string, string> arguments,
+        KeySequence? boundSequence)
+    {
+        if (menuShortcuts?.Resolve(command, arguments) is { } menuStroke)
+        {
+            return KeySequenceDisplay.Format(menuStroke);
+        }
+
+        return boundSequence is { } sequence
+            ? KeySequenceDisplay.Format(sequence)
+            : string.Empty;
+    }
+
+    /// <summary>
+    /// Resolves menu shortcuts against this window's keymaps: the active
+    /// application profile and the active terminal's keymap, as the menu bar does.
+    /// </summary>
+    internal MenuShortcutResolver CreateMenuShortcutResolver()
+    {
+        var terminalKeymap = ActivePanel is TerminalRuntimePanelViewModel { Keymap: { } snapshot }
+            ? snapshot.Bindings
+            : BuiltInKeymaps.TerminalFor(HostPlatform.Current).Bindings;
+        return new MenuShortcutResolver(ActiveApplicationKeymap.Bindings, terminalKeymap);
     }
 
     /// <summary>

@@ -1,9 +1,12 @@
+using Asura.App.ViewModels;
 using Asura.Application;
+using Asura.Core;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using KeyModifiers = Asura.Core.KeyModifiers;
 
 namespace Asura.App.Controls;
 
@@ -23,17 +26,33 @@ public sealed partial class ManagedTerminalOverlay : UserControl
         FindBox.MaxLength = TerminalFindInput.MaximumQueryLength;
     }
 
-    public static string FindNextTip { get; } = OperatingSystem.IsMacOS()
-        ? "Next match (⌘G or Return)"
-        : "Next match (F3 or Enter)";
+    // Find Next is Command-G on macOS and F3 elsewhere; Return also moves on
+    // from the field. Every key is written by the one shortcut formatter.
+    private static readonly KeyStroke FindNextStroke = OperatingSystem.IsMacOS()
+        ? new("G", KeyModifiers.Meta)
+        : new("F3", KeyModifiers.None);
 
-    public static string FindPreviousTip { get; } = OperatingSystem.IsMacOS()
-        ? "Previous match (⇧⌘G or ⇧Return)"
-        : "Previous match (Shift+F3 or Shift+Enter)";
+    public static string FindNextTip { get; } =
+        $"Next match ({Keys(FindNextStroke)} or {Keys(new("ENTER", KeyModifiers.None))})";
 
-    public static string CopyModeHintText { get; } = OperatingSystem.IsMacOS()
-        ? "Copy mode: ↑ ↓ move  ·  ⇧ selects lines  ·  ⌘C copies  ·  Esc exits"
-        : "Copy mode: ↑ ↓ move  ·  Shift selects lines  ·  Ctrl+C copies  ·  Esc exits";
+    public static string FindPreviousTip { get; } =
+        $"Previous match ({Keys(new(FindNextStroke.Key, FindNextStroke.Modifiers | KeyModifiers.Shift))} or {Keys(new("ENTER", KeyModifiers.Shift))})";
+
+    public static string CloseFindTip { get; } =
+        $"Close the find bar ({Keys(new("ESCAPE", KeyModifiers.None))})";
+
+    public static string CopyModeHintText { get; } = string.Join(
+        "  ·  ",
+        $"Copy mode: {Keys(new("ARROWUP", KeyModifiers.None))} {Keys(new("ARROWDOWN", KeyModifiers.None))} move",
+        $"{Keys(new("ARROWUP", KeyModifiers.Shift))} {Keys(new("ARROWDOWN", KeyModifiers.Shift))} select lines",
+        $"{Keys(new("C", OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control))} copies",
+        $"{Keys(new("ESCAPE", KeyModifiers.None))} exits");
+
+    public static string EscapeKeyText { get; } = Keys(new("ESCAPE", KeyModifiers.None));
+
+    public static string ReturnKeyText { get; } = Keys(new("ENTER", KeyModifiers.None));
+
+    private static string Keys(KeyStroke stroke) => KeySequenceDisplay.Format(stroke);
 
     /// <summary>Raised when the surface should take keyboard focus back.</summary>
     internal event EventHandler? SurfaceFocusRequested;
@@ -54,11 +73,52 @@ public sealed partial class ManagedTerminalOverlay : UserControl
         surface.FindFocusRequested += OnFindFocusRequested;
         surface.AnnouncementRequested += OnAnnouncementRequested;
         surface.PropertyChanged += OnSurfacePropertyChanged;
+        FindBar.SizeChanged += (_, _) => ReserveFindBand();
+    }
+
+    /// <summary>
+    /// The height kept clear above the terminal's rows while the find bar is
+    /// open, so the bar sits in its own band instead of over the first line
+    /// of output, as Terminal's find bar does.
+    /// </summary>
+    internal double ReservedFindBandHeight => _surface?.Margin.Top ?? 0;
+
+    private void ReserveFindBand()
+    {
+        if (_surface is not { } surface)
+        {
+            return;
+        }
+
+        var band = surface.IsFindVisible && FindBar.Bounds.Height > 0
+            ? FindBar.Bounds.Height + FindBar.Margin.Top + FindBar.Margin.Bottom
+            : 0;
+        if (!surface.Margin.Top.Equals(band))
+        {
+            surface.Margin = new Thickness(0, band, 0, 0);
+        }
     }
 
     private void OnSurfacePropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
         _ = sender;
+        if (e.Property == ManagedTerminalSurface.FindQueryProperty
+            && e.GetNewValue<string>() is { } query
+            && !string.Equals(FindBox.Text ?? string.Empty, query, StringComparison.Ordinal))
+        {
+            // A query set by the surface itself, such as Use Selection for
+            // Find, shows in the field without searching a second time.
+            _isSynchronizingFindText = true;
+            FindBox.Text = query;
+            _isSynchronizingFindText = false;
+            return;
+        }
+
+        if (e.Property == ManagedTerminalSurface.IsFindVisibleProperty)
+        {
+            ReserveFindBand();
+        }
+
         if (e.Property == ManagedTerminalSurface.IsFindVisibleProperty
             && !e.GetNewValue<bool>())
         {
@@ -123,7 +183,9 @@ public sealed partial class ManagedTerminalOverlay : UserControl
             return;
         }
 
-        var findModifier = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+        var findModifier = OperatingSystem.IsMacOS()
+            ? Avalonia.Input.KeyModifiers.Meta
+            : Avalonia.Input.KeyModifiers.Control;
         if (e.Key == Key.F && e.KeyModifiers == findModifier)
         {
             // Find again from the field selects its text, ready for a new query.
