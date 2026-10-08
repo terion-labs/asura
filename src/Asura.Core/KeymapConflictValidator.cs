@@ -60,7 +60,7 @@ public static class KeymapConflictValidator
                     KeymapIssueKind.UnknownCommand,
                     index,
                     null,
-                    $"Command '{binding.CommandId}' is not available in this version. Its binding is preserved."));
+                    $"This version of Asura doesn't have the command “{binding.CommandId}”. Its shortcut is kept for later versions."));
             }
 
             if (profile.Layer == KeymapLayer.Terminal && binding.Sequence.Count != 1)

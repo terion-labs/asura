@@ -42,7 +42,7 @@ public sealed class AvaloniaDefinitionBundlePathPicker(Func<Window> owner)
 
         return selected.TryGetLocalPath()
             ?? throw new NotSupportedException(
-                "Definition bundles must be exported to a local filesystem path.");
+                "Choose a location on this computer to save the export.");
     }
 
     public async ValueTask<string?> PickImportPathAsync(CancellationToken cancellationToken)
@@ -62,6 +62,6 @@ public sealed class AvaloniaDefinitionBundlePathPicker(Func<Window> owner)
 
         return selected[0].TryGetLocalPath()
             ?? throw new NotSupportedException(
-                "Definition bundles must be imported from a local filesystem path.");
+                "Choose a file on this computer to import.");
     }
 }

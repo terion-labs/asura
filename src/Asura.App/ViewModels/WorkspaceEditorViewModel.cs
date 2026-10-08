@@ -723,7 +723,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
             candidate.Id == connectionId && candidate.IsAvailable);
         if (option is null)
         {
-            return Reject($"Connection '{connectionId}' is not available.");
+            return Reject("That connection is no longer available. Choose another connection.");
         }
 
         return AddEntry(new WorkspaceEntry.ConnectionReference(
@@ -740,7 +740,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
             candidate.Id == screenId && candidate.IsAvailable);
         if (option is null)
         {
-            return Reject($"Saved screen '{screenId}' is not available.");
+            return Reject("That saved screen is no longer available. Choose another screen.");
         }
 
         return AddEntry(new WorkspaceEntry.ScreenReference(
@@ -755,7 +755,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
     {
         if (!_screens.TryGetValue(screenId, out var screen))
         {
-            return Reject($"Saved screen '{screenId}' is not available.");
+            return Reject("That saved screen is no longer available. Choose another screen.");
         }
 
         var tab = new WorkspaceEntry.Tab(
@@ -774,7 +774,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
             option.Id == layoutId && option.IsAvailable)?.Definition;
         if (layout is null)
         {
-            return Reject($"Layout '{layoutId}' is not available.");
+            return Reject("That layout is no longer available. Choose another layout.");
         }
 
         var connectionId = ConnectionOptions.FirstOrDefault(option => option.IsAvailable)?.Id;
@@ -799,7 +799,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
         var entry = _entries.SingleOrDefault(item => item.Id == entryId);
         if (entry is null)
         {
-            return Reject($"Workspace entry '{entryId}' does not exist.");
+            return Reject("That item is no longer in the workspace.");
         }
 
         entry.PropertyChanged -= OnEntryChanged;
@@ -821,7 +821,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
             .SingleOrDefault(-1);
         if (sourceIndex < 0)
         {
-            return Reject($"Workspace entry '{entryId}' does not exist.");
+            return Reject("That item is no longer in the workspace.");
         }
 
         if (destinationIndex < 0 || destinationIndex >= _entries.Count)
@@ -1161,7 +1161,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
         var definition = BuildDefinition();
         List<DefinitionValidationIssue> issues = [.. WorkspaceValidator.Validate(definition).Issues.Select(issue =>
             _entries.FirstOrDefault(entry => string.Equals(entry.Id.Value, issue.Target, StringComparison.Ordinal)) is { } entry
-                ? issue with { Message = $"'{entry.DisplayName}': {issue.Message}" }
+                ? issue with { Message = $"“{entry.DisplayName}”: {issue.Message}" }
                 : issue)];
         foreach (var (value, label) in new[] { (Accent, "accent"), (Color, "color") })
         {
@@ -1207,7 +1207,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
                 tabDefinition.LayoutId,
                 tabDefinition.Panels);
             issues.AddRange(ScreenValidator.Validate(screen, layout).Issues.Select(issue =>
-                issue with { Message = $"'{entry.DisplayName}': {issue.Message}" }));
+                issue with { Message = $"“{entry.DisplayName}”: {issue.Message}" }));
         }
 
         return [.. issues.DistinctBy(issue => (issue.Code, issue.Message, issue.Target))];

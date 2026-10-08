@@ -73,7 +73,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 problems.Add(new(
                     DefinitionProblemKind.StorageFailure,
-                    $"A stored dependency owner '{ownerKey}' is missing.",
+                    "Something that uses this item is missing from the saved settings.",
                     ownerKey));
                 continue;
             }
@@ -84,7 +84,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 problems.Add(new(
                     DefinitionProblemKind.DependencyConflict,
-                    $"The dependency change would invalidate dependent definition '{ownerKey}': {problem.Message}",
+                    $"This change would break something that uses it. {problem.Message}",
                     ownerKey));
             }
         }
@@ -120,7 +120,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 return new(
                     DefinitionProblemKind.StorageFailure,
-                    $"Stored AI provider definition '{key}' has an unexpected payload type.",
+                    "A saved AI provider is damaged and can't be read.",
                     key);
             }
 
@@ -169,7 +169,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 return new(
                     DefinitionProblemKind.DependencyConflict,
-                    $"Definition '{definition.Key}' cannot depend on itself.",
+                    "An item can't use itself.",
                     definition.Key);
             }
 
@@ -183,7 +183,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 return new(
                     DefinitionProblemKind.MissingDependency,
-                    $"Definition '{definition.Key}' requires missing {reference.Target.Kind} '{reference.Target.Value}'.",
+                    "It uses something that no longer exists. Choose a replacement, then save again.",
                     definition.Key);
             }
         }
@@ -211,7 +211,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 return new(
                     DefinitionProblemKind.DependencyConflict,
-                    $"Definition '{definition.Key}' requires an enabled AI-provider profile '{agentPolicy.Provider}'.",
+                    "The agent settings use an AI provider that is missing or turned off. Choose an AI provider that is on, then save again.",
                     definition.Key);
             }
         }
@@ -493,7 +493,7 @@ internal sealed class SqliteDefinitionGraphValidator
                 null,
                 new(
                     DefinitionProblemKind.StorageFailure,
-                    $"Stored definition '{key}' has corrupt metadata.",
+                    "A saved item is damaged and can't be read.",
                     key));
         }
 

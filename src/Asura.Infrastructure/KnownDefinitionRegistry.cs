@@ -51,7 +51,7 @@ internal static class KnownDefinitionRegistry
         {
             problem = new(
                 DefinitionProblemKind.InvalidDefinition,
-                "The definition identity is invalid.");
+                "An item is damaged and can't be read.");
             return false;
         }
 
@@ -59,7 +59,7 @@ internal static class KnownDefinitionRegistry
         {
             problem = new(
                 DefinitionProblemKind.UnsupportedKind,
-                $"Definition kind '{document.Kind}' is not supported by this application version.",
+                "This version of Asura can't read one of the items. Update Asura, then try again.",
                 key);
             return false;
         }
@@ -69,7 +69,7 @@ internal static class KnownDefinitionRegistry
         {
             problem = new(
                 DefinitionProblemKind.UnsupportedSchema,
-                $"Definition schema {document.SchemaVersion} is not supported for kind '{document.Kind}'.",
+                "This version of Asura can't read one of the items. Update Asura, then try again.",
                 key);
             return false;
         }
@@ -78,7 +78,7 @@ internal static class KnownDefinitionRegistry
         {
             problem = new(
                 DefinitionProblemKind.InvalidDefinition,
-                "The definition name is required.",
+                "Enter a name.",
                 key);
             return false;
         }
@@ -87,7 +87,7 @@ internal static class KnownDefinitionRegistry
         {
             problem = new(
                 DefinitionProblemKind.InvalidDefinition,
-                "The definition payload is required.",
+                "An item is damaged and can't be read.",
                 key);
             return false;
         }
@@ -106,7 +106,7 @@ internal static class KnownDefinitionRegistry
         {
             problem = new(
                 DefinitionProblemKind.InvalidDefinition,
-                "The definition payload schema does not match its envelope.",
+                "An item is damaged and can't be read.",
                 key);
             return false;
         }
@@ -118,7 +118,7 @@ internal static class KnownDefinitionRegistry
             {
                 problem = new(
                     DefinitionProblemKind.InvalidDefinition,
-                    "The definition payload does not match its declared kind.",
+                    "An item is damaged and can't be read.",
                     key);
                 definition = null;
                 return false;
@@ -130,7 +130,7 @@ internal static class KnownDefinitionRegistry
             {
                 problem = new(
                     DefinitionProblemKind.InvalidDefinition,
-                    "The definition payload identity, schema, or name does not match its envelope.",
+                    "An item is damaged and can't be read.",
                     key);
                 definition = null;
                 return false;
@@ -150,7 +150,7 @@ internal static class KnownDefinitionRegistry
             definition = null;
             problem = new(
                 DefinitionProblemKind.InvalidDefinition,
-                "The definition payload cannot be read by this application version.",
+                "This version of Asura can't read one of the items. Update Asura, then try again.",
                 key);
             return false;
         }
@@ -169,7 +169,7 @@ internal static class KnownDefinitionRegistry
         {
             return new(
                 DefinitionProblemKind.InvalidDefinition,
-                "The definition identity is invalid.");
+                "An item is damaged and can't be read.");
         }
 
         if (!IsKnownKind(key.Kind)
@@ -177,7 +177,7 @@ internal static class KnownDefinitionRegistry
         {
             return new(
                 DefinitionProblemKind.UnsupportedKind,
-                "This repository type is not a supported durable definition.",
+                "Asura can't store this kind of item.",
                 key);
         }
 
@@ -185,7 +185,7 @@ internal static class KnownDefinitionRegistry
         {
             return new(
                 DefinitionProblemKind.UnsupportedSchema,
-                "The definition schema is not supported by this application version.",
+                "This version of Asura can't read one of the items. Update Asura, then try again.",
                 key);
         }
 
@@ -193,7 +193,7 @@ internal static class KnownDefinitionRegistry
         {
             return new(
                 DefinitionProblemKind.InvalidDefinition,
-                "The definition name is required.",
+                "Enter a name.",
                 key);
         }
 
@@ -350,7 +350,7 @@ internal static class KnownDefinitionRegistry
         {
             return new(
                 DefinitionProblemKind.InvalidDefinition,
-                "The definition violates its domain invariants.",
+                "Some of its settings don't fit together. Check them, then save again.",
                 key);
         }
     }
@@ -418,7 +418,7 @@ internal static class KnownDefinitionRegistry
         };
 
     private static DefinitionProblem InvalidEnum(DefinitionKey key) =>
-        Invalid(key, "The definition contains an unsupported enum value.");
+        Invalid(key, "It uses a setting this version of Asura doesn't recognize.");
 
     private static DefinitionProblem Invalid(DefinitionKey key, string message) =>
         new(DefinitionProblemKind.InvalidDefinition, message, key);

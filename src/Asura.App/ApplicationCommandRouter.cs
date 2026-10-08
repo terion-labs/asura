@@ -152,7 +152,7 @@ internal static class ApplicationCommandRouter
         if (!BuiltInCommands.Registry.TryGet(commandId, out var definition)
             || definition is null)
         {
-            return Failure($"Command '{commandId}' is not registered.");
+            return Failure("Asura doesn't have that command.");
         }
 
         if (!definition.IsAvailable(invocation))
@@ -234,7 +234,7 @@ internal static class ApplicationCommandRouter
             "Edit" => Forward(ApplicationCommandActionKind.Edit, commandId),
             "Git" => Forward(ApplicationCommandActionKind.Git, commandId),
             "Terminal" => Forward(ApplicationCommandActionKind.Terminal, commandId),
-            _ => Failure($"Command '{definition.Title}' is not an application command."),
+            _ => Failure($"“{definition.Title}” can't run from here."),
         };
     }
 

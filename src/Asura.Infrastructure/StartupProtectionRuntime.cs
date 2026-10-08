@@ -131,8 +131,8 @@ public sealed partial class StartupProtectionRuntime : IStartupProtection
 
         if (!_vault.Availability.CanPersist)
         {
-            return "Startup protection needs the operating system's keystore, which is "
-                + "unavailable: " + _vault.Availability.Message;
+            return $"Startup protection needs {PlatformTerms.SecretStore}, which isn't available. "
+                + _vault.Availability.Message;
         }
 
         var pepper = await ResolveOrCreatePepperAsync(cancellationToken).ConfigureAwait(false);

@@ -29,7 +29,7 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         {
             return Failure<StoredDefinition<TDefinition>>(
                 DefinitionStoreErrorCode.UnsupportedKind,
-                "The requested definition kind does not match this repository.");
+                "Asura can't store this kind of item.");
         }
 
         try
@@ -50,7 +50,7 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
             {
                 return Failure<StoredDefinition<TDefinition>>(
                     DefinitionStoreErrorCode.NotFound,
-                    "The requested definition does not exist.");
+                    "That item no longer exists.");
             }
 
             return DeserializeStored(reader);
@@ -59,19 +59,19 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         {
             return Failure<StoredDefinition<TDefinition>>(
                 DefinitionStoreErrorCode.Cancelled,
-                "The definition read was canceled.");
+                "Loading was canceled.");
         }
         catch (SqliteException exception)
         {
             return Failure<StoredDefinition<TDefinition>>(
                 MapSqliteError(exception),
-                "The definition store could not complete the read.");
+                "Asura couldn't read its saved settings. Try again.");
         }
         catch (Exception exception) when (IsStorageFormatException(exception))
         {
             return Failure<StoredDefinition<TDefinition>>(
                 DefinitionStoreErrorCode.StorageFailure,
-                "The stored definition has corrupt metadata.");
+                "A saved item is damaged and can't be read.");
         }
     }
 
@@ -82,7 +82,7 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         {
             return Failure<IReadOnlyList<StoredDefinition<TDefinition>>>(
                 DefinitionStoreErrorCode.UnsupportedKind,
-                "This repository type is not a supported durable definition.");
+                "Asura can't store this kind of item.");
         }
 
         try
@@ -127,19 +127,19 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         {
             return Failure<IReadOnlyList<StoredDefinition<TDefinition>>>(
                 DefinitionStoreErrorCode.Cancelled,
-                "The definition list was canceled.");
+                "Loading was canceled.");
         }
         catch (SqliteException exception)
         {
             return Failure<IReadOnlyList<StoredDefinition<TDefinition>>>(
                 MapSqliteError(exception),
-                "The definition store could not complete the list operation.");
+                "Asura couldn't read its saved settings. Try again.");
         }
         catch (Exception exception) when (IsStorageFormatException(exception))
         {
             return Failure<IReadOnlyList<StoredDefinition<TDefinition>>>(
                 DefinitionStoreErrorCode.StorageFailure,
-                "A stored definition has corrupt metadata.");
+                "A saved item is damaged and can't be read.");
         }
     }
 
@@ -153,7 +153,7 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         {
             return Failure<StoredDefinition<TDefinition>>(
                 DefinitionStoreErrorCode.UnsupportedKind,
-                "This repository type is not a supported durable definition.");
+                "Asura can't store this kind of item.");
         }
 
         var definitionProblem = KnownDefinitionRegistry.ValidateForSave(definition);
@@ -169,7 +169,7 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         {
             return Failure<StoredDefinition<TDefinition>>(
                 DefinitionStoreErrorCode.UnsupportedKind,
-                "The definition kind does not match this repository.");
+                "Asura can't store this kind of item.");
         }
 
         string payloadJson;
@@ -181,7 +181,7 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         {
             return Failure<StoredDefinition<TDefinition>>(
                 DefinitionStoreErrorCode.InvalidDefinition,
-                "The definition cannot be serialized by this application version.");
+                "This version of Asura can't save this item.");
         }
 
         if (!PortablePayloadSafety.TryValidate(payloadJson, out var safetyError))
@@ -209,7 +209,7 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         {
             return Failure<StoredDefinition<TDefinition>>(
                 DefinitionStoreErrorCode.UnsupportedKind,
-                "The serialized definition does not match this repository type.");
+                "Asura can't store this kind of item.");
         }
 
         try
@@ -277,19 +277,19 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         {
             return Failure<StoredDefinition<TDefinition>>(
                 DefinitionStoreErrorCode.Cancelled,
-                "The definition save was canceled.");
+                "Saving was canceled.");
         }
         catch (SqliteException exception)
         {
             return Failure<StoredDefinition<TDefinition>>(
                 MapSqliteError(exception),
-                "The definition store could not complete the save.");
+                "Asura couldn't save the change. Try again.");
         }
         catch (Exception exception) when (IsStorageFormatException(exception))
         {
             return Failure<StoredDefinition<TDefinition>>(
                 DefinitionStoreErrorCode.StorageFailure,
-                "Stored definition metadata is corrupt.");
+                "A saved item is damaged and can't be read.");
         }
     }
 
@@ -303,14 +303,14 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         {
             return Failure<Unit>(
                 DefinitionStoreErrorCode.UnsupportedKind,
-                "The definition kind does not match this repository.");
+                "Asura can't store this kind of item.");
         }
 
         if (expectedRevision <= 0)
         {
             return Failure<Unit>(
                 DefinitionStoreErrorCode.InvalidDefinition,
-                "A positive expected revision is required to delete a definition.");
+                "Asura couldn't delete it. Reopen it and try again.");
         }
 
         try
@@ -331,7 +331,7 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
                     await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
                     return Failure<Unit>(
                         DefinitionStoreErrorCode.DependencyConflict,
-                        $"Definition '{key}' is still referenced by '{dependency.Value}'.");
+                        "Something else still uses it, so it can't be deleted. Remove it from there first.");
                 }
 
                 await using var command = connection.CreateCommand();
@@ -361,11 +361,11 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
                 return currentRevision is null
                     ? Failure<Unit>(
                         DefinitionStoreErrorCode.NotFound,
-                        "The definition does not exist.")
+                        "That item no longer exists.")
                     : DefinitionStoreResult<Unit>.Failure(
                         new DefinitionStoreError(
                             DefinitionStoreErrorCode.RevisionConflict,
-                            "The definition changed before it could be deleted.",
+                            "It changed somewhere else before it could be deleted. Reopen it and try again.",
                             currentRevision));
             }
             catch
@@ -378,13 +378,13 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         {
             return Failure<Unit>(
                 DefinitionStoreErrorCode.Cancelled,
-                "The definition delete was canceled.");
+                "Deleting was canceled.");
         }
         catch (SqliteException exception)
         {
             return Failure<Unit>(
                 MapSqliteError(exception),
-                "The definition store could not complete the delete.");
+                "Asura couldn't delete it. Try again.");
         }
         catch (Exception exception) when (IsStorageFormatException(exception))
         {
@@ -446,7 +446,7 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         return DefinitionStoreResult<StoredDefinition<TDefinition>>.Failure(
             new DefinitionStoreError(
                 DefinitionStoreErrorCode.RevisionConflict,
-                "A definition with this identity already exists.",
+                "It already exists. Reopen it and try again.",
                 currentRevision));
     }
 
@@ -462,7 +462,7 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         {
             return Failure<StoredDefinition<TDefinition>>(
                 DefinitionStoreErrorCode.InvalidDefinition,
-                "A positive expected revision is required to update a definition.");
+                "Asura couldn't save the change. Reopen it and try again.");
         }
 
         var now = _timeProvider.GetUtcNow();
@@ -514,11 +514,11 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         return currentRevision is null
             ? Failure<StoredDefinition<TDefinition>>(
                 DefinitionStoreErrorCode.NotFound,
-                "The definition does not exist.")
+                "That item no longer exists.")
             : DefinitionStoreResult<StoredDefinition<TDefinition>>.Failure(
                 new DefinitionStoreError(
                     DefinitionStoreErrorCode.RevisionConflict,
-                    "The definition changed before it could be saved.",
+                    "It changed somewhere else before it could be saved. Reopen it and try again.",
                     currentRevision));
     }
 
@@ -637,7 +637,7 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
             {
                 return Failure<StoredDefinition<TDefinition>>(
                     DefinitionStoreErrorCode.UnsupportedKind,
-                    "The stored definition does not match this repository type.");
+                    "A saved item is damaged and can't be read.");
             }
 
             if (!TryParseTimestamp(reader.GetString(6), out var createdAt)
@@ -645,7 +645,7 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
             {
                 return Failure<StoredDefinition<TDefinition>>(
                     DefinitionStoreErrorCode.StorageFailure,
-                    "The stored definition has invalid timestamps.");
+                    "A saved item is damaged and can't be read.");
             }
 
             return DefinitionStoreResult<StoredDefinition<TDefinition>>.Success(
@@ -659,7 +659,7 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         {
             return Failure<StoredDefinition<TDefinition>>(
                 DefinitionStoreErrorCode.StorageFailure,
-                "The stored definition has corrupt metadata.");
+                "A saved item is damaged and can't be read.");
         }
     }
 

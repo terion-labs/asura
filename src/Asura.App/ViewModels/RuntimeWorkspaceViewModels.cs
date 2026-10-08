@@ -3037,7 +3037,7 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
                 ConnectionState = ConnectionPanelState.CredentialBrokerRequired;
                 ReconnectState = ConnectionReconnectState.Idle;
                 ConnectionStatus = "Credential delivery unavailable";
-                ConnectionDetail = "The saved credential passed vault preflight, but this build cannot deliver it to an SSH terminal process without exposing secret material. Diagnostics can still authenticate through the secure adapter boundary.";
+                ConnectionDetail = "The saved password is ready, but this version of Asura can't pass it to an SSH terminal without exposing it. Testing the connection in Settings still signs in with it.";
                 return;
             }
 
@@ -3248,7 +3248,7 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
             ConnectionPlanWarning.RemoteEnvironmentRequiresServerAcceptance =>
                 "SSH environment forwarding requires matching AcceptEnv rules on the remote server.",
             ConnectionPlanWarning.SshStartupDirectoryRequiresPosixShell =>
-                "SSH startup directories require a POSIX-compatible remote target with /bin/sh; Windows OpenSSH targets are not supported for this option.",
+                "Starting in a working directory over SSH needs a host with /bin/sh. Hosts that run Windows OpenSSH don't support this option.",
             _ => throw new ArgumentOutOfRangeException(nameof(warnings), warning, null),
         });
         return string.Join(' ', messages);

@@ -116,7 +116,7 @@ public static class WorkspaceValidator
         {
             issues.Add(new(
                 DefinitionValidationCode.InvalidEntry,
-                $"A workspace cannot define more than {WorkspaceDefinition.MaximumIsolationMountCount} isolation mounts.",
+                $"A workspace can have at most {WorkspaceDefinition.MaximumIsolationMountCount} host mounts.",
                 definition.Id.Value));
         }
 
@@ -130,7 +130,7 @@ public static class WorkspaceValidator
             {
                 issues.Add(new(
                     DefinitionValidationCode.InvalidEntry,
-                    "Each isolation mount requires an absolute host path.",
+                    "Each host mount needs an absolute host path.",
                     definition.Id.Value));
             }
 
@@ -140,7 +140,7 @@ public static class WorkspaceValidator
             {
                 issues.Add(new(
                     DefinitionValidationCode.InvalidEntry,
-                    "Each isolation mount requires an absolute guest path outside system-managed directories.",
+                    "Each host mount needs an absolute guest path outside the guest's system folders.",
                     definition.Id.Value));
             }
             else
@@ -155,7 +155,7 @@ public static class WorkspaceValidator
         {
             issues.Add(new(
                 DefinitionValidationCode.DuplicateId,
-                $"Isolation mount guest path '{duplicate.Key}' is used more than once.",
+                $"More than one host mount uses the guest path “{duplicate.Key}”.",
                 definition.Id.Value));
         }
     }

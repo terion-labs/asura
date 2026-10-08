@@ -672,7 +672,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
         {
             throw InvalidField.Exception(
                 nameof(WorkingDirectory),
-                "Working directory must be a fully qualified local path.");
+                "Enter the working directory as a full path on this computer.");
         }
 
         return new McpServerTransport.Stdio(
@@ -770,7 +770,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
             profile.Name,
             profile.Transport.Kind,
             stdioTransport?.Executable ?? string.Empty,
-            stdioTransport?.WorkingDirectory ?? "Executable directory",
+            stdioTransport?.WorkingDirectory ?? "The program's folder",
             httpTransport?.Endpoint.AbsoluteUri ?? string.Empty,
             httpTransport is null
                 ? "Local process"

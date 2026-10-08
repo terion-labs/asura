@@ -34,7 +34,7 @@ public static class LayoutArranger
             {
                 issues.Add(new(
                     DefinitionValidationCode.CanvasTooSmall,
-                    $"The canvas is too small for layout slot '{slot.Id}'.",
+                    $"The canvas is too small for the slot “{slot.Id}”.",
                     slot.Id.Value));
                 continue;
             }

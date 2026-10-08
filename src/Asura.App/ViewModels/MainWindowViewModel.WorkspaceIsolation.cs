@@ -507,8 +507,8 @@ public sealed partial class MainWindowViewModel
             if (recovered.IsIsolated)
             {
                 SetError(
-                    "The saved definition for this recovered isolated workspace is unavailable. "
-                    + "Recovery was stopped to prevent host execution.");
+                    "Asura couldn't find the saved settings for this isolated workspace, so it didn't restore it. "
+                    + "Restoring it without them would run its commands outside the isolated environment.");
                 return ValueTask.FromResult(WorkspaceIsolationPreparation.Failed);
             }
 

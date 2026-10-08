@@ -42,7 +42,7 @@ public static class ScreenValidator
             {
                 issues.Add(new(
                     DefinitionValidationCode.UnknownSlot,
-                    $"Panel '{panel.Id}' maps to a slot that is not in the selected layout.",
+                    "A panel uses a slot that isn't in the selected layout.",
                     panel.SlotId.Value));
                 continue;
             }

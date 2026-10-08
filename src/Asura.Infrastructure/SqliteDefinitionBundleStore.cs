@@ -86,13 +86,13 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
         {
             return Failure<PortableDefinitionBundle>(
                 DefinitionStoreErrorCode.Cancelled,
-                "The definition export was canceled.");
+                "The export was canceled.");
         }
         catch (SqliteException exception)
         {
             return Failure<PortableDefinitionBundle>(
                 MapSqliteError(exception),
-                "The definition store could not create an export.");
+                "Asura couldn't prepare the export. Try again.");
         }
         catch (NotSupportedException)
         {
@@ -103,7 +103,7 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
         {
             return Failure<PortableDefinitionBundle>(
                 DefinitionStoreErrorCode.StorageFailure,
-                "A stored definition has corrupt metadata.");
+                "A saved item is damaged and can't be read.");
         }
     }
 
@@ -178,19 +178,19 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
         {
             return Failure<DefinitionImportPreflight>(
                 DefinitionStoreErrorCode.Cancelled,
-                "The definition import preflight was canceled.");
+                "The import was canceled.");
         }
         catch (SqliteException exception)
         {
             return Failure<DefinitionImportPreflight>(
                 MapSqliteError(exception),
-                "The definition store could not inspect this import.");
+                "Asura couldn't check this import. Try again.");
         }
         catch (Exception exception) when (IsStorageFormatException(exception))
         {
             return Failure<DefinitionImportPreflight>(
                 DefinitionStoreErrorCode.StorageFailure,
-                "Stored definition metadata is corrupt.");
+                "A saved item is damaged and can't be read.");
         }
     }
 
@@ -244,7 +244,7 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
                     await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
                     return Failure<DefinitionImportResult>(
                         DefinitionStoreErrorCode.RevisionConflict,
-                        "A definition already exists; no definitions were imported.");
+                        "Some items already exist, so nothing was imported.");
                 }
 
                 var validator = new SqliteDefinitionGraphValidator(
@@ -264,7 +264,7 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
                 {
                     await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
                     return Failure<DefinitionImportResult>(DefinitionStoreErrorCode.RevisionConflict,
-                        "Definitions changed after import review. Run preflight and review the current destinations again.");
+                        "Your setup changed after you reviewed the import. Import the file again to review the changes.");
                 }
 
                 var inserted = 0;
@@ -314,19 +314,19 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
         {
             return Failure<DefinitionImportResult>(
                 DefinitionStoreErrorCode.Cancelled,
-                "The definition import was canceled and rolled back.");
+                "The import was canceled. Nothing was changed.");
         }
         catch (SqliteException exception)
         {
             return Failure<DefinitionImportResult>(
                 MapSqliteError(exception),
-                "The definition import failed and was rolled back.");
+                "Asura couldn't finish the import, so nothing was changed. Try again.");
         }
         catch (Exception exception) when (IsStorageFormatException(exception))
         {
             return Failure<DefinitionImportResult>(
                 DefinitionStoreErrorCode.StorageFailure,
-                "Stored definition metadata is corrupt.");
+                "A saved item is damaged and can't be read.");
         }
     }
 
@@ -340,7 +340,7 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
             parsed.Issues.Add(new(
                 DefinitionImportIssueCode.InvalidBundle,
                 null,
-                "The portable definition bundle version is not supported.",
+                "The file uses a format this version of Asura can't read.",
                 true));
         }
 
@@ -349,7 +349,7 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
             parsed.Issues.Add(new(
                 DefinitionImportIssueCode.InvalidBundle,
                 null,
-                "The definition import mode is not supported.",
+                "Asura can't import the file that way.",
                 true));
         }
 
@@ -358,7 +358,7 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
             parsed.Issues.Add(new(
                 DefinitionImportIssueCode.InvalidBundle,
                 null,
-                "The portable definition bundle has no definition collection.",
+                "The selected file isn't an Asura setup export.",
                 true));
             return parsed;
         }
@@ -371,14 +371,14 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
         catch (Exception exception) when (IsBundleCollectionException(exception))
         {
             parsed.Issues.Add(InvalidBundle(
-                "The portable definition collection cannot be read."));
+                "Asura couldn't read the file. It may be damaged."));
             return parsed;
         }
 
         if (declaredCount is < 0 or > MaximumDefinitionCount)
         {
             parsed.Issues.Add(InvalidBundle(
-                "The portable definition bundle contains an invalid number of definitions."));
+                "The file has no items, or more items than Asura can import at once."));
             return parsed;
         }
 
@@ -390,14 +390,14 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
         catch (Exception exception) when (IsBundleCollectionException(exception))
         {
             parsed.Issues.Add(InvalidBundle(
-                "The portable definition collection changed while it was being read."));
+                "The file changed while Asura was reading it. Try again."));
             return parsed;
         }
 
         if (documents.Length != declaredCount)
         {
             parsed.Issues.Add(InvalidBundle(
-                "The portable definition collection changed while it was being read."));
+                "The file changed while Asura was reading it. Try again."));
             return parsed;
         }
 
@@ -410,7 +410,7 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
                 parsed.Issues.Add(new(
                     DefinitionImportIssueCode.InvalidBundle,
                     null,
-                    "The bundle contains an empty definition document.",
+                    "The file contains an empty item.",
                     true));
                 continue;
             }
@@ -475,7 +475,7 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
                 parsed.Issues.Add(new(
                     DefinitionImportIssueCode.ImportedMcpProfileDisabled,
                     disabledProfile.Key,
-                    "The imported MCP server was disabled. Review its executable, arguments, vault bindings, and tool allowlist in Settings before enabling it.",
+                    "The imported MCP server was disabled. Review its program, arguments, secrets, and allowed tools in Settings before turning it on.",
                     false));
             }
             else if (definition is BrowserProfileDefinition browserProfile)
@@ -498,7 +498,7 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
                 parsed.Issues.Add(new(
                     DefinitionImportIssueCode.ImportedBrowserProfileDisabled,
                     disabledProfile.Key,
-                    "The imported browser profile was disabled and its machine-local credential binding was detached. Web content is never included in a definition bundle.",
+                    "The imported browser profile was disabled and its machine-local credential binding was detached. Web content is never included in a setup export.",
                     false));
             }
             else if (definition is KubernetesConnectionProfile kubernetes)
@@ -578,7 +578,7 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
                 parsed.Issues.Add(new(
                     DefinitionImportIssueCode.DuplicateIdentity,
                     definition.Key,
-                    "The bundle contains the same definition identity more than once.",
+                    "The file contains the same item more than once.",
                     true));
                 continue;
             }
@@ -708,7 +708,7 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
                     {
                         if (parsed.Documents.Count >= MaximumDefinitionCount)
                         {
-                            parsed.Issues.Add(InvalidBundle("The imported screen copies exceed the maximum number of definitions. Import fewer workspaces at once."));
+                            parsed.Issues.Add(InvalidBundle("The import would create more screens than Asura can hold. Import fewer workspaces at once."));
                             continue;
                         }
                         ScreenId copyId;
@@ -836,7 +836,7 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
             parsed.Issues.Add(new(
                 DefinitionImportIssueCode.ExistingIdentity,
                 key,
-                "A definition with this identity already exists.",
+                "It already exists. Reopen it and try again.",
                 true));
         }
     }

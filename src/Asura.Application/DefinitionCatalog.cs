@@ -305,7 +305,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                     return DefinitionStoreResult<StoredDefinition<LayoutDefinition>>.Failure(
                         new DefinitionStoreError(
                             DefinitionStoreErrorCode.DependencyConflict,
-                            $"The layout change would invalidate saved screen '{screen.Value.Name}'."));
+                            $"This change would break the saved screen “{screen.Value.Name}”. Change the screen first, then save the layout again."));
                 }
 
                 reconciled.Add((updated, screen.Revision));
@@ -689,7 +689,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                 return DefinitionStoreResult<Unit>.Failure(
                     new DefinitionStoreError(
                         DefinitionStoreErrorCode.DependencyConflict,
-                        "This AI-provider profile is referenced by a saved screen or workspace agent policy."));
+                        "A saved screen or workspace uses this AI provider for its agent, so it can't be deleted."));
             }
 
             if (key.Kind == WorkspaceDefinition.Kind
@@ -701,7 +701,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                 return DefinitionStoreResult<Unit>.Failure(
                     new DefinitionStoreError(
                         DefinitionStoreErrorCode.DependencyConflict,
-                        $"The {WorkspaceDefinition.DefaultWorkspaceName} workspace always exists and cannot be deleted."));
+                        $"The {WorkspaceDefinition.DefaultWorkspaceName} workspace always exists and can't be deleted."));
             }
 
             if (key.Kind == NetworkConnectionProfile.Kind
@@ -710,7 +710,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                 return DefinitionStoreResult<Unit>.Failure(
                     new DefinitionStoreError(
                         DefinitionStoreErrorCode.DependencyConflict,
-                        "This network connection is referenced by application or workspace network settings."));
+                        "Asura's or a workspace's network settings use this connection, so it can't be deleted."));
             }
 
             var result = key.Kind switch
@@ -764,7 +764,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                         StringComparison.Ordinal) =>
                     DefinitionStoreResult<Unit>.Failure(new DefinitionStoreError(
                         DefinitionStoreErrorCode.DependencyConflict,
-                        "Application network settings always exist and cannot be deleted.")),
+                        "Asura's network settings always exist and can't be deleted.")),
                 var kind when kind == ApplicationNetworkSettings.Kind =>
                     await _applicationNetworkSettings.DeleteAsync(key, expectedRevision, cancellationToken)
                         .ConfigureAwait(false),
@@ -775,13 +775,13 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                         StringComparison.Ordinal) =>
                     DefinitionStoreResult<Unit>.Failure(new DefinitionStoreError(
                         DefinitionStoreErrorCode.DependencyConflict,
-                        "The built-in default browser profile cannot be deleted.")),
+                        "The default browser profile can't be deleted.")),
                 var kind when kind == BrowserProfileDefinition.Kind =>
                     await _browserProfiles.DeleteAsync(key, expectedRevision, cancellationToken)
                         .ConfigureAwait(false),
                 _ => DefinitionStoreResult<Unit>.Failure(new DefinitionStoreError(
                     DefinitionStoreErrorCode.UnsupportedKind,
-                    "This definition kind cannot be deleted by the current application.")),
+                    "This item can't be deleted.")),
             };
             if (result.IsSuccess)
             {
@@ -907,7 +907,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
         {
             return new DefinitionStoreError(
                 DefinitionStoreErrorCode.DependencyConflict,
-                "At least one panel references a connection that no longer exists.");
+                "A panel uses a connection that no longer exists. Choose another connection for it.");
         }
 
         if (ValidateKubernetesTargets(definition.Panels) is { } kubernetesProblem)
@@ -924,7 +924,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
             && !fileProviderIds.Contains(id))
             ? new DefinitionStoreError(
                 DefinitionStoreErrorCode.DependencyConflict,
-                "At least one panel references a file-provider profile that no longer exists.")
+                "A panel uses a file provider that no longer exists. Choose another file provider for it.")
             : null;
     }
 
@@ -979,11 +979,11 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
             {
                 case WorkspaceEntry.ConnectionReference connection
                     when !connectionIds.Contains(connection.ConnectionId):
-                    return MissingWorkspaceDependency("connection", connection.ConnectionId.Value);
+                    return MissingWorkspaceDependency("connection");
                 case WorkspaceEntry.ScreenReference screen when !screenIds.Contains(screen.ScreenId):
-                    return MissingWorkspaceDependency("screen", screen.ScreenId.Value);
+                    return MissingWorkspaceDependency("saved screen");
                 case WorkspaceEntry.Tab tab when !layouts.TryGetValue(tab.LayoutId, out _):
-                    return MissingWorkspaceDependency("layout", tab.LayoutId.Value);
+                    return MissingWorkspaceDependency("layout");
                 case WorkspaceEntry.Tab tab:
                     if (ValidateKubernetesTargets(tab.Panels) is { } kubernetesProblem)
                     {
@@ -1006,7 +1006,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                     if (tab.Panels.Any(panel =>
                         panel.ConnectionId is { } id && !connectionIds.Contains(id)))
                     {
-                        return MissingWorkspaceDependency("connection", "workspace-only tab");
+                        return MissingWorkspaceDependency("connection");
                     }
 
                     if (tab.Panels.Any(panel =>
@@ -1014,9 +1014,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                         && !BuiltInFileProviders.IsIntrinsic(id)
                         && !fileProviderIds.Contains(id)))
                     {
-                        return MissingWorkspaceDependency(
-                            "file-provider profile",
-                            "workspace-only tab");
+                        return MissingWorkspaceDependency("file provider");
                     }
 
                     break;
@@ -1065,7 +1063,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
     private static DefinitionStoreError MissingAgentPolicyProvider() =>
         new(
             DefinitionStoreErrorCode.DependencyConflict,
-            "The agent policy requires an existing enabled AI-provider profile.");
+            "The agent settings need an AI provider that exists and is turned on.");
 
     private DefinitionStoreError? ValidateTerminalProfile(TerminalProfile definition)
     {
@@ -1080,7 +1078,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
             ? null
             : new DefinitionStoreError(
                 DefinitionStoreErrorCode.DependencyConflict,
-                "The selected terminal keymap does not exist.");
+                "The selected terminal keymap no longer exists. Choose another keymap.");
     }
 
     private DefinitionStoreError? ValidateKeymap(KeymapProfile definition)
@@ -1118,7 +1116,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
             ? null
             : new DefinitionStoreError(
                 DefinitionStoreErrorCode.DependencyConflict,
-                "An SFTP provider requires an existing SSH connection profile.");
+                "An SFTP file provider needs an SSH connection. Choose one, then save again.");
     }
 
     private DefinitionStoreError? ValidateQuickTerminalSettings(QuickTerminalSettings definition) =>
@@ -1137,13 +1135,13 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
         {
             return new DefinitionStoreError(
                 DefinitionStoreErrorCode.DependencyConflict,
-                "This AI-provider profile cannot be disabled while a saved screen or workspace agent policy references it.");
+                "A saved screen or workspace uses this AI provider for its agent, so it can't be turned off.");
         }
 
         return Snapshot.AiProviderProfiles.Any(item =>
             item.Value.Key != definition.Key
             && item.Value.Order == definition.Order)
-            ? Invalid("Each AI provider must have a distinct display order.")
+            ? Invalid("Each AI provider needs its own place in the list.")
             : null;
     }
 
@@ -1163,7 +1161,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                 || definition.Persistence != BrowserProfilePersistence.DurableMetadata
                 || definition.Authentication is not null)
             ? Invalid(
-                "The built-in default browser profile must remain enabled, use durable metadata, and have no credential binding.")
+                "The default browser profile must stay on and can't use saved credentials.")
             : null;
     }
 
@@ -1182,14 +1180,14 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
         return definition.TunnelConnectionId is { } tunnelId
             && !Snapshot.Connections.Any(item => item.Value.Id == tunnelId
                 && item.Value.Endpoint is ConnectionEndpoint.Ssh && item.Value.HostConnectionId is null)
-            ? new(DefinitionStoreErrorCode.DependencyConflict, "The Kubernetes hop must reference a standalone SSH connection.")
+            ? new(DefinitionStoreErrorCode.DependencyConflict, "The SSH tunnel for Kubernetes must be an SSH connection that doesn't go through another host.")
             : null;
     }
 
     private DefinitionStoreError? ValidateKubernetesTargets(IReadOnlyList<ScreenPanelDefinition> panels) =>
         panels.Any(panel => panel.KubernetesTarget is { } target
             && Snapshot.KubernetesConnections.All(item => item.Value.Id != target.ProfileId))
-            ? new(DefinitionStoreErrorCode.DependencyConflict, "A panel references a Kubernetes profile that no longer exists.")
+            ? new(DefinitionStoreErrorCode.DependencyConflict, "A panel uses a Kubernetes connection that no longer exists. Choose another connection for it.")
             : null;
 
     private DefinitionStoreError? ValidateDatabaseConnection(
@@ -1211,7 +1209,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
             && Snapshot.Connections.All(item => item.Value.Id != tunnelId)
             ? new DefinitionStoreError(
                 DefinitionStoreErrorCode.DependencyConflict,
-                "The tunnel connection no longer exists.")
+                "The tunnel connection no longer exists. Choose another connection.")
             : null;
     }
 
@@ -1242,7 +1240,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
         return policy.Connections.Any(id => !knownIds.Contains(id))
             ? new DefinitionStoreError(
                 DefinitionStoreErrorCode.DependencyConflict,
-                "The network policy references a network connection that does not exist.")
+                "The network settings use a connection that no longer exists. Choose another connection.")
             : null;
     }
 
@@ -1799,10 +1797,10 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
         return new FirstRunDefinitions(connection, layout, screen, workspace);
     }
 
-    private static DefinitionStoreError MissingWorkspaceDependency(string kind, string id) =>
+    private static DefinitionStoreError MissingWorkspaceDependency(string kind) =>
         new(
             DefinitionStoreErrorCode.DependencyConflict,
-            $"The workspace references missing {kind} '{id}'.");
+            $"The workspace uses a {kind} that no longer exists. Choose another {kind} or remove it from the workspace.");
 
     private static DefinitionStoreError Invalid(DefinitionValidationResult validation) =>
         Invalid(string.Join(" ", validation.Issues.Select(issue => issue.Message)));
