@@ -149,7 +149,7 @@ public sealed class DatabaseWorkspaceHigHeadlessTests
         });
 
     [Fact]
-    public Task TheResultMenuHasThreeGroupsWithDeleteLast() =>
+    public Task TheResultMenuGroupsRefreshAloneWithDeleteLast() =>
         RunAsync(async (panel, window) =>
         {
             var view = new DatabaseWorkspaceView { DataContext = panel };
@@ -159,10 +159,25 @@ public sealed class DatabaseWorkspaceHigHeadlessTests
             var grid = Named<DataGrid>(view, "Database rows");
             var menu = Assert.IsType<ContextMenu>(grid.ContextMenu);
             var items = menu.Items.Cast<Control>().ToArray();
-            Assert.Equal(2, items.Count(item => item is Separator));
+            Assert.Equal(3, items.Count(item => item is Separator));
             var delete = Assert.IsType<MenuItem>(items[^1]);
             Assert.Equal("Delete Row", delete.Header);
             Assert.IsType<Separator>(items[^2]);
+            // Delete is an ordinary item: the danger is in the confirmation,
+            // not a red row in the menu.
+            Assert.False(delete.IsSet(MenuItem.ForegroundProperty));
+
+            // Refresh has a group of its own, between reading and changing.
+            var refresh = Array.FindIndex(items, item => item is MenuItem { Header: "Refresh" });
+            Assert.IsType<Separator>(items[refresh - 1]);
+            Assert.IsType<Separator>(items[refresh + 1]);
+
+            // Icons on every item or on none: none.
+            Assert.All(Flatten(menu), item => Assert.Null(item.Icon));
+            Assert.Contains(Flatten(menu), item => Equals(item.Header, "Copy Row"));
+            Assert.DoesNotContain(Flatten(menu), item => Equals(item.Header, "Copy"));
+            Assert.True(menu.PlacementConstraintAdjustment.HasFlag(
+                Avalonia.Controls.Primitives.PopupPositioning.PopupPositionerConstraintAdjustment.FlipY));
 
             var headers = Flatten(menu).Select(item => item.Header as string).ToArray();
             Assert.Contains("Open Cell Editor…", headers, StringComparer.Ordinal);

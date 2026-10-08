@@ -63,11 +63,11 @@
               Orientation="Horizontal"
               Spacing="{DynamicResource ShellSpaceSm}"
               IsEnabled="{Binding CanChangeConnection}">
-            <!-- Everything in this row wears the connection pill's 26px height
+            <!-- Everything in this row wears the connection pill's 26px height, grown with the text size,
                  so the header reads as one line of controls. -->
             <ComboBox
                 MinWidth="150"
-                Height="26"
+                MinHeight="{controls:TextScaled 26}"
                 VerticalAlignment="Center"
                 IsVisible="{Binding HasDatabaseChoices}"
                 ItemsSource="{Binding Databases}"
@@ -91,7 +91,7 @@
             <Button
                 x:Name="ConnectionButton"
                 MinWidth="96"
-                Height="26"
+                MinHeight="{controls:TextScaled 26}"
                 Padding="{controls:Inset Horizontal=Md}"
                 VerticalAlignment="Center"
                 VerticalContentAlignment="Center"

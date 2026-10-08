@@ -876,6 +876,26 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         ? "1 row"
         : $"{TotalRows.ToString("N0", CultureInfo.CurrentCulture)} rows";
 
+    /// <summary>
+    /// Where the page on screen sits in the result: "Page 2 of 5" when the
+    /// total is known, "Page 2" while it is not.
+    /// </summary>
+    public string PagePositionText => PagePosition(_tableQuery.Offset, _tableQuery.Limit, TotalRows);
+
+    internal static string PagePosition(int offset, int limit, long totalRows)
+    {
+        var size = Math.Max(1, limit);
+        var page = (offset / size) + 1;
+        var text = $"Page {page.ToString("N0", CultureInfo.CurrentCulture)}";
+        if (totalRows <= 0)
+        {
+            return text;
+        }
+
+        var pages = Math.Max(page, (totalRows + size - 1) / size);
+        return $"{text} of {pages.ToString("N0", CultureInfo.CurrentCulture)}";
+    }
+
     public string PageLimitText
     {
         get => _pageLimitText;
@@ -1585,23 +1605,46 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
 
         ClearSelectedObject();
         SelectedDatabaseOverviewMode = DatabaseOverviewMode.Objects;
-        var columns = new[]
-        {
-            new DatabaseColumnDescriptor("Schema", "TEXT", DatabaseValueKind.Text),
-            new DatabaseColumnDescriptor("Name", "TEXT", DatabaseValueKind.Text),
-            new DatabaseColumnDescriptor("Kind", "TEXT", DatabaseValueKind.Text),
-        };
-        double[] widths = [180, 280, 100];
+        // An engine without schemas — SQLite — gets no Schema column at all
+        // rather than one that says NULL on every row; one with them shows an
+        // empty cell for an object that has none.
+        var hasSchemas = _allTables.Any(table =>
+            !string.IsNullOrEmpty(table.Descriptor.Schema ?? table.Descriptor.Catalog));
+        DatabaseColumnDescriptor[] columns = hasSchemas
+            ?
+            [
+                new("Schema", "TEXT", DatabaseValueKind.Text),
+                new("Name", "TEXT", DatabaseValueKind.Text),
+                new("Kind", "TEXT", DatabaseValueKind.Text),
+            ]
+            :
+            [
+                new("Name", "TEXT", DatabaseValueKind.Text),
+                new("Kind", "TEXT", DatabaseValueKind.Text),
+            ];
+        double[] widths = hasSchemas ? [180, 280, 100] : [280, 100];
         ResultColumns = [.. columns.Select((column, ordinal) => new DatabaseResultColumnViewModel(column, widths[ordinal]))];
         ResultRows = [.. _allTables
             .Select((table, index) => new DatabaseResultRowViewModel(
                 index + 1,
-                [
-                    table.Descriptor.Schema ?? table.Descriptor.Catalog,
-                    table.Descriptor.Name,
-                    table.KindLabel,
-                ],
+                hasSchemas
+                    ?
+                    [
+                        table.Descriptor.Schema ?? table.Descriptor.Catalog ?? string.Empty,
+                        table.Descriptor.Name,
+                        table.KindLabel,
+                    ]
+                    : [table.Descriptor.Name, table.KindLabel],
                 widths))];
+        // The pager counts what the grid shows: every object, on one page.
+        _totalRows = _allTables.Count;
+        _hasNextPage = false;
+        _tableQuery = _tableQuery with { Offset = 0 };
+        OnPropertyChanged(nameof(TotalRows));
+        OnPropertyChanged(nameof(TotalRowsText));
+        OnPropertyChanged(nameof(PagePositionText));
+        OnPropertyChanged(nameof(HasPreviousPage));
+        OnPropertyChanged(nameof(HasNextPage));
         ResultSummary = $"{CountText.OrNone(_allTables.Count, "object", "objects")} · {CurrentDatabaseLabel}";
         _isDatabaseOverview = true;
         OnPropertyChanged(nameof(IsDatabaseOverview));
@@ -3339,6 +3382,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         PageLimitText = page.Limit.ToString(CultureInfo.InvariantCulture);
         OnPropertyChanged(nameof(TotalRows));
         OnPropertyChanged(nameof(TotalRowsText));
+        OnPropertyChanged(nameof(PagePositionText));
     }
 
     private static int FindColumnOrdinal(
@@ -3420,6 +3464,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         OnPropertyChanged(nameof(HasNextPage));
         OnPropertyChanged(nameof(TotalRows));
         OnPropertyChanged(nameof(TotalRowsText));
+        OnPropertyChanged(nameof(PagePositionText));
         PublishTableCapabilities();
         PublishPendingChanges();
     }

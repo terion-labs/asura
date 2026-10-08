@@ -34,7 +34,35 @@
         <Setter Property="Opacity" Value="0" />
         <Setter Property="MaxWidth" Value="0" />
       </Style>
+      <!-- A condition takes two lines rather than squeezing its pickers until
+           they read "Colum" and "Opera": what to compare on the first, the
+           value and its actions on the second. -->
+      <Style Selector="ComboBox.filterOperator">
+        <Setter Property="Grid.ColumnSpan" Value="3" />
+      </Style>
+      <Style Selector="TextBox.filterValue">
+        <Setter Property="Grid.Row" Value="1" />
+        <Setter Property="Grid.Column" Value="1" />
+        <Setter Property="Grid.ColumnSpan" Value="3" />
+      </Style>
+      <Style Selector="StackPanel.filterActions">
+        <Setter Property="Grid.Row" Value="1" />
+      </Style>
+      <!-- The pager takes a line of its own under the row actions. -->
+      <Style Selector="StackPanel.resultPager">
+        <Setter Property="Grid.Row" Value="1" />
+        <Setter Property="Grid.Column" Value="0" />
+        <Setter Property="Grid.ColumnSpan" Value="2" />
+        <Setter Property="HorizontalAlignment" Value="Right" />
+      </Style>
     </ContainerQuery>
+
+    <!-- A draft value shows the focus ring while it is being written, as a
+         text field does. -->
+    <Style Selector="Border.InspectorDraft:focus-within">
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
+    </Style>
 
     <!-- The SQL editor is a flat writing surface; the surrounding toolbar owns
          its border and focus geometry. -->
@@ -84,9 +112,11 @@
         <Grid RowDefinitions="Auto,Auto,*">
           <!-- The database itself heads its objects; selecting it opens the
                catalog overview. -->
+          <!-- A heading that opens the overview, not a row of the list: it
+               wears no selection, so the open object below is the only row
+               that reads as chosen. -->
           <Button
               Classes="ListRow"
-              Classes.selected="{Binding IsDatabaseOverview}"
               Margin="{controls:Inset Horizontal=Xs, Top=Sm}"
               Click="OnDatabaseHeaderClick"
               IsEnabled="{Binding IsConnected}"
@@ -244,7 +274,7 @@
               ColumnSpacing="{DynamicResource ShellSpaceSm}">
             <Button
                 x:Name="ObjectsPicker"
-                Height="28"
+                MinHeight="{controls:TextScaled 28}"
                 MinWidth="86"
                 MaxWidth="180"
                 Padding="{controls:Inset Horizontal=Sm}"
@@ -258,8 +288,7 @@
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
                 <TextBlock
                     VerticalAlignment="Center"
-                    FontSize="{DynamicResource ShellFontSize10}"
-                    FontWeight="SemiBold"
+                    FontSize="{DynamicResource ShellFontSize11}"
                     Classes="MiddleTruncated"
                     Text="{Binding ObjectPickerLabel}" />
                 <icons:SymbolIcon
@@ -361,7 +390,7 @@
               <icons:SymbolIcon
                   Symbol="Play"
                   FontSize="{DynamicResource ShellIconSizeSm}"
-                  Foreground="{DynamicResource ShellAccentBrush}" />
+                  Foreground="{DynamicResource ShellTextBrush}" />
             </Button>
           </Grid>
         </Border>
@@ -394,7 +423,9 @@
               <StackPanel Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" Spacing="{DynamicResource ShellSpaceXs}">
                 <!-- Stackable conditions: each row can be switched off without
                      losing what it says; Apply reads every included row. -->
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}" IsEnabled="{Binding CanFilterTable}">
+                <!-- Shown only where a filter can run: a disabled row of
+                     controls over a catalog read as broken, not unavailable. -->
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}" IsVisible="{Binding CanFilterTable}">
                   <ItemsControl ItemsSource="{Binding FilterRows}">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate>
@@ -403,19 +434,22 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
-                        <!-- Proportional rails with clamps, not fixed ones:
-                             stacked rows still line up in columns because
-                             every row stretches to the same width, and a
-                             narrow panel squeezes the pickers before it
-                             overlaps the actions. -->
-                        <Grid ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                        <!-- Proportional rails, each picker as wide as its
+                             longest choice: stacked rows still line up in
+                             columns because every row stretches to the same
+                             width. A narrow panel moves the value and the
+                             actions to a second line (the container query
+                             above) instead of squeezing the pickers. -->
+                        <Grid
+                            Classes="filterRow"
+                            RowDefinitions="Auto,Auto"
+                            ColumnSpacing="{DynamicResource ShellSpaceXs}"
+                            RowSpacing="{DynamicResource ShellSpaceXs}">
                           <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="2*" MinWidth="76" MaxWidth="150" />
-                            <ColumnDefinition Width="2*" MinWidth="76" MaxWidth="150" />
-                            <ColumnDefinition Width="3*" MinWidth="80" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="2*" />
                             <ColumnDefinition Width="Auto" />
                           </Grid.ColumnDefinitions>
                           <!-- Says what it switches: an unlabelled box at the
@@ -429,6 +463,7 @@
                           <ComboBox
                               Grid.Column="1"
                               Classes="Dense"
+                              MinWidth="{controls:TextScaled 104}"
                               VerticalAlignment="Center"
                               HorizontalAlignment="Stretch"
                               ItemsSource="{Binding Columns}"
@@ -436,12 +471,13 @@
                               PlaceholderText="Column"
                               AutomationProperties.Name="Filter column">
                             <ComboBox.ItemTemplate>
-                              <DataTemplate><TextBlock Text="{Binding Name}" /></DataTemplate>
+                              <DataTemplate><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" /></DataTemplate>
                             </ComboBox.ItemTemplate>
                           </ComboBox>
                           <ComboBox
                               Grid.Column="2"
-                              Classes="Dense"
+                              Classes="Dense filterOperator"
+                              MinWidth="{controls:TextScaled 128}"
                               VerticalAlignment="Center"
                               HorizontalAlignment="Stretch"
                               ItemsSource="{Binding Operators}"
@@ -449,48 +485,52 @@
                               PlaceholderText="Operator"
                               AutomationProperties.Name="Filter operator">
                             <ComboBox.ItemTemplate>
-                              <DataTemplate><TextBlock Text="{Binding Label}" /></DataTemplate>
+                              <DataTemplate><TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" /></DataTemplate>
                             </ComboBox.ItemTemplate>
                           </ComboBox>
                           <TextBox
                               Grid.Column="3"
-                              Classes="Dense"
+                              Classes="Dense filterValue"
+                              MinWidth="80"
                               VerticalAlignment="Center"
                               Text="{Binding Value, Mode=TwoWay}"
                               IsVisible="{Binding NeedsValue}"
                               PlaceholderText="Value"
                               KeyDown="OnFilterValueKeyDown"
                               AutomationProperties.Name="Filter value" />
-                          <Button
+                          <!-- One push-button style for the whole row, so
+                               remove and add read as controls beside Apply. -->
+                          <StackPanel
                               Grid.Column="4"
-                              Classes="SecondaryButton Dense"
+                              Classes="filterActions"
+                              Orientation="Horizontal"
                               VerticalAlignment="Center"
-                              Click="OnApplyFilterClick"
-                              ToolTip.Tip="Apply the table filter"
-                              AutomationProperties.Name="Apply the table filter">
-                            <Panel>
-                              <TextBlock Classes="rowActionLabel" Text="Apply" />
-                              <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
-                            </Panel>
-                          </Button>
-                          <Button
-                              Grid.Column="5"
-                              Classes="IconButton"
-                              VerticalAlignment="Center"
-                              Click="OnRemoveFilterRowClick"
-                              ToolTip.Tip="Remove this condition"
-                              AutomationProperties.Name="Remove this filter condition">
-                            <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeXs}" />
-                          </Button>
-                          <Button
-                              Grid.Column="6"
-                              Classes="IconButton"
-                              VerticalAlignment="Center"
-                              Click="OnAddFilterRowClick"
-                              ToolTip.Tip="Add a condition"
-                              AutomationProperties.Name="Add a filter condition">
-                            <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeXs}" />
-                          </Button>
+                              Spacing="{DynamicResource ShellSpaceXs}">
+                            <Button
+                                Classes="SecondaryButton Dense"
+                                Click="OnApplyFilterClick"
+                                ToolTip.Tip="Apply the table filter"
+                                AutomationProperties.Name="Apply the table filter">
+                              <Panel>
+                                <TextBlock Classes="rowActionLabel" Text="Apply" />
+                                <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
+                              </Panel>
+                            </Button>
+                            <Button
+                                Classes="SecondaryButton Dense"
+                                Click="OnRemoveFilterRowClick"
+                                ToolTip.Tip="Remove this condition"
+                                AutomationProperties.Name="Remove this filter condition">
+                              <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeXs}" />
+                            </Button>
+                            <Button
+                                Classes="SecondaryButton Dense"
+                                Click="OnAddFilterRowClick"
+                                ToolTip.Tip="Add a condition"
+                                AutomationProperties.Name="Add a filter condition">
+                              <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeXs}" />
+                            </Button>
+                          </StackPanel>
                         </Grid>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -498,7 +538,7 @@
                   <!-- The same push button as Apply: one style per strip. -->
                   <Button
                       Grid.Column="1"
-                      VerticalAlignment="Center"
+                      VerticalAlignment="Top"
                       Classes="SecondaryButton Dense"
                       Click="OnClearFilterClick"
                       ToolTip.Tip="Clear the table filter"
@@ -510,126 +550,146 @@
                   </Button>
                 </Grid>
 
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                  <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                    <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                      <!-- NULL and DEFAULT are cell verbs, so they live on the
-                           cell's own context menu rather than in a strip that
-                           mostly acts on rows. Each remaining action carries a
-                           label and a glyph; which one shows follows the
-                           panel's width. One push-button style for the whole
-                           strip: a filled Save beside a plain-text Delete read
-                           as three kinds of control. Delete keeps the shape
-                           and says what it is with its label's colour. -->
-                      <Button
-                          Classes="SecondaryButton Dense"
-                          Click="OnAddRowClick"
-                          IsEnabled="{Binding CanMutateRows}"
-                          ToolTip.Tip="{x:Static vm:DatabaseRuntimePanelViewModel.AddRowTip}"
-                          AutomationProperties.Name="Add a database row">
-                        <Panel>
-                          <TextBlock Classes="rowActionLabel" Text="Add Row" />
-                          <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
-                        </Panel>
-                      </Button>
-                      <Button
-                          Classes="DestructiveButton Dense"
-                          Click="OnDeleteRowClick"
-                          IsEnabled="{Binding CanDeleteSelectedRow}"
-                          ToolTip.Tip="Delete the selected rows"
-                          AutomationProperties.Name="Delete the selected database rows">
-                        <Panel>
-                          <TextBlock Classes="rowActionLabel" Text="Delete" />
-                          <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Delete" FontSize="{DynamicResource ShellIconSizeSm}" />
-                        </Panel>
-                      </Button>
-                      <Button
-                          Classes="SecondaryButton Dense"
-                          Click="OnRevertChangesClick"
-                          IsEnabled="{Binding CanRevertChanges}"
-                          ToolTip.Tip="Revert unsaved changes"
-                          AutomationProperties.Name="Revert unsaved database changes">
-                        <Panel>
-                          <TextBlock Classes="rowActionLabel" Text="Revert" />
-                          <icons:SymbolIcon Classes="rowActionGlyph" Symbol="ArrowUndo" FontSize="{DynamicResource ShellIconSizeSm}" />
-                        </Panel>
-                      </Button>
-                      <Button
-                          Classes="SecondaryButton Dense"
-                          Click="OnSaveChangesClick"
-                          IsEnabled="{Binding CanSaveChanges}"
-                          ToolTip.Tip="Save changes"
-                          AutomationProperties.Name="Save database changes">
-                        <Panel>
-                          <TextBlock Classes="rowActionLabel" Text="Save" />
-                          <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Save" FontSize="{DynamicResource ShellIconSizeSm}" />
-                        </Panel>
-                      </Button>
-                      <TextBlock
-                          VerticalAlignment="Center"
-                          Classes="Muted adaptiveHint"
-                          FontSize="{DynamicResource ShellSecondaryFontSize}"
-                          Text="{Binding ReadOnlyReason}"
-                          IsVisible="{Binding HasReadOnlyReason}"
-                          TextTrimming="CharacterEllipsis"
-                          AutomationProperties.Name="Database read-only reason" />
-                    </StackPanel>
-                  </ScrollViewer>
-
-                  <!-- Paging belongs at the edge: it is about the result set,
-                       not about editing rows. -->
-                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+                <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}" RowSpacing="{DynamicResource ShellSpaceXs}">
+                  <!-- NULL and DEFAULT are cell verbs, so they live on the
+                       cell's own context menu rather than in a strip that
+                       mostly acts on rows. Each remaining action carries a
+                       label and a glyph; which one shows follows the panel's
+                       width, so the strip always fits and nothing is clipped
+                       behind a scroll. One push-button style for the whole
+                       strip: a filled Save beside a plain-text Delete read as
+                       three kinds of control. -->
+                  <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
                     <Button
-                        Classes="IconButton"
-                        Click="OnPreviousPageClick"
-                        IsEnabled="{Binding CanGoToPreviousPage}"
-                        ToolTip.Tip="Previous page"
-                        AutomationProperties.Name="Show the previous database page">
-                      <icons:SymbolIcon Symbol="ChevronLeft" FontSize="{DynamicResource ShellIconSizeXs}" />
+                        Classes="SecondaryButton Dense"
+                        Click="OnAddRowClick"
+                        IsEnabled="{Binding CanMutateRows}"
+                        ToolTip.Tip="{x:Static vm:DatabaseRuntimePanelViewModel.AddRowTip}"
+                        AutomationProperties.Name="Add a database row">
+                      <Panel>
+                        <TextBlock Classes="rowActionLabel" Text="Add Row" />
+                        <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
+                      </Panel>
                     </Button>
-                    <!-- "Rows per page: 200 · 6 rows". A bare "200 / 6" read
-                         as page 200 of 6. -->
-                    <StackPanel
-                        Orientation="Horizontal"
-                        Spacing="{DynamicResource ShellSpaceXs}"
-                        VerticalAlignment="Center">
-                      <TextBlock
-                          VerticalAlignment="Center"
-                          Classes="Muted"
-                          FontSize="{DynamicResource ShellSecondaryFontSize}"
-                          Text="Rows per page:" />
-                      <TextBox
-                          Width="52"
-                          Classes="Dense"
-                          HorizontalContentAlignment="Center"
-                          Text="{Binding PageLimitText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                          IsEnabled="{Binding CanChangePageLimit}"
-                          KeyDown="OnPageLimitKeyDown"
-                          ToolTip.Tip="Rows per page, from 1 to 5000"
-                          AutomationProperties.Name="Database page row limit"
-                          AutomationProperties.HelpText="Enter a value from 1 to 5000, then press Enter" />
-                      <TextBlock
-                          VerticalAlignment="Center"
-                          Classes="Muted"
-                          FontSize="{DynamicResource ShellSecondaryFontSize}"
-                          Text="·" />
-                      <TextBlock
-                          MinWidth="28"
-                          VerticalAlignment="Center"
-                          Classes="Muted"
-                          FontSize="{DynamicResource ShellSecondaryFontSize}"
-                          Text="{Binding TotalRowsText}"
-                          AutomationProperties.Name="Total matching database rows" />
-                    </StackPanel>
+                    <!-- A red label at the strip's own weight: the danger
+                         is in the colour and the confirmation, not in a
+                         heavier face. -->
                     <Button
-                        Classes="IconButton"
-                        Click="OnNextPageClick"
-                        IsEnabled="{Binding CanGoToNextPage}"
-                        ToolTip.Tip="Next page"
-                        AutomationProperties.Name="Show the next database page">
-                      <icons:SymbolIcon Symbol="ChevronRight" FontSize="{DynamicResource ShellIconSizeXs}" />
+                        Classes="DestructiveButton Dense"
+                        FontWeight="Normal"
+                        Click="OnDeleteRowClick"
+                        IsEnabled="{Binding CanDeleteSelectedRow}"
+                        ToolTip.Tip="Delete the selected rows"
+                        AutomationProperties.Name="Delete the selected database rows">
+                      <Panel>
+                        <TextBlock Classes="rowActionLabel" Text="Delete" />
+                        <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Delete" FontSize="{DynamicResource ShellIconSizeSm}" />
+                      </Panel>
+                    </Button>
+                    <Button
+                        Classes="SecondaryButton Dense"
+                        Click="OnRevertChangesClick"
+                        IsEnabled="{Binding CanRevertChanges}"
+                        ToolTip.Tip="Revert unsaved changes"
+                        AutomationProperties.Name="Revert unsaved database changes">
+                      <Panel>
+                        <TextBlock Classes="rowActionLabel" Text="Revert" />
+                        <icons:SymbolIcon Classes="rowActionGlyph" Symbol="ArrowUndo" FontSize="{DynamicResource ShellIconSizeSm}" />
+                      </Panel>
+                    </Button>
+                    <Button
+                        Classes="SecondaryButton Dense"
+                        Click="OnSaveChangesClick"
+                        IsEnabled="{Binding CanSaveChanges}"
+                        ToolTip.Tip="Save changes"
+                        AutomationProperties.Name="Save database changes">
+                      <Panel>
+                        <TextBlock Classes="rowActionLabel" Text="Save" />
+                        <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Save" FontSize="{DynamicResource ShellIconSizeSm}" />
+                      </Panel>
                     </Button>
                   </StackPanel>
+
+                  <!-- Paging belongs at the edge: it is about the result set,
+                       not about editing rows. The arrows sit together after
+                       the position they move, as in a Mac pager. -->
+                  <StackPanel
+                      Grid.Column="1"
+                      Classes="resultPager"
+                      Orientation="Horizontal"
+                      Spacing="{DynamicResource ShellSpaceXs}">
+                    <!-- "Rows per page: 200 · 6 rows". A bare "200 / 6" read
+                         as page 200 of 6. -->
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Classes="Muted"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
+                        Text="Rows per page:" />
+                    <TextBox
+                        Width="{controls:TextScaled 52}"
+                        Classes="Dense"
+                        HorizontalContentAlignment="Center"
+                        Text="{Binding PageLimitText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        IsEnabled="{Binding CanChangePageLimit}"
+                        KeyDown="OnPageLimitKeyDown"
+                        ToolTip.Tip="Rows per page, from 1 to 5000"
+                        AutomationProperties.Name="Database page row limit"
+                        AutomationProperties.HelpText="Enter a value from 1 to 5000, then press Enter" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Classes="Muted"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
+                        Text="·" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Classes="Muted"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
+                        Text="{Binding TotalRowsText}"
+                        AutomationProperties.Name="Total matching database rows" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Classes="Muted"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
+                        Text="·" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Classes="Muted"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
+                        Text="{Binding PagePositionText}"
+                        AutomationProperties.Name="Database page position" />
+                    <StackPanel Orientation="Horizontal">
+                      <Button
+                          Classes="IconButton"
+                          Click="OnPreviousPageClick"
+                          IsEnabled="{Binding CanGoToPreviousPage}"
+                          ToolTip.Tip="Previous page"
+                          AutomationProperties.Name="Show the previous database page">
+                        <icons:SymbolIcon Symbol="ChevronLeft" FontSize="{DynamicResource ShellIconSizeXs}" />
+                      </Button>
+                      <Button
+                          Classes="IconButton"
+                          Click="OnNextPageClick"
+                          IsEnabled="{Binding CanGoToNextPage}"
+                          ToolTip.Tip="Next page"
+                          AutomationProperties.Name="Show the next database page">
+                        <icons:SymbolIcon Symbol="ChevronRight" FontSize="{DynamicResource ShellIconSizeXs}" />
+                      </Button>
+                    </StackPanel>
+                  </StackPanel>
+
+                  <!-- Why the rows cannot be changed, on a line of its own
+                       where it can be read whole rather than clipped at the
+                       end of the action strip. -->
+                  <TextBlock
+                      Grid.Row="2"
+                      Grid.ColumnSpan="2"
+                      Classes="Muted"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                      Text="{Binding ReadOnlyReason}"
+                      IsVisible="{Binding HasReadOnlyReason}"
+                      TextTrimming="CharacterEllipsis"
+                      ToolTip.Tip="{Binding ReadOnlyReason}"
+                      AutomationProperties.Name="Database read-only reason" />
                 </Grid>
               </StackPanel>
             </Border>
@@ -657,15 +717,20 @@
                   SelectionChanged="OnResultSelectionChanged"
                   AutomationProperties.Name="Database rows">
                 <DataGrid.ContextMenu>
+                  <!-- Kept inside the window: a menu opened near the bottom
+                       of the grid flips up, and one near an edge slides in. -->
                   <ContextMenu
                       x:Name="ResultContextMenu"
                       MinWidth="286"
+                      PlacementConstraintAdjustment="FlipY, SlideY, SlideX"
                       Opening="OnResultContextMenuOpening"
                       Closing="OnResultContextMenuClosing"
                       AutomationProperties.Name="Database rows context menu">
-                    <!-- Three groups at most, most used first: reading the
-                         cell and row, changing the page, and — last, behind its
-                         own separator — taking a row away. -->
+                    <!-- Groups, most used first: reading the cell and row,
+                       reloading the page, changing rows, and — last, behind
+                       its own separator — taking a row away. No item carries
+                       an icon: four of fifteen did, which made those four look
+                       like a different kind of command. -->
                     <MenuItem
                         x:Name="CellEditorMenuItem"
                         Click="OnCellEditorClick"
@@ -674,10 +739,8 @@
                     <MenuItem
                         x:Name="CopyRowMenuItem"
                         Click="OnCopyRowClick"
-                        Header="Copy"
-                        AutomationProperties.Name="Copy the selected database row">
-                      <MenuItem.Icon><icons:SymbolIcon Symbol="Copy" FontSize="{DynamicResource ShellIconSizeSm}" /></MenuItem.Icon>
-                    </MenuItem>
+                        Header="Copy Row"
+                        AutomationProperties.Name="Copy the selected database row" />
                     <MenuItem
                         x:Name="CopyCellMenuItem"
                         Click="OnCopyCellClick"
@@ -703,8 +766,8 @@
                       <MenuItem
                           x:Name="CopyRowInsertMenuItem"
                           Click="OnCopyRowInsertClick"
-                          Header="INSERT"
-                          AutomationProperties.Name="Copy the selected database row as INSERT" />
+                          Header="SQL INSERT"
+                          AutomationProperties.Name="Copy the selected database row as an SQL INSERT statement" />
                     </MenuItem>
                     <MenuItem
                         x:Name="QuickFilterMenuItem"
@@ -715,22 +778,20 @@
                         Click="OnExportPageClick"
                         Header="Export Page…"
                         AutomationProperties.Name="Export the current database page" />
+
+                    <Separator />
                     <MenuItem
                         x:Name="RefreshTableMenuItem"
                         Click="OnRefreshTableClick"
                         Header="Refresh"
-                        AutomationProperties.Name="Refresh the current database page">
-                      <MenuItem.Icon><icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellIconSizeSm}" /></MenuItem.Icon>
-                    </MenuItem>
+                        AutomationProperties.Name="Refresh the current database page" />
 
                     <Separator x:Name="MutationMenuSeparator" />
                     <MenuItem
                         x:Name="PasteCellMenuItem"
                         Click="OnPasteCellClick"
                         Header="Paste"
-                        AutomationProperties.Name="Paste a database cell value from the clipboard">
-                      <MenuItem.Icon><icons:SymbolIcon Symbol="ClipboardPaste" FontSize="{DynamicResource ShellIconSizeSm}" /></MenuItem.Icon>
-                    </MenuItem>
+                        AutomationProperties.Name="Paste a database cell value from the clipboard" />
                     <MenuItem
                         x:Name="SetValueMenuItem"
                         Header="Set Value"
@@ -778,10 +839,7 @@
                         x:Name="DeleteRowMenuItem"
                         Click="OnContextDeleteRowClick"
                         Header="Delete Row"
-                        Foreground="{DynamicResource ShellDangerBrush}"
-                        AutomationProperties.Name="Delete the selected database row from the context menu">
-                      <MenuItem.Icon><icons:SymbolIcon Symbol="Delete" FontSize="{DynamicResource ShellIconSizeSm}" /></MenuItem.Icon>
-                    </MenuItem>
+                        AutomationProperties.Name="Delete the selected database row from the context menu" />
                   </ContextMenu>
                 </DataGrid.ContextMenu>
               </DataGrid>
@@ -793,15 +851,21 @@
                    above the cell when the viewport runs out below. -->
               <Popup
                   x:Name="CellExpandPopup"
+                  WindowManagerAddShadowHint="True"
                   IsLightDismissEnabled="True"
                   OverlayDismissEventPassThrough="True"
                   Placement="BottomEdgeAlignedLeft"
                   PlacementConstraintAdjustment="FlipY, SlideX">
+                <!-- A popover's edge: hairline and shadow, the accent being
+                     kept for the focus inside it. The margin leaves the
+                     shadow room where popups are drawn in the window. -->
                 <Border
+                    Margin="{controls:Inset Sm}"
                     Padding="{controls:Inset Xs}"
                     Background="{DynamicResource ShellPopupSurfaceBrush}"
-                    BorderBrush="{DynamicResource ShellAccentBrush}"
+                    BorderBrush="{DynamicResource ShellBorderBrush}"
                     BorderThickness="1"
+                    BoxShadow="{DynamicResource ShellOverlayShadow}"
                     CornerRadius="{DynamicResource ShellControlCornerRadius}">
                   <local:CodeEditBox
                       x:Name="CellExpandEditor"
@@ -875,28 +939,32 @@
                           Margin="{controls:Inset Horizontal=Md, Vertical=Xs}"
                           Orientation="Horizontal"
                           Spacing="{DynamicResource ShellSpaceXs}">
-                        <Button Classes="TextButton Accent CopyAction" Click="OnCopyRowJsonClick" AutomationProperties.Name="Copy the row as JSON">
-                          <Panel>
-                            <TextBlock Classes="CopyLabel" Text="JSON" />
-                            <icons:SymbolIcon Classes="CopyCheck" HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
-                          </Panel>
-                        </Button>
-                        <Button Classes="TextButton Accent CopyAction" Click="OnCopyRowCsvClick" AutomationProperties.Name="Copy the row as CSV">
-                          <Panel>
-                            <TextBlock Classes="CopyLabel" Text="CSV" />
-                            <icons:SymbolIcon Classes="CopyCheck" HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
-                          </Panel>
-                        </Button>
+                        <!-- One pull-down that names its verb, rather than
+                             three bare format names with no chrome. -->
                         <Button
-                            Classes="TextButton Accent CopyAction"
-                            Click="OnCopyRowInsertClick"
-                            IsEnabled="{Binding CanCopySelectedRowAsInsert}"
-                            ToolTip.Tip="Copy an executable INSERT for the active database"
-                            AutomationProperties.Name="Copy the row as INSERT">
+                            x:Name="InspectorCopyAsButton"
+                            Classes="SecondaryButton Dense CopyAction"
+                            ToolTip.Tip="Copy this row in another format"
+                            AutomationProperties.Name="Copy the row as">
                           <Panel>
-                            <TextBlock Classes="CopyLabel" Text="INSERT" />
+                            <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+                              <TextBlock Classes="CopyLabel" VerticalAlignment="Center" Text="Copy As" />
+                              <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
+                            </StackPanel>
                             <icons:SymbolIcon Classes="CopyCheck" HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
                           </Panel>
+                          <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                              <MenuItem Header="JSON" Click="OnInspectorCopyJsonClick" AutomationProperties.Name="Copy the row as JSON" />
+                              <MenuItem Header="CSV" Click="OnInspectorCopyCsvClick" AutomationProperties.Name="Copy the row as CSV" />
+                              <MenuItem
+                                  Header="SQL INSERT"
+                                  Click="OnInspectorCopyInsertClick"
+                                  IsEnabled="{Binding CanCopySelectedRowAsInsert}"
+                                  ToolTip.Tip="An executable INSERT for the active database"
+                                  AutomationProperties.Name="Copy the row as an SQL INSERT statement" />
+                            </MenuFlyout>
+                          </Button.Flyout>
                         </Button>
                       </StackPanel>
                     </Border>
@@ -914,7 +982,7 @@
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                                   <TextBlock
                                       VerticalAlignment="Center"
-                                      FontSize="{DynamicResource ShellFontSize10}"
+                                      FontSize="{DynamicResource ShellFontSize11}"
                                       FontWeight="SemiBold"
                                       Classes="MiddleTruncated"
                                       Text="{Binding Name}" />
@@ -923,7 +991,6 @@
                                         VerticalAlignment="Center"
                                         Classes="Muted"
                                         FontSize="{DynamicResource ShellSecondaryFontSize}"
-                                        IsVisible="{Binding !IsEditing}"
                                         Text="{Binding DataTypeName}" />
                                     <Button
                                         Classes="IconButton"
@@ -955,7 +1022,7 @@
                                   <TextBlock
                                       Classes.Muted="{Binding IsNull}"
                                       FontFamily="{DynamicResource ShellDataFontFamily}"
-                                      FontSize="{DynamicResource ShellFontSize10}"
+                                      FontSize="{DynamicResource ShellFontSize11}"
                                       IsVisible="{Binding !HasGrammar}"
                                       Text="{Binding Text}"
                                       TextWrapping="Wrap" />
@@ -978,6 +1045,7 @@
                                       FileName="{Binding GrammarFileName}" />
                                 </Panel>
                                 <Border
+                                    Classes="InspectorDraft"
                                     BorderBrush="{DynamicResource ShellBorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="{DynamicResource ShellControlCornerRadius}"

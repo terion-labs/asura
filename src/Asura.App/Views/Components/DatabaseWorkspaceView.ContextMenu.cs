@@ -529,6 +529,13 @@ public sealed partial class DatabaseWorkspaceView
             IsReadOnly = !canEdit,
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,
         };
+        // A value is data: set in the data face, as the grid shows it, so
+        // columns of digits and code line up the same way here.
+        if (this.TryFindResource("ShellDataFontFamily", ActualThemeVariant, out var dataFont)
+            && dataFont is Avalonia.Media.FontFamily dataFamily)
+        {
+            editor.FontFamily = dataFamily;
+        }
         ScrollViewer.SetHorizontalScrollBarVisibility(
             editor,
             Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled);
@@ -551,14 +558,20 @@ public sealed partial class DatabaseWorkspaceView
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,
         });
 
-        var actions = new WrapPanel
+        // One trailing row, the default action rightmost, as in a sheet:
+        // the buttons never wrap onto a second line out of step.
+        var actions = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Right,
-            ItemSpacing = smallSpace,
-            LineSpacing = smallSpace,
+            Spacing = smallSpace,
         };
-        var close = new Button { Content = canEdit ? "Cancel" : "Close" };
+        var close = new Button
+        {
+            Content = canEdit ? "Cancel" : "Close",
+            IsCancel = true,
+            IsDefault = !canEdit,
+        };
         AutomationProperties.SetName(close, "Close the database cell editor");
         var flyout = new Flyout
         {
@@ -587,7 +600,7 @@ public sealed partial class DatabaseWorkspaceView
 
         if (canEdit)
         {
-            var apply = new Button { Content = "Apply" };
+            var apply = new Button { Content = "Apply", IsDefault = true };
             apply.Classes.Add("PrimaryButton");
             AutomationProperties.SetName(apply, "Apply the database cell editor value");
             apply.Click += (_, _) => ApplyAndClose();
@@ -659,8 +672,9 @@ public sealed partial class DatabaseWorkspaceView
 
     private Size CellEditorContentSize(double viewportInset)
     {
+        // As wide as the window allows rather than the grid: a narrow grid
+        // beside the inspector left a popover too small for its own buttons.
         var width = SmallestPositive(
-            ResultDataGrid.Bounds.Width,
             Bounds.Width,
             TopLevel.GetTopLevel(this)?.Bounds.Width ?? 0);
         var height = SmallestPositive(
