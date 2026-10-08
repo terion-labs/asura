@@ -63,7 +63,7 @@ public sealed class AppearanceOverrideHeadlessTests
         }
     });
 
-    private static readonly AppearanceTextScaleOption TextScale = new("Follow host", null);
+    private static readonly AppearanceTextScaleOption TextScale = new("Follow System", null);
 
     private static (AppearanceSettingsPageView Page, Window Window) Show()
     {

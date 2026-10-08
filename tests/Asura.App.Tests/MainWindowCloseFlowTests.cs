@@ -151,7 +151,7 @@ public sealed class MainWindowCloseFlowTests
             });
 
         Assert.False(approved);
-        Assert.Equal(["The session still requires confirmation."], errors);
+        Assert.Equal(["A session still needs your confirmation before it can close."], errors);
     }
 
     [Theory]

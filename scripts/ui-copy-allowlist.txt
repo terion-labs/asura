@@ -8,3 +8,4 @@
 # says why the text is right as written; fix the copy instead when it is not.
 
 preferences | src/Asura.Agent.Runtime/ProviderConversationCompactor.cs | Preferences | Section heading in a model prompt for conversation compaction; never shown in the UI.
+title-case | src/Asura.App/Views/SettingsView.axaml | container | Apple's container tool is named "container", lowercase, as Apple writes it ("Install Apple container…").

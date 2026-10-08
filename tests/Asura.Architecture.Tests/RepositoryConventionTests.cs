@@ -132,7 +132,7 @@ public sealed partial class RepositoryConventionTests
         Assert.Equal("False", AttributeValue(savePassword, "IsChecked"));
         Assert.Equal("False", AttributeValue(savePassword, "IsVisible"));
         Assert.Equal(
-            "Save password in system credential store",
+            "{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat={}Save the password in {0}}",
             AttributeValue(savePassword, "AutomationProperties.Name"));
     }
 

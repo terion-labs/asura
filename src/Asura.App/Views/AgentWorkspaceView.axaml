@@ -380,7 +380,7 @@
                         AutomationProperties.Name="Start a new AI conversation">
                       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
                         <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
-                        <TextBlock Text="New conversation" />
+                        <TextBlock Text="New Conversation" />
                       </StackPanel>
                     </Button>
                   </StackPanel>
@@ -781,7 +781,7 @@
                     Grid.Column="1"
                     VerticalAlignment="Center"
                     FontWeight="SemiBold"
-                    Text="Audit evidence" />
+                    Text="Recorded actions" />
                 <TextBlock
                     Grid.Column="2"
                     VerticalAlignment="Center"
@@ -794,7 +794,7 @@
               <TextBlock
                   Classes="Muted"
                   FontSize="{DynamicResource ShellSecondaryFontSize}"
-                  Text="Recorded actions only. Sensitive content is not shown."
+                  Text="Only the actions are recorded. Sensitive content isn’t shown."
                   TextWrapping="Wrap" />
               <ProgressBar
                   Height="3"
@@ -868,21 +868,21 @@
                   FontSize="{DynamicResource ShellSecondaryFontSize}"
                   Text="{Binding AgentChat.AuditStatus}"
                   TextWrapping="Wrap"
-                  AutomationProperties.Name="AI agent audit status" />
+                  AutomationProperties.Name="Recorded agent actions status" />
               <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                 <Button
                     Classes="SecondaryButton"
                     Click="OnRefreshAgentAuditClick"
                     Content="Refresh"
                     IsEnabled="{Binding AgentChat.CanRefreshAudit}"
-                    AutomationProperties.Name="Refresh current AI agent audit evidence" />
+                    AutomationProperties.Name="Refresh recorded agent actions" />
                 <Button
                     Grid.Column="1"
                     Classes="TextButton"
                     Click="OnLoadOlderAgentAuditClick"
-                    Content="Load older"
+                    Content="Load Older"
                     IsEnabled="{Binding AgentChat.CanLoadOlderAudit}"
-                    AutomationProperties.Name="Load older AI agent audit evidence" />
+                    AutomationProperties.Name="Load older recorded agent actions" />
               </Grid>
             </StackPanel>
           </Expander>
@@ -915,8 +915,8 @@
           Heading="Connect an AI provider"
           Body="Add a model provider to start using the AI agent.">
         <StackPanel HorizontalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
-          <Button Classes="PrimaryButton" Click="OnShowAgentSettingsClick" Content="AI Settings…" AutomationProperties.Name="AI Settings…" AutomationProperties.HelpText="Configure agent defaults and AI services for this local Asura profile. Credentials remain in the operating-system vault." />
-          <Button Classes="DestructiveButton" Click="OnClearAgentChatClick" Content="Clear Agent Session" IsVisible="{Binding AgentChat.CanClear}" AutomationProperties.Name="Clear the retained AI agent session" />
+          <Button Classes="PrimaryButton" Click="OnShowAgentSettingsClick" Content="AI Settings…" AutomationProperties.Name="AI Settings…" AutomationProperties.HelpText="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Choose agent defaults and connect AI providers. Credentials stay in {0}.'}" />
+          <Button Classes="DestructiveButton" Click="OnClearAgentChatClick" Content="Clear Agent Session" IsVisible="{Binding AgentChat.CanClear}" AutomationProperties.Name="Clear agent session" />
         </StackPanel>
       </controls:StateOverlay>
       <controls:StateOverlay

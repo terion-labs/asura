@@ -56,7 +56,7 @@ public sealed partial class AddWorkspaceTabDialog : DialogWindow
         [
             new TabSourceRow(
                 "New screen for this workspace",
-                "Pick a layout, then bind a connection to each panel",
+                "Pick a layout, then choose a connection for each panel",
                 Symbol.Add,
                 "Workspace-only",
                 null),

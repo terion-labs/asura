@@ -9,7 +9,7 @@
   <controls:DialogShell
       x:Name="Shell"
       Scrolls="False"
-      Subtitle="Names are validated by the selected provider before anything changes.">
+      Subtitle="The location checks the name before anything changes.">
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
         <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />

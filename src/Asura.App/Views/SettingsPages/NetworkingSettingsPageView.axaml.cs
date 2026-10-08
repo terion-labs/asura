@@ -51,7 +51,7 @@ public sealed partial class NetworkingSettingsPageView : UserControl
 
         // A connection's credentials go with it: every other definition asks
         // first, so this one does too.
-        if (!await Confirmations.DefinitionDelete("network connection", item.Name)
+        if (!await Confirmations.DefinitionDelete("Network Connection", item.Name)
                 .ShowDialog<bool>(owner))
         {
             return;

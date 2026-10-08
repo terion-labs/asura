@@ -41,7 +41,7 @@
       </controls:LabeledField>
       <controls:LabeledField
           Label="Destination location"
-          Hint="The location is parsed into a structured provider address; it is never appended to a local command string.">
+          Hint="Asura reads this as a location on the destination, never as part of a command.">
         <TextBox Text="{Binding Destination}" />
       </controls:LabeledField>
     </StackPanel>

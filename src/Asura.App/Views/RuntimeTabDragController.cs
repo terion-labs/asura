@@ -286,7 +286,7 @@ internal sealed class RuntimeTabDragController(
         catch (Exception exception) when (
             exception is InvalidOperationException or IOException)
         {
-            viewModel.SetError(exception.Message);
+            viewModel.SetError("The tab couldn’t be moved there. Try again.");
         }
     }
 

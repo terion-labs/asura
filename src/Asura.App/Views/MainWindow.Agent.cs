@@ -14,7 +14,7 @@ namespace Asura.App.Views;
 public sealed partial class MainWindow
 {
     private static readonly FilePickerFileType AgentHistoryFileType = new(
-        "Asura agent history")
+        "Asura Agent History")
     {
         Patterns = ["*.json"],
         MimeTypes = ["application/json"],
@@ -336,7 +336,7 @@ public sealed partial class MainWindow
         var selected = await DialogOwnerFor(sender).StorageProvider.SaveFilePickerAsync(
             new FilePickerSaveOptions
             {
-                Title = "Export metadata-only agent history",
+                Title = "Export Agent History",
                 SuggestedFileName = AgentRunHistoryExportController.SuggestedFileName,
                 DefaultExtension = "json",
                 FileTypeChoices = [AgentHistoryFileType],

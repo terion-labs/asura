@@ -7,8 +7,8 @@
     SizeToContent="Height"
     CanResize="False">
   <controls:DialogShell
-      Title="Import Definitions"
-      Subtitle="Choose how identities already stored in this profile should be handled. The selected file is validated before anything changes."
+      Title="Import Setup"
+      Subtitle="Choose what happens to items you already have. Asura checks the file before anything changes."
       Scrolls="False">
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
@@ -25,7 +25,7 @@
             IsChecked="True">
           <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
             <TextBlock FontWeight="SemiBold" Text="Stop on conflicts" />
-            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Safest. Existing definitions are never replaced." />
+            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Safest. Items you already have are never replaced." />
           </StackPanel>
         </RadioButton>
       </controls:SurfaceCard>
@@ -34,8 +34,8 @@
             x:Name="ReplaceExistingOption"
             GroupName="ImportMode">
           <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-            <TextBlock FontWeight="SemiBold" Text="Replace matching definitions" />
-            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Matching stable identities are replaced after preflight and explicit confirmation." TextWrapping="Wrap" />
+            <TextBlock FontWeight="SemiBold" Text="Replace matching items" />
+            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Items you already have are replaced by the imported ones after you review the import." TextWrapping="Wrap" />
           </StackPanel>
         </RadioButton>
       </controls:SurfaceCard>

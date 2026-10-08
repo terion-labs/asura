@@ -226,7 +226,7 @@ public sealed class WorkspaceViewContractTests
         // selects; the template it renders lives in that component.
         Assert.Equal("RuntimeTabStripView", tabStrip.Name.LocalName);
         Assert.Equal("Horizontal", AttributeValue(tabStrip, "Orientation"));
-        Assert.Equal("Open runtime tabs", AttributeValue(
+        Assert.Equal("Tabs", AttributeValue(
             tabStrip,
             "AutomationProperties.Name"));
         Assert.Equal(

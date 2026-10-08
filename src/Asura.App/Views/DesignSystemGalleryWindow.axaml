@@ -3,7 +3,8 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Asura.App.Controls"
-    Title="Asura design system"
+    xmlns:core="using:Asura.Core"
+    Title="Asura Design System"
     Width="880"
     SizeToContent="Height"
     CanResize="False"
@@ -73,7 +74,7 @@
           <controls:SurfaceCard Tone="Danger">
             <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
               <TextBlock Classes="Headline" Text="Danger" />
-              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="This cannot be undone." TextWrapping="Wrap" />
+              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="You can’t undo this action." TextWrapping="Wrap" />
             </StackPanel>
           </controls:SurfaceCard>
         </UniformGrid>
@@ -123,7 +124,7 @@
           <controls:SignalDot />
           <Border Classes="StatusDot available" />
           <Border Classes="Keycap"><TextBlock Text="⌘K" /></Border>
-          <Button Classes="Chip" Content="Run scope · This tab" />
+          <Button Classes="Chip" Content="Run Scope · This Tab" />
         </WrapPanel>
       </StackPanel>
 
@@ -137,7 +138,7 @@
         <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
           <controls:Callout
               Glyph="Shield"
-              Text="Credential values stay in the operating-system vault and are never shown here." />
+              Text="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat={}Credential values stay in {0} and are never shown here.}" />
           <controls:Callout
               Tone="Warning"
               Glyph="Warning"
@@ -190,7 +191,7 @@
                 Kind="PermissionRequired"
                 Heading="Permission needed"
                 Body="Approve read access to continue."
-                ActionLabel="Review access" />
+                ActionLabel="Review Access" />
           </controls:SurfaceCard>
           <controls:SurfaceCard Tone="Sunken" MinHeight="230" Padding="0">
             <controls:StateOverlay
@@ -208,16 +209,16 @@
           <controls:SurfaceCard Tone="Sunken" MinHeight="230" Padding="0">
             <controls:StateOverlay
                 Kind="Partial"
-                Heading="Some results could not be loaded"
+                Heading="Some results couldn’t be loaded"
                 Body="The successful results remain available."
-                ActionLabel="Retry missing" />
+                ActionLabel="Retry Missing" />
           </controls:SurfaceCard>
           <controls:SurfaceCard Tone="Sunken" MinHeight="230" Padding="0">
             <controls:StateOverlay
                 Kind="Conflict"
                 Heading="Settings changed elsewhere"
                 Body="Your draft is retained until you reload or save a copy."
-                ActionLabel="Review conflict" />
+                ActionLabel="Review Conflict" />
           </controls:SurfaceCard>
           <controls:SurfaceCard Tone="Sunken" MinHeight="230" Padding="0">
             <controls:StateOverlay
@@ -236,7 +237,7 @@
           <controls:SurfaceCard Tone="Sunken" MinHeight="230" Padding="0">
             <controls:StateOverlay
                 Kind="Cancelled"
-                Heading="Export cancelled"
+                Heading="Export canceled"
                 Body="No partial archive was retained." />
           </controls:SurfaceCard>
           <controls:SurfaceCard Tone="Sunken" MinHeight="230" Padding="0">
@@ -244,7 +245,7 @@
                 Kind="DestructiveAction"
                 Heading="Clear all previous snapshots?"
                 Body="Saved recovery files will be deleted. The current live run is not affected."
-                ActionLabel="Clear snapshots" />
+                ActionLabel="Clear Snapshots" />
           </controls:SurfaceCard>
         </UniformGrid>
       </StackPanel>
@@ -252,8 +253,8 @@
       <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
         <TextBlock Classes="SectionHeading" Text="Choosers and lists" />
         <UniformGrid Columns="3" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-          <controls:ChooserTile Icon="WindowConsole" Title="New terminal" Description="Open the default local shell" />
-          <controls:ChooserTile Icon="Globe" Title="New browser" Description="Embedded Chromium browser panel" />
+          <controls:ChooserTile Icon="WindowConsole" Title="New Terminal" Description="Open the default local shell" />
+          <controls:ChooserTile Icon="Globe" Title="New Browser" Description="Embedded Chromium browser panel" />
           <controls:ChooserTile Icon="Database" Title="Database" Description="Query SQLite, Postgres, MySQL" />
         </UniformGrid>
         <controls:SurfaceCard Padding="0">
@@ -332,7 +333,7 @@
         <TextBlock Classes="SectionHeading" Text="Actions" />
         <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
           <Button Classes="PrimaryButton" Content="Save" />
-          <Button Classes="SecondaryButton" Content="Test connection" />
+          <Button Classes="SecondaryButton" Content="Test Connection" />
           <Button Classes="TextButton" Content="Clear" />
           <Button Classes="DestructiveButton" Content="Delete" />
           <Button Classes="SecondaryButton" Content="Disabled" IsEnabled="False" />
@@ -346,7 +347,7 @@
             Description="The group owns the column width and the separators, so no row has to know where it sits."
             ControlWidth="240">
           <controls:SettingRow
-              Label="Global hotkey"
+              Label="Global shortcut"
               Description="Press the shortcut that summons the panel from anywhere.">
             <TextBox Text="Ctrl+Alt+T" />
           </controls:SettingRow>
@@ -354,8 +355,8 @@
               Label="Show on display"
               Description="Follow the Asura window or always use the primary display.">
             <ComboBox HorizontalAlignment="Stretch" SelectedIndex="0">
-              <ComboBoxItem Content="Follow the window" />
-              <ComboBoxItem Content="Primary display" />
+              <ComboBoxItem Content="Follow the Window" />
+              <ComboBoxItem Content="Primary Display" />
             </ComboBox>
           </controls:SettingRow>
           <controls:SettingRow
@@ -414,7 +415,7 @@
             TextWrapping="Wrap" />
         <UniformGrid Columns="3" ColumnSpacing="{DynamicResource ShellSpaceMd}">
           <controls:SurfaceCard Tone="Raised">
-            <controls:LabeledField Label="Platform profile" Hint="Closest host-native chrome, radii, and density.">
+            <controls:LabeledField Label="Platform profile" Hint="Which system’s look to match: window controls, corner radius, and density.">
               <ComboBox HorizontalAlignment="Stretch" SelectedIndex="0">
                 <ComboBoxItem Content="Automatic" />
               </ComboBox>
@@ -452,7 +453,7 @@
         <TextBlock
             Classes="Muted"
             FontSize="{DynamicResource ShellSecondaryFontSize}"
-            Text="The selection of the list you are working in is the accent with its own text colour; in any other list it is gray. The pointer only washes a row."
+            Text="The selection of the list you are working in is the accent with its own text color; in any other list it is gray. The pointer only washes a row."
             TextWrapping="Wrap" />
         <controls:SurfaceCard Padding="{DynamicResource ShellInsetXs}">
           <ListBox Classes="Rows" SelectedIndex="1" AutomationProperties.Name="Selection sample">
@@ -476,7 +477,7 @@
               Glyph="Bot"
               Heading="Connect an AI provider"
               Body="Add a model provider to start using the AI agent.">
-            <Button Classes="PrimaryButton" Content="Open provider settings" />
+            <Button Classes="PrimaryButton" Content="AI Settings…" />
           </controls:EmptyStatePanel>
         </controls:SurfaceCard>
       </StackPanel>

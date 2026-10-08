@@ -170,7 +170,7 @@
             Classes="IconButton"
             Click="OnRemoveCustomCommandClick"
             IsEnabled="{Binding CanRemoveCustomCommand}"
-            ToolTip.Tip="Delete Command"
+            ToolTip.Tip="Delete command"
             AutomationProperties.Name="Delete selected command">
           <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
         </Button>

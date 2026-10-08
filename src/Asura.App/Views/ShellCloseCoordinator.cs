@@ -47,7 +47,7 @@ internal sealed class ShellCloseCoordinator(
             && viewModel.WorkspaceEditor?.RequestCancel()
                 == WorkspaceEditorCancelDisposition.ConfirmDiscard
             && !await _presentation.ConfirmDiscardAsync(
-                "Discard workspace changes?",
+                "Discard Workspace Changes?",
                 "The unsaved workspace order, tabs, panels, and startup settings will be lost."))
         {
             return false;
@@ -122,7 +122,7 @@ internal sealed class ShellCloseCoordinator(
 
         if (viewModel.KeybindingEditorSession?.IsDirty == true
             && !await _presentation.ConfirmDiscardAsync(
-                "Discard keybinding changes?",
+                "Discard Keyboard Shortcut Changes?",
                 $"The unsaved shortcuts, prefix, and conflict resolutions will be lost when {closingPhrase}."))
         {
             return false;
@@ -143,7 +143,7 @@ internal sealed class ShellCloseCoordinator(
         if (viewModel.WorkspaceEditor?.RequestCancel()
                 == WorkspaceEditorCancelDisposition.ConfirmDiscard
             && !await _presentation.ConfirmDiscardAsync(
-                "Discard workspace changes?",
+                "Discard Workspace Changes?",
                 $"The unsaved workspace order, tabs, panels, and startup settings will be lost when {closingPhrase}."))
         {
             return false;

@@ -179,7 +179,7 @@ public sealed partial class MainWindow
                 editor.IsNew ? "the new workspace" : $"the workspace “{editor.Name}”",
                 editor.IsValid
                     ? "Your changes will be lost if you don't save them."
-                    : "These changes cannot be saved yet: " + editor.ValidationSummary)
+                    : "These changes can’t be saved yet: " + editor.ValidationSummary)
             .AskAsync(WorkspaceEditorDialogOwner);
         switch (answer)
         {
@@ -213,7 +213,7 @@ public sealed partial class MainWindow
                 designer.IsNew ? "the new layout" : $"the layout “{designer.Name}”",
                 designer.CanSave
                     ? "Your changes will be lost if you don't save them."
-                    : "These changes cannot be saved yet: " + designer.ValidationSummary)
+                    : "These changes can’t be saved yet: " + designer.ValidationSummary)
             .AskAsync(LayoutDesignerDialogOwner);
         switch (answer)
         {

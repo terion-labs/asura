@@ -93,7 +93,7 @@ public sealed partial class ConfirmationDialog : DialogWindow
     public ConfirmationDialog()
         : this(new ConfirmationDialogOptions
         {
-            Heading = "Are you sure?",
+            Heading = "Are You Sure?",
             Detail = "This action needs a second look before it runs.",
             ConfirmLabel = "Confirm",
             Intent = ConfirmationIntent.Confirm,

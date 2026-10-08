@@ -6,6 +6,7 @@
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
+    xmlns:views="using:Asura.App.Views"
     Width="900"
     Height="820"
     MinWidth="720"
@@ -15,7 +16,7 @@
       Chrome="Editor"
       Title="{Binding EditorTitle}"
       Subtitle="Choose a layout, then configure the panel assigned to each slot."
-      FooterHint="Saving changes only future opens; running instances stay independent.">
+      FooterHint="Changes apply the next time the screen opens. Tabs already open don’t change.">
     <controls:DialogShell.HeaderContent>
       <controls:StatusChip
           Content="{Binding DirtyStatus}"
@@ -97,17 +98,17 @@
           Tone="Warning"
           Glyph="Warning"
           IsVisible="{Binding HasMissingDefinitions}"
-          Text="{Binding MissingDefinitionCount, StringFormat={}{0} panel definition(s) must be repaired before saving.}"
+          Text="{Binding MissingDefinitionCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=panel, StringFormat='Before saving, choose a replacement for what’s missing in {0}.'}"
           AutomationProperties.LiveSetting="Assertive"
-          AutomationProperties.Name="{Binding MissingDefinitionCount, StringFormat={}{0} saved screen panel definition(s) require repair}" />
+          AutomationProperties.Name="{Binding MissingDefinitionCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=panel, StringFormat='Choose a replacement for what’s missing in {0}'}" />
 
       <controls:Callout
           Tone="Warning"
           Glyph="Warning"
           IsVisible="{Binding HasInvalidBrowserAddresses}"
-          Text="{Binding InvalidBrowserAddressCount, StringFormat={}{0} browser startup address(es) must be a complete HTTP or HTTPS URL.}"
+          Text="Enter each browser startup address as a complete HTTP or HTTPS URL, like https://example.com."
           AutomationProperties.LiveSetting="Assertive"
-          AutomationProperties.Name="One or more browser panel startup addresses are invalid" />
+          AutomationProperties.Name="Enter each browser startup address as a complete HTTP or HTTPS URL" />
 
       <TextBlock Classes="SectionHeading" Text="Agent policy" />
       <controls:SurfaceCard>
@@ -195,10 +196,10 @@
               Foreground="{DynamicResource ShellDangerBrush}"
               FontSize="{DynamicResource ShellFontSize10}"
               IsVisible="{Binding !AgentPolicy.IsValid}"
-              Text="Choose an available, enabled provider profile and enter a valid model identifier."
+              Text="Choose an AI provider that’s available and turned on, and enter a model name."
               TextWrapping="Wrap"
               AutomationProperties.LiveSetting="Assertive"
-              AutomationProperties.Name="The saved screen agent policy provider profile or model is invalid" />
+              AutomationProperties.Name="Choose an AI provider that’s available and turned on, and enter a model name" />
           <ItemsControl
               ItemsSource="{Binding AgentPolicy.Capabilities}"
               IsVisible="{Binding AgentPolicy.IsEnabled}">
@@ -224,8 +225,8 @@
       </controls:SurfaceCard>
 
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Classes="SectionHeading" Text="PANELS &amp; CONNECTIONS" />
-        <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Panels.Count, StringFormat={}{0} slots}" />
+        <TextBlock Classes="SectionHeading" Text="Panels &amp; connections" />
+        <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Panels.Count, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=slot}" />
       </Grid>
 
       <ItemsControl ItemsSource="{Binding Panels}">
@@ -239,7 +240,7 @@
                   </Border>
                   <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
                     <TextBlock Classes="Eyebrow" Text="{Binding PanelLabel}" />
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Panel identity follows this layout slot." />
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Choose what opens in this slot of the layout." />
                   </StackPanel>
                   <controls:LabeledField Grid.Column="2" Label="Panel type">
                     <ComboBox
@@ -320,13 +321,13 @@
                       Grid.Column="1"
                       MinWidth="260"
                       Label="On delivery failure"
-                      Hint="This governs delivery or acknowledgement failures while the terminal is live, not a shell command's exit status.">
+                      Hint="What happens when a startup command can’t be delivered to the running terminal, or its delivery isn’t confirmed. A command’s own exit status doesn’t count.">
                     <ComboBox
                         MinWidth="260"
                         ItemsSource="{Binding DeliveryFailurePolicyOptions}"
                         SelectedItem="{Binding SelectedDeliveryFailurePolicy, Mode=TwoWay}"
-                        AutomationProperties.Name="{Binding PanelLabel, StringFormat=Startup command delivery failure policy for {0}}"
-                        AutomationProperties.HelpText="Governs delivery or acknowledgement failures while the terminal is live, not a shell command's exit status.">
+                        AutomationProperties.Name="{Binding PanelLabel, StringFormat=On delivery failure for {0}}"
+                        AutomationProperties.HelpText="What happens when a startup command can’t be delivered to the running terminal, or its delivery isn’t confirmed. A command’s own exit status doesn’t count.">
                       <ComboBox.ItemTemplate>
                         <DataTemplate>
                           <TextBlock Text="{Binding DisplayName}" />

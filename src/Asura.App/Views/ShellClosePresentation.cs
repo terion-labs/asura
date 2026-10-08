@@ -15,16 +15,16 @@ internal sealed record ShellClosePresentation(
     public ShellClosePresentation WithPrivacyGuard(Func<bool> isLocked) => this with
     {
         ConfirmLayoutDiscardAsync = () => isLocked()
-            ? ConfirmDiscardAsync("Discard unsaved changes?", "Unsaved changes will be lost.")
+            ? ConfirmDiscardAsync("Discard Unsaved Changes?", "Unsaved changes will be lost.")
             : ConfirmLayoutDiscardAsync(),
         ConfirmDiscardAsync = (title, detail) => isLocked()
-            ? ConfirmDiscardAsync("Discard unsaved changes?", "Unsaved changes will be lost.")
+            ? ConfirmDiscardAsync("Discard Unsaved Changes?", "Unsaved changes will be lost.")
             : ConfirmDiscardAsync(title, detail),
         ConfirmScopeAsync = confirmation => ConfirmScopeAsync(isLocked()
             ? confirmation with { TargetId = string.Empty, Sessions = [] }
             : confirmation),
         ShowErrorAsync = message => ShowErrorAsync(isLocked()
-            ? "The application could not finish closing. Unlock it to review the details."
+            ? "Unlock Asura to see why."
             : message),
     };
 

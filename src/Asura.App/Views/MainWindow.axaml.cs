@@ -567,7 +567,7 @@ public sealed partial class MainWindow : Window
         _ = e;
         if (_definitionBundles is null)
         {
-            ViewModel.SetError("Definition portability is unavailable in this host.");
+            ViewModel.SetError("Export and import aren’t available in this version of Asura.");
             return;
         }
 
@@ -577,7 +577,7 @@ public sealed partial class MainWindow : Window
         {
             var receipt = result.Value!;
             ViewModel.SetDefinitionBundleStatus(
-                $"Exported {receipt.DefinitionCount} definitions to {Path.GetFileName(receipt.Path)}."
+                $"Exported {CountLabel.InSentence(receipt.DefinitionCount, "item")} to “{Path.GetFileName(receipt.Path)}”."
                 + (receipt.Warning is { } warning ? " " + warning : string.Empty));
         }
         else if (result.Error!.Code != DefinitionStoreErrorCode.Cancelled)
@@ -591,7 +591,7 @@ public sealed partial class MainWindow : Window
         _ = e;
         if (_definitionBundles is null)
         {
-            ViewModel.SetError("Definition portability is unavailable in this host.");
+            ViewModel.SetError("Export and import aren’t available in this version of Asura.");
             return;
         }
 
@@ -641,12 +641,11 @@ public sealed partial class MainWindow : Window
         var receipt = applied.Value!;
         ViewModel.SetDefinitionBundleStatus(
             receipt.CatalogReloaded
-                ? $"Imported {receipt.Inserted} new and replaced {receipt.Replaced} definitions."
+                ? $"{ImportSummary(receipt)}."
                 : receipt.WorkspacesRemainUnavailable
-                    ? $"Imported {receipt.Inserted} new and replaced {receipt.Replaced} definitions, "
-                        + "but the catalog refresh failed. Imported workspaces remain unavailable "
-                        + "until a catalog refresh succeeds or Asura restarts."
-                : $"Imported {receipt.Inserted} new and replaced {receipt.Replaced} definitions, but the catalog refresh failed.");
+                    ? $"{ImportSummary(receipt)}, but Asura couldn’t reload its settings. "
+                        + "Imported workspaces stay unavailable until Asura reloads them or restarts."
+                : $"{ImportSummary(receipt)}, but Asura couldn’t reload its settings.");
         if (!receipt.CatalogReloaded)
         {
             ViewModel.SetError(receipt.ReloadError!.Message);
@@ -657,6 +656,19 @@ public sealed partial class MainWindow : Window
             await onboarding.RefreshAsync(_lifetime.Token);
         }
     }
+
+    /// <summary>
+    /// What an import changed, naming only the parts that happened: "Imported
+    /// 2 new items", "Replaced 3 items", or both.
+    /// </summary>
+    internal static string ImportSummary(DefinitionBundleImportReceipt receipt) =>
+        (receipt.Inserted, receipt.Replaced) switch
+        {
+            (0, 0) => "Nothing was imported",
+            (_, 0) => $"Imported {CountLabel.InSentence(receipt.Inserted, "new item")}",
+            (0, _) => $"Replaced {CountLabel.InSentence(receipt.Replaced, "item")}",
+            _ => $"Imported {CountLabel.InSentence(receipt.Inserted, "new item")} and replaced {CountLabel.InSentence(receipt.Replaced, "item")}",
+        };
 
     private async void OnRetryOnboardingClick(object? sender, RoutedEventArgs e)
     {
@@ -1235,7 +1247,7 @@ public sealed partial class MainWindow : Window
     {
         if (_historyExport is null)
         {
-            ViewModel.SetHistoryExportStatus("Session-history export is unavailable.");
+            ViewModel.SetHistoryExportStatus("Session history export isn’t available.");
             return;
         }
 
@@ -1247,13 +1259,13 @@ public sealed partial class MainWindow : Window
         using var exportCancellation = CancellationTokenSource.CreateLinkedTokenSource(
             _lifetime.Token);
         _historyExportLifetime = exportCancellation;
-        var finalStatus = "Session-history export failed. Please choose a different destination and retry.";
+        var finalStatus = "Session history couldn’t be exported. Choose a different destination and try again.";
         try
         {
             var snapshot = ViewModel.CaptureHistoryExportSnapshot();
             if (snapshot.Count == 0)
             {
-                finalStatus = "There are no matching metadata records to export.";
+                finalStatus = "There’s no session history to export.";
                 return;
             }
 
@@ -1262,23 +1274,33 @@ public sealed partial class MainWindow : Window
                 exportCancellation.Token);
             if (!result.IsSuccess)
             {
-                finalStatus = result.Error!.Code == RecentSessionHistoryExportErrorCode.Cancelled
-                    ? "Session-history export cancelled."
-                    : $"{result.Error.Message} Choose a different destination and retry.";
+                finalStatus = result.Error!.Code switch
+                {
+                    RecentSessionHistoryExportErrorCode.Cancelled =>
+                        "Session history export canceled.",
+                    RecentSessionHistoryExportErrorCode.TooManyRecords =>
+                        "There’s more session history than one export can hold.",
+                    RecentSessionHistoryExportErrorCode.InvalidHistory =>
+                        "Session history couldn’t be exported because a record is damaged.",
+                    RecentSessionHistoryExportErrorCode.CleanupFailure =>
+                        "Session history wasn’t exported, and a temporary file was left in the folder you chose. Delete it and try again.",
+                    _ =>
+                        "Session history couldn’t be exported. Choose a different destination and try again.",
+                };
                 return;
             }
 
             finalStatus =
-                $"Exported {result.Value!.Export.RecordCount:N0} metadata-only records to {Path.GetFileName(result.Value.Path)}.";
+                $"Exported {CountLabel.InSentence(result.Value!.Export.RecordCount, "session history record")} to “{Path.GetFileName(result.Value.Path)}”.";
         }
         catch (OperationCanceledException) when (exportCancellation.IsCancellationRequested)
         {
-            finalStatus = "Session-history export cancelled.";
+            finalStatus = "Session history export canceled.";
         }
         catch (Exception)
         {
             finalStatus =
-                "Session-history export failed unexpectedly. Choose a different destination and retry.";
+                "Session history couldn’t be exported. Choose a different destination and try again.";
         }
         finally
         {
@@ -1506,7 +1528,7 @@ public sealed partial class MainWindow : Window
             return DefinitionStoreResult<StoredDefinition<WorkspaceDefinition>>.Failure(
                 new DefinitionStoreError(
                     DefinitionStoreErrorCode.Cancelled,
-                    "Workspace isolation change was cancelled."));
+                    "The workspace isolation change was canceled."));
         }
 
         return await ViewModel.SaveWorkspaceEditorRestartingAsync(
@@ -1555,8 +1577,8 @@ public sealed partial class MainWindow : Window
         if (!editor.IsValid)
         {
             if (!await Confirmations.DiscardChanges(
-                    "Discard workspace changes?",
-                    "These changes cannot be saved yet, and switching workspaces loses them.\n\n"
+                    "Discard Workspace Changes?",
+                    "These changes can’t be saved yet, and switching workspaces loses them.\n\n"
                     + editor.ValidationSummary).ShowDialog<bool>(WorkspaceEditorDialogOwner))
             {
                 return false;
@@ -1576,7 +1598,7 @@ public sealed partial class MainWindow : Window
         _ = sender;
         if (e.Disposition == WorkspaceEditorCancelDisposition.ConfirmDiscard
             && !await Confirmations.DiscardChanges(
-                    "Discard workspace changes?",
+                    "Discard Workspace Changes?",
                     "The unsaved workspace order, tabs, panels, and startup settings will be lost.")
                 .ShowDialog<bool>(WorkspaceEditorDialogOwner))
         {
@@ -1812,7 +1834,7 @@ public sealed partial class MainWindow : Window
         var terminal = FindActiveTerminalHost();
         if (terminal is null)
         {
-            ViewModel.SetError("The active panel cannot receive terminal input.");
+            ViewModel.SetError("The active panel doesn’t accept terminal input.");
             return;
         }
 

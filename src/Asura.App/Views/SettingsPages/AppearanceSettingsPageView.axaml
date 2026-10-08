@@ -13,7 +13,7 @@
   <StackPanel Spacing="{DynamicResource ShellSpaceXl}">
     <components:SettingsPageHeader
         Heading="Appearance"
-        Description="Customize how the app looks — color scheme, accent, and window chrome." />
+        Description="Customize how the app looks — color scheme, accent, and window style." />
 
     <!-- Theme -->
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
@@ -57,7 +57,7 @@
         <controls:SurfaceCard Tone="Raised" Width="212">
           <controls:LabeledField
               Label="Platform profile"
-              Hint="Closest host-native chrome, radii, and density.">
+              Hint="Which system’s look to match: window controls, corner radius, and density.">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
               <ComboBox x:Name="PlatformProfilePicker" SelectionChanged="OnPlatformProfileChanged" AutomationProperties.Name="Platform profile" />
               <TextBlock
@@ -309,8 +309,8 @@
                   x:Name="AccentModePicker"
                   SelectionChanged="OnAccentModeSelectionChanged"
                   AutomationProperties.Name="Accent mode">
-                <ComboBoxItem Content="Follow host" />
-                <ComboBoxItem Content="Asura orange" />
+                <ComboBoxItem Content="Follow System" />
+                <ComboBoxItem Content="Asura Orange" />
                 <ComboBoxItem Content="Custom" />
               </ComboBox>
               <Border
@@ -429,7 +429,7 @@
         <controls:SurfaceCard Tone="Raised">
           <controls:LabeledField
               Label="Application text size"
-              Hint="Follow host uses the operating system's text-size preference. Saved changes apply live.">
+              Hint="Follow System uses the system’s text size. Changes apply right away.">
             <ComboBox
                 x:Name="ApplicationTextScalePicker"
                 SelectionChanged="OnAppearanceChanged"
@@ -445,7 +445,7 @@
         <controls:SurfaceCard Tone="Raised" Grid.Column="1">
           <controls:LabeledField
               Label="Terminal typeface"
-              Hint="Renderer font, size, line height, and the ANSI palette belong to the terminal profile.">
+              Hint="The terminal profile sets the font, size, line height, and ANSI colors.">
             <TextBlock FontSize="{DynamicResource ShellFontSize13}" Text="Set on the Terminal page" />
           </controls:LabeledField>
         </controls:SurfaceCard>
@@ -455,12 +455,12 @@
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
       <components:SectionHeader
           Heading="Corners &amp; UI"
-          Description="Window chrome, density and interface behavior." />
+          Description="Window corners, density, and interface behavior." />
       <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
         <controls:SurfaceCard Tone="Raised">
           <controls:LabeledField
               Label="Density"
-              Hint="How much room the shell takes: padding, spacing and how far surfaces round. One setting, because a corner is earned by how far a surface stands off from the one around it.">
+              Hint="Padding, spacing, and corner rounding across the interface.">
             <Border Classes="Segmented">
               <UniformGrid Columns="3">
                 <ToggleButton x:Name="DensityCompact" Classes="Segment" Click="OnDensityClick" Content="Compact" AutomationProperties.Name="Compact density" />
@@ -474,7 +474,7 @@
           <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
             <controls:LabeledField
                 Label="Translucency"
-                Hint="Sit the shell on the platform's own material, so the desktop shows through it.">
+                Hint="Show the desktop through the window’s sidebars and title bar.">
               <CheckBox
                   x:Name="TranslucencyToggle"
                   IsCheckedChanged="OnAppearanceChanged"
@@ -483,7 +483,7 @@
             <controls:LabeledField
                 Grid.Column="1"
                 Label="Glass panels"
-                Hint="Carry the material through the panels, so the shell reads as one sheet rather than slabs standing on it.">
+                Hint="Let the desktop show through the panels too, not only the sidebars and title bar.">
               <CheckBox
                   x:Name="GlassPanelsToggle"
                   IsEnabled="{Binding #TranslucencyToggle.IsChecked}"
@@ -497,7 +497,7 @@
         <controls:SurfaceCard Tone="Raised">
           <controls:LabeledField
               Label="Background opacity"
-              Hint="Off leaves the material's own translucency alone. On paints the shell's colour over it: lower lets more of the desktop through, at full it reads as a frame around the panels rather than as glass.">
+              Hint="Off leaves the material’s own translucency alone. On paints the window’s color over it: lower values let more of the desktop through; at full, it reads as a frame around the panels rather than as glass.">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
               <CheckBox
                   x:Name="OverrideOpacityToggle"
@@ -628,7 +628,7 @@
         <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
           <StackPanel Classes="CardText" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
             <TextBlock Classes="Headline" Text="Workspaces panel placement" />
-            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Which edge the squares dock to" />
+            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Which edge the workspaces panel sits on" />
           </StackPanel>
           <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
             <RadioButton x:Name="WorkspacePanelLeft" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Workspaces panel on the left">
@@ -722,7 +722,7 @@
     <controls:SurfaceCard>
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceLg}">
         <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-          <TextBlock Classes="SectionHeading" Text="Current stored profile" />
+          <TextBlock Classes="SectionHeading" Text="Saved appearance" />
           <TextBlock Text="{Binding ThemeMode, StringFormat={}Mode: {0}}" />
           <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ThemeProfile, StringFormat={}Platform: {0}}" />
           <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ThemeTextScale, StringFormat={}Text size: {0}}" />

@@ -131,7 +131,7 @@
             ShowsOverflowSeparator="True"
             IsVisible="{Binding IsTabStripVisibleOnTop}"
             WindowDecorationProperties.ElementRole="User"
-            AutomationProperties.Name="Open runtime tabs"
+            AutomationProperties.Name="Tabs"
             AddTabRequested="OnShowNewItemClick"
             ActivateRequested="OnActivateTabClick"
             CloseRequested="OnCloseRuntimeTabClick"
@@ -199,7 +199,7 @@
               Classes="IconButton"
               Click="OnToggleAgentClick"
               ToolTip.Tip="{x:Static vm:ShortcutTips.ToggleAgentPanel}"
-              AutomationProperties.Name="Toggle AI agent panel">
+              AutomationProperties.Name="Show or hide the agent panel">
             <Grid>
               <icons:SymbolIcon
                   FontSize="{DynamicResource ShellIconSizeMd}"
@@ -289,7 +289,7 @@
           Tabs="{Binding RuntimeWorkspace.Tabs}"
           Orientation="Horizontal"
           IconPickerPlacement="TopEdgeAlignedLeft"
-          AutomationProperties.Name="Open runtime tabs"
+          AutomationProperties.Name="Tabs"
           AddTabRequested="OnShowNewItemClick"
           ActivateRequested="OnActivateTabClick"
           CloseRequested="OnCloseRuntimeTabClick"
@@ -364,7 +364,7 @@
                     OpenRequested="OnOpenWorkspaceClick"
                     CloseRequested="OnCloseWorkspaceClick"
                     ToolTip.Tip="{Binding Name}"
-                    AutomationProperties.HelpText="Drag to reorder workspaces. Alt+Up or Alt+Down moves the focused workspace. Shift+F10 opens its menu."
+                    AutomationProperties.HelpText="{x:Static views:WorkspaceView.RailTileHelpText}"
                     AutomationProperties.Name="{Binding Name}">
                   <!-- What the tile can do, in one place a right-click, Shift+F10
                        or the Menu key reaches: the tile's own hover actions are
@@ -396,7 +396,7 @@
               BorderBrush="{DynamicResource ShellBorderBrush}"
               Foreground="{DynamicResource ShellMutedBrush}"
               Click="OnCreateWorkspaceClick"
-              ToolTip.Tip="New workspace"
+              ToolTip.Tip="New workspace…"
               AutomationProperties.Name="Create a new workspace">
             <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
           </Button>
@@ -420,7 +420,7 @@
             Tabs="{Binding RuntimeWorkspace.Tabs}"
             Orientation="Vertical"
             IconPickerPlacement="{Binding SideTabIconPickerPlacement}"
-            AutomationProperties.Name="Open runtime tabs"
+            AutomationProperties.Name="Tabs"
             AddTabRequested="OnShowNewItemClick"
             ActivateRequested="OnActivateTabClick"
             CloseRequested="OnCloseRuntimeTabClick"
@@ -627,7 +627,7 @@
         </Border>
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}" IsVisible="{Binding !HasRuntimeWorkspace}">
           <TextBlock Classes="Muted" Text="Open a workspace from the launcher." />
-          <Button Classes="PrimaryButton" Click="OnShowLauncherClick" Content="Open launcher" />
+          <Button Classes="PrimaryButton" Click="OnShowLauncherClick" Content="Open Launcher" />
         </StackPanel>
         <!--
           Where a tab landed, for the people who cannot see it land. Reordering

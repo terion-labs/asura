@@ -101,7 +101,7 @@ public sealed partial class AgentChatViewModelTests
                         return Task.FromResult<IReadOnlyList<IStorageFile>>([file]);
                     }, model, CancellationToken.None);
                     Assert.NotNull(options);
-                    Assert.Equal("Attach files", options.Title);
+                    Assert.Equal("Attach Files", options.Title);
                     Assert.True(options.AllowMultiple);
                     Assert.Same(FilePickerFileTypes.All, Assert.Single(options.FileTypeFilter!));
                 }

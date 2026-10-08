@@ -130,7 +130,7 @@ public sealed partial class MainWindow
 
         if (ViewModel.RuntimeWorkspace?.ActiveTab is null)
         {
-            ViewModel.SetError("Open a workspace or connection before adding a File Viewer.");
+            ViewModel.SetError("Open a workspace or connection before adding a Files panel.");
             return;
         }
 
@@ -160,7 +160,7 @@ public sealed partial class MainWindow
         ViewModel.ShowWorkspace();
         if (ViewModel.RuntimeWorkspace?.ActiveTab is null)
         {
-            ViewModel.SetError("Open a workspace or connection before adding a browser.");
+            ViewModel.SetError("Open a workspace or connection before adding a Browser panel.");
             return;
         }
 
@@ -187,7 +187,7 @@ public sealed partial class MainWindow
         ViewModel.ShowWorkspace();
         if (ViewModel.RuntimeWorkspace?.ActiveTab is null)
         {
-            ViewModel.SetError("Open a workspace or connection before adding a database viewer.");
+            ViewModel.SetError("Open a workspace or connection before adding a Database panel.");
             return;
         }
 
@@ -785,13 +785,13 @@ public sealed partial class MainWindow
             });
             if (process is null)
             {
-                ViewModel.SetError("The Docker installation guide could not be opened.");
+                ViewModel.SetError("The Docker installation guide couldn’t be opened.");
             }
         }
         catch (Exception exception) when (exception is InvalidOperationException
             or System.ComponentModel.Win32Exception)
         {
-            ViewModel.SetError("The Docker installation guide could not be opened.");
+            ViewModel.SetError("The Docker installation guide couldn’t be opened.");
         }
     }
 
@@ -1749,7 +1749,7 @@ public sealed partial class MainWindow
         // rather than a path typed into a dialog.
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "Download to folder",
+            Title = "Download to Folder",
             AllowMultiple = false,
         });
         if (folders.Count != 1 || folders[0].TryGetLocalPath() is not { } destination)
@@ -1774,7 +1774,7 @@ public sealed partial class MainWindow
 
         var selected = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Upload a file from Home",
+            Title = "Upload File",
             AllowMultiple = false,
         });
         var path = selected.Count == 1 ? selected[0].TryGetLocalPath() : null;
@@ -1821,14 +1821,14 @@ public sealed partial class MainWindow
             if (process is null)
             {
                 panel.ReportValidationError(
-                    "The operating system did not provide an application for this file.");
+                    "No app is set to open this file.");
             }
         }
         catch (Exception exception) when (exception is InvalidOperationException
             or System.ComponentModel.Win32Exception)
         {
             panel.ReportValidationError(
-                "The operating system could not open this file with its default application.");
+                "The file couldn’t be opened with its default app.");
         }
     }
 
@@ -1868,7 +1868,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        var kind = selected.IsDirectory ? "folder" : "file";
+        var kind = selected.IsDirectory ? "Folder" : "File";
         var confirmed = await Confirmations.FileDelete(
                 kind,
                 selected.Name,
@@ -2069,7 +2069,7 @@ public sealed partial class MainWindow
             "Rename Tab",
             "Rename",
             tab.Title,
-            "This name identifies the live tab; saved screen definitions are unchanged.")
+            "This renames the open tab only. The saved screen keeps its name.")
             .ShowDialog<string?>(this);
         if (title is not null)
         {

@@ -79,7 +79,7 @@ public sealed partial class AiProviderProfileEditorDialog : DialogWindow
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
-            ShowValidationError("Authentication could not be started.");
+            ShowValidationError("Couldn’t open the sign-in page. Try again.");
         }
     }
 

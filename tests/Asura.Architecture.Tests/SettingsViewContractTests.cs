@@ -484,7 +484,7 @@ public sealed class SettingsViewContractTests
             element => string.Equals(element.Name.LocalName, "SettingsPageHeader", StringComparison.Ordinal));
         Assert.Equal("Appearance", AttributeValue(header, "Heading"));
         Assert.Equal(
-            "Customize how the app looks — color scheme, accent, and window chrome.",
+            "Customize how the app looks — color scheme, accent, and window style.",
             AttributeValue(header, "Description"));
 
         foreach (var controlName in AppearanceControlNames)
@@ -549,7 +549,7 @@ public sealed class SettingsViewContractTests
             "OnAccentModeSelectionChanged",
             AttributeValue(accentMode, "SelectionChanged"));
         Assert.Equal(
-            new[] { "Follow host", "Asura orange", "Custom" },
+            new[] { "Follow System", "Asura Orange", "Custom" },
             accentMode.Elements()
                 .Where(element => string.Equals(element.Name.LocalName, "ComboBoxItem", StringComparison.Ordinal))
                 .Select(element => AttributeValue(element, "Content"))
@@ -705,7 +705,7 @@ public sealed class SettingsViewContractTests
             element => string.Equals(element.Name.LocalName, "SettingRow"
 , StringComparison.Ordinal) && string.Equals(
                     AttributeValue(element, "Description"),
-                    "Active window follows whichever app is in front and falls back to Asura where unsupported. Asura window follows this app; Primary always uses the OS primary display.",
+                    "Active window follows whichever app is in front, or Asura where that isn’t possible. Asura window follows Asura. Primary display always uses the main display.",
                     StringComparison.Ordinal));
 
         // Minor options of the drop-down are checkboxes, not switches.
@@ -949,8 +949,8 @@ public sealed class SettingsViewContractTests
 
     private static readonly string[] QuickTerminalAutomationNames =
     [
-        "Quick Terminal global hotkey",
-        "Record Quick Terminal global hotkey",
+        "Quick Terminal global shortcut",
+        "Record Quick Terminal global shortcut",
         "Quick Terminal display",
         "Quick Terminal panel height",
         "Quick Terminal background opacity",

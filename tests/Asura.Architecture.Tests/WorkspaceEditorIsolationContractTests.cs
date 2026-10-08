@@ -38,11 +38,11 @@ public sealed class WorkspaceEditorIsolationContractTests
                 "Isolate workspace",
                 StringComparison.Ordinal));
         Assert.Contains(
-            "execution and network boundary",
+            "run and reach the network from there",
             AttributeValue(isolationToggleRow, "Description"),
             StringComparison.Ordinal);
         Assert.Contains(
-            "All workspace panels, connections, and local terminals use it",
+            "All of its panels, connections, and local terminals",
             AttributeValue(isolationToggleRow, "Description"),
             StringComparison.Ordinal);
         var runtimeRequirement = Assert.Single(
@@ -135,7 +135,7 @@ public sealed class WorkspaceEditorIsolationContractTests
                 "{Binding IsolationMounts}",
                 StringComparison.Ordinal));
 
-        var hostPath = FindAccessibleElement(mountRow, "Host mount source directory");
+        var hostPath = FindAccessibleElement(mountRow, "Host folder");
         Assert.Equal("{Binding HostPath, Mode=TwoWay}", AttributeValue(hostPath, "Text"));
         var guestPath = FindAccessibleElement(mountRow, "Host mount guest path");
         Assert.Equal("{Binding GuestPath, Mode=TwoWay}", AttributeValue(guestPath, "Text"));
@@ -219,7 +219,7 @@ public sealed class WorkspaceEditorIsolationContractTests
         var editorHandler = File.ReadAllText(Path.Combine(views, "MainWindow.axaml.cs"));
 
         Assert.Contains(
-            "Workspace will be restarted to change isolation configuration.",
+            "The workspace restarts to apply the new isolation settings.",
             confirmation,
             StringComparison.Ordinal);
         Assert.Contains(

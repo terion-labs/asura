@@ -88,7 +88,7 @@ public sealed partial class GitSubmoduleDialog : DialogWindow
             || !Enum.TryParse<GitSubmoduleAction>(tag, out var action)) { return; }
         if (!await new ConfirmationDialog(new ConfirmationDialogOptions
         {
-            Heading = $"{tag} submodule “{item.Path}”?",
+            Heading = $"{tag} Submodule “{item.Path}”?",
             Detail = "Recorded revision: " + item.ExpectedRevision,
             Notice = item.IsDirty ? "This submodule has local edits. Git may refuse to move the checkout until they are saved." : "The action applies recursively to this submodule.",
             ConfirmLabel = tag,
@@ -100,7 +100,7 @@ public sealed partial class GitSubmoduleDialog : DialogWindow
         if (_lifetime.IsCancellationRequested) { return; }
         SetBusy(false);
         if (success) { await ReloadAsync(); }
-        else { ShowMessage(panel.IssueMessage ?? "The submodule action could not complete."); }
+        else { ShowMessage(panel.IssueMessage ?? "The submodule action couldn’t finish. Refresh, then try again."); }
     }
 
     private async void OnOpen(object? sender, RoutedEventArgs e)

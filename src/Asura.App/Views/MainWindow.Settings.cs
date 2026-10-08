@@ -25,7 +25,7 @@ public sealed partial class MainWindow
 
     internal static IReadOnlyList<AppearanceTextScaleOption> AppearanceTextScaleOptions { get; } =
     [
-        new("Follow host", null),
+        new("Follow System", null),
         new("100%", 1),
         new("125%", 1.25),
         new("150%", 1.5),
@@ -529,7 +529,7 @@ public sealed partial class MainWindow
         var editor = ViewModel.BrowserProfileSettingsEditor;
         editor.SelectedProfile = profile;
         if (!editor.DeleteCommand.CanExecute(null)
-            || !await Confirmations.DefinitionDelete("browser profile", profile.Name)
+            || !await Confirmations.DefinitionDelete("Browser Profile", profile.Name)
                 .ShowDialog<bool>(SettingsDialogOwner))
         {
             return;
@@ -749,7 +749,7 @@ public sealed partial class MainWindow
 
         if (ViewModel.KeybindingEditorSession?.IsDirty == true
             && !await Confirmations.DiscardChanges(
-                    "Discard keybinding changes?",
+                    "Discard Keyboard Shortcut Changes?",
                     "The unsaved shortcuts, prefix, and conflict resolutions will be lost.")
                 .ShowDialog<bool>(SettingsDialogOwner))
         {
@@ -825,7 +825,7 @@ public sealed partial class MainWindow
 
         if (recorded.Count != 1)
         {
-            ViewModel.SetError("An application prefix must contain exactly one key stroke.");
+            ViewModel.SetError("The prefix must be a single keystroke.");
             return;
         }
 
@@ -958,7 +958,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        var confirmed = await Confirmations.DefinitionDelete("AI provider", profile.Name)
+        var confirmed = await Confirmations.DefinitionDelete("AI Provider", profile.Name)
             .ShowDialog<bool>(SettingsDialogOwner);
         if (!confirmed)
         {
@@ -1036,7 +1036,7 @@ public sealed partial class MainWindow
         }
 
         var confirmed = await Confirmations.DefinitionDelete(
-                "MCP server",
+                "MCP Server",
                 profile.Name)
             .ShowDialog<bool>(SettingsDialogOwner);
         if (!confirmed)
@@ -1110,7 +1110,7 @@ public sealed partial class MainWindow
         _pendingColorSampleField = field;
         Cursor = new Cursor(StandardCursorType.Cross);
         ViewModel.ShowApplicationKeySequenceHint(
-            $"Click anywhere to sample the {field.ToLowerInvariant()} colour · Esc to cancel");
+            $"Click anywhere to sample the {field.ToLowerInvariant()} color · Esc to cancel");
         AddHandler(PointerPressedEvent, OnColorSamplePointerPressed, RoutingStrategies.Tunnel);
         AddHandler(KeyDownEvent, OnColorSampleKeyDown, RoutingStrategies.Tunnel);
     }
@@ -1252,7 +1252,9 @@ public sealed partial class MainWindow
             ArgumentException or FormatException or InvalidOperationException)
         {
             SettingsRoute.SetAppearanceValidationStatus(
-                $"Cannot preview: {exception.Message}",
+                AppearanceValueFailure(
+                    exception,
+                    "Can’t preview these settings. Check the values and try again."),
                 isWarning: true);
         }
     }
@@ -1266,11 +1268,17 @@ public sealed partial class MainWindow
             return;
         }
 
+        if (ViewModel.TerminalSettingsEditor is not { } editor)
+        {
+            SettingsRoute.SetAppearanceValidationStatus(
+                "There’s no terminal profile to preview.",
+                isWarning: true);
+            return;
+        }
+
         try
         {
-            var terminal = ViewModel.TerminalSettingsEditor?.CreateSaveRequest().Profile
-                ?? throw new InvalidOperationException(
-                    "No terminal profile is available to preview.");
+            var terminal = editor.CreateSaveRequest().Profile;
             if (!ViewModel.PreviewTerminalAppearance(terminal))
             {
                 SettingsRoute.SetAppearanceValidationStatus(
@@ -1290,10 +1298,34 @@ public sealed partial class MainWindow
             ArgumentException or FormatException or InvalidOperationException)
         {
             SettingsRoute.SetAppearanceValidationStatus(
-                $"Cannot preview: {exception.Message}",
+                AppearanceValueFailure(
+                    exception,
+                    "Can’t preview these settings. Check the values and try again."),
                 isWarning: true);
         }
     }
+
+    /// <summary>
+    /// What to fix when an appearance value is rejected, named by the field
+    /// the person edited rather than in the parser's or the profile's own
+    /// wording. A color that isn't six hex digits is the failure people hit
+    /// most; a value outside its range says the range. Anything unexpected
+    /// gets <paramref name="fallback"/>, which says what couldn't be done.
+    /// </summary>
+    internal static string AppearanceValueFailure(Exception exception, string fallback) =>
+        exception switch
+        {
+            FormatException => "Enter each color as six hex digits, like #FF8800.",
+            ArgumentException { ParamName: "fontSize" } => "The font size must be from 6 to 96 points.",
+            ArgumentException { ParamName: "lineHeight" } => "The line height must be from 0.8 to 3.",
+            ArgumentException { ParamName: "scrollbackLines" } => "Scrollback must be from 0 to 10,000,000 lines.",
+            ArgumentException { ParamName: "fontFamily" } => "Enter a font family name on one line.",
+            ArgumentException { ParamName: "textScaleOverride" } => "Text size must be from 50% to 400%.",
+            ArgumentException { ParamName: "backdropOpacityPercent" } =>
+                $"Background opacity must be from {ThemePreference.MinimumBackdropOpacityPercent}% to "
+                + $"{ThemePreference.MaximumBackdropOpacityPercent}%.",
+            _ => fallback,
+        };
 
     private ThemePreference ThemeFrom(AppearanceSelection selection)
     {
@@ -1385,7 +1417,7 @@ public sealed partial class MainWindow
         return warnings.Count == 0
             ? theme is not null
                 ? "Application appearance saves automatically."
-                : "Terminal preview only. Apply terminal saves; Cancel restores the saved terminal appearance."
+                : "Previewing the terminal. Apply Terminal saves it; Cancel restores the saved terminal appearance."
             : "Contrast warning: " + string.Join("; ", warnings) + ".";
     }
 
@@ -1414,7 +1446,9 @@ public sealed partial class MainWindow
         catch (Exception exception) when (exception is
             ArgumentException or FormatException or InvalidOperationException)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(AppearanceValueFailure(
+                exception,
+                "Can’t save the appearance. Check the values and try again."));
         }
     }
 
@@ -1450,7 +1484,9 @@ public sealed partial class MainWindow
         catch (Exception exception) when (exception is
             ArgumentException or FormatException or InvalidOperationException)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(AppearanceValueFailure(
+                exception,
+                "Can’t apply the terminal appearance. Check the values and try again."));
         }
     }
 
@@ -1487,7 +1523,7 @@ public sealed partial class MainWindow
     }
 
     private static FilePickerFileType AppearanceThemeFileType { get; } = new(
-        "Asura appearance theme")
+        "Asura Appearance Theme")
     {
         Patterns = ["*.json"],
         MimeTypes = ["application/json"],
@@ -1511,7 +1547,7 @@ public sealed partial class MainWindow
             var destination = await SettingsDialogOwner.StorageProvider.SaveFilePickerAsync(
                 new FilePickerSaveOptions
                 {
-                    Title = "Export Asura appearance",
+                    Title = "Export Appearance",
                     SuggestedFileName = PortableAppearanceThemeFile.SuggestedFileName,
                     DefaultExtension = "json",
                     FileTypeChoices = [AppearanceThemeFileType],
@@ -1539,7 +1575,7 @@ public sealed partial class MainWindow
             ArgumentException or IOException or JsonException
             or NotSupportedException or UnauthorizedAccessException)
         {
-            ViewModel.SetError($"Appearance export failed: {exception.Message}");
+            ViewModel.SetError(AppearanceFileError(exception, exporting: true));
         }
     }
 
@@ -1552,7 +1588,7 @@ public sealed partial class MainWindow
             var selected = await SettingsDialogOwner.StorageProvider.OpenFilePickerAsync(
                 new FilePickerOpenOptions
                 {
-                    Title = "Import Asura appearance",
+                    Title = "Import Appearance",
                     AllowMultiple = false,
                     FileTypeFilter = [AppearanceThemeFileType],
                 });
@@ -1619,9 +1655,24 @@ public sealed partial class MainWindow
             ArgumentException or IOException or JsonException
             or NotSupportedException or UnauthorizedAccessException)
         {
-            ViewModel.SetError($"Appearance import failed: {exception.Message}");
+            ViewModel.SetError(AppearanceFileError(exception, exporting: false));
         }
     }
+
+    /// <summary>
+    /// What went wrong with an appearance theme file, in words a person can
+    /// act on; the exception's own text names types and paths, not causes.
+    /// </summary>
+    private static string AppearanceFileError(Exception exception, bool exporting) => exception switch
+    {
+        UnauthorizedAccessException or IOException or NotSupportedException when exporting =>
+            SaveFailure.Describe(exception),
+        UnauthorizedAccessException => "Asura doesn’t have permission to open that file.",
+        IOException => "The appearance theme couldn’t be read. Check that the file is still there, then try again.",
+        _ => exporting
+            ? "The appearance theme couldn’t be exported."
+            : "This file isn’t an Asura appearance theme, or it’s damaged.",
+    };
 
     /// <summary>
     /// Applying a preset only rewrites the open editor; it reaches the store when
@@ -1719,7 +1770,7 @@ public sealed partial class MainWindow
         var input = SettingsRoute.CaptureAiProviderSecretForm();
         if (input.Profile is null)
         {
-            ViewModel.SetError("Choose an AI-provider profile.");
+            ViewModel.SetError("Choose an AI provider.");
             return;
         }
 
@@ -1767,7 +1818,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        var confirmed = await Confirmations.DefinitionDelete("credential", secret.Label)
+        var confirmed = await Confirmations.DefinitionDelete("Credential", secret.Label)
             .ShowDialog<bool>(SettingsDialogOwner);
         if (confirmed)
         {

@@ -8,7 +8,7 @@
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia"
     xmlns:views="using:Asura.App.Views"
-    Title="Asura Quick Terminal"
+    Title="Quick Terminal"
     Width="1200"
     Height="520"
     MinWidth="640"
@@ -239,8 +239,8 @@
               <Button
                   Classes="IconButton"
                   Click="OnToggleAgentClick"
-                  ToolTip.Tip="Toggle agent panel"
-                  AutomationProperties.Name="Toggle AI agent panel">
+                  ToolTip.Tip="Show or hide the agent panel"
+                  AutomationProperties.Name="Show or hide the agent panel">
                 <Grid>
                   <icons:SymbolIcon
                       FontSize="{DynamicResource ShellIconSizeSm}"

@@ -67,8 +67,8 @@ public sealed partial class ShortcutRecorderDialog : DialogWindow
         {
             this.FindControl<TextBlock>("RecorderStatusText")!.Text =
                 _maximumStrokes == 1
-                    ? "Terminal shortcuts contain exactly one key stroke."
-                    : $"A shortcut cannot contain more than {_maximumStrokes} strokes.";
+                    ? "A terminal shortcut has exactly one stroke."
+                    : $"A shortcut can’t have more than {_maximumStrokes} strokes.";
             e.Handled = true;
             return;
         }

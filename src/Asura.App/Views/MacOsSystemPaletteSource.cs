@@ -260,7 +260,7 @@ internal sealed class MacOsSystemPaletteSource : IHostSystemPaletteSource
             if (observerClass == 0)
             {
                 throw new InvalidOperationException(
-                    "Could not allocate the macOS system-colour observer class.");
+                    "Could not allocate the macOS system-color observer class.");
             }
 
             if (!class_addMethod(
@@ -271,7 +271,7 @@ internal sealed class MacOsSystemPaletteSource : IHostSystemPaletteSource
             {
                 objc_disposeClassPair(observerClass);
                 throw new InvalidOperationException(
-                    "Could not register the macOS system-colour observer callback.");
+                    "Could not register the macOS system-color observer callback.");
             }
 
             objc_registerClassPair(observerClass);

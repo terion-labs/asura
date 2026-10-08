@@ -88,7 +88,7 @@ public sealed partial class GitLfsDialog : DialogWindow
         if (LocksList.SelectedItem is not GitLfsLockItemViewModel { Item: { } selected }) { return; }
         if (await new ConfirmationDialog(new ConfirmationDialogOptions
         {
-            Heading = $"Force unlock “{selected.Path}”?",
+            Heading = $"Force Unlock “{selected.Path}”?",
             Detail = $"Owner: {selected.OwnerName}\nLock: {selected.Id}\nRemote: {Remote}",
             Notice = "This removes the lock even when another account owns it, and that person's work on the file is no longer protected.",
             ConfirmLabel = "Force Unlock",
@@ -106,6 +106,6 @@ public sealed partial class GitLfsDialog : DialogWindow
         if (_lifetime.IsCancellationRequested) { return; }
         SetBusy(false);
         if (success) { await ReloadAsync(); }
-        else { ShowMessage(panel.IssueMessage ?? "The lock action could not complete. Refresh before retrying."); }
+        else { ShowMessage(panel.IssueMessage ?? "The lock couldn’t be changed. Refresh, then try again."); }
     }
 }

@@ -118,7 +118,7 @@ public sealed partial class GitFileHistoryDialog : DialogWindow
         {
             var destination = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                Title = "Save recorded file",
+                Title = "Save Revision",
                 SuggestedFileName = System.IO.Path.GetFileName(viewModel.Path),
             });
             if (destination is null || await viewModel.ReadSelectedBytesAsync() is not { } bytes)
@@ -132,7 +132,7 @@ public sealed partial class GitFileHistoryDialog : DialogWindow
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            await Confirmations.Problem("The revision could not be saved", exception.Message).ShowDialog(this);
+            await Confirmations.Problem("Couldn’t Save the Revision", SaveFailure.Describe(exception)).ShowDialog(this);
         }
     }
 }
