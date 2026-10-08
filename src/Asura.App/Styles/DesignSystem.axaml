@@ -850,10 +850,12 @@
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="IsHitTestVisible" Value="False" />
-      <!-- Secondary label colour by default: a dot says something is waiting,
-           not that something can be pressed, and the accent is kept for the
-           second. A caller with a tone sets its own fill. -->
-      <Setter Property="Background" Value="{DynamicResource ShellMutedBrush}" />
+      <!-- The host's badge red: a dot says something is waiting for you. It
+           was the secondary label colour, the same gray as an idle mark, so
+           a workspace asking for you looked like one with nothing to say; and
+           it is not the accent, which is kept for what can be pressed. A
+           caller with a tone sets its own fill. -->
+      <Setter Property="Background" Value="{DynamicResource ShellAttentionBrush}" />
       <!-- The ring is the page behind it, not a colour of its own: the dot is
            drawn over whatever it marks, and against a tile that happens to be
            accent-coloured an unringed dot is invisible. -->

@@ -832,6 +832,23 @@ public sealed partial class App : Avalonia.Application
                     : "0 8 48 0 #8C000000, 0 2 14 0 #59000000")
                 + $", inset 0 0 40 0 #38{accentHex}"));
         Publish("ShellAccentForegroundBrush", Brush(resources.AccentForeground));
+        // A toggle that is on, and the stock accent button, stand on the same
+        // accent fill as the default button, so they wear the same measured
+        // ink. The stock theme's white on an orange or yellow accent fell to
+        // between 1.4:1 and 2.5:1.
+        foreach (var state in new[] { string.Empty, "PointerOver", "Pressed" })
+        {
+            Publish($"ToggleButtonForegroundChecked{state}", Brush(resources.AccentForeground));
+            Publish($"AccentButtonForeground{state}", Brush(resources.AccentForeground));
+        }
+
+        // The chosen segment is a raised plate; its shadow is what lifts it
+        // off the track where the two surfaces are close in tone.
+        Publish(
+            "ShellSegmentShadow",
+            BoxShadows.Parse(resources.ThemeVariant == ThemeVariant.Light
+                ? "0 1 2 0 #26000000, 0 0 0 0.5 #1F000000"
+                : "0 1 2 0 #59000000"));
         Publish("ShellAccentSoftBrush", Brush(resources.AccentSoft));
         // A strongly selected row and its label, and the quieter selection of a
         // list that does not have focus — AppKit's own where it has them.
@@ -839,6 +856,7 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellSelectedContentForegroundBrush", Brush(resources.SelectedContentForeground));
         Publish("ShellUnemphasizedSelectionBrush", Brush(resources.UnemphasizedSelection));
         Publish("ShellDangerBrush", Brush(resources.Danger));
+        Publish("ShellDangerTextBrush", Brush(resources.DangerText));
         Publish("ShellDangerForegroundBrush", Brush(resources.DangerForeground));
         Publish("ShellDangerSoftBrush", Brush(resources.DangerSoft));
         Publish("ShellDangerBorderBrush", Brush(resources.DangerBorder));
@@ -852,6 +870,7 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellInfoSoftBrush", Brush(resources.InfoSoft));
         Publish("ShellInfoBorderBrush", Brush(resources.InfoBorder));
         Publish("ShellStatusNeutralBrush", Brush(resources.StatusNeutral));
+        Publish("ShellAttentionBrush", Brush(resources.Attention));
         // Chart series take a palette of their own: a line coloured with the
         // accent read as something to press, and one in the success green
         // read as a verdict on the value it plots.

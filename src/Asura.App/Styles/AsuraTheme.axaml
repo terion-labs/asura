@@ -27,7 +27,19 @@
     <Setter Property="FontFamily" Value="{DynamicResource ShellUiFontFamily}" />
   </Style>
 
-  <Style Selector="TextBlock">
+  <!--
+    Text takes its colour from what it sits in. A blanket TextBlock rule used to
+    paint every text block the body colour, which outranked the foreground a
+    control hands its content: the black label a primary button measures for
+    its accent fill, the muted label of an unselected segment, the red of a
+    destructive action all came out in the body colour. The window sets the
+    body colour and everything inherits it from there.
+
+    A popup is a top level of its own and inherits nothing from the window,
+    and the stock theme gives it a foreground of its own; it takes the
+    shell's instead.
+  -->
+  <Style Selector="PopupRoot, OverlayPopupHost">
     <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
   </Style>
 
@@ -51,6 +63,36 @@
 
   <Style Selector="Button:pointerover /template/ ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource ShellControlHoverBrush}" />
+  </Style>
+
+  <!--
+    A button's label keeps the button's own colour through every state. The
+    stock theme swaps in a foreground of its own on hover, press and disabled,
+    which turned a muted text button white under the pointer and a destructive
+    one gray while disabled. Disabled is the button dimmed, not repainted: it
+    keeps its own surface too, so a borderless icon, text or row button stays
+    borderless instead of growing the stock gray bezel, and a bezel button
+    keeps its bezel. The dimming is the opacity rule below.
+  -->
+  <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{Binding $parent[Button].Foreground}" />
+  </Style>
+
+  <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{Binding $parent[Button].Foreground}" />
+    <Setter Property="Background" Value="{Binding $parent[Button].Background}" />
+    <Setter Property="BorderBrush" Value="{Binding $parent[Button].BorderBrush}" />
+  </Style>
+
+  <!-- The same for a toggle that is off. One that is on stands on the accent
+       and takes the measured accent ink, which the appearance pipeline
+       publishes as the stock checked foreground. -->
+  <Style Selector="ToggleButton:not(:checked):pointerover /template/ ContentPresenter#PART_ContentPresenter, ToggleButton:not(:checked):pressed /template/ ContentPresenter#PART_ContentPresenter, ToggleButton:not(:checked):disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{Binding $parent[ToggleButton].Foreground}" />
+  </Style>
+
+  <Style Selector="RepeatButton:pointerover /template/ ContentPresenter#PART_ContentPresenter, RepeatButton:pressed /template/ ContentPresenter#PART_ContentPresenter, RepeatButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{Binding $parent[RepeatButton].Foreground}" />
   </Style>
 
   <!--
@@ -258,6 +300,13 @@
     <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
   </Style>
 
+  <!-- The default button stays on its accent under the pointer and while
+       pressed, as the host's does: the hover gray behind its measured ink
+       read as black on gray. -->
+  <Style Selector="Button.PrimaryButton:pointerover /template/ ContentPresenter, Button.PrimaryButton:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+  </Style>
+
   <Style Selector="Button.SecondaryButton">
     <Setter Property="Background" Value="{DynamicResource ShellControlSurfaceBrush}" />
     <Setter Property="Padding" Value="{DynamicResource ShellButtonPadding}" />
@@ -308,12 +357,16 @@
     danger — the host convention — rather than a red-outlined box that reads as
     an error state before anything has gone wrong. Hover states the consequence
     by filling with the danger tone.
+
+    The label is the danger tone measured against the button's own surface
+    rather than the page: the plain danger red was 3.6:1 on a raised dark
+    control. It is set in the regular weight, because weight is how a default
+    button stands out, and a destructive action is never the default.
   -->
   <Style Selector="Button.DestructiveButton">
     <Setter Property="Background" Value="{DynamicResource ShellControlSurfaceBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellControlBorderBrush}" />
-    <Setter Property="Foreground" Value="{DynamicResource ShellDangerBrush}" />
-    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellDangerTextBrush}" />
     <Setter Property="Padding" Value="{DynamicResource ShellButtonPadding}" />
   </Style>
 
@@ -640,6 +693,22 @@
 
   <Style Selector="TextBox:disabled /template/ Border#PART_BorderElement">
     <Setter Property="Background" Value="{Binding $parent[TextBox].Background}" />
+  </Style>
+
+  <!-- A pop-up button that cannot be used dims as a push button does and
+       keeps its own chrome. The stock disabled state swapped in a flat gray
+       fill and gray text, which nothing else in the shell looks like. -->
+  <Style Selector="ComboBox:disabled">
+    <Setter Property="Opacity" Value="0.48" />
+  </Style>
+
+  <Style Selector="ComboBox:disabled /template/ Border#Background">
+    <Setter Property="Background" Value="{Binding $parent[ComboBox].Background}" />
+    <Setter Property="BorderBrush" Value="{Binding $parent[ComboBox].BorderBrush}" />
+  </Style>
+
+  <Style Selector="ComboBox:disabled /template/ ContentControl#ContentPresenter">
+    <Setter Property="Foreground" Value="{Binding $parent[ComboBox].Foreground}" />
   </Style>
 
   <!--
@@ -1437,16 +1506,24 @@
   </Style>
 
   <Style Selector="ToggleButton.Segment:pointerover /template/ Border#SegmentRoot, RadioButton.Segment:pointerover /template/ Border#SegmentRoot">
-    <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellSidebarSelectionBrush}" />
   </Style>
 
+  <!--
+    The chosen segment is the host's: a raised plate of the control surface
+    with its label in the body colour, not an accent fill. A strip of views is
+    a choice already made rather than something to press, and an accent
+    segment in every panel toolbar was one more accent competing with the
+    selection and the default button, with a label that did not read on it.
+  -->
   <Style Selector="ToggleButton.Segment:checked, RadioButton.Segment:checked">
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
     <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
 
   <Style Selector="ToggleButton.Segment:checked /template/ Border#SegmentRoot, RadioButton.Segment:checked /template/ Border#SegmentRoot">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellControlSurfaceBrush}" />
+    <Setter Property="BoxShadow" Value="{DynamicResource ShellSegmentShadow}" />
   </Style>
 
   <!-- A segment that does not apply stays where it is, dimmed: segments that
@@ -1526,16 +1603,19 @@
   </Style>
 
   <Style Selector="TabControl.Segmented > TabItem:pointerover /template/ Border#SegmentRoot">
-    <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellSidebarSelectionBrush}" />
   </Style>
 
+  <!-- The chosen tab is the chosen segment: the raised plate and the body
+       colour. -->
   <Style Selector="TabControl.Segmented > TabItem:selected">
-    <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
     <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
 
   <Style Selector="TabControl.Segmented > TabItem:selected /template/ Border#SegmentRoot">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellControlSurfaceBrush}" />
+    <Setter Property="BoxShadow" Value="{DynamicResource ShellSegmentShadow}" />
   </Style>
 
   <!-- Tabs whose picker lives elsewhere — a segmented toggle in the panel's

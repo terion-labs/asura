@@ -35,6 +35,7 @@
           <SolidColorBrush x:Key="ShellUnemphasizedSelectionBrush" Color="#2E2E2E" />
           <SolidColorBrush x:Key="ShellDangerBrush" Color="#FF7B72" />
           <SolidColorBrush x:Key="ShellDangerForegroundBrush" Color="#111111" />
+          <SolidColorBrush x:Key="ShellDangerTextBrush" Color="#FF8E86" />
           <SolidColorBrush x:Key="ShellDangerSoftBrush" Color="#3A1715" />
           <SolidColorBrush x:Key="ShellDangerBorderBrush" Color="#A84C45" />
           <SolidColorBrush x:Key="ShellSuccessBrush" Color="#77D797" />
@@ -47,6 +48,8 @@
           <SolidColorBrush x:Key="ShellInfoSoftBrush" Color="#15253A" />
           <SolidColorBrush x:Key="ShellInfoBorderBrush" Color="#2F5A86" />
           <SolidColorBrush x:Key="ShellStatusNeutralBrush" Color="#B8B9B6" />
+          <SolidColorBrush x:Key="ShellAttentionBrush" Color="#FF453A" />
+          <BoxShadows x:Key="ShellSegmentShadow">0 1 2 0 #59000000</BoxShadows>
           <SolidColorBrush x:Key="ShellChartSeries1Brush" Color="#1FA09D" />
           <SolidColorBrush x:Key="ShellChartSeries2Brush" Color="#8F7BE6" />
           <SolidColorBrush x:Key="ShellChartSeries3Brush" Color="#8C9628" />
@@ -99,6 +102,7 @@
           <SolidColorBrush x:Key="ShellUnemphasizedSelectionBrush" Color="#D7D8D5" />
           <SolidColorBrush x:Key="ShellDangerBrush" Color="#B42318" />
           <SolidColorBrush x:Key="ShellDangerForegroundBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="ShellDangerTextBrush" Color="#B42318" />
           <SolidColorBrush x:Key="ShellDangerSoftBrush" Color="#FDE8E5" />
           <SolidColorBrush x:Key="ShellDangerBorderBrush" Color="#A73528" />
           <SolidColorBrush x:Key="ShellSuccessBrush" Color="#147A3F" />
@@ -111,6 +115,8 @@
           <SolidColorBrush x:Key="ShellInfoSoftBrush" Color="#E5F0FC" />
           <SolidColorBrush x:Key="ShellInfoBorderBrush" Color="#6C9BD2" />
           <SolidColorBrush x:Key="ShellStatusNeutralBrush" Color="#5C5E5A" />
+          <SolidColorBrush x:Key="ShellAttentionBrush" Color="#FF3B30" />
+          <BoxShadows x:Key="ShellSegmentShadow">0 1 2 0 #26000000, 0 0 0 0.5 #1F000000</BoxShadows>
           <SolidColorBrush x:Key="ShellChartSeries1Brush" Color="#008F8A" />
           <SolidColorBrush x:Key="ShellChartSeries2Brush" Color="#7A5AD6" />
           <SolidColorBrush x:Key="ShellChartSeries3Brush" Color="#7A8417" />
