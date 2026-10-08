@@ -100,7 +100,7 @@ public sealed partial class GitSubmoduleDialog : DialogWindow
         if (_lifetime.IsCancellationRequested) { return; }
         SetBusy(false);
         if (success) { await ReloadAsync(); }
-        else { ShowMessage(panel.IssueMessage ?? "The submodule action could not complete."); }
+        else { ShowMessage(panel.IssueMessage ?? "The submodule action couldn’t finish. Refresh, then try again."); }
     }
 
     private async void OnOpen(object? sender, RoutedEventArgs e)

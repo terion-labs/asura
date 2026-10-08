@@ -422,8 +422,8 @@ internal static class Confirmations
             Detail = confirmation.Sessions.Count switch
             {
                 0 => "Closing ends active sessions. Unsaved work may be lost.",
-                1 => "This session could not be confirmed idle. Closing it ends the session.",
-                _ => $"{confirmation.Sessions.Count} sessions could not be confirmed idle. Closing ends them.",
+                1 => "Asura couldn’t confirm that this session is idle. Closing it ends the session.",
+                _ => $"Asura couldn’t confirm that {confirmation.Sessions.Count} sessions are idle. Closing ends them.",
             },
             Notice = string.Join(
                 Environment.NewLine,

@@ -1560,7 +1560,7 @@ public sealed partial class MainWindow : Window
         {
             if (!await Confirmations.DiscardChanges(
                     "Discard workspace changes?",
-                    "These changes cannot be saved yet, and switching workspaces loses them.\n\n"
+                    "These changes can’t be saved yet, and switching workspaces loses them.\n\n"
                     + editor.ValidationSummary).ShowDialog<bool>(WorkspaceEditorDialogOwner))
             {
                 return false;
@@ -1816,7 +1816,7 @@ public sealed partial class MainWindow : Window
         var terminal = FindActiveTerminalHost();
         if (terminal is null)
         {
-            ViewModel.SetError("The active panel cannot receive terminal input.");
+            ViewModel.SetError("The active panel doesn’t accept terminal input.");
             return;
         }
 

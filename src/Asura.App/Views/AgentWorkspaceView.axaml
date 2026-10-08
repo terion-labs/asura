@@ -781,7 +781,7 @@
                     Grid.Column="1"
                     VerticalAlignment="Center"
                     FontWeight="SemiBold"
-                    Text="Audit evidence" />
+                    Text="Recorded actions" />
                 <TextBlock
                     Grid.Column="2"
                     VerticalAlignment="Center"
@@ -794,7 +794,7 @@
               <TextBlock
                   Classes="Muted"
                   FontSize="{DynamicResource ShellSecondaryFontSize}"
-                  Text="Recorded actions only. Sensitive content is not shown."
+                  Text="Only the actions are recorded. Sensitive content isn’t shown."
                   TextWrapping="Wrap" />
               <ProgressBar
                   Height="3"
@@ -868,21 +868,21 @@
                   FontSize="{DynamicResource ShellSecondaryFontSize}"
                   Text="{Binding AgentChat.AuditStatus}"
                   TextWrapping="Wrap"
-                  AutomationProperties.Name="AI agent audit status" />
+                  AutomationProperties.Name="Recorded agent actions status" />
               <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                 <Button
                     Classes="SecondaryButton"
                     Click="OnRefreshAgentAuditClick"
                     Content="Refresh"
                     IsEnabled="{Binding AgentChat.CanRefreshAudit}"
-                    AutomationProperties.Name="Refresh current AI agent audit evidence" />
+                    AutomationProperties.Name="Refresh recorded agent actions" />
                 <Button
                     Grid.Column="1"
                     Classes="TextButton"
                     Click="OnLoadOlderAgentAuditClick"
                     Content="Load Older"
                     IsEnabled="{Binding AgentChat.CanLoadOlderAudit}"
-                    AutomationProperties.Name="Load older AI agent audit evidence" />
+                    AutomationProperties.Name="Load older recorded agent actions" />
               </Grid>
             </StackPanel>
           </Expander>

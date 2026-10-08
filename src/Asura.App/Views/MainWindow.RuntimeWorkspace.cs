@@ -785,13 +785,13 @@ public sealed partial class MainWindow
             });
             if (process is null)
             {
-                ViewModel.SetError("The Docker installation guide could not be opened.");
+                ViewModel.SetError("The Docker installation guide couldn’t be opened.");
             }
         }
         catch (Exception exception) when (exception is InvalidOperationException
             or System.ComponentModel.Win32Exception)
         {
-            ViewModel.SetError("The Docker installation guide could not be opened.");
+            ViewModel.SetError("The Docker installation guide couldn’t be opened.");
         }
     }
 

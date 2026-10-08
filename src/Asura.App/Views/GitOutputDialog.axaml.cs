@@ -44,7 +44,7 @@ public sealed partial class GitOutputDialog : DialogWindow
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            Shell.Subtitle = "Could not save: " + exception.Message;
+            Shell.Subtitle = SaveFailure.Describe(exception);
         }
     }
 }

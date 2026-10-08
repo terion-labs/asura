@@ -14,7 +14,7 @@ namespace Asura.App.Views;
 public sealed partial class MainWindow
 {
     private static readonly FilePickerFileType AgentHistoryFileType = new(
-        "Asura agent history")
+        "Asura Agent History")
     {
         Patterns = ["*.json"],
         MimeTypes = ["application/json"],

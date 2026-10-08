@@ -1487,7 +1487,7 @@ public sealed partial class MainWindow
     }
 
     private static FilePickerFileType AppearanceThemeFileType { get; } = new(
-        "Asura appearance theme")
+        "Asura Appearance Theme")
     {
         Patterns = ["*.json"],
         MimeTypes = ["application/json"],
@@ -1629,12 +1629,10 @@ public sealed partial class MainWindow
     /// </summary>
     private static string AppearanceFileError(Exception exception, bool exporting) => exception switch
     {
-        UnauthorizedAccessException => exporting
-            ? "Asura doesn’t have permission to save there. Choose another folder."
-            : "Asura doesn’t have permission to open that file.",
-        IOException => exporting
-            ? "The appearance theme couldn’t be saved. Check that the disk has room, then try again."
-            : "The appearance theme couldn’t be read. Check that the file is still there, then try again.",
+        UnauthorizedAccessException or IOException or NotSupportedException when exporting =>
+            SaveFailure.Describe(exception),
+        UnauthorizedAccessException => "Asura doesn’t have permission to open that file.",
+        IOException => "The appearance theme couldn’t be read. Check that the file is still there, then try again.",
         _ => exporting
             ? "The appearance theme couldn’t be exported."
             : "This file isn’t an Asura appearance theme, or it’s damaged.",

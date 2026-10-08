@@ -106,6 +106,6 @@ public sealed partial class GitLfsDialog : DialogWindow
         if (_lifetime.IsCancellationRequested) { return; }
         SetBusy(false);
         if (success) { await ReloadAsync(); }
-        else { ShowMessage(panel.IssueMessage ?? "The lock action could not complete. Refresh before retrying."); }
+        else { ShowMessage(panel.IssueMessage ?? "The lock couldn’t be changed. Refresh, then try again."); }
     }
 }

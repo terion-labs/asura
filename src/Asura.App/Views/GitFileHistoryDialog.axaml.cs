@@ -132,7 +132,7 @@ public sealed partial class GitFileHistoryDialog : DialogWindow
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            await Confirmations.Problem("The revision could not be saved", exception.Message).ShowDialog(this);
+            await Confirmations.Problem("Couldn’t Save the Revision", SaveFailure.Describe(exception)).ShowDialog(this);
         }
     }
 }

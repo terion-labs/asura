@@ -713,7 +713,7 @@
               <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceMd}">
                 <controls:ToggleField
                     Label="Run the AI agent in the workspace environment"
-                    OnLabel="The provider is reached through this workspace's route; providers available only on the host cannot be selected."
+                    OnLabel="The provider is reached through this workspace's route; providers available only on this computer can’t be chosen."
                     OffLabel="The provider is reached over the host network."
                     IsChecked="{CompiledBinding RunAgentInIsolation, Mode=TwoWay}"
                     IsVisible="{Binding IsIsolated}"

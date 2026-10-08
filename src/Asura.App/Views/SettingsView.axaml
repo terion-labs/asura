@@ -1214,7 +1214,7 @@
                             AutomationProperties.Name="History export status" />
                       </StackPanel>
                       <WrapPanel Grid.Column="1" HorizontalAlignment="Right" Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceXs}" LineSpacing="{DynamicResource ShellSpaceXs}">
-                        <Button Classes="SecondaryButton" Click="OnExportAllHistoryClick" Content="Export All…" IsEnabled="{Binding CanExportAllHistory}" AutomationProperties.Name="Export all retained history metadata" />
+                        <Button Classes="SecondaryButton" Click="OnExportAllHistoryClick" Content="Export All…" IsEnabled="{Binding CanExportAllHistory}" AutomationProperties.Name="Export all session history" />
                         <Button Classes="SecondaryButton" Click="OnCancelHistoryExportClick" Content="Cancel Export" IsVisible="{Binding IsHistoryExporting}" AutomationProperties.Name="Cancel session history export" />
                         <Button Classes="DestructiveButton" Click="OnClearRecentSessionsClick" Content="Clear History…" IsEnabled="{Binding CanClearRecentSessionHistory}" AutomationProperties.Name="Clear retained session history" />
                         <Button Classes="DestructiveButton" Click="OnResetRecentSessionHistoryClick" Content="Reset Unreadable History…" IsEnabled="{Binding CanResetRecentSessionHistory}" IsVisible="{Binding HasUnreadableRecentSessionHistory}" AutomationProperties.Name="Reset unreadable session history" />
@@ -1488,7 +1488,7 @@
 
               <controls:SettingsGroup
                   Heading="Agent history"
-                  Description="Choose how much agent-run history to keep, or export saved run metadata."
+                  Description="Choose how much agent history to keep, or export a record of past runs."
                   IsVisible="{Binding AgentHistoryOwner, Converter={x:Static ObjectConverters.IsNotNull}}">
                 <controls:SettingRow Label="Keep history">
                   <ComboBox
@@ -1511,7 +1511,7 @@
                     <WrapPanel Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceSm}" LineSpacing="{DynamicResource ShellSpaceXs}">
                       <Button Classes="SecondaryButton" Click="OnExportAgentHistoryClick" Content="Export…"
                           IsEnabled="{Binding AgentHistoryOwner.CanExportHistory}"
-                          AutomationProperties.Name="Export metadata-only agent history" />
+                          AutomationProperties.Name="Export agent history" />
                     </WrapPanel>
                     <controls:LiveRegionTextBlock Classes="Muted" Text="{Binding AgentHistoryOwner.AgentHistoryStatus}" TextWrapping="Wrap"
                         AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Agent history status" />

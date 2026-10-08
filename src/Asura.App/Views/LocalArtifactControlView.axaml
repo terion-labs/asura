@@ -25,7 +25,7 @@
             Click="OnRefreshClick"
             Content="Refresh"
             IsEnabled="{Binding CanRefresh}"
-            AutomationProperties.Name="Refresh app-managed cache and log metadata" />
+            AutomationProperties.Name="Refresh the cache and log list" />
       </Grid>
 
       <controls:Callout
