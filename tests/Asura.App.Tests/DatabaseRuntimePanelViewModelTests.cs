@@ -1489,7 +1489,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         await panel.PreviewTableAsync(panel.Tables[0]);
 
         Assert.False(panel.CanEditRows);
-        Assert.Equal("This primary-key value cannot be edited safely.", panel.ReadOnlyReason);
+        Assert.Equal("This primary-key value can't be edited safely here. Edit it with SQL instead.", panel.ReadOnlyReason);
         Assert.Equal(DatabaseValueKind.Other, panel.ResultColumns[0].ValueKind);
         Assert.False(panel.ResultRows[0].Cells[0].IsEditable);
     }
@@ -2264,7 +2264,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         Assert.False(panel.CanEditRows);
         Assert.False(panel.CanMutateRows);
         Assert.Equal(
-            "This query result does not map exactly to one editable table.",
+            "This query result doesn't map exactly to one editable table.",
             panel.ReadOnlyReason);
         Assert.All(panel.ResultRows.SelectMany(row => row.Cells), cell => Assert.False(cell.IsEditable));
         Assert.True(panel.CanFilterTable);
@@ -2714,7 +2714,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         var payload = Assert.Single(row.Cells, cell => string.Equals(cell.Column.Name, "payload", StringComparison.Ordinal));
         Assert.False(payload.IsEditable);
         Assert.False(payload.IsValid);
-        Assert.Contains("requires a value this viewer cannot edit safely", payload.ValidationError);
+        Assert.Contains("needs a value that can't be edited safely here", payload.ValidationError);
         Assert.False(panel.CanSaveChanges);
 
         await panel.SaveChangesAsync();

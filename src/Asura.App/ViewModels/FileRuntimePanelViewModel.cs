@@ -1410,8 +1410,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
                 && !string.Equals(profile.Id, _initialProfileId, StringComparison.Ordinal))
             {
                 SetOperationIssue(FileOperationIssue.Configuration(
-                    "This Files panel is still waiting for its saved provider. "
-                    + "It will not substitute another provider before the saved session binds."));
+                    "This Files panel is still waiting for its saved file provider. "
+                    + "It won't switch to another file provider while it waits."));
                 return;
             }
 
@@ -1589,7 +1589,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         if (!CanCreateFolder || CurrentLocation is null)
         {
             SetOperationIssue(FileOperationIssue.Validation(
-                "This provider cannot create a folder at the current location."));
+                "You can't create a folder here. Choose another location."));
             return false;
         }
 
@@ -1742,7 +1742,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         if (!SelectedProfile.Capabilities.HasFlag(requiredCapabilities))
         {
             throw new InvalidOperationException(
-                "The selected destination cannot receive this item type.");
+                "That destination can't hold this kind of item. Choose another destination.");
         }
 
         var destinationParent = destinationFolder?.WithVersion(null)
@@ -1757,7 +1757,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
                 StringComparison.Ordinal))
         {
             throw new InvalidOperationException(
-                "The drop folder does not belong to the selected destination.");
+                "The drop folder doesn't belong to the selected destination.");
         }
 
         var destination = FileLocationPresentation.Child(
@@ -1773,7 +1773,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             && source.Location.WithVersion(null) == destinationParent)
         {
             throw new InvalidOperationException(
-                "A folder cannot be transferred into itself.");
+                "A folder can't be copied or moved into itself. Choose another destination.");
         }
 
         return new FilePanelTransferRequest(
@@ -1955,7 +1955,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         if (!CanUpload || CurrentLocation is null || SelectedProfile is null)
         {
             throw new InvalidOperationException(
-                "This provider cannot receive an uploaded file at the current location.");
+                "You can't upload files here. Choose another location.");
         }
 
         var homeProfile = Profiles.Single(profile => string.Equals(profile.Id, "builtin.files.home", StringComparison.Ordinal));
@@ -2159,7 +2159,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             Status = "Waiting for saved file provider";
             SetContentIssue(FileOperationIssue.Configuration(
-                "The saved Files panel provider is not currently available."));
+                "This panel's file provider isn't available right now."));
             return;
         }
 
@@ -2223,7 +2223,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             CurrentLocation = null;
             Status = "Saved file provider unavailable";
             SetContentIssue(FileOperationIssue.Configuration(
-                "The saved Files panel provider is not currently available. Repair the saved screen or provider profile."));
+                "This panel's file provider isn't available. Choose another file provider for the saved screen in Settings, or check the file provider's settings."));
             return;
         }
 
@@ -2343,7 +2343,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
                 CurrentLocation = null;
                 Status = "Saved startup location invalid";
                 SetContentIssue(FileOperationIssue.Configuration(
-                    "The saved Files panel startup location is not valid for this provider. Repair the saved screen before reopening it."));
+                    "This panel's starting folder doesn't exist on its file provider. Choose another starting folder for the saved screen in Settings, then open it again."));
                 return;
             }
         }
@@ -3177,9 +3177,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
     /// "item(s)" it replaces made every reader do the grammar.
     /// </summary>
     internal static string CountOf(int count, string noun) =>
-        string.Create(
-            CultureInfo.CurrentCulture,
-            $"{count:N0} {(count == 1 ? noun : noun + "s")}");
+        CountText.Of(count, noun, noun + "s");
 
     private int CompareEntries(FilePanelEntry? left, FilePanelEntry? right)
     {
@@ -3340,7 +3338,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
     {
         if (_archiveReader is null || _contentSource is null)
         {
-            PreviewText = "Archives cannot be listed on this system.";
+            PreviewText = "Archive previews aren't available on this computer.";
             return;
         }
 
@@ -3383,7 +3381,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
 
             if (entries is null)
             {
-                PreviewText = "This file could not be read as an archive.";
+                PreviewText = "Asura couldn't read this file as an archive. It may be damaged or in a format Asura doesn't support.";
                 return;
             }
 
@@ -3461,7 +3459,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
     {
         if (_databaseClient is null || _contentSource is null)
         {
-            PreviewText = "This build cannot open database files in the preview.";
+            PreviewText = "Database previews aren't available in this version of Asura.";
             return;
         }
 
@@ -3506,7 +3504,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             if (ReferenceEquals(_preview, operation))
             {
-                PreviewText = "The database could not be opened.";
+                PreviewText = "Asura couldn't open the database. It may be damaged or in use.";
             }
 
             return;
@@ -3542,7 +3540,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
 
         if (connectionString is null)
         {
-            PreviewText = "This build cannot open remote database files in the preview.";
+            PreviewText = "Previews of database files on other computers aren't available in this version of Asura.";
             return;
         }
 
@@ -3586,7 +3584,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
     {
         if (_contentSource is null)
         {
-            PreviewText = "This client cannot open whole images.";
+            PreviewText = "Image previews aren't available for this location.";
             return;
         }
 
@@ -3629,7 +3627,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
 
                 if (decoded is null)
                 {
-                    PreviewText = "The image data could not be decoded safely.";
+                    PreviewText = "Asura couldn't show this image. It may be damaged or in a format Asura doesn't support.";
                     return;
                 }
 
@@ -3652,7 +3650,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
 
             if (bitmap is null)
             {
-                PreviewText = "The image data could not be decoded safely.";
+                PreviewText = "Asura couldn't show this image. It may be damaged or in a format Asura doesn't support.";
                 return;
             }
 
@@ -3666,7 +3664,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             if (ReferenceEquals(_preview, operation))
             {
-                PreviewText = "The image could not be opened.";
+                PreviewText = "Asura couldn't open the image. Try again.";
             }
         }
         finally
@@ -3705,7 +3703,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
     {
         if (_contentSource is null)
         {
-            PreviewText = "This client cannot open web pages.";
+            PreviewText = "Web page previews aren't available for this location.";
             return;
         }
 
@@ -3764,7 +3762,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             if (ReferenceEquals(_preview, operation))
             {
-                PreviewText = "The web page could not be opened.";
+                PreviewText = "Asura couldn't open the web page. Try again.";
             }
         }
         finally
@@ -3820,7 +3818,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
     {
         if (_pdfRenderer is null || _contentSource is null)
         {
-            PreviewText = "This build cannot open PDF files in the preview.";
+            PreviewText = "PDF previews aren't available in this version of Asura.";
             return;
         }
 
@@ -3854,7 +3852,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             _pdfPageCount = await _pdfRenderer.CountPagesAsync(_pdfContent, operation.Token);
             if (_pdfPageCount == 0)
             {
-                PreviewText = "This PDF could not be opened; it may be damaged or encrypted.";
+                PreviewText = "Asura couldn't open this PDF. It may be damaged or password-protected.";
                 return;
             }
 
@@ -3867,7 +3865,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             if (ReferenceEquals(_preview, operation))
             {
-                PreviewText = "The PDF could not be opened.";
+                PreviewText = "Asura couldn't open the PDF. Try again.";
             }
         }
         finally
@@ -3898,7 +3896,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
 
         if (page is null)
         {
-            PreviewText = "That page could not be rendered.";
+            PreviewText = "Asura couldn't show that page. Try another page.";
             return;
         }
 

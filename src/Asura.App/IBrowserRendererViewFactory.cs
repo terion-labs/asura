@@ -60,7 +60,7 @@ public interface IBrowserRendererViewFactory
         BrowserProfileBinding profile,
         CancellationToken cancellationToken) =>
         ValueTask.FromException<BrowserRendererView>(new NotSupportedException(
-            "This browser renderer cannot use an explicit SOCKS proxy."));
+            "This browser can't use a SOCKS proxy. Choose another network connection."));
 }
 
 /// <summary>
@@ -261,7 +261,7 @@ public sealed class BrowserRendererView(
 
         return RequireSuccess(lastResult
             ?? throw new InvalidOperationException(
-                "The browser attachment did not start."));
+                "The browser attachment didn't start."));
     }
 
     private static T RequireSuccess<T>(HostResult<T> result) => result switch

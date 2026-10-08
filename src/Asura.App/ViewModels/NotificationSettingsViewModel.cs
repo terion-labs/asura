@@ -86,7 +86,7 @@ public sealed class NotificationSettingsViewModel : ObservableObject, IDisposabl
             "The system asks for permission the first time Asura has something to tell you.",
         NotificationAuthorization.Unavailable =>
             "This system has no notification center Asura can post to. Attention marks inside Asura still appear.",
-        _ => "The system did not say whether Asura may post notifications.",
+        _ => "The system didn't say whether Asura may post notifications.",
     };
 
     public StatusTone AuthorizationTone => Authorization switch

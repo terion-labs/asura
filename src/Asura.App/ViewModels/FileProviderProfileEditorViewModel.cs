@@ -352,7 +352,7 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         catch (Exception)
         {
             TestStatus = "Test failed";
-            TestDetail = "The provider runtime could not complete the test.";
+            TestDetail = "Asura couldn't finish testing the file provider. Try again.";
             ReportError(TestDetail, TestStatus);
         }
         finally

@@ -23,7 +23,7 @@ public sealed partial class MainWindowViewModel
         if (!SharesExecutionScope(source, destination))
         {
             SetError(
-                "Live tabs and panels cannot move between different workspace isolation scopes.");
+                "Open tabs and panels can't move between workspaces that are isolated differently. Open the item again in the other workspace.");
             return false;
         }
 
@@ -146,7 +146,7 @@ public sealed partial class MainWindowViewModel
         if (!SharesExecutionScope(source, destination))
         {
             SetError(
-                "Live tabs and panels cannot move between different workspace isolation scopes.");
+                "Open tabs and panels can't move between workspaces that are isolated differently. Open the item again in the other workspace.");
             return false;
         }
 

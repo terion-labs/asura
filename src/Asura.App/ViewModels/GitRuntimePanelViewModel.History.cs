@@ -1,3 +1,4 @@
+using Asura.Core;
 using Asura.Git;
 
 namespace Asura.App.ViewModels;
@@ -72,7 +73,7 @@ public sealed partial class GitRuntimePanelViewModel
 
     public string OperationLabel => Operation.FirstBadRevision is { } firstBad ? $"Bisect found first bad commit: {firstBad}"
         : Operation.Kind == GitOperationKind.Bisect ? $"Bisect candidate: {Operation.CurrentRevision}"
-        : $"{Operation.Kind} in progress · {_snapshot?.UnstagedChanges.Count(change => change.Kind == GitChangeKind.Conflicted) ?? 0} unresolved files";
+        : $"{Operation.Kind} in progress · {CountText.OrNone(_snapshot?.UnstagedChanges.Count(change => change.Kind == GitChangeKind.Conflicted) ?? 0, "unresolved file", "unresolved files")}";
 
     public string HistorySearch { get => _historySearch; set => SetProperty(ref _historySearch, value); }
     public string HistoryAuthor { get => _historyAuthor; set => SetProperty(ref _historyAuthor, value); }

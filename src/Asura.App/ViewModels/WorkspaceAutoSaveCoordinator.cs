@@ -55,7 +55,7 @@ public sealed class WorkspaceAutoSaveCoordinator : IDisposable
             var capture = await CaptureWorkspaceAutoSaveAsync(runtime, stored.Value, stored.Revision, cancellationToken);
             if (capture is null)
             {
-                return _captureError ?? "The workspace layout is not ready to save. Wait for its panels to finish opening and try again.";
+                return _captureError ?? "The workspace layout isn't ready to save. Wait for its panels to finish opening and try again.";
             }
 
             var error = await _catalog.SaveWorkspaceWithLayoutsAsync(capture.Workspace,

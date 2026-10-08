@@ -73,7 +73,7 @@ public sealed class DefaultAgentPolicySettingsViewModel : ObservableObject, IDis
 
         if (policy is null)
         {
-            _setError("The default AI configuration cannot be disabled.");
+            _setError("The default AI settings can't be turned off. Choose another default first.");
             return;
         }
 

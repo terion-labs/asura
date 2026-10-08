@@ -101,7 +101,7 @@ public sealed partial class MainWindowViewModel
             CancellationToken.None);
         if (!result.IsSuccess)
         {
-            SetError("The close confirmation setting could not be saved. Asura will keep asking.");
+            SetError("Asura couldn't save that setting, so it will keep asking before closing.");
         }
     }
 

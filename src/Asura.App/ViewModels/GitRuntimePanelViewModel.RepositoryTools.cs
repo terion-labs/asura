@@ -42,10 +42,10 @@ public sealed partial class GitRuntimePanelViewModel
                 if (cloneUrl is not null && failure.Error.Code == GitErrorCode.CredentialStorageFailed)
                 {
                     await OpenRepositoryAsync(path);
-                    PresentFailure(failure.Error, "Repository cloned; credentials could not be saved");
+                    PresentFailure(failure.Error, "Repository cloned, but the credentials couldn't be saved");
                     return;
                 }
-                PresentFailure(failure.Error, cloneUrl is null ? "Couldn't initialize repository" : "Could not clone repository");
+                PresentFailure(failure.Error, cloneUrl is null ? "Couldn't initialize repository" : "Couldn't clone repository");
                 return;
             }
             await OpenRepositoryAsync(((GitResult<GitRepositoryHandle>.Success)result).Value.WorkingTreeRoot);

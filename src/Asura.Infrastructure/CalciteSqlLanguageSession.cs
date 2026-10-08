@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using Asura.Application;
 
@@ -103,7 +104,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
 
             if (response?.Error is not null)
             {
-                await HandleOperationErrorAsync(response.Error)
+                await HandleOperationErrorAsync("completion", response.Error)
                     .ConfigureAwait(false);
                 return EmptyCompletion(cursorOffset);
             }
@@ -152,7 +153,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
 
             if (response?.Error is not null)
             {
-                await HandleOperationErrorAsync(response.Error)
+                await HandleOperationErrorAsync("diagnostics", response.Error)
                     .ConfigureAwait(false);
                 return [];
             }
@@ -202,7 +203,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
             }
             else if (response?.Error is not null)
             {
-                await HandleOperationErrorAsync(response.Error)
+                await HandleOperationErrorAsync("catalog-update", response.Error)
                     .ConfigureAwait(false);
             }
         }
@@ -291,9 +292,9 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
             .ConfigureAwait(false);
         if (response is null || response.Error is not null)
         {
-            if (response?.Error is not null)
+            if (response?.Error is { } error)
             {
-                SetPermanentFailure(WorkerError(permanent: true));
+                SetPermanentFailure(WorkerError("initialize", error, permanent: true));
             }
             else if (UnavailableReason is null)
             {
@@ -330,6 +331,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
         catch (Exception exception) when (exception is
             Win32Exception or FileNotFoundException or UnauthorizedAccessException)
         {
+            SecretSafeDiagnosticProjection.WriteTrace("sql-language.worker.start-failed", exception);
             process.Dispose();
             return false;
         }
@@ -487,12 +489,14 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
             stderr = _stderrTail.ToString();
         }
 
-        // The worker's own output is for diagnostics; the status people read
-        // says what happened and what Asura does next.
+        // The worker's output can quote the query or the connection, so it
+        // never leaves the process. Diagnostics record that the worker wrote
+        // to stderr and how it exited; the status people read says what
+        // happened and what Asura does next.
         if (!string.IsNullOrWhiteSpace(stderr))
         {
             SecretSafeDiagnosticProjection.WriteTrace(
-                "sql-language.worker.stderr",
+                WorkerStderrDiagnosticCode(TryGetExitCode()),
                 SecretSafeDiagnosticKind.Unexpected);
         }
 
@@ -537,7 +541,9 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
         Volatile.Write(ref _retryAfterUtcTicks, 0);
     }
 
-    private async Task HandleOperationErrorAsync(WorkerResponseError error)
+    private async Task HandleOperationErrorAsync(
+        string operation,
+        WorkerResponseError error)
     {
         switch (error.Code)
         {
@@ -550,26 +556,72 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
             case "methodNotFound":
             case "invalidEnvelope":
             case "invalidRequest":
-                SetPermanentFailure(WorkerError(permanent: true));
+                SetPermanentFailure(WorkerError(operation, error, permanent: true));
                 break;
             default:
-                SetRecoverableFailure(WorkerError(permanent: false));
+                SetRecoverableFailure(WorkerError(operation, error, permanent: false));
                 break;
         }
 
         await StopProcessAsync().ConfigureAwait(false);
     }
 
-    // The worker's code and message can quote the query, so they stay out of
-    // the status people read; diagnostics record that the worker refused.
-    private static string WorkerError(bool permanent)
+    // The worker's message can quote the query, so it stays out of both the
+    // status people read and diagnostics. Diagnostics record the operation and
+    // the worker's error code, which is a closed protocol word.
+    private static string WorkerError(
+        string operation,
+        WorkerResponseError error,
+        bool permanent)
     {
         SecretSafeDiagnosticProjection.WriteTrace(
-            "sql-language.worker.rejected",
+            WorkerRejectedDiagnosticCode(operation, error.Code),
             SecretSafeDiagnosticKind.Unexpected);
         return permanent
             ? "SQL completion and validation aren't available for this connection."
             : "SQL completion and validation stopped working. Asura will restart them shortly.";
+    }
+
+    /// <summary>
+    /// The diagnostic code for a request the worker refused, such as
+    /// "sql-language.worker.rejected.completion.internalerror".
+    /// </summary>
+    internal static string WorkerRejectedDiagnosticCode(string operation, string? workerCode) =>
+        $"sql-language.worker.rejected.{operation}.{StableCodeSegment(workerCode)}";
+
+    /// <summary>
+    /// The diagnostic code for worker stderr, such as
+    /// "sql-language.worker.stderr.exit-1", or ".running" while it still runs.
+    /// </summary>
+    internal static string WorkerStderrDiagnosticCode(int? exitCode) => exitCode switch
+    {
+        null => "sql-language.worker.stderr.running",
+        < 0 => string.Create(CultureInfo.InvariantCulture, $"sql-language.worker.stderr.exit-neg{-(long)exitCode.Value}"),
+        _ => string.Create(CultureInfo.InvariantCulture, $"sql-language.worker.stderr.exit-{exitCode.Value}"),
+    };
+
+    // Keeps only lowercase letters and digits so a worker code can't add
+    // anything but a protocol word to the diagnostic code.
+    private static string StableCodeSegment(string? value)
+    {
+        const int maximumCharacters = 40;
+        var segment = new string([.. (value ?? string.Empty)
+            .Select(char.ToLowerInvariant)
+            .Where(character => character is >= 'a' and <= 'z' or >= '0' and <= '9')
+            .Take(maximumCharacters)]);
+        return segment.Length == 0 ? "unknown" : segment;
+    }
+
+    private int? TryGetExitCode()
+    {
+        try
+        {
+            return _process is { HasExited: true } process ? process.ExitCode : null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
     }
 
     private static void TryKill(Process process)

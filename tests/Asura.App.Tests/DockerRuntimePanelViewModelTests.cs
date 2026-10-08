@@ -643,7 +643,7 @@ public sealed class DockerRuntimePanelViewModelTests
 
         Assert.True(panel.ShowVolumeSizeLoading);
         Assert.True(panel.ShowResourceProgress);
-        Assert.Equal("1 resources · Loading sizes…", panel.ResourceSummary);
+        Assert.Equal("1 resource · Loading sizes…", panel.ResourceSummary);
 
         panel.SelectSection(DockerPanelSection.Images);
         Assert.False(panel.ShowResourceProgress);
@@ -655,7 +655,7 @@ public sealed class DockerRuntimePanelViewModelTests
 
         Assert.False(panel.ShowVolumeSizeLoading);
         Assert.False(panel.ShowResourceProgress);
-        Assert.Equal("1 resources", panel.ResourceSummary);
+        Assert.Equal("1 resource", panel.ResourceSummary);
         Assert.Equal("64 MB", Assert.Single(panel.Resources).Subtitle);
     }
 

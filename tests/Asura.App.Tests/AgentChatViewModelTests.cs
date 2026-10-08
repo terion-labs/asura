@@ -1968,7 +1968,7 @@ public sealed partial class AgentChatViewModelTests
 
         Assert.Equal(0, runtime.SendCount);
         Assert.Contains(
-            "does not support image input",
+            "doesn't support image input",
             viewModel.Status,
             StringComparison.OrdinalIgnoreCase);
         Assert.Single(viewModel.PendingImages);

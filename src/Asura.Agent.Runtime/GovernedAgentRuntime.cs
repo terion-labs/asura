@@ -5369,7 +5369,7 @@ public sealed partial class GovernedAgentRuntime :
             + (processCount > 0 ? 1 : 0);
         if (populatedKinds != 1)
         {
-            return $"{panels.Count} panels";
+            return CountText.Of(panels.Count, "panel", "panels");
         }
 
         if (terminalCount > 0)

@@ -104,7 +104,7 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
     }
 
     public ConnectionSecretEditorViewModel CreateSecretEditor(SecretKind kind, SecretScope scope) =>
-        new(_secretVault ?? throw new InvalidOperationException("The credential vault is unavailable."),
+        new(_secretVault ?? throw new InvalidOperationException($"{PlatformTerms.SecretStore} isn't available."),
             scope, kind, $"{Name} {kind}");
 
     public ConnectionEditorViewModel Terminal { get; }

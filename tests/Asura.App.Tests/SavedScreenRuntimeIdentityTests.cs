@@ -836,7 +836,7 @@ public sealed class SavedScreenRuntimeIdentityTests
         Assert.Null(panel.SelectedProfile);
         Assert.Empty(host.EnsureFilePanelRequests);
         Assert.Contains(
-            "not currently available",
+            "file provider isn't available right now",
             panel.ContentIssue?.Message,
             StringComparison.Ordinal);
 
@@ -844,7 +844,7 @@ public sealed class SavedScreenRuntimeIdentityTests
         Assert.Null(panel.SelectedProfile);
         Assert.Empty(host.EnsureFilePanelRequests);
         Assert.Contains(
-            "will not substitute",
+            "won't switch to another file provider",
             panel.OperationIssue?.Message,
             StringComparison.Ordinal);
 
@@ -1860,7 +1860,7 @@ public sealed class SavedScreenRuntimeIdentityTests
             versionOneSnapshot,
             out _,
             out var versionOneError));
-        Assert.Contains("not supported", versionOneError, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("isn't supported", versionOneError, StringComparison.OrdinalIgnoreCase);
 
         var partialJson = json.Replace(
             "\"sourceValue\":\"recovery-screen\",",
@@ -2074,7 +2074,7 @@ public sealed class SavedScreenRuntimeIdentityTests
             out _,
             out var unsupportedSchemaError));
         Assert.Contains(
-            "not supported",
+            "isn't supported",
             unsupportedSchemaError,
             StringComparison.OrdinalIgnoreCase);
 
@@ -2261,7 +2261,7 @@ public sealed class SavedScreenRuntimeIdentityTests
             out _,
             out var unsupportedError));
         Assert.Contains(
-            "not supported",
+            "isn't supported",
             unsupportedError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -2289,7 +2289,7 @@ public sealed class SavedScreenRuntimeIdentityTests
         Assert.Null(viewModel.RuntimeWorkspace);
         Assert.Equal(ShellRoute.Workspace, viewModel.Route);
         Assert.True(viewModel.HasOperationError);
-        Assert.Contains("not supported", viewModel.OperationError, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("couldn't read what was open before", viewModel.OperationError, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -2309,7 +2309,7 @@ public sealed class SavedScreenRuntimeIdentityTests
         Assert.False(await viewModel.RestoreRuntimeSnapshotsAsync([snapshot]));
         Assert.Null(viewModel.RuntimeWorkspace);
         Assert.True(viewModel.HasOperationError);
-        Assert.Contains("not supported", viewModel.OperationError, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("couldn't read what was open before", viewModel.OperationError, StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task AwaitTerminalPanels(RuntimeWorkspaceViewModel workspace) =>

@@ -253,7 +253,7 @@ internal static class ApplicationCommandRouter
                     ApplicationCommandActionKind.SplitPanel,
                     SplitOrientation: value),
                 null)
-            : Failure("The split orientation is not supported.");
+            : Failure("The split orientation isn't supported.");
     }
 
     private static ApplicationCommandRouteResult ParseFocusDirection(
@@ -274,7 +274,7 @@ internal static class ApplicationCommandRouter
                     ApplicationCommandActionKind.FocusPanel,
                     FocusDirection: value),
                 null)
-            : Failure("The panel focus direction is not supported.");
+            : Failure("The panel focus direction isn't supported.");
     }
 
     private static ApplicationCommandRouteResult ParseTabPosition(

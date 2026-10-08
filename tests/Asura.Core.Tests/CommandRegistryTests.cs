@@ -32,7 +32,7 @@ public sealed class CommandRegistryTests
     public void Built_in_titles_read_as_the_menu_bar_reads()
     {
         // The palette and the Keyboard Shortcuts list show these titles, so
-        // they say Show/Hide rather than Toggle and end with "…" where the
+        // they say Show or Hide rather than Toggle and end with "…" where the
         // command opens a window or editor, as the menu bar does.
         Assert.DoesNotContain(
             BuiltInCommands.Registry.Commands,
@@ -58,6 +58,34 @@ public sealed class CommandRegistryTests
 
         Assert.True(BuiltInCommands.Registry.TryGet(BuiltInCommands.About, out var about));
         Assert.Equal("About Asura", about!.Title);
+        Assert.DoesNotContain(
+            BuiltInCommands.Registry.Commands,
+            command => command.Title.Contains("/", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("view.toggle-sidebar", CommandStates.IsSidebarVisible, "Show Sidebar", "Hide Sidebar")]
+    [InlineData("view.toggle-agent-panel", CommandStates.IsAgentPanelVisible, "Show Agent Panel", "Hide Agent Panel")]
+    [InlineData(
+        "view.toggle-quick-terminal",
+        CommandStates.IsQuickTerminalVisible,
+        "Show Quick Terminal",
+        "Hide Quick Terminal")]
+    [InlineData("window.toggle-full-screen", CommandStates.IsFullScreen, "Enter Full Screen", "Exit Full Screen")]
+    public void Show_and_hide_commands_name_the_action_they_take_now(
+        string id,
+        string state,
+        string titleWhenOff,
+        string titleWhenOn)
+    {
+        Assert.True(BuiltInCommands.Registry.TryGet(new CommandId(id), out var command));
+        var off = new CommandInvocation(CommandContext.Window);
+        var on = new CommandInvocation(CommandContext.Window, state: [KeyValuePair.Create(state, true)]);
+        var none = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        Assert.Equal(titleWhenOff, command!.Title);
+        Assert.Equal(titleWhenOff, command.TitleFor(none, off));
+        Assert.Equal(titleWhenOn, command.TitleFor(none, on));
     }
 
     [Fact]

@@ -684,7 +684,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         catch (Exception)
         {
             TestStatus = "Test failed";
-            TestDetail = "The connection runtime could not complete the test.";
+            TestDetail = "Asura couldn't finish testing the connection. Try again.";
         }
         finally
         {
@@ -725,12 +725,12 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             TestStatus = "Host-key review canceled";
-            TestDetail = "The trusted host key was not changed.";
+            TestDetail = "The trusted host key wasn't changed.";
         }
         catch (Exception)
         {
             TestStatus = "Host key not trusted";
-            TestDetail = "The trust decision could not be stored.";
+            TestDetail = "Asura couldn't save your choice to trust this host key. Try again.";
         }
         finally
         {
@@ -1035,15 +1035,15 @@ public sealed class ConnectionEditorViewModel : ObservableObject
 
     private static string RecoveryText(ConnectionRecoveryAction action) => action switch
     {
-        ConnectionRecoveryAction.EditProfile => "Edit the profile and retry.",
-        ConnectionRecoveryAction.InstallRuntime => "Install the required runtime and retry.",
+        ConnectionRecoveryAction.EditProfile => "Edit the connection, then try again.",
+        ConnectionRecoveryAction.InstallRuntime => "Install it, then try again.",
         ConnectionRecoveryAction.UnlockSecretVault => $"Unlock {PlatformTerms.SecretStore}, then try again.",
-        ConnectionRecoveryAction.ProvideAuthentication => "Update the authentication settings.",
-        ConnectionRecoveryAction.ReviewHostKey => "Review the remote host key before reconnecting.",
-        ConnectionRecoveryAction.GrantPermission => "Grant the required operating-system permission.",
-        ConnectionRecoveryAction.Retry or ConnectionRecoveryAction.Reconnect => "Retry the test.",
-        ConnectionRecoveryAction.SelectContainer => "Choose a running container.",
-        ConnectionRecoveryAction.SelectDistribution => "Choose an installed WSL distribution.",
+        ConnectionRecoveryAction.ProvideAuthentication => "Check the sign-in settings, then try again.",
+        ConnectionRecoveryAction.ReviewHostKey => "Review the host key, then connect again.",
+        ConnectionRecoveryAction.GrantPermission => "Allow access in the system settings, then try again.",
+        ConnectionRecoveryAction.Retry or ConnectionRecoveryAction.Reconnect => "Try again.",
+        ConnectionRecoveryAction.SelectContainer => "Choose a running container, then try again.",
+        ConnectionRecoveryAction.SelectDistribution => "Choose an installed WSL distribution, then try again.",
         _ => string.Empty,
     };
 }

@@ -493,7 +493,7 @@ public sealed class McpServerProfileEditorViewModelTests
         Assert.True(item.HasWarning);
         Assert.Equal("1 argument", item.ArgumentSummary);
         Assert.Equal("1 stored credential", item.EnvironmentBindingSummary);
-        Assert.Equal("0 enabled tools", item.EnabledToolSummary);
+        Assert.Equal("No enabled tools", item.EnabledToolSummary);
     }
 
     [Fact]

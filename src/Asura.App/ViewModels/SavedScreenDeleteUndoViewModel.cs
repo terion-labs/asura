@@ -54,7 +54,7 @@ public sealed class SavedScreenDeleteUndoViewModel : ObservableObject
             deleted.Value.Name);
         _pending = new PendingSavedScreenDeleteState(deleted, receipt);
         Status =
-            $"Deleted “{receipt.ScreenName}”. Running instances were not changed. Undo restores this saved screen.";
+            $"Deleted “{receipt.ScreenName}”. Running instances weren't changed. Undo restores this saved screen.";
         NotifyPendingChanged();
     }
 

@@ -57,7 +57,7 @@ public sealed class DiagnosticsExportViewModel : ObservableObject
 
         var supported = requestSource.SupportedRedactionLevels
             ?? throw new ArgumentException(
-                "The diagnostics source did not declare supported redaction levels.",
+                "The diagnostics source didn't declare supported redaction levels.",
                 nameof(requestSource));
         var supportedSet = supported
             .Where(Enum.IsDefined)
@@ -99,7 +99,7 @@ public sealed class DiagnosticsExportViewModel : ObservableObject
             if (!RedactionOptions.Contains(value))
             {
                 throw new ArgumentException(
-                    "The selected diagnostics redaction level is not supported.",
+                    "The selected diagnostics redaction level isn't supported.",
                     nameof(value));
             }
 
@@ -250,7 +250,7 @@ public sealed class DiagnosticsExportViewModel : ObservableObject
         {
             SetStatus(
                 DiagnosticsExportStatus.Error,
-                "The diagnostics bundle could not be created. No diagnostic details were exposed.");
+                "Asura couldn't create the diagnostics file. No diagnostic details were shared. Try again.");
         }
         finally
         {
@@ -320,8 +320,8 @@ public sealed class DiagnosticsExportViewModel : ObservableObject
                 DiagnosticsArtifactPresentationResult.Presented =>
                     "Revealed the last diagnostics bundle in the file manager.",
                 DiagnosticsArtifactPresentationResult.Unsupported =>
-                    "This platform cannot perform that diagnostics bundle action.",
-                _ => "The diagnostics bundle could not be shown.",
+                    "That isn't available on this computer.",
+                _ => "Asura couldn't show the diagnostics file. Find it in the folder you chose.",
             });
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -330,7 +330,7 @@ public sealed class DiagnosticsExportViewModel : ObservableObject
         }
         catch (Exception)
         {
-            SetStatus(DiagnosticsExportStatus.Error, "The diagnostics bundle could not be shown.");
+            SetStatus(DiagnosticsExportStatus.Error, "Asura couldn't show the diagnostics file. Find it in the folder you chose.");
         }
         finally
         {
@@ -350,7 +350,7 @@ public sealed class DiagnosticsExportViewModel : ObservableObject
         var message = error.Code switch
         {
             DiagnosticsBundleErrorCode.UnsafeContent =>
-                "Export stopped because the diagnostics did not pass the mandatory safety review.",
+                "Export stopped because the diagnostics didn't pass the mandatory safety review.",
             DiagnosticsBundleErrorCode.DestinationUnavailable =>
                 "The selected diagnostics destination is unavailable or not writable.",
             DiagnosticsBundleErrorCode.ArtifactTooLarge or
@@ -361,7 +361,7 @@ public sealed class DiagnosticsExportViewModel : ObservableObject
                 DiagnosticsBundleErrorCode.InvalidPath or
                 DiagnosticsBundleErrorCode.DuplicatePath =>
                 "The diagnostics source produced an invalid export request.",
-            _ => "The diagnostics bundle could not be created.",
+            _ => "Asura couldn't create the diagnostics file. Try again.",
         };
         SetStatus(DiagnosticsExportStatus.Error, message);
     }

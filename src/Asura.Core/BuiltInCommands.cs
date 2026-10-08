@@ -199,11 +199,11 @@ public static class BuiltInCommands
             Define(LastTab, "Show Last Active Tab", "Tabs", CommandContext.Tab),
             Define(
                 SelectTab,
-                "Select Tab by Position",
+                "Go to Tab by Position",
                 "Tabs",
                 CommandContext.Tab,
                 positionSchema,
-                arguments => PositionTitle("Select Tab", arguments)),
+                arguments => PositionTitle("Go to Tab", arguments)),
             Define(
                 SelectWorkspace,
                 "Go to Workspace by Position",
@@ -213,7 +213,7 @@ public static class BuiltInCommands
                 arguments => PositionTitle("Go to Workspace", arguments)),
             Define(FocusNextArea, "Move Focus to Next Area", "Window", CommandContext.Window),
             Define(FocusPreviousArea, "Move Focus to Previous Area", "Window", CommandContext.Window),
-            Define(EnterTerminalCopyMode, "Enter Terminal Copy Mode", "Terminal", CommandContext.Terminal),
+            Define(EnterTerminalCopyMode, "Enter Copy Mode", "Terminal", CommandContext.Terminal),
             Define(SendPrefix, "Send Literal Prefix", "Terminal", CommandContext.Terminal),
             Define(Copy, "Copy", "Terminal", CommandContext.Terminal),
             Define(Paste, "Paste", "Terminal", CommandContext.Terminal),
@@ -225,9 +225,9 @@ public static class BuiltInCommands
             Define(MoveToLineStart, "Move to Line Start", "Terminal", CommandContext.Terminal),
             Define(MoveToLineEnd, "Move to Line End", "Terminal", CommandContext.Terminal),
             Define(Find, "Find…", "Terminal", CommandContext.Terminal),
-            Define(IncreaseFontSize, "Increase Font Size", "Terminal", CommandContext.Terminal),
-            Define(DecreaseFontSize, "Decrease Font Size", "Terminal", CommandContext.Terminal),
-            Define(ResetFontSize, "Reset Font Size", "Terminal", CommandContext.Terminal),
+            Define(IncreaseFontSize, "Bigger", "Terminal", CommandContext.Terminal),
+            Define(DecreaseFontSize, "Smaller", "Terminal", CommandContext.Terminal),
+            Define(ResetFontSize, "Actual Size", "Terminal", CommandContext.Terminal),
             Define(ClearScrollback, "Clear Scrollback", "Terminal", CommandContext.Terminal),
             Define(SendInterrupt, "Send Interrupt", "Terminal", CommandContext.Terminal),
             Define(SendEndOfFile, "Send End of File", "Terminal", CommandContext.Terminal),
@@ -239,9 +239,14 @@ public static class BuiltInCommands
 
             Define(NewWindow, "New Window", "Window", CommandContext.Global),
             Define(CloseWindow, "Close Window", "Window", CommandContext.Global),
-            Define(MinimizeWindow, "Minimize Window", "Window", CommandContext.Global),
-            Define(ZoomWindow, "Zoom Window", "Window", CommandContext.Global),
-            Define(ToggleFullScreen, "Enter/Exit Full Screen", "Window", CommandContext.Global),
+            Define(MinimizeWindow, "Minimize", "Window", CommandContext.Global),
+            Define(ZoomWindow, "Zoom", "Window", CommandContext.Global),
+            Define(
+                ToggleFullScreen,
+                "Enter Full Screen",
+                "Window",
+                CommandContext.Global,
+                stateTitle: (CommandStates.IsFullScreen, "Exit Full Screen")),
             Define(BringAllToFront, "Bring All to Front", "Window", CommandContext.Global),
 
             Define(NewTerminalTab, "New Terminal Tab", "Tabs", CommandContext.Global),
@@ -252,10 +257,28 @@ public static class BuiltInCommands
                 CommandContext.Workspace,
                 state: CommandStates.CanReopenClosedTab),
 
-            Define(ToggleSidebar, "Show/Hide Sidebar", "View", CommandContext.Workspace),
-            Define(ToggleAgentPanel, "Show/Hide Agent Panel", "View", CommandContext.Workspace),
+            // A show/hide command names what it will do now, as the menu
+            // bar does. Its plain title is the "show" form, which lists that
+            // don't know the state, such as Keyboard Shortcuts, use.
+            Define(
+                ToggleSidebar,
+                "Show Sidebar",
+                "View",
+                CommandContext.Workspace,
+                stateTitle: (CommandStates.IsSidebarVisible, "Hide Sidebar")),
+            Define(
+                ToggleAgentPanel,
+                "Show Agent Panel",
+                "View",
+                CommandContext.Workspace,
+                stateTitle: (CommandStates.IsAgentPanelVisible, "Hide Agent Panel")),
             Define(ShowCommandPalette, "Command Palette…", "View", CommandContext.Window),
-            Define(ToggleQuickTerminal, "Show/Hide Quick Terminal", "View", CommandContext.Global),
+            Define(
+                ToggleQuickTerminal,
+                "Show Quick Terminal",
+                "View",
+                CommandContext.Global,
+                stateTitle: (CommandStates.IsQuickTerminalVisible, "Hide Quick Terminal")),
 
             Define(AddPanel, "Add Panel…", "Panels", CommandContext.Tab),
             Define(ShowLayoutDesigner, "Layout Designer…", "Panels", CommandContext.Window),
@@ -324,7 +347,8 @@ public static class BuiltInCommands
         CommandContext contexts,
         CommandParameterSchema? parameters = null,
         Func<IReadOnlyDictionary<string, string>, string?>? invocationTitle = null,
-        string? state = null)
+        string? state = null,
+        (string State, string Title)? stateTitle = null)
     {
         var defaults = BuiltInKeymaps.All
             .SelectMany(profile => profile.Bindings)
@@ -339,7 +363,8 @@ public static class BuiltInCommands
             parameters,
             defaults,
             state is null ? null : invocation => invocation.HasState(state),
-            invocationTitle);
+            invocationTitle,
+            stateTitle);
     }
 
     // Positions are stored from zero, as the router reads them; people count

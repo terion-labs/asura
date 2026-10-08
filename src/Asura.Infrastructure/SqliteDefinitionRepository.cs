@@ -326,12 +326,14 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
                         key,
                         cancellationToken)
                     .ConfigureAwait(false);
-                if (dependency is not null)
+                if (dependency is { } owner)
                 {
+                    var targetName = await ReadNameAsync(connection, transaction, key, cancellationToken)
+                        .ConfigureAwait(false);
                     await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
                     return Failure<Unit>(
                         DefinitionStoreErrorCode.DependencyConflict,
-                        "Something else still uses it, so it can't be deleted. Remove it from there first.");
+                        DependencyConflictMessage(key.Kind, targetName, owner.Key.Kind, owner.Name));
                 }
 
                 await using var command = connection.CreateCommand();
@@ -553,7 +555,7 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
             : Convert.ToInt64(value, CultureInfo.InvariantCulture);
     }
 
-    private static async Task<DefinitionKey?> ReadFirstInboundReferenceAsync(
+    private static async Task<(DefinitionKey Key, string? Name)?> ReadFirstInboundReferenceAsync(
         SqliteConnection connection,
         SqliteTransaction transaction,
         DefinitionKey target,
@@ -562,10 +564,12 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
-            SELECT owner_kind, owner_id
-            FROM definition_references
-            WHERE target_kind = $targetKind AND target_id = $targetId
-            ORDER BY owner_kind, owner_id
+            SELECT reference.owner_kind, reference.owner_id, owner.name
+            FROM definition_references AS reference
+            LEFT JOIN definitions AS owner
+                ON owner.kind = reference.owner_kind AND owner.id = reference.owner_id
+            WHERE reference.target_kind = $targetKind AND reference.target_id = $targetId
+            ORDER BY reference.owner_kind, reference.owner_id
             LIMIT 1;
             """;
         command.Parameters.AddWithValue("$targetKind", target.Kind.Value);
@@ -573,8 +577,44 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         await using var reader = await command.ExecuteReaderAsync(cancellationToken)
             .ConfigureAwait(false);
         return await reader.ReadAsync(cancellationToken).ConfigureAwait(false)
-            ? new DefinitionKey(new DefinitionKind(reader.GetString(0)), reader.GetString(1))
+            ? (new DefinitionKey(new DefinitionKind(reader.GetString(0)), reader.GetString(1)),
+                reader.IsDBNull(2) ? null : reader.GetString(2))
             : null;
+    }
+
+    private static async Task<string?> ReadNameAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        DefinitionKey key,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            SELECT name
+            FROM definitions
+            WHERE kind = $kind AND id = $id;
+            """;
+        command.Parameters.AddWithValue("$kind", key.Kind.Value);
+        command.Parameters.AddWithValue("$id", key.Value);
+        return await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) as string;
+    }
+
+    // Names both items so people know what to change: “Staging” is still used
+    // by the screen “Ops”.
+    internal static string DependencyConflictMessage(
+        DefinitionKind targetKind,
+        string? targetName,
+        DefinitionKind ownerKind,
+        string? ownerName)
+    {
+        var target = string.IsNullOrWhiteSpace(targetName)
+            ? $"This {DefinitionText.Noun(targetKind)}"
+            : DefinitionText.Quoted(targetName);
+        var where = string.IsNullOrWhiteSpace(ownerName)
+            ? "there"
+            : $"from {DefinitionText.Quoted(ownerName)}";
+        return $"{target} is still used by {DefinitionText.Named(ownerKind, ownerName)}. Remove it {where} first, then delete it.";
     }
 
     private static async Task ReplaceReferencesAsync(

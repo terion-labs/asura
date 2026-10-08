@@ -335,7 +335,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
         {
             var cleanupFailures = await ResetStoredPendingCredentialsAsync(
                 CancellationToken.None);
-            var message = result.Error?.Message ?? "The network connection could not be saved.";
+            var message = result.Error?.Message ?? "Asura couldn't save the network connection. Try again.";
             return Fail(cleanupFailures == 0
                 ? message
                 : message + $" An unused credential couldn't be removed from {PlatformTerms.SecretStore}.");
@@ -518,7 +518,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
             cancellationToken);
         if (!result.IsSuccess)
         {
-            return Fail(result.Error?.Message ?? "The network connection could not be deleted.");
+            return Fail(result.Error?.Message ?? "Asura couldn't delete the network connection. Try again.");
         }
 
         var cleanupFailures = await DeleteCredentialsAsync(
@@ -570,7 +570,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
             cancellationToken);
         if (!result.IsSuccess)
         {
-            return Fail(result.Error?.Message ?? "Application networking could not be saved.");
+            return Fail(result.Error?.Message ?? "Asura couldn't save the network settings. Try again.");
         }
 
         ApplyCatalog(_catalog.Snapshot);
@@ -679,7 +679,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
             {
                 SetProfileTestFailure(
                     "Connect in a workspace first",
-                    "No active workspace connection matches these settings. Save the connection and connect from a workspace to sign in, then test here. Testing will not create another Tailscale device.");
+                    "No active workspace connection matches these settings. Save the connection and connect from a workspace to sign in, then test here. Testing won't create another Tailscale device.");
                 return false;
             }
 
@@ -741,7 +741,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
                     SetProfileTestFailure(
                         "Test failed",
                         snapshot.Error?.Message
-                        ?? "The networking runtime did not establish the connection.");
+                        ?? "Asura couldn't connect. Check the connection's settings, then try again.");
                 }
             }
         }
@@ -762,7 +762,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
                 acceptsProgress = false;
                 SetProfileTestFailure(
                     "Test failed",
-                    "The networking runtime could not complete the connection test.");
+                    "Asura couldn't finish testing the connection. Try again.");
             }
         }
         finally
@@ -782,7 +782,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
                     succeeded = false;
                     SetProfileTestFailure(
                         "Cleanup failed",
-                        "The test route could not be removed cleanly. Restart Asura before using this connection.");
+                        "Asura couldn't fully close the test connection. Restart Asura before using this connection.");
                 }
             }
 

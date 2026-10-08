@@ -74,6 +74,8 @@ public sealed class DefinitionBundleControllerTests
         Assert.Equal(1, result.Value.DefinitionCount);
         Assert.Equal(bundle.ExportedAt, result.Value.ExportedAt);
         Assert.Equal(DefinitionBundleController.SuggestedExportFileName, picker.SuggestedFileName);
+        // The save panel is titled Export Asura Setup, so the name matches it.
+        Assert.Equal("asura-setup.json", picker.SuggestedFileName);
         var safety = Assert.Single(store.PreflightCalls);
         Assert.Same(bundle, safety.Bundle);
         Assert.Equal(DefinitionImportMode.ReplaceExisting, safety.Mode);

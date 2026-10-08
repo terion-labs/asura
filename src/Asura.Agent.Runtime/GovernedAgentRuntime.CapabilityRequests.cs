@@ -985,9 +985,9 @@ public sealed partial class GovernedAgentRuntime
                     _ => "Panel",
                 },
             AgentTarget.OpenTab =>
-                $"Current tab · {context.Panels.Count} panels",
+                $"Current tab · {CountText.Of(context.Panels.Count, "panel", "panels")}",
             AgentTarget.Workspace =>
-                $"Workspace · {context.Panels.Count} panels",
+                $"Workspace · {CountText.Of(context.Panels.Count, "panel", "panels")}",
             AgentTarget.SelectedPanels =>
                 $"Selected panels · {context.Panels.Count}",
             _ => throw new ArgumentOutOfRangeException(

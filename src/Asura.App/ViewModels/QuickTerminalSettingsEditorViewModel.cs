@@ -25,7 +25,7 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
     private bool _restoreOnStart;
     private bool _hideOnFocusLoss;
     private bool _hideOnEscape;
-    private string _registrationStatus = "Shortcut registration has not been checked yet.";
+    private string _registrationStatus = "Shortcut registration hasn't been checked yet.";
     private StatusTone _registrationStatusTone = StatusTone.Neutral;
 
     public QuickTerminalSettingsEditorViewModel(

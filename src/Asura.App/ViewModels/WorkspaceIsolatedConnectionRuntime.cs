@@ -208,7 +208,7 @@ internal sealed class WorkspaceIsolatedConnectionRuntime :
         if (plan.Kind != ConnectionKind.Ssh)
         {
             throw new InvalidOperationException(
-                $"The {plan.Kind} connection cannot run inside this workspace isolate.");
+                $"The {plan.Kind} connection can't run inside this isolated workspace. Open it from a workspace without isolation.");
         }
 
         // This is the App-layer counterpart to ConnectionCommandExecutor's SSH command

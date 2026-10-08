@@ -165,7 +165,7 @@ public sealed class LocalMcpServerSettingsViewModel : ObservableObject, IDisposa
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
             or InvalidOperationException)
         {
-            Message = "The operation could not be completed. Try again.";
+            Message = "Asura couldn't finish that. Try again.";
             ReportError(Message);
         }
         finally

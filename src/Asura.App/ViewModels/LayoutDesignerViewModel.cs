@@ -167,7 +167,7 @@ public sealed class LayoutDesignerViewModel : ObservableObject
         ? "Layout is valid."
         : string.IsNullOrWhiteSpace(Name)
             ? "A layout name is required."
-            : "The layout could not be projected onto a valid grid.";
+            : "Some panels overlap or fall outside the grid. Move or resize them so each one fits.";
 
     public DefinitionValidationIssue? LastOperationIssue => _lastOperationIssue;
 
@@ -187,7 +187,7 @@ public sealed class LayoutDesignerViewModel : ObservableObject
         {
             return Reject(
                 DefinitionValidationCode.UnknownSlot,
-                $"Layout slot '{slotId}' does not exist.",
+                $"Layout slot '{slotId}' doesn't exist.",
                 slotId);
         }
 
@@ -218,7 +218,7 @@ public sealed class LayoutDesignerViewModel : ObservableObject
         {
             return Reject(
                 DefinitionValidationCode.UnknownSlot,
-                $"Layout slot '{slotId}' does not exist.",
+                $"Layout slot '{slotId}' doesn't exist.",
                 slotId);
         }
 
@@ -273,7 +273,7 @@ public sealed class LayoutDesignerViewModel : ObservableObject
         {
             return Reject(
                 DefinitionValidationCode.UnknownSlot,
-                $"Layout slot '{slotId}' does not exist.",
+                $"Layout slot '{slotId}' doesn't exist.",
                 slotId);
         }
 
@@ -351,7 +351,7 @@ public sealed class LayoutDesignerViewModel : ObservableObject
         if (!validation.IsValid)
         {
             throw new InvalidOperationException(
-                $"The layout cannot be saved: {FormatIssues(validation.Issues)}");
+                $"Asura can't save the layout yet. {FormatIssues(validation.Issues)}");
         }
 
         return new(definition, ExpectedRevision);

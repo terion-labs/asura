@@ -14,7 +14,7 @@ namespace Asura.App;
 public sealed class DefinitionBundleController
 {
     public const long MaximumImportBytes = 32L * 1024 * 1024;
-    public const string SuggestedExportFileName = "asura-definitions.json";
+    public const string SuggestedExportFileName = "asura-setup.json";
 
     private readonly IDefinitionBundleStore _bundleStore;
     private readonly IDefinitionBundlePathPicker _pathPicker;

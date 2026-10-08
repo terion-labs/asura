@@ -325,7 +325,7 @@ public sealed record RuntimeHistorySource
         if (normalizedTitle.Length > 256 || normalizedTitle.Contains('\0'))
         {
             throw new ArgumentException(
-                "The history source title must be at most 256 characters and cannot contain null characters.",
+                "The history source title must be at most 256 characters and can't contain null characters.",
                 nameof(durableTitle));
         }
 
@@ -2462,7 +2462,7 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
 
             if (_startupCommandFailureStopped)
             {
-                return $"{error.Message} The saved startup commands will not be retried automatically. The terminal remains open.";
+                return $"{error.Message} The saved startup commands won't be retried automatically. The terminal remains open.";
             }
 
             return error.Retryable && StartupCommands.Count > 0
@@ -2663,15 +2663,15 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
                 ? "Proceed without continuity to open a plain terminal and install tmux or GNU Screen on the remote host. Then open a new terminal to use continuity. "
                 : "To start a fresh session, close this failed tab and reopen the connection. ")
             + "Proceed without continuity applies only to this tab. Your workspace setting stays unchanged.",
-        ConnectionRecoveryAction.InstallRuntime => "Install the required runtime, then retry.",
+        ConnectionRecoveryAction.InstallRuntime => "Install the program this connection needs, then try again.",
         ConnectionRecoveryAction.UnlockSecretVault => $"Unlock {PlatformTerms.SecretStore}, then try again.",
-        ConnectionRecoveryAction.ProvideAuthentication => "Update authentication in the connection profile.",
-        ConnectionRecoveryAction.ReviewHostKey => "Review the remote host key before reconnecting.",
-        ConnectionRecoveryAction.GrantPermission => "Grant the required operating-system permission.",
-        ConnectionRecoveryAction.SelectContainer => "Choose a running container in the connection profile.",
-        ConnectionRecoveryAction.SelectDistribution => "Choose an installed WSL distribution.",
-        ConnectionRecoveryAction.EditProfile => "Repair the saved connection profile.",
-        ConnectionRecoveryAction.Retry or ConnectionRecoveryAction.Reconnect => "Retry the connection.",
+        ConnectionRecoveryAction.ProvideAuthentication => "Check the sign-in settings for this connection, then try again.",
+        ConnectionRecoveryAction.ReviewHostKey => "Review the host key, then connect again.",
+        ConnectionRecoveryAction.GrantPermission => "Allow access in the system settings, then try again.",
+        ConnectionRecoveryAction.SelectContainer => "Edit the connection to choose a running container.",
+        ConnectionRecoveryAction.SelectDistribution => "Edit the connection to choose an installed WSL distribution.",
+        ConnectionRecoveryAction.EditProfile => "Edit the connection, then try again.",
+        ConnectionRecoveryAction.Retry or ConnectionRecoveryAction.Reconnect => "Try again.",
         _ => string.Empty,
     };
 
@@ -3044,7 +3044,7 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
             ConnectionError = outcome.Error;
             ConnectionState = ConnectionPanelState.Failed;
             ConnectionStatus = "Connection unavailable";
-            ConnectionDetail = outcome.Error?.Message ?? "The connection could not be prepared.";
+            ConnectionDetail = outcome.Error?.Message ?? "Asura couldn't prepare the connection. Try again.";
             if (outcome.Error is null || !ShouldReconnect(outcome.Error))
             {
                 ReconnectState = ConnectionReconnectState.Idle;

@@ -653,7 +653,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
         if (!CanAddIsolationMount)
         {
             _ = Reject(
-                $"A workspace cannot define more than {WorkspaceDefinition.MaximumIsolationMountCount} host mounts.");
+                $"A workspace can't have more than {WorkspaceDefinition.MaximumIsolationMountCount} shared folders. Remove one, then add this one.");
             return;
         }
 
@@ -1001,7 +1001,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
     {
         if (!IsValid)
         {
-            throw new InvalidOperationException($"The workspace cannot be saved: {ValidationSummary}");
+            throw new InvalidOperationException($"Asura can't save the workspace yet. {ValidationSummary}");
         }
 
         return new(BuildDefinition(), ExpectedRevision);

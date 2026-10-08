@@ -70,7 +70,7 @@ public sealed partial class GitRuntimePanelViewModel
             var page = ((GitResult<GitCommitPage>.Success)result).Value;
             if (page.HasMore || page.Commits.Any(commit => commit.ParentShas.Count > 1))
             {
-                PresentFailure(new GitError(GitErrorCode.Unsupported, "Choose a linear range of at most 1000 commits. Rebasing merge commits needs an explicit merge plan.", Retryable: false), "Cannot compose rebase");
+                PresentFailure(new GitError(GitErrorCode.Unsupported, "Choose up to 1,000 commits with no merge commits among them. To rebase merge commits, run the rebase in Terminal.", Retryable: false), "Can't prepare rebase");
                 return [];
             }
             var entries = new List<GitRebaseEntry>();

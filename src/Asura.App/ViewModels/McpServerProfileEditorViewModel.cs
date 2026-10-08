@@ -993,7 +993,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
         if (count >= maximum)
         {
             throw new InvalidOperationException(
-                $"An MCP server cannot define more than {maximum} {itemName}.");
+                $"An MCP server can't have more than {maximum} {itemName}.");
         }
     }
 

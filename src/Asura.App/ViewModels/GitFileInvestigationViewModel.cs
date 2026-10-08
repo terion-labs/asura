@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Asura.Core;
 using Asura.Git;
 
 namespace Asura.App.ViewModels;
@@ -64,7 +65,7 @@ public sealed class GitFileInvestigationViewModel(IGitRepositoryClient client, G
             }
 
             HasMore = page.HasMore;
-            Status = $"{Commits.Count} revisions{(HasMore ? " · more available" : "")}";
+            Status = $"{CountText.OrNone(Commits.Count, "revision", "revisions")}{(HasMore ? " · more available" : "")}";
             SelectedCommit = reset ? Commits.FirstOrDefault() : SelectedCommit ?? Commits.FirstOrDefault();
         }
         catch (ArgumentException exception)

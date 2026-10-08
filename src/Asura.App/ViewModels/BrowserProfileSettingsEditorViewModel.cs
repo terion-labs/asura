@@ -518,7 +518,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
         if (replacesPassword
             && passwordByteCount > BrowserHttpAuthentication.MaximumPasswordByteLength)
         {
-            OperationStatus = $"HTTP authentication passwords cannot exceed {BrowserHttpAuthentication.MaximumPasswordByteLength} UTF-8 bytes.";
+            OperationStatus = $"HTTP authentication passwords can't be longer than {BrowserHttpAuthentication.MaximumPasswordByteLength} UTF-8 bytes.";
             return;
         }
 
@@ -870,7 +870,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
             StateText = SelectedProfile?.Persistence
                 == BrowserProfilePersistence.PrivateSession
                 ? "Each private panel owns a different in-memory context. Close that panel to destroy its cookies, cache, and site data."
-                : "The built-in profile has one encrypted browser session per workspace. Settings will not issue a broad cross-workspace clear.";
+                : "The built-in profile has one encrypted browser session per workspace. Settings won't issue a broad cross-workspace clear.";
             return;
         }
 

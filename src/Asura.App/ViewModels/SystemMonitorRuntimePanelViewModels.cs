@@ -346,7 +346,7 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
         {
             await ApplyHostFailureAsync(
                 "Statistics unavailable",
-                $"The statistics session for {ConnectionDisplayName} could not be started.");
+                $"Asura couldn't start Statistics for “{ConnectionDisplayName}”. Check the connection, then try again.");
             return;
         }
 
@@ -452,7 +452,7 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
             {
                 await ApplyCaptureFailureAsync(
                     "Statistics refresh failed",
-                    $"The statistics snapshot for {ConnectionDisplayName} could not be captured.",
+                    $"Asura couldn't read statistics from “{ConnectionDisplayName}”. Check the connection, then try again.",
                     linked.Token);
                 return;
             }
@@ -982,7 +982,7 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
         {
             await ApplyFailureAsync(
                 "Processes unavailable",
-                $"The process-monitor session for {ConnectionDisplayName} could not be started.",
+                $"Asura couldn't start Processes for “{ConnectionDisplayName}”. Check the connection, then try again.",
                 CancellationToken.None);
             return;
         }
@@ -1094,7 +1094,7 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
             {
                 await ApplyFailureAsync(
                     "Process refresh failed",
-                    $"The process list for {ConnectionDisplayName} could not be loaded.",
+                    $"Asura couldn't load the processes on “{ConnectionDisplayName}”. Check the connection, then try again.",
                     linked.Token);
                 return;
             }

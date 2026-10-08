@@ -32,7 +32,7 @@ public sealed class RecentSessionHistoryExportController
         ArgumentNullException.ThrowIfNull(recentSessions);
         var outcome = Failure(
             RecentSessionHistoryExportErrorCode.DestinationUnavailable,
-            "The selected session-history export file could not be written.");
+            "Asura couldn't save the history file. Choose another location, then try again.");
         string? temporaryPath = null;
         try
         {
@@ -101,7 +101,7 @@ public sealed class RecentSessionHistoryExportController
         {
             outcome = Failure(
                 RecentSessionHistoryExportErrorCode.DestinationUnavailable,
-                "The selected session-history export file could not be written.");
+                "Asura couldn't save the history file. Choose another location, then try again.");
         }
         finally
         {

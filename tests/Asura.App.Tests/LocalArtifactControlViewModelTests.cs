@@ -109,10 +109,12 @@ public sealed class LocalArtifactControlViewModelTests
         var remaining = Assert.Single(viewModel.Items);
         Assert.Equal("Inactive application logs", remaining.Title);
         Assert.StartsWith("Cleared 1 file (64 B).", viewModel.StatusMessage);
-        Assert.Contains(
+        // The error code goes to no one; the message says what to do.
+        Assert.DoesNotContain(
             nameof(LocalArtifactControlErrorCode.Unavailable),
             viewModel.StatusMessage,
             StringComparison.Ordinal);
+        Assert.Contains("Refresh to try again.", viewModel.StatusMessage, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -160,7 +162,7 @@ public sealed class LocalArtifactControlViewModelTests
         Assert.True(viewModel.HasError);
         Assert.Empty(viewModel.Items);
         Assert.False(viewModel.CanClearItems);
-        Assert.Contains(
+        Assert.DoesNotContain(
             nameof(LocalArtifactControlErrorCode.UnsafeLayout),
             viewModel.StatusMessage,
             StringComparison.Ordinal);

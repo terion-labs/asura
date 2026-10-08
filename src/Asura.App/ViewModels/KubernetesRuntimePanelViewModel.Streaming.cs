@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Asura.Application;
+using Asura.Core;
 
 namespace Asura.App.ViewModels;
 
@@ -66,7 +67,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
                 {
                     ApplySelectedWatchChange(change.Kind, resource);
                 }
-                Status = $"{_allResources.Count} resources · Live";
+                Status = $"{CountText.OrNone(_allResources.Count, "resource", "resources")} · Live";
             }
             if (!cancellation.IsCancellationRequested) { Status = "Live updates stopped. Refresh to reconnect."; }
         }

@@ -121,7 +121,7 @@ public sealed partial class WebDavFileProvider : IFileProvider
         {
             return Failure<FileVersion>(
                 FileProviderErrorCode.IoFailure,
-                "The WebDAV resource returned an invalid ETag.");
+                "The WebDAV server sent a version tag Asura couldn't read. Refresh, then try again.");
         }
     }
 
@@ -146,32 +146,43 @@ public sealed partial class WebDavFileProvider : IFileProvider
         }
         catch (OperationCanceledException exception)
         {
-            return Failure<T>(FileProviderErrorCode.IoFailure, exception.Message, retryable: true);
+            return Failure<T>(FileProviderErrorCode.IoFailure, TransportFailure(exception), retryable: true);
         }
         catch (EndOfStreamException exception)
         {
-            return Failure<T>(FileProviderErrorCode.UnexpectedEndOfStream, exception.Message);
+            return Failure<T>(FileProviderErrorCode.UnexpectedEndOfStream, TransportFailure(exception));
         }
         catch (System.Xml.XmlException exception)
         {
-            return Failure<T>(FileProviderErrorCode.IoFailure, exception.Message);
+            return Failure<T>(FileProviderErrorCode.IoFailure, TransportFailure(exception));
         }
         catch (HttpRequestException exception)
         {
-            return Failure<T>(FileProviderErrorCode.IoFailure, exception.Message, retryable: true);
+            return Failure<T>(FileProviderErrorCode.IoFailure, TransportFailure(exception), retryable: true);
         }
         catch (IOException exception)
         {
-            return Failure<T>(FileProviderErrorCode.IoFailure, exception.Message, retryable: true);
+            return Failure<T>(FileProviderErrorCode.IoFailure, TransportFailure(exception), retryable: true);
         }
     }
+
+    private const string ServiceName = "the WebDAV server";
+
+    private const string DiagnosticPrefix = "files.webdav";
+
+    private static string TransportFailure(Exception exception) =>
+        RemoteServiceFailureText.ForException(ServiceName, DiagnosticPrefix, exception);
 
     private static FileProviderResult<T> HttpFailure<T>(
         HttpResponseMessage response,
         FileMutationPrecondition? precondition = null,
         FileProviderErrorCode methodNotAllowed = FileProviderErrorCode.UnsupportedCapability)
     {
-        var message = $"WebDAV returned {(int)response.StatusCode} {response.ReasonPhrase}.";
+        var message = RemoteServiceFailureText.ForStatus(
+            ServiceName,
+            DiagnosticPrefix,
+            response.StatusCode,
+            targetMustNotExist: precondition is FileMutationPrecondition.MustNotExist);
         if (response.StatusCode == HttpStatusCode.PreconditionFailed)
         {
             var code = precondition is FileMutationPrecondition.MustNotExist

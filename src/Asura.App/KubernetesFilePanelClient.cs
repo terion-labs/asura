@@ -119,7 +119,7 @@ public sealed class KubernetesFilePanelClient : IFilePanelClient
         catch (KubernetesRequestException exception)
         {
             return (null, Error(exception.Code == KubernetesErrorCode.Forbidden ? FilePanelErrorCode.AccessDenied : FilePanelErrorCode.Offline,
-            "Cannot read this container. Check its pod identity, exec permission, and workspace connection."));
+            "Asura can't read this container. Check that the pod still exists, that you're allowed to run commands in it, and that the workspace is connected."));
         }
         catch (Exception exception) when (exception is IOException or InvalidDataException)
         { return (null, Error(FilePanelErrorCode.IoFailure, "The container file stream failed or exceeded its size limit.")); }
@@ -142,8 +142,8 @@ public sealed class KubernetesFilePanelClient : IFilePanelClient
             return exit switch
             {
                 0 => (await output.ConfigureAwait(false), null),
-                44 => (null, Error(FilePanelErrorCode.NotFound, "The path is missing or is not a regular file or folder.")),
-                45 => (null, Error(FilePanelErrorCode.AccessDenied, "The container user cannot read this path.")),
+                44 => (null, Error(FilePanelErrorCode.NotFound, "The path is missing or isn't a regular file or folder.")),
+                45 => (null, Error(FilePanelErrorCode.AccessDenied, "The container's user can't read this location.")),
                 46 => (null, Error(FilePanelErrorCode.UnsupportedCapability, "This folder exceeds the 10,000-entry browsing limit.")),
                 126 or 127 => (null, Error(FilePanelErrorCode.UnsupportedCapability, "Container files require /bin/sh and head in the selected container.")),
                 _ => (null, Error(FilePanelErrorCode.IoFailure, "The container file command failed. Check the path and required container tools.")),
@@ -194,7 +194,7 @@ public sealed class KubernetesFilePanelClient : IFilePanelClient
             _ => throw new InvalidDataException("Invalid container file kind.")
         }, null, null, name.StartsWith('.'));
     private static FilePanelError Error(FilePanelErrorCode code, string message) => new(code, "kubernetes_file_error", message, false);
-    private static FilePanelResult<T> Invalid<T>() => FilePanelResult<T>.Failure(Error(FilePanelErrorCode.InvalidLocation, "The file location or response does not belong to this container."));
+    private static FilePanelResult<T> Invalid<T>() => FilePanelResult<T>.Failure(Error(FilePanelErrorCode.InvalidLocation, "The file location or response doesn't belong to this container."));
     private static ValueTask<FilePanelResult<T>> Unsupported<T>() => ValueTask.FromResult(FilePanelResult<T>.Failure(
         Error(FilePanelErrorCode.UnsupportedCapability, "Kubernetes container browsing is read-only.")));
     public ValueTask<FilePanelResult<FilePanelEntry>> CreateDirectoryAsync(FilePanelCreateDirectoryRequest request, CancellationToken cancellationToken) => Unsupported<FilePanelEntry>();

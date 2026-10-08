@@ -45,7 +45,7 @@ public sealed partial class MainWindowViewModel
             }
             else
             {
-                SetError("The selected file is not present in the current working tree.");
+                SetError("The selected file isn't present in the current working tree.");
             }
         }
         return opened;

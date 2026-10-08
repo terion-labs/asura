@@ -55,7 +55,7 @@ public sealed class FileAccessControlEditorViewModel : ObservableObject
     public bool CanEdit { get; }
 
     public string ReadOnlyReason =>
-        "This connection reports who has access but does not accept changes to it here.";
+        "This connection reports who has access but doesn't accept changes to it here.";
 
     public bool HasMode => _original.Mode is not null;
 

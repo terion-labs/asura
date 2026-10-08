@@ -285,7 +285,7 @@ public sealed class CatalogFileProviderRuntime :
             return new FileProviderTestResult(
                 false,
                 "file_provider_test_cancelled",
-                "The provider test was canceled.");
+                "The test was canceled.");
         }
         catch (FileProviderAdapterConfigurationException exception)
         {
@@ -842,9 +842,9 @@ public sealed class CatalogFileProviderRuntime :
     {
         FileProviderAdapterConfigurationException => exception.Message,
         ArgumentException => exception.Message,
-        DirectoryNotFoundException => "The configured local root folder does not exist.",
-        UnauthorizedAccessException => "The configured provider root is not accessible.",
-        _ => "The file-provider adapter could not be materialized.",
+        DirectoryNotFoundException => "The location's root folder doesn't exist. Choose another folder in Settings.",
+        UnauthorizedAccessException => "Asura doesn't have permission to open the location's root folder. Check its permissions, or choose another folder.",
+        _ => "Asura couldn't open this file location. Check its settings, then try again.",
     };
 
     private static FileProviderTestResult InvalidTest(string message) => new(

@@ -71,7 +71,7 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
     [
         new(
             "Off",
-            "Do not retain session metadata. Existing history is removed.",
+            "Don't retain session metadata. Existing history is removed.",
             new RecentSessionRetentionPolicy(0, TimeSpan.FromDays(30))),
         new(
             "Private · 20 / 7 days",
@@ -532,8 +532,8 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
                 if (!saved.IsSuccess)
                 {
                     RetentionStatus =
-                        $"History privacy settings could not be saved ({saved.Error!.Code}).";
-                    if (saved.Error.Code == RecentSessionStoreErrorCode.Conflict)
+                        "Asura couldn't save the history privacy settings. Try again.";
+                    if (saved.Error!.Code == RecentSessionStoreErrorCode.Conflict)
                     {
                         await RefreshCoreAsync(token, replaceRetentionSelection: true);
                         if (_storedRetention is { Revision: var revision }
@@ -665,7 +665,7 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
         {
             return ApplicationRunResult<Unit>.Failure(new ApplicationRunError(
                 ApplicationRunErrorCode.StorageFailure,
-                "Recent-session persistence could not be drained."));
+                "Asura couldn't finish saving recent history. Try again."));
         }
 
         RecentSessionStoreError? error;
@@ -838,7 +838,7 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
 
         RetentionStatus = stored.Policy.IsEnabled
             ? $"Local metadata retention: up to {stored.Policy.MaximumEntries:N0} records for {stored.Policy.MaximumAge.TotalDays:0} days."
-            : "Session history is disabled; newly opened sessions will not be retained.";
+            : "Session history is disabled; newly opened sessions won't be retained.";
         OnPropertyChanged(nameof(CanManageRetention));
         OnPropertyChanged(nameof(RequiresRetentionConfirmation));
     }

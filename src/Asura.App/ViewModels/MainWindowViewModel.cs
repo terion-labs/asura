@@ -108,7 +108,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     private bool _isPreparingAgentSavedScreenTarget;
     private bool _isChangingAgentScopeForSavedScreen;
     private string _agentSavedScreenTargetStatus =
-        "A saved screen template grants no agent authority until its live instance is created, reviewed, and authorized.";
+        "Choosing a saved screen gives the agent no access. Open it in a tab, review the tab, then allow the agent to use it.";
     private string? _operationError;
     private string _tabReorderStatus = string.Empty;
     private string _workspaceTransferStatus = string.Empty;
@@ -717,7 +717,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (value is not null && !Screens.Contains(value))
             {
                 throw new ArgumentException(
-                    "The selected saved-screen template is not in the current catalog.",
+                    "That saved screen isn't available anymore. Choose another one.",
                     nameof(value));
             }
 
@@ -729,8 +729,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             _selectedAgentSavedScreenTemplate = value;
             _agentSavedScreenLiveTarget = null;
             AgentSavedScreenTargetStatus = value is null
-                ? "A saved screen template grants no agent authority until its live instance is created, reviewed, and authorized."
-                : $"Template selected: {value.Name} · revision {value.Revision}. No live target or agent authority exists yet.";
+                ? "Choosing a saved screen gives the agent no access. Open it in a tab, review the tab, then allow the agent to use it."
+                : $"Selected “{value.Name}”. The agent has no access yet. Open it in a tab, review the tab, then allow the agent to use it.";
             NotifyAgentSavedScreenTargetChanged();
         }
     }
@@ -1841,7 +1841,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             Avalonia.Threading.DispatcherPriority.Background);
     }
 
-    public string NewItemLauncherTitle => HasRuntimeWorkspace ? "New Tab" : "New Session";
+    public string NewItemLauncherTitle => HasRuntimeWorkspace ? "New Tab" : "New Workspace";
 
     public bool CanStartBrowserSession => _browserRendererViewFactory is not null;
 
@@ -1882,7 +1882,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         if (stored is null || stored.Revision != selected.Revision)
         {
             AgentSavedScreenTargetStatus =
-                "The selected template changed or was removed. Select its current revision and review it again.";
+                "The saved screen changed or was removed. Choose it again, then review it.";
             _selectedAgentSavedScreenTemplate = null;
             _agentSavedScreenLiveTarget = null;
             NotifyAgentSavedScreenTargetChanged();
@@ -1891,14 +1891,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         IsPreparingAgentSavedScreenTarget = true;
         AgentSavedScreenTargetStatus =
-            $"Creating a pending live instance from {selected.Name} revision {selected.Revision}. The template still grants no agent authority.";
+            $"Opening “{selected.Name}” in a new tab. The agent has no access yet.";
         try
         {
             if (!await LaunchScreenAsync(selected.Id, cancellationToken))
             {
                 AgentSavedScreenTargetStatus = string.IsNullOrWhiteSpace(OperationError)
-                    ? "The template could not create a live instance. No agent authority was granted."
-                    : $"The template could not create a live instance: {OperationError}";
+                    ? "Asura couldn't open the saved screen in a tab, so the agent has no access. Try again."
+                    : $"Asura couldn't open the saved screen in a tab, so the agent has no access. {OperationError}";
                 return;
             }
 
@@ -1909,7 +1909,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     && source.Revision == stored.Revision))
             {
                 AgentSavedScreenTargetStatus =
-                    "The created tab did not preserve the selected template revision. No agent authority was granted.";
+                    "The new tab doesn't match the saved screen anymore, so the agent has no access. Choose the saved screen again.";
                 return;
             }
 
@@ -1935,13 +1935,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             }
 
             AgentSavedScreenTargetStatus =
-                $"Pending live instance: {tab.Title} · {tab.Panels.Count} panels · template revision {selected.Revision}. Review the visible tab, then authorize this exact live target.";
+                $"Opened “{tab.Title}” with {CountText.Of(tab.Panels.Count, "panel", "panels")}. Review the tab, then allow the agent to use it.";
             NotifyAgentSavedScreenTargetChanged();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             AgentSavedScreenTargetStatus =
-                "Creating the pending live instance was canceled. No agent authority was granted.";
+                "Opening the saved screen was canceled. The agent has no access.";
             throw;
         }
         finally
@@ -1954,14 +1954,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     {
         if (_agentSavedScreenLiveTarget is not { IsAuthorized: false } pending)
         {
-            error = "Create a pending live instance before authorizing a saved-screen target.";
+            error = "Open the saved screen in a tab before allowing the agent to use it.";
             return false;
         }
 
         if (!TryResolveAgentSavedScreenLiveTarget(pending, requireVisibleReview: true, out _))
         {
             error =
-                "The pending live instance is no longer the visible reviewed tab. Return to that exact tab or create a new instance.";
+                "The tab you reviewed isn't the visible tab anymore. Go back to it, or open the saved screen again.";
             AgentSavedScreenTargetStatus = error;
             return false;
         }
@@ -1969,7 +1969,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         _agentSavedScreenLiveTarget = pending.Authorize();
         error = string.Empty;
         AgentSavedScreenTargetStatus =
-            $"Authorized live target: {pending.TabName} · {pending.PanelCount} panels · {pending.ExactIdentity}. Later template edits cannot retarget this run context.";
+            $"The agent can use “{pending.TabName}” and its {CountText.Of(pending.PanelCount, "panel", "panels")}. Later changes to the saved screen don't change which tab the agent uses.";
         NotifyAgentSavedScreenTargetChanged();
         return true;
     }
@@ -1979,7 +1979,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         _selectedAgentSavedScreenTemplate = null;
         _agentSavedScreenLiveTarget = null;
         AgentSavedScreenTargetStatus =
-            "A saved screen template grants no agent authority until its live instance is created, reviewed, and authorized.";
+            "Choosing a saved screen gives the agent no access. Open it in a tab, review the tab, then allow the agent to use it.";
         NotifyAgentSavedScreenTargetChanged();
     }
 
@@ -2002,7 +2002,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (_agentSavedScreenLiveTarget is not { IsAuthorized: true } accepted)
             {
                 agentChat.ReportTargetUnavailable(
-                    "The saved screen is still a template or pending live instance. Review and authorize its exact live target before sending.");
+                    "Open the saved screen in a tab, review it, and allow the agent to use it before sending.");
                 return Task.CompletedTask;
             }
 
@@ -2012,7 +2012,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     out target))
             {
                 AgentSavedScreenTargetStatus =
-                    "The authorized live target is no longer available. No replacement was selected; create and review a new live instance.";
+                    "The tab the agent was allowed to use isn't open anymore. Open the saved screen again and review it.";
                 agentChat.ReportTargetUnavailable(AgentSavedScreenTargetStatus);
                 return Task.CompletedTask;
             }
@@ -2161,7 +2161,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             policy = null;
             error =
-                "The selected workspace does not have valid agent settings. "
+                "The selected workspace doesn't have valid agent settings. "
                 + "Choose a narrower scope.";
             return false;
         }
@@ -3224,7 +3224,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     {
         if (position < 0 || position >= Workspaces.Count)
         {
-            SetError($"Workspace position {position + 1} is not available.");
+            SetError($"Workspace position {position + 1} isn't available.");
             return Task.FromResult(false);
         }
 
@@ -3701,7 +3701,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var result = await _sessionRestoreCoordinator.ReadPreferenceAsync(cancellationToken);
         if (!result.IsSuccess)
         {
-            SetError("The session restore preference could not be loaded.");
+            SetError("Asura couldn't load the setting for restoring windows. Check it in Settings.");
             return false;
         }
 
@@ -3735,7 +3735,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 cancellationToken);
             if (!result.IsSuccess)
             {
-                SetError("The session restore preference could not be saved.");
+                SetError("Asura couldn't save the setting for restoring windows. Try again.");
                 OnPropertyChanged(nameof(RestoreSessionsOnStart));
                 return false;
             }
@@ -3849,7 +3849,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             SecretSafeDiagnosticProjection.WriteStandardError(
                 "recovery.previous-session.lookup-failed",
                 SecretSafeDiagnosticKind.Unexpected);
-            SetError("The previous session could not be loaded.");
+            SetError("Asura couldn't restore your previous windows. Open your workspaces again from the sidebar.");
             return false;
         }
 
@@ -3893,12 +3893,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         if (!RuntimeWorkspaceRecoveryCodec.TryDeserialize(
                 snapshot,
                 out var payload,
-                out var error))
+                out _))
         {
+            // The codec's reason names schema versions and internal links, so
+            // people read what to do and diagnostics record the rejection.
             SecretSafeDiagnosticProjection.WriteStandardError(
                 "recovery.previous-session.payload-rejected",
                 SecretSafeDiagnosticKind.Unexpected);
-            SetError(error ?? "Runtime recovery state could not be read.");
+            SetError("Asura couldn't read what was open before. Open your workspaces again from the sidebar.");
             return false;
         }
 
@@ -4038,7 +4040,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             SecretSafeDiagnostics.WriteTraceAndStandardError(
                 "recovery.apply.failed",
                 exception);
-            SetError("Runtime recovery state could not be applied.");
+            SetError("Asura couldn't reopen what was open before. Open your workspaces again from the sidebar.");
             return false;
         }
         catch (OperationCanceledException) when (_runtimeGraphLifetime.IsCancellationRequested)
@@ -4271,7 +4273,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             await RestoreWorkspaceAfterFailedRecreateAsync(
                 workspaceId,
                 openInstance is not null);
-            SetError("The workspace environment could not be recreated.");
+            SetError("Asura couldn't set up the workspace again. Close the workspace and open it again.");
             return false;
         }
     }
@@ -4322,7 +4324,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 or SessionCloseOutcome.ForceTerminated
                 or SessionCloseOutcome.AlreadyClosed)))
         {
-            SetError("The workspace could not be restarted to change isolation configuration.");
+            SetError("Asura couldn't restart the workspace to apply its new isolation settings. Close the workspace and open it again.");
             return false;
         }
 
@@ -4336,7 +4338,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             new DefinitionStoreError(
                 DefinitionStoreErrorCode.InvalidDefinition,
                 OperationError
-                ?? "The workspace could not be restarted to change isolation configuration."));
+                ?? "Asura couldn't restart the workspace to apply its new isolation settings. Close the workspace and open it again."));
 
     public ConnectionEditorViewModel CreateConnectionEditor(ConnectionId? connectionId = null)
         => TerminalConnectionSettings.CreateEditor(connectionId);
@@ -4550,7 +4552,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     revision,
                     McpServerTestPresentationState.Failed,
                     "Test failed",
-                    "The MCP diagnostics boundary could not complete the test."));
+                    "Asura couldn't finish testing the MCP server. Try again."));
         }
 
         if (!_disposed)
@@ -6068,7 +6070,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         if (!connection.PanelLaunchCapabilities.Supports(kind))
         {
-            SetError($"{connection.Name} cannot open {PanelTitle(kind)}.");
+            SetError($"“{connection.Name}” can't open {PanelTitle(kind)}. Choose another connection.");
             return false;
         }
 
@@ -6142,13 +6144,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         if (!storedProfile.Value.Configuration.PanelLaunchCapabilities.Supports(kind))
         {
-            SetError($"{storedProfile.Value.Name} cannot open {PanelTitle(kind)}.");
+            SetError($"“{storedProfile.Value.Name}” can't open {PanelTitle(kind)}. Choose another connection.");
             return false;
         }
 
         if (_filePanelClient.Profiles.All(profile => !string.Equals(profile.Id, profileId.Value, StringComparison.Ordinal)))
         {
-            SetError("That file connection is not ready yet.");
+            SetError("That file connection isn't ready yet.");
             return false;
         }
 
@@ -6280,7 +6282,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (connection.Endpoint is not (ConnectionEndpoint.Local or ConnectionEndpoint.Ssh))
             {
                 SetError(
-                    "That execution connection cannot back a Files panel. "
+                    "That connection can't open a Files panel. "
                     + "Choose a file connection from the panel selector.");
                 return false;
             }
@@ -6354,7 +6356,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
         else
         {
-            SetError("This panel type does not support connection switching.");
+            SetError("This panel type doesn't support connection switching.");
             return false;
         }
 
@@ -6883,7 +6885,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         if (!connection.PanelLaunchCapabilities.Supports(panel))
         {
-            SetError($"{connection.Name} cannot open {PanelTitle(panel)}.");
+            SetError($"“{connection.Name}” can't open {PanelTitle(panel)}. Choose another connection.");
             return Task.FromResult(false);
         }
 
@@ -6900,7 +6902,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
                 if (!currentConnection.PanelLaunchCapabilities.Supports(panel))
                 {
-                    SetError($"{currentConnection.Name} cannot open {PanelTitle(panel)}.");
+                    SetError($"“{currentConnection.Name}” can't open {PanelTitle(panel)}. Choose another connection.");
                     return null;
                 }
 
@@ -6942,13 +6944,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         if (!storedProfile.Value.Configuration.PanelLaunchCapabilities.Supports(panel))
         {
-            SetError($"{storedProfile.Value.Name} cannot open {PanelTitle(panel)}.");
+            SetError($"“{storedProfile.Value.Name}” can't open {PanelTitle(panel)}. Choose another connection.");
             return Task.FromResult(false);
         }
 
         if (_filePanelClient.Profiles.All(profile => !string.Equals(profile.Id, profileId.Value, StringComparison.Ordinal)))
         {
-            SetError("That file connection is not ready yet.");
+            SetError("That file connection isn't ready yet.");
             return Task.FromResult(false);
         }
 
@@ -7244,7 +7246,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     private static string BrowserCreationFailure(RuntimePanelViewModel panel) =>
         panel is UnavailableRuntimePanelViewModel unavailable
             ? unavailable.CapabilityMessage
-            : "The embedded browser could not be initialized.";
+            : "The browser couldn't start. Restart Asura, then try again.";
 
     private bool CanAppendSavedDefinitionTab()
     {
@@ -8065,7 +8067,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
-            SetError("The workspace layout could not be saved. Try again.");
+            SetError("Asura couldn't save the workspace layout. Try again.");
         }
         finally
         {
@@ -9010,7 +9012,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         _selectedAgentSavedScreenTemplate = null;
         AgentSavedScreenTargetStatus =
-            "The selected template changed or was removed. Select its current revision before creating a live target.";
+            "The saved screen changed or was removed. Choose it again before opening it in a tab.";
         NotifyAgentSavedScreenTargetChanged();
     }
 
@@ -9296,7 +9298,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var baselineDetail = !profile.IsTrusted
             ? "Review this server's settings before testing or turning it on."
             : !profile.IsEnabled
-            ? "Testing is available, but agent runs cannot select this server."
+            ? "You can test this server, but the agent can't use it."
             : hasNoEnabledTools
                 ? "Choose at least one tool before enabling this server."
                 : missingSecretCount > 0
@@ -9531,15 +9533,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 stored.Revision,
                 McpServerTestPresentationState.Failed,
                 "Test failed",
-                "The test result did not match the saved server settings.");
+                "The test result didn't match the saved server settings.");
         }
 
-        var discovered = report.DiscoveredToolCount == 1
-            ? "1 tool"
-            : $"{report.DiscoveredToolCount} tools";
-        var enabled = report.EnabledToolCount == 1
-            ? "1 enabled tool matched."
-            : $"{report.EnabledToolCount} enabled tools matched.";
+        var discovered = CountText.OrNone(report.DiscoveredToolCount, "tool", "tools");
+        var enabled = report.EnabledToolCount switch
+        {
+            0 => "No enabled tools matched.",
+            1 => "1 enabled tool matched.",
+            var count => $"{CountText.Of(count, "enabled tool", "enabled tools")} matched.",
+        };
         var eligibility = report.EnabledToolCount == 0
                 ? " No tools are enabled for agent runs."
                 : string.Empty;
@@ -9808,6 +9811,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             command.Title,
             command.Category,
         };
+        if (command.StateTitle is { } stateTitle)
+        {
+            // Both verbs find it: "hide" and "show" each reach Show Sidebar.
+            searchTerms.Add(stateTitle.Title);
+        }
+
+        // Named for the current state, as the menu bar names it.
+        var title = command.TitleFor(arguments, captured);
         foreach (var argument in arguments)
         {
             searchTerms.Add(argument.Key);
@@ -9821,8 +9832,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             command.Category,
             argumentSummary.Length == 0
                     || !string.Equals(command.TitleFor(arguments), command.Title, StringComparison.Ordinal)
-                ? command.TitleFor(arguments)
-                : $"{command.Title} · {argumentSummary}",
+                ? title
+                : $"{title} · {argumentSummary}",
             string.Empty,
             shortcut,
             isAvailable,
@@ -10451,7 +10462,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             PanelKindFromRecovery(recovered.KindLabel),
             recovered.Title,
             recovered.KindLabel!,
-            "This recovered panel type is not available in the current build.");
+            "This recovered panel type isn't available in the current build.");
     }
 
     private RuntimeTabViewModel CreateRuntimeTab(
@@ -10723,7 +10734,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 PanelKind.Terminal,
                 title,
                 "Terminal",
-                "This panel references a connection that is not available. Repair the saved screen in Settings.");
+                "This panel references a connection that isn't available. Repair the saved screen in Settings.");
         }
 
         return CreateTerminalPanel(workspaceId, tabId, connection, title, panel.Startup);
@@ -10964,7 +10975,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 PanelKind.Browser,
                 title,
                 "Browser",
-                "This browser route is not a local or SSH connection.");
+                "This browser route isn't a local or SSH connection.");
         }
 
         var pinned = profile is null
@@ -13120,7 +13131,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             "KUBERNETES" => PanelKind.Kubernetes,
             "GIT" => PanelKind.Git,
             _ => throw new InvalidOperationException(
-                "The recovered panel kind is not supported by this build."),
+                "The recovered panel kind isn't supported by this build."),
         };
 
     private static string RequireName(string value, string fallback) =>

@@ -110,7 +110,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
                 KubernetesMutationOutcome.DryRun => "Server dry run succeeded. Apply sends these exact edits to this context.",
                 KubernetesMutationOutcome.Applied => "Changes applied.",
                 KubernetesMutationOutcome.OutcomeUnknown => "The connection ended after dispatch. Check the resource before making another change.",
-                _ => "The change was not dispatched. Review the error and retry.",
+                _ => "The change wasn't dispatched. Review the error and retry.",
             };
             if (dryRun && result.Outcome == KubernetesMutationOutcome.DryRun)
             {
@@ -133,7 +133,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (NotSupportedException) { Issue = "This execution backend does not support manifest editing."; }
+        catch (NotSupportedException) { Issue = "Editing manifests isn't available for this connection."; }
         catch (KubernetesRequestException exception)
         {
             _reviewedManifest = null;

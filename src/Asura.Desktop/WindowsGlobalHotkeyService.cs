@@ -89,9 +89,9 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
             {
                 nativeResult = _loop.Register(PrimaryHotkeyId, nativeGesture);
             }
-            catch (Win32Exception)
+            catch (Win32Exception exception)
             {
-                return NativeFailure();
+                return NativeFailure(exception.NativeErrorCode);
             }
 
             if (!nativeResult.Succeeded)
@@ -274,14 +274,18 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
                 GlobalHotkeyRegistrationErrorCode.InvalidGesture,
                 "global_hotkey_invalid_gesture",
                 "Windows didn't accept this shortcut. Choose another one."),
-            _ => NativeFailure(),
+            _ => NativeFailure(errorCode),
         };
 
-    // The Win32 error code stays out of the message people read.
-    private static GlobalHotkeyRegistrationResult NativeFailure()
+    /// <summary>The diagnostic code for a Win32 error, such as "desktop.hotkey.windows-native-failure.win32-5".</summary>
+    internal static string NativeFailureDiagnosticCode(int errorCode) =>
+        NativeStatusDiagnosticCode.Format("desktop.hotkey.windows-native-failure", "win32", errorCode);
+
+    // The Win32 error code goes to diagnostics, not the message people read.
+    private static GlobalHotkeyRegistrationResult NativeFailure(int errorCode)
     {
         SecretSafeDiagnosticProjection.WriteTrace(
-            "desktop.hotkey.windows-native-failure",
+            NativeFailureDiagnosticCode(errorCode),
             SecretSafeDiagnosticKind.Unexpected);
         return Failure(
             GlobalHotkeyRegistrationErrorCode.NativeFailure,

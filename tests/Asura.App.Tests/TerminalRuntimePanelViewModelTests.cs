@@ -622,7 +622,7 @@ public sealed class TerminalRuntimePanelViewModelTests
         Assert.Same(error, panel.StartupCommandError);
         Assert.True(panel.HasStartupCommandError);
         Assert.DoesNotContain("Retrying", panel.StartupCommandErrorDetail, StringComparison.Ordinal);
-        Assert.Contains("will not be retried", panel.StartupCommandErrorDetail, StringComparison.Ordinal);
+        Assert.Contains("won't be retried", panel.StartupCommandErrorDetail, StringComparison.Ordinal);
         Assert.Contains("terminal remains open", panel.StartupCommandErrorDetail, StringComparison.Ordinal);
     }
 
@@ -681,7 +681,7 @@ public sealed class TerminalRuntimePanelViewModelTests
         Assert.Same(dispatchResult, dispatchState.LastResult);
         Assert.Empty(panel.StartupCommands);
         Assert.Same(error, panel.StartupCommandError);
-        Assert.Contains("will not be retried", panel.StartupCommandErrorDetail, StringComparison.Ordinal);
+        Assert.Contains("won't be retried", panel.StartupCommandErrorDetail, StringComparison.Ordinal);
     }
 
     [Fact]

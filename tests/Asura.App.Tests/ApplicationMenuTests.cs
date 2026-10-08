@@ -42,8 +42,9 @@ public sealed class ApplicationMenuLayoutTests
         var git = Assert.Single(ApplicationMenuLayout.MenuBar, menu => string.Equals(menu.Title, "Git", StringComparison.Ordinal));
         Assert.Equal(
             [
-                "Refresh", "Stage All Changes", "Unstage All Changes", "Commit", "Stash Changes…",
-                "Fetch…", "Pull", "Push", "Sync", "New Branch…", "Merge…", "Rebase…",
+                "Refresh Repository", "Stage All Changes", "Unstage All Changes", "Commit Staged Changes",
+                "Stash Changes…", "Fetch…", "Pull", "Push", "Sync with Remote", "New Branch…",
+                "Merge Branch…", "Rebase Branch…",
             ],
             git.Items.OfType<MenuCommandNode>().Select(item => item.Title),
             StringComparer.Ordinal);
@@ -139,6 +140,57 @@ public sealed class ApplicationMenuLayoutTests
                 || string.Equals(item.Title, "Launcher", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// A command has one title: the menu, the command palette and the
+    /// Keyboard Shortcuts list all show the registry's. An item inside a
+    /// numbered submenu, such as "Workspace 1" under Move Tab to Workspace,
+    /// takes its verb from the submenu and is left out.
+    /// </summary>
+    [Fact]
+    public void Menu_titles_are_the_registry_titles()
+    {
+        foreach (var item in TopLevelCommandItems(
+            ApplicationMenuLayout.ApplicationMenu.Concat(ApplicationMenuLayout.MenuBar.SelectMany(menu => menu.Items))))
+        {
+            Assert.True(BuiltInCommands.Registry.TryGet(item.Command, out var command), item.Title);
+            Assert.Equal(command!.TitleFor(item.Arguments), item.Title);
+            Assert.Equal(command.StateTitle, item.StateTitle);
+        }
+    }
+
+    [Fact]
+    public void The_palette_title_follows_the_same_state_as_the_menu()
+    {
+        Assert.True(BuiltInCommands.Registry.TryGet(BuiltInCommands.ToggleSidebar, out var sidebar));
+        var noArguments = ImmutableDictionary<string, string>.Empty;
+        var hidden = new CommandInvocation(CommandContext.Workspace);
+        var visible = new CommandInvocation(
+            CommandContext.Workspace,
+            state: [KeyValuePair.Create(CommandStates.IsSidebarVisible, true)]);
+
+        Assert.Equal("Show Sidebar", sidebar!.TitleFor(noArguments, hidden));
+        Assert.Equal("Hide Sidebar", sidebar.TitleFor(noArguments, visible));
+    }
+
+    private static IEnumerable<MenuCommandNode> TopLevelCommandItems(IEnumerable<MenuNode> nodes)
+    {
+        foreach (var node in nodes)
+        {
+            if (node is MenuCommandNode command)
+            {
+                yield return command;
+            }
+            else if (node is MenuSubmenuNode submenu)
+            {
+                foreach (var child in TopLevelCommandItems(submenu.Items)
+                    .Where(child => !child.Arguments.ContainsKey("position")))
+                {
+                    yield return child;
+                }
+            }
+        }
+    }
+
     [Fact]
     public void Items_that_open_a_window_or_editor_end_with_an_ellipsis()
     {
@@ -157,7 +209,14 @@ public sealed class ApplicationMenuLayoutTests
     [Fact]
     public void Menu_titles_use_title_case()
     {
-        string[] lowerCaseWords = ["a", "an", "and", "for", "in", "of", "the", "to"];
+        // Articles, coordinating conjunctions, and prepositions of four or
+        // fewer letters stay lowercase, as the UI writing guide says.
+        string[] lowerCaseWords =
+        [
+            "a", "an", "the", "and", "but", "or", "nor", "for", "so", "yet",
+            "as", "at", "by", "down", "from", "in", "into", "like", "near", "of", "off", "on", "onto",
+            "out", "over", "past", "per", "to", "up", "upon", "via", "with",
+        ];
         foreach (var title in ApplicationMenuLayout.AllCommands().Select(item => item.Title))
         {
             var words = title.TrimEnd('…').Split(' ');

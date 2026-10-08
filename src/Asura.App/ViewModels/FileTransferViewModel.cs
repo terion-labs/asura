@@ -57,7 +57,7 @@ public sealed class FileTransferViewModel : ObservableObject, IDisposable
                     ? active.HasKnownProgress
                         ? $"Transfer · {active.ProgressPercent:0}%"
                         : "Transfer in progress"
-                    : $"{ActiveCount} transfers";
+                    : CountText.Of(ActiveCount, "transfer", "transfers");
             }
 
             if (FailedCount > 0)

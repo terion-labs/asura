@@ -138,7 +138,7 @@ public sealed class QuickTerminalViewModel : ObservableObject, IDisposable, IAge
             if (!AgentRunScopeOptionsValue.Contains(value))
             {
                 throw new ArgumentException(
-                    "The selected agent scope is not available.",
+                    "The selected agent scope isn't available.",
                     nameof(value));
             }
 
@@ -515,7 +515,7 @@ public sealed class QuickTerminalViewModel : ObservableObject, IDisposable, IAge
                 {
                     tab.SetUnavailable(
                         tab.Title,
-                        "Quick Terminal could not restore its workspace context.");
+                        "Quick Terminal couldn't reopen its workspace. Open Quick Terminal again.");
                 }
             }
             else
@@ -648,7 +648,7 @@ public sealed class QuickTerminalViewModel : ObservableObject, IDisposable, IAge
                 throw new ArgumentOutOfRangeException(
                     nameof(SelectedAgentRunScope),
                     SelectedAgentRunScope.Kind,
-                    "The selected agent scope is not supported.");
+                    "The selected agent scope isn't supported.");
         }
 
         if (_agentPolicyCoordinator?.Policy is not { } policy)
@@ -745,7 +745,7 @@ public sealed class QuickTerminalViewModel : ObservableObject, IDisposable, IAge
             tab.CompleteInitialization(
                 generation,
                 null,
-                "The connection runtime could not prepare Quick Terminal.");
+                "Asura couldn't connect Quick Terminal. Check its connection in Settings, then try again.");
         }
         finally
         {

@@ -56,7 +56,7 @@ public sealed class WorkspaceNetworkControlViewModelTests
             new ImmediateDispatcher());
 
         Assert.Contains("TCP traffic and DNS", viewModel.StatusText, StringComparison.Ordinal);
-        Assert.Contains("does not support other UDP traffic or ping", viewModel.StatusText, StringComparison.Ordinal);
+        Assert.Contains("doesn't support other UDP traffic or ping", viewModel.StatusText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public sealed class WorkspaceNetworkControlViewModelTests
             new ImmediateDispatcher());
 
         Assert.Contains("TCP and UDP traffic", viewModel.StatusText, StringComparison.Ordinal);
-        Assert.Contains("does not support ping or other IP protocols", viewModel.StatusText, StringComparison.Ordinal);
+        Assert.Contains("doesn't support ping or other IP protocols", viewModel.StatusText, StringComparison.Ordinal);
     }
 
     [Theory]

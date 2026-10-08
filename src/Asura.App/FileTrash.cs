@@ -76,7 +76,7 @@ public static class FileTrash
         if (item.TrashedPath is not { } trashed)
         {
             throw new IOException(
-                $"The Trash did not say where “{Path.GetFileName(item.OriginalPath)}” went.");
+                $"The Trash didn't say where “{Path.GetFileName(item.OriginalPath)}” went.");
         }
 
         if (File.Exists(item.OriginalPath) || Directory.Exists(item.OriginalPath))
@@ -192,14 +192,18 @@ internal sealed class FreedesktopFileTrash : IFileTrash
 
         var error = Marshal.GetLastPInvokeError();
         var name = Path.GetFileName(source);
+        // The error number goes to diagnostics, not the message people read.
+        Asura.Application.SecretSafeDiagnosticProjection.WriteTrace(
+            string.Create(CultureInfo.InvariantCulture, $"files.trash.rename-failed.errno-{Math.Abs(error)}"),
+            Asura.Application.SecretSafeDiagnosticKind.Io);
         throw error switch
         {
             ErrorCrossDevice => new IOException(
-                $"“{name}” is on another disk than the Trash, so it was not moved."),
+                $"“{name}” is on a different disk than the Trash, so it wasn't moved. Delete it instead."),
             ErrorPermission or ErrorAccess => new UnauthorizedAccessException(
-                $"“{name}” could not be moved to the Trash: {Marshal.GetPInvokeErrorMessage(error)}."),
+                $"“{name}” couldn't be moved to the Trash. Check its permissions, then try again."),
             _ => new IOException(
-                $"“{name}” could not be moved to the Trash: {Marshal.GetPInvokeErrorMessage(error)}.",
+                $"“{name}” couldn't be moved to the Trash. Try again.",
                 error),
         };
     }

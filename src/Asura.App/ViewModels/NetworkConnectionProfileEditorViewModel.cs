@@ -52,9 +52,9 @@ public sealed record NetworkCredentialOption(
 
     public string Detail => State switch
     {
-        NetworkCredentialOptionState.None => "Do not use a credential for this field.",
+        NetworkCredentialOptionState.None => "Don't use a credential for this field.",
         NetworkCredentialOptionState.Prompt =>
-            "The password is used for that connection only and is not stored.",
+            "The password is used for that connection only and isn't stored.",
         NetworkCredentialOptionState.Available =>
             $"{KindLabel} · {PersistenceLabel} · Updated {UpdatedLabel}",
         NetworkCredentialOptionState.Pending =>

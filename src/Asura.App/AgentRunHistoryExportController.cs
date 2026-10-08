@@ -72,7 +72,7 @@ public static class AgentRunHistoryExportController
             agent.ReportHistoryExportPublicationFailure();
             return Failure(
                 AgentSessionCheckpointStoreErrorCode.StorageUnavailable,
-                "Agent history export could not be written.");
+                "Asura couldn't save the agent history file. Choose another location, then try again.");
         }
         finally
         {

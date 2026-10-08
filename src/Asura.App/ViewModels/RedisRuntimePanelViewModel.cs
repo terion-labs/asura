@@ -1558,7 +1558,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
                 break;
             default:
                 throw new NotSupportedException(
-                    $"A {SelectedKeyType} entry cannot be rewritten in place.");
+                    $"A {SelectedKeyType} entry can't be changed in place. Delete it and add it again.");
         }
 
         await ReadSelectedKeyCoreAsync(key, token).ConfigureAwait(true);

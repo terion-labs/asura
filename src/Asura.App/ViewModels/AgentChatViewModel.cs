@@ -145,7 +145,7 @@ public sealed record AgentChatMessageViewModel(
 
     public string UsageLabel => Usage is not { } usage
         ? string.Empty
-        : $"{usage.TotalTokens.ToString(CultureInfo.InvariantCulture)} tokens · "
+        : $"{CountText.Of(usage.TotalTokens, "token", "tokens")} · "
             + $"{usage.InputTokens.ToString(CultureInfo.InvariantCulture)} in / "
             + $"{usage.OutputTokens.ToString(CultureInfo.InvariantCulture)} out"
             + (usage.CachedInputTokens > 0
@@ -263,7 +263,7 @@ public sealed record AgentConversationItemViewModel(
         GovernedAgentConversationAvailability.Partial =>
             $"Partial metadata · {UpdatedAt}",
         GovernedAgentConversationAvailability.Corrupt =>
-            $"Corrupt — cannot open or export · {UpdatedAt}",
+            $"Damaged — can't open or export · {UpdatedAt}",
         GovernedAgentConversationAvailability.Unavailable =>
             $"Temporarily unavailable · {UpdatedAt}",
         _ => $"Unavailable · {UpdatedAt}",
@@ -1024,7 +1024,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
-            CompactionStatus = "The conversation could not be compacted. Try again.";
+            CompactionStatus = "Asura couldn't shorten the conversation. Try again.";
         }
         finally
         {
@@ -1528,7 +1528,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                     : $"{processMonitorCount.ToString(CultureInfo.InvariantCulture)} Processes panels";
             }
 
-            return $"{ContextItems.Count.ToString(CultureInfo.InvariantCulture)} panels";
+            return CountText.Of(ContextItems.Count, "panel", "panels");
         }
     }
 
@@ -2205,7 +2205,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         if (HasPendingImages && !provider.SupportsImageInput)
         {
             ReportTargetUnavailable(
-                "The selected AI provider does not support image input.");
+                "The selected AI provider doesn't support image input.");
             return Task.CompletedTask;
         }
 
@@ -2487,7 +2487,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         {
             if (!await _runtime.ClearAsync(cancellationToken))
             {
-                Status = "The agent run could not be cleared while work is still active.";
+                Status = "The agent run can't be cleared while the agent is working. Stop it first.";
             }
         }
         finally
@@ -2510,7 +2510,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         {
             if (!await _runtime.StartNewConversationAsync(cancellationToken))
             {
-                Status = "A new conversation cannot be started while work is active.";
+                Status = "A new conversation can't start while the agent is working. Stop it first.";
             }
         }
         finally
@@ -2571,7 +2571,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         SetFavorite(favorite, !shouldFavorite);
         RefreshFilteredModels();
         ModelDiscoveryStatus = result.Error?.Message
-            ?? "The favorite model could not be saved.";
+            ?? "Asura couldn't save the favorite model. Try again.";
     }
 
     public async Task OpenConversationAsync(
@@ -2589,7 +2589,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         {
             if (!await _runtime.OpenConversationAsync(runId, cancellationToken))
             {
-                Status = "The saved conversation could not be opened.";
+                Status = "Asura couldn't open the saved conversation. Try again.";
             }
         }
         finally
@@ -2614,7 +2614,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         {
             if (!await _runtime.ForkConversationAsync(forkPoint, cancellationToken))
             {
-                Status = "The conversation could not be forked.";
+                Status = "Asura couldn't copy the conversation. Try again.";
             }
         }
         finally
@@ -2639,7 +2639,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         {
             if (!await _runtime.DeleteConversationAsync(runId, cancellationToken))
             {
-                Status = "The saved conversation could not be deleted.";
+                Status = "Asura couldn't delete the saved conversation. Try again.";
             }
             else
             {
@@ -2715,8 +2715,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                     AgentSessionCheckpointStoreErrorCode.RevisionConflict =>
                         "Agent history retention changed elsewhere. Reload and try again.",
                     AgentSessionCheckpointStoreErrorCode.CorruptData =>
-                        "Agent history retention is corrupt and was not changed.",
-                    _ => "Agent history retention could not be changed.",
+                        "Agent history retention is corrupt and wasn't changed.",
+                    _ => "Asura couldn't change how long agent history is kept. Try again.",
                 };
                 return;
             }
@@ -2762,7 +2762,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public void ReportHistoryExportPublicationFailure(bool cleanupUncertain = false)
     {
         AgentHistoryStatus = cleanupUncertain
-            ? "Agent history export failed before publication, and its temporary file could not be removed."
+            ? "Asura couldn't export the agent history, and couldn't remove its temporary file. Try again."
             : "Agent history export failed; the existing destination was preserved.";
     }
 
@@ -3858,7 +3858,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             _ => throw new ArgumentOutOfRangeException(
                 nameof(target),
                 target.GetType(),
-                "The agent target kind is not supported."),
+                "The agent target kind isn't supported."),
         };
 
     private static string FormatEnum<T>(T value)
@@ -4360,7 +4360,7 @@ public sealed class AgentQueuedFollowUpViewModel : ObservableObject
         if (item.Id != Id)
         {
             throw new ArgumentException(
-                "A queued-message presentation cannot change identity.",
+                "A queued-message presentation can't change identity.",
                 nameof(item));
         }
 

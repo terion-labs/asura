@@ -140,10 +140,10 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
                 WorkspaceNetworkState.Connecting => $"Connecting to {SelectedName}.",
                 WorkspaceNetworkState.Connected when _snapshot.RouteCapabilities is { } capabilities
                     && !capabilities.Protocols.HasFlag(WorkspaceIpProtocolCapabilities.Udp)
-                    => $"Workspace TCP traffic and DNS use {SelectedName}. This route does not support other UDP traffic or ping.",
+                    => $"Workspace TCP traffic and DNS use {SelectedName}. This route doesn't support other UDP traffic or ping.",
                 WorkspaceNetworkState.Connected when _snapshot.RouteCapabilities is { } capabilities
                     && !capabilities.Protocols.HasFlag(WorkspaceIpProtocolCapabilities.ControlMessages)
-                    => $"Workspace TCP and UDP traffic use {SelectedName}. This route does not support ping or other IP protocols.",
+                    => $"Workspace TCP and UDP traffic use {SelectedName}. This route doesn't support ping or other IP protocols.",
                 WorkspaceNetworkState.Connected => $"Workspace traffic uses {SelectedName}.",
                 WorkspaceNetworkState.Failed =>
                     _snapshot.Error?.Message ?? "The network connection failed.",
@@ -219,7 +219,7 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
         if (_policy.Policy.Connections.All(id => id != connectionId))
         {
             throw new ArgumentException(
-                "The network connection is not available to this workspace.",
+                "The network connection isn't available to this workspace.",
                 nameof(connectionId));
         }
 
@@ -395,7 +395,7 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
                     WorkspaceNetworkEgress.Blocked, _snapshot.SelectedConnectionId,
                     new NetworkConnectionError(NetworkConnectionErrorCode.RouteUnavailable,
                         "browser_auth_route_reset_failed",
-                        "Traffic stays blocked because saved browser authentication could not be cleared for the new route. Select the connection again to retry.",
+                        "Traffic stays blocked because Asura couldn't clear the browser's saved sign-in for the new route. Select the connection again to retry.",
                         retryable: true));
                 NotifyStatusChanged();
             }, _lifetime.Token);

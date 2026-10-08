@@ -119,13 +119,13 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     private static readonly IReadOnlyList<DatabaseFilterOperatorViewModel> AllFilterOperators =
     [
         new(DatabaseFilterOperator.Equal, "Equals"),
-        new(DatabaseFilterOperator.NotEqual, "Does not equal"),
+        new(DatabaseFilterOperator.NotEqual, "Doesn't equal"),
         new(DatabaseFilterOperator.LessThan, "Less than"),
         new(DatabaseFilterOperator.GreaterThan, "Greater than"),
         new(DatabaseFilterOperator.LessThanOrEqual, "At most"),
         new(DatabaseFilterOperator.GreaterThanOrEqual, "At least"),
         new(DatabaseFilterOperator.Contains, "Contains"),
-        new(DatabaseFilterOperator.NotContains, "Does not contain"),
+        new(DatabaseFilterOperator.NotContains, "Doesn't contain"),
         new(DatabaseFilterOperator.StartsWith, "Starts with"),
         new(DatabaseFilterOperator.EndsWith, "Ends with"),
         new(DatabaseFilterOperator.In, "In"),
@@ -848,7 +848,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         ?? (_selectedObjectDetails is null
             ? _resultSource == DatabaseResultSource.RawQuery
                 ? _rawQueryCanBrowse
-                    ? "This query result does not map exactly to one editable table."
+                    ? "This query result doesn't map exactly to one editable table."
                     : "This statement result can be copied or exported, but not rerun, "
                         + "filtered, sorted, or edited safely."
                 : "Run a table preview to edit rows."
@@ -1229,7 +1229,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     internal void RequireImportedConnection()
     {
         _importedConnectionRequired = true;
-        ErrorMessage = "This imported database panel needs a connection. Its device-local target and credentials were not imported.";
+        ErrorMessage = "This imported database panel needs a connection. Its device-local target and credentials weren't imported.";
         OnPropertyChanged(nameof(RecoveryTarget));
     }
 
@@ -1602,7 +1602,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                     table.KindLabel,
                 ],
                 widths))];
-        ResultSummary = $"{_allTables.Count} objects · {CurrentDatabaseLabel}";
+        ResultSummary = $"{CountText.OrNone(_allTables.Count, "object", "objects")} · {CurrentDatabaseLabel}";
         _isDatabaseOverview = true;
         OnPropertyChanged(nameof(IsDatabaseOverview));
         OnPropertyChanged(nameof(IsDatabaseObjectsOverview));
@@ -1955,7 +1955,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             candidate.Operator == filterOperator);
         if (option is null)
         {
-            ErrorMessage = $"{filterOperator} is not available for {cell.Column.Name}.";
+            ErrorMessage = $"{filterOperator} isn't available for {cell.Column.Name}.";
             return;
         }
 
@@ -1978,7 +1978,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             && filterOperator is not (DatabaseFilterOperator.IsNull
                 or DatabaseFilterOperator.IsNotNull))
         {
-            ErrorMessage = $"{cell.Column.Name} does not contain a valid filter value.";
+            ErrorMessage = $"{cell.Column.Name} doesn't contain a valid filter value.";
             return;
         }
 
@@ -2149,7 +2149,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     {
         if (!CanMutateRows || ResultColumns.Count == 0)
         {
-            ErrorMessage = ReadOnlyReason ?? "Rows cannot be imported right now.";
+            ErrorMessage = ReadOnlyReason ?? "Rows can't be imported right now. Try again when the current change finishes.";
             return false;
         }
 
@@ -3150,8 +3150,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         var elapsedText = result.Elapsed.TotalMilliseconds
             .ToString("0", CultureInfo.InvariantCulture);
         ResultSummary = result.Truncated
-            ? $"First {result.ValueRows.Count} rows (truncated) · {elapsedText} ms"
-            : $"{result.ValueRows.Count} rows · {elapsedText} ms";
+            ? $"First {CountText.Of(result.ValueRows.Count, "row", "rows")} (truncated) · {elapsedText} ms"
+            : $"{CountText.OrNone(result.ValueRows.Count, "row", "rows")} · {elapsedText} ms";
         SelectedMode = DatabaseWorkspaceMode.Data;
         OnPropertyChanged(nameof(SelectedObject));
         OnPropertyChanged(nameof(HasSelectedObject));
@@ -3207,7 +3207,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             Columns = normalizedColumns,
             CanEdit = details.CanEdit && !hasDisplayOnlyKey,
             ReadOnlyReason = disableForDisplayOnlyKey
-                ? "This primary-key value cannot be edited safely."
+                ? "This primary-key value can't be edited safely here. Edit it with SQL instead."
                 : details.ReadOnlyReason,
         };
         var effectiveColumns = result.Columns.Select((column, ordinal) =>
@@ -3298,7 +3298,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         ResultRows = rows;
         var elapsed = result.Elapsed.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture);
         ResultSummary = result.Truncated && !page.HasMore
-            ? $"First {valueRows.Count} rows · paging requires a primary key · {elapsed} ms"
+            ? $"First {CountText.Of(valueRows.Count, "row", "rows")} · paging needs a primary key · {elapsed} ms"
             : valueRows.Count == 0
                 ? $"No rows · {elapsed} ms"
                 : $"Rows {page.Offset + 1}–{page.Offset + valueRows.Count} · {elapsed} ms";
@@ -3798,7 +3798,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                 }
                 if (content.Kind is not (DatabaseValueKind.Text or DatabaseValueKind.Json or DatabaseValueKind.Binary))
                 {
-                    throw new InvalidOperationException($"Column '{edit.ColumnName}' uses a value that cannot be represented safely in an INSERT script.");
+                    throw new InvalidOperationException($"The value in “{edit.ColumnName}” can't be written safely into an INSERT script. Copy the rows another way, such as CSV.");
                 }
                 using var source = content.OpenRead();
                 using var complete = new MemoryStream();
@@ -4084,7 +4084,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         ArgumentNullException.ThrowIfNull(destination);
         if (!destination.CanWrite)
         {
-            throw new ArgumentException("The export destination is not writable.", nameof(destination));
+            throw new ArgumentException("The export destination isn't writable.", nameof(destination));
         }
 
         if (IsBusy)
@@ -4178,7 +4178,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         if (row.Cells.Count != ResultColumns.Count)
         {
             throw new ArgumentException(
-                "The row does not match the current result columns.",
+                "The row doesn't match the current result columns.",
                 nameof(row));
         }
     }

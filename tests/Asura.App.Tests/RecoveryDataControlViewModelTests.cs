@@ -86,10 +86,10 @@ public sealed class RecoveryDataControlViewModelTests
         Assert.False(viewModel.HasAdditionalRuns);
         Assert.StartsWith("Cleared 1 snapshot.", viewModel.StatusMessage);
         Assert.Contains(
-            "remaining recovery metadata could not be loaded",
+            "couldn't load details about the remaining recovery data",
             viewModel.StatusMessage,
             StringComparison.Ordinal);
-        Assert.Contains(
+        Assert.DoesNotContain(
             nameof(ApplicationRunErrorCode.StorageUnavailable),
             viewModel.StatusMessage,
             StringComparison.Ordinal);
@@ -157,7 +157,7 @@ public sealed class RecoveryDataControlViewModelTests
         Assert.Empty(viewModel.Runs);
         Assert.Equal(0, viewModel.ListedRunCount);
         Assert.StartsWith("Cleared 1 snapshot.", viewModel.StatusMessage);
-        Assert.Contains(
+        Assert.DoesNotContain(
             nameof(ApplicationRunErrorCode.StorageFailure),
             viewModel.StatusMessage,
             StringComparison.Ordinal);

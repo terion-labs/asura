@@ -120,7 +120,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
             || _workspaceRemoved is null)
         {
             throw new InvalidOperationException(
-                "Workspace graph watching was not configured for this coordinator.");
+                "Workspace graph watching wasn't configured for this coordinator.");
         }
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(
             _lifetime.Token);
@@ -1281,7 +1281,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
     private ISessionHostClient RequireSessionClient() =>
         _sessionClient
         ?? throw new InvalidOperationException(
-            "Session-host graph operations were not configured for this coordinator.");
+            "Session-host graph operations weren't configured for this coordinator.");
 
     private static bool IsAmbiguousReceiptFailure(Exception exception) =>
         exception is OperationCanceledException or IOException or TimeoutException;

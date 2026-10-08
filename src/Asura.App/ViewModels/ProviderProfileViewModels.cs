@@ -144,9 +144,7 @@ public sealed class McpServerProfileItemViewModel : ObservableObject
             : $"{CredentialBindingCount:N0} stored credentials";
 
     public string EnabledToolSummary =>
-        EnabledToolCount == 1
-            ? "1 enabled tool"
-            : $"{EnabledToolCount} enabled tools";
+        CountText.OrNone(EnabledToolCount, "enabled tool", "enabled tools");
 
     public string TestActionLabel => IsTesting ? "Testing…" : "Test";
 

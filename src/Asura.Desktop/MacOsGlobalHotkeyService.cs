@@ -58,7 +58,7 @@ internal sealed class MacOsGlobalHotkeyService : IGlobalHotkeyService
         var installStatus = EnsureHandler();
         if (installStatus != NoError)
         {
-            return NativeFailure();
+            return NativeFailure("handler-install", installStatus);
         }
 
         var hotKeyId = new EventHotKeyId(AsuraSignature, AsuraHotKeyId);
@@ -83,7 +83,7 @@ internal sealed class MacOsGlobalHotkeyService : IGlobalHotkeyService
                     GlobalHotkeyRegistrationErrorCode.InvalidGesture,
                     "global_hotkey_invalid_gesture",
                     "macOS didn't accept this shortcut. Choose another one."),
-                _ => NativeFailure(),
+                _ => NativeFailure("register", registrationStatus),
             };
         }
 
@@ -309,11 +309,18 @@ internal sealed class MacOsGlobalHotkeyService : IGlobalHotkeyService
         string message) =>
         new GlobalHotkeyRegistrationResult.Failure(new(code, stableCode, message));
 
-    // The native status stays out of the message people read.
-    private static GlobalHotkeyRegistrationResult NativeFailure()
+    /// <summary>
+    /// The diagnostic code for an OSStatus, such as
+    /// "desktop.hotkey.macos-native-failure.register.osstatus-neg9878".
+    /// </summary>
+    internal static string NativeFailureDiagnosticCode(string step, int status) =>
+        NativeStatusDiagnosticCode.Format($"desktop.hotkey.macos-native-failure.{step}", "osstatus", status);
+
+    // The OSStatus goes to diagnostics, not the message people read.
+    private static GlobalHotkeyRegistrationResult NativeFailure(string step, int status)
     {
         SecretSafeDiagnosticProjection.WriteTrace(
-            "desktop.hotkey.macos-native-failure",
+            NativeFailureDiagnosticCode(step, status),
             SecretSafeDiagnosticKind.Unexpected);
         return Failure(
             GlobalHotkeyRegistrationErrorCode.NativeFailure,

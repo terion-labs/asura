@@ -206,7 +206,7 @@ public sealed class WorkspaceSettingsViewModel : ObservableObject, IDisposable
             {
                 return Fail(
                     "Close this workspace before changing isolation or host mounts. "
-                    + "Existing processes cannot be moved safely between execution boundaries.");
+                    + "Processes that are already running can't move to the new isolation settings.");
             }
         }
 

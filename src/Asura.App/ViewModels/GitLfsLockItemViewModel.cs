@@ -14,6 +14,6 @@ public sealed record GitLfsLockItemViewModel(GitLfsLock Item)
     {
         GitLfsLockOwnership.CurrentUser => "Your lock",
         GitLfsLockOwnership.OtherUser => "Another account's lock",
-        _ => "Ownership could not be verified",
+        _ => "Owner unknown",
     };
 }

@@ -15,51 +15,51 @@ public sealed record ConnectionRuntimeError(
     public static ConnectionRuntimeError Create(ConnectionRuntimeErrorCode code) => code switch
     {
         ConnectionRuntimeErrorCode.InvalidProfile =>
-            New(code, "connection_invalid_profile", "The connection profile is invalid.", false, ConnectionRecoveryAction.EditProfile),
+            New(code, "connection_invalid_profile", "Some of this connection's settings aren't complete or aren't valid.", false, ConnectionRecoveryAction.EditProfile),
         ConnectionRuntimeErrorCode.AdapterUnavailable =>
-            New(code, "connection_adapter_unavailable", "No adapter supports this connection type.", false, ConnectionRecoveryAction.None),
+            New(code, "connection_adapter_unavailable", "Asura can't open this type of connection. Choose a different connection type.", false, ConnectionRecoveryAction.None),
         ConnectionRuntimeErrorCode.RuntimeMissing =>
-            New(code, "connection_runtime_missing", "The required connection runtime is not installed or executable.", false, ConnectionRecoveryAction.InstallRuntime),
+            New(code, "connection_runtime_missing", "A program this connection needs isn't installed or can't run.", false, ConnectionRecoveryAction.InstallRuntime),
         ConnectionRuntimeErrorCode.UnsupportedPlatform =>
-            New(code, "connection_platform_unsupported", "This connection type is not supported on the current platform.", false, ConnectionRecoveryAction.None),
+            New(code, "connection_platform_unsupported", "This type of connection isn't available on this computer. Choose a different connection type.", false, ConnectionRecoveryAction.None),
         ConnectionRuntimeErrorCode.SecretVaultUnavailable =>
-            New(code, "connection_secret_vault_unavailable", "The credential vault is unavailable.", true, ConnectionRecoveryAction.UnlockSecretVault),
+            New(code, "connection_secret_vault_unavailable", $"Asura couldn't reach {PlatformTerms.SecretStore}.", true, ConnectionRecoveryAction.UnlockSecretVault),
         ConnectionRuntimeErrorCode.SecretNotFound =>
-            New(code, "connection_secret_not_found", "A required connection credential is missing.", false, ConnectionRecoveryAction.ProvideAuthentication),
+            New(code, "connection_secret_not_found", "A password or key this connection needs is missing.", false, ConnectionRecoveryAction.ProvideAuthentication),
         ConnectionRuntimeErrorCode.SecretAccessDenied =>
-            New(code, "connection_secret_access_denied", "Access to a required connection credential was denied.", false, ConnectionRecoveryAction.ProvideAuthentication),
+            New(code, "connection_secret_access_denied", $"{PlatformTerms.SecretStore} didn't allow Asura to read a password or key this connection needs.", false, ConnectionRecoveryAction.ProvideAuthentication),
         ConnectionRuntimeErrorCode.SecretInvalid =>
-            New(code, "connection_secret_invalid", "A required connection credential is invalid.", false, ConnectionRecoveryAction.ProvideAuthentication),
+            New(code, "connection_secret_invalid", "A password or key this connection needs is damaged or in the wrong format.", false, ConnectionRecoveryAction.ProvideAuthentication),
         ConnectionRuntimeErrorCode.SecretVaultFailure =>
-            New(code, "connection_secret_vault_failure", "The credential vault could not complete the request.", true, ConnectionRecoveryAction.Retry),
+            New(code, "connection_secret_vault_failure", $"{PlatformTerms.SecretStore} couldn't complete the request.", true, ConnectionRecoveryAction.Retry),
         ConnectionRuntimeErrorCode.AuthenticationRequired =>
-            New(code, "connection_authentication_required", "Connection authentication requires user interaction.", false, ConnectionRecoveryAction.ProvideAuthentication),
+            New(code, "connection_authentication_required", "This connection needs you to sign in.", false, ConnectionRecoveryAction.ProvideAuthentication),
         ConnectionRuntimeErrorCode.AuthenticationFailed =>
-            New(code, "connection_authentication_failed", "Connection authentication failed.", false, ConnectionRecoveryAction.ProvideAuthentication),
+            New(code, "connection_authentication_failed", "The server didn't accept the user name, password, or key.", false, ConnectionRecoveryAction.ProvideAuthentication),
         ConnectionRuntimeErrorCode.UnknownHostKey =>
-            New(code, "connection_host_key_unknown", "The remote host key is not trusted.", false, ConnectionRecoveryAction.ReviewHostKey),
+            New(code, "connection_host_key_unknown", "Asura doesn't recognize the server's host key yet.", false, ConnectionRecoveryAction.ReviewHostKey),
         ConnectionRuntimeErrorCode.HostKeyChanged =>
-            New(code, "connection_host_key_changed", "The remote host key changed.", false, ConnectionRecoveryAction.ReviewHostKey),
+            New(code, "connection_host_key_changed", "The server's host key changed since the last connection.", false, ConnectionRecoveryAction.ReviewHostKey),
         ConnectionRuntimeErrorCode.HostKeyReviewExpired =>
-            New(code, "connection_host_key_review_expired", "The host-key review expired.", true, ConnectionRecoveryAction.ReviewHostKey),
+            New(code, "connection_host_key_review_expired", "The host key review timed out.", true, ConnectionRecoveryAction.ReviewHostKey),
         ConnectionRuntimeErrorCode.PermissionDenied =>
-            New(code, "connection_permission_denied", "The connection runtime was denied permission.", false, ConnectionRecoveryAction.GrantPermission),
+            New(code, "connection_permission_denied", "Asura doesn't have permission to open this connection.", false, ConnectionRecoveryAction.GrantPermission),
         ConnectionRuntimeErrorCode.Timeout =>
-            New(code, "connection_timeout", "The connection attempt timed out.", true, ConnectionRecoveryAction.Reconnect),
+            New(code, "connection_timeout", "The server didn't answer in time.", true, ConnectionRecoveryAction.Reconnect),
         ConnectionRuntimeErrorCode.Offline =>
-            New(code, "connection_offline", "The connection endpoint is offline or unreachable.", true, ConnectionRecoveryAction.Reconnect),
+            New(code, "connection_offline", "Asura couldn't reach the server. It may be offline, or the address may be wrong.", true, ConnectionRecoveryAction.Reconnect),
         ConnectionRuntimeErrorCode.ContainerNotFound =>
-            New(code, "connection_container_not_found", "The selected container does not exist or is not running.", false, ConnectionRecoveryAction.SelectContainer),
+            New(code, "connection_container_not_found", "The chosen container doesn't exist or isn't running.", false, ConnectionRecoveryAction.SelectContainer),
         ConnectionRuntimeErrorCode.DistributionNotFound =>
-            New(code, "connection_distribution_not_found", "The selected WSL distribution is not installed.", false, ConnectionRecoveryAction.SelectDistribution),
+            New(code, "connection_distribution_not_found", "The chosen WSL distribution isn't installed.", false, ConnectionRecoveryAction.SelectDistribution),
         ConnectionRuntimeErrorCode.Cancelled =>
-            New(code, "connection_cancelled", "The connection operation was canceled.", false, ConnectionRecoveryAction.None),
+            New(code, "connection_cancelled", "The connection was canceled.", false, ConnectionRecoveryAction.None),
         ConnectionRuntimeErrorCode.ProcessFailed =>
-            New(code, "connection_process_failed", "The connection runtime failed.", true, ConnectionRecoveryAction.Retry),
+            New(code, "connection_process_failed", "The connection stopped unexpectedly.", true, ConnectionRecoveryAction.Retry),
         ConnectionRuntimeErrorCode.TerminalMultiplexerMissing =>
             New(code, "connection_terminal_multiplexer_missing", "SSH connected, but terminal continuity requires tmux or GNU Screen on the remote host.", false, ConnectionRecoveryAction.ConfigureTerminalContinuity),
         ConnectionRuntimeErrorCode.TerminalMultiplexerSessionMissing =>
-            New(code, "connection_terminal_multiplexer_session_missing", "SSH connected, but the saved tmux or GNU Screen session could not be found. It may have ended or the server may have restarted.", false, ConnectionRecoveryAction.ConfigureTerminalContinuity),
+            New(code, "connection_terminal_multiplexer_session_missing", "SSH connected, but Asura couldn't find the saved tmux or GNU Screen session. It may have ended, or the server may have restarted.", false, ConnectionRecoveryAction.ConfigureTerminalContinuity),
         _ => throw new ArgumentOutOfRangeException(nameof(code), code, null),
     };
 

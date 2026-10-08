@@ -1314,7 +1314,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.False(occupancy.IsOccupied(
             new DefinitionKey(WorkspaceDefinition.Kind, WorkspaceId.Value)));
         Assert.Contains(
-            "not available on this platform",
+            "isn't available on this platform",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -1598,7 +1598,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.False(recreated);
         Assert.NotNull(viewModel.RuntimeWorkspace);
         Assert.Contains(
-            "could not be recreated",
+            "couldn't set up the workspace again",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
         Assert.Equal(2, provider.PrepareRequests.Count);
@@ -2297,7 +2297,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(sourceTabs, source.Tabs);
         Assert.Equal(destinationTabs, destination.Tabs);
         Assert.Contains(
-            "different workspace isolation scopes",
+            "workspaces that are isolated differently",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -6015,7 +6015,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     {
         var (client, recorder) = CreateSessionClient();
         using var viewModel = CreateViewModel(client, CreateTabAppendCatalogSnapshot());
-        Assert.Equal("New Session", viewModel.NewItemLauncherTitle);
+        Assert.Equal("New Workspace", viewModel.NewItemLauncherTitle);
         viewModel.LauncherSearchQuery = "Secondary local";
         // A palette row carries no action label of its own: Return opens it.
         Assert.Equal(
@@ -8006,7 +8006,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Null(agentRuntime.LastRequest);
         Assert.Null(viewModel.AgentSavedScreenLiveTarget);
         Assert.Contains(
-            "No live target or agent authority",
+            "The agent has no access yet",
             viewModel.AgentSavedScreenTargetStatus,
             StringComparison.Ordinal);
 
@@ -8092,7 +8092,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Null(viewModel.AgentSavedScreenLiveTarget);
         Assert.False(viewModel.HasAuthorizedAgentSavedScreenTarget);
         Assert.Contains(
-            "grants no agent authority",
+            "gives the agent no access",
             viewModel.AgentSavedScreenTargetStatus,
             StringComparison.Ordinal);
     }

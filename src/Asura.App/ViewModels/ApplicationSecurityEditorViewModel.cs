@@ -224,7 +224,7 @@ public sealed class ApplicationSecurityEditorViewModel : ObservableObject
 
         if (!string.Equals(NewPin, NewPinConfirmation, StringComparison.Ordinal))
         {
-            ProtectionStatus = "The two PIN entries do not match.";
+            ProtectionStatus = "The two PIN entries don't match.";
             return;
         }
 

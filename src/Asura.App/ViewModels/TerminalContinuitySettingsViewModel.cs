@@ -76,7 +76,7 @@ public sealed class TerminalContinuitySettingsViewModel : ObservableObject, IDis
         var leases = await _coordinator.ListAsync(cancellationToken);
         if (!preference.IsSuccess || !leases.IsSuccess)
         {
-            _setError("Terminal continuity settings could not be loaded.");
+            _setError("Asura couldn't load the terminal continuity settings. Close Settings and open it again.");
             return false;
         }
 
@@ -117,7 +117,7 @@ public sealed class TerminalContinuitySettingsViewModel : ObservableObject, IDis
                 cancellationToken);
             if (!result.IsSuccess)
             {
-                _setError("Terminal continuity settings could not be saved.");
+                _setError("Asura couldn't save the terminal continuity settings. Try again.");
                 OnPropertyChanged(nameof(UseForSshTerminals));
                 return false;
             }

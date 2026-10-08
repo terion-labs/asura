@@ -102,7 +102,7 @@ public sealed class BrowserProfileSettingsEditorViewModelTests
 
         Assert.False(editor.ClearAuthenticationCommand.CanExecute(null));
         Assert.Contains("per workspace", editor.StateText, StringComparison.Ordinal);
-        Assert.Contains("will not issue a broad", editor.StateText, StringComparison.Ordinal);
+        Assert.Contains("won't issue a broad", editor.StateText, StringComparison.Ordinal);
     }
 
     [Fact]

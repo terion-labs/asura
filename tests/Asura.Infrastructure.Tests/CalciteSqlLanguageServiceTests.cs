@@ -8,6 +8,35 @@ public sealed class CalciteSqlLanguageServiceTests
 {
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(2);
 
+    [Theory]
+    [InlineData("completion", "internalError", "sql-language.worker.rejected.completion.internalerror")]
+    [InlineData("initialize", "unsupportedVersion", "sql-language.worker.rejected.initialize.unsupportedversion")]
+    [InlineData("catalog-update", "SELECT * FROM users; --", "sql-language.worker.rejected.catalog-update.selectfromusers")]
+    [InlineData("diagnostics", null, "sql-language.worker.rejected.diagnostics.unknown")]
+    public void Worker_rejections_keep_the_operation_and_error_code_in_diagnostics(
+        string operation,
+        string? workerCode,
+        string expected)
+    {
+        var code = CalciteSqlLanguageSession.WorkerRejectedDiagnosticCode(operation, workerCode);
+
+        Assert.Equal(expected, code);
+        // The projection rejects codes outside its character set.
+        Assert.Contains(
+            $"code={expected} ",
+            SecretSafeDiagnosticProjection.FromEvent(code, SecretSafeDiagnosticKind.Unexpected),
+            StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(null, "sql-language.worker.stderr.running")]
+    [InlineData(1, "sql-language.worker.stderr.exit-1")]
+    [InlineData(-6, "sql-language.worker.stderr.exit-neg6")]
+    public void Worker_stderr_records_how_the_worker_exited(int? exitCode, string expected)
+    {
+        Assert.Equal(expected, CalciteSqlLanguageSession.WorkerStderrDiagnosticCode(exitCode));
+    }
+
     [Fact]
     public async Task MissingWorkerReturnsAnUnavailableNoOpSession()
     {

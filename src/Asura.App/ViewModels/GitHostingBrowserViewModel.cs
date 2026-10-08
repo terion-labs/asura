@@ -139,7 +139,7 @@ public sealed class GitHostingBrowserViewModel(IGitRepositoryClient client, Conn
             _page = page.Page;
             HasMore = page.HasMore;
             OnPropertyChanged(nameof(Repositories));
-            Status = $"{_repositories.Count} repositories{(HasMore ? " · more available" : "")}";
+            Status = $"{CountText.OrNone(_repositories.Count, "repository", "repositories")}{(HasMore ? " · more available" : "")}";
         }
         catch (OperationCanceledException)
         {

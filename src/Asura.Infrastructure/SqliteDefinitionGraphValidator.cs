@@ -73,7 +73,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 problems.Add(new(
                     DefinitionProblemKind.StorageFailure,
-                    "Something that uses this item is missing from the saved settings.",
+                    $"Asura couldn't find {DefinitionText.WithArticle(ownerKey.Kind)} that uses this item. Try again. If it keeps happening, restart Asura.",
                     ownerKey));
                 continue;
             }
@@ -84,7 +84,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 problems.Add(new(
                     DefinitionProblemKind.DependencyConflict,
-                    $"This change would break something that uses it. {problem.Message}",
+                    $"This change would break {DefinitionText.Named(resolved.Definition)}, which uses it. {problem.Message}",
                     ownerKey));
             }
         }
@@ -120,7 +120,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 return new(
                     DefinitionProblemKind.StorageFailure,
-                    "A saved AI provider is damaged and can't be read.",
+                    "A saved AI provider is damaged and can't be read. Remove it in Settings › AI Providers, then add it again.",
                     key);
             }
 
@@ -146,9 +146,10 @@ internal sealed class SqliteDefinitionGraphValidator
         }
 
         var owner = conflict.First(profile => prospectiveKeys.Contains(profile.Key));
+        var other = conflict.First(profile => profile.Key != owner.Key);
         return new(
             DefinitionProblemKind.InvalidDefinition,
-            "Two AI providers have the same place in the list. Each AI provider needs its own place.",
+            $"The AI providers {DefinitionText.Quoted(owner.Name)} and {DefinitionText.Quoted(other.Name)} have the same place in the list. Move one of them, then save again.",
             owner.Key);
     }
 
@@ -168,7 +169,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 return new(
                     DefinitionProblemKind.DependencyConflict,
-                    "An item can't use itself.",
+                    $"{DefinitionText.NamedAtStart(definition)} can't use itself.",
                     definition.Key);
             }
 
@@ -182,7 +183,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 return new(
                     DefinitionProblemKind.MissingDependency,
-                    "It uses something that no longer exists. Choose a replacement, then save again.",
+                    $"{DefinitionText.NamedAtStart(definition)} uses {DefinitionText.WithArticle(reference.Target.Kind)} that no longer exists. Choose another {DefinitionText.Noun(reference.Target.Kind)}, then save again.",
                     definition.Key);
             }
         }
@@ -206,11 +207,19 @@ internal sealed class SqliteDefinitionGraphValidator
                 return provider.Problem;
             }
 
-            if (provider.Definition is not AiProviderProfile { IsEnabled: true })
+            if (provider.Definition is AiProviderProfile { IsEnabled: false } disabledProvider)
             {
                 return new(
                     DefinitionProblemKind.DependencyConflict,
-                    "The agent settings use an AI provider that is missing or turned off. Choose an AI provider that is on, then save again.",
+                    $"The agent settings for {DefinitionText.Named(definition)} use the AI provider {DefinitionText.Quoted(disabledProvider.Name)}, which is turned off. Turn it on, or choose another AI provider.",
+                    definition.Key);
+            }
+
+            if (provider.Definition is not AiProviderProfile)
+            {
+                return new(
+                    DefinitionProblemKind.DependencyConflict,
+                    $"The agent settings for {DefinitionText.Named(definition)} use an AI provider that no longer exists. Choose another AI provider, then save again.",
                     definition.Key);
             }
         }
@@ -266,7 +275,7 @@ internal sealed class SqliteDefinitionGraphValidator
             ? null
             : new(
                 DefinitionProblemKind.DependencyConflict,
-                "A connection that goes through another host needs an SSH connection that doesn't go through a host itself.",
+                $"{DefinitionText.NamedAtStart(connection)} goes through {DescribeHop(resolved.Definition)}. Choose an SSH connection that connects directly as the host.",
                 connection.Key);
     }
 
@@ -287,7 +296,7 @@ internal sealed class SqliteDefinitionGraphValidator
         return resolved.Definition is ConnectionProfile { Endpoint: ConnectionEndpoint.Ssh, HostConnectionId: null }
             ? null
             : new(DefinitionProblemKind.DependencyConflict,
-                "The SSH tunnel for Kubernetes must be an SSH connection that doesn't go through another host.", profile.Key);
+                $"{DefinitionText.NamedAtStart(profile)} tunnels through {DescribeHop(resolved.Definition)}. Choose an SSH connection that connects directly as the tunnel.", profile.Key);
     }
 
     private async Task<DefinitionProblem?> ValidateFileProviderAsync(
@@ -315,7 +324,7 @@ internal sealed class SqliteDefinitionGraphValidator
             ? null
             : new(
                 DefinitionProblemKind.DependencyConflict,
-                "An SFTP file provider needs an SSH connection. Choose one, then save again.",
+                $"{DefinitionText.NamedAtStart(fileProvider)} needs an SSH connection, but it uses {DescribeConnection(resolved.Definition)}. Choose an SSH connection, then save again.",
                 fileProvider.Key);
     }
 
@@ -336,7 +345,7 @@ internal sealed class SqliteDefinitionGraphValidator
             ? null
             : new(
                 DefinitionProblemKind.DependencyConflict,
-                "A terminal profile needs a terminal keymap. Choose one, then save again.",
+                $"{DefinitionText.NamedAtStart(terminal)} needs a terminal keymap. Choose one, then save again.",
                 terminal.Key);
     }
 
@@ -353,7 +362,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 return new(
                     DefinitionProblemKind.DependencyConflict,
-                    "A keymap can't be based on itself, directly or through another keymap.",
+                    $"{DefinitionText.NamedAtStart(keymap)} can't be based on itself, directly or through another keymap. Choose another base keymap.",
                     keymap.Key);
             }
 
@@ -367,7 +376,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 return new(
                     DefinitionProblemKind.MissingDependency,
-                    "A keymap is based on a keymap that no longer exists. Choose another base keymap.",
+                    $"{DefinitionText.NamedAtStart(keymap)} is based on a keymap that no longer exists. Choose another base keymap.",
                     keymap.Key);
             }
 
@@ -375,7 +384,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 return new(
                     DefinitionProblemKind.DependencyConflict,
-                    "A keymap can only be based on a keymap of the same kind.",
+                    $"{DefinitionText.NamedAtStart(keymap)} can only be based on a keymap of the same kind, and {DefinitionText.Quoted(baseKeymap.Name)} isn't. Choose another base keymap.",
                     keymap.Key);
             }
 
@@ -402,7 +411,7 @@ internal sealed class SqliteDefinitionGraphValidator
         {
             return new(
                 DefinitionProblemKind.MissingDependency,
-                "A saved screen uses a layout that no longer exists. Choose another layout.",
+                $"{DefinitionText.NamedAtStart(screen)} uses a layout that no longer exists. Choose another layout.",
                 screen.Key);
         }
 
@@ -428,7 +437,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 return new(
                     DefinitionProblemKind.MissingDependency,
-                    "A workspace tab uses a layout that no longer exists. Choose another layout.",
+                    $"The tab {DefinitionText.Quoted(tab.Name)} in {DefinitionText.Named(workspace)} uses a layout that no longer exists. Choose another layout.",
                     workspace.Key);
             }
 
@@ -450,6 +459,17 @@ internal sealed class SqliteDefinitionGraphValidator
 
         return null;
     }
+
+    // The connection a hop points at, for a message that says why it can't be used.
+    private static string DescribeHop(IDurableDefinition? hop) => hop switch
+    {
+        null => "a connection that no longer exists",
+        ConnectionProfile { Endpoint: ConnectionEndpoint.Ssh } => $"{DefinitionText.Named(hop)}, which goes through another host itself",
+        _ => $"{DefinitionText.Named(hop)}, which isn't an SSH connection",
+    };
+
+    private static string DescribeConnection(IDurableDefinition? connection) =>
+        connection is null ? "a connection that no longer exists" : DefinitionText.Named(connection);
 
     private async Task<ResolvedDefinition> ResolveAsync(
         DefinitionKey key,

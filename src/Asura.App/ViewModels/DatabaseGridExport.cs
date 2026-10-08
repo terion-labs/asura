@@ -669,7 +669,7 @@ internal static partial class DatabaseGridExport
                 writer.Write(number.ToString("R", CultureInfo.InvariantCulture));
                 return;
             case float or double or Half:
-                throw new ArgumentException("Non-finite floating-point values cannot be exported as JSON.");
+                throw new ArgumentException("Values such as NaN and infinity can't be exported as JSON. Export as CSV instead.");
             case DateTime dateTime:
                 WriteJsonString(writer, dateTime.ToString("O", CultureInfo.InvariantCulture));
                 return;
@@ -1191,7 +1191,7 @@ internal static partial class DatabaseGridExport
         if (row.Cells.Count != columns.Count)
         {
             throw new ArgumentException(
-                "The row does not match the current result columns.",
+                "The row doesn't match the current result columns.",
                 nameof(row));
         }
     }

@@ -1472,7 +1472,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         {
             snapshot.Head.IsUnborn ? $"{snapshot.Head.BranchName} (no commits)" : snapshot.Head.BranchName,
             tracking,
-            changeCount == 1 ? "1 change" : $"{changeCount} changes",
+            CountText.OrNone(changeCount, "change", "changes"),
         }.Where(part => part.Length > 0));
 
         // A full snapshot always re-asks for the diff — file content can

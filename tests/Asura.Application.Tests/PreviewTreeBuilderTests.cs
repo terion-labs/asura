@@ -47,7 +47,7 @@ public sealed class PreviewTreeBuilderTests
         var folder = Assert.Single(nodes);
         Assert.True(folder.IsContainer);
         Assert.Empty(folder.Children);
-        Assert.Equal("0 items", folder.Detail);
+        Assert.Equal("No items", folder.Detail);
     }
 
     [Fact]

@@ -1432,7 +1432,7 @@ public sealed class FileRuntimePanelViewModelTests
                 otherProfile.Root));
 
         Assert.Contains(
-            "does not belong",
+            "doesn't belong",
             error.Message,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -1593,7 +1593,7 @@ public sealed class FileRuntimePanelViewModelTests
 
         await panel.Initialization;
         Assert.Null(panel.SelectedProfile);
-        Assert.Contains("not currently available", panel.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains("file provider isn't available right now", panel.ErrorMessage, StringComparison.Ordinal);
 
         client.AddProfile("files.saved", "Saved provider");
 

@@ -444,7 +444,7 @@ public sealed partial class S3FileProvider : IFileProvider
         }
         catch (OperationCanceledException exception)
         {
-            return Failure<T>(FileProviderErrorCode.IoFailure, exception.Message, retryable: true);
+            return Failure<T>(FileProviderErrorCode.IoFailure, TransportFailure(exception), retryable: true);
         }
         catch (S3StoreException exception)
         {
@@ -452,62 +452,81 @@ public sealed partial class S3FileProvider : IFileProvider
         }
         catch (EndOfStreamException exception)
         {
-            return Failure<T>(FileProviderErrorCode.UnexpectedEndOfStream, exception.Message);
+            return Failure<T>(FileProviderErrorCode.UnexpectedEndOfStream, TransportFailure(exception));
         }
         catch (HttpRequestException exception)
         {
-            return Failure<T>(FileProviderErrorCode.IoFailure, exception.Message, retryable: true);
+            return Failure<T>(FileProviderErrorCode.IoFailure, TransportFailure(exception), retryable: true);
         }
         catch (IOException exception)
         {
-            return Failure<T>(FileProviderErrorCode.IoFailure, exception.Message, retryable: true);
+            return Failure<T>(FileProviderErrorCode.IoFailure, TransportFailure(exception), retryable: true);
         }
     }
 
+    private const string ServiceName = "the S3 service";
+
+    private const string DiagnosticPrefix = "files.s3";
+
+    private static string TransportFailure(Exception exception) =>
+        RemoteServiceFailureText.ForException(ServiceName, DiagnosticPrefix, exception);
+
+    // The SDK's message is worded for developers and can quote the bucket and
+    // key, so the message comes from the status and the exception goes to
+    // diagnostics.
     private static FileProviderError MapStoreError(
         S3StoreException exception,
         FileMutationPrecondition? mutationPrecondition)
     {
+        SecretSafeDiagnosticProjection.WriteTrace($"{DiagnosticPrefix}.service-error", exception);
+        var mustNotExist = mutationPrecondition is FileMutationPrecondition.MustNotExist;
+        var message = RemoteServiceFailureText.ForStatus(
+            ServiceName,
+            DiagnosticPrefix,
+            exception.StatusCode,
+            targetMustNotExist: mustNotExist);
         if (exception.StatusCode == HttpStatusCode.PreconditionFailed)
         {
-            var code = mutationPrecondition is FileMutationPrecondition.MustNotExist
+            var code = mustNotExist
                 ? FileProviderErrorCode.Conflict
                 : FileProviderErrorCode.PreconditionFailed;
-            return FileProviderError.Create(code, exception.Message);
+            return FileProviderError.Create(code, message);
         }
 
         if (exception.ServiceCode is "EntityTooLarge" or "InvalidRequest")
         {
-            return FileProviderError.Create(FileProviderErrorCode.LimitExceeded, exception.Message);
+            return FileProviderError.Create(
+                FileProviderErrorCode.LimitExceeded,
+                "The S3 service didn't accept the request because the item is too large or the request goes past a service limit.");
         }
 
         return exception.StatusCode switch
         {
             HttpStatusCode.BadRequest => FileProviderError.Create(
                 FileProviderErrorCode.InvalidLocation,
-                exception.Message),
+                message),
             HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => FileProviderError.Create(
                 FileProviderErrorCode.AccessDenied,
-                exception.Message),
+                message),
             HttpStatusCode.NotFound => FileProviderError.Create(
                 FileProviderErrorCode.NotFound,
-                exception.Message),
+                message),
             HttpStatusCode.Conflict => FileProviderError.Create(
                 FileProviderErrorCode.Conflict,
-                exception.Message,
+                message,
                 retryable: true),
             HttpStatusCode.RequestedRangeNotSatisfiable => FileProviderError.Create(
                 FileProviderErrorCode.RangeNotSatisfiable,
-                exception.Message),
+                message),
             HttpStatusCode.TooManyRequests => FileProviderError.Create(
                 FileProviderErrorCode.IoFailure,
-                exception.Message,
+                message,
                 retryable: true),
             >= HttpStatusCode.InternalServerError => FileProviderError.Create(
                 FileProviderErrorCode.IoFailure,
-                exception.Message,
+                message,
                 retryable: true),
-            _ => FileProviderError.Create(FileProviderErrorCode.IoFailure, exception.Message),
+            _ => FileProviderError.Create(FileProviderErrorCode.IoFailure, message),
         };
     }
 

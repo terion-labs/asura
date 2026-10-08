@@ -91,7 +91,7 @@ public sealed class SessionHostedFilePanelClient :
                 new FilePanelError(
                     FilePanelErrorCode.UnsupportedCapability,
                     "file_content_unsupported",
-                    "This file client cannot open whole files.",
+                    "Whole files can't be opened from this location.",
                     false)));
 
     public IReadOnlyList<FileProviderProfileDescriptor> Profiles
@@ -202,7 +202,7 @@ public sealed class SessionHostedFilePanelClient :
                 return HostResult<SessionSnapshot>.Fail(
                     HostError.Create(
                         HostErrorCode.InvalidRequest,
-                        "The first file location does not belong to the saved provider profile."),
+                        "The first file location doesn't belong to the saved provider profile."),
                     Revision ?? 0);
             }
 
@@ -211,7 +211,7 @@ public sealed class SessionHostedFilePanelClient :
                 return HostResult<SessionSnapshot>.Fail(
                     HostError.Create(
                         HostErrorCode.NotFound,
-                        "The file-provider profile required by this panel is not available."),
+                        "The file-provider profile required by this panel isn't available."),
                     Revision ?? 0);
             }
 
@@ -670,7 +670,7 @@ public sealed class SessionHostedFilePanelClient :
             var profileId = metadata?.TrustedRoot.ProviderProfileId
                 ?? _bindingLocation?.ProviderProfileId
                 ?? throw new InvalidOperationException(
-                    "A hosted file session cannot freeze profiles before binding.");
+                    "A hosted file session can't freeze profiles before binding.");
             var initialProfile = profilesAfterBinding
                 .Concat(profilesBeforeBinding)
                 .FirstOrDefault(profile =>

@@ -300,18 +300,22 @@ internal sealed class LinuxX11GlobalHotkeyService : IGlobalHotkeyService
                 GlobalHotkeyRegistrationErrorCode.InvalidGesture,
                 "global_hotkey_invalid_gesture",
                 "The window system didn't accept this shortcut. Choose another one."),
-            _ => UnexpectedRegistrationFailure(),
+            _ => UnexpectedRegistrationFailure(errorCode),
         };
 
-    private static GlobalHotkeyRegistrationResult UnexpectedRegistrationFailure()
+    /// <summary>The diagnostic code for an X11 error, such as "desktop.hotkey.x11-native-failure.x11-error-10".</summary>
+    internal static string NativeFailureDiagnosticCode(byte errorCode) =>
+        NativeStatusDiagnosticCode.Format("desktop.hotkey.x11-native-failure", "x11-error", errorCode);
+
+    // The X11 error code goes to diagnostics, not the message people read.
+    private static GlobalHotkeyRegistrationResult UnexpectedRegistrationFailure(byte errorCode)
     {
         SecretSafeDiagnosticProjection.WriteTrace(
-            "desktop.hotkey.x11-native-failure",
+            NativeFailureDiagnosticCode(errorCode),
             SecretSafeDiagnosticKind.Unexpected);
         return NativeFailure();
     }
 
-    // The X11 error code stays out of the message people read.
     private static GlobalHotkeyRegistrationResult NativeFailure() => Failure(
         GlobalHotkeyRegistrationErrorCode.NativeFailure,
         "global_hotkey_native_failure",

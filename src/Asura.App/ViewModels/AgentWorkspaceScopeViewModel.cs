@@ -61,7 +61,7 @@ public sealed class AgentWorkspaceScopeViewModel : ObservableObject, IDisposable
             if (!ScopeOptionsValue.Contains(value))
             {
                 throw new ArgumentException(
-                    "The selected agent scope is not available.",
+                    "The selected agent scope isn't available.",
                     nameof(value));
             }
 
@@ -159,7 +159,7 @@ public sealed class AgentWorkspaceScopeViewModel : ObservableObject, IDisposable
                 throw new ArgumentOutOfRangeException(
                     nameof(SelectedScope),
                     SelectedScope.Kind,
-                    "The selected agent scope is not supported.");
+                    "The selected agent scope isn't supported.");
         }
     }
 

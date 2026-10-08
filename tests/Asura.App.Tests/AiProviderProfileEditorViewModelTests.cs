@@ -628,7 +628,7 @@ public sealed class AiProviderProfileEditorViewModelTests
 
         Assert.Null(launch);
         Assert.False(editor.IsAuthenticating);
-        Assert.Equal("Authentication could not be started.", editor.AuthenticationStatus);
+        Assert.Equal("Asura couldn't start signing in. Try again.", editor.AuthenticationStatus);
         Assert.DoesNotContain(
             "sensitive-provider-detail",
             editor.AuthenticationStatus,
@@ -745,7 +745,7 @@ public sealed class AiProviderProfileEditorViewModelTests
 
         Assert.False(editor.IsProviderRuntimeSupported);
         Assert.False(editor.CanTest);
-        Assert.Contains("not implemented", editor.ProviderAvailability);
+        Assert.Contains("doesn't support this AI provider yet", editor.ProviderAvailability);
         Assert.Equal("Provider unavailable", editor.TestStatus);
         Assert.Null(runtime.LastProfile);
         Assert.Throws<ArgumentException>(editor.CreateSaveRequest);
