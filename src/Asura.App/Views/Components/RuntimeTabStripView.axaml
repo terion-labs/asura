@@ -114,8 +114,8 @@
         VerticalAlignment="Center"
         Classes="IconButton"
         IsVisible="False"
-        ToolTip.Tip="Show All Tabs"
-        AutomationProperties.Name="Show All Tabs">
+        ToolTip.Tip="Show all tabs"
+        AutomationProperties.Name="Show all tabs">
       <icons:SymbolIcon Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
       <Button.Flyout>
         <MenuFlyout Placement="BottomEdgeAlignedRight" Opening="OnOverflowMenuOpening" />

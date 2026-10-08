@@ -215,7 +215,8 @@ public sealed class RuntimePanelViewContractTests
         Assert.True(HasClass(shell, "IconButton"));
         Assert.False(HasClass(shell, "PrimaryButton"));
         Assert.Equal("{Binding IsShellDetail}", AttributeValue(shell, "IsVisible"));
-        Assert.Equal("Open in New Tab", AttributeValue(shell, "ToolTip.Tip"));
+        Assert.Equal("Open shell in new tab", AttributeValue(shell, "ToolTip.Tip"));
+        Assert.Equal("Open shell in new tab", AttributeValue(shell, "AutomationProperties.Name"));
         Assert.Contains(
             shell.Descendants(),
             element => string.Equals(element.Name.LocalName, "SymbolIcon"

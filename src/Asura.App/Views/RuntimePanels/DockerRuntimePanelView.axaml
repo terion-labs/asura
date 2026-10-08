@@ -519,8 +519,8 @@
                 Click="OnOpenShellClick"
                 IsEnabled="{Binding CanOpenShell}"
                 IsVisible="{Binding IsShellDetail}"
-                ToolTip.Tip="Open in New Tab"
-                AutomationProperties.Name="Open shell in a new tab">
+                ToolTip.Tip="Open shell in new tab"
+                AutomationProperties.Name="Open shell in new tab">
               <icons:SymbolIcon Symbol="Open" FontSize="{DynamicResource ShellIconSizeMd}" />
             </Button>
           </StackPanel>

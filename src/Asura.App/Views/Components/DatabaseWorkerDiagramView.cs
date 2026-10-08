@@ -221,7 +221,7 @@ public sealed class DatabaseWorkerDiagramView : UserControl
         }
         catch (Exception)
         {
-            _error.Text = "The diagram worker stopped. Reopen the diagram to render it again.";
+            _error.Text = "The diagram stopped responding. Reopen it to draw it again.";
             _error.IsVisible = Session is not null;
         }
         finally

@@ -35,7 +35,7 @@
     <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
         <StackPanel Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="SectionHeading" Text="Open-source components" /><TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="The main components Asura is built on. Acknowledgments lists every component and its license." TextWrapping="Wrap" /></StackPanel>
-        <Button Grid.Column="1" Classes="SecondaryButton" Click="OnOpenThirdPartyNoticesClick" Content="Acknowledgments…" AutomationProperties.Name="Open bundled third-party notices" />
+        <Button Grid.Column="1" Classes="SecondaryButton" Click="OnOpenThirdPartyNoticesClick" Content="Acknowledgments…" AutomationProperties.Name="Acknowledgments" />
       </Grid>
       <ItemsControl ItemsSource="{Binding ProductComponents}">
         <ItemsControl.ItemTemplate>

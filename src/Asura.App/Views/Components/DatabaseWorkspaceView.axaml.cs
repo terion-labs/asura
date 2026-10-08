@@ -601,7 +601,7 @@ public sealed partial class DatabaseWorkspaceView : UserControl
             catch (Exception exception)
             {
                 panel.ReportInteractionError(
-                    $"Asura couldn’t copy the selected row. {FailureReason.Describe(exception)}");
+                    $"Asura couldn’t copy the selected row. {FailureReason.Report("database.row.copy.failed", exception)}");
             }
         }
     }

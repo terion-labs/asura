@@ -64,7 +64,7 @@ public sealed partial class DatabaseWorkspaceView
         {
             if (ReferenceEquals(Panel, panel) && ReferenceEquals(panel.DiagramSession, session))
             {
-                panel.ReportInteractionError($"Asura couldn’t copy the diagram. {FailureReason.Describe(exception)}");
+                panel.ReportInteractionError($"Asura couldn’t copy the diagram. {FailureReason.Report("database.diagram.copy.failed", exception)}");
             }
         }
     }
@@ -117,7 +117,7 @@ public sealed partial class DatabaseWorkspaceView
         }
         catch (Exception exception)
         {
-            panel.ReportInteractionError($"Asura couldn’t save the diagram. {FailureReason.Describe(exception)}");
+            panel.ReportInteractionError($"Asura couldn’t save the diagram. {FailureReason.Report("database.diagram.save.failed", exception)}");
         }
     }
 

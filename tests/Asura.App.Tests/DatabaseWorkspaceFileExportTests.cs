@@ -1,4 +1,5 @@
 using System.Text;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
 using Asura.Testing;
@@ -90,7 +91,7 @@ public sealed class DatabaseWorkspaceFileExportTests : IDisposable
     [Fact]
     public void Page_export_rejects_sql_insert_files()
     {
-        var error = Assert.Throws<InvalidDataException>(() =>
+        var error = Assert.Throws<ReadableFailureException>(() =>
             DatabaseWorkspaceView.ResolvePageExportFormat("page.sql"));
 
         Assert.Equal(

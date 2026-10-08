@@ -161,7 +161,7 @@ public sealed partial class GitRuntimePanelView
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            await Confirmations.Problem("The patch couldn’t be saved", FailureReason.Describe(exception)).ShowDialog(window);
+            await Confirmations.Problem("The patch couldn’t be saved", FailureReason.Report("git.patch.save.failed", exception)).ShowDialog(window);
         }
     }
 }

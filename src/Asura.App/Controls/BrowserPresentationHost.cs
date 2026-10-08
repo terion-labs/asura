@@ -658,7 +658,7 @@ public sealed class BrowserPresentationHost : ContentControl
             || ClientId is null
             || RendererView is not { } rendererView)
         {
-            SetWaitingState("Waiting for the browser renderer.");
+            SetWaitingState("Waiting for the browser to start…");
             return;
         }
 
@@ -769,7 +769,7 @@ public sealed class BrowserPresentationHost : ContentControl
         {
             if (generation == _initializationGeneration)
             {
-                SetWaitingState("Browser renderer stopped.", "Stopped");
+                SetWaitingState("The browser stopped.", "Stopped");
             }
         }
         catch (Exception exception)

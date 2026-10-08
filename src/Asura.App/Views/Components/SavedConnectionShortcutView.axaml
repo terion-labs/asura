@@ -39,7 +39,7 @@
       </controls:ListItem>
     </Button>
     <Button Grid.Column="1" Classes="IconButton" Click="OnEditClick"
-        ToolTip.Tip="Edit connection" AutomationProperties.Name="{Binding Name, StringFormat=Edit {0}}">
+        ToolTip.Tip="Edit connection…" AutomationProperties.Name="{Binding Name, StringFormat=Edit {0}}">
       <icons:SymbolIcon Symbol="Edit" FontSize="{DynamicResource ShellIconSizeSm}" />
     </Button>
     <Button

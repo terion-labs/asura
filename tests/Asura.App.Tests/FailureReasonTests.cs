@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using Asura.App.Controls;
 
@@ -5,17 +6,49 @@ namespace Asura.App.Tests;
 
 /// <summary>
 /// The reason a data-panel action failed is written for the person reading
-/// it: Asura's own refusals pass through, and framework failures — whose
-/// messages name types and paths — become a sentence with a next step.
+/// it: refusals written for people pass through, and every other failure —
+/// framework messages that name types and paths, and Asura's internal data
+/// errors — becomes a sentence with a next step.
 /// </summary>
 public sealed class FailureReasonTests
 {
     [Fact]
-    public void Asuras_own_refusals_keep_their_message()
+    public void Readable_refusals_keep_their_message()
     {
         Assert.Equal(
-            "The CSV file has no header row.",
-            FailureReason.Describe(new InvalidDataException("The CSV file has no header row.")));
+            "The selected file is larger than 16 MiB.",
+            FailureReason.Describe(new ReadableFailureException("The selected file is larger than 16 MiB.")));
+    }
+
+    [Fact]
+    public void Internal_data_errors_never_show_their_own_message()
+    {
+        var failure = new InvalidDataException("The detached database array format is invalid.");
+
+        Assert.Equal("Something unexpected went wrong. Try again.", FailureReason.Describe(failure));
+    }
+
+    [Fact]
+    public void Report_writes_a_secret_safe_trace_and_returns_the_reason()
+    {
+        using var traceOutput = new StringWriter();
+        using var listener = new TextWriterTraceListener(traceOutput);
+        var failure = new UnauthorizedAccessException("Access to the path '/private/x.csv' is denied.");
+        string reason;
+        Trace.Listeners.Add(listener);
+        try
+        {
+            reason = FailureReason.Report("database.page.export.failed", failure);
+            Trace.Flush();
+        }
+        finally
+        {
+            Trace.Listeners.Remove(listener);
+        }
+
+        Assert.Equal(FailureReason.Describe(failure), reason);
+        Assert.Contains("code=database.page.export.failed", traceOutput.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("/private", traceOutput.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]

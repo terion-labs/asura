@@ -168,7 +168,7 @@ public sealed partial class DatabaseMermaidDiagramView : UserControl
 
             RenderedSvg = string.Empty;
             ReplaceSvgSource(null);
-            _errorNotices.Report($"Asura couldn’t draw the ER diagram. {FailureReason.Describe(exception)}");
+            _errorNotices.Report($"Asura couldn’t draw the ER diagram. {FailureReason.Report("database.er-diagram.render.failed", exception)}");
         }
     }
 

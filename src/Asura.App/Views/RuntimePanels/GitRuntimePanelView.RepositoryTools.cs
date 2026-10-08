@@ -227,7 +227,12 @@ public sealed partial class GitRuntimePanelView
 
         var selected = viewModel.SelectedUnstagedItems.Concat(viewModel.SelectedStagedItems).Select(item => item.Path).Distinct(StringComparer.Ordinal).ToArray();
         var values = await ShowGitFormAsync("Save Stash", "Save Stash",
-            selected.Length == 0 ? "Stash all working changes." : $"Stash {selected.Length} selected files.",
+            selected.Length switch
+            {
+                0 => "Stash all working changes.",
+                1 => "Stash 1 selected file.",
+                var count => $"Stash {count:N0} selected files.",
+            },
             new("message", "Message", Required: false),
             GitWorkflowField.CheckBox("untracked", "Include new files", true),
             GitWorkflowField.CheckBox("index", "Keep staged changes", false));
