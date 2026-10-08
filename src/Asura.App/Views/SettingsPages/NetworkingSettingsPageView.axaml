@@ -147,7 +147,7 @@
             x:Name="AddProfileButton"
             Classes="IconButton"
             Click="OnAddProfileClick"
-            ToolTip.Tip="New Connection…"
+            ToolTip.Tip="New connection…"
             AutomationProperties.Name="Create a network connection">
           <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
         </Button>
@@ -156,7 +156,7 @@
             Classes="IconButton"
             Click="OnDeleteProfileClick"
             IsEnabled="False"
-            ToolTip.Tip="Delete Connection…"
+            ToolTip.Tip="Delete connection…"
             AutomationProperties.Name="Delete selected network connection">
           <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
         </Button>

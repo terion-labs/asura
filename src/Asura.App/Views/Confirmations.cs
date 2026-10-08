@@ -57,7 +57,7 @@ internal static class Confirmations
         });
 
     public static ConfirmationDialog DiscardChanges(
-        string heading = "Discard layout changes?",
+        string heading = "Discard Layout Changes?",
         string detail = "Unsaved changes to the grid, panel sizes, order, and minimum sizes will be lost.") =>
         new(new ConfirmationDialogOptions
         {
@@ -104,7 +104,7 @@ internal static class Confirmations
     public static ConfirmationDialog RecreateWorkspaceIsolation(string workspaceName) =>
         new(new ConfirmationDialogOptions
         {
-            Heading = $"Recreate “{workspaceName}” environment?",
+            Heading = $"Recreate the “{workspaceName}” Environment?",
             Detail = "The workspace will close and start again in a new environment.",
             Notice = "Installed packages and guest-only files will be permanently removed. Host-mounted files are not removed.",
             ConfirmLabel = "Recreate Environment",
@@ -119,7 +119,7 @@ internal static class Confirmations
         ArgumentException.ThrowIfNullOrWhiteSpace(firstPath);
         return new ConfirmationDialog(new ConfirmationDialogOptions
         {
-            Heading = count == 1 ? "Discard this change?" : $"Discard {count} changes?",
+            Heading = count == 1 ? "Discard This Change?" : $"Discard {count} Changes?",
             Detail = count == 1
                 ? $"“{firstPath}” returns to its last staged or committed content; an untracked file is deleted."
                 : $"“{firstPath}” and {count - 1} more return to their last staged or committed content; untracked files are deleted.",
@@ -169,7 +169,7 @@ internal static class Confirmations
     public static ConfirmationDialog GitDropStash(string subject) =>
         new(new ConfirmationDialogOptions
         {
-            Heading = "Drop this stash?",
+            Heading = "Drop This Stash?",
             Detail = $"“{subject}” is removed from the stash list without being applied.",
             Notice = "Asura can’t undo a dropped stash; its record survives only until Git prunes it.",
             ConfirmLabel = "Drop Stash",
@@ -181,7 +181,7 @@ internal static class Confirmations
     public static ConfirmationDialog GitDeleteBranch(string name) =>
         new(new ConfirmationDialogOptions
         {
-            Heading = $"Delete branch “{name}”?",
+            Heading = $"Delete Branch “{name}”?",
             Detail = "The branch is deleted even when unmerged, so commits reachable only from it are left behind.",
             Notice = "Asura can’t undo this deletion; an unmerged tip survives only in the reflog until Git prunes it.",
             ConfirmLabel = "Delete Branch",
@@ -195,7 +195,7 @@ internal static class Confirmations
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         return new ConfirmationDialog(new ConfirmationDialogOptions
         {
-            Heading = "Trust this repository?",
+            Heading = "Trust This Repository?",
             Detail = $"“{path}” belongs to a different user than this connection signs in as, "
                 + "so Git refuses to open it. Confirming runs Git's own remedy for the "
                 + $"signed-in user on that machine: git config --global --add safe.directory {path}",
@@ -211,7 +211,7 @@ internal static class Confirmations
     public static ConfirmationDialog GitRemoveRemote(string name) =>
         new(new ConfirmationDialogOptions
         {
-            Heading = $"Remove remote “{name}”?",
+            Heading = $"Remove Remote “{name}”?",
             Detail = "The remote and its remote-tracking branches are removed from this repository.",
             Notice = "Nothing on the remote server itself is touched; adding the remote again restores it.",
             ConfirmLabel = "Remove Remote",
@@ -238,7 +238,7 @@ internal static class Confirmations
     public static ConfirmationDialog HistoryClear() =>
         new(new ConfirmationDialogOptions
         {
-            Heading = "Clear recent sessions?",
+            Heading = "Clear Recent Sessions?",
             Detail = "The list of recently opened workspaces, screens, and connections will be cleared.",
             Notice = "This doesn’t close active sessions or delete saved connections, screens, or workspaces. Terminal content and commands were never stored here.",
             ConfirmLabel = "Clear",
@@ -250,7 +250,7 @@ internal static class Confirmations
     public static ConfirmationDialog HistoryReset() =>
         new(new ConfirmationDialogOptions
         {
-            Heading = "Reset unreadable history?",
+            Heading = "Reset Unreadable History?",
             Detail = "Asura couldn’t read the saved session history. Resetting removes all of it, including the damaged entries, so history can start fresh.",
             Notice = "This doesn’t close active sessions or delete saved connections, screens, or workspaces. It can’t be limited to the entries shown, because the damaged entries can’t be shown.",
             ConfirmLabel = "Reset History",
@@ -264,7 +264,7 @@ internal static class Confirmations
         ArgumentNullException.ThrowIfNull(option);
         return new ConfirmationDialog(new ConfirmationDialogOptions
         {
-            Heading = "Apply stricter history retention?",
+            Heading = "Apply Stricter History Retention?",
             Detail = $"{option.DisplayName}: {option.Description}",
             Notice = "History outside the new limit is removed right away and can’t be restored. Active sessions stay open, and saved connections, screens, and workspaces don’t change.",
             ConfirmLabel = "Apply and Prune",
@@ -280,7 +280,7 @@ internal static class Confirmations
         ArgumentNullException.ThrowIfNull(option);
         return new ConfirmationDialog(new ConfirmationDialogOptions
         {
-            Heading = "Apply and prune agent history?",
+            Heading = "Apply and Prune Agent History?",
             Detail = option.Description + ".",
             Notice = "Saved conversations and their activity records outside the new limit are removed right away. The run in progress is kept. Exports never include prompts or tool content.",
             ConfirmLabel = "Apply and Prune",
@@ -293,7 +293,7 @@ internal static class Confirmations
     public static ConfirmationDialog AgentConversationDelete(string title) =>
         new(new ConfirmationDialogOptions
         {
-            Heading = "Delete this conversation?",
+            Heading = "Delete This Conversation?",
             Detail = $"“{title}” and its activity record will be deleted.",
             Notice = "A conversation can’t be deleted while it’s running. Asura can’t undo the deletion.",
             ConfirmLabel = "Delete Conversation",
@@ -309,8 +309,8 @@ internal static class Confirmations
         return new ConfirmationDialog(new ConfirmationDialogOptions
         {
             Heading = $"Let the agent use the tab “{target.TabName}”?",
-            Detail = $"This open tab has {CountLabel.Format(target.PanelCount, "panel")} in “{target.WorkspaceName}”. It was opened from the saved screen “{target.TemplateName}” (version {target.TemplateRevision}).",
-            Notice = $"Only this open tab is allowed ({target.ExactIdentity}). The saved screen allows nothing by itself, and later edits to it can’t point this permission at another tab.",
+            Detail = $"This open tab has {CountLabel.InSentence(target.PanelCount, "panel")} in “{target.WorkspaceName}”. It was opened from the saved screen “{target.TemplateName}” (version {target.TemplateRevision}).",
+            Notice = "Only this open tab is allowed. The saved screen allows nothing by itself, and later edits to it can’t point this permission at another tab.",
             ConfirmLabel = "Allow This Tab",
             Intent = ConfirmationIntent.Confirm,
             ConfirmAutomationName = "Allow the agent to use this open tab",
@@ -322,7 +322,12 @@ internal static class Confirmations
     {
         ArgumentNullException.ThrowIfNull(item);
         return LocalArtifactClear(
-            $"Clear {LowerFirst(item.Title)}?",
+            item.Kind switch
+            {
+                LocalArtifactKind.Cache => "Clear App-Managed Cache?",
+                LocalArtifactKind.InactiveApplicationLogs => "Clear Inactive Application Logs?",
+                _ => "Clear These Files?",
+            },
             $"Now: {item.FileCountLabel}, {item.SizeLabel}. "
             + "Every file in this category when clearing starts "
             + "will be deleted permanently from Asura’s own storage folder.",
@@ -330,7 +335,7 @@ internal static class Confirmations
     }
 
     public static ConfirmationDialog LocalArtifactClear(
-        string heading = "Clear selected app-managed files?",
+        string heading = "Clear Selected App-Managed Files?",
         string detail = "The selected files will be permanently removed.",
         string confirmAutomationName = "Confirm clearing selected app-managed files") =>
         new(new ConfirmationDialogOptions
@@ -345,7 +350,7 @@ internal static class Confirmations
         });
 
     public static ConfirmationDialog RecoveryDataClear(
-        string heading = "Clear saved crash recovery data?",
+        string heading = "Clear Saved Crash Recovery Data?",
         string detail = "Recovery snapshots from previous runs will be deleted permanently.",
         string confirmLabel = "Clear Recovery Data") =>
         new(new ConfirmationDialogOptions
@@ -476,7 +481,7 @@ internal static class Confirmations
     public static ConfirmationDialog OperationError(string message) =>
         new(new ConfirmationDialogOptions
         {
-            Heading = "Asura couldn’t finish closing.",
+            Heading = "Couldn’t Finish Closing",
             Detail = message,
             ConfirmLabel = "OK",
             ShowsCancel = false,

@@ -916,7 +916,7 @@
           Body="Add a model provider to start using the AI agent.">
         <StackPanel HorizontalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
           <Button Classes="PrimaryButton" Click="OnShowAgentSettingsClick" Content="AI Settings…" AutomationProperties.Name="AI Settings…" AutomationProperties.HelpText="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Choose agent defaults and connect AI providers. Credentials stay in {0}.'}" />
-          <Button Classes="DestructiveButton" Click="OnClearAgentChatClick" Content="Clear Agent Session" IsVisible="{Binding AgentChat.CanClear}" AutomationProperties.Name="Clear the retained AI agent session" />
+          <Button Classes="DestructiveButton" Click="OnClearAgentChatClick" Content="Clear Agent Session" IsVisible="{Binding AgentChat.CanClear}" AutomationProperties.Name="Clear agent session" />
         </StackPanel>
       </controls:StateOverlay>
       <controls:StateOverlay

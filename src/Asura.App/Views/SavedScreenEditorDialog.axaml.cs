@@ -139,7 +139,7 @@ public sealed partial class SavedScreenEditorDialog : DialogWindow
         try
         {
             var discard = await Confirmations.DiscardChanges(
-                    "Discard saved screen changes?",
+                    "Discard Saved Screen Changes?",
                     "The unsaved name, description, panel assignments, and startup settings will be lost.")
                 .ShowDialog<bool>(this);
             if (!discard)

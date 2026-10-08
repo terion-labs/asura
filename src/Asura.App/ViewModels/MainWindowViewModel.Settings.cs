@@ -24,19 +24,19 @@ public sealed partial class MainWindowViewModel
     {
         SettingsPage.Appearance when HasTerminalAppearanceDraft => new(
             page,
-            "Discard terminal appearance changes?",
+            "Discard Terminal Appearance Changes?",
             "The terminal colors you are previewing haven't been applied. Discard them, or keep editing and choose Apply Terminal."),
         SettingsPage.Networking when NetworkSettings.Policy.IsDirty => new(
             page,
-            "Discard network route changes?",
+            "Discard Network Route Changes?",
             "The application route you changed hasn't been saved. Discard the change, or keep editing and choose Save Route."),
         SettingsPage.Browser when BrowserProfileSettingsEditor.HasUnsavedAuthentication => new(
             page,
-            "Discard HTTP authentication changes?",
+            "Discard HTTP Authentication Changes?",
             "The HTTP authentication you entered for this browser profile hasn't been saved. Discard it, or keep editing and choose Save Authentication."),
         SettingsPage.Keybindings when KeybindingEditorSession?.IsDirty == true => new(
             page,
-            "Discard keyboard shortcut changes?",
+            "Discard Keyboard Shortcut Changes?",
             "The unsaved shortcuts, prefix, and conflict resolutions will be lost. Keep editing to save them."),
         _ => null,
     };

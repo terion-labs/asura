@@ -106,9 +106,9 @@
           Tone="Warning"
           Glyph="Warning"
           IsVisible="{Binding HasInvalidBrowserAddresses}"
-          Text="{Binding InvalidBrowserAddressCount, StringFormat={}{0} browser startup address(es) must be a complete HTTP or HTTPS URL.}"
+          Text="Enter each browser startup address as a complete HTTP or HTTPS URL, like https://example.com."
           AutomationProperties.LiveSetting="Assertive"
-          AutomationProperties.Name="One or more browser panel startup addresses are invalid" />
+          AutomationProperties.Name="Enter each browser startup address as a complete HTTP or HTTPS URL" />
 
       <TextBlock Classes="SectionHeading" Text="Agent policy" />
       <controls:SurfaceCard>
@@ -196,10 +196,10 @@
               Foreground="{DynamicResource ShellDangerBrush}"
               FontSize="{DynamicResource ShellFontSize10}"
               IsVisible="{Binding !AgentPolicy.IsValid}"
-              Text="Choose an available, enabled provider profile and enter a valid model identifier."
+              Text="Choose an AI provider that’s available and turned on, and enter a model name."
               TextWrapping="Wrap"
               AutomationProperties.LiveSetting="Assertive"
-              AutomationProperties.Name="The saved screen agent policy provider profile or model is invalid" />
+              AutomationProperties.Name="Choose an AI provider that’s available and turned on, and enter a model name" />
           <ItemsControl
               ItemsSource="{Binding AgentPolicy.Capabilities}"
               IsVisible="{Binding AgentPolicy.IsEnabled}">
@@ -240,7 +240,7 @@
                   </Border>
                   <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
                     <TextBlock Classes="Eyebrow" Text="{Binding PanelLabel}" />
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Panel identity follows this layout slot." />
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Choose what opens in this slot of the layout." />
                   </StackPanel>
                   <controls:LabeledField Grid.Column="2" Label="Panel type">
                     <ComboBox

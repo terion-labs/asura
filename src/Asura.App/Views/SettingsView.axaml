@@ -302,7 +302,7 @@
                   <Button
                       Classes="IconButton"
                       Click="OnCreateWorkspaceClick"
-                      ToolTip.Tip="New Workspace…"
+                      ToolTip.Tip="New workspace…"
                       AutomationProperties.Name="New Workspace…">
                     <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
@@ -311,7 +311,7 @@
                       Classes="IconButton"
                       Click="OnDeleteWorkspaceClick"
                       IsEnabled="False"
-                      ToolTip.Tip="Delete Workspace…"
+                      ToolTip.Tip="Delete workspace…"
                       AutomationProperties.Name="Delete selected workspace">
                     <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
@@ -354,7 +354,7 @@
                   <Button
                       Classes="IconButton"
                       Click="OnCreateScreenClick"
-                      ToolTip.Tip="New Saved Screen…"
+                      ToolTip.Tip="New saved screen…"
                       AutomationProperties.Name="New Saved Screen…">
                     <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
@@ -363,7 +363,7 @@
                       Classes="IconButton"
                       Click="OnDeleteScreenClick"
                       IsEnabled="False"
-                      ToolTip.Tip="Delete Saved Screen…"
+                      ToolTip.Tip="Delete saved screen…"
                       AutomationProperties.Name="Delete selected saved screen">
                     <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
@@ -620,7 +620,7 @@
                   <Button
                       Classes="IconButton"
                       Click="OnAddFileProviderClick"
-                      ToolTip.Tip="Add Provider…"
+                      ToolTip.Tip="Add provider…"
                       AutomationProperties.Name="Add file provider">
                     <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
@@ -629,7 +629,7 @@
                       Classes="IconButton"
                       Click="OnDeleteFileProviderClick"
                       IsEnabled="False"
-                      ToolTip.Tip="Delete Provider…"
+                      ToolTip.Tip="Delete provider…"
                       AutomationProperties.Name="Delete selected file provider">
                     <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
@@ -780,7 +780,7 @@
                       Classes="IconButton"
                       Click="OnDeleteBrowserProfileClick"
                       IsEnabled="False"
-                      ToolTip.Tip="Delete Profile…"
+                      ToolTip.Tip="Delete profile…"
                       AutomationProperties.Name="Delete selected browser profile">
                     <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
@@ -896,15 +896,15 @@
                     <Button Classes="DestructiveButton"
                         Command="{Binding BrowserProfileSettingsEditor.ClearCookiesCommand}"
                         Content="Clear Cookies"
-                        AutomationProperties.Name="Clear cookies from selected browser profile revision" />
+                        AutomationProperties.Name="Clear cookies for the selected browser profile" />
                     <Button Classes="DestructiveButton"
                         Command="{Binding BrowserProfileSettingsEditor.ClearAuthenticationCommand}"
                         Content="Clear HTTP Authentication"
-                        AutomationProperties.Name="Clear HTTP authentication from selected browser profile revision" />
+                        AutomationProperties.Name="Clear HTTP authentication for the selected browser profile" />
                     <Button Classes="DestructiveButton"
                         Command="{Binding BrowserProfileSettingsEditor.ResetEphemeralContentCommand}"
                         Content="Reset All Data"
-                        AutomationProperties.Name="Reset all saved web content for selected browser profile revision" />
+                        AutomationProperties.Name="Reset all data for the selected browser profile" />
                     <Button Classes="SecondaryButton"
                         Command="{Binding BrowserProfileSettingsEditor.CancelClearCommand}"
                         Content="Cancel"
@@ -1216,7 +1216,7 @@
                       <WrapPanel Grid.Column="1" HorizontalAlignment="Right" Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceXs}" LineSpacing="{DynamicResource ShellSpaceXs}">
                         <Button Classes="SecondaryButton" Click="OnExportAllHistoryClick" Content="Export All…" IsEnabled="{Binding CanExportAllHistory}" AutomationProperties.Name="Export all session history" />
                         <Button Classes="SecondaryButton" Click="OnCancelHistoryExportClick" Content="Cancel Export" IsVisible="{Binding IsHistoryExporting}" AutomationProperties.Name="Cancel session history export" />
-                        <Button Classes="DestructiveButton" Click="OnClearRecentSessionsClick" Content="Clear History…" IsEnabled="{Binding CanClearRecentSessionHistory}" AutomationProperties.Name="Clear retained session history" />
+                        <Button Classes="DestructiveButton" Click="OnClearRecentSessionsClick" Content="Clear History…" IsEnabled="{Binding CanClearRecentSessionHistory}" AutomationProperties.Name="Clear session history" />
                         <Button Classes="DestructiveButton" Click="OnResetRecentSessionHistoryClick" Content="Reset Unreadable History…" IsEnabled="{Binding CanResetRecentSessionHistory}" IsVisible="{Binding HasUnreadableRecentSessionHistory}" AutomationProperties.Name="Reset unreadable session history" />
                       </WrapPanel>
                     </Grid>
@@ -1327,7 +1327,7 @@
                       Classes="IconButton"
                       Click="OnDeleteSecretClick"
                       IsEnabled="False"
-                      ToolTip.Tip="Delete Credential…"
+                      ToolTip.Tip="Delete credential…"
                       AutomationProperties.Name="Delete selected credential">
                     <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
@@ -1567,7 +1567,7 @@
                   <Button
                       Classes="IconButton"
                       Click="OnAddAiProviderClick"
-                      ToolTip.Tip="Add Provider…"
+                      ToolTip.Tip="Add provider…"
                       AutomationProperties.Name="Add AI provider">
                     <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
@@ -1576,7 +1576,7 @@
                       Classes="IconButton"
                       Click="OnDeleteAiProviderClick"
                       IsEnabled="False"
-                      ToolTip.Tip="Delete Provider…"
+                      ToolTip.Tip="Delete provider…"
                       AutomationProperties.Name="Delete selected AI provider">
                     <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
@@ -1719,7 +1719,7 @@
                   <Button
                       Classes="IconButton"
                       Click="OnAddMcpServerClick"
-                      ToolTip.Tip="Add Server…"
+                      ToolTip.Tip="Add server…"
                       AutomationProperties.Name="Add MCP server">
                     <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
@@ -1728,7 +1728,7 @@
                       Classes="IconButton"
                       Click="OnDeleteMcpServerClick"
                       IsEnabled="False"
-                      ToolTip.Tip="Delete Server…"
+                      ToolTip.Tip="Delete server…"
                       AutomationProperties.Name="Delete selected MCP server">
                     <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>

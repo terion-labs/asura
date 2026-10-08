@@ -38,11 +38,11 @@ public sealed class WorkspaceEditorIsolationContractTests
                 "Isolate workspace",
                 StringComparison.Ordinal));
         Assert.Contains(
-            "execution and network boundary",
+            "run and reach the network from there",
             AttributeValue(isolationToggleRow, "Description"),
             StringComparison.Ordinal);
         Assert.Contains(
-            "All workspace panels, connections, and local terminals use it",
+            "All of its panels, connections, and local terminals",
             AttributeValue(isolationToggleRow, "Description"),
             StringComparison.Ordinal);
         var runtimeRequirement = Assert.Single(

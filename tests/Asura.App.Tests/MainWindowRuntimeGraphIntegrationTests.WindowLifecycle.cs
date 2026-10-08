@@ -116,7 +116,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             CancellationToken.None);
 
         Assert.False(await coordinator.ConfirmDiscardPendingEditsAsync("this window closes"));
-        Assert.Equal(["Discard HTTP authentication changes?"], questions);
+        Assert.Equal(["Discard HTTP Authentication Changes?"], questions);
         Assert.True(editor.HasUnsavedAuthentication);
 
         answer = true;

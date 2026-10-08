@@ -38,7 +38,7 @@
                 Grid.Column="3"
                 Classes="IconButton"
                 Click="OnCreateWorkspaceClick"
-                ToolTip.Tip="New Workspace"
+                ToolTip.Tip="New workspace"
                 AutomationProperties.Name="Create a workspace">
               <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>
@@ -123,7 +123,7 @@
                     ItemsSource="{Binding ColorChoices}"
                     Value="{Binding Color, Mode=TwoWay}"
                     FallbackValue="{Binding EffectiveColor}"
-                    Purpose="workspace colour"
+                    Purpose="workspace color"
                     CanSample="True"
                     SampleRequested="OnSampleColorRequested" />
               </controls:SettingRow>
@@ -165,7 +165,7 @@
                 ControlWidth="470">
               <controls:SettingRow
                   Label="Isolate workspace"
-                  Description="One persistent Linux environment becomes this workspace's execution and network boundary. All workspace panels, connections, and local terminals use it, and what you install there stays between sessions.">
+                  Description="This workspace runs in its own persistent Linux environment. All of its panels, connections, and local terminals run and reach the network from there, and what you install there stays between sessions.">
                 <ToggleSwitch
                     IsChecked="{Binding IsIsolated, Mode=TwoWay}"
                     IsEnabled="{Binding CanToggleIsolation}"
@@ -832,7 +832,7 @@
                   <TextBlock
                       Foreground="{DynamicResource ShellDangerBrush}"
                       FontSize="{DynamicResource ShellFontSize10}"
-                      Text="Choose an available, enabled provider profile and enter a valid model."
+                      Text="Choose an AI provider that’s available and turned on, and enter a model name."
                       IsVisible="{CompiledBinding !AgentPolicy.IsValid}" />
                 </StackPanel>
               </StackPanel>

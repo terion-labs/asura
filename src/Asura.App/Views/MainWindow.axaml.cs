@@ -577,7 +577,7 @@ public sealed partial class MainWindow : Window
         {
             var receipt = result.Value!;
             ViewModel.SetDefinitionBundleStatus(
-                $"Exported {CountLabel.Format(receipt.DefinitionCount, "item")} to “{Path.GetFileName(receipt.Path)}”."
+                $"Exported {CountLabel.InSentence(receipt.DefinitionCount, "item")} to “{Path.GetFileName(receipt.Path)}”."
                 + (receipt.Warning is { } warning ? " " + warning : string.Empty));
         }
         else if (result.Error!.Code != DefinitionStoreErrorCode.Cancelled)
@@ -657,10 +657,18 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private static string ImportSummary(DefinitionBundleImportReceipt receipt) =>
-        receipt.Replaced == 0
-            ? $"Imported {CountLabel.Format(receipt.Inserted, "new item")}"
-            : $"Imported {CountLabel.Format(receipt.Inserted, "new item")} and replaced {CountLabel.Format(receipt.Replaced, "item")}";
+    /// <summary>
+    /// What an import changed, naming only the parts that happened: "Imported
+    /// 2 new items", "Replaced 3 items", or both.
+    /// </summary>
+    internal static string ImportSummary(DefinitionBundleImportReceipt receipt) =>
+        (receipt.Inserted, receipt.Replaced) switch
+        {
+            (0, 0) => "Nothing was imported",
+            (_, 0) => $"Imported {CountLabel.InSentence(receipt.Inserted, "new item")}",
+            (0, _) => $"Replaced {CountLabel.InSentence(receipt.Replaced, "item")}",
+            _ => $"Imported {CountLabel.InSentence(receipt.Inserted, "new item")} and replaced {CountLabel.InSentence(receipt.Replaced, "item")}",
+        };
 
     private async void OnRetryOnboardingClick(object? sender, RoutedEventArgs e)
     {
@@ -1283,7 +1291,7 @@ public sealed partial class MainWindow : Window
             }
 
             finalStatus =
-                $"Exported {CountLabel.Format(result.Value!.Export.RecordCount, "session history record")} to “{Path.GetFileName(result.Value.Path)}”.";
+                $"Exported {CountLabel.InSentence(result.Value!.Export.RecordCount, "session history record")} to “{Path.GetFileName(result.Value.Path)}”.";
         }
         catch (OperationCanceledException) when (exportCancellation.IsCancellationRequested)
         {
@@ -1569,7 +1577,7 @@ public sealed partial class MainWindow : Window
         if (!editor.IsValid)
         {
             if (!await Confirmations.DiscardChanges(
-                    "Discard workspace changes?",
+                    "Discard Workspace Changes?",
                     "These changes can’t be saved yet, and switching workspaces loses them.\n\n"
                     + editor.ValidationSummary).ShowDialog<bool>(WorkspaceEditorDialogOwner))
             {
@@ -1590,7 +1598,7 @@ public sealed partial class MainWindow : Window
         _ = sender;
         if (e.Disposition == WorkspaceEditorCancelDisposition.ConfirmDiscard
             && !await Confirmations.DiscardChanges(
-                    "Discard workspace changes?",
+                    "Discard Workspace Changes?",
                     "The unsaved workspace order, tabs, panels, and startup settings will be lost.")
                 .ShowDialog<bool>(WorkspaceEditorDialogOwner))
         {

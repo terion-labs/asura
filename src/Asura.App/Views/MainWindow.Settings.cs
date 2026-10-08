@@ -529,7 +529,7 @@ public sealed partial class MainWindow
         var editor = ViewModel.BrowserProfileSettingsEditor;
         editor.SelectedProfile = profile;
         if (!editor.DeleteCommand.CanExecute(null)
-            || !await Confirmations.DefinitionDelete("browser profile", profile.Name)
+            || !await Confirmations.DefinitionDelete("Browser Profile", profile.Name)
                 .ShowDialog<bool>(SettingsDialogOwner))
         {
             return;
@@ -749,7 +749,7 @@ public sealed partial class MainWindow
 
         if (ViewModel.KeybindingEditorSession?.IsDirty == true
             && !await Confirmations.DiscardChanges(
-                    "Discard shortcut changes?",
+                    "Discard Keyboard Shortcut Changes?",
                     "The unsaved shortcuts, prefix, and conflict resolutions will be lost.")
                 .ShowDialog<bool>(SettingsDialogOwner))
         {
@@ -958,7 +958,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        var confirmed = await Confirmations.DefinitionDelete("AI provider", profile.Name)
+        var confirmed = await Confirmations.DefinitionDelete("AI Provider", profile.Name)
             .ShowDialog<bool>(SettingsDialogOwner);
         if (!confirmed)
         {
@@ -1036,7 +1036,7 @@ public sealed partial class MainWindow
         }
 
         var confirmed = await Confirmations.DefinitionDelete(
-                "MCP server",
+                "MCP Server",
                 profile.Name)
             .ShowDialog<bool>(SettingsDialogOwner);
         if (!confirmed)
@@ -1252,7 +1252,9 @@ public sealed partial class MainWindow
             ArgumentException or FormatException or InvalidOperationException)
         {
             SettingsRoute.SetAppearanceValidationStatus(
-                AppearancePreviewFailure(exception),
+                AppearanceValueFailure(
+                    exception,
+                    "Can’t preview these settings. Check the values and try again."),
                 isWarning: true);
         }
     }
@@ -1266,11 +1268,17 @@ public sealed partial class MainWindow
             return;
         }
 
+        if (ViewModel.TerminalSettingsEditor is not { } editor)
+        {
+            SettingsRoute.SetAppearanceValidationStatus(
+                "There’s no terminal profile to preview.",
+                isWarning: true);
+            return;
+        }
+
         try
         {
-            var terminal = ViewModel.TerminalSettingsEditor?.CreateSaveRequest().Profile
-                ?? throw new InvalidOperationException(
-                    "No terminal profile is available to preview.");
+            var terminal = editor.CreateSaveRequest().Profile;
             if (!ViewModel.PreviewTerminalAppearance(terminal))
             {
                 SettingsRoute.SetAppearanceValidationStatus(
@@ -1290,20 +1298,34 @@ public sealed partial class MainWindow
             ArgumentException or FormatException or InvalidOperationException)
         {
             SettingsRoute.SetAppearanceValidationStatus(
-                AppearancePreviewFailure(exception),
+                AppearanceValueFailure(
+                    exception,
+                    "Can’t preview these settings. Check the values and try again."),
                 isWarning: true);
         }
     }
 
     /// <summary>
-    /// A color that isn't six hex digits is the failure people hit most, so
-    /// it gets its own fix; any other rejected value gets a next step rather
-    /// than the parser's or the profile's own wording.
+    /// What to fix when an appearance value is rejected, named by the field
+    /// the person edited rather than in the parser's or the profile's own
+    /// wording. A color that isn't six hex digits is the failure people hit
+    /// most; a value outside its range says the range. Anything unexpected
+    /// gets <paramref name="fallback"/>, which says what couldn't be done.
     /// </summary>
-    private static string AppearancePreviewFailure(Exception exception) =>
-        exception is FormatException
-            ? "Can’t preview: enter each color as six hex digits, like #FF8800."
-            : "Can’t preview these settings. Check the values and try again.";
+    internal static string AppearanceValueFailure(Exception exception, string fallback) =>
+        exception switch
+        {
+            FormatException => "Enter each color as six hex digits, like #FF8800.",
+            ArgumentException { ParamName: "fontSize" } => "The font size must be from 6 to 96 points.",
+            ArgumentException { ParamName: "lineHeight" } => "The line height must be from 0.8 to 3.",
+            ArgumentException { ParamName: "scrollbackLines" } => "Scrollback must be from 0 to 10,000,000 lines.",
+            ArgumentException { ParamName: "fontFamily" } => "Enter a font family name on one line.",
+            ArgumentException { ParamName: "textScaleOverride" } => "Text size must be from 50% to 400%.",
+            ArgumentException { ParamName: "backdropOpacityPercent" } =>
+                $"Background opacity must be from {ThemePreference.MinimumBackdropOpacityPercent}% to "
+                + $"{ThemePreference.MaximumBackdropOpacityPercent}%.",
+            _ => fallback,
+        };
 
     private ThemePreference ThemeFrom(AppearanceSelection selection)
     {
@@ -1424,7 +1446,9 @@ public sealed partial class MainWindow
         catch (Exception exception) when (exception is
             ArgumentException or FormatException or InvalidOperationException)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(AppearanceValueFailure(
+                exception,
+                "Can’t save the appearance. Check the values and try again."));
         }
     }
 
@@ -1460,7 +1484,9 @@ public sealed partial class MainWindow
         catch (Exception exception) when (exception is
             ArgumentException or FormatException or InvalidOperationException)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(AppearanceValueFailure(
+                exception,
+                "Can’t apply the terminal appearance. Check the values and try again."));
         }
     }
 
@@ -1792,7 +1818,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        var confirmed = await Confirmations.DefinitionDelete("credential", secret.Label)
+        var confirmed = await Confirmations.DefinitionDelete("Credential", secret.Label)
             .ShowDialog<bool>(SettingsDialogOwner);
         if (confirmed)
         {

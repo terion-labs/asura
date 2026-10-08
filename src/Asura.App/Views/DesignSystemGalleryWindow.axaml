@@ -355,8 +355,8 @@
               Label="Show on display"
               Description="Follow the Asura window or always use the primary display.">
             <ComboBox HorizontalAlignment="Stretch" SelectedIndex="0">
-              <ComboBoxItem Content="Follow the window" />
-              <ComboBoxItem Content="Primary display" />
+              <ComboBoxItem Content="Follow the Window" />
+              <ComboBoxItem Content="Primary Display" />
             </ComboBox>
           </controls:SettingRow>
           <controls:SettingRow

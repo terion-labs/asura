@@ -27,7 +27,7 @@ public sealed class ShellClosePrivacyTests
             CloseScopeKind.Window, "sensitive-workspace",
             [new(new SessionId("session"), new PanelInstanceId("panel"), "production database", "private shell command", 1)]);
 
-        Assert.False(await guarded.ConfirmDiscardAsync("Discard database changes?", "Changes to payroll will be lost."));
+        Assert.False(await guarded.ConfirmDiscardAsync("Discard Database Changes?", "Changes to payroll will be lost."));
         Assert.False(await guarded.ConfirmLayoutDiscardAsync());
         Assert.True(await guarded.ConfirmScopeAsync(confirmation));
         await guarded.ShowErrorAsync("Failed to close payroll database.");
@@ -39,15 +39,15 @@ public sealed class ShellClosePrivacyTests
             Assert.Equal(0, layoutPrompts);
             Assert.Equal(2, discards.Count);
             Assert.All(discards, prompt => Assert.Equal(
-                ("Discard unsaved changes?", "Unsaved changes will be lost."), prompt));
+                ("Discard Unsaved Changes?", "Unsaved changes will be lost."), prompt));
             Assert.Empty(Assert.Single(scopes).Sessions);
             Assert.Empty(scopes[0].TargetId);
-            Assert.Equal("Asura couldn’t finish closing. Unlock it to see why.", Assert.Single(errors));
+            Assert.Equal("Unlock Asura to see why.", Assert.Single(errors));
         }
         else
         {
             Assert.Equal(1, layoutPrompts);
-            Assert.Equal(("Discard database changes?", "Changes to payroll will be lost."), Assert.Single(discards));
+            Assert.Equal(("Discard Database Changes?", "Changes to payroll will be lost."), Assert.Single(discards));
             Assert.Same(confirmation, Assert.Single(scopes));
             Assert.Equal("Failed to close payroll database.", Assert.Single(errors));
         }

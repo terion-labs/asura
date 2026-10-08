@@ -62,7 +62,10 @@ public sealed partial class WorkspaceView
                 Header = "Kill Switch On",
                 IsEnabled = false,
             };
+            // The line is disabled because it states a fact rather than
+            // offering a choice; its explanation must still show on hover.
             ToolTip.SetTip(killSwitch, "Traffic stays blocked if the connection fails.");
+            ToolTip.SetShowOnDisabled(killSwitch, true);
             AutomationProperties.SetHelpText(killSwitch, "Traffic stays blocked if the connection fails.");
             items.Add(killSwitch);
         }

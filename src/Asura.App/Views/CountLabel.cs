@@ -4,19 +4,30 @@ using Avalonia.Data.Converters;
 namespace Asura.App.Views;
 
 /// <summary>
-/// A count with its noun, in the right number: "1 slot", "3 slots",
-/// "1,204 slots". XAML binds a count through <see cref="Converter"/> with the
-/// singular noun as the parameter, or "singular|plural" when the plural is not
-/// the singular plus "s".
+/// A count with its noun, in the right number: "No slots", "1 slot",
+/// "3 slots", "1,204 slots". XAML binds a count through <see cref="Converter"/>
+/// with the singular noun as the parameter, or "singular|plural" when the
+/// plural is not the singular plus "s".
 /// </summary>
 internal static class CountLabel
 {
     public static IValueConverter Converter { get; } = new CountLabelConverter();
 
+    /// <summary>A count that stands on its own, such as a chip or a pill.</summary>
     public static string Format(long count, string singular, string? plural = null) =>
-        count == 1
-            ? $"1 {singular}"
-            : string.Create(CultureInfo.CurrentCulture, $"{count:N0} {plural ?? singular + "s"}");
+        count == 0 ? $"No {plural ?? singular + "s"}" : InSentence(count, singular, plural);
+
+    /// <summary>
+    /// A count inside a sentence, where zero reads "no slots" rather than
+    /// starting a word with a capital.
+    /// </summary>
+    public static string InSentence(long count, string singular, string? plural = null) =>
+        count switch
+        {
+            0 => $"no {plural ?? singular + "s"}",
+            1 => $"1 {singular}",
+            _ => string.Create(CultureInfo.CurrentCulture, $"{count:N0} {plural ?? singular + "s"}"),
+        };
 
     private sealed class CountLabelConverter : IValueConverter
     {

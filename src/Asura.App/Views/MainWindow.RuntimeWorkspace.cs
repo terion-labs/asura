@@ -1868,7 +1868,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        var kind = selected.IsDirectory ? "folder" : "file";
+        var kind = selected.IsDirectory ? "Folder" : "File";
         var confirmed = await Confirmations.FileDelete(
                 kind,
                 selected.Name,

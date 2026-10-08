@@ -484,7 +484,7 @@ public sealed class SettingsViewContractTests
             element => string.Equals(element.Name.LocalName, "SettingsPageHeader", StringComparison.Ordinal));
         Assert.Equal("Appearance", AttributeValue(header, "Heading"));
         Assert.Equal(
-            "Customize how the app looks — color scheme, accent, and window chrome.",
+            "Customize how the app looks — color scheme, accent, and window style.",
             AttributeValue(header, "Description"));
 
         foreach (var controlName in AppearanceControlNames)

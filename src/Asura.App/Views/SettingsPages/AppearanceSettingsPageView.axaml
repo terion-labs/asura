@@ -13,7 +13,7 @@
   <StackPanel Spacing="{DynamicResource ShellSpaceXl}">
     <components:SettingsPageHeader
         Heading="Appearance"
-        Description="Customize how the app looks — color scheme, accent, and window chrome." />
+        Description="Customize how the app looks — color scheme, accent, and window style." />
 
     <!-- Theme -->
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
@@ -455,7 +455,7 @@
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
       <components:SectionHeader
           Heading="Corners &amp; UI"
-          Description="Window chrome, density, and interface behavior." />
+          Description="Window corners, density, and interface behavior." />
       <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
         <controls:SurfaceCard Tone="Raised">
           <controls:LabeledField

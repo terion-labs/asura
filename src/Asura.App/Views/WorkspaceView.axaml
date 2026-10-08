@@ -396,7 +396,7 @@
               BorderBrush="{DynamicResource ShellBorderBrush}"
               Foreground="{DynamicResource ShellMutedBrush}"
               Click="OnCreateWorkspaceClick"
-              ToolTip.Tip="New Workspace…"
+              ToolTip.Tip="New workspace…"
               AutomationProperties.Name="Create a new workspace">
             <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
           </Button>
