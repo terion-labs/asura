@@ -1963,7 +1963,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             string.Equals(column.Name, cell.Column.Name, StringComparison.Ordinal));
         if (filterColumn is null)
         {
-            ErrorMessage = $"Column '{cell.Column.Name}' is no longer available.";
+            ErrorMessage = $"The column “{cell.Column.Name}” is no longer available.";
             return;
         }
 
@@ -2194,13 +2194,13 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             var header = document.Headers[index];
             if (!columnsByName.TryGetValue(header, out var match))
             {
-                ErrorMessage = $"CSV column '{DatabaseGridCsv.DescribeHeader(header)}' does not exist in this table.";
+                ErrorMessage = $"The CSV column “{DatabaseGridCsv.DescribeHeader(header)}” isn't in this table.";
                 return false;
             }
 
             if (match.column.Descriptor.IsReadOnly || match.column.Descriptor.IsIdentity)
             {
-                ErrorMessage = $"CSV column '{DatabaseGridCsv.DescribeHeader(header)}' is owned by the database and cannot be imported.";
+                ErrorMessage = $"The CSV column “{DatabaseGridCsv.DescribeHeader(header)}” is filled in by the database, so it can't be imported.";
                 return false;
             }
 
@@ -2218,7 +2218,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                 var cell = row.Cells[imported.Ordinal];
                 if (!cell.CanSetText)
                 {
-                    ErrorMessage = $"CSV column '{imported.Column.Name}' cannot accept text values.";
+                    ErrorMessage = $"The column “{imported.Column.Name}” can't hold text, so it can't be imported from CSV.";
                     return false;
                 }
 
@@ -2469,8 +2469,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             && cell.Column.ValueKind == DatabaseValueKind.Text
             && string.Equals(SelectedDriver.Id, "oracle", StringComparison.Ordinal))
         {
-            error = $"Oracle stores empty text as SQL NULL. Column '{cell.Column.Name}' "
-                + "must use explicit SQL NULL or a non-empty value.";
+            error = $"Oracle stores empty text as NULL. Enter a value for “{cell.Column.Name}”, "
+                + "or set it to NULL.";
             return false;
         }
 

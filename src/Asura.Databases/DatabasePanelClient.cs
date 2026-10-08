@@ -571,7 +571,7 @@ public sealed partial class DatabasePanelClient : IDatabasePanelClient, IAsyncDi
                 || !HasValidRoutineParameterShape(callableParameters))
             {
                 isPartial = true;
-                partialReason ??= $"The routine catalog omitted '{builder.Key.Id.DisplayName}' "
+                partialReason ??= $"The routine list leaves out “{builder.Key.Id.DisplayName}” "
                     + "because its parameter metadata is inconsistent.";
                 continue;
             }
@@ -586,7 +586,7 @@ public sealed partial class DatabasePanelClient : IDatabasePanelClient, IAsyncDi
                 && builder.Key.MinimumArgumentCount is not (>= 0))
             {
                 isPartial = true;
-                partialReason ??= $"The routine catalog omitted '{builder.Key.Id.DisplayName}' "
+                partialReason ??= $"The routine list leaves out “{builder.Key.Id.DisplayName}” "
                     + "because its argument-count metadata is invalid.";
                 continue;
             }
@@ -603,7 +603,7 @@ public sealed partial class DatabasePanelClient : IDatabasePanelClient, IAsyncDi
                     || maximumArgumentCount != derivedMaximumArgumentCount))
             {
                 isPartial = true;
-                partialReason ??= $"The routine catalog omitted '{builder.Key.Id.DisplayName}' "
+                partialReason ??= $"The routine list leaves out “{builder.Key.Id.DisplayName}” "
                     + "because its argument counts contradict its parameters.";
                 continue;
             }
@@ -615,7 +615,7 @@ public sealed partial class DatabasePanelClient : IDatabasePanelClient, IAsyncDi
                         || maximum > MaximumSqlCatalogParametersPerRoutine))
             {
                 isPartial = true;
-                partialReason ??= $"The routine catalog omitted '{builder.Key.Id.DisplayName}' "
+                partialReason ??= $"The routine list leaves out “{builder.Key.Id.DisplayName}” "
                     + "because its argument count exceeds the safety bound.";
                 continue;
             }

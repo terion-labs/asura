@@ -998,7 +998,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         using var jsonWriter = new System.Text.Json.Utf8JsonWriter(content);
         var utf8Error = Assert.Throws<InvalidDataException>(() =>
             DatabaseGridExport.WriteJsonRow(jsonWriter, columns, row));
-        Assert.Contains("use CSV", utf8Error.Message, StringComparison.Ordinal);
+        Assert.Contains("Export as CSV instead", utf8Error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1376,7 +1376,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
 
         Assert.False(panel.ImportCsv("Name\nwrong case\n"));
         Assert.Equal(beforeFailure, panel.ResultRows.Count);
-        Assert.Contains("does not exist", panel.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains("isn't in this table", panel.ErrorMessage, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1396,7 +1396,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         Assert.False(panel.ImportCsv("id,name\n3,Grace\n"));
 
         Assert.Equal(before, panel.ResultRows.Count);
-        Assert.Contains("owned by the database", panel.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains("filled in by the database", panel.ErrorMessage, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -2412,14 +2412,14 @@ public sealed class DatabaseRuntimePanelViewModelTests
 
         Assert.Equal("Ada", name.RawValue);
         Assert.False(name.IsDirty);
-        Assert.Contains("Oracle stores empty text as SQL NULL", panel.ErrorMessage);
+        Assert.Contains("Oracle stores empty text as NULL", panel.ErrorMessage);
 
         var rowCount = panel.ResultRows.Count;
         Assert.False(panel.ImportCsv("name\n\"\"\n"));
         Assert.Equal(rowCount, panel.ResultRows.Count);
         Assert.False(panel.HasPendingChanges);
         Assert.Contains("CSV row 2", panel.ErrorMessage);
-        Assert.Contains("Oracle stores empty text as SQL NULL", panel.ErrorMessage);
+        Assert.Contains("Oracle stores empty text as NULL", panel.ErrorMessage);
 
         name.EditText = string.Empty;
         Assert.True(panel.CanSaveChanges);
@@ -2428,7 +2428,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
 
         Assert.Equal(0, client.ApplyChangesCallCount);
         Assert.True(panel.HasPendingChanges);
-        Assert.Contains("Oracle stores empty text as SQL NULL", panel.ErrorMessage);
+        Assert.Contains("Oracle stores empty text as NULL", panel.ErrorMessage);
 
         await panel.RevertChangesAsync();
         panel.SelectRow(panel.ResultRows[0]);

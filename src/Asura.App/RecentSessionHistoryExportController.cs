@@ -117,7 +117,7 @@ public sealed class RecentSessionHistoryExportController
                 {
                     outcome = Failure(
                         RecentSessionHistoryExportErrorCode.CleanupFailure,
-                        $"The export did not complete and temporary metadata file '{Path.GetFileName(temporaryPath)}' could not be removed. Delete it from the selected folder before retrying.");
+                        $"The export didn't finish, and Asura couldn't remove the temporary file “{Path.GetFileName(temporaryPath)}”. Delete it from the folder you chose, then try again.");
                 }
             }
         }
