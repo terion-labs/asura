@@ -137,6 +137,15 @@ public sealed class WorkspaceEditorIsolationContractTests
 
         var hostPath = FindAccessibleElement(mountRow, "Host folder");
         Assert.Equal("{Binding HostPath, Mode=TwoWay}", AttributeValue(hostPath, "Text"));
+        // A long host folder keeps both ends in view: an elided copy covers the
+        // field until it is being edited.
+        Assert.Equal("ElidedPath", AttributeValue(hostPath, "Classes"));
+        var elided = Assert.Single(
+            hostPath.Parent!.Elements(),
+            element => string.Equals(AttributeValue(element, "Classes"), "Path", StringComparison.Ordinal));
+        Assert.Equal("{Binding HostPath}", AttributeValue(elided, "Text"));
+        Assert.Equal("{Binding !#HostPathField.IsKeyboardFocusWithin}", AttributeValue(elided, "IsVisible"));
+        Assert.Equal("False", AttributeValue(elided, "IsHitTestVisible"));
         var guestPath = FindAccessibleElement(mountRow, "Path inside the environment");
         Assert.Equal("{Binding GuestPath, Mode=TwoWay}", AttributeValue(guestPath, "Text"));
         var readOnly = FindAccessibleElement(mountRow, "Mount host path read only");

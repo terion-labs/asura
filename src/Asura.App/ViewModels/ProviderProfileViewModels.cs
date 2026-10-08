@@ -16,7 +16,14 @@ public sealed record FileProviderProfileItemViewModel(
     string Status,
     string StatusDetail,
     bool HasError,
-    bool HasWarning);
+    bool HasWarning)
+{
+    /// <summary>
+    /// True while nothing needs attention, so the row's chip stays neutral
+    /// instead of reading as good news for a provider that is still loading.
+    /// </summary>
+    public bool IsStatusNeutral => !HasError && !HasWarning;
+}
 
 public sealed record AiProviderProfileItemViewModel(
     AiProviderProfileId Id,

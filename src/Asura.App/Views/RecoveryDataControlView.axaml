@@ -51,11 +51,20 @@
           AutomationProperties.LiveSetting="Polite"
           AutomationProperties.Name="{Binding StatusAutomationName}" />
 
-      <controls:StateOverlay
-          Kind="Loading"
-          Heading="Loading recovery snapshots…"
-          Body="This run’s own snapshot stays protected while earlier ones load."
-          IsVisible="{Binding IsBusy, FallbackValue=False}" />
+      <!-- A refresh with snapshots already listed keeps the list; the
+           summary line above says it is reloading. -->
+      <Panel>
+        <Panel.IsVisible>
+          <MultiBinding Converter="{x:Static BoolConverters.And}">
+            <Binding Path="IsBusy" FallbackValue="False" />
+            <Binding Path="!HasRuns" FallbackValue="False" />
+          </MultiBinding>
+        </Panel.IsVisible>
+        <controls:StateOverlay
+            Kind="Loading"
+            Heading="Loading recovery snapshots…"
+            Body="This run’s own snapshot stays protected while earlier ones load." />
+      </Panel>
 
       <controls:StateOverlay
           Kind="Empty"

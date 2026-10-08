@@ -10,6 +10,7 @@
     xmlns:icons="using:FluentIcons.Avalonia"
     xmlns:settingsPages="using:Asura.App.Views.SettingsPages"
     xmlns:views="using:Asura.App.Views"
+    xmlns:globalization="using:System.Globalization"
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch">
   <UserControl.Styles>
@@ -558,6 +559,7 @@
                         Maximum="10000"
                         Increment="50"
                         FormatString="N0"
+                        NumberFormat="{x:Static globalization:NumberFormatInfo.InvariantInfo}"
                         Value="{Binding KeybindingEditorSession.PrefixTimeoutMilliseconds}"
                         IsEnabled="{Binding KeybindingEditorSession.CanEditPrefix}"
                         ValueChanged="OnKeybindingPrefixOptionsChanged"
@@ -696,9 +698,12 @@
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
                               <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding Kind}" />
                               <!-- Neutral until something needs attention: a
-                                   provider still loading is not good news. -->
+                                   provider still loading is not good news. The
+                                   tone is three classes that never apply
+                                   together, because a Tone pseudo-class is
+                                   declared after the classes and would win. -->
                               <controls:StatusChip
-                                  Tone="Default"
+                                  Classes.Neutral="{Binding IsStatusNeutral}"
                                   Classes.Warning="{Binding HasWarning}"
                                   Classes.Danger="{Binding HasError}"
                                   Content="{Binding Status}" />
@@ -1102,7 +1107,7 @@
                       AutomationProperties.Name="Blink cursor" />
                 </controls:SettingRow>
                 <controls:SettingRow Label="Scrollback lines" IsLast="True">
-                  <NumericUpDown HorizontalAlignment="Stretch" Minimum="0" Maximum="10000000" Increment="1000" FormatString="N0" Value="{Binding TerminalSettingsEditor.ScrollbackLines}" AutomationProperties.Name="Scrollback lines" />
+                  <NumericUpDown HorizontalAlignment="Stretch" Minimum="0" Maximum="10000000" Increment="1000" FormatString="N0" NumberFormat="{x:Static globalization:NumberFormatInfo.InvariantInfo}" Value="{Binding TerminalSettingsEditor.ScrollbackLines}" AutomationProperties.Name="Scrollback lines" />
                 </controls:SettingRow>
               </controls:SettingsGroup>
 
@@ -1566,8 +1571,10 @@
                     </ItemsControl>
                   </Expander>
                   <!-- Saved as it changes, like every other setting here. -->
-                  <!-- With no provider yet, the notice above says what to do
-                       first; an error beside it would blame an empty page. -->
+                  <!-- Shown only after the default has been changed and left
+                       incomplete. On a page nobody has touched, the notice
+                       above says what to do first; an error beside it would
+                       blame an untouched page. -->
                   <TextBlock
                       Foreground="{DynamicResource ShellDangerBrush}"
                       FontSize="{DynamicResource ShellSecondaryFontSize}"
@@ -1575,7 +1582,7 @@
                       TextWrapping="Wrap">
                     <TextBlock.IsVisible>
                       <MultiBinding Converter="{x:Static BoolConverters.And}">
-                        <Binding Path="!DefaultAgentPolicy.IsValid" FallbackValue="False" />
+                        <Binding Path="DefaultAgentPolicySettings.ShowsIncompleteDefault" FallbackValue="False" />
                         <Binding Path="HasAiProviders" FallbackValue="False" />
                       </MultiBinding>
                     </TextBlock.IsVisible>
@@ -1722,12 +1729,15 @@
               </StackPanel>
 
               <!-- A section of the AI page under its own heading: the window's
-                   title already names the page. -->
+                   title already names the page. The heading has the rank of
+                   every other section heading here (SectionHeader's), not a
+                   page title's, and keeps its heading level for VoiceOver. -->
               <StackPanel x:Name="McpSettingsSection" Spacing="{DynamicResource ShellSpaceLg}">
               <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                <TextBlock Classes="Title2" Text="MCP" AutomationProperties.HeadingLevel="2" />
+                <TextBlock Classes="Headline" Text="MCP" AutomationProperties.HeadingLevel="2" />
                 <TextBlock
                     Classes="Muted"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
                     Text="Connect local or remote MCP servers and choose which tools they provide, or let another agent on this computer use Asura's tools."
                     TextWrapping="Wrap" />
               </StackPanel>

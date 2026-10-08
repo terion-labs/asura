@@ -984,7 +984,8 @@ public sealed class SettingsViewContractTests
     [InlineData("SettingsPages/GitSettingsPageView", null)]
     [InlineData("SettingsPages/QuickTerminalSettingsPageView", null)]
     [InlineData("SettingsPages/AppearanceSettingsPageView", null)]
-    public void Settings_pages_keep_switches_for_section_masters_only(string view, string? master)
+    [InlineData("WorkspaceEditorView", "Isolate workspace|Use a workspace network connection|Override AI configuration for this workspace")]
+    public void Settings_pages_keep_switches_for_section_masters_only(string view, string? masters)
     {
         var root = Assert.IsType<XElement>(LoadView(view).Root);
         var switches = root.Descendants()
@@ -992,7 +993,7 @@ public sealed class SettingsViewContractTests
                 || string.Equals(element.Name.LocalName, "ToggleField", StringComparison.Ordinal))
             .Select(element => AttributeValue(element, "AutomationProperties.Name"))
             .ToArray();
-        string?[] expected = master is null ? [] : [master];
+        string?[] expected = masters is null ? [] : masters.Split('|');
         Assert.Equal(expected, switches);
 
         // Every checkbox in a settings row names itself; none sits bare at
@@ -1007,6 +1008,22 @@ public sealed class SettingsViewContractTests
                 string.Equals(child.Name.LocalName, "CheckBox", StringComparison.Ordinal));
             Assert.False(string.IsNullOrWhiteSpace(AttributeValue(box, "Content")));
         }
+    }
+
+    /// <summary>
+    /// MCP is a section of the AI page, so its heading has a section
+    /// heading's rank, not a page title's, and keeps its heading level.
+    /// </summary>
+    [Fact]
+    public void Mcp_section_heading_has_section_rank()
+    {
+        var root = Assert.IsType<XElement>(LoadView("SettingsView").Root);
+        var section = FindNamedElement(root, "McpSettingsSection");
+        var heading = Assert.Single(
+            section.Descendants(),
+            element => string.Equals(AttributeValue(element, "Text"), "MCP", StringComparison.Ordinal));
+        Assert.Equal("Headline", AttributeValue(heading, "Classes"));
+        Assert.Equal("2", AttributeValue(heading, "AutomationProperties.HeadingLevel"));
     }
 
     /// <summary>

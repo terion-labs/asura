@@ -50,6 +50,42 @@ public sealed class SettingsListPatternTests
         });
 
     [Fact]
+    public Task File_provider_status_chip_tone_follows_the_provider_state() =>
+        RunSettingsAsync(SettingsPage.Files, _ => { }, async (view, viewModel) =>
+        {
+            static FileProviderProfileItemViewModel Provider(string id, bool hasError, bool hasWarning) =>
+                new(new FileProviderProfileId(id), 1, id, "SFTP", "sftp://" + id, "Status", "", hasError, hasWarning);
+            var loading = Provider("loading", hasError: false, hasWarning: false);
+            var warning = Provider("warning", hasError: false, hasWarning: true);
+            var failed = Provider("failed", hasError: true, hasWarning: false);
+            var both = Provider("both", hasError: true, hasWarning: true);
+            foreach (var provider in new[] { loading, warning, failed, both })
+            {
+                viewModel.FileProviderDefinitions.Add(provider);
+            }
+
+            await Task.Yield();
+            Dispatcher.UIThread.RunJobs();
+            var list = view.FindControl<ListBox>("FileProviderList")!;
+            (TopLevel.GetTopLevel(view) as Window)!.UpdateLayout();
+
+            Assert.Equal("ShellSurfaceRaisedBrush", ChipBackground(view, list, loading));
+            Assert.Equal("ShellWarningSoftBrush", ChipBackground(view, list, warning));
+            Assert.Equal("ShellDangerSoftBrush", ChipBackground(view, list, failed));
+            Assert.Equal("ShellDangerSoftBrush", ChipBackground(view, list, both));
+        });
+
+    private static string ChipBackground(SettingsView view, ListBox list, object item)
+    {
+        list.ScrollIntoView(item);
+        list.UpdateLayout();
+        var container = Assert.IsType<ListBoxItem>(list.ContainerFromItem(item));
+        var chip = container.GetVisualDescendants().OfType<Asura.App.Controls.StatusChip>().Single();
+        string[] keys = ["ShellSurfaceRaisedBrush", "ShellWarningSoftBrush", "ShellDangerSoftBrush", "ShellSuccessSoftBrush"];
+        return keys.Single(key => view.TryFindResource(key, view.ActualThemeVariant, out var brush) && Equals(brush, chip.Background));
+    }
+
+    [Fact]
     public Task AI_providers_are_removed_by_selection_the_minus_button_and_the_delete_key()
     {
         var provider = new AiProviderProfileItemViewModel(

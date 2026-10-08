@@ -4776,7 +4776,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 ?.Revision);
         _appearancePreviewLease = acquisition.Lease;
         AppearancePreviewStatus = acquisition.Conflict
-            ?? "Application appearance saves automatically. Terminal previews use Apply terminal or Cancel.";
+            ?? "Appearance saves automatically.";
         PublishAppearanceDraftState();
         return acquisition.IsSuccess;
     }
@@ -4938,7 +4938,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
 
         AppearancePreviewStatus =
-            "Application appearance saves automatically. Terminal previews use Apply terminal or Cancel.";
+            "Appearance saves automatically.";
         PublishAppearanceDraftState();
     }
 

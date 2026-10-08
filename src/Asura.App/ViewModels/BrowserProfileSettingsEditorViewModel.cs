@@ -80,11 +80,11 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
         [
             new(
                 BrowserProfileSharing.Shared,
-                "Shared across workspaces",
+                "Shared Across Workspaces",
                 "Legacy default panels share one encrypted browser session."),
             new(
                 BrowserProfileSharing.PerWorkspace,
-                "Separate by workspace",
+                "Separate by Workspace",
                 "Legacy default panels keep a separate encrypted browser session for each workspace."),
         ];
         CreateDurableCommand = new AsyncActionCommand(

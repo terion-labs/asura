@@ -22,6 +22,17 @@ public sealed class BrowserProfileSettingsEditorViewModelTests
     }
 
     [Fact]
+    public void SharingChoicesAreTitleCaseMenuItems()
+    {
+        var editor = new BrowserProfileSettingsEditorViewModel(new InMemoryBrowserProfilePreferences());
+
+        Assert.Equal(
+            ["Shared Across Workspaces", "Separate by Workspace"],
+            editor.SharingOptions.Select(option => option.DisplayName),
+            StringComparer.Ordinal);
+    }
+
+    [Fact]
     public async Task CookieClearTargetsOnlyTheSelectedNamedProfileRevision()
     {
         var profile = Profile("browser.operations", BrowserProfilePersistence.DurableMetadata);

@@ -142,16 +142,16 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
         TerminalMultiplexingOptions =
         [
             new(null, "Use App Setting"),
-            new(TerminalMultiplexingMode.Disabled, "Off for this workspace"),
-            new(TerminalMultiplexingMode.Automatic, "tmux with Screen fallback"),
+            new(TerminalMultiplexingMode.Disabled, "Off for This Workspace"),
+            new(TerminalMultiplexingMode.Automatic, "tmux with Screen Fallback"),
         ];
         _selectedTerminalMultiplexing = TerminalMultiplexingOptions.Single(option =>
             option.Mode == workspace.TerminalMultiplexingOverride);
         BrowserProfileOptions =
         [
             new(null, "Use App Setting"),
-            new(WorkspaceBrowserProfileMode.Shared, "Share the global profile"),
-            new(WorkspaceBrowserProfileMode.Isolated, "Isolate this workspace"),
+            new(WorkspaceBrowserProfileMode.Shared, "Share the Global Profile"),
+            new(WorkspaceBrowserProfileMode.Isolated, "Isolate This Workspace"),
         ];
         _selectedBrowserProfile = BrowserProfileOptions.Single(option =>
             option.Mode == workspace.BrowserProfileOverride);

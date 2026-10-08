@@ -19,6 +19,7 @@ public sealed class DefaultAgentPolicySettingsViewModel : ObservableObject, IDis
     private bool _saveRunning;
     private bool _sealed;
     private bool _disposed;
+    private bool _hasEdits;
 
     public DefaultAgentPolicySettingsViewModel(
         AgentPolicyCoordinator? coordinator,
@@ -50,6 +51,13 @@ public sealed class DefaultAgentPolicySettingsViewModel : ObservableObject, IDis
     public AgentPolicy? Policy => _coordinator?.Policy;
 
     public bool CanSave => _coordinator is not null && Editor.IsValid;
+
+    /// <summary>
+    /// True once someone has changed the default and left it incomplete. A
+    /// page nobody has touched shows only the notice that says what to do
+    /// first, never an error that blames the person for it.
+    /// </summary>
+    public bool ShowsIncompleteDefault => _hasEdits && !Editor.IsValid;
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
@@ -103,6 +111,7 @@ public sealed class DefaultAgentPolicySettingsViewModel : ObservableObject, IDis
         Editor.Changed += OnEditorChanged;
         OnPropertyChanged(nameof(Editor));
         OnPropertyChanged(nameof(CanSave));
+        OnPropertyChanged(nameof(ShowsIncompleteDefault));
         QueuePersistence(onlyWhenMissing: true);
     }
 
@@ -237,7 +246,9 @@ public sealed class DefaultAgentPolicySettingsViewModel : ObservableObject, IDis
     {
         _ = sender;
         _ = eventArgs;
+        _hasEdits = true;
         OnPropertyChanged(nameof(CanSave));
+        OnPropertyChanged(nameof(ShowsIncompleteDefault));
         QueuePersistence(onlyWhenMissing: false);
     }
 

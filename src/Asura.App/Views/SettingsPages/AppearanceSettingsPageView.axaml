@@ -411,8 +411,10 @@
 
           </controls:LabeledField>
         </controls:SurfaceCard>
-        <!-- Labeled like Family and Size beside it. The value is written in
-             the interface's language, as every other number here. -->
+        <!-- Labeled like Family and Size beside it. The interface is written
+             in English, so its numbers are too: "1.40" with the invariant
+             culture, as the Scrollback and Timeout fields group "100,000",
+             whatever the region's number format. -->
         <controls:SurfaceCard Tone="Raised" Grid.Column="2">
           <controls:LabeledField
               Label="Line height">

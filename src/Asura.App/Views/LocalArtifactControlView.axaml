@@ -33,6 +33,22 @@
           Glyph="Shield"
           Text="Saved workspaces, screens, and connections, secrets, history, recovery snapshots, terminal content, system caches, debug traces, and the log in use are never cleared here." />
 
+      <!-- One state at a time: loading, nothing listed, couldn't check, or
+           the list with its summary line. A refresh with items already
+           listed keeps the list, and the summary line says it is reloading. -->
+      <Panel>
+        <Panel.IsVisible>
+          <MultiBinding Converter="{x:Static BoolConverters.And}">
+            <Binding Path="IsBusy" FallbackValue="False" />
+            <Binding Path="!HasInventory" FallbackValue="False" />
+          </MultiBinding>
+        </Panel.IsVisible>
+        <controls:StateOverlay
+            Kind="Loading"
+            Heading="Loading cache and log details…"
+            Body="Nothing is removed while Asura checks its storage." />
+      </Panel>
+
       <controls:LiveRegionTextBlock
           Classes="Muted"
           FontSize="{DynamicResource ShellSecondaryFontSize}"

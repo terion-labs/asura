@@ -15,6 +15,13 @@
     <!-- The same boolean shape as Settings: an option is a checkbox that
          names itself, its description under the words. -->
     <settingsPages:SettingOptionStyles />
+    <!-- A host folder is shown with its middle elided while the field isn't
+         being edited, so both the volume and the folder name stay in view.
+         The field's own text is hidden under the elided copy until it takes
+         focus, and then it is the field again. -->
+    <Style Selector="TextBox.ElidedPath:not(:focus-within)">
+      <Setter Property="Foreground" Value="Transparent" />
+    </Style>
   </UserControl.Styles>
   <!--
     A rail and a detail column, because editing a workspace is mostly comparing
@@ -204,12 +211,23 @@
                           <!-- The folder on this computer is usually the long path,
                                so it gets the wider field. -->
                           <Grid ColumnDefinitions="2*,Auto,Auto,*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                            <TextBox
-                                MinWidth="200"
-                                Text="{Binding HostPath, Mode=TwoWay}"
-                                PlaceholderText="Folder on this computer, such as /Users/me/projects"
-                                ToolTip.Tip="{Binding HostPath}"
-                                AutomationProperties.Name="Host folder" />
+                            <Panel MinWidth="200">
+                              <TextBox
+                                  x:Name="HostPathField"
+                                  Classes="ElidedPath"
+                                  Text="{Binding HostPath, Mode=TwoWay}"
+                                  PlaceholderText="Folder on this computer, such as /Users/me/projects"
+                                  ToolTip.Tip="{Binding HostPath}"
+                                  AutomationProperties.Name="Host folder" />
+                              <TextBlock
+                                  Classes="Path"
+                                  Margin="{Binding #HostPathField.Padding}"
+                                  VerticalAlignment="Center"
+                                  IsHitTestVisible="False"
+                                  Text="{Binding HostPath}"
+                                  IsVisible="{Binding !#HostPathField.IsKeyboardFocusWithin}"
+                                  AutomationProperties.AccessibilityView="Raw" />
+                            </Panel>
                             <Button
                                 Grid.Column="1"
                                 Classes="IconButton"
@@ -295,13 +313,13 @@
                         Classes="Segment"
                         Content="Use App Setting"
                         IsChecked="{Binding FollowsApplicationNetwork, Mode=TwoWay}"
-                        AutomationProperties.Name="Follow application networking" />
+                        AutomationProperties.Name="Use App Setting" />
                     <RadioButton
                         Grid.Column="1"
                         Classes="Segment"
                         Content="Custom for This Workspace"
                         IsChecked="{Binding OverridesNetworkSettings, Mode=TwoWay}"
-                        AutomationProperties.Name="Override application networking for this workspace" />
+                        AutomationProperties.Name="Custom for This Workspace" />
                   </Grid>
                 </Border>
               </controls:SettingRow>
@@ -438,11 +456,16 @@
                               <!-- Two chips rather than one with a bound tone: the
                                    difference between a shared definition and a
                                    copy is what this row exists to make obvious,
-                                   and a tone is an enum a binding cannot reach. -->
+                                   and a tone is an enum a binding cannot reach.
+                                   A rounded label is never toned, so a broken
+                                   reference gets a warning chip of its own. -->
+                              <controls:StatusChip
+                                  Tone="Warning"
+                                  Content="{Binding ReferenceStatus}"
+                                  IsVisible="{Binding HasMissingReference}" />
                               <controls:StatusChip
                                   Shape="Rounded"
                                   Tone="Default"
-                                  Classes.Warning="{Binding HasMissingReference}"
                                   Content="{Binding BadgeLabel}"
                                   IsVisible="{Binding !IsWorkspaceOnly}" />
                               <controls:StatusChip
@@ -697,13 +720,18 @@
                 Heading="AI configuration"
                 Description="Use app defaults or choose a provider, model, and tool permissions for this workspace.">
               <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceMd}">
-                <controls:ToggleField
-                    Label="Run the AI agent in the workspace environment"
-                    OnLabel="The provider is reached through this workspace's route; providers available only on this computer can’t be chosen."
-                    OffLabel="The provider is reached over the host network."
-                    IsChecked="{CompiledBinding RunAgentInIsolation, Mode=TwoWay}"
-                    IsVisible="{Binding IsIsolated}"
-                    AutomationProperties.Name="Run AI agent in workspace environment" />
+                <!-- An option, not the section's master: a checkbox whose
+                     label is its content, as everywhere else in the editor. -->
+                <controls:SettingRow
+                    Classes="Option"
+                    Padding="0"
+                    Description="When this is on, the provider is reached through this workspace’s route, and providers available only on this computer can’t be chosen. When it’s off, the provider is reached over this computer’s network."
+                    IsVisible="{Binding IsIsolated}">
+                  <CheckBox
+                      Content="Run the AI agent in the workspace environment"
+                      IsChecked="{CompiledBinding RunAgentInIsolation, Mode=TwoWay}"
+                      AutomationProperties.Name="Run the AI agent in the workspace environment" />
+                </controls:SettingRow>
                 <controls:ToggleField
                     Label="Override AI configuration for this workspace"
                     IsChecked="{CompiledBinding AgentPolicy.IsEnabled, Mode=TwoWay}"

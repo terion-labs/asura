@@ -877,6 +877,21 @@ public sealed class WorkspaceEditorViewModelTests
     }
 
     [Fact]
+    public void Override_pop_up_items_are_title_case_menu_items()
+    {
+        using var editor = new WorkspaceEditorViewModel(Workspace([]), 4, [], [], []);
+
+        Assert.Equal(
+            ["Use App Setting", "Off for This Workspace", "tmux with Screen Fallback"],
+            editor.TerminalMultiplexingOptions.Select(option => option.DisplayName),
+            StringComparer.Ordinal);
+        Assert.Equal(
+            ["Use App Setting", "Share the Global Profile", "Isolate This Workspace"],
+            editor.BrowserProfileOptions.Select(option => option.DisplayName),
+            StringComparer.Ordinal);
+    }
+
+    [Fact]
     public void Browser_profile_override_can_be_selected_saved_and_reset()
     {
         using var editor = new WorkspaceEditorViewModel(
