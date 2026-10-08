@@ -6,10 +6,21 @@
     xmlns:icons="using:FluentIcons.Avalonia"
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch">
-  <Grid>
+  <UserControl.Styles>
+    <!-- The zoom percentage is a text button among icon buttons: no fill,
+         sized to its text, the same height as its neighbours. -->
+    <Style Selector="Button#ZoomLevelButton">
+      <Setter Property="Width" Value="NaN" />
+      <Setter Property="MinWidth" Value="{controls:TextScaled 46}" />
+      <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs}" />
+    </Style>
+  </UserControl.Styles>
+  <!-- The controls sit in a bar under the picture rather than over it, so
+       no part of an image or a PDF page is ever behind them. -->
+  <Grid RowDefinitions="*,Auto">
     <!-- The image keeps its own pixel size and is moved by a transform rather
          than by layout, so zooming and panning never re-run a measure pass. -->
-    <Border x:Name="Viewport" ClipToBounds="True" Background="Transparent" Cursor="Hand">
+    <Border x:Name="Viewport" ClipToBounds="True" Background="Transparent">
       <Image
           x:Name="Surface"
           Stretch="None"
@@ -20,9 +31,9 @@
 
     <Border
         x:Name="Toolbar"
+        Grid.Row="1"
         HorizontalAlignment="Right"
-        VerticalAlignment="Bottom"
-        Margin="{controls:Inset Md}"
+        Margin="{controls:Inset Top=Sm}"
         Padding="{controls:Inset Horizontal=Xs, Vertical=Xs}"
         Background="{DynamicResource ShellSurfaceBrush}"
         BorderBrush="{DynamicResource ShellBorderBrush}"
@@ -38,15 +49,12 @@
         </Button>
         <Button
             x:Name="ZoomLevelButton"
-            Classes="Subtle"
-            Padding="{controls:Inset Horizontal=Xs, Vertical=None}"
-            MinWidth="46"
+            Classes="IconButton"
             Click="OnFitClick"
             ToolTip.Tip="Fit to the preview area"
             AutomationProperties.Name="Fit image to the preview area">
           <controls:LiveRegionTextBlock
               x:Name="ZoomLevelText"
-              Classes="Muted"
               FontSize="{DynamicResource ShellSecondaryFontSize}"
               HorizontalAlignment="Center"
               Text="100%"
@@ -65,14 +73,14 @@
             Click="OnRotateLeftClick"
             ToolTip.Tip="Rotate left"
             AutomationProperties.Name="Rotate left">
-          <icons:SymbolIcon Symbol="RotateLeft" FontSize="{DynamicResource ShellIconSizeSm}" />
+          <icons:SymbolIcon Symbol="ArrowRotateCounterclockwise" FontSize="{DynamicResource ShellIconSizeSm}" />
         </Button>
         <Button
             Classes="IconButton"
             Click="OnRotateRightClick"
             ToolTip.Tip="Rotate right"
             AutomationProperties.Name="Rotate right">
-          <icons:SymbolIcon Symbol="RotateRight" FontSize="{DynamicResource ShellIconSizeSm}" />
+          <icons:SymbolIcon Symbol="ArrowRotateClockwise" FontSize="{DynamicResource ShellIconSizeSm}" />
         </Button>
       </StackPanel>
     </Border>

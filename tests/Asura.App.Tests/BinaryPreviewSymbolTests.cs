@@ -21,6 +21,16 @@ public sealed class BinaryPreviewSymbolTests
     [InlineData("budget.xlsx")]
     [InlineData("payload")]
     [InlineData("mystery.qqq")]
+    [InlineData("table.csv")]
+    [InlineData("notes.md")]
+    [InlineData("bundle.zip")]
+    [InlineData("data.json")]
+    [InlineData("Program.cs")]
+    [InlineData("index.html")]
+    [InlineData("photo.png")]
+    [InlineData("Inter.ttf")]
+    [InlineData("store.sqlite")]
+    [InlineData("setup.exe")]
     public void Every_named_symbol_is_one_the_icon_set_has(string fileName)
     {
         var format = BinaryFormats.Describe(fileName, "application/octet-stream");

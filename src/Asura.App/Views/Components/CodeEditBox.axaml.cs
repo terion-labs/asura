@@ -49,10 +49,12 @@ public sealed partial class CodeEditBox : UserControl
         InitializeComponent();
         InitializeSqlIntelligence();
         InitializeFileDrop();
+        CodeEditorAppearance.KeepGutterInStep(Editor);
         ActualThemeVariantChanged += (_, _) =>
         {
             ApplyTheme();
             ApplySqlDiagnosticTheme();
+            CodeEditorAppearance.Apply(Editor, this);
         };
         Editor.Document.TextChanged += (_, _) =>
         {
@@ -138,6 +140,7 @@ public sealed partial class CodeEditBox : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        CodeEditorAppearance.Apply(Editor, this);
         SyncDocument();
         RequestHighlighting();
         AttachSqlIntelligence();

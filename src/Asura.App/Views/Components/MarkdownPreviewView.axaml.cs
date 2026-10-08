@@ -587,6 +587,50 @@ public sealed partial class MarkdownPreviewView : UserControl
         _ => null,
     };
 
+    /// <summary>
+    /// A fence names its language the way people write it — "csharp",
+    /// "python", "shell" — while the grammar registry is asked by file
+    /// extension, so a fence tagged with a name rather than an extension
+    /// would be shown plain.
+    /// </summary>
+    internal static string? FenceFileName(string? language)
+    {
+        var name = language?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(name))
+        {
+            return null;
+        }
+
+        var extension = name switch
+        {
+            "csharp" or "c#" or "cs" => "cs",
+            "fsharp" or "f#" => "fs",
+            "python" or "py" or "python3" => "py",
+            "javascript" or "js" or "node" => "js",
+            "typescript" or "ts" => "ts",
+            "jsx" => "jsx",
+            "tsx" => "tsx",
+            "shell" or "bash" or "sh" or "zsh" or "console" or "shellscript" => "sh",
+            "powershell" or "pwsh" or "ps1" => "ps1",
+            "ruby" or "rb" => "rb",
+            "rust" or "rs" => "rs",
+            "golang" or "go" => "go",
+            "kotlin" or "kt" => "kt",
+            "objective-c" or "objc" => "m",
+            "c++" or "cpp" => "cpp",
+            "yaml" or "yml" => "yaml",
+            "markdown" or "md" => "md",
+            "dockerfile" or "docker" => "dockerfile",
+            "makefile" or "make" => "mak",
+            // Everything else is named by its extension already: json, sql,
+            // swift, html, diff and the rest.
+            _ => name,
+        };
+        return string.Equals(extension, "dockerfile", StringComparison.Ordinal)
+            ? "Dockerfile"
+            : $"fenced.{extension}";
+    }
+
     private static bool IsMermaid(MarkdownBlock block) =>
         block.Kind == MarkdownBlockKind.Code
         && string.Equals(block.Language?.Trim(), "mermaid", StringComparison.OrdinalIgnoreCase);
@@ -685,9 +729,10 @@ public sealed partial class MarkdownPreviewView : UserControl
             Child = content,
             FlowDirection = content.FlowDirection,
         };
-        if (Brush("ShellAccentBrush") is { } accent)
+        // A quote is set off by a quiet rule; the accent is kept for what acts.
+        if (Brush("ShellBorderBrush") is { } rule)
         {
-            quote.BorderBrush = accent;
+            quote.BorderBrush = rule;
         }
 
         return quote;
@@ -700,7 +745,7 @@ public sealed partial class MarkdownPreviewView : UserControl
         var editor = new CodePreviewView
         {
             Text = block.Text,
-            FileName = block.Language is null ? null : $"fenced.{block.Language}",
+            FileName = FenceFileName(block.Language),
             // Sized by the editor's own line height: a guessed height clips the
             // last line or leaves a screen of empty gutter under three lines.
             FitsContent = true,
@@ -952,7 +997,12 @@ public sealed partial class MarkdownPreviewView : UserControl
                 inline.FontFamily = mono;
             }
 
-            Tint(inline, "ShellAccentTextBrush");
+            // Set apart by its face and a quiet fill; the accent would say
+            // it can be clicked.
+            if (Brush("ShellSurfaceHoverBrush") is { } fill)
+            {
+                inline.Background = fill;
+            }
         }
 
         if (run.LinkTarget is not null)

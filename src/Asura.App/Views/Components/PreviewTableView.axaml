@@ -12,7 +12,8 @@
          database results grid gives: the columns are only useful while their
          names are still on screen. -->
     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-      <Grid RowDefinitions="Auto,*">
+      <!-- The trailing inset keeps the last column off the preview's edge. -->
+      <Grid Margin="{controls:Inset Right=Md}" RowDefinitions="Auto,*">
         <Border
             Background="{DynamicResource ShellSurfaceBrush}"
             BorderBrush="{DynamicResource ShellBorderBrush}"
@@ -37,7 +38,7 @@
                     <TextBlock
                         Width="{Binding Width}"
                         Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}"
-                        FontSize="{DynamicResource ShellFontSize10}"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
                         FontWeight="SemiBold"
                         Classes="MiddleTruncated"
                         Text="{Binding Name}"
@@ -80,7 +81,7 @@
                                 Width="{Binding Width}"
                                 Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}"
                                 FontFamily="{DynamicResource ShellDataFontFamily}"
-                                FontSize="{DynamicResource ShellFontSize10}"
+                                FontSize="{DynamicResource ShellSecondaryFontSize}"
                                 Text="{Binding Text}"
                                 TextTrimming="CharacterEllipsis"
                                 ToolTip.Tip="{Binding Text}" />

@@ -164,8 +164,6 @@
               ColumnDefinitions="*,Auto"
               ColumnSpacing="{DynamicResource ShellSpaceXs}">
             <TextBox
-                FontSize="{DynamicResource ShellFontSize10}"
-                FontWeight="SemiBold"
                 Background="Transparent"
                 BorderThickness="0"
                 Text="{Binding LocationText}"
@@ -320,7 +318,7 @@
               </ContextMenu>
             </Grid.ContextMenu>
             <Border
-                Height="29"
+                MinHeight="{controls:TextScaled 29}"
                 Background="{DynamicResource ShellSurfaceBrush}"
                 IsVisible="{Binding IsDetailsView}">
               <Grid Margin="{controls:Inset Horizontal=Md}">
@@ -469,8 +467,8 @@
                       </Panel>
                       <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize12}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
                     </Grid>
-                    <TextBlock Grid.Column="2" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Size}" />
-                    <TextBlock Grid.Column="4" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Modified}" />
+                    <TextBlock Grid.Column="2" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Size}" TextTrimming="CharacterEllipsis" />
+                    <components:FittingTextBlock Grid.Column="4" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" FullText="{Binding Modified}" CompactText="{Binding ModifiedCompact}" />
                   </Grid>
                 </DataTemplate>
               </ListBox.ItemTemplate>
@@ -526,7 +524,7 @@
               </ListBox.ItemsPanel>
               <ListBox.ItemTemplate>
                 <DataTemplate>
-                  <controls:SurfaceCard Padding="0" Width="142" Height="88" Margin="{controls:Inset Xs}">
+                  <controls:SurfaceCard Padding="0" Width="{controls:TextScaled 142}" MinHeight="{controls:TextScaled 88}" Margin="{controls:Inset Xs}">
                     <StackPanel Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceXs}">
                       <Panel Classes="FileEntryIcon large" HorizontalAlignment="Left">
                         <Image Source="{Binding Icon}" IsVisible="{Binding HasIcon}" />

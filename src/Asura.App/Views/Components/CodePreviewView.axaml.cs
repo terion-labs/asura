@@ -94,6 +94,7 @@ public sealed partial class CodePreviewView : UserControl
         // tree, and each height we set starts another pass: a document with a
         // few fenced blocks turned one toggle into dozens of measure rounds.
         Editor.TextArea.TextView.VisualLinesChanged += (_, _) => FitHeightToContent();
+        CodeEditorAppearance.KeepGutterInStep(Editor);
         SizeChanged += (_, _) => FitHeightToContent();
 
         // A fenced block far down a document is not worth a grammar until it
@@ -343,10 +344,13 @@ public sealed partial class CodePreviewView : UserControl
             && size is double fontSize)
         {
             Editor.FontSize = fontSize;
-            return;
+        }
+        else
+        {
+            Editor.FontSize = 13;
         }
 
-        Editor.FontSize = 13;
+        CodeEditorAppearance.Apply(Editor, this);
     }
 
     private ThemeName CurrentThemeName() =>

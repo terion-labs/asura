@@ -20,6 +20,7 @@ internal static class MacOsFileTypeIcons
     private const string ObjectiveCLibrary = "/usr/lib/libobjc.A.dylib";
     private const string AppKitLibrary = "/System/Library/Frameworks/AppKit.framework/AppKit";
     private const nuint PngFileType = 4;
+    private const int CursorPointSize = 16;
 
     /// <summary>
     /// Folders are remembered by path, and there can be many; past this the
@@ -177,6 +178,49 @@ internal static class MacOsFileTypeIcons
                 value.AsSpan(1))
             : value;
 
+    /// <summary>
+    /// The system's closed-hand cursor as PNG bytes with its hot spot, for a
+    /// view being dragged around. AppKit has the cursor; Avalonia names only
+    /// the open hand, so the grabbing one is handed over as a picture. Null
+    /// off macOS or where AppKit will not give it.
+    /// </summary>
+    internal static (byte[] Png, int HotX, int HotY)? ClosedHandCursor()
+    {
+        if (!AppKitLoaded)
+        {
+            return null;
+        }
+
+        var pool = objc_autoreleasePoolPush();
+        try
+        {
+            var cursor = SendId(objc_getClass("NSCursor"), Selector("closedHandCursor"));
+            if (cursor == 0)
+            {
+                return null;
+            }
+
+            var hotSpot = SendPoint(cursor, Selector("hotSpot"));
+            // A cursor is sixteen points square, and a custom cursor's image
+            // is taken a pixel to a point.
+            var png = RenderPng(SendId(cursor, Selector("image")), CursorPointSize);
+            return png is null
+                ? null
+                : (png,
+                    (int)Math.Clamp(Math.Round(hotSpot.X), 0, CursorPointSize - 1),
+                    (int)Math.Clamp(Math.Round(hotSpot.Y), 0, CursorPointSize - 1));
+        }
+        catch (Exception exception) when (exception is DllNotFoundException
+            or EntryPointNotFoundException)
+        {
+            return null;
+        }
+        finally
+        {
+            objc_autoreleasePoolPop(pool);
+        }
+    }
+
     private static nint Workspace() =>
         SendId(objc_getClass("NSWorkspace"), Selector("sharedWorkspace"));
 
@@ -210,7 +254,7 @@ internal static class MacOsFileTypeIcons
     /// handed over as PNG: the image picks its best representation for that
     /// size, so the result is the crisp rendition, not a scaled thumbnail.
     /// </summary>
-    private static byte[]? RenderPng(nint image)
+    private static byte[]? RenderPng(nint image, int pixelSize = FileTypeIcons.PixelSize)
     {
         if (image == 0)
         {
@@ -220,7 +264,7 @@ internal static class MacOsFileTypeIcons
         nint representation = 0;
         try
         {
-            var rect = new CGRect(0, 0, FileTypeIcons.PixelSize, FileTypeIcons.PixelSize);
+            var rect = new CGRect(0, 0, pixelSize, pixelSize);
             var cgImage = SendCGImage(
                 image,
                 Selector("CGImageForProposedRect:context:hints:"),
@@ -275,6 +319,13 @@ internal static class MacOsFileTypeIcons
     private static nint Selector(string name) => sel_registerName(name);
 
     [StructLayout(LayoutKind.Sequential)]
+    private readonly struct CGPoint
+    {
+        public readonly double X;
+        public readonly double Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
     private readonly struct CGRect(double x, double y, double width, double height)
     {
         public readonly double X = x;
@@ -305,6 +356,9 @@ internal static class MacOsFileTypeIcons
 
     [DllImport(ObjectiveCLibrary, EntryPoint = "objc_msgSend")]
     private static extern nuint SendNUInt(nint receiver, nint selector);
+
+    [DllImport(ObjectiveCLibrary, EntryPoint = "objc_msgSend")]
+    private static extern CGPoint SendPoint(nint receiver, nint selector);
 
     [DllImport(ObjectiveCLibrary, EntryPoint = "objc_msgSend")]
     [return: MarshalAs(UnmanagedType.I1)]
