@@ -24,7 +24,7 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
     private string _recentSessionStatus =
         "Sessions you open will appear here without storing terminal content or commands.";
     private string _exportStatus =
-        "History exports contain definition metadata only; terminal commands and content are excluded.";
+        "History exports contain only names, times, and similar details. Terminal commands and output are left out.";
     private string _retentionStatus = "Loading local history privacy settings…";
     private bool _hasFailure;
     private bool _hasUnreadableHistory;
@@ -777,7 +777,7 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
         ReplaceIfChanged(Sessions, items);
         ReplaceIfChanged(RecentSessions, [.. items.Take(8)]);
         RecentSessionStatus = Sessions.Count > 0
-            ? "Recent sessions store definition metadata only; commands and terminal content are excluded."
+            ? "Recent sessions keep only names, times, and similar details. Terminal commands and output aren't stored."
             : _storedRetention is { Policy.IsEnabled: false }
                 ? "Session history is disabled in the local privacy settings."
                 : "Sessions you open will appear here without storing terminal content or commands.";

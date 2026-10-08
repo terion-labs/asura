@@ -684,7 +684,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
         ? "Unsaved new workspace"
         : IsDirty
             ? "Unsaved changes"
-            : "Saved definition";
+            : "Saved";
 
     public IReadOnlyList<DefinitionValidationIssue> ValidationIssues => _validationIssues;
 
@@ -768,7 +768,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
 
     public WorkspaceEditorOperationResult AddWorkspaceTab(
         LayoutId layoutId,
-        string name = "New tab")
+        string name = "New Tab")
     {
         var layout = LayoutOptions.SingleOrDefault(option =>
             option.Id == layoutId && option.IsAvailable)?.Definition;
@@ -789,7 +789,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
             .ToArray();
         return AddEntry(new WorkspaceEntry.Tab(
             WorkspaceEntryId.New(),
-            string.IsNullOrWhiteSpace(name) ? "New tab" : name.Trim(),
+            string.IsNullOrWhiteSpace(name) ? "New Tab" : name.Trim(),
             layout.Id,
             panels));
     }
@@ -1189,7 +1189,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
             {
                 issues.Add(new(
                     DefinitionValidationCode.MissingDependency,
-                    $"Repair the missing definition used by '{entry.DisplayName}'.",
+                    $"“{entry.DisplayName}” uses a screen or layout that no longer exists. Choose another one or remove it.",
                     entry.Id.Value));
             }
 

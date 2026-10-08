@@ -442,7 +442,7 @@ public sealed class McpServerProfileEditorViewModelTests
         Assert.Contains(
             request.TrustReview.Changes,
             change => change.Contains(
-                "Trust this imported server definition",
+                "Trust this imported server",
                 StringComparison.Ordinal));
         Assert.True(request.Profile.IsTrusted);
         Assert.True(request.ConfirmTrust().IsAuthorizedForSave);

@@ -5993,9 +5993,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             cancellationToken);
     }
 
+    private const string LauncherTabTitle = "New Tab";
+
+    // Recovery written before tab titles took title case.
+    private const string LegacyLauncherTabTitle = "New tab";
+
     private static RuntimeTabViewModel CreateLauncherTab()
     {
-        var tab = new RuntimeTabViewModel(TabInstanceId.New(), "New tab", "Launcher");
+        var tab = new RuntimeTabViewModel(TabInstanceId.New(), LauncherTabTitle, "Launcher");
         tab.AddPlaceholder(PanelSide.Right);
         return tab;
     }
@@ -7868,7 +7873,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         if (!CanOpenDefinition(recentSession.SourceDefinition))
         {
             SetError(
-                "The current saved definition for that recent session is missing or unavailable on this platform.");
+                "The workspace or screen that session came from no longer exists or isn't available on this computer.");
             return false;
         }
 
@@ -7895,7 +7900,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             return await OpenWorkspaceAsync(new WorkspaceId(source.Value), cancellationToken);
         }
 
-        SetError("That recent-session definition type cannot be reopened here.");
+        SetError("That kind of recent session can't be reopened here.");
         return false;
     }
 
@@ -8217,7 +8222,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 source.SourceDefinition))
             {
                 throw new InvalidOperationException(
-                    "The workspace definition is being changed while its runtime activates.");
+                    "The workspace's settings changed while it was opening. Try opening it again.");
             }
         }
 
@@ -9108,10 +9113,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     private static string PanelLaunchLabel(PanelKind panel) => panel switch
     {
-        PanelKind.Terminal => "Open terminal",
-        PanelKind.FileViewer => "Open files",
-        PanelKind.Statistics => "Open statistics",
-        PanelKind.ProcessMonitor => "Open processes",
+        PanelKind.Terminal => "Open Terminal",
+        PanelKind.FileViewer => "Open Files",
+        PanelKind.Statistics => "Open Statistics",
+        PanelKind.ProcessMonitor => "Open Processes",
         PanelKind.Docker => "Open Docker",
         PanelKind.Kubernetes => "Open Kubernetes",
         PanelKind.Git => "Open Git",
@@ -9289,7 +9294,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     ? "Credential missing"
                     : "Enabled for new runs";
         var baselineDetail = !profile.IsTrusted
-            ? "Review this server definition before testing or enabling it."
+            ? "Review this server's settings before testing or turning it on."
             : !profile.IsEnabled
             ? "Testing is available, but agent runs cannot select this server."
             : hasNoEnabledTools
@@ -9747,7 +9752,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             recent.CanOpen,
             recent.CanOpen
                 ? null
-                : "The current saved definition no longer exists or is unavailable on this platform.",
+                : "The workspace or screen that session came from no longer exists or isn't available on this computer.",
             [
                 "recent",
                 "recent session",
@@ -10188,7 +10193,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             // A recovered launcher title/icon keeps the ownership recorded by
             // the current recovery schema.
             hasChosenTitle: recovered.HasChosenTitle
-                ?? !string.Equals(recovered.Title, "New tab", StringComparison.Ordinal),
+                ?? !(string.Equals(recovered.Title, LauncherTabTitle, StringComparison.Ordinal)
+                    || string.Equals(recovered.Title, LegacyLauncherTabTitle, StringComparison.Ordinal)),
             hasChosenIcon: recovered.HasChosenIcon ?? recovered.Icon is not null);
         try
         {

@@ -11,7 +11,7 @@ public sealed class BrowserStartupRecoveryViewModelTests
         var recovery = new Recovery();
         using var model = new BrowserStartupRecoveryViewModel(recovery, new Dispatcher());
         Assert.True(model.HasError);
-        Assert.Equal("Retry browser", model.RetryLabel);
+        Assert.Equal("Try Again", model.RetryLabel);
         var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         model.PropertyChanged += (_, args) =>
         {

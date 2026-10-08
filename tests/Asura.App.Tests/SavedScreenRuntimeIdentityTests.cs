@@ -1552,7 +1552,7 @@ public sealed class SavedScreenRuntimeIdentityTests
         {
             Assert.False(await viewModel.OpenRecentSessionAsync(recent));
             Assert.Contains(
-                "unavailable",
+                "isn't available on this computer",
                 viewModel.OperationError,
                 StringComparison.OrdinalIgnoreCase);
             Assert.Null(viewModel.RuntimeWorkspace);

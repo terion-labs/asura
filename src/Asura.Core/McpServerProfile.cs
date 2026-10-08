@@ -227,7 +227,7 @@ public sealed record McpServerProfile : IDurableDefinition
         if (LiteralSecretValidator.ContainsLikelyLiteralSecret(value))
         {
             throw new ArgumentException(
-                "MCP server definitions cannot contain literal credentials; use an opaque vault reference.",
+                "MCP server settings can't contain credentials. Use a stored credential instead.",
                 parameterName);
         }
 

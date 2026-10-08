@@ -3279,7 +3279,7 @@ public class UnavailableRuntimePanelViewModel(
 {
     public string CapabilityMessage { get; protected set; } = capabilityMessage;
 
-    public virtual string StateHeading => "Adapter unavailable";
+    public virtual string StateHeading => "Panel unavailable";
 
     public virtual string? StateActionLabel => null;
 

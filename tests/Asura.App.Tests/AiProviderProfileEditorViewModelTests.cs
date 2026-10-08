@@ -774,7 +774,7 @@ public sealed class AiProviderProfileEditorViewModelTests
             "Today",
             "Never",
             scope,
-            "No saved definition dependencies",
+            "Not used by any saved item",
             0);
 
     private sealed class StubRuntime : IAiProviderProfileRuntime

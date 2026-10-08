@@ -298,7 +298,7 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
         ? "Unsaved new screen"
         : IsDirty
             ? "Unsaved changes"
-            : "Saved definition";
+            : "Saved";
 
     public int MissingConnectionCount => _panels.Count(panel => panel.HasMissingConnection);
 
@@ -445,7 +445,9 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
         if (missing.Length > 0)
         {
             throw new ArgumentException(
-                $"Repair {missing.Length} missing panel definition{(missing.Length == 1 ? string.Empty : "s")} before saving.");
+                missing.Length == 1
+                    ? "Choose a connection for the panel that is missing one before saving."
+                    : $"Choose connections for the {missing.Length:N0} panels that are missing one before saving.");
         }
 
         var definition = new ScreenDefinition(

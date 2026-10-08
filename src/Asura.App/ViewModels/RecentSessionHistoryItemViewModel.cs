@@ -75,8 +75,8 @@ public sealed record RecentSessionHistoryItemViewModel(
         : "In progress";
 
     public string ReopenStatus => CanOpen
-        ? "Reopening launches the current saved definition; history retains metadata, not a session snapshot."
-        : "The current saved definition no longer exists or is unavailable on this platform; metadata remains available for review.";
+        ? "Reopening opens the workspace or screen as it's saved now. History keeps names and times, not what was on screen."
+        : "The workspace or screen that session came from no longer exists or isn't available on this computer. Its details stay here for review.";
 
     /// <summary>
     /// Whether the row would look identical.

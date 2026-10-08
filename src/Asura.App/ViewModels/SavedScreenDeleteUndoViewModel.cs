@@ -10,7 +10,7 @@ public sealed record SavedScreenDeleteUndoReceipt(
 public sealed class SavedScreenDeleteUndoViewModel : ObservableObject
 {
     private const string InitialStatus =
-        "No saved-screen deletion is available to undo. Running instances are not changed by saved-definition deletion.";
+        "There's no deleted screen to restore. Deleting a saved screen doesn't change tabs that are already open.";
 
     private readonly IDefinitionCatalog _catalog;
     private PendingSavedScreenDeleteState? _pending;

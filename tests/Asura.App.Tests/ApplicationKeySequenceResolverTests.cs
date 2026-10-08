@@ -545,7 +545,7 @@ public sealed class ApplicationCommandRouterTests
             CommandContext.Panel);
 
         Assert.False(result.IsSuccess);
-        Assert.Contains("invalid arguments", result.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("isn't available here", result.Error, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]
@@ -590,7 +590,7 @@ public sealed class ApplicationCommandRouterTests
             CommandContext.Workspace);
 
         Assert.False(result.IsSuccess);
-        Assert.Contains("unavailable", result.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("isn't available here", result.Error, StringComparison.OrdinalIgnoreCase);
     }
 
     private static ApplicationCommandAction Route(CommandBinding binding)

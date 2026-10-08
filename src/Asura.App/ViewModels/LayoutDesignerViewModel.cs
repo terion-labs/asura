@@ -157,7 +157,7 @@ public sealed class LayoutDesignerViewModel : ObservableObject
         ? "Unsaved new layout"
         : IsDirty
             ? "Unsaved changes"
-            : "Saved definition";
+            : "Saved";
 
     public bool IsValid => _isProjectionValid && !string.IsNullOrWhiteSpace(Name);
 

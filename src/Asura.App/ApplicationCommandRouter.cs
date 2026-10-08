@@ -157,7 +157,7 @@ internal static class ApplicationCommandRouter
 
         if (!definition.IsAvailable(invocation))
         {
-            return Failure($"Command '{definition.Title}' is unavailable in the current context or has invalid arguments.");
+            return Failure($"“{definition.Title}” isn't available here.");
         }
 
         var arguments = invocation.Arguments;

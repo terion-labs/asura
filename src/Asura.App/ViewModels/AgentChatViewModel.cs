@@ -984,7 +984,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     public bool IsCompacting => _compactInFlight;
 
-    public string CompactLabel => IsCompacting ? "Compacting…" : "Compact now";
+    public string CompactLabel => IsCompacting ? "Compacting…" : "Compact Now";
 
     public string CompactionStatus
     {

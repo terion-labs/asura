@@ -123,7 +123,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                     ? DefinitionStoreResult<StoredDefinition<TDefinition>>.Success(stored)
                     : DefinitionStoreResult<StoredDefinition<TDefinition>>.Failure(new(
                         DefinitionStoreErrorCode.NotFound,
-                        "The requested definition does not exist.")));
+                        "That item no longer exists.")));
             }
         }
 
@@ -155,7 +155,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                     return ValueTask.FromResult(
                         DefinitionStoreResult<StoredDefinition<TDefinition>>.Failure(new(
                             DefinitionStoreErrorCode.RevisionConflict,
-                            "The definition changed before it could be saved.")));
+                            "It changed somewhere else before it could be saved. Reopen it and try again.")));
                 }
 
                 var now = DateTimeOffset.UtcNow;
@@ -184,7 +184,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
                         ? DefinitionStoreResult<Unit>.Success(Unit.Value)
                         : DefinitionStoreResult<Unit>.Failure(new(
                             DefinitionStoreErrorCode.RevisionConflict,
-                            "The definition changed before it could be deleted.")));
+                            "It changed somewhere else before it could be deleted. Reopen it and try again.")));
             }
         }
     }
@@ -1261,7 +1261,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
         definitions.Any(item =>
             item.Value.Key != candidate.Key
             && string.Equals(item.Value.Name, candidate.Name, StringComparison.OrdinalIgnoreCase))
-            ? Invalid("A definition with this name already exists.")
+            ? Invalid("Something with this name already exists. Choose another name.")
             : null;
 
     private async ValueTask<DefinitionStoreResult<DefinitionCatalogSnapshot>> RefreshCoreAsync(

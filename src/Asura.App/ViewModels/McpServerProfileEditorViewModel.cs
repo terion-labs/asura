@@ -730,7 +730,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
         {
             if (!_original.IsTrusted)
             {
-                changes.Add("Trust this imported server definition");
+                changes.Add("Trust this imported server");
             }
 
             if (profile.Transport.Kind != _original.Transport.Kind)

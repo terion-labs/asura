@@ -431,7 +431,7 @@ public sealed class SecretSettingsViewModel : ObservableObject, IDisposable
                 System.Globalization.CultureInfo.InvariantCulture) ?? "Never",
             metadata.Scope,
             dependencies.Length == 0
-                ? "No saved definition dependencies"
+                ? "Not used by any saved item"
                 : $"Used by: {string.Join(", ", dependencies)}",
             dependencies.Length);
     }

@@ -10,7 +10,7 @@ namespace Asura.App;
 public sealed class AvaloniaDefinitionBundlePathPicker(Func<Window> owner)
     : IDefinitionBundlePathPicker
 {
-    private static readonly FilePickerFileType BundleFileType = new("Asura definition bundle")
+    private static readonly FilePickerFileType BundleFileType = new("Asura Setup")
     {
         Patterns = ["*.json"],
         MimeTypes = ["application/json"],

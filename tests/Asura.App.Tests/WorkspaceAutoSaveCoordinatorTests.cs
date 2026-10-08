@@ -280,7 +280,7 @@ public sealed class WorkspaceAutoSaveCoordinatorTests
             []);
         var launcher = new RuntimeTabViewModel(
             TabInstanceId.New(),
-            "New tab",
+            "New Tab",
             "Launcher");
         launcher.AddPlaceholder(PanelSide.Right);
         runtime.Tabs.Add(launcher);

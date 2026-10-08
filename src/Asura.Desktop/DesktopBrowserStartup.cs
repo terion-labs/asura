@@ -215,8 +215,9 @@ internal sealed class DesktopBrowserStartup(
             }
             catch (Exception exception)
             {
+                SecretSafeDiagnosticProjection.WriteTrace("browser.history-clear.failed", exception);
                 return new BrowserProfileClearResult(BrowserProfileClearStatus.Failed, result.ClearedBytes,
-                    "Browser data was cleared, but browsing history could not be cleared: " + exception.Message);
+                    "Browser data was cleared, but Asura couldn't clear the browsing history. Try clearing it again.");
             }
         }
         return result;

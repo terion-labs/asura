@@ -141,7 +141,7 @@ internal static class DefinitionExecutionReview
                 }
                 if (panel.Kind == ScreenPanelKind.Browser && panel.Startup.Location is { } address)
                 {
-                    result.Add(new($"Browser startup - {owner} / {panel.Title}",
+                    result.Add(new($"Browser startup — {owner} / {panel.Title}",
                         $"Panel: {panel.Id.Value}; connection: {panel.ConnectionId?.Value ?? "local"}\nDestination: {address}\nOpening this workspace or screen loads this address automatically, including in background tabs before they are selected."));
                 }
                 if (panel.Kind == ScreenPanelKind.DatabaseViewer && panel.Startup.Location is { } target)
