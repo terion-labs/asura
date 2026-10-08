@@ -1,4 +1,5 @@
 using Asura.App.Controls;
+using Asura.App.ViewModels;
 using Asura.App.Views;
 using Asura.Application;
 using Asura.Core;
@@ -169,6 +170,46 @@ public sealed class DialogContractHeadlessTests
 
             Assert.False(closed);
             dialog.Close();
+        });
+    }
+
+    [Fact]
+    public async Task Saved_connections_are_edited_from_the_selection_not_a_button_per_row()
+    {
+        await RunAsync(async () =>
+        {
+            using var launcher = new LauncherViewModel(() => []);
+            launcher.Connections.Add(new LauncherConnectionViewModel(
+                new ConnectionId("one"), 1, "Build server", "SSH", "ops@build", "Ready", true, []));
+            launcher.Connections.Add(new LauncherConnectionViewModel(
+                new ConnectionId("two"), 1, "Staging", "SSH", "ops@staging", "Ready", true, []));
+            var inspector = new SavedConnectionsDialog { DataContext = launcher };
+            LauncherConnectionViewModel? edited = null;
+            inspector.EditRequested += (_, connection) => edited = connection;
+            inspector.Show();
+            await Idle();
+
+            var buttons = inspector.GetVisualDescendants().OfType<Button>()
+                .Where(button => button.Content is "Edit…")
+                .ToArray();
+            var edit = Assert.Single(buttons);
+            Assert.False(edit.IsEnabled);
+
+            var list = inspector.FindControl<ListBox>("ConnectionList")!;
+            list.SelectedIndex = 1;
+            await Idle();
+            Assert.True(edit.IsEnabled);
+
+            Assert.True(list.ContainerFromIndex(1)!.Focus());
+            await Idle();
+            inspector.KeyPress(Key.Return, RawInputModifiers.None, PhysicalKey.Enter, "\r");
+            await Idle();
+            Assert.Equal("Staging", edited?.Name);
+
+            edited = null;
+            edit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.Equal("Staging", edited?.Name);
+            inspector.Close();
         });
     }
 

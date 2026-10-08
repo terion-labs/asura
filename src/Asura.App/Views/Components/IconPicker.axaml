@@ -18,8 +18,8 @@
       <controls:SearchField
           x:Name="SearchInput"
           Text="{Binding SearchText, ElementName=Root, Mode=TwoWay}"
-          PlaceholderText="Search all icons"
-          AutomationProperties.Name="Search icons" />
+          PlaceholderText="Filter icons"
+          AutomationProperties.Name="Filter icons" />
       <TextBlock
           Grid.Column="1"
           VerticalAlignment="Center"

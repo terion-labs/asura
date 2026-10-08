@@ -40,7 +40,10 @@ public sealed class FileAccessControlEditorViewModel : ObservableObject
             ? [.. Enum.GetValues<FilePanelPosixWho>().Select(who =>
                 new FileAccessRowViewModel(who, this))]
             : [.. accessControl.Grants.Select(grant =>
-                new FileAccessRowViewModel(grant))];
+                new FileAccessRowViewModel(
+                    grant,
+                    accessControl.Grants.Count(other =>
+                        string.Equals(other.Grantee.Label, grant.Grantee.Label, StringComparison.Ordinal)) > 1))];
     }
 
     public string ItemName { get; }
@@ -189,30 +192,40 @@ public sealed class FileAccessRowViewModel : ObservableObject
     }
 
     /// <summary>A party of an object store: an account, or a well-known group.</summary>
-    public FileAccessRowViewModel(FilePanelAccessGrant grant)
+    public FileAccessRowViewModel(FilePanelAccessGrant grant, bool isNameShared = false)
     {
         ArgumentNullException.ThrowIfNull(grant);
         _grantee = grant.Grantee;
         _privileges = GrantPrivileges;
         _rights = grant.Rights;
         _privilege = Nearest(grant.Rights, _privileges);
+
+        // The readable name — "Owner", "Everyone", an account's display name —
+        // on one line, so every row has the same height. What the connection
+        // calls the party underneath, a canonical account id that means
+        // nothing on its own, is in the tooltip, and joins the name only when
+        // two parties would otherwise read alike.
         Name = grant.Grantee.Label;
-        // What the connection calls this party underneath the readable name,
-        // where the two differ — a canonical account id means nothing on its
-        // own, and without it two accounts named alike cannot be told apart.
-        var detail = grant.Grantee.DisplayName is not null && grant.Grantee.Id is not null
-            ? grant.Grantee.Id
-            : grant.Grantee.Kind.ToString();
-        Detail = string.Equals(detail, Name, StringComparison.Ordinal)
-            ? string.Empty
-            : detail;
+        Detail = grant.Grantee.Id is { } id && !string.Equals(id, Name, StringComparison.Ordinal)
+            ? id
+            : string.Empty;
+        if (isNameShared && Detail.Length > 0)
+        {
+            Name = $"{Name} ({Detail})";
+        }
     }
 
     public string Name { get; }
 
+    /// <summary>What the connection calls this party, when that differs from its name.</summary>
     public string Detail { get; }
 
     public bool HasDetail => Detail.Length > 0;
+
+    /// <summary>The row's tooltip: the name, and the account id behind it when there is one.</summary>
+    public string NameTip => HasDetail && !Name.Contains(Detail, StringComparison.Ordinal)
+        ? $"{Name} · {Detail}"
+        : Name;
 
     public IReadOnlyList<string> Choices => [.. _privileges.Select(option => option.Label)];
 

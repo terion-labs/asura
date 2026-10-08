@@ -90,6 +90,80 @@ public sealed class SavedScreenEditorViewModelTests
     }
 
     [Fact]
+    public void PanelLabelSaysWhereThePanelSitsNotItsSlotIdentifier()
+    {
+        var connection = LocalConnection("local");
+        var screen = Screen(connection.Id);
+        using var editor = Editor(screen, 3, [connection]);
+
+        Assert.Equal("Terminal · Whole screen", editor.Panels[0].PanelLabel);
+        Assert.DoesNotContain("slot-one", editor.Panels[0].PanelLabel, StringComparison.Ordinal);
+        Assert.Equal("Layout", editor.SelectedLayout.DisplayName);
+        Assert.Equal("1 × 1 grid · 1 panel", editor.LayoutSummary);
+    }
+
+    [Theory]
+    [InlineData(2, 1, 0, 0, 1, 1, "Left")]
+    [InlineData(2, 1, 1, 0, 1, 1, "Right")]
+    [InlineData(3, 1, 1, 0, 1, 1, "Middle")]
+    [InlineData(2, 2, 1, 0, 1, 1, "Top right")]
+    [InlineData(2, 2, 0, 1, 2, 1, "Bottom")]
+    [InlineData(3, 3, 1, 1, 1, 1, "Center")]
+    [InlineData(12, 8, 0, 0, 12, 8, "Whole screen")]
+    [InlineData(12, 8, 0, 0, 8, 8, "Left")]
+    public void LayoutPositionsReadAsWords(
+        int columns, int rows, int column, int row, int columnSpan, int rowSpan, string expected)
+    {
+        Assert.Equal(
+            expected,
+            LayoutPosition.Describe(
+                new LayoutGrid(columns, rows),
+                new LayoutGridBounds(column, row, columnSpan, rowSpan)));
+    }
+
+    [Fact]
+    public void PanelsInTheSamePlaceAreNumbered()
+    {
+        var connection = LocalConnection("local");
+        var layout = new LayoutDefinition(
+            new LayoutId("layout-stack"),
+            LayoutDefinition.CurrentSchemaVersion,
+            "Stack · three panels",
+            new LayoutGrid(1, 3),
+            [
+                new LayoutSlotDefinition(new LayoutSlotId("a"), new LayoutGridBounds(0, 0, 1, 1), new LayoutMinimumSize(220, 140)),
+                new LayoutSlotDefinition(new LayoutSlotId("b"), new LayoutGridBounds(0, 1, 1, 1), new LayoutMinimumSize(220, 140)),
+                new LayoutSlotDefinition(new LayoutSlotId("c"), new LayoutGridBounds(0, 2, 1, 1), new LayoutMinimumSize(220, 140)),
+            ]);
+        var original = Screen(connection.Id);
+        var screen = new ScreenDefinition(
+            original.Id,
+            original.SchemaVersion,
+            original.Name,
+            original.Description,
+            layout.Id,
+            [
+                .. layout.Slots.Select(slot => new ScreenPanelDefinition(
+                    new ScreenPanelId("panel-" + slot.Id.Value),
+                    slot.Id,
+                    ScreenPanelKind.Terminal,
+                    "Terminal",
+                    connection.Id,
+                    PanelStartupBehavior.None)),
+            ],
+            original.Tags);
+        using var editor = new SavedScreenEditorViewModel(screen, 3, [connection], [], [layout]);
+
+        Assert.Equal(
+            ["Terminal · Top", "Terminal · Middle", "Terminal · Bottom"],
+            editor.Panels.Select(panel => panel.PanelLabel),
+            StringComparer.Ordinal);
+        // The picker names the layout once; its grid and count are read below it.
+        Assert.Equal("Stack · three panels", editor.SelectedLayout.DisplayName);
+        Assert.Equal("1 × 3 grid · 3 panels", editor.LayoutSummary);
+    }
+
+    [Fact]
     public void AgentPolicyProviderSelectionStoresTheExactProfileIdAndDefaultsItsModel()
     {
         var connection = LocalConnection("local");

@@ -97,4 +97,18 @@ public static class PanelTypes
         PanelKind.Git => Symbol.BranchFork,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
+
+    public static Symbol Icon(ScreenPanelKind kind) => kind switch
+    {
+        ScreenPanelKind.Terminal => Icon(PanelKind.Terminal),
+        ScreenPanelKind.Browser => Icon(PanelKind.Browser),
+        ScreenPanelKind.FileViewer => Icon(PanelKind.FileViewer),
+        ScreenPanelKind.Statistics => Icon(PanelKind.Statistics),
+        ScreenPanelKind.ProcessMonitor => Icon(PanelKind.ProcessMonitor),
+        ScreenPanelKind.DatabaseViewer => Icon(PanelKind.DatabaseViewer),
+        ScreenPanelKind.Docker => Icon(PanelKind.Docker),
+        ScreenPanelKind.Kubernetes => Icon(PanelKind.Kubernetes),
+        ScreenPanelKind.Git => Icon(PanelKind.Git),
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+    };
 }

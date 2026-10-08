@@ -136,6 +136,28 @@ public sealed class FileAccessControlEditorViewModelTests
     }
 
     [Fact]
+    public void The_owner_reads_as_owner_and_its_account_id_stays_in_the_tooltip()
+    {
+        var editor = ObjectStore(
+            new FilePanelAccessGrant(
+                new FilePanelGrantee(FilePanelGranteeKind.Owner, "8a1f00c0d4"),
+                FilePanelAccessRight.FullControl),
+            new FilePanelAccessGrant(
+                new FilePanelGrantee(FilePanelGranteeKind.User, "id-one", "deploy"),
+                FilePanelAccessRight.Read),
+            new FilePanelAccessGrant(
+                new FilePanelGrantee(FilePanelGranteeKind.User, "id-two", "deploy"),
+                FilePanelAccessRight.Read));
+
+        Assert.Equal("Owner", editor.Rows[0].Name);
+        Assert.Equal("Owner · 8a1f00c0d4", editor.Rows[0].NameTip);
+
+        // Two accounts that would read alike are told apart by their ids.
+        Assert.Equal("deploy (id-one)", editor.Rows[1].Name);
+        Assert.Equal("deploy (id-two)", editor.Rows[2].Name);
+    }
+
+    [Fact]
     public void Changing_what_a_party_holds_sends_the_whole_list_back()
     {
         var editor = ObjectStore(

@@ -40,7 +40,7 @@
           Padding="{DynamicResource ShellCardPaddingCompact}"
           IsVisible="{Binding IsStdio}">
         <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-          <TextBlock Classes="SectionHeading" Text="Changes" />
+          <TextBlock Classes="Headline" Text="Changes" />
           <ItemsControl ItemsSource="{Binding Changes}">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
@@ -53,7 +53,7 @@
 
       <controls:SurfaceCard Padding="{DynamicResource ShellCardPaddingCompact}">
         <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-          <TextBlock Classes="SectionHeading" Text="Direct launch" />
+          <TextBlock Classes="Headline" Text="Direct launch" />
           <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
             <TextBlock Classes="Eyebrow" Text="Executable" />
             <TextBox
@@ -79,7 +79,7 @@
               <DataTemplate>
                 <Grid Margin="{controls:Inset Top=Xs}" ColumnDefinitions="100,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                   <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Label}" />
-                  <TextBlock Grid.Column="1" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Value}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap" />
                 </Grid>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
@@ -91,7 +91,7 @@
           Padding="{DynamicResource ShellCardPaddingCompact}"
           IsVisible="{Binding IsStreamableHttp}">
         <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-          <TextBlock Classes="SectionHeading" Text="Remote endpoint" />
+          <TextBlock Classes="Headline" Text="Remote endpoint" />
           <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
             <TextBlock Classes="Eyebrow" Text="Endpoint" />
             <TextBox
@@ -102,7 +102,6 @@
           <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
             <TextBlock Classes="Eyebrow" Text="Transport security" />
             <TextBlock
-                FontSize="{DynamicResource ShellFontSize10}"
                 Text="{Binding TransportSecurity}"
                 TextWrapping="Wrap"
                 AutomationProperties.Name="Trusted MCP transport security" />
@@ -113,7 +112,7 @@
       <controls:SurfaceCard Padding="{DynamicResource ShellCardPaddingCompact}">
         <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
           <StackPanel IsVisible="{Binding IsStdio}" Spacing="{DynamicResource ShellSpaceSm}">
-            <TextBlock Classes="SectionHeading" Text="Environment credentials" />
+            <TextBlock Classes="Headline" Text="Environment credentials" />
             <TextBlock
                 Classes="Muted"
                 FontSize="{DynamicResource ShellSecondaryFontSize}"
@@ -137,7 +136,6 @@
                       AutomationProperties.Name="{Binding AutomationName}">
                     <Grid ColumnDefinitions="160,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                       <TextBlock
-                          FontSize="{DynamicResource ShellFontSize10}"
                           Text="{Binding BindingName}"
                           TextWrapping="Wrap" />
                       <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
@@ -147,7 +145,6 @@
                             Text="{Binding ReferenceValue, StringFormat={}Credential · {0}}"
                             TextWrapping="Wrap" />
                         <TextBlock
-                            FontSize="{DynamicResource ShellFontSize10}"
                             Text="{Binding MetadataSummary}"
                             TextWrapping="Wrap" />
                         <TextBlock
@@ -163,7 +160,7 @@
             </ItemsControl>
           </StackPanel>
           <StackPanel IsVisible="{Binding IsStreamableHttp}" Spacing="{DynamicResource ShellSpaceSm}">
-            <TextBlock Classes="SectionHeading" Text="HTTP header credentials" />
+            <TextBlock Classes="Headline" Text="HTTP header credentials" />
             <TextBlock
                 Classes="Muted"
                 FontSize="{DynamicResource ShellSecondaryFontSize}"
@@ -187,7 +184,6 @@
                       AutomationProperties.Name="{Binding AutomationName}">
                     <Grid ColumnDefinitions="160,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                       <TextBlock
-                          FontSize="{DynamicResource ShellFontSize10}"
                           Text="{Binding BindingName}"
                           TextWrapping="Wrap" />
                       <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
@@ -197,7 +193,6 @@
                             Text="{Binding ReferenceValue, StringFormat={}Credential · {0}}"
                             TextWrapping="Wrap" />
                         <TextBlock
-                            FontSize="{DynamicResource ShellFontSize10}"
                             Text="{Binding MetadataSummary}"
                             TextWrapping="Wrap" />
                         <TextBlock
@@ -212,7 +207,7 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
           </StackPanel>
-          <TextBlock Classes="SectionHeading" Margin="{controls:Inset Top=Xs}" Text="Enabled tools" />
+          <TextBlock Classes="Headline" Margin="{controls:Inset Top=Xs}" Text="Enabled tools" />
           <TextBlock
               Classes="Muted"
               FontSize="{DynamicResource ShellSecondaryFontSize}"
@@ -221,7 +216,7 @@
           <ItemsControl ItemsSource="{Binding EnabledTools}" IsVisible="{Binding HasEnabledTools}">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
-                <TextBlock Margin="{controls:Inset Top=Xs}" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding StringFormat={}• {0}}" TextWrapping="Wrap" />
+                <TextBlock Margin="{controls:Inset Top=Xs}" Text="{Binding StringFormat={}• {0}}" TextWrapping="Wrap" />
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>

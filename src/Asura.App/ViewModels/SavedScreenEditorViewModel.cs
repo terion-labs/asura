@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using Asura.Application;
 using Asura.Core;
+using FluentIcons.Common;
 
 namespace Asura.App.ViewModels;
 
@@ -33,8 +34,13 @@ public sealed record SavedScreenLayoutOption(
 {
     public int SlotCount => Definition?.Slots.Count ?? 0;
 
-    public string DisplayName => IsAvailable && Definition is { } layout
-        ? $"{Name} · {layout.Grid.Columns}×{layout.Grid.Rows} · {CountText.Of(SlotCount, "panel", "panels")}"
+    /// <summary>
+    /// The layout by its name. Its grid and panel count are read under the
+    /// picker, once, rather than repeated in every row of it — a name such as
+    /// "Split · three panels" already says the count.
+    /// </summary>
+    public string DisplayName => IsAvailable && Definition is not null
+        ? Name
         : $"Missing · {Name}";
 }
 
@@ -203,6 +209,7 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
         }
 
         _layoutDrafts[_selectedLayout.Id] = [.. _panels];
+        PlacePanels();
     }
 
     public IReadOnlyList<ScreenKubernetesOption> KubernetesOptions { get; }
@@ -248,7 +255,7 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
     }
 
     public string LayoutSummary => SelectedLayout.Definition is { } layout
-        ? $"{layout.Grid.Columns} × {layout.Grid.Rows} grid · {CountText.Of(layout.Slots.Count, "panel slot", "panel slots")}"
+        ? $"{layout.Grid.Columns} × {layout.Grid.Rows} grid · {CountText.Of(layout.Slots.Count, "panel", "panels")}"
         : "The selected layout is no longer available.";
 
     public bool HasMissingLayout => !SelectedLayout.IsAvailable;
@@ -563,8 +570,41 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
             AddPanel(panel);
         }
 
+        PlacePanels();
         OnPropertyChanged(nameof(Panels));
         OnPropertyChanged(nameof(PreviewPanels));
+    }
+
+    /// <summary>
+    /// Tells each panel where it sits in the selected layout, so its heading
+    /// reads "Terminal · Top left" rather than the slot's stored identifier.
+    /// </summary>
+    private void PlacePanels()
+    {
+        if (SelectedLayout.Definition is not { } layout)
+        {
+            return;
+        }
+
+        var bounds = layout.Slots.ToDictionary(slot => slot.Id, slot => slot.Bounds);
+        var positions = _panels
+            .Select(panel => bounds.TryGetValue(panel.SlotId, out var slot)
+                ? LayoutPosition.Describe(layout.Grid, slot)
+                : null)
+            .ToArray();
+        for (var index = 0; index < _panels.Count; index++)
+        {
+            var position = positions[index];
+            if (position is not null
+                && positions.Count(other => string.Equals(other, position, StringComparison.Ordinal)) > 1)
+            {
+                var ordinal = positions.Take(index + 1)
+                    .Count(other => string.Equals(other, position, StringComparison.Ordinal));
+                position = string.Create(CultureInfo.InvariantCulture, $"{position} {ordinal}");
+            }
+
+            _panels[index].Position = position;
+        }
     }
 
     private void AddPanel(SavedScreenPanelEditorViewModel panel)
@@ -580,7 +620,15 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
     private void OnPanelChanged(object? sender, PropertyChangedEventArgs e)
     {
         _ = sender;
-        _ = e;
+
+        // Where a panel sits is read from the layout, not edited, so placing
+        // it doesn't make the draft dirty.
+        if (e.PropertyName is nameof(SavedScreenPanelEditorViewModel.Position)
+            or nameof(SavedScreenPanelEditorViewModel.PanelLabel))
+        {
+            return;
+        }
+
         Changed();
     }
 
@@ -748,6 +796,7 @@ public sealed class SavedScreenPanelEditorViewModel : ObservableObject
         new(kind, PanelTypes.Name(kind));
 
     private readonly ScreenPanelDefinition _original;
+    private string? _position;
     private ScreenPanelKindOption _selectedKind;
     private string _title;
     private ScreenConnectionOption? _selectedConnection;
@@ -845,7 +894,26 @@ public sealed class SavedScreenPanelEditorViewModel : ObservableObject
         set => SelectedKind = KindOptions.Single(option => option.Kind == value);
     }
 
-    public string PanelLabel => $"{KindBadges.Panel(Kind)} · {SlotId.Value}";
+    /// <summary>Where the panel sits in the layout, in words; set by the screen editor.</summary>
+    public string? Position
+    {
+        get => _position;
+        internal set
+        {
+            if (SetProperty(ref _position, value))
+            {
+                OnPropertyChanged(nameof(PanelLabel));
+            }
+        }
+    }
+
+    /// <summary>The panel's type and where it sits: "Terminal · Top left".</summary>
+    public string PanelLabel => Position is { } position
+        ? $"{KindBadges.Panel(Kind)} · {position}"
+        : KindBadges.Panel(Kind);
+
+    /// <summary>The panel type's own icon, the one the launcher and chooser show.</summary>
+    public Symbol Icon => PanelTypes.Icon(Kind);
 
     public IReadOnlyList<ScreenConnectionOption> ConnectionOptions { get; }
 
@@ -1050,6 +1118,7 @@ public sealed class SavedScreenPanelEditorViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(Kind));
         OnPropertyChanged(nameof(PanelLabel));
+        OnPropertyChanged(nameof(Icon));
         OnPropertyChanged(nameof(IsTerminal));
         OnPropertyChanged(nameof(IsFileViewer));
         OnPropertyChanged(nameof(IsKubernetes));

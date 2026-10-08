@@ -730,7 +730,7 @@ public sealed class McpServerProfileEditorViewModelTests
         Assert.Equal("True", editorCancel.Attribute("IsCancel")?.Value);
         var editorSave = Assert.Single(
             editor.Descendants(view + "Button"),
-            button => string.Equals(button.Attribute("Content")?.Value, "Review and Save", StringComparison.Ordinal));
+            button => string.Equals(button.Attribute("Content")?.Value, "Review and Save…", StringComparison.Ordinal));
         Assert.Equal("True", editorSave.Attribute("IsDefault")?.Value);
 
         Assert.Equal("OnOpened", confirmation.Root?.Attribute("Opened")?.Value);
