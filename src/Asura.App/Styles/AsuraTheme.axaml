@@ -119,10 +119,37 @@
     Avalonia draws a hard high-contrast rectangle outside the control by default.
     It ignores the control's shape and reads as damage on dark chrome, so the
     shell suppresses it and draws the host's focus ring instead: one accent
-    halo, the same on every control. The ring itself is the last section of
-    this file, where no style above it can take it away.
+    band, the same on every control. For fields and templated shapes the ring
+    is the last section of this file, where no style above it can take it away.
   -->
-  <Style Selector="Button, ToggleButton, CheckBox, RadioButton, ComboBox, TextBox, NumericUpDown, ListBoxItem, TabItem, ToggleSwitch, Slider">
+  <Style Selector="CheckBox, RadioButton, ComboBox, TextBox, NumericUpDown, ListBoxItem, TabItem, ToggleSwitch, Slider">
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+  </Style>
+
+  <!--
+    A push button's ring is its focus adorner: the same band, drawn on the
+    window's adorner layer around the button's own shape. As a shadow on the
+    button it was cut by every parent that clips — a toolbar group, a
+    scrolling strip, a panel header — down to corner brackets in the browser's
+    overflow strip. The adorner layer does not clip it.
+  -->
+  <Style Selector="Button, ToggleButton, RepeatButton">
+    <Setter Property="FocusAdorner">
+      <FocusAdornerTemplate>
+        <controls:FocusRing />
+      </FocusAdornerTemplate>
+    </Setter>
+  </Style>
+
+  <Style Selector="controls|FocusRing">
+    <Setter Property="Brush" Value="{DynamicResource ShellFocusRingBrush}" />
+  </Style>
+
+  <!-- The toggles the shell templates itself draw the ring on their own
+       shape, inside the track or row that holds them, and a rail tile's
+       actions draw theirs in the tile's ink: none of them takes the adorner
+       as well. -->
+  <Style Selector="ToggleButton.Segment, ToggleButton.SectionDisclosure, Expander /template/ ToggleButton, Button.WorkspaceRailTileAction">
     <Setter Property="FocusAdorner" Value="{x:Null}" />
   </Style>
 
@@ -2076,10 +2103,11 @@
   </Style>
 
   <!--
-    Focus. One ring for every control a keyboard can reach: the host's accent
-    halo, ShellFocusRingShadow, drawn around the control's own shape when focus
+    Focus. One ring for every control a keyboard can reach: the measured focus
+    band, ShellFocusRingShadow, drawn around the control's own shape when focus
     arrived from the keyboard. Each rule targets the template part that owns
-    the shape, so the ring follows its corners.
+    the shape, so the ring follows its corners. Push buttons wear the same
+    band as their focus adorner, declared with the other focus adorners above.
 
     It is the last thing in the file on purpose. Focus was invisible on many
     controls because a later style undid it: a primary button's zero border, a
@@ -2088,7 +2116,7 @@
     the border, and nothing after this section sets one, so the ring shows on
     an accent-filled button as plainly as on a borderless row.
   -->
-  <Style Selector="Button:focus-visible /template/ ContentPresenter#PART_ContentPresenter, ToggleButton:focus-visible /template/ ContentPresenter#PART_ContentPresenter, RepeatButton:focus-visible /template/ ContentPresenter#PART_ContentPresenter, ListBoxItem:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="ListBoxItem:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
   </Style>
 

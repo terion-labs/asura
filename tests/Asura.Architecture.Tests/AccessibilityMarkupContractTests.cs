@@ -125,7 +125,7 @@ public sealed class AccessibilityMarkupContractTests
         var first = Array.FindIndex(
             styles,
             style => (Attribute(style, "Selector") ?? string.Empty).StartsWith(
-                "Button:focus-visible /template/ ContentPresenter#PART_ContentPresenter",
+                "ListBoxItem:focus-visible /template/ ContentPresenter#PART_ContentPresenter",
                 StringComparison.Ordinal));
         Assert.True(first > 0, "The theme has no shared focus ring section.");
 
@@ -140,7 +140,7 @@ public sealed class AccessibilityMarkupContractTests
         var covered = string.Join(",", styles.Skip(first).Select(style => Attribute(style, "Selector")));
         foreach (var control in new[]
                  {
-                     "Button:focus-visible", "ToggleButton:focus-visible", "CheckBox:focus-visible",
+                     "CheckBox:focus-visible",
                      "RadioButton:focus-visible", "ListBoxItem:focus-visible", "TabItem:focus-visible",
                      "ComboBox:focus-visible", "ToggleSwitch:focus-visible", "Slider:focus-visible",
                      "NumericUpDown:focus-within",
@@ -148,6 +148,14 @@ public sealed class AccessibilityMarkupContractTests
         {
             Assert.Contains(control, covered, StringComparison.Ordinal);
         }
+
+        // Push buttons wear the same ring as their focus adorner, which no
+        // clipping parent cuts.
+        var adorner = Assert.Single(
+            styles,
+            style => string.Equals(Attribute(style, "Selector"), "Button, ToggleButton, RepeatButton", StringComparison.Ordinal)
+                && style.Elements().Any(setter => string.Equals(Attribute(setter, "Property"), "FocusAdorner", StringComparison.Ordinal)));
+        Assert.Contains(adorner.Descendants(), element => element.Name.LocalName == "FocusRing");
     }
 
     /// <summary>

@@ -236,6 +236,7 @@ internal sealed record EffectiveAppearanceResources(
     Color SelectedContentForeground,
     Color UnemphasizedSelection,
     Color GridSelection,
+    Color FocusRing,
     Color Danger,
     Color DangerText,
     Color DangerForeground,
@@ -552,6 +553,16 @@ internal static class EffectiveAppearanceResourceMapper
             GridSelectionContrast,
             text);
 
+        // The keyboard focus ring: the accent, solid, and held to the 3:1 a
+        // boundary needs against every surface a focusable control stands on,
+        // its own push-button fill included. It was the accent at a third of
+        // its strength, which on a raised dark control was about 1.6:1.
+        var focusRing = EnsureContrast(
+            accent,
+            [.. readingSurfaces, controlSurface, hover],
+            GraphicContrast,
+            text);
+
         // A strongly selected row. AppKit's selected-content colour when the
         // host has one; otherwise the accent, which is what that colour is.
         var selectedContent = hostSelection ?? accent;
@@ -663,6 +674,7 @@ internal static class EffectiveAppearanceResourceMapper
             selectedContentForeground,
             unemphasizedSelection,
             gridSelection,
+            focusRing,
             danger,
             dangerText,
             dangerForeground,

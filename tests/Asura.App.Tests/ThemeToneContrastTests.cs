@@ -151,6 +151,33 @@ public sealed class ThemeToneContrastTests
         }
     }
 
+    /// <summary>
+    /// The focus ring is a boundary, so it clears 3:1 against every surface a
+    /// focusable control stands on, its own push-button fill included.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public void The_focus_ring_clears_three_to_one_on_every_surface(
+        PlatformProfile profile,
+        EffectiveAppearanceMode appearance,
+        bool highContrast)
+    {
+        foreach (var accent in new[] { "#FF8400", "#007AFF", "#FFD60A", "#8E8E93" })
+        {
+            var resources = Map(profile, appearance, highContrast, accent);
+            foreach (var plate in new[]
+                     {
+                         resources.Background, resources.Surface, resources.RaisedSurface,
+                         resources.SidebarSurface, resources.ControlSurface,
+                     })
+            {
+                Assert.True(
+                    Ratio(resources.FocusRing, plate) >= 3,
+                    $"{profile} {appearance} HC={highContrast} {accent}: {resources.FocusRing} on {plate} is {Ratio(resources.FocusRing, plate):0.00}:1.");
+            }
+        }
+    }
+
     [Theory]
     [InlineData("#FF8400", true)]
     [InlineData("#FF9500", true)]

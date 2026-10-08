@@ -503,6 +503,9 @@ public sealed partial class App : Avalonia.Application
     /// The same, as a number, for the surfaces that are drawn rather than
     /// filled — a terminal paints its own background from its palette.
     /// </summary>
+    /// <summary>How far the focus ring stands out from a control's edge.</summary>
+    internal const double FocusRingWidth = 2.5;
+
     private double SurfaceOpacity => ContentAlpha / (double)byte.MaxValue;
 
     /// <summary>
@@ -906,17 +909,17 @@ public sealed partial class App : Avalonia.Application
             resources.Accent.R,
             resources.Accent.G,
             resources.Accent.B));
-        // The focused field wears the host's accent halo — macOS's focus ring —
-        // rather than only a recolored border.
+        // The focus ring — macOS's — in the measured focus colour at full
+        // strength: drawn as a shadow on fields and templated shapes, and as
+        // the focus adorner of a push button, which no parent's clip can cut.
+        // It was the accent at about a third of its strength, which read at
+        // roughly 1.6:1 on a raised control.
+        Publish("ShellFocusRingBrush", Brush(resources.FocusRing));
         Publish("ShellFocusRingShadow", new BoxShadows(new BoxShadow
         {
             Blur = 0,
-            Spread = 3,
-            Color = Color.FromArgb(
-                0x59,
-                resources.Accent.R,
-                resources.Accent.G,
-                resources.Accent.B),
+            Spread = FocusRingWidth,
+            Color = resources.FocusRing,
         }));
         Publish(
             "ShellAgentPanelGlowBrush",

@@ -1356,7 +1356,7 @@
     <!--
       A chooser tile sits on an overlay or launcher surface and reads as a
       sunken card the pointer can light up. Focus is the shell's focus ring, as
-      on every other control. The pointer stays an arrow: a Mac button is not a
+      on every push button. The pointer stays an arrow: a Mac button is not a
       link, and the hand said it was.
     -->
     <ControlTheme x:Key="{x:Type controls:ChooserTile}" TargetType="controls:ChooserTile">
@@ -1365,6 +1365,14 @@
       <Setter Property="Background" Value="{DynamicResource ShellBackgroundBrush}" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellCardCornerRadius}" />
       <Setter Property="Padding" Value="{DynamicResource ShellCardPadding}" />
+      <!-- The tile is a button styled by its own key, so the shell's rules for
+           Button do not reach it: without this it wore Avalonia's square white
+           adorner. It takes the push buttons' ring, around its rounded card. -->
+      <Setter Property="FocusAdorner">
+        <FocusAdornerTemplate>
+          <controls:FocusRing />
+        </FocusAdornerTemplate>
+      </Setter>
       <Setter Property="Template">
         <ControlTemplate>
           <Border
@@ -1406,9 +1414,6 @@
       </Style>
       <Style Selector="^:pressed /template/ Border#PART_Surface">
         <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
-      </Style>
-      <Style Selector="^:focus-visible /template/ Border#PART_Surface">
-        <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
       </Style>
       <!-- Disabled dims the icon and the name, not the sentence: the
            sentence is the reason the tile cannot be used, and it has to stay
