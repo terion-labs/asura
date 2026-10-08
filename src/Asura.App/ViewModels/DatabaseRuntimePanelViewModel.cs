@@ -114,7 +114,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     private CancellationTokenSource? _sqlLanguageLoadCancellation;
     private ISqlLanguageSession? _sqlLanguageSession;
     private long _sqlLanguageLoadGeneration;
-    private string _sqlLanguageStatus = "SQL intelligence is unavailable in this build.";
+    private string _sqlLanguageStatus = "SQL completion and validation aren't available in this version of Asura.";
 
     private static readonly IReadOnlyList<DatabaseFilterOperatorViewModel> AllFilterOperators =
     [
@@ -1313,7 +1313,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     public string ConnectionStatusLabel => IsConnected
         ? $"Connected to {ConnectionDisplayName}"
         : _connectionFailed
-            ? $"Could not connect to {ConnectionDisplayName}"
+            ? $"Couldn't connect to {ConnectionDisplayName}"
             : IsConnecting
                 ? $"Connecting to {ConnectionDisplayName}"
                 : HasConnectionTarget
@@ -2582,14 +2582,14 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         ResetSqlLanguageSession();
         if (_sqlLanguageService?.IsAvailable != true || !IsConnected)
         {
-            SqlLanguageStatus = "SQL intelligence worker is not installed.";
+            SqlLanguageStatus = "SQL completion and validation aren't installed with this copy of Asura.";
             return;
         }
 
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         _sqlLanguageLoadCancellation = cancellation;
         var generation = _sqlLanguageLoadGeneration;
-        SqlLanguageStatus = "Loading the database catalog for SQL intelligence…";
+        SqlLanguageStatus = "Loading the database catalog for SQL completion…";
         SqlLanguageInitialization = InitializeSqlLanguageAsync(
             generation,
             cancellation.Token);
@@ -2637,7 +2637,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                     ? $"SQL completion and validation know {catalogFacts} from a limited catalog. {catalog.Limitation} {coverageStatus}".TrimEnd()
                     : $"SQL completion and validation know {catalogFacts}. {coverageStatus}".TrimEnd()
                 : SqlLanguageSession?.UnavailableReason
-                    ?? "SQL intelligence worker is unavailable.";
+                    ?? "SQL completion and validation aren't available.";
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

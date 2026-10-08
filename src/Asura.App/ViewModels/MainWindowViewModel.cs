@@ -12371,7 +12371,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             if (!panel.HasRouteError)
             {
-                SetError(exception.Message);
+                SecretSafeDiagnostics.WriteTrace("browser.panel.initialize.failed", exception);
+                SetError("The browser couldn't start. Close the panel and open it again.");
                 return;
             }
 

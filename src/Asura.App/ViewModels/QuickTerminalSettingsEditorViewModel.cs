@@ -259,9 +259,9 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
 
         var error = ((GlobalHotkeyRegistrationResult.Failure)result).Error;
         RegistrationStatus =
-            $"{configured} could not be registered: {error.Message} "
-            + "Quick Terminal has no global hotkey until you choose another shortcut. "
-            + "Show Quick Terminal from the View menu meanwhile.";
+            $"Asura couldn't set {configured} as the global shortcut. {error.Message} "
+            + "Quick Terminal has no global shortcut until you choose another one. "
+            + "Meanwhile, show it from the View menu.";
         RegistrationStatusTone = StatusTone.Warning;
     }
 }

@@ -305,7 +305,10 @@ public sealed class RuntimeWorkspaceGraphCoordinatorTests
         Assert.DoesNotContain(moved, destination.Tabs);
         Assert.Equal(1, source.HostRevision);
         Assert.Equal(1, destination.HostRevision);
-        Assert.Contains("revision_conflict", Assert.Single(errors), StringComparison.Ordinal);
+        // Stable codes go to diagnostics; the message says what happened.
+        var error = Assert.Single(errors);
+        Assert.StartsWith("Asura couldn't finish the tab transfer.", error, StringComparison.Ordinal);
+        Assert.DoesNotContain("revision_conflict", error, StringComparison.Ordinal);
     }
 
     private static RuntimeWorkspaceGraphCoordinator CreateCoordinator(

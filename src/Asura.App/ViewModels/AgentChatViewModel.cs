@@ -3640,7 +3640,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             _ => "panel",
         };
         var title = item.PanelTitle ?? $"Unnamed {panelKind}";
-        var tabTitle = item.TabTitle ?? "Unnamed tab";
+        var tabTitle = item.TabTitle ?? "Untitled Tab";
         var exactIdentity =
             $"{panelKind} · window/{item.WindowId.Value} · "
             + $"workspace/{item.WorkspaceId.Value} · "

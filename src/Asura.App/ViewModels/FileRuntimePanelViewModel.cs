@@ -3406,7 +3406,10 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             if (ReferenceEquals(_preview, operation))
             {
-                PreviewText = exception.Message;
+                SecretSafeDiagnostics.WriteTrace("files.archive-preview.failed", exception);
+                PreviewText = exception is UnauthorizedAccessException
+                    ? "You don't have permission to read this archive."
+                    : "Asura couldn't read this archive. It may be damaged, or it may have changed. Try again.";
             }
         }
         finally

@@ -111,9 +111,11 @@ public sealed class CalciteSqlLanguageServiceTests
 
         Assert.False(session.IsAvailable);
         Assert.NotNull(session.UnavailableReason);
-        Assert.Contains("internalError", session.UnavailableReason, StringComparison.Ordinal);
-        Assert.Contains("token lists", session.UnavailableReason, StringComparison.OrdinalIgnoreCase);
-        Assert.InRange(session.UnavailableReason!.Length, 1, 320);
+        // The worker's code and message go to diagnostics; people read what
+        // happened and what Asura does next.
+        Assert.Equal(
+            "SQL completion and validation aren't available for this connection.",
+            session.UnavailableReason);
     }
 
     [Fact]
@@ -387,8 +389,9 @@ public sealed class CalciteSqlLanguageServiceTests
         Assert.Empty(completion.Items);
         Assert.False(session.IsAvailable);
         Assert.False(session.CanRetry);
-        Assert.Contains("internalError", session.UnavailableReason, StringComparison.Ordinal);
-        Assert.Contains("advisor failed", session.UnavailableReason, StringComparison.Ordinal);
+        Assert.Equal(
+            "SQL completion and validation stopped working. Asura will restart them shortly.",
+            session.UnavailableReason);
         await Task.Delay(300);
         Assert.True(session.CanRetry);
     }

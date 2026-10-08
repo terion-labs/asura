@@ -944,7 +944,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         ? $"Connected to {ConnectionDisplayName}"
         : _connectionProblem switch
         {
-            RedisConnectionProblem.Failed => $"Could not connect to {ConnectionDisplayName}",
+            RedisConnectionProblem.Failed => $"Couldn't connect to {ConnectionDisplayName}",
             RedisConnectionProblem.PasswordRequired => $"{ConnectionDisplayName} needs a password",
             _ when IsConnecting => $"Connecting to {ConnectionDisplayName}",
             _ when HasConnectionTarget => "Not connected",

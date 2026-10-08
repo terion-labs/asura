@@ -52,13 +52,13 @@ internal sealed class MacOsGlobalHotkeyService : IGlobalHotkeyService
             return Failure(
                 GlobalHotkeyRegistrationErrorCode.InvalidGesture,
                 "global_hotkey_invalid_gesture",
-                "The selected shortcut is not supported by the macOS hot-key adapter.");
+                "macOS can't use this shortcut as a global shortcut. Choose another one.");
         }
 
         var installStatus = EnsureHandler();
         if (installStatus != NoError)
         {
-            return NativeFailure(installStatus);
+            return NativeFailure();
         }
 
         var hotKeyId = new EventHotKeyId(AsuraSignature, AsuraHotKeyId);
@@ -78,12 +78,12 @@ internal sealed class MacOsGlobalHotkeyService : IGlobalHotkeyService
                 EventHotKeyExistsError => Failure(
                     GlobalHotkeyRegistrationErrorCode.Conflict,
                     "global_hotkey_conflict",
-                    "Another application already owns this global shortcut."),
+                    "Another app already uses this shortcut."),
                 EventHotKeyInvalidError => Failure(
                     GlobalHotkeyRegistrationErrorCode.InvalidGesture,
                     "global_hotkey_invalid_gesture",
-                    "macOS rejected the selected global shortcut."),
-                _ => NativeFailure(registrationStatus),
+                    "macOS didn't accept this shortcut. Choose another one."),
+                _ => NativeFailure(),
             };
         }
 
@@ -309,10 +309,17 @@ internal sealed class MacOsGlobalHotkeyService : IGlobalHotkeyService
         string message) =>
         new GlobalHotkeyRegistrationResult.Failure(new(code, stableCode, message));
 
-    private static GlobalHotkeyRegistrationResult NativeFailure(int status) => Failure(
-        GlobalHotkeyRegistrationErrorCode.NativeFailure,
-        "global_hotkey_native_failure",
-        $"macOS could not register the global shortcut (OSStatus {status}).");
+    // The native status stays out of the message people read.
+    private static GlobalHotkeyRegistrationResult NativeFailure()
+    {
+        SecretSafeDiagnosticProjection.WriteTrace(
+            "desktop.hotkey.macos-native-failure",
+            SecretSafeDiagnosticKind.Unexpected);
+        return Failure(
+            GlobalHotkeyRegistrationErrorCode.NativeFailure,
+            "global_hotkey_native_failure",
+            "macOS didn't accept this shortcut. Try again, or choose another one.");
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private readonly record struct EventTypeSpec(uint EventClass, uint EventKind);

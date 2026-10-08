@@ -31,7 +31,7 @@ public sealed partial class GitRuntimePanelViewModel
             {
                 return success.Value;
             }
-            PresentFailure(((GitResult<GitFlowSettings>.Failure)result).Error, "Could not read Git Flow settings");
+            PresentFailure(((GitResult<GitFlowSettings>.Failure)result).Error, "Couldn't read Git Flow settings");
             return null;
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { return null; }
@@ -52,7 +52,7 @@ public sealed partial class GitRuntimePanelViewModel
             var head = await _client.ReadWorkingSetAsync(repository, _generation, cancellation.Token);
             if (head is GitResult<GitWorkingSet>.Failure headFailure)
             {
-                PresentFailure(headFailure.Error, "Could not read rebase HEAD");
+                PresentFailure(headFailure.Error, "Couldn't read rebase HEAD");
                 return [];
             }
             var reviewedHead = ((GitResult<GitWorkingSet>.Success)head).Value.Head.CommitSha;
@@ -64,7 +64,7 @@ public sealed partial class GitRuntimePanelViewModel
                 new GitHistoryQuery(AllRefs: false, Revision: baseRevision + ".." + reviewedHead), 0, 1000, cancellation.Token);
             if (result is GitResult<GitCommitPage>.Failure failure)
             {
-                PresentFailure(failure.Error, "Could not read rebase range");
+                PresentFailure(failure.Error, "Couldn't read rebase range");
                 return [];
             }
             var page = ((GitResult<GitCommitPage>.Success)result).Value;
@@ -79,7 +79,7 @@ public sealed partial class GitRuntimePanelViewModel
                 var detailResult = await _client.ReadCommitDetailAsync(repository, commit.Sha, cancellation.Token);
                 if (detailResult is GitResult<GitCommitDetail>.Failure detailFailure)
                 {
-                    PresentFailure(detailFailure.Error, "Could not read rebase commit message");
+                    PresentFailure(detailFailure.Error, "Couldn't read rebase commit message");
                     return [];
                 }
                 var detail = ((GitResult<GitCommitDetail>.Success)detailResult).Value;
@@ -125,7 +125,7 @@ public sealed partial class GitRuntimePanelViewModel
             }
             if (result is GitResult<GitComparison>.Failure failure)
             {
-                PresentFailure(failure.Error, "Could not compare revisions");
+                PresentFailure(failure.Error, "Couldn't compare revisions");
                 return;
             }
             var comparison = ((GitResult<GitComparison>.Success)result).Value;

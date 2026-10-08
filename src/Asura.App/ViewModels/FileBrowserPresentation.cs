@@ -210,12 +210,12 @@ public sealed record FileOperationIssue(
                 FileOperationIssueKind.PermissionDenied,
                 "Permission denied",
                 error,
-                "Check this account's permissions or choose another location."),
+                "Check the item's permissions, or choose another location."),
             FilePanelErrorCode.AuthenticationRequired => Create(
                     FileOperationIssueKind.AuthenticationRequired,
                     "Authentication failed",
                     error,
-                    "Check this connection's authentication settings, then retry.",
+                    "Check how this connection signs in, then try again.",
                     canRetry: true),
             FilePanelErrorCode.CertificateRejected
                 or FilePanelErrorCode.HostKeyRejected
@@ -225,76 +225,76 @@ public sealed record FileOperationIssue(
                     FileOperationIssueKind.AuthenticationRequired,
                     "Trust required",
                     error,
-                    "Review this connection's certificate or host-key trust, then retry.",
+                    "Review the connection's certificate or host key, then try again.",
                     canRetry: true),
             FilePanelErrorCode.Offline => Create(
                 FileOperationIssueKind.Offline,
-                "Provider offline",
+                "Connection offline",
                 error,
-                "Check the connection, then retry.",
+                "Check the connection, then try again.",
                 canRetry: true),
             FilePanelErrorCode.QuotaExceeded => Create(
                 FileOperationIssueKind.QuotaExceeded,
                 "Storage limit reached",
                 error,
-                "Free space or choose another destination."),
+                "Free up space, or choose another destination."),
             FilePanelErrorCode.AlreadyExists => Create(
                 FileOperationIssueKind.Conflict,
                 "Destination already exists",
                 error,
-                "Choose Skip, Replace, or Keep Both before retrying.",
+                "Choose Skip, Replace, or Keep Both, then try again.",
                 canRetry: true),
             FilePanelErrorCode.SharingViolation => Create(
                 FileOperationIssueKind.Conflict,
                 "File is in use",
                 error,
-                "Close the application or process using the item, then retry.",
+                "Quit the app or stop the process that's using the item, then try again.",
                 canRetry: true),
             FilePanelErrorCode.DirectoryNotEmpty => Create(
                 FileOperationIssueKind.Conflict,
-                "Folder is not empty",
+                "Folder isn't empty",
                 error,
-                "Remove the folder contents first, or choose an explicitly recursive delete.",
+                "Remove what's in the folder first, or choose a recursive delete that removes its contents too.",
                 canRetry: true),
             FilePanelErrorCode.Conflict => Create(
                 FileOperationIssueKind.Conflict,
                 "File conflict",
                 error,
-                "Refresh and choose whether to replace, rename, or skip.",
+                "Refresh, then choose whether to replace, rename, or skip.",
                 canRetry: true),
             FilePanelErrorCode.PreconditionFailed => Create(
                 FileOperationIssueKind.Stale,
                 "Item changed",
                 error,
-                "Refresh before applying the operation again.",
+                "Refresh, then try again.",
                 canRetry: true),
             FilePanelErrorCode.UnsupportedCapability
                 or FilePanelErrorCode.LinkNotAllowed
                 or FilePanelErrorCode.RangeNotSatisfiable => Create(
                     FileOperationIssueKind.Unsupported,
-                    "Operation unsupported",
+                    "Not supported here",
                     error,
-                    "Choose an operation supported by this provider."),
+                    "This location doesn't support that action. Try another action or location."),
             FilePanelErrorCode.PartialTransfer
                 or FilePanelErrorCode.UnexpectedEndOfStream => Create(
                     FileOperationIssueKind.Partial,
-                    "Operation incomplete",
+                    "Not finished",
                     error,
-                    "Retry and verify the destination before continuing.",
+                    "Try again, then check the destination before you continue.",
                     canRetry: true),
             FilePanelErrorCode.Cancelled => Create(
                 FileOperationIssueKind.Cancelled,
-                "Operation canceled",
+                "Canceled",
                 error,
-                "Run the operation again when ready.",
+                "Try again when you're ready.",
                 canRetry: true),
             _ => Create(
                 FileOperationIssueKind.Unexpected,
                 "File operation failed",
                 error,
                 error.Retryable
-                    ? "Retry the operation. If it keeps failing, inspect the provider settings."
-                    : "Inspect the provider settings and try again."),
+                    ? "Try again. If it keeps failing, check the connection in Settings."
+                    : "Check the connection in Settings, then try again."),
         };
     }
 
@@ -302,21 +302,21 @@ public sealed record FileOperationIssue(
         FileOperationIssueKind.Validation,
         "Check the file details",
         message,
-        "Correct the highlighted value and try again.",
+        "Correct the highlighted value, then try again.",
         CanRetry: true);
 
     public static FileOperationIssue Configuration(string message) => new(
         FileOperationIssueKind.Configuration,
         "File provider unavailable",
         message,
-        "Choose or configure a file-provider profile.",
+        "Choose a file provider, or set one up in Settings.",
         CanRetry: false);
 
     public static FileOperationIssue Unexpected(string message) => new(
         FileOperationIssueKind.Unexpected,
         "File operation failed",
         message,
-        "Retry the operation. If it keeps failing, inspect the provider settings.",
+        "Try again. If it keeps failing, check the connection in Settings.",
         CanRetry: true);
 
     private static FileOperationIssue Create(

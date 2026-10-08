@@ -754,7 +754,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             {
                 PresentFailure(
                     firstFailure,
-                    $"Could not {ActionVerb(action)} every container in {stack.Name}");
+                    $"Couldn't {ActionVerb(action)} every container in {stack.Name}");
                 return;
             }
 
@@ -1039,7 +1039,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             _lifetime.Token);
         if (result is DockerResult<bool>.Failure failure)
         {
-            PresentFailure(failure.Error, $"Could not {ActionVerb(action)} container");
+            PresentFailure(failure.Error, $"Couldn't {ActionVerb(action)} container");
             return;
         }
 
@@ -1070,7 +1070,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
 
             if (result is DockerResult<DockerResourceInspection>.Failure failure)
             {
-                PresentFailure(failure.Error, "Could not inspect resource");
+                PresentFailure(failure.Error, "Couldn't inspect resource");
                 return;
             }
 

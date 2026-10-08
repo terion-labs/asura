@@ -1983,8 +1983,9 @@ public sealed partial class InMemorySessionHostClient :
                             targetSnapshot.Descriptor.Revision);
                     }
 
+                    SecretSafeDiagnosticProjection.WriteTrace("session-host.close.failed", exception);
                     outcome = PanelCloseOutcome.EngineFailed;
-                    detail = exception.Message;
+                    detail = "The panel didn't close cleanly.";
                 }
 
                 target.ApplyCloseOutcome(outcome, detail);

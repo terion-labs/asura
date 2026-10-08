@@ -282,10 +282,10 @@ public sealed class ApplicationEncryptionRuntime : IApplicationEncryption, IDisp
                 throw;
             }
 
-            var recovery = rekeyDispatched
-                ? " The candidate keys were retained; restart Asura to reconcile the disk."
-                : string.Empty;
-            return $"The configuration database could not be encrypted: {exception.Message}{recovery}";
+            SecretSafeDiagnosticProjection.WriteTrace("application-encryption.encrypt.failed", exception);
+            return rekeyDispatched
+                ? "Asura couldn't encrypt its settings database, so it kept its keys. Restart Asura so it can check which key the database uses."
+                : "Asura couldn't encrypt its settings database. Nothing was changed. Try again.";
         }
 
         _configPassword = configKey;
@@ -403,10 +403,10 @@ public sealed class ApplicationEncryptionRuntime : IApplicationEncryption, IDisp
                 throw;
             }
 
-            var recovery = rekeyDispatched
-                ? " The active keys were retained; restart Asura to reconcile the disk."
-                : string.Empty;
-            return $"The configuration database could not be decrypted: {exception.Message}{recovery}";
+            SecretSafeDiagnosticProjection.WriteTrace("application-encryption.decrypt.failed", exception);
+            return rekeyDispatched
+                ? "Asura couldn't decrypt its settings database, so it kept its keys. Restart Asura so it can check which key the database uses."
+                : "Asura couldn't decrypt its settings database. Nothing was changed. Try again.";
         }
 
         _configPassword = null;

@@ -103,7 +103,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
 
             if (response?.Error is not null)
             {
-                await HandleOperationErrorAsync("completion", response.Error)
+                await HandleOperationErrorAsync(response.Error)
                     .ConfigureAwait(false);
                 return EmptyCompletion(cursorOffset);
             }
@@ -120,7 +120,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
             catch (SqlLanguageProtocolException)
             {
                 SetRecoverableFailure(
-                    "The SQL intelligence worker returned an invalid completion result.");
+                    "SQL completion and validation stopped working. Asura will restart them shortly.");
                 await StopProcessAsync().ConfigureAwait(false);
                 return EmptyCompletion(cursorOffset);
             }
@@ -152,7 +152,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
 
             if (response?.Error is not null)
             {
-                await HandleOperationErrorAsync("diagnostics", response.Error)
+                await HandleOperationErrorAsync(response.Error)
                     .ConfigureAwait(false);
                 return [];
             }
@@ -166,7 +166,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
             catch (SqlLanguageProtocolException)
             {
                 SetRecoverableFailure(
-                    "The SQL intelligence worker returned an invalid diagnostic result.");
+                    "SQL completion and validation stopped working. Asura will restart them shortly.");
                 await StopProcessAsync().ConfigureAwait(false);
                 return [];
             }
@@ -202,7 +202,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
             }
             else if (response?.Error is not null)
             {
-                await HandleOperationErrorAsync("catalog update", response.Error)
+                await HandleOperationErrorAsync(response.Error)
                     .ConfigureAwait(false);
             }
         }
@@ -279,7 +279,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
         await StopProcessAsync().ConfigureAwait(false);
         if (!StartProcess())
         {
-            SetRecoverableFailure("The SQL intelligence worker could not be started.");
+            SetRecoverableFailure("SQL completion and validation couldn't start. Asura will try again shortly.");
             return false;
         }
 
@@ -291,14 +291,14 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
             .ConfigureAwait(false);
         if (response is null || response.Error is not null)
         {
-            if (response?.Error is { } error)
+            if (response?.Error is not null)
             {
-                SetPermanentFailure(WorkerError("initialize", error));
+                SetPermanentFailure(WorkerError(permanent: true));
             }
             else if (UnavailableReason is null)
             {
                 SetRecoverableFailure(
-                    "The SQL intelligence worker stopped during initialization.");
+                    "SQL completion and validation couldn't start. Asura will try again shortly.");
             }
             await StopProcessAsync().ConfigureAwait(false);
             return false;
@@ -350,7 +350,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
         if (_process is not { } process || !IsProcessRunning())
         {
             SetRecoverableFailure(
-                $"The SQL intelligence worker stopped before {method}.");
+                "SQL completion and validation stopped working. Asura will restart them shortly.");
             return null;
         }
 
@@ -398,9 +398,10 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
             or ObjectDisposedException or InvalidOperationException
             or SqlLanguageProtocolException)
         {
+            SecretSafeDiagnosticProjection.WriteTrace("sql-language.worker.request-failed", exception);
             SetRecoverableFailure(exception is OperationCanceledException
-                ? $"The SQL intelligence worker timed out during {method}."
-                : $"The SQL intelligence worker failed during {method}: {exception.Message}");
+                ? "SQL completion and validation took too long to respond. Asura will try again shortly."
+                : "SQL completion and validation stopped working. Asura will restart them shortly.");
             await StopProcessAsync().ConfigureAwait(false);
             return null;
         }
@@ -486,10 +487,16 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
             stderr = _stderrTail.ToString();
         }
 
-        var combined = string.IsNullOrWhiteSpace(stderr)
-            ? reason
-            : $"{reason} Worker detail: {stderr}";
-        var sanitized = new string([.. combined.Select(character => char.IsControl(character) ? ' ' : character)]);
+        // The worker's own output is for diagnostics; the status people read
+        // says what happened and what Asura does next.
+        if (!string.IsNullOrWhiteSpace(stderr))
+        {
+            SecretSafeDiagnosticProjection.WriteTrace(
+                "sql-language.worker.stderr",
+                SecretSafeDiagnosticKind.Unexpected);
+        }
+
+        var sanitized = new string([.. reason.Select(character => char.IsControl(character) ? ' ' : character)]);
         const int maximumCharacters = 320;
         if (sanitized.Length > maximumCharacters)
         {
@@ -530,9 +537,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
         Volatile.Write(ref _retryAfterUtcTicks, 0);
     }
 
-    private async Task HandleOperationErrorAsync(
-        string operation,
-        WorkerResponseError error)
+    private async Task HandleOperationErrorAsync(WorkerResponseError error)
     {
         switch (error.Code)
         {
@@ -545,23 +550,26 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
             case "methodNotFound":
             case "invalidEnvelope":
             case "invalidRequest":
-                SetPermanentFailure(WorkerError(operation, error));
+                SetPermanentFailure(WorkerError(permanent: true));
                 break;
             default:
-                SetRecoverableFailure(WorkerError(operation, error));
+                SetRecoverableFailure(WorkerError(permanent: false));
                 break;
         }
 
         await StopProcessAsync().ConfigureAwait(false);
     }
 
-    private static string WorkerError(string method, WorkerResponseError error)
+    // The worker's code and message can quote the query, so they stay out of
+    // the status people read; diagnostics record that the worker refused.
+    private static string WorkerError(bool permanent)
     {
-        var code = string.IsNullOrWhiteSpace(error.Code) ? "workerError" : error.Code;
-        var message = string.IsNullOrWhiteSpace(error.Message)
-            ? "No detail was returned."
-            : error.Message;
-        return $"The SQL intelligence worker rejected {method} ({code}): {message}";
+        SecretSafeDiagnosticProjection.WriteTrace(
+            "sql-language.worker.rejected",
+            SecretSafeDiagnosticKind.Unexpected);
+        return permanent
+            ? "SQL completion and validation aren't available for this connection."
+            : "SQL completion and validation stopped working. Asura will restart them shortly.";
     }
 
     private static void TryKill(Process process)

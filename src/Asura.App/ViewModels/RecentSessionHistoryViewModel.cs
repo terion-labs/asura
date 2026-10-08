@@ -680,7 +680,7 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
                 error.Code == RecentSessionStoreErrorCode.StorageUnavailable
                     ? ApplicationRunErrorCode.StorageUnavailable
                     : ApplicationRunErrorCode.StorageFailure,
-                $"Recent-session metadata could not be persisted safely: {error.Message}"));
+                $"Asura couldn't save the list of recent sessions. {error.Message}"));
     }
 
     private Task QueueOperation(Func<CancellationToken, Task> operation)

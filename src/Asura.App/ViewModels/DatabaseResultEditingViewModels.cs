@@ -614,7 +614,7 @@ public sealed class DatabaseResultCellViewModel : ObservableObject
         };
         error = success
             ? null
-            : $"{DescribeInvalidValue(text)} is not a valid {kind.ToString().ToLowerInvariant()} value.";
+            : $"“{DescribeInvalidValue(text)}” isn't {ExpectedValue(kind)}.";
         return success;
 
         object? Failed()
@@ -623,6 +623,23 @@ public sealed class DatabaseResultCellViewModel : ObservableObject
             return null;
         }
     }
+
+    // Names what the column expects, in words rather than the enum name.
+    private static string ExpectedValue(DatabaseValueKind kind) => kind switch
+    {
+        DatabaseValueKind.Json => "valid JSON",
+        DatabaseValueKind.Boolean => "true or false",
+        DatabaseValueKind.SignedInteger => "a whole number",
+        DatabaseValueKind.UnsignedInteger => "a whole number of 0 or more",
+        DatabaseValueKind.Decimal or DatabaseValueKind.FloatingPoint => "a number",
+        DatabaseValueKind.Date => "a date, such as 2026-10-08",
+        DatabaseValueKind.Time => "a time, such as 14:30:00",
+        DatabaseValueKind.Timestamp => "a date and time, such as 2026-10-08 14:30:00",
+        DatabaseValueKind.TimestampWithZone => "a date and time with a time zone, such as 2026-10-08 14:30:00+02:00",
+        DatabaseValueKind.Duration => "a duration, such as 01:30:00",
+        DatabaseValueKind.Guid => "a UUID",
+        _ => "a value this column accepts",
+    };
 
     private static string DescribeInvalidValue(string text)
     {

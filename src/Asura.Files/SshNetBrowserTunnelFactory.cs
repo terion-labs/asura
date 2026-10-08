@@ -31,7 +31,7 @@ public sealed class SshNetBrowserTunnelFactory(
         if (connection.Endpoint is not ConnectionEndpoint.Ssh endpoint)
         {
             throw new InvalidOperationException(
-                $"Connection '{connection.Name}' is not an SSH connection and cannot route a browser.");
+                $"“{connection.Name}” isn't an SSH connection, so the browser can't go through it.");
         }
 
         if (string.IsNullOrWhiteSpace(endpoint.Username))
@@ -125,7 +125,7 @@ public sealed class SshNetBrowserTunnelFactory(
             TryDispose(client);
             DisposeAuthentication(ownedBuffers, ownedDisposables);
             throw new InvalidOperationException(
-                $"The browser route through '{connection.Name}' could not be established: {exception.Message}",
+                SshTunnelFailureText.Describe("the browser route", connection, exception),
                 exception);
         }
         catch

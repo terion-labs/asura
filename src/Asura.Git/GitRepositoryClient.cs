@@ -230,7 +230,7 @@ public sealed partial class GitRepositoryClient(
         {
             return Failure<GitDirectoryListing>(
                 GitErrorCode.CommandFailed,
-                "That directory cannot be opened on this connection.");
+                "That folder can't be opened on this connection.");
         }
 
         if (result.Outcome != ConnectionCommandOutcome.Exited || result.ExitCode != 0)
@@ -243,7 +243,7 @@ public sealed partial class GitRepositoryClient(
         {
             return Failure<GitDirectoryListing>(
                 GitErrorCode.InvalidResponse,
-                "The directory probe returned an invalid response.");
+                "Asura couldn't read that folder. Try again.");
         }
 
         var directories = new List<GitDirectoryEntry>();

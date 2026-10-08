@@ -553,13 +553,13 @@ internal sealed class SmbLibrarySession(
         NTStatus.STATUS_NOT_A_DIRECTORY
             or NTStatus.STATUS_OBJECT_PATH_INVALID => Error(
                 RemoteFileSessionErrorCode.NotDirectory,
-                $"The SMB server could not {operation} because a path component is not a directory."),
+                $"The SMB server could not {operation} because part of the path isn't a folder."),
         NTStatus.STATUS_FILE_IS_A_DIRECTORY => Error(
                 RemoteFileSessionErrorCode.IsDirectory,
-                $"The SMB server could not {operation} because the entry is a directory."),
+                $"The SMB server could not {operation} because the item is a folder."),
         NTStatus.STATUS_DIRECTORY_NOT_EMPTY => Error(
                 RemoteFileSessionErrorCode.DirectoryNotEmpty,
-                $"The SMB server could not {operation} because the directory is not empty."),
+                $"The SMB server could not {operation} because the folder isn't empty."),
         NTStatus.STATUS_NOT_SUPPORTED
             or NTStatus.STATUS_NOT_IMPLEMENTED
             or NTStatus.STATUS_INVALID_INFO_CLASS => Error(

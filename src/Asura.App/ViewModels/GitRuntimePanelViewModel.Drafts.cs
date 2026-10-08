@@ -93,7 +93,8 @@ public sealed partial class GitRuntimePanelViewModel
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception exception) when (exception is IOException or InvalidOperationException or DbException)
         {
-            PresentFailure(new Git.GitError(Git.GitErrorCode.CommandFailed, "The commit draft could not be restored. " + exception.Message, Retryable: true), "Draft storage unavailable");
+            SecretSafeDiagnostics.WriteTrace("git.commit-draft.restore.failed", exception);
+            PresentFailure(new Git.GitError(Git.GitErrorCode.CommandFailed, "Asura couldn't restore the commit message you were writing.", Retryable: true), "Draft storage unavailable");
         }
     }
 
@@ -119,7 +120,8 @@ public sealed partial class GitRuntimePanelViewModel
         {
             if (!_disposed)
             {
-                PresentFailure(new Git.GitError(Git.GitErrorCode.CommandFailed, "Your draft remains in this panel but could not be saved. " + exception.Message, Retryable: true), "Draft storage unavailable");
+                SecretSafeDiagnostics.WriteTrace("git.commit-draft.save.failed", exception);
+                PresentFailure(new Git.GitError(Git.GitErrorCode.CommandFailed, "Your commit message is still in this panel, but Asura couldn't save a copy of it. Commit or copy it before you close the panel.", Retryable: true), "Draft storage unavailable");
             }
         }
     }

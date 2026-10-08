@@ -1,4 +1,5 @@
 using System.Buffers;
+using Asura.Application;
 
 namespace Asura.Files;
 
@@ -452,19 +453,20 @@ public abstract partial class LocalFileProvider
         {
             return FileProviderError.Create(
                 FileProviderErrorCode.PartialTransfer,
-                "The destination was committed, but deleting the move source was canceled.");
+                "The items were copied to the destination, but removing the originals was canceled. Delete the originals yourself if you no longer need them.");
         }
-        catch (UnauthorizedAccessException exception)
+        catch (UnauthorizedAccessException)
         {
             return FileProviderError.Create(
                 FileProviderErrorCode.PartialTransfer,
-                $"The destination was committed, but the move source could not be deleted: {exception.Message}");
+                "The items were copied to the destination, but you don't have permission to remove the originals.");
         }
         catch (IOException exception)
         {
+            SecretSafeDiagnosticProjection.WriteTrace("files.local.move-source-delete-failed", exception);
             return FileProviderError.Create(
                 FileProviderErrorCode.PartialTransfer,
-                $"The destination was committed, but the move source could not be deleted: {exception.Message}",
+                "The items were copied to the destination, but Asura couldn't remove the originals. Check that they aren't open in another app, then delete them.",
                 retryable: true);
         }
     }

@@ -339,7 +339,7 @@ public sealed class QuickTerminalViewModel : ObservableObject, IDisposable, IAge
         {
             tab.SetUnavailable(
                 tab.Title,
-                "Quick Terminal could not register this tab with the session host.");
+                "Quick Terminal couldn't open this tab. Close it and try again.");
             return;
         }
 
@@ -680,7 +680,7 @@ public sealed class QuickTerminalViewModel : ObservableObject, IDisposable, IAge
         {
             tab.SetUnavailable(
                 tab.Title,
-                "Quick Terminal could not register its workspace with the session host.");
+                "Quick Terminal couldn't start. Hide it, then show it again.");
             return;
         }
 

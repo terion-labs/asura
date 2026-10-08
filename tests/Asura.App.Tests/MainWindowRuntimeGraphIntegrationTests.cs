@@ -3633,7 +3633,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
                 disabledRecovery.RuntimeWorkspace!.Tabs.SelectMany(tab => tab.Panels),
                 panel => panel.Kind == PanelKind.Browser));
         Assert.Contains(
-            "disabled",
+            "turned off",
             disabled.CapabilityMessage,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -4854,7 +4854,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
 
         Assert.Null(viewModel.RuntimeWorkspace);
         Assert.Contains(
-            "invalid workspace registration receipt",
+            "couldn't confirm that the workspace opened",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -5001,7 +5001,9 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.False(activated);
         Assert.Same(originalTab, runtime.ActiveTab);
         Assert.Equal(1, runtime.HostRevision);
-        Assert.Contains("revision_conflict", viewModel.OperationError, StringComparison.Ordinal);
+        // Stable codes go to diagnostics; the message says what happened.
+        Assert.StartsWith("Asura couldn't finish the tab activation.", viewModel.OperationError, StringComparison.Ordinal);
+        Assert.DoesNotContain("revision_conflict", viewModel.OperationError, StringComparison.Ordinal);
         var call = Assert.Single(recorder.TabActivations);
         Assert.Equal(requestedTab.Id, call.Request.TabId);
         Assert.Equal(1, call.Context.ExpectedRevision);
@@ -5054,7 +5056,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(1, runtime.HostRevision);
         Assert.Equal(1, runtime.HostSequence);
         Assert.Contains(
-            "invalid tab activation receipt",
+            "couldn't confirm the tab activation",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -5094,7 +5096,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(1, runtime.HostRevision);
         Assert.Equal(1, runtime.HostSequence);
         Assert.Contains(
-            "invalid tab activation receipt",
+            "couldn't confirm the tab activation",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -5462,7 +5464,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(1, runtime.HostRevision);
         Assert.Equal(1, runtime.HostSequence);
         Assert.Contains(
-            "invalid panel activation receipt",
+            "couldn't confirm the panel activation",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -5571,7 +5573,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(1, runtime.HostRevision);
         Assert.Equal(1, runtime.HostSequence);
         Assert.Contains(
-            "invalid Files panel creation receipt",
+            "couldn't confirm the Files panel creation",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -6863,7 +6865,9 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             originalTabIds,
             Assert.IsType<WorkspaceGraphSnapshot>(recorder.CurrentWorkspace)
                 .Workspace.Tabs.Select(tab => tab.Id));
-        Assert.Contains("revision_conflict", viewModel.OperationError, StringComparison.Ordinal);
+        // Stable codes go to diagnostics; the message says what happened.
+        Assert.StartsWith("Asura couldn't finish the", viewModel.OperationError, StringComparison.Ordinal);
+        Assert.DoesNotContain("revision_conflict", viewModel.OperationError, StringComparison.Ordinal);
     }
 
     [Fact]

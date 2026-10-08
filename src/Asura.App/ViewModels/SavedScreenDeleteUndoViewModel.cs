@@ -92,7 +92,7 @@ public sealed class SavedScreenDeleteUndoViewModel : ObservableObject
             else if (ReferenceEquals(_pending, pending))
             {
                 Status =
-                    $"Could not restore “{pending.Receipt.ScreenName}”. Retry or dismiss this undo.";
+                    $"Asura couldn't restore “{pending.Receipt.ScreenName}”. Try again, or dismiss this undo.";
             }
 
             return result;
@@ -102,7 +102,7 @@ public sealed class SavedScreenDeleteUndoViewModel : ObservableObject
             if (ReferenceEquals(_pending, pending))
             {
                 Status =
-                    $"Restore canceled for “{pending.Receipt.ScreenName}”. Retry or dismiss this undo.";
+                    $"Restoring “{pending.Receipt.ScreenName}” was canceled. Try again, or dismiss this undo.";
             }
 
             throw;

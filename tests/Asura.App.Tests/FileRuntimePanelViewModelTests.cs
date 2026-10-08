@@ -1101,7 +1101,7 @@ public sealed class FileRuntimePanelViewModelTests
         "Destination already exists",
         "Keep Both")]
     [InlineData(FilePanelErrorCode.SharingViolation, "File is in use", "process")]
-    [InlineData(FilePanelErrorCode.DirectoryNotEmpty, "Folder is not empty", "recursive")]
+    [InlineData(FilePanelErrorCode.DirectoryNotEmpty, "Folder isn't empty", "recursive")]
     public void ConflictFailuresKeepOperationSpecificRecovery(
         FilePanelErrorCode errorCode,
         string title,

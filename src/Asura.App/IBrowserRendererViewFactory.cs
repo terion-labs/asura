@@ -268,7 +268,7 @@ public sealed class BrowserRendererView(
     {
         HostResult<T>.Success success => success.Value,
         HostResult<T>.Failure failure => throw new InvalidOperationException(
-            $"{failure.Error.StableCode}: {failure.Error.Message}"),
+            failure.Error.Message),
         _ => throw new ArgumentOutOfRangeException(nameof(result)),
     };
 

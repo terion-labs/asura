@@ -39,7 +39,7 @@ public sealed class SshNetBrowserTunnelFactoryTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await factory.OpenAsync(BuiltInConnections.Local, CancellationToken.None));
 
-        Assert.Contains("not an SSH connection", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("isn't an SSH connection", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]

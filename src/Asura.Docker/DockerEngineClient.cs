@@ -806,7 +806,7 @@ public sealed class DockerEngineClient(
                 {
                     return new DockerResult<string>.Failure(new DockerError(
                         DockerErrorCode.FileNotFound,
-                        $"'{path}' does not exist in this Docker resource.",
+                        $"“{path}” doesn't exist here. It may have been moved or deleted.",
                         false));
                 }
 
@@ -814,7 +814,7 @@ public sealed class DockerEngineClient(
                 {
                     return new DockerResult<string>.Failure(new DockerError(
                         DockerErrorCode.NotDirectory,
-                        $"'{path}' is not a directory.",
+                        $"“{path}” isn't a folder.",
                         false));
                 }
 

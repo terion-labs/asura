@@ -2530,7 +2530,7 @@ public sealed partial class AgentChatViewModelTests
             second =>
             {
                 Assert.Equal("Unnamed terminal", second.Title);
-                Assert.Equal("Unnamed tab", second.TabTitle);
+                Assert.Equal("Untitled Tab", second.TabTitle);
                 Assert.Contains("Background", second.State);
             });
 

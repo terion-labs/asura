@@ -130,7 +130,7 @@ public sealed partial class GitRuntimePanelViewModel
             }
             if (result is GitResult<GitCommitDetail>.Failure failure)
             {
-                PresentFailure(failure.Error, "Could not find commit");
+                PresentFailure(failure.Error, "Couldn't find commit");
                 return;
             }
 
@@ -169,7 +169,7 @@ public sealed partial class GitRuntimePanelViewModel
             return success.Value;
         }
 
-        PresentFailure(((GitResult<GitConflictContent>.Failure)result).Error, "Could not read conflict");
+        PresentFailure(((GitResult<GitConflictContent>.Failure)result).Error, "Couldn't read conflict");
         return null;
     }
 
@@ -189,7 +189,7 @@ public sealed partial class GitRuntimePanelViewModel
             return success.Value;
         }
 
-        PresentFailure(((GitResult<IReadOnlyList<GitReflogEntry>>.Failure)result).Error, "Could not read reflog");
+        PresentFailure(((GitResult<IReadOnlyList<GitReflogEntry>>.Failure)result).Error, "Couldn't read reflog");
         return [];
     }
 

@@ -52,7 +52,7 @@ public sealed class RecentSessionHistoryExportController
                 var path = NormalizePath(selectedPath);
                 var directory = Path.GetDirectoryName(path)
                     ?? throw new ArgumentException(
-                        "An export directory is required.",
+                        "Choose a folder for the export.",
                         nameof(selectedPath));
                 _fileSystem.CreateDirectory(directory);
                 temporaryPath = Path.Combine(

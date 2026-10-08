@@ -74,7 +74,7 @@ public sealed class DatabaseConnectionButtonTests
         await panel.ConnectAsync();
         Assert.False(panel.IsConnected);
         Assert.Equal(StatusTone.Danger, panel.ConnectionStatusTone);
-        Assert.Equal($"Could not connect to {panel.ConnectionDisplayName}", panel.ConnectionStatusLabel);
+        Assert.Equal($"Couldn't connect to {panel.ConnectionDisplayName}", panel.ConnectionStatusLabel);
 
         client.FailWith = null;
         await panel.ConnectAsync();

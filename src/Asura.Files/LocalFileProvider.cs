@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Asura.Application;
 
 namespace Asura.Files;
 
@@ -350,21 +351,29 @@ public abstract partial class LocalFileProvider : IFileProvider, ILocalFilePathS
         {
             return Failure<T>(FileProviderErrorCode.Cancelled, "The file operation was canceled.");
         }
-        catch (UnauthorizedAccessException exception)
+        catch (UnauthorizedAccessException)
         {
-            return Failure<T>(FileProviderErrorCode.AccessDenied, exception.Message);
+            return Failure<T>(
+                FileProviderErrorCode.AccessDenied,
+                "You don't have permission to do that with this item.");
         }
-        catch (FileNotFoundException exception)
+        catch (FileNotFoundException)
         {
-            return Failure<T>(FileProviderErrorCode.NotFound, exception.Message);
+            return Failure<T>(
+                FileProviderErrorCode.NotFound,
+                "The item no longer exists. It may have been moved or deleted.");
         }
-        catch (DirectoryNotFoundException exception)
+        catch (DirectoryNotFoundException)
         {
-            return Failure<T>(FileProviderErrorCode.NotFound, exception.Message);
+            return Failure<T>(
+                FileProviderErrorCode.NotFound,
+                "The folder no longer exists. It may have been moved or deleted.");
         }
-        catch (PathTooLongException exception)
+        catch (PathTooLongException)
         {
-            return Failure<T>(FileProviderErrorCode.InvalidLocation, exception.Message);
+            return Failure<T>(
+                FileProviderErrorCode.InvalidLocation,
+                "The path is too long. Use a shorter name or a folder nearer the top.");
         }
         catch (IOException exception)
         {
@@ -374,27 +383,35 @@ public abstract partial class LocalFileProvider : IFileProvider, ILocalFilePathS
 
     private FileProviderError MapIOException(IOException exception)
     {
+        // The system's message names paths and error numbers; people see a
+        // curated sentence and diagnostics keep the classified failure.
         var nativeCode = exception.HResult & 0xFFFF;
         return nativeCode switch
         {
             17 or 80 or 183 => FileProviderError.Create(
                 FileProviderErrorCode.AlreadyExists,
-                exception.Message),
+                "An item with that name already exists."),
             39 or 145 => FileProviderError.Create(
                 FileProviderErrorCode.DirectoryNotEmpty,
-                exception.Message),
+                "The folder isn't empty."),
             28 or 112 => FileProviderError.Create(
                 FileProviderErrorCode.QuotaExceeded,
-                exception.Message),
+                "There isn't enough free space."),
             32 or 33 when OperatingSystem.IsWindows() => FileProviderError.Create(
                 FileProviderErrorCode.SharingViolation,
-                exception.Message,
+                "Another app is using the item.",
                 retryable: true),
-            _ => FileProviderError.Create(
-                FileProviderErrorCode.IoFailure,
-                exception.Message,
-                retryable: true),
+            _ => UnexpectedIOFailure(exception),
         };
+    }
+
+    private static FileProviderError UnexpectedIOFailure(IOException exception)
+    {
+        SecretSafeDiagnosticProjection.WriteTrace("files.local.io-failed", exception);
+        return FileProviderError.Create(
+            FileProviderErrorCode.IoFailure,
+            "Asura couldn't finish working with the item.",
+            retryable: true);
     }
 
     private protected sealed record ResolvedLocalLocation(

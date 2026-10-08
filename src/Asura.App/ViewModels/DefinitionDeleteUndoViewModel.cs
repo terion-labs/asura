@@ -163,7 +163,7 @@ public sealed class DefinitionDeleteUndoViewModel : ObservableObject
 
             if (ReferenceEquals(_pending, pending))
             {
-                Status = $"Could not restore “{pending.Receipt.Name}”. Retry or dismiss this undo.";
+                Status = $"Asura couldn't restore “{pending.Receipt.Name}”. Try again, or dismiss this undo.";
             }
 
             return DefinitionStoreResult<Unit>.Failure(error);
@@ -172,7 +172,7 @@ public sealed class DefinitionDeleteUndoViewModel : ObservableObject
         {
             if (ReferenceEquals(_pending, pending))
             {
-                Status = $"Restore canceled for “{pending.Receipt.Name}”. Retry or dismiss this undo.";
+                Status = $"Restoring “{pending.Receipt.Name}” was canceled. Try again, or dismiss this undo.";
             }
 
             throw;

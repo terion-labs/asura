@@ -333,7 +333,8 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            HistoryStatus = "Browser history unavailable: " + exception.Message;
+            SecretSafeDiagnostics.WriteTrace("browser.history.search.failed", exception);
+            HistoryStatus = "Browsing history isn't available right now. Try again.";
             OnPropertyChanged(nameof(HistoryStatus));
             return [];
         }
@@ -363,7 +364,8 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            HistoryStatus = "Could not clear browser history: " + exception.Message;
+            SecretSafeDiagnostics.WriteTrace("browser.history.clear.failed", exception);
+            HistoryStatus = "Asura couldn't clear the browsing history. Try again.";
         }
         finally
         {
@@ -468,7 +470,8 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (Exception exception)
         {
-            HistoryStatus = "Browser history unavailable: " + exception.Message;
+            SecretSafeDiagnostics.WriteTrace("browser.history.record.failed", exception);
+            HistoryStatus = "Browsing history isn't available right now. Pages you visit aren't being saved to it.";
             OnPropertyChanged(nameof(HistoryStatus));
         }
     }

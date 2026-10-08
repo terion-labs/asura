@@ -302,7 +302,7 @@ public static class BrowserEngineRuntime
         if (File.Exists(fullPath))
         {
             throw new InvalidDataException(
-                "A browser runtime directory is occupied by a file.");
+                "Asura couldn't prepare the browser's data folder because a file is in its place.");
         }
 
         Directory.CreateDirectory(fullPath);

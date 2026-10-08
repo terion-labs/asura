@@ -1138,7 +1138,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
             if (result is GitResult<GitRepositoryHandle>.Failure failure)
             {
                 UntrustedRepositoryPath = failure.Error.Code == GitErrorCode.OwnershipUntrusted ? path.Trim() : null;
-                PresentFailure(failure.Error, "Could not open repository");
+                PresentFailure(failure.Error, "Couldn't open repository");
                 return;
             }
 
@@ -1252,7 +1252,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         var result = await _client.TrustRepositoryWithExecutableAsync(_connection, path, _gitPreferences.GitExecutable, _lifetime.Token);
         if (result is GitResult<GitUnit>.Failure failure)
         {
-            PresentFailure(failure.Error, "Could not trust repository");
+            PresentFailure(failure.Error, "Couldn't trust repository");
             return;
         }
 
@@ -1307,7 +1307,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
             }
             else if (operation is GitResult<GitOperationState>.Failure operationFailure)
             {
-                PresentFailure(operationFailure.Error, "Could not read operation state");
+                PresentFailure(operationFailure.Error, "Couldn't read operation state");
             }
             await ReadGitFlowPendingFinishAsync(_lifetime.Token);
             if (Submodules.Count > 0)
@@ -1521,7 +1521,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
             }
             if (result is GitResult<GitCommitPage>.Failure failure)
             {
-                PresentFailure(failure.Error, "Could not read history");
+                PresentFailure(failure.Error, "Couldn't read history");
                 return;
             }
 
@@ -1649,7 +1649,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
 
             if (result is GitResult<GitCommitDetail>.Failure failure)
             {
-                PresentFailure(failure.Error, "Could not read commit");
+                PresentFailure(failure.Error, "Couldn't read commit");
                 return;
             }
 
@@ -1694,7 +1694,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
 
             if (result is GitResult<GitTreeListing>.Failure failure)
             {
-                PresentFailure(failure.Error, "Could not read tree");
+                PresentFailure(failure.Error, "Couldn't read tree");
                 return;
             }
 
@@ -1753,7 +1753,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
 
             if (result is GitResult<GitBlobSnapshot>.Failure failure)
             {
-                PresentFailure(failure.Error, "Could not read file");
+                PresentFailure(failure.Error, "Couldn't read file");
                 return;
             }
 
@@ -1866,7 +1866,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
 
             if (result is GitResult<GitDiffDocument>.Failure failure)
             {
-                PresentFailure(failure.Error, "Could not read diff");
+                PresentFailure(failure.Error, "Couldn't read diff");
                 _diffDocument = null;
                 _presentedDiffRequest = null;
                 _selectedDiffLines = [];

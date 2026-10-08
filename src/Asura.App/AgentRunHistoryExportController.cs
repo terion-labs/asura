@@ -23,7 +23,7 @@ public static class AgentRunHistoryExportController
 
         var directory = Path.GetDirectoryName(path)
             ?? throw new ArgumentException(
-                "An agent history export directory is required.",
+                "Choose a folder for the export.",
                 nameof(destinationPath));
         Directory.CreateDirectory(directory);
         var temporaryPath = Path.Combine(

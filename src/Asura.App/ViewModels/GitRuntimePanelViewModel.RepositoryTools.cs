@@ -17,7 +17,7 @@ public sealed partial class GitRuntimePanelViewModel
             return success.Value;
         }
 
-        PresentFailure(((GitResult<GitRepositoryStatistics>.Failure)result).Error, "Could not read statistics");
+        PresentFailure(((GitResult<GitRepositoryStatistics>.Failure)result).Error, "Couldn't read statistics");
         return null;
     }
     public async Task CreateRepositoryAsync(string path, string branch, string? cloneUrl = null, GitHostingAccount? account = null)
@@ -45,7 +45,7 @@ public sealed partial class GitRuntimePanelViewModel
                     PresentFailure(failure.Error, "Repository cloned; credentials could not be saved");
                     return;
                 }
-                PresentFailure(failure.Error, cloneUrl is null ? "Could not initialize repository" : "Could not clone repository");
+                PresentFailure(failure.Error, cloneUrl is null ? "Couldn't initialize repository" : "Could not clone repository");
                 return;
             }
             await OpenRepositoryAsync(((GitResult<GitRepositoryHandle>.Success)result).Value.WorkingTreeRoot);
@@ -158,7 +158,7 @@ public sealed partial class GitRuntimePanelViewModel
             return success.Value;
         }
 
-        PresentFailure(((GitResult<GitIdentitySettings>.Failure)result).Error, "Could not read Git identity");
+        PresentFailure(((GitResult<GitIdentitySettings>.Failure)result).Error, "Couldn't read Git identity");
         return null;
     }
 

@@ -137,7 +137,7 @@ public sealed class RedisRuntimePanelHigTests
         await refused.Initialization;
         Assert.False(refused.IsConnected);
         Assert.Equal(StatusTone.Danger, refused.ConnectionStatusTone);
-        Assert.Equal($"Could not connect to {refused.ConnectionDisplayName}", refused.ConnectionStatusLabel);
+        Assert.Equal($"Couldn't connect to {refused.ConnectionDisplayName}", refused.ConnectionStatusLabel);
     }
 
     [Fact]
