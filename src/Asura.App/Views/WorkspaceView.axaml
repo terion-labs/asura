@@ -49,6 +49,11 @@
          top-right corner with its own height. Both lengths are laid out for
          13 pt text and grow with the text-size setting, or larger text wraps
          the conversation into a column too narrow to read. -->
+    <!-- The "+" looks pressed while either of its popovers is open: the
+         edge menu (its own flyout) or the Add Panel chooser anchored to it. -->
+    <Style Selector="Button#AddPanelButton:flyout-open /template/ ContentPresenter, Button#AddPanelButton.anchorOpen /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
+    </Style>
     <Style Selector="views|AgentWorkspaceView">
       <Setter Property="Width" Value="{controls:TextScaled 352}" />
     </Style>

@@ -30,9 +30,11 @@
         <controls:ChooserTile Icon="Grid" Title="{x:Static vm:PanelTypes.Kubernetes}" Description="{x:Static vm:PanelTypes.KubernetesDescription}" Click="OnAddKubernetesPanelClick" />
         <controls:ChooserTile Icon="BranchFork" Title="{x:Static vm:PanelTypes.Git}" Description="{x:Static vm:PanelTypes.GitDescription}" Click="OnAddGitPanelClick" />
       </controls:CardGridPanel>
-      <controls:SurfaceCard Padding="{DynamicResource ShellCardPaddingCompact}">
+      <!-- Only while a browser panel can be made: a profile picker for
+           something the tile above says is unavailable is a dead end. -->
+      <controls:SurfaceCard Padding="{DynamicResource ShellCardPaddingCompact}" IsVisible="{Binding CanCreateBrowserPanel}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceLg}">
-          <StackPanel VerticalAlignment="Center">
+          <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
             <TextBlock FontWeight="SemiBold" Text="Browser profile" />
             <TextBlock Classes="Muted" Text="Used by the new browser panel only" />
           </StackPanel>
@@ -44,7 +46,7 @@
               AutomationProperties.Name="Profile for new browser panel">
             <ComboBox.ItemTemplate>
               <DataTemplate>
-                <StackPanel>
+                <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock Text="{Binding Name}" />
                   <TextBlock Classes="Muted" Text="{Binding Detail}" />
                 </StackPanel>
@@ -59,11 +61,12 @@
       <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceLg}">
         <Grid RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
           <components:SectionHeader Heading="Connections" Count="{Binding Connections.Count}" />
-          <!-- Five rows exactly. A height that ends mid-row reads as a clipped
-               list rather than a scrollable one. -->
+          <!-- Five rows exactly, measured from a row as the text size draws
+               it (see NewPanelChooserView.axaml.cs). A height that ends
+               mid-row reads as a clipped list rather than a scrollable one. -->
           <controls:SurfaceCard Padding="0" Grid.Row="1">
-            <ScrollViewer MaxHeight="210" HorizontalScrollBarVisibility="Disabled">
-              <ItemsControl Classes="StretchItems" ItemsSource="{Binding Connections}">
+            <ScrollViewer x:Name="ConnectionRowsScroll" MaxHeight="{controls:TextScaled 270}" HorizontalScrollBarVisibility="Disabled">
+              <ItemsControl x:Name="ConnectionRows" Classes="StretchItems" ItemsSource="{Binding Connections}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
                     <Button
@@ -74,7 +77,7 @@
                       <controls:ListItem
                           ContentPadding="{controls:Inset Horizontal=Md, Vertical=Sm}"
                           Title="{Binding Name}"
-                          Detail="{Binding Detail}">
+                          Detail="{Binding AvailabilityDetail}">
                         <controls:ListItem.Leading>
                           <Border VerticalAlignment="Center" Classes="StatusDot" Classes.available="{Binding CanOpen}" />
                         </controls:ListItem.Leading>
@@ -93,8 +96,8 @@
         <Grid Grid.Column="1" RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
           <components:SectionHeader Heading="Screens" Count="{Binding Screens.Count}" />
           <controls:SurfaceCard Padding="0" Grid.Row="1">
-            <ScrollViewer MaxHeight="210" HorizontalScrollBarVisibility="Disabled">
-              <ItemsControl Classes="StretchItems" ItemsSource="{Binding Screens}">
+            <ScrollViewer x:Name="ScreenRowsScroll" MaxHeight="{controls:TextScaled 270}" HorizontalScrollBarVisibility="Disabled">
+              <ItemsControl x:Name="ScreenRows" Classes="StretchItems" ItemsSource="{Binding Screens}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
                     <Button
@@ -105,12 +108,11 @@
                           ContentPadding="{controls:Inset Horizontal=Md, Vertical=Sm}"
                           Title="{Binding Name}"
                           Detail="{Binding Summary}">
+                        <!-- The summary already starts with the panel count, so
+                             the row says it once. -->
                         <controls:ListItem.Leading>
                           <Border Width="26" Height="26" Classes="IconTile Neutral"><icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Grid" FontSize="{DynamicResource ShellIconSizeSm}" /></Border>
                         </controls:ListItem.Leading>
-                        <controls:ListItem.Trailing>
-                          <components:CountPill Value="{Binding PanelCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=panel}" />
-                        </controls:ListItem.Trailing>
                       </controls:ListItem>
                     </Button>
                   </DataTemplate>

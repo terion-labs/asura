@@ -9018,7 +9018,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             screens,
             [.. snapshot.KubernetesConnections.Select(item => new LauncherConnectionViewModel(
                 new ConnectionId(item.Value.Id.Value), item.Revision, item.Value.Name, "Kubernetes", item.Value.ContextName,
-                "Validated on connect", item.Value.IsEnabled, [], SavedConnectionFamily.Kubernetes, item.Value.Id.Value))]);
+                item.Value.IsEnabled ? "Validated on connect" : "Turned off in Settings",
+                item.Value.IsEnabled, [], SavedConnectionFamily.Kubernetes, item.Value.Id.Value))]);
         ReconcileAgentSavedScreenTemplate();
         // A rail item that was replaced arrives with its runtime flags cleared,
         // and the flags are derived rather than stored, so nothing else would
@@ -9891,6 +9892,60 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     /// command identifier and raw arguments stay searchable but are never
     /// shown: they are the program's words, not the person's.
     /// </summary>
+    /// <summary>
+    /// A palette row's glyph: what the command is about, so a list of
+    /// commands is not a column of identical code brackets. A few commands
+    /// carry their own; the rest take their category's.
+    /// </summary>
+    internal static Symbol CommandIcon(CommandDefinition command)
+    {
+        if (CommandIcons.TryGetValue(command.Id, out var own))
+        {
+            return own;
+        }
+
+        return command.Category switch
+        {
+            "Application" => Symbol.Apps,
+            "Edit" => Symbol.Edit,
+            "Git" => Symbol.BranchFork,
+            "Help" => Symbol.QuestionCircle,
+            "Panels" => Symbol.LayoutColumnTwoSplitRight,
+            "Tabs" => Symbol.TabDesktop,
+            "Terminal" => Symbol.WindowConsole,
+            "View" => Symbol.PanelLeft,
+            "Window" => Symbol.WindowMultiple,
+            "Workspaces" => Symbol.Board,
+            _ => Symbol.Code,
+        };
+    }
+
+    private static readonly Dictionary<CommandId, Symbol> CommandIcons = new()
+    {
+        [BuiltInCommands.About] = Symbol.Info,
+        [BuiltInCommands.ShowSettings] = Symbol.Settings,
+        [BuiltInCommands.CheckForUpdates] = Symbol.ArrowSync,
+        [BuiltInCommands.EditFind] = Symbol.Search,
+        [BuiltInCommands.EditFindNext] = Symbol.Search,
+        [BuiltInCommands.EditFindPrevious] = Symbol.Search,
+        [BuiltInCommands.EditUseSelectionForFind] = Symbol.Search,
+        [BuiltInCommands.EditPanelSearch] = Symbol.Search,
+        [BuiltInCommands.Find] = Symbol.Search,
+        [BuiltInCommands.EditUndo] = Symbol.ArrowUndo,
+        [BuiltInCommands.EditRedo] = Symbol.ArrowRedo,
+        [BuiltInCommands.EditCopy] = Symbol.Copy,
+        [BuiltInCommands.Copy] = Symbol.Copy,
+        [BuiltInCommands.EditPaste] = Symbol.ClipboardPaste,
+        [BuiltInCommands.Paste] = Symbol.ClipboardPaste,
+        [BuiltInCommands.EditCut] = Symbol.Cut,
+        [BuiltInCommands.ShowKeyboardShortcuts] = Symbol.Keyboard,
+        [BuiltInCommands.ReportIssue] = Symbol.Bug,
+        [BuiltInCommands.NewWindow] = Symbol.WindowNew,
+        [BuiltInCommands.NewTab] = Symbol.TabAdd,
+        [BuiltInCommands.NewTerminalTab] = Symbol.TabAdd,
+        [BuiltInCommands.ShowCommandPalette] = Symbol.Search,
+    };
+
     private LauncherSearchResultViewModel CreateCommandLauncherResult(
         CommandDefinition command,
         IReadOnlyDictionary<string, string> arguments,
@@ -9927,7 +9982,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         return new LauncherSearchResultViewModel(
             new LauncherSearchTarget.Command(command.Id, arguments),
-            Symbol.Code,
+            CommandIcon(command),
             command.Category,
             argumentSummary.Length == 0
                     || !string.Equals(command.TitleFor(arguments), command.Title, StringComparison.Ordinal)
@@ -12703,7 +12758,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             profile.Name,
             FileProviderKindLabel(profile.ProviderKind),
             FileProviderEndpoint(profile.Configuration),
-            "Validated on open",
+            _fileProviderRuntime is not null
+                ? "Validated on open"
+                : "File connections aren't available in this build",
             _fileProviderRuntime is not null,
             [],
             SavedConnectionFamily.Files,

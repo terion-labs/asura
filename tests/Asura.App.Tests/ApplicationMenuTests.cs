@@ -724,3 +724,19 @@ public sealed class ApplicationMenuBarTests
         public MenuShortcutResolver CreateShortcutResolver() => Shortcuts;
     }
 }
+
+public sealed class CommandPaletteGlyphTests
+{
+    [Fact]
+    public void Every_command_has_a_glyph_for_what_it_is_about()
+    {
+        Assert.All(
+            BuiltInCommands.Registry.Commands,
+            command => Assert.NotEqual(
+                FluentIcons.Common.Symbol.Code,
+                Asura.App.ViewModels.MainWindowViewModel.CommandIcon(command)));
+        Assert.Equal(
+            FluentIcons.Common.Symbol.Settings,
+            Asura.App.ViewModels.MainWindowViewModel.CommandIcon(BuiltInCommands.Registry.Commands.Single(command => command.Id == BuiltInCommands.ShowSettings)));
+    }
+}

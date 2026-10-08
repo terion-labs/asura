@@ -24,7 +24,7 @@
               VerticalAlignment="Center"
               Classes="Muted"
               FontSize="{DynamicResource ShellFontSize13}"
-              Text="Search connections, screens, workspaces, sessions, or commands…"
+              Text="Search…"
               TextTrimming="CharacterEllipsis" />
           <Border Grid.Column="2" Classes="Keycap">
             <TextBlock Text="{Binding CommandPaletteShortcut}" />
@@ -224,7 +224,7 @@
                           </ItemsControl.ItemTemplate>
                         </ItemsControl>
                       </Border>
-                      <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                      <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
                         <TextBlock FontSize="{DynamicResource ShellFontSize13}" FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Summary}" TextTrimming="CharacterEllipsis" />
                       </StackPanel>

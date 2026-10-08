@@ -7,9 +7,30 @@ namespace Asura.App.Views.Overlays;
 
 public sealed partial class NewPanelChooserView : UserControl
 {
+    /// <summary>How many rows a saved-item list shows before it scrolls.</summary>
+    internal const int VisibleRows = 5;
+
     public NewPanelChooserView()
     {
         InitializeComponent();
+        ConnectionRows.SizeChanged += (_, _) => FitRows(ConnectionRows, ConnectionRowsScroll);
+        ScreenRows.SizeChanged += (_, _) => FitRows(ScreenRows, ScreenRowsScroll);
+    }
+
+    /// <summary>
+    /// Ends a list exactly at its fifth row, measured from a row as drawn,
+    /// so the height follows the text size and never stops mid-row.
+    /// </summary>
+    private static void FitRows(ItemsControl rows, ScrollViewer scroll)
+    {
+        if (rows.ContainerFromIndex(0) is { Bounds.Height: > 0 } first)
+        {
+            var height = first.Bounds.Height * VisibleRows;
+            if (!scroll.MaxHeight.Equals(height))
+            {
+                scroll.MaxHeight = height;
+            }
+        }
     }
 
     public event EventHandler<RoutedEventArgs>? AddBrowserPanelRequested;

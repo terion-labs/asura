@@ -4,6 +4,7 @@ using Asura.App.Views.Overlays;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -47,6 +48,33 @@ public sealed class ShellWindowOverlaySizeHeadlessTests
         Assert.True(tile.IsEffectivelyVisible);
         AssertInsideScreen(tile, window);
         Assert.True(tile.IsFocused || tile.IsKeyboardFocusWithin);
+    });
+
+    [Fact]
+    public Task Add_Panel_anchor_looks_pressed_while_its_popover_is_open() => RunInSmallWindowAsync(async window =>
+    {
+        var viewModel = (MainWindowViewModel)window.DataContext!;
+        await window.ShowNewPanelChooserAsync();
+        Settle(window);
+
+        var anchor = Assert.Single(
+            window.GetVisualDescendants().OfType<Control>(),
+            control => control.Classes.Contains(MainWindow.AnchorOpenClass));
+        var chooser = Assert.IsType<NewPanelChooserView>(window.AddPanelChooser);
+
+        // The browser profile picker only shows while a browser panel can
+        // be made.
+        var profile = chooser.GetLogicalDescendants()
+            .OfType<TextBlock>()
+            .Single(text => string.Equals(text.Text, "Browser profile", StringComparison.Ordinal));
+        Assert.Equal(
+            viewModel.CanCreateBrowserPanel,
+            profile.GetLogicalAncestors().OfType<Asura.App.Controls.SurfaceCard>().First().IsVisible);
+
+        chooser.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Settle(window);
+        Assert.False(window.IsAddPanelChooserOpen);
+        Assert.DoesNotContain(MainWindow.AnchorOpenClass, anchor.Classes, StringComparer.Ordinal);
     });
 
     [Fact]
