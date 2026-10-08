@@ -127,7 +127,7 @@ public sealed partial class GitRuntimePanelView
         {
             if (await new ConfirmationDialog(new ConfirmationDialogOptions
             {
-                Heading = $"Discard the pending finish of {pending.Request.Kind} “{pending.Request.Name}”?",
+                Heading = $"Discard the pending finish of {BranchKindName(pending.Request.Kind)} “{pending.Request.Name}”?",
                 Detail = $"{pending.CompletedSteps} of {pending.TotalSteps} steps have already completed.",
                 Notice = "This discards the saved finish plan. Completed merges and tags remain. Abort any active Git operation separately.",
                 ConfirmLabel = "Discard Plan",
@@ -169,13 +169,33 @@ public sealed partial class GitRuntimePanelView
         return await new ConfirmationDialog(new ConfirmationDialogOptions
         {
             Heading = completedSteps > 0
-                ? $"Resume finishing {request.Kind} “{request.Name}”?"
-                : $"{request.Action} {(request.Name.Length == 0 ? "Git Flow" : topic)}?",
+                ? $"Resume finishing {BranchKindName(request.Kind)} “{request.Name}”?"
+                : $"{ActionTitle(request.Action)} {(request.Name.Length == 0 ? "Git Flow" : topic)}?",
             Detail = detail,
             Notice = $"Repository: {panel.RepositoryRoot}\nGit Flow stops on failure. Resolve and continue an active merge before resuming this saved plan.",
-            ConfirmLabel = completedSteps > 0 ? "Resume Finish" : request.Action.ToString(),
+            ConfirmLabel = completedSteps > 0 ? "Resume Finish" : ActionTitle(request.Action),
             // Each step merges, tags or pushes; none of it throws work away.
             Intent = ConfirmationIntent.Confirm,
         }).ShowDialog<bool>(window);
     }
+
+    // Enum names are code: "Hotfix" mid-sentence and "CancelFinish" as a
+    // button read as identifiers, so each value has its words here.
+    private static string BranchKindName(GitFlowBranchKind kind) => kind switch
+    {
+        GitFlowBranchKind.Feature => "feature",
+        GitFlowBranchKind.Release => "release",
+        GitFlowBranchKind.Hotfix => "hotfix",
+        _ => "branch",
+    };
+
+    private static string ActionTitle(GitFlowAction action) => action switch
+    {
+        GitFlowAction.Initialize => "Initialize",
+        GitFlowAction.Start => "Start",
+        GitFlowAction.Finish => "Finish",
+        GitFlowAction.Publish => "Publish",
+        GitFlowAction.CancelFinish => "Discard Finish",
+        _ => "Continue",
+    };
 }

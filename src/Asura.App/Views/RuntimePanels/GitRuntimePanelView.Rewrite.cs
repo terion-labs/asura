@@ -209,7 +209,7 @@ public sealed partial class GitRuntimePanelView
         }
 
         // Every Git Flow action is reviewed step by step before it runs.
-        var values = await ShowGitFormAsync("Git Flow · " + action, "Review Steps…",
+        var values = await ShowGitFormAsync("Git Flow · " + ActionTitle(action), "Review Steps…",
             "Finish merges feature branches into develop. Release/hotfix finish also merges into main and creates a version tag. Each step stops on failure; resolve conflicts before proceeding.",
             new("kind", "Branch kind", "Feature", Choices: ["Feature", "Release", "Hotfix"]),
             new("name", "Name / version", Required: action is not (GitFlowAction.Initialize or GitFlowAction.CancelFinish)),

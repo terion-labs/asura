@@ -119,7 +119,7 @@ public sealed partial class GitRuntimePanelView
         if (control == GitOperationControl.Abort && OwnerWindow is { } window
             && !await new ConfirmationDialog(new ConfirmationDialogOptions
             {
-                Heading = $"Abort {viewModel.Operation.Kind}?",
+                Heading = $"Abort {OperationTitle(viewModel.Operation.Kind)}?",
                 Detail = "Git will restore the state from before this operation. Resolution edits may be lost.",
                 ConfirmLabel = "Abort Operation",
                 Intent = ConfirmationIntent.Destructive,
@@ -310,4 +310,15 @@ public sealed partial class GitRuntimePanelView
             await viewModel.CommitAndPushAsync();
         }
     }
+
+    // "Abort CherryPick?" named the enum; the heading names the operation.
+    private static string OperationTitle(GitOperationKind kind) => kind switch
+    {
+        GitOperationKind.Merge => "Merge",
+        GitOperationKind.Rebase => "Rebase",
+        GitOperationKind.CherryPick => "Cherry-Pick",
+        GitOperationKind.Revert => "Revert",
+        GitOperationKind.Bisect => "Bisect",
+        _ => "Operation",
+    };
 }
