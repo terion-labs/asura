@@ -8,6 +8,7 @@
   <Styles.Resources>
     <avaloniaConverters:ToBrushConverter x:Key="ColorBrushConverter" />
     <converters:EnumDisplayConverter x:Key="EnumDisplayConverter" />
+    <converters:KeyGestureDisplayConverter x:Key="KeyGestureDisplayConverter" />
     <converters:HexColorBrushConverter x:Key="HexColorBrushConverter" />
     <converters:OnOffConverter x:Key="OnOffConverter" />
     <!-- An opacity mask, not a colour: it keeps the outer band of whatever it
@@ -273,6 +274,15 @@
     <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
   </Style>
 
+  <!-- A context menu writes its shortcuts as the menu bar does — ⌘↓, ⌥⌘R,
+       ⌘⌫ on a Mac — through the shell's one shortcut formatter. The stock
+       item printed Avalonia's notation, "Cmd+Down Arrow" and "Backspace". -->
+  <!-- The stock template binds the text itself, which only a style with a
+       condition outranks; a separator has no shortcut to write. -->
+  <Style Selector="MenuItem:not(:separator) /template/ TextBlock#PART_InputGestureText">
+    <Setter Property="Text" Value="{Binding InputGesture, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource KeyGestureDisplayConverter}}" />
+  </Style>
+
   <Style Selector="Button.FlyoutMenuItem">
     <Setter Property="MinHeight" Value="{DynamicResource ShellControlMinHeight}" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -289,6 +299,16 @@
 
   <Style Selector="Button.FlyoutMenuItem.current /template/ ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
+  </Style>
+
+  <!-- The item standing for what is open says so in the same place it is
+       drawn, so VoiceOver hears which one is current as the eye sees it. -->
+  <Style Selector="Button.FlyoutMenuItem">
+    <Setter Property="AutomationProperties.ItemStatus" Value="" />
+  </Style>
+
+  <Style Selector="Button.FlyoutMenuItem.current">
+    <Setter Property="AutomationProperties.ItemStatus" Value="Current" />
   </Style>
 
   <Style Selector="Button.PrimaryButton">
@@ -386,7 +406,6 @@
     <Setter Property="Padding" Value="{DynamicResource ShellButtonPadding}" />
     <Setter Property="MinHeight" Value="{DynamicResource ShellControlMinHeight}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
   </Style>
 
   <Style Selector="Button.TextButton.Accent">
@@ -480,16 +499,39 @@
     <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
   </Style>
 
-  <!-- Every TextBlock takes the text colour by style, so the row's foreground
-       never reaches its text by inheritance. Secondary text turns with the
-       primary, as it does in a selected Finder row: muted gray on accent is
-       the one combination that reads worse than either. -->
+  <!-- Secondary text turns with the primary, as it does in a selected Finder
+       row: muted gray on accent is the one combination that reads worse than
+       either. A muted text block sets its colour by class, so the row's own
+       foreground would not reach it by inheritance. -->
   <Style Selector="ListBox:not(.NeutralSelection):not(.OwnSelection):focus-within ListBoxItem:selected TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
   </Style>
 
   <Style Selector="ListBox:not(.NeutralSelection):not(.OwnSelection):focus-within ListBoxItem:selected icons|SymbolIcon">
     <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+  </Style>
+
+  <!--
+    A neutral chip on a selected row keeps its pill. Its raised fill is about
+    the selection's own gray, so on a selected row the chip was a word with no
+    shape around it. It becomes an outline instead: in the body colour on the
+    gray selection, and in the selection's ink on the accent one.
+  -->
+  <Style Selector="ListBoxItem:selected controls|StatusChip:tone-default, DataGrid.DatabaseGrid DataGridRow:selected controls|StatusChip:tone-default">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellMutedBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
+  </Style>
+
+  <Style Selector="ListBox:not(.NeutralSelection):not(.OwnSelection):focus-within ListBoxItem:selected controls|StatusChip:tone-default">
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+  </Style>
+
+  <Style Selector="DataGrid.DatabaseGrid:focus-within DataGridRow:selected controls|StatusChip:tone-default">
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellSelectedContentForegroundBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellSelectedContentForegroundBrush}" />
   </Style>
 
   <!-- Trees — the Git sidebar, previews — take the same hover and gray
@@ -670,6 +712,32 @@
     <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
   </Style>
 
+  <!-- The host's stepper: a narrow pair of small arrows, one over the other,
+       at the field's trailing edge. The stock pair stood side by side, each a
+       34-point button with a 16-point arrow, and took a fifth of a short
+       field.
+
+       The stock template writes the orientation and sizes on its parts, and
+       only a style with a condition outranks a value a template writes, so
+       these are keyed on the side the stepper sits on. -->
+  <Style Selector="ButtonSpinner:right /template/ StackPanel#PART_SpinnerPanel, ButtonSpinner:left /template/ StackPanel#PART_SpinnerPanel">
+    <Setter Property="Orientation" Value="Vertical" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="{controls:Inset Right=Xs}" />
+  </Style>
+
+  <Style Selector="ButtonSpinner:right /template/ RepeatButton, ButtonSpinner:left /template/ RepeatButton">
+    <Setter Property="Width" Value="13" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="Height" Value="10" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="ButtonSpinner:right /template/ RepeatButton PathIcon, ButtonSpinner:left /template/ RepeatButton PathIcon">
+    <Setter Property="Width" Value="7" />
+    <Setter Property="Height" Value="4" />
+  </Style>
+
   <Style Selector="TextBox:focus, ComboBox:focus, NumericUpDown:focus">
     <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
   </Style>
@@ -733,6 +801,18 @@
     </Setter>
   </Style>
 
+  <!-- A pop-up button wears the host's pair of chevrons, up over down: it
+       shows one value out of a list and can open either way around it. The
+       single down chevron is a pull-down's, a menu of actions, and those stay
+       buttons with their own glyph. The stock template writes its glyph on
+       the part, which only a style with a condition outranks, so the rule
+       names both states of the pop-up. -->
+  <Style Selector="ComboBox:not(:dropdownopen) /template/ PathIcon#DropDownGlyph, ComboBox:dropdownopen /template/ PathIcon#DropDownGlyph">
+    <Setter Property="Width" Value="9" />
+    <Setter Property="Height" Value="12" />
+    <Setter Property="Data" Value="M 1.3,4.3 L 6,0 L 10.7,4.3 L 9.7,5.3 L 6,2 L 2.3,5.3 Z M 1.3,7.7 L 2.3,6.7 L 6,10 L 9.7,6.7 L 10.7,7.7 L 6,12 Z" />
+  </Style>
+
   <Style Selector="ComboBox:dropdownopen /template/ Border#PopupBorder">
     <Setter Property="Background" Value="{DynamicResource ShellPopupSurfaceBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
@@ -783,18 +863,23 @@
     of terminal status lines: hierarchy comes from size, weight, and tone —
     never from shouting.
   -->
+  <!-- A section heading outranks the labels in its section: body size,
+       semibold, in the body colour. It was 11 points in the secondary colour,
+       smaller and quieter than the 13-point field labels under it, so the
+       hierarchy read upside down. -->
   <Style Selector="TextBlock.SectionHeading">
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
-    <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
+    <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight13}" />
   </Style>
 
+  <!-- Secondary text is never under 11 points, the host's small size. -->
   <Style Selector="TextBlock.Eyebrow">
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
     <Setter Property="FontWeight" Value="Medium" />
     <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
-    <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
+    <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
   </Style>
 
   <!-- Kept as a class so markup that asks for it still parses, but it no
@@ -863,7 +948,6 @@
        not spelling out letters. -->
   <Style Selector="TextBlock.Eyebrow.Caps">
     <Setter Property="LetterSpacing" Value="0.9" />
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
   </Style>
 
   <!-- The chrome band is the base surface and paints nothing of its own, now
@@ -1049,25 +1133,28 @@
        24 is a floor, not a height. A fixed height held at every text size, so
        at a large text-size setting the label outgrew the control and was cut
        through the middle; as a minimum it is the same 24 at the default size
-       and grows with its text. -->
+       and grows with its text.
+
+       The text is the host's small control size, 11 points: at 10 a dense
+       toolbar read a size below the secondary text beside it. -->
   <Style Selector="Button.Dense">
     <Setter Property="MinHeight" Value="24" />
     <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
   </Style>
 
   <Style Selector="ComboBox.Dense">
     <Setter Property="MinHeight" Value="24" />
     <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
   </Style>
 
   <Style Selector="TextBox.Dense">
     <Setter Property="MinHeight" Value="24" />
     <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
   </Style>
 
   <!-- Data grids present values, not prose; they read at the data size. The
@@ -1103,11 +1190,48 @@
     <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
   </Style>
 
+  <!-- A header is set at the data size, never under the 11-point floor for
+       secondary text, and starts its label where the cells under it start
+       theirs: a small inset in, the one every value cell carries. The stock
+       twelve put each label a few points right of its column. -->
   <Style Selector="DataGrid.DatabaseGrid DataGridColumnHeader">
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
     <Setter Property="Background" Value="{DynamicResource ShellSurfaceBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+    <Setter Property="SeparatorBrush" Value="{DynamicResource ShellBorderBrush}" />
+    <Setter Property="Padding" Value="{controls:Inset Left=Sm, Right=Xs}" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+  </Style>
+
+  <Style Selector="DataGrid.DatabaseGrid DataGridCell TextBlock#CellTextBlock">
+    <Setter Property="Margin" Value="{controls:Inset Horizontal=Sm}" />
+  </Style>
+
+  <!-- Every column is divided from the next in the header row, as a Mac
+       table's are, though the rows themselves carry no rules. The stock header
+       draws its divider only where the grid draws vertical lines. -->
+  <Style Selector="DataGrid.DatabaseGrid DataGridColumnHeader:not(:dragIndicator) /template/ Rectangle#VerticalSeparator">
+    <Setter Property="IsVisible" Value="True" />
+    <Setter Property="Width" Value="1" />
+    <Setter Property="Fill" Value="{DynamicResource ShellBorderBrush}" />
+    <Setter Property="Margin" Value="{controls:Inset Vertical=Sm, Scale=0.75}" />
+  </Style>
+
+  <!-- The sort indicator is the host's: a small chevron at the header's
+       trailing edge, up for ascending and down for descending. -->
+  <Style Selector="DataGrid.DatabaseGrid DataGridColumnHeader:sortascending /template/ Path#SortIcon">
+    <Setter Property="Data" Value="M 0,4.5 L 4,0.5 L 8,4.5 L 7,5.5 L 4,2.5 L 1,5.5 Z" />
+    <Setter Property="Width" Value="8" />
+    <Setter Property="Height" Value="6" />
+    <Setter Property="Fill" Value="{DynamicResource ShellMutedBrush}" />
+  </Style>
+
+  <Style Selector="DataGrid.DatabaseGrid DataGridColumnHeader:sortdescending /template/ Path#SortIcon">
+    <Setter Property="Data" Value="M 0,1.5 L 1,0.5 L 4,3.5 L 7,0.5 L 8,1.5 L 4,5.5 Z" />
+    <Setter Property="Width" Value="8" />
+    <Setter Property="Height" Value="6" />
+    <Setter Property="Fill" Value="{DynamicResource ShellMutedBrush}" />
   </Style>
 
   <!-- The row theme paints hover and selection on a rectangle inside the row,
@@ -1120,11 +1244,13 @@
   <!--
     A selected grid row is the platform's selection, not an accent wash: the
     strong selected-content colour with its own label colour while the grid
-    has keyboard focus, and the quiet unemphasized plate once focus is
-    elsewhere — so the row that keystrokes act on is the one that looks it.
+    has keyboard focus, and a gray plate once focus is elsewhere — so the row
+    that keystrokes act on is the one that looks it. The gray is a table's
+    own, a full step off the bands: the list's unemphasized plate was about
+    the band's colour, and the selection vanished when the grid lost focus.
   -->
   <Style Selector="DataGrid.DatabaseGrid DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
-    <Setter Property="Fill" Value="{DynamicResource ShellUnemphasizedSelectionBrush}" />
+    <Setter Property="Fill" Value="{DynamicResource ShellGridSelectionBrush}" />
     <Setter Property="Opacity" Value="1" />
   </Style>
 
@@ -1375,6 +1501,43 @@
   <Style Selector="Expander /template/ Border">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
+  </Style>
+
+  <!-- The disclosure is the host's: a chevron beside the label, pointing at
+       the label while the section is closed and down into it once it is open.
+       The stock header put a down chevron at the far edge of the row, where
+       it read as a pop-up button and said nothing about the state. -->
+  <Style Selector="Expander /template/ ToggleButton#ExpanderHeader">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border
+            Name="ToggleButtonBackground"
+            Background="{TemplateBinding Background}"
+            CornerRadius="{DynamicResource ShellControlCornerRadius}"
+            Padding="{TemplateBinding Padding}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+            <icons:SymbolIcon
+                Name="ExpandCollapseChevron"
+                VerticalAlignment="Center"
+                FontSize="{DynamicResource ShellIconSizeXs}"
+                Symbol="ChevronRight" />
+            <ContentPresenter
+                Name="PART_ContentPresenter"
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                Content="{TemplateBinding Content}"
+                ContentTemplate="{TemplateBinding ContentTemplate}" />
+          </Grid>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <Style Selector="Expander /template/ ToggleButton#ExpanderHeader:checked /template/ icons|SymbolIcon#ExpandCollapseChevron">
+    <Setter Property="Symbol" Value="ChevronDown" />
   </Style>
 
   <!-- A colour well, as the host draws one: the colour fills the whole control
@@ -1643,7 +1806,7 @@
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="MinHeight" Value="0" />
     <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
     <Setter Property="FontWeight" Value="Medium" />
     <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
     <Setter Property="Template">

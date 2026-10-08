@@ -235,6 +235,7 @@ internal sealed record EffectiveAppearanceResources(
     Color SelectedContent,
     Color SelectedContentForeground,
     Color UnemphasizedSelection,
+    Color GridSelection,
     Color Danger,
     Color DangerText,
     Color DangerForeground,
@@ -534,6 +535,23 @@ internal static class EffectiveAppearanceResourceMapper
             TextContrast,
             text);
 
+        // A table's selection once the table has lost focus. A table bands
+        // every other row with the faint sidebar wash, and the unemphasized
+        // plate was about 1.15:1 against a band, so the selected row went
+        // missing among the stripes as soon as focus moved. It is held a full
+        // step off the plates a table sits on and off the band on each.
+        var gridSelection = EnsureContrast(
+            unemphasizedSelection,
+            [
+                background,
+                surface,
+                sidebar,
+                Over(sidebarSelection, surface),
+                Over(sidebarSelection, sidebar),
+            ],
+            GridSelectionContrast,
+            text);
+
         // A strongly selected row. AppKit's selected-content colour when the
         // host has one; otherwise the accent, which is what that colour is.
         var selectedContent = hostSelection ?? accent;
@@ -644,6 +662,7 @@ internal static class EffectiveAppearanceResourceMapper
             selectedContent,
             selectedContentForeground,
             unemphasizedSelection,
+            gridSelection,
             danger,
             dangerText,
             dangerForeground,
@@ -787,6 +806,12 @@ internal static class EffectiveAppearanceResourceMapper
         InterfaceDensity.Comfortable => 1.22,
         _ => 1,
     };
+
+    /// <summary>
+    /// How far a table's unfocused selection stands off the rows around it:
+    /// not a contrast standard, a step large enough to find the row.
+    /// </summary>
+    internal const double GridSelectionContrast = 1.5;
 
     internal static double ContrastRatio(Color first, Color second)
     {

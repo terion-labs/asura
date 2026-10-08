@@ -272,7 +272,7 @@ public sealed class DesignSystemComponentsHeadlessTests
             var selection = rows[0].GetVisualDescendants()
                 .OfType<Avalonia.Controls.Shapes.Rectangle>()
                 .First(rectangle => rectangle.Name == "BackgroundRectangle");
-            Assert.Equal(Brush(window, "ShellUnemphasizedSelectionBrush"), Color(selection.Fill));
+            Assert.Equal(Brush(window, "ShellGridSelectionBrush"), Color(selection.Fill));
 
             Assert.True(grid.Focus(NavigationMethod.Tab));
             window.UpdateLayout();

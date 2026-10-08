@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Data;
 using Avalonia.Media;
 using FluentIcons.Common;
 
@@ -42,11 +43,27 @@ internal sealed class IdentityTile : TemplatedControl
             nameof(TileSize),
             IdentityTileSize.Medium);
 
+    /// <summary>
+    /// What the glyph is drawn in: the ink measured against the tile's own
+    /// fill, or the foreground a view set on the tile.
+    /// </summary>
+    public static readonly DirectProperty<IdentityTile, IBrush?> InkProperty =
+        AvaloniaProperty.RegisterDirect<IdentityTile, IBrush?>(
+            nameof(Ink),
+            tile => tile.Ink);
+
+    private IBrush? _ink;
+    private bool _hasOwnForeground;
+
     static IdentityTile() =>
         TileSizeProperty.Changed.AddClassHandler<IdentityTile>(
             (tile, _) => tile.UpdateStateClasses());
 
-    public IdentityTile() => UpdateStateClasses();
+    public IdentityTile()
+    {
+        UpdateStateClasses();
+        RefreshInk();
+    }
 
     /// <summary>
     /// The fill. A string hex binds here as it does to any brush property, so a
@@ -70,6 +87,41 @@ internal sealed class IdentityTile : TemplatedControl
         get => GetValue(TileSizeProperty);
         set => SetValue(TileSizeProperty, value);
     }
+
+    public IBrush? Ink
+    {
+        get => _ink;
+        private set => SetAndRaise(InkProperty, ref _ink, value);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == ForegroundProperty)
+        {
+            // A foreground the view wrote on the tile is the view's decision,
+            // usually a neutral tile with body-coloured ink. One that came
+            // from the theme or the page is only a fallback.
+            _hasOwnForeground = change.Priority <= BindingPriority.LocalValue
+                && change.NewValue is not null;
+            RefreshInk();
+        }
+        else if (change.Property == TintProperty)
+        {
+            RefreshInk();
+        }
+    }
+
+    /// <summary>
+    /// The tile is filled with a colour the theme knows nothing about — a
+    /// workspace's own — so only the tile can say whether ink or paper reads on
+    /// it. The accent pair it used to take was measured against the shell's
+    /// accent: a dark navy workspace got black ink at about 1.5:1.
+    /// </summary>
+    private void RefreshInk() =>
+        Ink = !_hasOwnForeground && Tint is ISolidColorBrush { Color.A: 0xFF } solid
+            ? new SolidColorBrush(WorkspaceRailTile.Ink(solid.Color))
+            : Foreground;
 
     private void UpdateStateClasses()
     {

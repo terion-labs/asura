@@ -27,8 +27,23 @@ public sealed class EnumDisplayConverterTests
     [InlineData(AiProviderKind.OpenAi, "OpenAI")]
     [InlineData(AiProviderKind.OpenAiCompatible, "OpenAI-compatible")]
     [InlineData(AiProviderKind.Anthropic, "Anthropic")]
+    [InlineData(AiProviderKind.GitHubCopilot, "GitHub Copilot")]
+    [InlineData(AiProviderKind.XAi, "xAI")]
+    [InlineData(AiProviderKind.DeepSeek, "DeepSeek")]
     public void Vendor_names_keep_their_own_spelling(AiProviderKind value, string expected) =>
         Assert.Equal(expected, Convert(value));
+
+    /// <summary>
+    /// Split on their capitals these read "Git hub", "Git lab" and "Open ai
+    /// responses".
+    /// </summary>
+    [Fact]
+    public void Hosting_and_protocol_names_keep_their_own_spelling()
+    {
+        Assert.Equal("GitHub", Convert(Asura.Git.GitHostingProvider.GitHub));
+        Assert.Equal("GitLab", Convert(Asura.Git.GitHostingProvider.GitLab));
+        Assert.Equal("OpenAI Responses API", Convert(AiProviderProtocol.OpenAiResponses));
+    }
 
     [Fact]
     public void Non_enum_values_pass_through_unchanged() =>

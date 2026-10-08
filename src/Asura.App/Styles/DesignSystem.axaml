@@ -276,7 +276,6 @@
                           Spacing="{DynamicResource ShellSpaceSm}">
                         <TextBlock
                             FontSize="{DynamicResource ShellFontSize11}"
-                            FontWeight="SemiBold"
                             Text="{TemplateBinding Title}"
                             MaxWidth="{Binding $self.FontSize, Converter={x:Static controls:TextScaledLength.PanelTitle}}"
                             TextTrimming="CharacterEllipsis" />
@@ -435,9 +434,9 @@
       <Setter Property="Width" Value="{DynamicResource ShellTileSizeMd}" />
       <Setter Property="Height" Value="{DynamicResource ShellTileSizeMd}" />
       <Setter Property="FontSize" Value="{DynamicResource ShellIconSizeMd}" />
-      <!-- The icon's colour is the one the palette guarantees against a filled
-           accent. A tile picking white itself is a contrast promise a view is
-           not in a position to make. -->
+      <!-- The fallback ink, for a tint that is not one solid colour. A solid
+           tint is measured by the tile itself: it is the workspace's own
+           colour, which the palette's accent pair knows nothing about. -->
       <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
       <Setter Property="Template">
         <ControlTemplate>
@@ -449,7 +448,7 @@
                 VerticalAlignment="Center"
                 Symbol="{TemplateBinding Symbol}"
                 FontSize="{TemplateBinding FontSize}"
-                Foreground="{TemplateBinding Foreground}" />
+                Foreground="{TemplateBinding Ink}" />
           </Border>
         </ControlTemplate>
       </Setter>
@@ -653,7 +652,7 @@
                 Width="{DynamicResource ShellTileSizeMd}"
                 Height="{DynamicResource ShellTileSizeMd}"
                 HorizontalAlignment="Left"
-                BorderBrush="{TemplateBinding AccentBrush}"
+                BorderBrush="{TemplateBinding MarkBrush}"
                 BorderThickness="{DynamicResource ShellWorkspaceRailRing}"
                 CornerRadius="{TemplateBinding CornerRadius}"
                 Opacity="0"
@@ -737,9 +736,11 @@
         <Setter Property="IsVisible" Value="True" />
       </Style>
 
-      <!-- Alive, but not the one you are looking at: outlined in its own colour
-           while its fill stays at rest. Two different marks, because they are
-           two different facts. -->
+      <!-- Alive, but not the one you are looking at: a thin edge in the tile's
+           own ink while its fill stays at rest. Two different marks, because
+           they are two different facts. The edge was the workspace's colour,
+           which on an orange workspace was the accent the focus ring and the
+           selection are drawn in, so running read as focused. -->
       <Style Selector="^:running /template/ Border#PART_Ring">
         <Setter Property="Opacity" Value="1" />
       </Style>
@@ -947,9 +948,12 @@
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="HorizontalAlignment" Value="Left" />
-      <Setter Property="Background" Value="{DynamicResource ShellSuccessSoftBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource ShellSuccessBorderBrush}" />
-      <Setter Property="Foreground" Value="{DynamicResource ShellSuccessBrush}" />
+      <!-- Neutral unless told otherwise. A chip that only named a kind — a
+           key's type, a ref — came out in the success green and read as a
+           verdict nobody had made. -->
+      <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="Template">
         <ControlTemplate>
@@ -1003,10 +1007,10 @@
         <Setter Property="Foreground" Value="{DynamicResource ShellInfoBrush}" />
       </Style>
 
-      <Style Selector="^:tone-default">
-        <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
-        <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+      <Style Selector="^:tone-success">
+        <Setter Property="Background" Value="{DynamicResource ShellSuccessSoftBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ShellSuccessBorderBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource ShellSuccessBrush}" />
       </Style>
       <Style Selector="^:tone-raised, ^:tone-sunken">
         <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
@@ -1107,10 +1111,10 @@
                  labels: weight is what headings use to rank, and a form whose
                  every label was semibold had nothing left to rank with. The
                  field links this label to its control, so it is the control's
-                 accessible name as well. -->
+                 accessible name as well. It starts where the field starts:
+                 the inset it had set every label off the edge it names. -->
             <TextBlock
                 Name="PART_Label"
-                Margin="{controls:Inset Horizontal=Xs}"
                 Text="{TemplateBinding Label}"
                 TextTrimming="CharacterEllipsis" />
             <ContentPresenter
@@ -1123,7 +1127,6 @@
                  hint rather than stacking a second sentence under it. -->
             <Grid
                 Name="PART_Error"
-                Margin="{controls:Inset Horizontal=Xs}"
                 ColumnDefinitions="Auto,*"
                 ColumnSpacing="{DynamicResource ShellSpaceXs}"
                 IsVisible="False">
@@ -1142,7 +1145,6 @@
             </Grid>
             <TextBlock
                 Name="PART_Hint"
-                Margin="{controls:Inset Horizontal=Xs}"
                 Foreground="{DynamicResource ShellMutedBrush}"
                 FontSize="{DynamicResource ShellSecondaryFontSize}"
                 LineHeight="{DynamicResource ShellLineHeight11}"
@@ -1451,35 +1453,41 @@
         </ControlTemplate>
       </Setter>
 
+      <!-- Working sets its words as every other state does — the heading in
+           Title 3, the sentence in secondary text — with the bar under them
+           a step further down, so a page moving from loading to empty or to
+           a failure keeps one typography. -->
       <Style Selector="^:working">
         <Setter Property="Template">
           <ControlTemplate>
             <StackPanel
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
-                Spacing="{DynamicResource ShellSpaceSm}"
+                Spacing="{DynamicResource ShellSpaceMd}"
                 AutomationProperties.LiveSetting="{TemplateBinding AnnouncementMode}"
                 AutomationProperties.Name="{TemplateBinding AccessibleStatus}">
-              <ProgressBar
-                  Width="180"
-                  HorizontalAlignment="Center"
-                  IsIndeterminate="True" />
               <TextBlock
                   HorizontalAlignment="Center"
-                  FontWeight="SemiBold"
+                  Classes="Title3"
                   Text="{TemplateBinding Heading}"
                   TextAlignment="Center"
                   TextWrapping="Wrap" />
               <TextBlock
-                  MaxWidth="420"
+                  MaxWidth="280"
                   HorizontalAlignment="Center"
-                  Classes="Muted"
+                  Foreground="{DynamicResource ShellMutedBrush}"
                   FontSize="{DynamicResource ShellFontSize11}"
                   LineHeight="{DynamicResource ShellLineHeight11}"
                   Text="{TemplateBinding Body}"
                   TextAlignment="Center"
                   TextWrapping="Wrap"
                   IsVisible="{TemplateBinding Body, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <ProgressBar
+                  Name="PART_Progress"
+                  Width="180"
+                  Margin="{controls:Inset Top=Sm}"
+                  HorizontalAlignment="Center"
+                  IsIndeterminate="True" />
             </StackPanel>
           </ControlTemplate>
         </Setter>
@@ -1497,16 +1505,17 @@
                 AutomationProperties.Name="{TemplateBinding AccessibleStatus}">
               <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                 <icons:SymbolIcon
+                    Name="PART_Glyph"
                     HorizontalAlignment="Left"
                     Symbol="{TemplateBinding EffectiveGlyph}"
                     FontSize="{DynamicResource ShellFontSize24}"
-                    Foreground="{DynamicResource ShellDangerBrush}" />
+                    Foreground="{DynamicResource ShellMutedBrush}" />
                 <TextBlock
-                    Classes="Headline"
+                    Classes="Title3"
                     Text="{TemplateBinding Heading}"
                     TextWrapping="Wrap" />
                 <TextBlock
-                    Classes="Muted"
+                    Foreground="{DynamicResource ShellMutedBrush}"
                     FontSize="{DynamicResource ShellFontSize11}"
                     LineHeight="{DynamicResource ShellLineHeight11}"
                     Text="{TemplateBinding Body}"
@@ -1527,6 +1536,20 @@
             </controls:SurfaceCard>
           </ControlTemplate>
         </Setter>
+      </Style>
+
+      <!-- The glyph speaks in the state's tone, as a callout's does: a failure
+           drawn in the danger red and a warning in its own colour. Every
+           attention card used to draw the danger red, so a stale result and a
+           permission prompt looked like crashes. -->
+      <Style Selector="^:tone-warning /template/ icons|SymbolIcon#PART_Glyph">
+        <Setter Property="Foreground" Value="{DynamicResource ShellWarningBrush}" />
+      </Style>
+      <Style Selector="^:tone-danger /template/ icons|SymbolIcon#PART_Glyph">
+        <Setter Property="Foreground" Value="{DynamicResource ShellDangerBrush}" />
+      </Style>
+      <Style Selector="^:tone-notice /template/ icons|SymbolIcon#PART_Glyph">
+        <Setter Property="Foreground" Value="{DynamicResource ShellInfoBrush}" />
       </Style>
     </ControlTheme>
 
@@ -1560,8 +1583,13 @@
                     Text="{TemplateBinding Title}"
                     TextWrapping="Wrap"
                     IsVisible="{TemplateBinding Title, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                <!-- Body text at the body size and its own leading: inherited,
+                     it took whatever size the page around it happened to
+                     have, set solid. -->
                 <TextBlock
                     Classes="Muted"
+                    FontSize="{DynamicResource ShellBaseFontSize}"
+                    LineHeight="{DynamicResource ShellLineHeight13}"
                     Text="{TemplateBinding Text}"
                     TextWrapping="Wrap"
                     IsVisible="{TemplateBinding Text, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />

@@ -75,8 +75,12 @@ internal sealed record StateOverlayPresentation(
         StateOverlayKind.Conflict =>
             new(Symbol.Warning, SurfaceTone.Warning, StateOverlayLayout.Attention,
                 AutomationLiveSetting.Assertive, "Conflict"),
+        // Something failed and can be tried again: a failure first, so it
+        // speaks in the warning tone behind the host's caution mark. It was
+        // the information tone with a refresh arrow, which read as an offer
+        // rather than as something having gone wrong.
         StateOverlayKind.Retry =>
-            new(Symbol.ArrowClockwise, SurfaceTone.Notice, StateOverlayLayout.Attention,
+            new(Symbol.Warning, SurfaceTone.Warning, StateOverlayLayout.Attention,
                 AutomationLiveSetting.Polite, "Retry available"),
         StateOverlayKind.TerminalError =>
             new(Symbol.ErrorCircle, SurfaceTone.Danger, StateOverlayLayout.Attention,

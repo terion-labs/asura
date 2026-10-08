@@ -127,6 +127,30 @@ public sealed class ThemeToneContrastTests
         Assert.True(Ratio(orange.Warning, orange.Background) >= 4.5);
     }
 
+    /// <summary>
+    /// A table that has lost focus keeps its selected row a full step off the
+    /// bands around it; the unemphasized plate was about 1.15:1 against them.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public void A_table_selection_stands_off_its_bands(
+        PlatformProfile profile,
+        EffectiveAppearanceMode appearance,
+        bool highContrast)
+    {
+        var resources = Map(profile, appearance, highContrast, "#FF8400");
+
+        foreach (var plate in new[] { resources.Background, resources.Surface, resources.SidebarSurface })
+        {
+            var band = Over(resources.SidebarSelectionSurface, plate);
+            Assert.True(
+                Ratio(resources.GridSelection, band) >= EffectiveAppearanceResourceMapper.GridSelectionContrast,
+                $"{profile} {appearance} HC={highContrast}: {resources.GridSelection} on the band {band} is {Ratio(resources.GridSelection, band):0.00}:1.");
+            Assert.True(Ratio(resources.GridSelection, plate) >= EffectiveAppearanceResourceMapper.GridSelectionContrast);
+            Assert.True(Ratio(resources.Text, resources.GridSelection) >= 4.5);
+        }
+    }
+
     [Theory]
     [InlineData("#FF8400", true)]
     [InlineData("#FF9500", true)]
@@ -151,6 +175,15 @@ public sealed class ThemeToneContrastTests
             MotionEnabled: true,
             AdvancedMaterialsEnabled: true,
             TextScale: 1));
+
+    private static Color Over(Color foreground, Color background)
+    {
+        var amount = foreground.A / 255d;
+        return Color.FromRgb(
+            (byte)Math.Round((foreground.R * amount) + (background.R * (1 - amount))),
+            (byte)Math.Round((foreground.G * amount) + (background.G * (1 - amount))),
+            (byte)Math.Round((foreground.B * amount) + (background.B * (1 - amount))));
+    }
 
     private static double Ratio(Color first, Color second) =>
         EffectiveAppearanceResourceMapper.ContrastRatio(first, second);

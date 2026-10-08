@@ -855,6 +855,7 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellSelectedContentBrush", Brush(resources.SelectedContent));
         Publish("ShellSelectedContentForegroundBrush", Brush(resources.SelectedContentForeground));
         Publish("ShellUnemphasizedSelectionBrush", Brush(resources.UnemphasizedSelection));
+        Publish("ShellGridSelectionBrush", Brush(resources.GridSelection));
         Publish("ShellDangerBrush", Brush(resources.Danger));
         Publish("ShellDangerTextBrush", Brush(resources.DangerText));
         Publish("ShellDangerForegroundBrush", Brush(resources.DangerForeground));

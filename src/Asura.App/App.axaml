@@ -33,6 +33,7 @@
           <SolidColorBrush x:Key="ShellSelectedContentBrush" Color="#FF8400" />
           <SolidColorBrush x:Key="ShellSelectedContentForegroundBrush" Color="#000000" />
           <SolidColorBrush x:Key="ShellUnemphasizedSelectionBrush" Color="#2E2E2E" />
+          <SolidColorBrush x:Key="ShellGridSelectionBrush" Color="#474747" />
           <SolidColorBrush x:Key="ShellDangerBrush" Color="#FF7B72" />
           <SolidColorBrush x:Key="ShellDangerForegroundBrush" Color="#111111" />
           <SolidColorBrush x:Key="ShellDangerTextBrush" Color="#FF8E86" />
@@ -100,6 +101,7 @@
           <SolidColorBrush x:Key="ShellSelectedContentBrush" Color="#FF8400" />
           <SolidColorBrush x:Key="ShellSelectedContentForegroundBrush" Color="#000000" />
           <SolidColorBrush x:Key="ShellUnemphasizedSelectionBrush" Color="#D7D8D5" />
+          <SolidColorBrush x:Key="ShellGridSelectionBrush" Color="#C4C5C2" />
           <SolidColorBrush x:Key="ShellDangerBrush" Color="#B42318" />
           <SolidColorBrush x:Key="ShellDangerForegroundBrush" Color="#FFFFFF" />
           <SolidColorBrush x:Key="ShellDangerTextBrush" Color="#B42318" />
