@@ -749,6 +749,9 @@ public sealed partial class MarkdownPreviewView : UserControl
             // Sized by the editor's own line height: a guessed height clips the
             // last line or leaves a screen of empty gutter under three lines.
             FitsContent = true,
+            // Code keeps its lines whole and scrolls sideways inside its
+            // block: a wrapped line would start again at the margin.
+            WordWrap = false,
         };
         var frame = new Border
         {

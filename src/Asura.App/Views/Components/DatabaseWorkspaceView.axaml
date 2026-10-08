@@ -34,6 +34,21 @@
         <Setter Property="Opacity" Value="0" />
         <Setter Property="MaxWidth" Value="0" />
       </Style>
+    </ContainerQuery>
+
+    <!-- Placed by style rather than in the markup, so the narrow layout
+         below can move them: a value set on the element would win over it. -->
+    <Style Selector="TextBox.filterValue">
+      <Setter Property="Grid.Column" Value="3" />
+    </Style>
+    <Style Selector="StackPanel.resultPager">
+      <Setter Property="Grid.Column" Value="1" />
+    </Style>
+
+    <!-- The rows above the grid answer to the width they actually have —
+         the data column, beside the objects list — rather than to the whole
+         workspace's. -->
+    <ContainerQuery Name="databaseData" Query="max-width:640">
       <!-- A condition takes two lines rather than squeezing its pickers until
            they read "Colum" and "Opera": what to compare on the first, the
            value and its actions on the second. -->
@@ -56,6 +71,27 @@
         <Setter Property="HorizontalAlignment" Value="Right" />
       </Style>
     </ContainerQuery>
+    <ContainerQuery Name="databaseData" Query="max-width:400">
+      <!-- The field keeps its accessible name; the caption is what goes. -->
+      <Style Selector="TextBlock.pagerCaption">
+        <Setter Property="IsVisible" Value="False" />
+      </Style>
+    </ContainerQuery>
+
+    <!-- Delete's label is red at the strip's own weight; filled with the
+         danger tone under the pointer, it turns to the fill's foreground. -->
+    <Style Selector="Button.DestructiveButton TextBlock.rowActionLabel">
+      <Setter Property="Foreground" Value="{DynamicResource ShellDangerBrush}" />
+    </Style>
+    <Style Selector="Button.DestructiveButton icons|SymbolIcon.rowActionGlyph">
+      <Setter Property="Foreground" Value="{DynamicResource ShellDangerBrush}" />
+    </Style>
+    <Style Selector="Button.DestructiveButton:pointerover TextBlock.rowActionLabel">
+      <Setter Property="Foreground" Value="{DynamicResource ShellDangerForegroundBrush}" />
+    </Style>
+    <Style Selector="Button.DestructiveButton:pointerover icons|SymbolIcon.rowActionGlyph">
+      <Setter Property="Foreground" Value="{DynamicResource ShellDangerForegroundBrush}" />
+    </Style>
 
     <!-- A draft value shows the focus ring while it is being written, as a
          text field does. -->
@@ -86,6 +122,15 @@
     </Style>
     <Style Selector="local|DatabaseWorkspaceView Button.ListRow.selected">
       <Setter Property="AutomationProperties.ItemStatus" Value="Selected" />
+    </Style>
+    <!-- While the list is locked (unsaved row changes) its rows dim like the
+         rest of a disabled source list; they do not turn into filled cards,
+         and the open object keeps its selection. -->
+    <Style Selector="local|DatabaseWorkspaceView Button.ListRow:disabled /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="local|DatabaseWorkspaceView Button.ListRow.selected:disabled /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
     </Style>
 
     <!-- The DataGrid.DatabaseGrid table chrome moved to AsuraTheme so
@@ -233,7 +278,11 @@
           Background="{DynamicResource ShellBorderBrush}"
           IsHitTestVisible="False" />
 
-      <Grid Grid.Column="2" RowDefinitions="Auto,Auto,Auto,Auto,*">
+      <Grid
+          Grid.Column="2"
+          RowDefinitions="Auto,Auto,Auto,Auto,*"
+          Container.Name="databaseData"
+          Container.Sizing="Width">
         <!-- Embedded in another panel — the file viewer's database preview —
              there is no panel header to carry the perspectives, so they get a
              row of their own here, with the way out to a full viewer tab. -->
@@ -445,10 +494,14 @@
                             RowDefinitions="Auto,Auto"
                             ColumnSpacing="{DynamicResource ShellSpaceXs}"
                             RowSpacing="{DynamicResource ShellSpaceXs}">
+                          <!-- The minimums are the pickers' longest choices,
+                               "Doesn't contain" among them; held by the
+                               columns, so a picker never spills over the
+                               checkbox beside it. -->
                           <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" MinWidth="104" />
+                            <ColumnDefinition Width="*" MinWidth="128" />
                             <ColumnDefinition Width="2*" />
                             <ColumnDefinition Width="Auto" />
                           </Grid.ColumnDefinitions>
@@ -463,7 +516,6 @@
                           <ComboBox
                               Grid.Column="1"
                               Classes="Dense"
-                              MinWidth="{controls:TextScaled 104}"
                               VerticalAlignment="Center"
                               HorizontalAlignment="Stretch"
                               ItemsSource="{Binding Columns}"
@@ -477,7 +529,6 @@
                           <ComboBox
                               Grid.Column="2"
                               Classes="Dense filterOperator"
-                              MinWidth="{controls:TextScaled 128}"
                               VerticalAlignment="Center"
                               HorizontalAlignment="Stretch"
                               ItemsSource="{Binding Operators}"
@@ -489,7 +540,6 @@
                             </ComboBox.ItemTemplate>
                           </ComboBox>
                           <TextBox
-                              Grid.Column="3"
                               Classes="Dense filterValue"
                               MinWidth="80"
                               VerticalAlignment="Center"
@@ -614,7 +664,6 @@
                        not about editing rows. The arrows sit together after
                        the position they move, as in a Mac pager. -->
                   <StackPanel
-                      Grid.Column="1"
                       Classes="resultPager"
                       Orientation="Horizontal"
                       Spacing="{DynamicResource ShellSpaceXs}">
@@ -622,7 +671,7 @@
                          as page 200 of 6. -->
                     <TextBlock
                         VerticalAlignment="Center"
-                        Classes="Muted"
+                        Classes="Muted pagerCaption"
                         FontSize="{DynamicResource ShellSecondaryFontSize}"
                         Text="Rows per page:" />
                     <TextBox

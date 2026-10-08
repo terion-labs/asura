@@ -1,5 +1,4 @@
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 using AvaloniaEdit;
 
@@ -7,23 +6,17 @@ namespace Asura.App.Views.Components;
 
 /// <summary>
 /// What every code view in the app shares beyond its grammar: links in the
-/// accent's text colour rather than the editor's stock blue, wrapped lines
-/// that hang under the first so a continuation never reads as a new line,
-/// and a line-number gutter that follows the text when wrapping re-flows it.
+/// accent's text colour rather than the editor's stock blue, and a
+/// line-number gutter that follows the text when wrapping re-flows it.
+///
+/// Wrapped code has no hanging indent to offer: the text formatter
+/// underneath does not indent continuation lines, so a wrapped line would
+/// start at the margin and read as a new one. Code therefore keeps its lines
+/// whole and scrolls sideways; only prose wraps.
 /// </summary>
 internal static class CodeEditorAppearance
 {
-    /// <summary>How far a wrapped line hangs, in characters of the editor's font.</summary>
-    private const double HangingIndentCharacters = 4;
-
-    /// <summary>Roughly the advance of a monospaced character, as a share of its size.</summary>
-    private const double MonospacedAdvance = 0.6;
-
-    /// <summary>The hanging indent for a font size, in device-independent pixels.</summary>
-    internal static double HangingIndent(double fontSize) =>
-        fontSize * MonospacedAdvance * HangingIndentCharacters;
-
-    /// <summary>Applies the shared look; call again when the theme or the font size changes.</summary>
+    /// <summary>Applies the shared look; call again when the theme changes.</summary>
     public static void Apply(TextEditor editor, Control host)
     {
         ArgumentNullException.ThrowIfNull(editor);
@@ -33,11 +26,6 @@ internal static class CodeEditorAppearance
         {
             editor.TextArea.TextView.LinkTextForegroundBrush = accent;
         }
-
-        // A continuation keeps the line's own indentation and then hangs a
-        // little further, the way a wrapped line reads in Xcode.
-        editor.Options.InheritWordWrapIndentation = true;
-        editor.Options.WordWrapIndentation = HangingIndent(editor.FontSize);
     }
 
     /// <summary>
@@ -48,15 +36,6 @@ internal static class CodeEditorAppearance
     public static void KeepGutterInStep(TextEditor editor)
     {
         ArgumentNullException.ThrowIfNull(editor);
-        // The hanging indent is measured in characters, so it follows the
-        // text size.
-        editor.PropertyChanged += (_, e) =>
-        {
-            if (e.Property == TemplatedControl.FontSizeProperty)
-            {
-                editor.Options.WordWrapIndentation = HangingIndent(editor.FontSize);
-            }
-        };
         editor.TextArea.TextView.VisualLinesChanged += (_, _) =>
         {
             foreach (var margin in editor.TextArea.LeftMargins)

@@ -51,6 +51,8 @@ public sealed partial class CodePreviewView : UserControl
             nameof(ShowLineNumbers),
             defaultValue: true);
 
+    private const double HorizontalScrollBarAllowance = 12;
+
     private RegistryOptions? _registryOptions;
     private TextMate.Installation? _textMate;
     private bool _highlightPending;
@@ -287,7 +289,9 @@ public sealed partial class CodePreviewView : UserControl
         // scrollbar track should not be drawn beside it either.
         Editor.VerticalScrollBarVisibility =
             Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
-        var target = Math.Ceiling(height) + 6;
+        // Unwrapped code may scroll sideways, and its scroll bar needs a
+        // line of its own below the last line of code rather than over it.
+        var target = Math.Ceiling(height) + 6 + (WordWrap ? 0 : HorizontalScrollBarAllowance);
         if (double.IsNaN(Editor.Height) || Math.Abs(Editor.Height - target) > 0.5)
         {
             Editor.Height = target;

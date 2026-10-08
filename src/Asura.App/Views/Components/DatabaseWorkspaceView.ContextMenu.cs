@@ -672,9 +672,10 @@ public sealed partial class DatabaseWorkspaceView
 
     private Size CellEditorContentSize(double viewportInset)
     {
-        // As wide as the window allows rather than the grid: a narrow grid
-        // beside the inspector left a popover too small for its own buttons.
+        // Inside the grid it edits. Its actions sit on one row that does not
+        // wrap, so even the narrowest grid keeps Cancel and Apply in line.
         var width = SmallestPositive(
+            ResultDataGrid.Bounds.Width,
             Bounds.Width,
             TopLevel.GetTopLevel(this)?.Bounds.Width ?? 0);
         var height = SmallestPositive(

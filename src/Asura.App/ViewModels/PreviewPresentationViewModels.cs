@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -168,10 +169,19 @@ public sealed class PreviewTableRowViewModel
 
 public sealed record PreviewTableCellViewModel(string Text, double Width);
 
-/// <summary>A file's bytes, arriving a handful of rows at a time.</summary>
-public sealed class PreviewHexViewModel
+/// <summary>
+/// A file's bytes, arriving a handful of rows at a time, sixteen to a row
+/// where there is room and eight where there is not, so a narrow preview
+/// still shows every byte of a row and its characters without scrolling.
+/// </summary>
+public sealed class PreviewHexViewModel : ObservableObject
 {
+    public const int WideRow = 16;
+    public const int NarrowRow = 8;
+
     private readonly IReadOnlyList<HexPreviewRow> _rows;
+    private ObservableCollection<HexPreviewRow> _shown = [];
+    private int _bytesPerRow = WideRow;
 
     public PreviewHexViewModel(HexPreviewRendering rendering)
     {
@@ -182,10 +192,70 @@ public sealed class PreviewHexViewModel
 
     public string Summary { get; }
 
-    public ObservableCollection<HexPreviewRow> Rows { get; } = [];
+    public ObservableCollection<HexPreviewRow> Rows
+    {
+        get => _shown;
+        private set => SetProperty(ref _shown, value);
+    }
+
+    /// <summary>
+    /// Sixteen or eight. Changing it re-lays the rows already shown at once;
+    /// the dump is bounded, so this costs one pass over it.
+    /// </summary>
+    public int BytesPerRow
+    {
+        get => _bytesPerRow;
+        set
+        {
+            var bytes = value <= NarrowRow ? NarrowRow : WideRow;
+            if (bytes == _bytesPerRow)
+            {
+                return;
+            }
+
+            _bytesPerRow = bytes;
+            OnPropertyChanged();
+            // Rows not yet attached are laid out by the fill that attaches
+            // them; rows already on screen are laid out again, all of them.
+            if (Rows.Count > 0)
+            {
+                Rows = new ObservableCollection<HexPreviewRow>(_rows.SelectMany(row => Lay(row, bytes)));
+            }
+        }
+    }
 
     public Task FillAsync(CancellationToken cancellationToken) =>
-        IncrementalFill.FillAsync(Rows, _rows, cancellationToken);
+        _bytesPerRow == WideRow
+            ? IncrementalFill.FillAsync(Rows, _rows, cancellationToken)
+            : IncrementalFill.FillAsync(Rows, [.. _rows.SelectMany(row => Lay(row, NarrowRow))], cancellationToken);
+
+    /// <summary>A sixteen-byte row as itself, or as the two eight-byte rows it holds.</summary>
+    internal static IEnumerable<HexPreviewRow> Lay(HexPreviewRow row, int bytesPerRow)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        if (bytesPerRow >= WideRow)
+        {
+            yield return row;
+            yield break;
+        }
+
+        // "XX XX XX XX XX XX XX XX  XX …": eight bytes are 23 characters,
+        // then the two-space gutter between the halves.
+        const int HalfWidth = (NarrowRow * 3) - 1;
+        yield return new HexPreviewRow(
+            row.Offset,
+            row.Bytes.Length > HalfWidth ? row.Bytes[..HalfWidth] : row.Bytes,
+            row.Characters.Length > NarrowRow ? row.Characters[..NarrowRow] : row.Characters);
+        if (row.Bytes.Length > HalfWidth + 2 && row.Characters.Length > NarrowRow)
+        {
+            var offset = long.Parse(row.Offset, NumberStyles.HexNumber, CultureInfo.InvariantCulture) + NarrowRow;
+            yield return new HexPreviewRow(
+                offset.ToString("X8", CultureInfo.InvariantCulture),
+                row.Bytes[(HalfWidth + 2)..],
+                row.Characters[NarrowRow..]);
+        }
+    }
+
 }
 
 /// <summary>An archive's contents, as the folders its entry paths describe.</summary>

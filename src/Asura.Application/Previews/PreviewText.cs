@@ -186,6 +186,18 @@ public static class PreviewText
             truncated ? $"First {size} of the file" : size);
     }
 
+    /// <summary>
+    /// Whether a file reads as prose, which wraps to the preview's width, or
+    /// as code, whose lines are kept whole and scroll sideways. A wrapped
+    /// line of code starts again at the margin, where it reads as a new line.
+    /// </summary>
+    public static bool WrapsAsProse(string fileName)
+    {
+        ArgumentNullException.ThrowIfNull(fileName);
+        return Extension(fileName) is "" or "txt" or "text" or "md" or "markdown" or "mdown"
+            or "mkd" or "log" or "rtf";
+    }
+
     /// <summary>The file's extension in lower case, without the dot.</summary>
     public static string Extension(string fileName)
     {

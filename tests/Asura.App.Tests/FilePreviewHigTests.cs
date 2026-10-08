@@ -139,13 +139,39 @@ public sealed class FilePreviewHigTests
         Assert.Equal(opens, SelectableMarkdownDocument.OpensOnClick(target));
 
     [Fact]
-    public void Wrapped_code_hangs_under_its_first_line() =>
-        Assert.True(CodeEditorAppearance.HangingIndent(11) > 11);
-
-    [Fact]
     public void A_one_page_archive_has_no_page_number()
     {
         // The summary alone, rather than "Page 1:" in front of it.
         Assert.DoesNotContain("Page 1", new PreviewTreeViewModel([], "3 items").Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_narrow_hex_view_lays_each_row_out_as_two_halves()
+    {
+        var row = new HexPreviewRow(
+            "00000010",
+            "00 01 02 03 04 05 06 07  08 09 0A 0B 0C 0D 0E 0F",
+            "0123456789abcdef");
+
+        var halves = PreviewHexViewModel.Lay(row, PreviewHexViewModel.NarrowRow).ToArray();
+
+        Assert.Equal(2, halves.Length);
+        Assert.Equal(new HexPreviewRow("00000010", "00 01 02 03 04 05 06 07", "01234567"), halves[0]);
+        Assert.Equal(new HexPreviewRow("00000018", "08 09 0A 0B 0C 0D 0E 0F", "89abcdef"), halves[1]);
+        Assert.Single(PreviewHexViewModel.Lay(new HexPreviewRow("00000020", "AA BB", "ab"), PreviewHexViewModel.NarrowRow));
+    }
+
+    [Fact]
+    public async Task Switching_the_row_width_keeps_every_byte_on_screen()
+    {
+        var hex = new PreviewHexViewModel(PreviewText.HexRows(new byte[40], providerTruncated: false));
+        await hex.FillAsync(CancellationToken.None);
+        Assert.Equal(3, hex.Rows.Count);
+
+        hex.BytesPerRow = PreviewHexViewModel.NarrowRow;
+        Assert.Equal(5, hex.Rows.Count);
+
+        hex.BytesPerRow = PreviewHexViewModel.WideRow;
+        Assert.Equal(3, hex.Rows.Count);
     }
 }

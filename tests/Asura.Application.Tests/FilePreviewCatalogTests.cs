@@ -143,6 +143,26 @@ public sealed class FilePreviewCatalogTests
         Assert.True(Assert.IsType<SourcePreviewRendering>(outcome.Rendering).Wrap);
     }
 
+    /// <summary>
+    /// A wrapped line of code would start again at the margin and read as a
+    /// new line, so code keeps its lines whole and scrolls sideways.
+    /// </summary>
+    [Theory]
+    [InlineData("Program.cs")]
+    [InlineData("settings.json")]
+    [InlineData("page.html")]
+    [InlineData("table.csv")]
+    public void Code_and_data_keep_their_lines_whole(string fileName)
+    {
+        var source = Source(fileName, "a,b");
+        var raw = new Dictionary<string, bool>(StringComparer.Ordinal)
+        {
+            [DelimitedTextPreviewer.TableToggle] = false,
+        };
+
+        Assert.False(Assert.IsType<SourcePreviewRendering>(Catalog.Create(source, raw).Rendering).Wrap);
+    }
+
     [Fact]
     public void Markdown_can_be_shown_as_its_source()
     {
