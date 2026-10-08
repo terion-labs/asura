@@ -557,6 +557,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 OnPropertyChanged(nameof(HasAgentSavedScreenTemplates));
                 OnPropertyChanged(nameof(CanCreateAgentSavedScreenTarget));
                 OnPropertyChanged(nameof(CanAuthorizeAgentSavedScreenTarget));
+                OnPropertyChanged(nameof(IsAgentAwaitingDecision));
+                OnPropertyChanged(nameof(AgentToggleStatus));
             }
         }
     }
@@ -1584,6 +1586,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                         _agentModelFavoriteStore),
                     () => NotifyAgentRunFinished(id),
                     NotifyAgentRunningStateChanged,
+                    () => OnAgentDecisionChanged(id),
                     activity => ApplyWorkspaceAgentActivity(id, activity));
                 _workspaceAgentChats.Add(id, owned);
             }
@@ -1705,8 +1708,32 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         MarkVisibleNotificationsSeen();
     }
 
-    private void NotifyAgentRunningStateChanged() =>
+    private void NotifyAgentRunningStateChanged()
+    {
         OnPropertyChanged(nameof(HasRunningAgent));
+        OnPropertyChanged(nameof(AgentToggleStatus));
+    }
+
+    /// <summary>
+    /// A decision appeared or was answered in a workspace's agent. In the
+    /// workspace in front, a waiting decision brings the agent panel out, so
+    /// the run is never blocked on a card nobody can see. Whether the card
+    /// takes keyboard focus is the panel's call (AgentWorkspaceView.DecisionFocus).
+    /// </summary>
+    private void OnAgentDecisionChanged(WorkspaceInstanceId workspaceId)
+    {
+        if (RuntimeWorkspace?.Id != workspaceId)
+        {
+            return;
+        }
+
+        OnPropertyChanged(nameof(IsAgentAwaitingDecision));
+        OnPropertyChanged(nameof(AgentToggleStatus));
+        if (IsAgentAwaitingDecision)
+        {
+            IsAgentPanelVisible = true;
+        }
+    }
 
     private void ApplyWorkspaceAgentActivity(
         WorkspaceInstanceId workspaceId,
@@ -8021,6 +8048,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         _workspaceAgentChats.Values.Any(owned => owned.ViewModel.IsBusy);
 
     /// <summary>
+    /// The agent in front waits on an approval, a question, or a permission.
+    /// The agent toggle wears a badge for it, not only the activity pulse.
+    /// </summary>
+    public bool IsAgentAwaitingDecision => AgentChat is { } chat
+        && (chat.HasPendingApproval || chat.HasPendingQuestion || chat.HasPendingCapabilityRequest);
+
+    /// <summary>The agent toggle's state, as assistive technology reads it.</summary>
+    public string AgentToggleStatus => IsAgentAwaitingDecision
+        ? "Waiting for approval"
+        : HasRunningAgent ? "Running" : string.Empty;
+
+    /// <summary>
     /// The running instance of a saved workspace, if it is running. The rail
     /// lists definitions and the host speaks in instances, so closing from the
     /// rail has to cross that boundary somewhere; here is the only place that
@@ -13054,6 +13093,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         private readonly IGovernedAgentRuntime _runtime;
         private readonly Action _runFinished;
         private readonly Action _runningStateChanged;
+        private readonly Action _decisionChanged;
         private readonly Action<AgentToolActivityViewModel?> _activityChanged;
 
         public WorkspaceAgentChat(
@@ -13061,12 +13101,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             AgentChatViewModel viewModel,
             Action runFinished,
             Action runningStateChanged,
+            Action decisionChanged,
             Action<AgentToolActivityViewModel?> activityChanged)
         {
             _runtime = runtime;
             ViewModel = viewModel;
             _runFinished = runFinished;
             _runningStateChanged = runningStateChanged;
+            _decisionChanged = decisionChanged;
             _activityChanged = activityChanged;
             ViewModel.RunFinished += OnRunFinished;
             ViewModel.PropertyChanged += OnViewModelPropertyChanged;
@@ -13107,6 +13149,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (string.Equals(eventArgs.PropertyName, nameof(AgentChatViewModel.IsBusy), StringComparison.Ordinal))
             {
                 _runningStateChanged();
+            }
+
+            if (eventArgs.PropertyName is nameof(AgentChatViewModel.HasPendingApproval)
+                or nameof(AgentChatViewModel.HasPendingQuestion)
+                or nameof(AgentChatViewModel.HasPendingCapabilityRequest))
+            {
+                _decisionChanged();
             }
         }
     }

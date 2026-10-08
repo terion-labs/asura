@@ -199,7 +199,11 @@
               Classes="IconButton"
               Click="OnToggleAgentClick"
               ToolTip.Tip="{Binding ToggleAgentPanel, Source={x:Static vm:ShortcutTips.Current}}"
-              AutomationProperties.Name="Show or hide the agent panel">
+              AutomationProperties.Name="Show or hide the agent panel"
+              AutomationProperties.ItemStatus="{Binding AgentToggleStatus}">
+            <!-- The pulse says the agent is working; the dot says it is
+                 waiting on you, which the pulse alone never did. Both are
+                 also the button's ItemStatus for VoiceOver. -->
             <Grid>
               <icons:SymbolIcon
                   FontSize="{DynamicResource ShellIconSizeMd}"
@@ -213,6 +217,11 @@
                   Foreground="{DynamicResource ShellAccentBrush}"
                   Opacity="0"
                   Symbol="Bot" />
+              <controls:SignalDot
+                  x:Name="AgentToggleDecisionBadge"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Top"
+                  IsVisible="{Binding IsAgentAwaitingDecision}" />
             </Grid>
           </Button>
           <!--
@@ -662,6 +671,28 @@
             AutomationProperties.Name="{Binding WorkspaceTransferStatus, StringFormat={}Workspace transfer status · {0}}" />
       </Grid>
     </DockPanel>
+
+    <!--
+      The agent's one live region: discrete events (a run started, a decision
+      is waiting, a run ended), never the response stream. It sits here rather
+      than in the agent panel so a hidden panel is still heard, and it is the
+      crash-safe LiveRegionTextBlock, which never announces empty text and is
+      never recycled with a transcript row. Off-screen in every way but to
+      assistive technology.
+    -->
+    <controls:LiveRegionTextBlock
+        x:Name="AgentAnnouncementRegion"
+        Grid.Row="1"
+        Width="1"
+        Height="1"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Top"
+        ClipToBounds="True"
+        IsHitTestVisible="False"
+        Opacity="0"
+        Text="{Binding AgentChat.Announcement, FallbackValue=''}"
+        AutomationProperties.LiveSetting="Polite"
+        AutomationProperties.Name="AI agent announcements" />
 
     <!-- The agent panel, floating by default and docked by its pin. It is an
          in-window overlay in both states — when docked, the spacer above

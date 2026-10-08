@@ -218,33 +218,15 @@
     </Style>
   </UserControl.Styles>
   <!--
-    Keep the agent surface free of AutomationProperties.LiveSetting, with one
-    exception below. Avalonia 12.0.5's macOS bridge can raise a native
+    Keep the agent surface free of AutomationProperties.LiveSetting. Its one
+    status region lives in WorkspaceView, outside the panel, so events are
+    heard while the panel is hidden. Avalonia 12.0.5's macOS bridge can raise a native
     live-region notification with a nil announcement while streaming controls
     are updated or detached, which terminates the process. Stable names, help
     text, and keyboard focus remain available to assistive technology without
     that unsafe native callback.
   -->
   <Panel ClipToBounds="False">
-  <!--
-    The one live region: discrete agent events (a decision is waiting, a run
-    ended), never the response stream. It is the crash-safe LiveRegionTextBlock,
-    which never announces empty text, and it sits directly in the root panel so
-    it lives exactly as long as the agent surface and is never recycled with a
-    transcript row. Off-screen in every way but to assistive technology.
-  -->
-  <controls:LiveRegionTextBlock
-      x:Name="AgentAnnouncementRegion"
-      Width="1"
-      Height="1"
-      HorizontalAlignment="Left"
-      VerticalAlignment="Top"
-      ClipToBounds="True"
-      IsHitTestVisible="False"
-      Opacity="0"
-      Text="{Binding AgentChat.Announcement, FallbackValue=''}"
-      AutomationProperties.LiveSetting="Polite"
-      AutomationProperties.Name="AI agent announcements" />
   <!-- The floating panel's backdrop: whatever the window has already painted
        beneath it, blurred live on every frame by the compositor itself.
        Nothing is captured ahead of time, so scrolling or streaming content
@@ -316,37 +298,33 @@
                     <ItemsControl ItemsSource="{Binding AgentChat.FilteredConversations}">
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:AgentConversationItemViewModel">
-                          <Grid ColumnDefinitions="*,Auto">
-                            <Button
-                                Grid.Column="0"
-                                MinHeight="48"
-                                Padding="{controls:Inset Horizontal=Sm, Vertical=Xs}"
-                                HorizontalContentAlignment="Stretch"
-                                Classes="FlyoutMenuItem"
-                                Classes.current="{Binding IsCurrent}"
-                                Click="OnOpenConversationClick"
-                                Tag="{Binding RunId}"
-                                IsEnabled="{Binding IsAvailable}"
-                                AutomationProperties.Name="{Binding Title, StringFormat={}Open conversation {0}}">
-                              <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                                <TextBlock FontWeight="SemiBold" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Details}" TextTrimming="CharacterEllipsis" />
-                              </StackPanel>
-                            </Button>
-                            <Button
-                                Grid.Column="1"
-                                MinWidth="{controls:TextScaled 34}"
-                                MinHeight="{controls:TextScaled 34}"
-                                Margin="{controls:Inset Right=Xs}"
-                                VerticalAlignment="Center"
-                                Classes="IconButton Danger"
-                                Click="OnDeleteConversationClick"
-                                Tag="{Binding RunId}"
-                                ToolTip.Tip="Delete conversation"
-                                AutomationProperties.Name="{Binding Title, StringFormat={}Delete conversation {0}}">
-                              <icons:SymbolIcon Symbol="Delete" FontSize="{DynamicResource ShellIconSizeSm}" />
-                            </Button>
-                          </Grid>
+                          <!-- A saved conversation is deleted the macOS list way: from
+                               its context menu, or with Delete on the focused row. A red
+                               trash on every row made the destructive action the loudest
+                               thing in the list. -->
+                          <Button
+                              MinHeight="48"
+                              Padding="{controls:Inset Horizontal=Sm, Vertical=Xs}"
+                              HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Stretch"
+                              Classes="FlyoutMenuItem"
+                              Classes.current="{Binding IsCurrent}"
+                              Click="OnOpenConversationClick"
+                              KeyDown="OnConversationRowKeyDown"
+                              Tag="{Binding RunId}"
+                              IsEnabled="{Binding IsAvailable}"
+                              AutomationProperties.Name="{Binding Title, StringFormat={}Open conversation {0}}"
+                              AutomationProperties.HelpText="Press Delete to delete this conversation.">
+                            <Button.ContextMenu>
+                              <ContextMenu>
+                                <MenuItem Header="Delete Conversation…" Click="OnDeleteConversationClick" Tag="{Binding RunId}" />
+                              </ContextMenu>
+                            </Button.ContextMenu>
+                            <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+                              <TextBlock FontWeight="SemiBold" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Details}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                          </Button>
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>
                     </ItemsControl>

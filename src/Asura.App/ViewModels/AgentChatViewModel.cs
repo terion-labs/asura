@@ -3312,18 +3312,35 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 _ => "Run stopped",
             };
         }
-        else if ((State != previousState && IsActiveRunState(State) && !IsActiveRunState(previousState))
-            || (previousApprovalId is not null && PendingApproval is null)
+        else if (State != previousState
+            && IsActiveRunState(State)
+            && !IsActiveRunState(previousState)
+            && _hasAnnouncedState)
+        {
+            // A run that starts out of sight, from a queued follow-up or with
+            // the panel hidden, is heard; so is the next outcome, because the
+            // region's text changes in between.
+            AnnounceDecision(RunStartedAnnouncement);
+        }
+        else if ((previousApprovalId is not null && PendingApproval is null)
             || (previousQuestionId is not null && PendingQuestion is null)
             || (previousCapabilityRequestId is not null && PendingCapabilityRequest is null))
         {
-            // A new run starts with a clear region. An answered decision is
-            // no longer news either: clearing it means the next request, even
-            // a word-for-word repeat such as a second command in the same
-            // terminal, is a change the live region announces.
+            // An answered decision is no longer news: clearing it means the
+            // next request, even a word-for-word repeat such as a second
+            // command in the same terminal, is a change the live region
+            // announces.
             Announcement = string.Empty;
         }
+
+        // A run already under way when the panel first binds did not just
+        // start; only later starts are news.
+        _hasAnnouncedState = true;
     }
+
+    internal const string RunStartedAnnouncement = "Agent run started";
+
+    private bool _hasAnnouncedState;
 
     // A live region speaks only when its text changes, so a request that
     // repeats the previous one word for word is first cleared.

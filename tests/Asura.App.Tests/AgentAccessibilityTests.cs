@@ -387,7 +387,7 @@ public sealed partial class AgentChatViewModelTests
             target: Target(),
             provisional: "Looking at the logs");
         runtime.RaiseChanged();
-        Assert.Equal(string.Empty, viewModel.Announcement);
+        Assert.Equal(AgentChatViewModel.RunStartedAnnouncement, viewModel.Announcement);
 
         var approval = new GovernedAgentApproval(
             new AgentApprovalId("approval-announce"),
@@ -423,10 +423,10 @@ public sealed partial class AgentChatViewModelTests
         runtime.RaiseChanged();
         Assert.Equal("Response complete", viewModel.Announcement);
 
-        // A new run clears the region, so the same outcome is heard again.
+        // A new run is announced, so the same outcome is a change again.
         runtime.Snapshot = runtime.Snapshot with { State = GovernedAgentState.StreamingProvider };
         runtime.RaiseChanged();
-        Assert.Equal(string.Empty, viewModel.Announcement);
+        Assert.Equal(AgentChatViewModel.RunStartedAnnouncement, viewModel.Announcement);
 
         runtime.Snapshot = runtime.Snapshot with
         {

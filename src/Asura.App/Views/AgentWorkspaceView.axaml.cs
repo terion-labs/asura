@@ -577,6 +577,18 @@ public sealed partial class AgentWorkspaceView : UserControl
     private void OnDeleteConversationClick(object? sender, RoutedEventArgs e) =>
         DeleteAgentConversationRequested?.Invoke(sender, e);
 
+    /// <summary>Delete or Backspace on a focused conversation row asks to delete it.</summary>
+    private void OnConversationRowKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key is Key.Delete or Key.Back
+            && (e.KeyModifiers == KeyModifiers.None || e.KeyModifiers == KeyModifiers.Meta)
+            && sender is Button { IsEnabled: true })
+        {
+            e.Handled = true;
+            DeleteAgentConversationRequested?.Invoke(sender, e);
+        }
+    }
+
     private void OnCopyAgentMessageClick(object? sender, RoutedEventArgs e) =>
         CopyAgentMessageRequested?.Invoke(sender, e);
 

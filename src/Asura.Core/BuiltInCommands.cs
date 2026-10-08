@@ -15,6 +15,8 @@ public static class BuiltInCommands
     public static CommandId MoveTabLeft { get; } = new("tab.move-left");
     public static CommandId MoveTabRight { get; } = new("tab.move-right");
     public static CommandId MoveTabToWorkspace { get; } = new("tab.move-to-workspace");
+    public static CommandId MoveTabToNewWindow { get; } = new("tab.move-to-new-window");
+    public static CommandId CloseOtherTabs { get; } = new("tab.close-others");
     public static CommandId MovePanelToWorkspace { get; } = new("panel.move-to-workspace");
     public static CommandId NextTab { get; } = new("tab.next");
     public static CommandId PreviousTab { get; } = new("tab.previous");
@@ -109,6 +111,8 @@ public static class BuiltInCommands
         About,
         CheckForUpdates,
         ChangeTabIcon,
+        MoveTabToNewWindow,
+        CloseOtherTabs,
         ZoomWindow,
         BringAllToFront,
         ToggleQuickTerminal,
@@ -178,6 +182,12 @@ public static class BuiltInCommands
             Define(RenameTab, "Rename Tab…", "Tabs", CommandContext.Tab),
             Define(ChangeTabIcon, "Change Tab Icon…", "Tabs", CommandContext.Tab),
             Define(CloseTab, "Close Tab", "Tabs", CommandContext.Tab),
+            Define(
+                CloseOtherTabs,
+                "Close Other Tabs",
+                "Tabs",
+                CommandContext.Tab,
+                state: CommandStates.HasOtherTabs),
             Define(MoveTabLeft, "Move Tab Left", "Tabs", CommandContext.Tab),
             Define(MoveTabRight, "Move Tab Right", "Tabs", CommandContext.Tab),
             Define(
@@ -194,6 +204,12 @@ public static class BuiltInCommands
                 CommandContext.Panel,
                 positionSchema,
                 arguments => PositionTitle("Move Panel to Workspace", arguments)),
+            Define(
+                MoveTabToNewWindow,
+                "Move Tab to New Window",
+                "Tabs",
+                CommandContext.Tab,
+                state: CommandStates.HasOtherTabs),
             Define(NextTab, "Show Next Tab", "Tabs", CommandContext.Tab),
             Define(PreviousTab, "Show Previous Tab", "Tabs", CommandContext.Tab),
             Define(LastTab, "Show Last Active Tab", "Tabs", CommandContext.Tab),

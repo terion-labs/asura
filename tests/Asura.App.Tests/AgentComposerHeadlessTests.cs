@@ -77,15 +77,13 @@ public sealed partial class AgentChatViewModelTests
                 window.UpdateLayout();
 
                 // The streaming transcript never becomes a live region; the
-                // one status region stays silent until the run ends.
-                var announcements = Assert.IsType<LiveRegionTextBlock>(
-                    view.FindControl<LiveRegionTextBlock>("AgentAnnouncementRegion"));
+                // workspace's status region, outside this view, stays silent
+                // until the run ends.
                 Assert.DoesNotContain(
                     view.GetVisualDescendants().OfType<Control>(),
-                    control => !ReferenceEquals(control, announcements)
-                        && AutomationProperties.GetLiveSetting(control)
-                            != AutomationLiveSetting.Off);
-                Assert.True(string.IsNullOrEmpty(announcements.Text));
+                    control => AutomationProperties.GetLiveSetting(control)
+                        != AutomationLiveSetting.Off);
+                Assert.True(string.IsNullOrEmpty(viewModel.Announcement));
 
                 runtime.Snapshot = runtime.Snapshot with
                 {
@@ -111,7 +109,7 @@ public sealed partial class AgentChatViewModelTests
                     "the committed assistant response");
 
                 Assert.False(viewModel.HasCurrentProgress);
-                Assert.Equal("Response complete", announcements.Text);
+                Assert.Equal("Response complete", viewModel.Announcement);
                 Assert.Equal(201, viewModel.Messages.Count);
                 Assert.Contains(
                     view.GetVisualDescendants().OfType<SelectableMarkdownDocument>(),

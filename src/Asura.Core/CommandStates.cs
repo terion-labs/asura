@@ -22,6 +22,9 @@ public static class CommandStates
 
     public const string CanReopenClosedTab = "tab.can-reopen-closed";
 
+    /// <summary>The active workspace has a tab besides the active one.</summary>
+    public const string HasOtherTabs = "tab.has-others";
+
     public const string IsSidebarVisible = "view.sidebar-visible";
     public const string IsAgentPanelVisible = "view.agent-panel-visible";
     public const string IsQuickTerminalVisible = "view.quick-terminal-visible";

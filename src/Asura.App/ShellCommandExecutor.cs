@@ -36,6 +36,12 @@ internal interface IShellCommandPresentation
 
     Task CloseActiveTabAsync();
 
+    /// <summary>Closes every tab of the active workspace except the active one.</summary>
+    Task CloseOtherTabsAsync();
+
+    /// <summary>Moves the active tab into a new window of its own.</summary>
+    Task MoveActiveTabToNewWindowAsync();
+
     void CloseWindow();
 
     Task SelectWorkspaceAsync(int position);
@@ -159,6 +165,12 @@ internal sealed class ShellCommandExecutor(
             case ApplicationCommandActionKind.CloseTab:
                 await presentation.CloseActiveTabAsync();
                 presentation.FocusActivePanel();
+                return;
+            case ApplicationCommandActionKind.CloseOtherTabs:
+                await presentation.CloseOtherTabsAsync();
+                return;
+            case ApplicationCommandActionKind.MoveTabToNewWindow:
+                await presentation.MoveActiveTabToNewWindowAsync();
                 return;
             case ApplicationCommandActionKind.CloseWindow:
                 presentation.CloseWindow();

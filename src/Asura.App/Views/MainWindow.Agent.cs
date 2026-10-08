@@ -310,7 +310,8 @@ public sealed partial class MainWindow
 
     private async void OnDeleteAgentConversationClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: AgentRunId runId }
+        // From the row's context menu or Delete on the focused row.
+        if (sender is Control { Tag: AgentRunId runId }
             && ViewModel.AgentChat is { } agent
             && agent.Conversations.FirstOrDefault(item => item.RunId == runId) is { } item
             && await Confirmations.AgentConversationDelete(item.Title).ShowDialog<bool>(this))

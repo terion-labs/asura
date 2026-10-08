@@ -610,35 +610,33 @@ public sealed class AgentWorkspaceViewContractTests
                     "Components"),
                 "Agent*View.axaml",
                 SearchOption.TopDirectoryOnly));
-        var liveRegions = agentViews
-            .Select(XDocument.Load)
-            .SelectMany(document => document.Descendants())
-            .Where(element =>
-                AttributeValue(element, "AutomationProperties.LiveSetting") is not null);
 
         // Avalonia 12.0.5's macOS bridge terminates the process on a nil live
-        // announcement from streaming or detached controls. The one exception
-        // is the LiveRegionTextBlock, which never announces empty text, placed
-        // directly in the surface's root panel so it is never recycled with a
-        // transcript row, and fed discrete events rather than the stream.
-        var region = Assert.Single(liveRegions);
+        // announcement from streaming or detached controls, so the agent
+        // surface itself has no live region.
+        Assert.DoesNotContain(
+            agentViews.Select(XDocument.Load).SelectMany(document => document.Descendants()),
+            element => AttributeValue(element, "AutomationProperties.LiveSetting") is not null);
+
+        // Its one status region is the LiveRegionTextBlock, which never
+        // announces empty text, fed discrete events rather than the stream.
+        // It sits in the workspace's root grid, outside the agent overlay, so
+        // a hidden agent panel is still heard.
+        var workspace = XDocument.Load(Path.Combine(root, "src", "Asura.App", "Views", "WorkspaceView.axaml"));
+        var region = Assert.Single(
+            workspace.Descendants(),
+            element => string.Equals(AttributeValue(element, "Name"), "AgentAnnouncementRegion", StringComparison.Ordinal));
         Assert.Equal(
             XName.Get("LiveRegionTextBlock", "using:Asura.App.Controls"),
             region.Name);
-        Assert.Equal("AgentAnnouncementRegion", AttributeValue(region, "Name"));
         Assert.Equal(
             "{Binding AgentChat.Announcement, FallbackValue=''}",
             AttributeValue(region, "Text"));
-        var view = Assert.IsType<XElement>(LoadView().Root);
-        var rootPanel = Assert.Single(
-            view.Elements(),
-            element => string.Equals(element.Name.LocalName, "Panel", StringComparison.Ordinal));
-        Assert.Same(
-            rootPanel,
-            Assert.Single(
-                view.Descendants(),
-                element => string.Equals(AttributeValue(element, "Name"), "AgentAnnouncementRegion", StringComparison.Ordinal))
-                .Parent);
+        Assert.Equal("Polite", AttributeValue(region, "AutomationProperties.LiveSetting"));
+        var rootGrid = Assert.IsType<XElement>(workspace.Root)
+            .Elements()
+            .Single(element => string.Equals(element.Name.LocalName, "Grid", StringComparison.Ordinal));
+        Assert.Same(rootGrid, region.Parent);
     }
 
     [Fact]

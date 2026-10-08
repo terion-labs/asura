@@ -38,8 +38,27 @@ public sealed partial class MainWindow
     private async void OnCloseOtherRuntimeTabsClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
-        if (sender is not Control { DataContext: RuntimeTabViewModel keep }
-            || ViewModel.RuntimeWorkspace is not { } workspace
+        if (sender is Control { DataContext: RuntimeTabViewModel keep })
+        {
+            await CloseOtherRuntimeTabsAsync(keep);
+        }
+    }
+
+    /// <summary>File ▸ Close Other Tabs: keeps the active tab.</summary>
+    Task IShellCommandPresentation.CloseOtherTabsAsync() =>
+        ViewModel.RuntimeWorkspace?.ActiveTab is { } active
+            ? CloseOtherRuntimeTabsAsync(active)
+            : Task.CompletedTask;
+
+    /// <summary>Window ▸ Move Tab to New Window, for the active tab.</summary>
+    Task IShellCommandPresentation.MoveActiveTabToNewWindowAsync() =>
+        ViewModel.RuntimeWorkspace is { ActiveTab: { } active, Tabs.Count: > 1 }
+            ? MoveRuntimeTabToNewWindowAsync(active)
+            : Task.CompletedTask;
+
+    private async Task CloseOtherRuntimeTabsAsync(RuntimeTabViewModel keep)
+    {
+        if (ViewModel.RuntimeWorkspace is not { } workspace
             || !workspace.Tabs.Contains(keep))
         {
             return;

@@ -246,6 +246,40 @@ public sealed class ApplicationMenuLayoutTests
     }
 
     [Fact]
+    public void Every_tab_context_menu_item_has_a_menu_bar_equivalent()
+    {
+        var inMenus = ApplicationMenuLayout.AllCommands().Select(item => item.Command).ToHashSet();
+        CommandId[] tabMenu =
+        [
+            BuiltInCommands.RenameTab,
+            BuiltInCommands.ChangeTabIcon,
+            BuiltInCommands.MoveTabToWorkspace,
+            BuiltInCommands.MoveTabToNewWindow,
+            BuiltInCommands.CloseTab,
+            BuiltInCommands.CloseOtherTabs,
+        ];
+
+        Assert.All(tabMenu, command => Assert.Contains(command, inMenus));
+        var file = ApplicationMenuLayout.MenuBar.Single(menu => menu.Title == "File");
+        var close = file.Items.Select(Title).ToList();
+        Assert.Equal(close.IndexOf("Close Tab") + 1, close.IndexOf("Close Other Tabs"));
+    }
+
+    [Fact]
+    public void Tab_commands_that_need_another_tab_wait_for_one()
+    {
+        foreach (var command in new[] { BuiltInCommands.CloseOtherTabs, BuiltInCommands.MoveTabToNewWindow })
+        {
+            Assert.False(ApplicationCommandRouter.Route(
+                command,
+                new CommandInvocation(CommandContext.All, [])).IsSuccess);
+            Assert.True(ApplicationCommandRouter.Route(
+                command,
+                new CommandInvocation(CommandContext.All, [], [new(CommandStates.HasOtherTabs, true)])).IsSuccess);
+        }
+    }
+
+    [Fact]
     public void State_gated_commands_are_unavailable_without_their_fact()
     {
         var result = ApplicationCommandRouter.Route(
