@@ -29,6 +29,38 @@ public sealed class CommandRegistryTests
     }
 
     [Fact]
+    public void Built_in_titles_read_as_the_menu_bar_reads()
+    {
+        // The palette and the Keyboard Shortcuts list show these titles, so
+        // they say Show/Hide rather than Toggle and end with "…" where the
+        // command opens a window or editor, as the menu bar does.
+        Assert.DoesNotContain(
+            BuiltInCommands.Registry.Commands,
+            command => command.Title.StartsWith("Toggle", StringComparison.Ordinal));
+        CommandId[] opening =
+        [
+            BuiltInCommands.ShowSettings,
+            BuiltInCommands.CheckForUpdates,
+            BuiltInCommands.NewTab,
+            BuiltInCommands.EditFind,
+            BuiltInCommands.ShowCommandPalette,
+            BuiltInCommands.AddPanel,
+            BuiltInCommands.ShowLayoutDesigner,
+            BuiltInCommands.RenameTab,
+            BuiltInCommands.ChangeTabIcon,
+            BuiltInCommands.ReportIssue,
+        ];
+        foreach (var id in opening)
+        {
+            Assert.True(BuiltInCommands.Registry.TryGet(id, out var command));
+            Assert.EndsWith("…", command!.Title, StringComparison.Ordinal);
+        }
+
+        Assert.True(BuiltInCommands.Registry.TryGet(BuiltInCommands.About, out var about));
+        Assert.Equal("About Asura", about!.Title);
+    }
+
+    [Fact]
     public void Availability_checks_context_parameters_and_runtime_predicate()
     {
         var schema = new CommandParameterSchema(

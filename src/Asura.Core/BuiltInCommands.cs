@@ -145,7 +145,7 @@ public static class BuiltInCommands
         return new CommandRegistry(
         [
             // A new tab opens a workspace first when the window has none.
-            Define(NewTab, "New Tab", "Tabs", CommandContext.Window | CommandContext.Workspace),
+            Define(NewTab, "New Tab…", "Tabs", CommandContext.Window | CommandContext.Workspace),
             Define(
                 SplitPanel,
                 "Split Panel",
