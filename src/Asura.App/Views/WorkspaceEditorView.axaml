@@ -8,6 +8,7 @@
     xmlns:icons="using:FluentIcons.Avalonia"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:application="using:Asura.Application"
+    xmlns:views="using:Asura.App.Views"
     x:DataType="vm:WorkspaceEditorViewModel">
   <!--
     A rail and a detail column, because editing a workspace is mostly comparing
@@ -508,7 +509,7 @@
             <controls:Callout
                 Tone="Notice"
                 Glyph="Warning"
-                Text="{Binding MissingReferenceCount, StringFormat={}{0} tab(s) point at something that no longer exists. Select each one and choose a replacement.}"
+                Text="{Binding MissingReferenceCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=tab, StringFormat='Choose a replacement for what’s missing in {0}. Select each tab marked with a warning to fix it.'}"
                 IsVisible="{Binding HasMissingReferences}" />
 
             <TextBlock
@@ -671,7 +672,7 @@
                                     Text="{Binding StartupCommands, Mode=TwoWay}"
                                     TextWrapping="NoWrap"
                                     PlaceholderText="One command per line"
-                                    AutomationProperties.Name="{Binding KindLabel, StringFormat=Startup commands for {0} workspace tab panel}" />
+                                    AutomationProperties.Name="{Binding KindLabel, StringFormat=Startup commands for the {0} panel}" />
                               </controls:LabeledField>
                               <controls:LabeledField
                                   Grid.Column="1"
@@ -682,7 +683,7 @@
                                     MinWidth="260"
                                     ItemsSource="{Binding DeliveryFailurePolicyOptions}"
                                     SelectedItem="{Binding SelectedDeliveryFailurePolicy, Mode=TwoWay}"
-                                    AutomationProperties.Name="{Binding KindLabel, StringFormat=Startup command delivery failure policy for {0} workspace tab panel}"
+                                    AutomationProperties.Name="{Binding KindLabel, StringFormat=On delivery failure for the {0} panel}"
                                     AutomationProperties.HelpText="What happens when a startup command can’t be delivered to the running terminal, or its delivery isn’t confirmed. A command’s own exit status doesn’t count.">
                                   <ComboBox.ItemTemplate>
                                     <DataTemplate>

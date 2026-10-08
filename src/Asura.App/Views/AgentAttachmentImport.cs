@@ -28,8 +28,14 @@ internal static class AgentAttachmentImport
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
         }
-        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
+            agent.AttachmentError =
+                "Couldn’t read one of the files. Check that it still exists and that you can open it, then attach it again.";
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+        {
+            // These are the import's own messages, written for the composer.
             agent.AttachmentError = exception.Message;
         }
     }
@@ -184,7 +190,7 @@ internal static class AgentAttachmentImport
             if (buffer.Length + read > AgentFileAttachment.MaximumBytes)
             {
                 throw new InvalidOperationException(
-                    "An attachment cannot exceed 50 MiB.");
+                    "An attachment can’t be larger than 50 MiB.");
             }
 
             buffer.Write(chunk, 0, read);

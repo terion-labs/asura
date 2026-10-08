@@ -1252,7 +1252,7 @@ public sealed partial class MainWindow
             ArgumentException or FormatException or InvalidOperationException)
         {
             SettingsRoute.SetAppearanceValidationStatus(
-                $"Can’t preview: {exception.Message}",
+                AppearancePreviewFailure(exception),
                 isWarning: true);
         }
     }
@@ -1290,10 +1290,20 @@ public sealed partial class MainWindow
             ArgumentException or FormatException or InvalidOperationException)
         {
             SettingsRoute.SetAppearanceValidationStatus(
-                $"Can’t preview: {exception.Message}",
+                AppearancePreviewFailure(exception),
                 isWarning: true);
         }
     }
+
+    /// <summary>
+    /// A color that isn't six hex digits is the failure people hit most, so
+    /// it gets its own fix; any other rejected value gets a next step rather
+    /// than the parser's or the profile's own wording.
+    /// </summary>
+    private static string AppearancePreviewFailure(Exception exception) =>
+        exception is FormatException
+            ? "Can’t preview: enter each color as six hex digits, like #FF8800."
+            : "Can’t preview these settings. Check the values and try again.";
 
     private ThemePreference ThemeFrom(AppearanceSelection selection)
     {

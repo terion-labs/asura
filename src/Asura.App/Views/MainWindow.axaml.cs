@@ -1266,9 +1266,19 @@ public sealed partial class MainWindow : Window
                 exportCancellation.Token);
             if (!result.IsSuccess)
             {
-                finalStatus = result.Error!.Code == RecentSessionHistoryExportErrorCode.Cancelled
-                    ? "Session history export canceled."
-                    : $"{result.Error.Message} Choose a different destination and try again.";
+                finalStatus = result.Error!.Code switch
+                {
+                    RecentSessionHistoryExportErrorCode.Cancelled =>
+                        "Session history export canceled.",
+                    RecentSessionHistoryExportErrorCode.TooManyRecords =>
+                        "There’s more session history than one export can hold.",
+                    RecentSessionHistoryExportErrorCode.InvalidHistory =>
+                        "Session history couldn’t be exported because a record is damaged.",
+                    RecentSessionHistoryExportErrorCode.CleanupFailure =>
+                        "Session history wasn’t exported, and a temporary file was left in the folder you chose. Delete it and try again.",
+                    _ =>
+                        "Session history couldn’t be exported. Choose a different destination and try again.",
+                };
                 return;
             }
 

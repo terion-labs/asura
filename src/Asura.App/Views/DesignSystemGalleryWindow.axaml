@@ -74,7 +74,7 @@
           <controls:SurfaceCard Tone="Danger">
             <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
               <TextBlock Classes="Headline" Text="Danger" />
-              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="This cannot be undone." TextWrapping="Wrap" />
+              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="You can’t undo this action." TextWrapping="Wrap" />
             </StackPanel>
           </controls:SurfaceCard>
         </UniformGrid>
@@ -209,7 +209,7 @@
           <controls:SurfaceCard Tone="Sunken" MinHeight="230" Padding="0">
             <controls:StateOverlay
                 Kind="Partial"
-                Heading="Some results could not be loaded"
+                Heading="Some results couldn’t be loaded"
                 Body="The successful results remain available."
                 ActionLabel="Retry Missing" />
           </controls:SurfaceCard>

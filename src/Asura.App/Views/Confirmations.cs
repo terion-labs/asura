@@ -476,7 +476,7 @@ internal static class Confirmations
     public static ConfirmationDialog OperationError(string message) =>
         new(new ConfirmationDialogOptions
         {
-            Heading = "Unable to Close",
+            Heading = "Asura couldn’t finish closing.",
             Detail = message,
             ConfirmLabel = "OK",
             ShowsCancel = false,

@@ -98,9 +98,9 @@
           Tone="Warning"
           Glyph="Warning"
           IsVisible="{Binding HasMissingDefinitions}"
-          Text="{Binding MissingDefinitionCount, StringFormat={}{0} panel definition(s) must be repaired before saving.}"
+          Text="{Binding MissingDefinitionCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=panel, StringFormat='Before saving, choose a replacement for what’s missing in {0}.'}"
           AutomationProperties.LiveSetting="Assertive"
-          AutomationProperties.Name="{Binding MissingDefinitionCount, StringFormat={}{0} saved screen panel definition(s) require repair}" />
+          AutomationProperties.Name="{Binding MissingDefinitionCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=panel, StringFormat='Choose a replacement for what’s missing in {0}'}" />
 
       <controls:Callout
           Tone="Warning"
@@ -326,7 +326,7 @@
                         MinWidth="260"
                         ItemsSource="{Binding DeliveryFailurePolicyOptions}"
                         SelectedItem="{Binding SelectedDeliveryFailurePolicy, Mode=TwoWay}"
-                        AutomationProperties.Name="{Binding PanelLabel, StringFormat=Startup command delivery failure policy for {0}}"
+                        AutomationProperties.Name="{Binding PanelLabel, StringFormat=On delivery failure for {0}}"
                         AutomationProperties.HelpText="What happens when a startup command can’t be delivered to the running terminal, or its delivery isn’t confirmed. A command’s own exit status doesn’t count.">
                       <ComboBox.ItemTemplate>
                         <DataTemplate>

@@ -285,7 +285,7 @@
               </Grid>
               <controls:LabeledField Label="Service URI" controls:FieldValidation.For="ServiceUri"><TextBox Text="{Binding ServiceUri}" PlaceholderText="Optional HTTPS endpoint for compatible services" /></controls:LabeledField>
               <controls:LabeledField Label="Initial prefix"><TextBox Text="{Binding RootPrefix}" PlaceholderText="Optional/path/prefix" /></controls:LabeledField>
-              <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceLg}"><CheckBox IsChecked="{Binding ForcePathStyle}" Content="Force path-style requests" /><CheckBox IsChecked="{Binding AllowInsecureTransport}" Content="Acknowledge HTTP transport" /></StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceLg}"><CheckBox IsChecked="{Binding ForcePathStyle}" Content="Force path-style requests" /><CheckBox IsChecked="{Binding AllowInsecureTransport}" Content="Allow unencrypted HTTP" /></StackPanel>
             </StackPanel>
           </controls:SurfaceCard>
 
@@ -362,7 +362,7 @@
               <TextBlock Classes="SectionHeading" Text="WebDAV" />
               <controls:LabeledField Label="Base URI" controls:FieldValidation.For="BaseUri"><TextBox Text="{Binding BaseUri}" /></controls:LabeledField>
               <controls:LabeledField Label="Username"><TextBox Text="{Binding Username}" PlaceholderText="Blank when authentication is not required" /></controls:LabeledField>
-              <CheckBox IsChecked="{Binding AllowInsecureTransport}" Content="Acknowledge HTTP transport" />
+              <CheckBox IsChecked="{Binding AllowInsecureTransport}" Content="Allow unencrypted HTTP" />
             </StackPanel>
           </controls:SurfaceCard>
 
