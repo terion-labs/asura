@@ -427,6 +427,7 @@
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
         <components:ErrorNoticesView DataContext="{CompiledBinding BrowserStartupRecovery.ErrorNotices}" />
         <Button Grid.Column="1"
+            Classes="SecondaryButton"
             IsVisible="{CompiledBinding BrowserStartupRecovery.CanRetry}"
             Content="{CompiledBinding BrowserStartupRecovery.RetryLabel}"
             Command="{CompiledBinding BrowserStartupRecovery.RetryCommand}" />

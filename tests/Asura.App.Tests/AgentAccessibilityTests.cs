@@ -485,7 +485,7 @@ public sealed partial class AgentChatViewModelTests
         // anyone could reopen.
         Assert.True(viewModel.HasFailedTurn);
         Assert.Null(viewModel.ConversationDeletedByClear);
-        Assert.Equal("Clear Failed Run", viewModel.ClearFailedRunLabel);
+        Assert.False(viewModel.ClearDeletesConversation);
 
         runtime.Snapshot = runtime.Snapshot with
         {
@@ -503,7 +503,7 @@ public sealed partial class AgentChatViewModelTests
         runtime.RaiseChanged();
 
         Assert.Equal("Plan the release", viewModel.ConversationDeletedByClear?.Title);
-        Assert.Equal("Delete Conversation…", viewModel.ClearFailedRunLabel);
+        Assert.True(viewModel.ClearDeletesConversation);
         Assert.Contains("Plan the release", viewModel.ClearFailedRunAccessibleName, StringComparison.Ordinal);
     }
 

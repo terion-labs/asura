@@ -907,19 +907,31 @@
           Heading="{Binding AgentChat.FailureHeading}"
           Body="{Binding AgentChat.Status}">
         <!-- Neither action is the obvious next step, so neither is primary.
-             Clearing names what it removes; the host confirms first when
-             that includes a saved conversation. -->
+             Clearing a run that left nothing saved is routine; clearing one
+             whose conversation was saved deletes it, so that is a separate,
+             destructive button, and the host confirms first. Both sit beside
+             AI Settings… at the same size. -->
         <StackPanel HorizontalAlignment="Center" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
           <Button
               x:Name="AgentClearFailedRunButton"
               Classes="SecondaryButton"
               Click="OnClearAgentChatClick"
-              Content="{Binding AgentChat.ClearFailedRunLabel, FallbackValue='Clear Failed Run'}"
+              Content="Clear Failed Run"
+              IsVisible="{Binding !AgentChat.ClearDeletesConversation, FallbackValue=True}"
               IsEnabled="{Binding AgentChat.CanClear}"
-              AutomationProperties.Name="{Binding AgentChat.ClearFailedRunAccessibleName, FallbackValue='Clear the failed AI agent run'}"
-              AutomationProperties.HelpText="Discards this run so you can send the message again. A saved conversation is deleted only after you confirm." />
+              AutomationProperties.Name="Clear the failed AI agent run"
+              AutomationProperties.HelpText="Discards this run so you can send the message again." />
           <Button
-              Classes="TextButton"
+              x:Name="AgentDeleteFailedConversationButton"
+              Classes="DestructiveButton"
+              Click="OnClearAgentChatClick"
+              Content="Delete Conversation…"
+              IsVisible="{Binding AgentChat.ClearDeletesConversation, FallbackValue=False}"
+              IsEnabled="{Binding AgentChat.CanClear}"
+              AutomationProperties.Name="{Binding AgentChat.ClearFailedRunAccessibleName}"
+              AutomationProperties.HelpText="Deletes the saved conversation with its failed run, after you confirm." />
+          <Button
+              Classes="SecondaryButton"
               Click="OnShowAgentSettingsClick"
               Content="AI Settings…"
               AutomationProperties.Name="AI Settings…" />
@@ -1201,6 +1213,7 @@
                           Classes="Muted"
                           Text="{Binding AgentChat.ContextWindowUsageLabel}" TextWrapping="Wrap" />
                       <Button
+                          Classes="SecondaryButton"
                           Content="{Binding AgentChat.CompactLabel}"
                           Command="{Binding AgentChat.CompactCommand}"
                           HorizontalAlignment="Stretch"

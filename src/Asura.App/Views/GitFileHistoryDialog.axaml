@@ -47,7 +47,7 @@
                 <DataTemplate x:DataType="git:GitBlameLine">
                   <Grid ColumnDefinitions="45,90,140,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
                     <TextBlock Text="{Binding LineNumber}" />
-                    <Button Grid.Column="1" Content="{Binding CommitSha}" ToolTip.Tip="{Binding Summary}" Click="OnBlameCommit" AutomationProperties.Name="Open responsible commit" />
+                    <Button Grid.Column="1" Classes="TextButton" Content="{Binding CommitSha}" ToolTip.Tip="{Binding Summary}" Click="OnBlameCommit" AutomationProperties.Name="Open responsible commit" />
                     <TextBlock Grid.Column="2" Text="{Binding Author}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AuthoredAt, Converter={x:Static vm:GitDateText.Converter}}" />
                     <TextBlock Grid.Column="3" Text="{Binding Text}" FontFamily="{DynamicResource ShellMonospaceFont}" TextWrapping="NoWrap" />
                   </Grid>

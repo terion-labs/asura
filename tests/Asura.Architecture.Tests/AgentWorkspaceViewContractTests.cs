@@ -156,10 +156,10 @@ public sealed class AgentWorkspaceViewContractTests
             Assert.Equal("AI Settings…", AttributeValue(button, "Content"));
             Assert.Equal("AI Settings…", AttributeValue(button, "AutomationProperties.Name"));
         });
-        // The empty states lead with it; after a failed turn the retry leads
-        // and settings is the quieter way out.
+        // The empty states lead with it; after a failed turn it sits beside
+        // the recovery buttons at their size, as a secondary button.
         Assert.Equal(
-            ["PrimaryButton", "PrimaryButton", "TextButton"],
+            ["PrimaryButton", "PrimaryButton", "SecondaryButton"],
             aiSettingsButtons.Select(button => AttributeValue(button, "Classes")),
             StringComparer.Ordinal);
         Assert.Contains(
@@ -668,12 +668,16 @@ public sealed class AgentWorkspaceViewContractTests
         var root = Assert.IsType<XElement>(LoadView().Root);
         var failedState = FindNamedElement(root, "AgentFailedTurnState");
         var clear = FindNamedElement(failedState, "AgentClearFailedRunButton");
+        var delete = FindNamedElement(failedState, "AgentDeleteFailedConversationButton");
 
-        Assert.Equal(
-            "{Binding AgentChat.ClearFailedRunLabel, FallbackValue='Clear Failed Run'}",
-            AttributeValue(clear, "Content"));
+        // Clearing a run is routine; deleting the saved conversation with it
+        // is a separate, destructive button rather than a relabeled one.
+        Assert.Equal("Clear Failed Run", AttributeValue(clear, "Content"));
         Assert.Equal("SecondaryButton", AttributeValue(clear, "Classes"));
         Assert.Equal("OnClearAgentChatClick", AttributeValue(clear, "Click"));
+        Assert.Equal("Delete Conversation…", AttributeValue(delete, "Content"));
+        Assert.Equal("DestructiveButton", AttributeValue(delete, "Classes"));
+        Assert.Equal("OnClearAgentChatClick", AttributeValue(delete, "Click"));
         Assert.DoesNotContain(
             failedState.Descendants(),
             element => HasClass(element, "PrimaryButton"));

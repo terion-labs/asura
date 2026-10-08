@@ -1977,9 +1977,12 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     /// the failed run, or the whole saved conversation it belongs to. The
     /// ellipsis marks the confirmation that a deletion asks for first.
     /// </summary>
-    public string ClearFailedRunLabel => ConversationDeletedByClear is null
-        ? "Clear Failed Run"
-        : "Delete Conversation…";
+    /// <summary>
+    /// Whether clearing the failed run also deletes a saved conversation. The
+    /// failed-run state then offers a destructive Delete Conversation… in
+    /// place of the routine Clear Failed Run.
+    /// </summary>
+    public bool ClearDeletesConversation => ConversationDeletedByClear is not null;
 
     public string ClearFailedRunAccessibleName => ConversationDeletedByClear is { } saved
         ? $"Delete the conversation “{saved.Title}” with its failed run"
@@ -3124,7 +3127,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         RefreshFilteredConversations();
         OnPropertyChanged(nameof(HasConversationHistory));
         OnPropertyChanged(nameof(ConversationDeletedByClear));
-        OnPropertyChanged(nameof(ClearFailedRunLabel));
+        OnPropertyChanged(nameof(ClearDeletesConversation));
         OnPropertyChanged(nameof(ClearFailedRunAccessibleName));
         Replace(
             ContextItems,

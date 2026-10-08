@@ -65,6 +65,8 @@ public sealed partial class DialogContractTests
             "resets the previewed palette draft; Apply Terminal commits it",
         [("WorkspaceEditorView.axaml", "Reset")] =
             "returns the open editor to the saved workspace, enabled only while it holds edits",
+        [("AgentWorkspaceView.axaml", "Clear Failed Run")] =
+            "drops a run that failed before anything was saved; a saved conversation goes through Delete Conversation…",
         [("DesignSystemGalleryWindow.axaml", "Clear")] =
             "a specimen of the text button style in the developer gallery; it acts on nothing",
     };
@@ -73,10 +75,25 @@ public sealed partial class DialogContractTests
     /// Views another fix package owns, whose destructive buttons are being
     /// restyled there. Emptied at integration, once those branches merge.
     /// </summary>
-    private static readonly HashSet<string> PendingCrossPackageFiles = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> PendingCrossPackageFiles = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The button styles that say what a button does. A button that wears none
+    /// looks like whichever default the theme falls back to.
+    /// </summary>
+    private static readonly string[] ButtonRoles =
+        ["PrimaryButton", "SecondaryButton", "DestructiveButton", "TextButton", "IconButton", "FlyoutMenuItem"];
+
+    /// <summary>
+    /// Buttons with a bound label whose role is set in code, keyed by the
+    /// markup file and the button's name, with the reason.
+    /// </summary>
+    private static readonly Dictionary<(string File, string Name), string> RolesSetInCode = new()
     {
-        // "Clear agent session", fixed by g-agent-connections.
-        "AgentWorkspaceView.axaml",
+        [("ConfirmationDialog.axaml", "ConfirmButton")] =
+            "the confirmation's intent chooses PrimaryButton or DestructiveButton",
+        [("SshHostKeyReviewDialog.axaml", "ConfirmButton")] =
+            "replacing a trusted key is destructive and trusting a new one is primary",
     };
 
     private static readonly string[] MinorWords =
@@ -218,6 +235,31 @@ public sealed partial class DialogContractTests
         Assert.Empty(UnstyledDestructiveButtons(file, root));
     }
 
+    /// <summary>
+    /// A bound label can say anything, a destructive verb included, so the
+    /// verb check above cannot read it. Such a button states its role instead.
+    /// A templated row (a whole item as content) styles itself.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(MarkupFiles))]
+    public void Buttons_with_bound_labels_state_their_role(string file)
+    {
+        var root = Assert.IsType<XElement>(XDocument.Load(MarkupPath(file)).Root);
+        var offenders = root.Descendants()
+            .Where(element => element.Name.LocalName == "Button")
+            .Where(button => Attribute(button, "Content") is { } label
+                && label.StartsWith('{')
+                && !string.Equals(label, "{Binding}", StringComparison.Ordinal)
+                && Attribute(button, "ContentTemplate") is null)
+            .Where(button => !ButtonRoles.Any(role => HasClass(button, role)
+                || Attribute(button, "Classes." + role) is not null))
+            .Where(button => !(Attribute(button, "Name") is { } name && RolesSetInCode.ContainsKey((file, name))))
+            .Select(button => Attribute(button, "Content")!)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
     [Fact]
     public void Every_view_and_control_is_checked_for_destructive_verbs()
     {
@@ -227,6 +269,8 @@ public sealed partial class DialogContractTests
         Assert.Contains("RuntimePanels/GitRuntimePanelView.axaml", files, StringComparer.Ordinal);
         Assert.All(RoutineEdits.Keys, key => Assert.Contains(key.File, files, StringComparer.Ordinal));
         Assert.All(PendingCrossPackageFiles, file => Assert.Contains(file, files, StringComparer.Ordinal));
+        Assert.Empty(PendingCrossPackageFiles);
+        Assert.All(RolesSetInCode.Keys, key => Assert.Contains(key.File, files, StringComparer.Ordinal));
     }
 
     private static string[] UnstyledDestructiveButtons(string file, XElement root) =>
