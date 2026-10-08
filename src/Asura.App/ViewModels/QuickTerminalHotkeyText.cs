@@ -60,12 +60,12 @@ internal static class QuickTerminalHotkeyText
         if (MacOsStandardShortcuts.TryFindSystem(stroke, out var system))
         {
             return $"{Format(stroke, host)} is reserved by macOS for {system.Owner}. "
-                + "A global hotkey takes it from every app; choose another shortcut.";
+                + "A global shortcut takes it from every app, so choose another shortcut.";
         }
 
         return MacOsStandardShortcuts.TryFindMenu(stroke, out var menu)
             ? $"{Format(stroke, host)} is Asura's menu shortcut for {menu.Owner}. "
-                + "A global hotkey takes it from the menu; choose another shortcut."
+                + "A global shortcut takes it from the menu, so choose another shortcut."
             : null;
     }
 }

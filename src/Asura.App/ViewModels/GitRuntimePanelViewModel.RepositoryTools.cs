@@ -59,7 +59,7 @@ public sealed partial class GitRuntimePanelViewModel
         }
         catch (ArgumentException exception)
         {
-            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Invalid repository destination");
+            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the repository destination");
         }
         finally
         {
@@ -140,7 +140,7 @@ public sealed partial class GitRuntimePanelViewModel
         }
         catch (ArgumentException exception)
         {
-            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Invalid Git request");
+            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the Git request");
             return null;
         }
     }

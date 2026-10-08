@@ -96,7 +96,7 @@ public sealed partial class GitRuntimePanelViewModel
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { return []; }
         catch (ArgumentException exception)
         {
-            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Invalid rebase range");
+            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the rebase range");
             return [];
         }
         finally
@@ -143,7 +143,7 @@ public sealed partial class GitRuntimePanelViewModel
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
         catch (ArgumentException exception)
         {
-            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Invalid comparison revision");
+            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the revisions to compare");
         }
         finally
         {

@@ -198,8 +198,8 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
         {
             var close = QuickTerminalHotkeyText.FormatApplicationCommand("W");
             return HideOnEscape
-                ? $"Hide the panel with its global hotkey, {close}, or Escape."
-                : $"Hide the panel with its global hotkey or {close}. Escape goes to the terminal.";
+                ? $"Hide the panel with its global shortcut, {close}, or Escape."
+                : $"Hide the panel with its global shortcut or {close}. Escape goes to the terminal.";
         }
     }
 

@@ -1221,7 +1221,7 @@ public sealed partial class DefinitionCatalog : IDefinitionCatalog, IDisposable
     {
         if (definition.Id != ApplicationNetworkSettings.DefaultId)
         {
-            return Invalid("Application network settings must use the built-in identity.");
+            return Invalid("Asura's network settings are damaged and can't be read.");
         }
 
         return ValidateNetworkPolicyDependencies(definition.Policy);

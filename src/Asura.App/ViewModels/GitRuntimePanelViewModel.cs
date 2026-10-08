@@ -1185,7 +1185,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (openGeneration == _openGeneration)
             {
-                PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Invalid repository path");
+                PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the repository path");
             }
         }
         finally
@@ -1574,7 +1574,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (historyGeneration == _historyGeneration)
             {
-                PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Invalid history filter");
+                PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the history filter");
             }
         }
         finally
@@ -2299,7 +2299,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (ArgumentException exception)
         {
-            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Invalid Git request");
+            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the Git request");
             return false;
         }
         finally

@@ -24,7 +24,7 @@ public sealed class ApplicationUpdateViewModel : ObservableObject, IDisposable
     {
         DistributionSource.GitHubRelease =>
             $"Direct · GitHub · {_snapshot.Distribution.Channel}",
-        DistributionSource.AppleAppStore => "Apple App Store",
+        DistributionSource.AppleAppStore => "Mac App Store",
         DistributionSource.MicrosoftStore => "Microsoft Store",
         DistributionSource.LinuxPackageManager => "Linux package manager",
         _ => "Development build",
@@ -34,7 +34,7 @@ public sealed class ApplicationUpdateViewModel : ObservableObject, IDisposable
     {
         ApplicationUpdateStage.Unavailable when
             _snapshot.Error == ApplicationUpdateError.NotInstalledByVelopack =>
-            "This direct build was not installed by Velopack, so it cannot update in place.",
+            "This copy of Asura wasn't installed with the Asura installer, so it can't update itself. Download the latest version instead.",
         ApplicationUpdateStage.Unavailable =>
             "Updates are unavailable for this build.",
         ApplicationUpdateStage.ManagedExternally =>
@@ -136,7 +136,7 @@ public sealed class ApplicationUpdateViewModel : ObservableObject, IDisposable
         ApplicationUpdateError.DownloadFailed =>
             "The update download failed. Try the download again.",
         ApplicationUpdateError.ApplyFailed =>
-            "Asura could not complete the update restart. The downloaded update was not applied.",
-        _ => "The update operation failed.",
+            "Asura couldn't restart to finish the update, so the update wasn't applied. Try again.",
+        _ => "Asura couldn't update. Try again.",
     };
 }

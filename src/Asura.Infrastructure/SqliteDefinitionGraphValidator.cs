@@ -146,10 +146,9 @@ internal sealed class SqliteDefinitionGraphValidator
         }
 
         var owner = conflict.First(profile => prospectiveKeys.Contains(profile.Key));
-        var other = conflict.First(profile => profile.Key != owner.Key);
         return new(
             DefinitionProblemKind.InvalidDefinition,
-            $"AI providers '{owner.Key}' and '{other.Key}' both use display order {owner.Order}. Each AI provider must have a distinct display order.",
+            "Two AI providers have the same place in the list. Each AI provider needs its own place.",
             owner.Key);
     }
 
@@ -267,7 +266,7 @@ internal sealed class SqliteDefinitionGraphValidator
             ? null
             : new(
                 DefinitionProblemKind.DependencyConflict,
-                $"Connection '{connection.Key}' requires a standalone SSH connection as its host connection.",
+                "A connection that goes through another host needs an SSH connection that doesn't go through a host itself.",
                 connection.Key);
     }
 
@@ -288,7 +287,7 @@ internal sealed class SqliteDefinitionGraphValidator
         return resolved.Definition is ConnectionProfile { Endpoint: ConnectionEndpoint.Ssh, HostConnectionId: null }
             ? null
             : new(DefinitionProblemKind.DependencyConflict,
-                "A Kubernetes connection requires a standalone SSH connection as its hop.", profile.Key);
+                "The SSH tunnel for Kubernetes must be an SSH connection that doesn't go through another host.", profile.Key);
     }
 
     private async Task<DefinitionProblem?> ValidateFileProviderAsync(
@@ -316,7 +315,7 @@ internal sealed class SqliteDefinitionGraphValidator
             ? null
             : new(
                 DefinitionProblemKind.DependencyConflict,
-                $"SFTP provider '{fileProvider.Key}' requires an SSH connection profile.",
+                "An SFTP file provider needs an SSH connection. Choose one, then save again.",
                 fileProvider.Key);
     }
 
@@ -337,7 +336,7 @@ internal sealed class SqliteDefinitionGraphValidator
             ? null
             : new(
                 DefinitionProblemKind.DependencyConflict,
-                $"Terminal profile '{terminal.Key}' requires a terminal-layer keymap.",
+                "A terminal profile needs a terminal keymap. Choose one, then save again.",
                 terminal.Key);
     }
 
@@ -354,7 +353,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 return new(
                     DefinitionProblemKind.DependencyConflict,
-                    $"Keymap '{keymap.Key}' has a cyclic base-keymap chain.",
+                    "A keymap can't be based on itself, directly or through another keymap.",
                     keymap.Key);
             }
 
@@ -368,7 +367,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 return new(
                     DefinitionProblemKind.MissingDependency,
-                    $"Keymap '{keymap.Key}' requires missing base keymap '{baseKey}'.",
+                    "A keymap is based on a keymap that no longer exists. Choose another base keymap.",
                     keymap.Key);
             }
 
@@ -376,7 +375,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 return new(
                     DefinitionProblemKind.DependencyConflict,
-                    $"Keymap '{keymap.Key}' cannot inherit from a different keymap layer.",
+                    "A keymap can only be based on a keymap of the same kind.",
                     keymap.Key);
             }
 
@@ -403,7 +402,7 @@ internal sealed class SqliteDefinitionGraphValidator
         {
             return new(
                 DefinitionProblemKind.MissingDependency,
-                $"Screen '{screen.Key}' requires layout '{screen.LayoutId}'.",
+                "A saved screen uses a layout that no longer exists. Choose another layout.",
                 screen.Key);
         }
 
@@ -429,7 +428,7 @@ internal sealed class SqliteDefinitionGraphValidator
             {
                 return new(
                     DefinitionProblemKind.MissingDependency,
-                    $"Workspace tab '{tab.Id}' requires layout '{tab.LayoutId}'.",
+                    "A workspace tab uses a layout that no longer exists. Choose another layout.",
                     workspace.Key);
             }
 

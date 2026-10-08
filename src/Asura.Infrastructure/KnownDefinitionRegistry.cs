@@ -275,7 +275,7 @@ internal static class KnownDefinitionRegistry
             {
                 return Invalid(
                     key,
-                    "The built-in default browser profile has an invalid policy.");
+                    "The default browser profile has settings this version of Asura can't use.");
             }
 
             if (definition is ApplicationNetworkSettings applicationNetworkSettings
@@ -283,7 +283,7 @@ internal static class KnownDefinitionRegistry
             {
                 return Invalid(
                     key,
-                    "Application network settings must use the built-in identity.");
+                    "Asura's network settings are damaged and can't be read.");
             }
 
             if (definition is ScreenDefinition screen
@@ -297,13 +297,13 @@ internal static class KnownDefinitionRegistry
             {
                 return Invalid(
                     key,
-                    "The screen contains an invalid layout, panel, or connection reference.");
+                    "The screen uses a layout, panel, or connection that isn't available.");
             }
 
             if (definition is TerminalProfile terminalDefinition
                 && string.IsNullOrWhiteSpace(terminalDefinition.KeymapId.Value))
             {
-                return Invalid(key, "The terminal profile requires a valid keymap reference.");
+                return Invalid(key, "The terminal profile needs a keymap. Choose one, then save again.");
             }
 
             if (definition is KeymapProfile keymapDefinition)
@@ -320,7 +320,7 @@ internal static class KnownDefinitionRegistry
                 {
                     return Invalid(
                         key,
-                        "The keymap contains an invalid binding or base-keymap reference.");
+                        "The keymap has a shortcut or base keymap this version of Asura can't use.");
                 }
 
                 var conflict = KeymapConflictValidator
@@ -436,7 +436,7 @@ internal static class KnownDefinitionRegistry
         {
             return Invalid(
                 key,
-                "The agent policy must define a supported set of valid permissions.");
+                "The agent settings use permissions this version of Asura doesn't recognize.");
         }
 
         if (!policy.IsValidForDurableStorage())

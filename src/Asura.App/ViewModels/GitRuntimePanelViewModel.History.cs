@@ -146,7 +146,7 @@ public sealed partial class GitRuntimePanelViewModel
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (ArgumentException exception)
         {
-            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Invalid commit revision");
+            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the commit");
         }
     }
 
