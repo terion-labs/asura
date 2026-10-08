@@ -10,6 +10,18 @@
        block the window it came from, and an editor opened from it is the one
        sheet on top of it rather than a modal on a modal. ⌘W or Escape closes. -->
   <controls:DialogShell Title="Saved Connections" Subtitle="Browse and edit your terminal, file, database, and Kubernetes connections.">
+    <!-- The list's one Edit… acts on the selection, at the footer's leading
+         edge under the list, where it stays in view however long the list. -->
+    <controls:DialogShell.FooterLeading>
+      <Button
+          x:Name="EditButton"
+          MinWidth="88"
+          Classes="SecondaryButton"
+          Click="OnEditClick"
+          Content="Edit…"
+          IsEnabled="False"
+          AutomationProperties.Name="Edit the selected connection" />
+    </controls:DialogShell.FooterLeading>
     <controls:DialogShell.Footer>
       <Button Classes="PrimaryButton" Click="OnAddClick" Content="Add Connection…" />
     </controls:DialogShell.Footer>
@@ -17,9 +29,9 @@
       <controls:SearchField Text="{Binding ConnectionSearchQuery}" PlaceholderText="Filter connections" AutomationProperties.Name="Filter saved connections" />
       <TextBlock Classes="Muted" Text="{Binding TotalConnectionCount, StringFormat={}{0} saved connections}" />
       <TextBlock Classes="Muted" Text="No connections match your filter." IsVisible="{Binding HasNoFilteredConnections}" />
-      <!-- A Mac list: select a row, then edit it with the one button under
-           the list, a double-click, or Return. A button on every row made
-           nine identical Edit… buttons compete with the rows themselves. -->
+      <!-- A Mac list: select a row, then edit it with the one Edit… button,
+           a double-click, or Return. A button on every row made nine
+           identical Edit… buttons compete with the rows themselves. -->
       <ListBox
           x:Name="ConnectionList"
           ItemsSource="{Binding FilteredConnections}"
@@ -38,15 +50,6 @@
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>
-      <Button
-          x:Name="EditButton"
-          MinWidth="88"
-          HorizontalAlignment="Left"
-          Classes="SecondaryButton"
-          Click="OnEditClick"
-          Content="Edit…"
-          IsEnabled="False"
-          AutomationProperties.Name="Edit the selected connection" />
     </StackPanel>
   </controls:DialogShell>
 </controls:DialogWindow>

@@ -203,8 +203,10 @@ public sealed class TransientOverlayViewContractTests
         var layout = Assert.Single(
             root.Elements(),
             element => string.Equals(element.Name.LocalName, "Grid", StringComparison.Ordinal));
+        // The name row, the canvas, the footer: no in-content title repeats
+        // the window's own.
         Assert.Equal(
-            "Auto,Auto,*,Auto",
+            "Auto,*,Auto",
             AttributeValue(layout, "RowDefinitions"));
         Assert.Null(AttributeValue(layout, "Width"));
         Assert.Null(AttributeValue(layout, "Height"));
