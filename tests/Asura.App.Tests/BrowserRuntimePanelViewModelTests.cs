@@ -650,6 +650,72 @@ public sealed class BrowserRuntimePanelViewModelTests
         Assert.Equal(expectedRecords, history.Titles.Count);
     }
 
+    [Fact]
+    public void A_browser_that_could_not_start_is_unavailable_not_waiting()
+    {
+        var browser = new BrowserPresentationHost();
+        Assert.Equal("Waiting", browser.StatusText);
+
+        browser.ShowUnavailable();
+
+        Assert.Equal("Unavailable", browser.StatusText);
+        Assert.Equal(StatusTone.Danger, browser.StatusTone);
+        Assert.False(browser.IsLive);
+    }
+
+    [Fact]
+    public async Task A_browser_that_could_not_start_says_what_to_do_and_starts_on_retry()
+    {
+        var factory = new FailingOnceRendererViewFactory(
+            new BrowserRendererView(new Border(), new RecordingBrowserRenderer()));
+        var panelId = new PanelInstanceId("browser-retry");
+        using var panel = new BrowserRuntimePanelViewModel(panelId, "Browser",
+            new SessionOwner(HostMode.Desktop, new WindowInstanceId("window"),
+                new WorkspaceInstanceId("workspace"), new TabInstanceId("tab"), panelId),
+            BrowserAddress.Blank, DispatchProxy.Create<ISessionHostClient, NoopSessionClient>(),
+            new ClientId("client"), BuiltInConnections.Local,
+            new BrowserProfileBinding(
+                new BrowserProfileSelection(BuiltInBrowserProfiles.Default.Id, BrowserProfileKey.Global),
+                BuiltInBrowserProfiles.Default,
+                revision: 1),
+            factory);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(panel.StartInitialization);
+
+        Assert.True(panel.HasRouteError);
+        Assert.DoesNotContain("renderer host exited", panel.RouteErrorMessage, StringComparison.Ordinal);
+        Assert.Contains("Try again", panel.RouteErrorMessage, StringComparison.Ordinal);
+
+        await panel.RetryInitialization();
+
+        Assert.False(panel.HasRouteError);
+        Assert.NotNull(panel.RendererView);
+        Assert.Equal(2, factory.Attempts);
+    }
+
+    private sealed class FailingOnceRendererViewFactory(BrowserRendererView rendererView) : IBrowserRendererViewFactory
+    {
+        public int Attempts { get; private set; }
+
+        public BrowserRendererView Create() => rendererView;
+
+        public BrowserRendererView CreateIsolatedHtmlPreview() => rendererView;
+
+        public ValueTask<BrowserRendererView> CreateAsync(ConnectionProfile connection, CancellationToken cancellationToken) =>
+            CreateAsync(connection, BrowserProfileKey.Global, cancellationToken);
+
+        public ValueTask<BrowserRendererView> CreateAsync(
+            ConnectionProfile connection,
+            BrowserProfileKey profile,
+            CancellationToken cancellationToken)
+        {
+            Attempts++;
+            return Attempts == 1
+                ? ValueTask.FromException<BrowserRendererView>(new InvalidOperationException("The renderer host exited with code 3."))
+                : ValueTask.FromResult(rendererView);
+        }
+    }
+
     private sealed class RecordingHistory : IBrowserHistory
     {
         public List<string> Titles { get; } = [];
