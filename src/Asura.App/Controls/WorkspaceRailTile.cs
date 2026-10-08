@@ -5,6 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Threading;
 using FluentIcons.Common;
 
 namespace Asura.App.Controls;
@@ -256,6 +257,27 @@ internal sealed class WorkspaceRailTile : TemplatedControl
 
             return string.Join(", ", parts);
         }
+    }
+
+    /// <summary>
+    /// The tile's state changes are drawn as movements, but the state it
+    /// opens in is not a change: a rail that faded its current tile in every
+    /// time a window opened showed, for the first moments, no current tile at
+    /// all — which is what a capture taken then recorded. The transitions
+    /// apply only once the tile has settled.
+    /// </summary>
+    protected override void OnLoaded(RoutedEventArgs e)
+    {
+        base.OnLoaded(e);
+        Dispatcher.UIThread.Post(
+            () => PseudoClasses.Set(":settled", true),
+            DispatcherPriority.Background);
+    }
+
+    protected override void OnUnloaded(RoutedEventArgs e)
+    {
+        base.OnUnloaded(e);
+        PseudoClasses.Set(":settled", false);
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)

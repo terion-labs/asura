@@ -413,6 +413,22 @@ public sealed class ThemeComponentHeadlessTests
             Assert.True(box.TranslatePoint(default, row)!.Value.X < title.TranslatePoint(default, row)!.Value.X);
         });
 
+    /// <summary>
+    /// A tile that opens as the current one is lit at once: fading it in
+    /// left the rail with no current tile for its first moments.
+    /// </summary>
+    [Fact]
+    public Task The_current_rail_tile_is_lit_when_it_first_appears() =>
+        RunHeadlessAsync(window =>
+        {
+            var tile = new WorkspaceRailTile { Accent = "#2B62C4", IsCurrent = true, IsRunning = true };
+            Show(window, tile);
+
+            var wash = Part<Border>(tile, "PART_Wash");
+            Assert.Equal(1, wash.Opacity, precision: 3);
+            Assert.Equal(0, Part<Border>(tile, "PART_Ring").Opacity, precision: 3);
+        });
+
     private sealed record GridRow(string Name, string Value);
 
     private static TextBlock Heading(Visual owner, string text) =>

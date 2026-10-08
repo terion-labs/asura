@@ -734,6 +734,12 @@
         </ControlTemplate>
       </Setter>
 
+      <!-- The state a tile opens in arrives at once; only later changes
+           move. See WorkspaceRailTile.OnLoaded. -->
+      <Style Selector="^:not(:settled) /template/ Border#PART_Surface, ^:not(:settled) /template/ Border#PART_Wash, ^:not(:settled) /template/ Border#PART_Ring">
+        <Setter Property="Transitions" Value="{x:Null}" />
+      </Style>
+
       <Style Selector="^.sortBefore /template/ Border#PART_SortBefore">
         <Setter Property="IsVisible" Value="True" />
       </Style>
