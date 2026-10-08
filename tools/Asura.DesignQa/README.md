@@ -11,6 +11,17 @@ It captures the shell's routes plus modal editors and confirmations. Dialogs are
 shown off-screen and rendered at their own arranged size, so a capture reflects
 the dialog's real geometry rather than a fixed frame.
 
+A route captures the window its surface is shown in. Settings routes render the
+Settings window at 980 × 720 (or the taller height a `-full` route asks for);
+workspace-editor routes and `overlay-layout-designer` render the editor's own
+window, opened the way the product opens it. `overlay-new-panel` is the Add
+Panel popover on the title band's "+".
+
+A route that throws is logged as `FAILED <route>: <error>` and the run carries
+on with the next route. The run still exits non-zero, lists every failed route
+at the end, and never verifies or approves a baseline over an incomplete
+matrix.
+
 Some routes vary the appearance rather than the shell route. A route may carry a
 `ThemePreference`, which is republished through the product's own appearance
 mapper before the capture. `appearance-corners-tight` and

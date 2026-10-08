@@ -342,16 +342,24 @@ internal sealed class QaApplication : Avalonia.Application
         new("settings-diagnostics", vm => vm.ShowSettings(SettingsPage.Diagnostics)),
         new("settings-about", vm => vm.ShowSettings(SettingsPage.About)),
         new("settings-notifications", vm => vm.ShowSettings(SettingsPage.Notifications)),
+        new("settings-git", vm => vm.ShowSettings(SettingsPage.Git)),
+        // About Asura is a small window of its own, opened from the
+        // application menu over the active main window's view model.
+        new(
+            "about-window",
+            vm => vm.ShowWorkspace(),
+            Dialog: static vm => new AboutWindow { DataContext = vm }),
         new("overlay-command-palette", vm =>
         {
             vm.ShowWorkspace();
             vm.ShowOverlay(ShellOverlay.CommandPalette);
         }),
-        new("overlay-new-panel", vm =>
-        {
-            vm.ShowWorkspace();
-            vm.ShowOverlay(ShellOverlay.NewPanel);
-        }),
+        // Add Panel is a popover on the title band's "+" now, opened the way
+        // the menu command opens it.
+        new(
+            "overlay-new-panel",
+            vm => vm.ShowWorkspace(),
+            PrepareCapture: OpenAddPanelPopover),
         // Opened on a real layout: an empty designer hides every defect the
         // populated one would show.
         new("overlay-layout-designer", vm =>
@@ -392,7 +400,8 @@ internal sealed class QaApplication : Avalonia.Application
                 vm.ShowWorkspace();
                 Files.PublishSampleTransfer();
             },
-            ClickFirst: "Open transfer manager"),
+            ClickFirst: "Open transfer manager",
+            PrepareCapture: CloseTransferManagerAfterRoute),
         // The agent panel's conversation layout is otherwise unreviewable: the
         // harness has no provider and reaches no endpoint, so every other route
         // can only render the panel's empty state.
@@ -914,8 +923,33 @@ internal sealed class QaApplication : Avalonia.Application
             AccentPreference.FollowHost,
             textScaleOverride: scale);
 
+    /// <summary>
+    /// What a route changed outside the view model's own reset — the main
+    /// window's content, attention marks — is put back before the next
+    /// route, or every later route captures the leftover instead of its own
+    /// surface.
+    /// </summary>
+    private static readonly List<Action> s_undoAfterRoute = [];
+
+    private static void UndoRouteSideEffects()
+    {
+        for (var index = s_undoAfterRoute.Count - 1; index >= 0; index--)
+        {
+            s_undoAfterRoute[index]();
+        }
+
+        s_undoAfterRoute.Clear();
+        Dispatcher.UIThread.RunJobs();
+    }
+
     private static void PrepareBrowserHeader(Window window, double width, bool open)
     {
+        var content = window.Content;
+        s_undoAfterRoute.Add(() =>
+        {
+            window.Content = content;
+            window.UpdateLayout();
+        });
         // Exercise the real controls without starting a renderer or visiting a site.
         var browser = new Asura.App.Views.RuntimePanels.BrowserRuntimePanelView
         {
@@ -931,6 +965,40 @@ internal sealed class QaApplication : Avalonia.Application
             browser.GetVisualDescendants().OfType<Button>().Single(button => string.Equals(button.Name, "PART_Overflow", StringComparison.Ordinal))
                 .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
         }
+    }
+
+    /// <summary>
+    /// The transfer manager is a card the button shows in the workspace, not
+    /// a flyout the route sweep closes, so the route that opened it closes it.
+    /// </summary>
+    private static void CloseTransferManagerAfterRoute(MainWindow window)
+    {
+        var manager = window.GetVisualDescendants()
+            .OfType<Control>()
+            .FirstOrDefault(control => string.Equals(control.Name, "FileTransferManager", StringComparison.Ordinal))
+            ?? throw new InvalidOperationException("The transfer manager is not in the workspace.");
+        if (!manager.IsVisible)
+        {
+            throw new InvalidOperationException("The transfer manager did not open.");
+        }
+
+        s_undoAfterRoute.Add(() => manager.IsVisible = false);
+    }
+
+    private static void OpenAddPanelPopover(MainWindow window)
+    {
+        _ = window.ShowNewPanelChooserAsync();
+        Dispatcher.UIThread.RunJobs();
+        if (!window.IsAddPanelChooserOpen)
+        {
+            throw new InvalidOperationException("The Add Panel popover did not open.");
+        }
+
+        s_undoAfterRoute.Add(() =>
+            (typeof(MainWindow)
+                .GetField("_addPanelFlyout", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.GetValue(window) as Flyout)
+            ?.Hide());
     }
 
     private static void ShowSampleDragGhost(MainWindow window)
@@ -978,9 +1046,14 @@ internal sealed class QaApplication : Avalonia.Application
         scroll.Offset = new Vector(0, section.TranslatePoint(new Point(0, 0), scroll)!.Value.Y + scroll.Offset.Y);
     }
 
+    /// <summary>The workspace editor's own window, where its controls are.</summary>
+    private static Window WorkspaceEditorWindowOf(MainWindow window) =>
+        window.OpenWorkspaceEditorWindow
+        ?? throw new InvalidOperationException("The route wanted the workspace editor's window, which is not open.");
+
     private static void ScrollWorkspaceEditorToEnd(MainWindow window)
     {
-        var editor = window.GetVisualDescendants()
+        var editor = WorkspaceEditorWindowOf(window).GetVisualDescendants()
             .OfType<WorkspaceEditorView>()
             .First();
         // The detail column's own scroller, by name: the rail's list scrolls
@@ -1015,8 +1088,9 @@ internal sealed class QaApplication : Avalonia.Application
     /// capture shows the result of the reorder rather than a list that merely
     /// draws a handle.
     /// </summary>
-    private static void DragLastTabToTop(MainWindow window)
+    private static void DragLastTabToTop(MainWindow mainWindow)
     {
+        var window = WorkspaceEditorWindowOf(mainWindow);
         var handles = window.GetVisualDescendants()
             .OfType<Control>()
             .Where(control => string.Equals(
@@ -1051,7 +1125,7 @@ internal sealed class QaApplication : Avalonia.Application
     /// </summary>
     private static void SelectDataInTheRail(MainWindow window)
     {
-        var rail = window.GetVisualDescendants()
+        var rail = WorkspaceEditorWindowOf(window).GetVisualDescendants()
             .OfType<ListBox>()
             .FirstOrDefault(list => string.Equals(list.Name, "PeerList", StringComparison.Ordinal))
             ?? throw new InvalidOperationException("The workspace editor has no rail.");
@@ -1062,7 +1136,7 @@ internal sealed class QaApplication : Avalonia.Application
         Dispatcher.UIThread.RunJobs();
     }
 
-    private static Point CenterInWindow(Control control, MainWindow window) =>
+    private static Point CenterInWindow(Control control, Window window) =>
         control.TranslatePoint(
             new Point(control.Bounds.Width / 2, control.Bounds.Height / 2),
             window)
@@ -1099,6 +1173,28 @@ internal sealed class QaApplication : Avalonia.Application
             .FirstOrDefault()
             ?? throw new InvalidOperationException(
                 "The attention route needs a panel to mark.");
+        var panelAttention = visiblePanel.HasAttention;
+        var tabAttention = workspace.Tabs.Select(tab => (tab, tab.HasAttention)).ToArray();
+        var workspaceAttention = workspace.HasAttention;
+        var railState = viewModel.Workspaces
+            .Select(item => (item, item.HasAttention, item.IsOpen, item.IsInFront))
+            .ToArray();
+        s_undoAfterRoute.Add(() =>
+        {
+            visiblePanel.HasAttention = panelAttention;
+            foreach (var (tab, attention) in tabAttention)
+            {
+                tab.HasAttention = attention;
+            }
+
+            workspace.HasAttention = workspaceAttention;
+            foreach (var (item, attention, isOpen, isInFront) in railState)
+            {
+                item.HasAttention = attention;
+                item.IsOpen = isOpen;
+                item.IsInFront = isInFront;
+            }
+        });
         visiblePanel.HasAttention = true;
         foreach (var candidate in workspace.Tabs)
         {
@@ -1263,6 +1359,7 @@ internal sealed class QaApplication : Avalonia.Application
                 "Avalonia no longer exposes the protected pseudo-class collection used by QA.");
 
         pseudoClasses.Add(":pointerover");
+        s_undoAfterRoute.Add(() => pseudoClasses.Remove(":pointerover"));
     }
 
     private static T AssertSingle<T>(IReadOnlyList<T> values) =>
@@ -2338,6 +2435,25 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 "The design QA harness does not save definitions.")), null),
         // The design system itself, so a changed radius, gap, or tone shows up as a
         // diff in one image rather than as drift discovered later in a screenshot.
+        // The terminal's find bar mid-search and its copy-mode hint, drawn by
+        // the real overlay over the real surface; only the session is absent.
+        ("terminal-find-bar", static () => QaTerminalProbe.Create(async (surface, overlay) =>
+        {
+            if (!await surface.BeginFindAsync())
+            {
+                throw new InvalidOperationException("The terminal find bar did not open.");
+            }
+
+            // Typed into the field, as a person types, so the query shows
+            // in it and the match count follows from the surface.
+            overlay.FindField.Text = "error";
+            await Task.Delay(120);
+        }), null),
+        ("terminal-copy-mode", static () => QaTerminalProbe.Create((surface, _) =>
+        {
+            surface.IsCopyMode = true;
+            return Task.CompletedTask;
+        }), null),
         ("design-system", static () => new DesignSystemGalleryWindow(), null),
         ("dialog-definition-delete", () => Confirmations.DefinitionDelete(
             "connection",
@@ -2601,6 +2717,15 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
 
         _ = workspace.Tabs[0].ActivatePanel(panels[0].Id);
         workspace.Tabs[0].NotifyPanelLayoutChanged();
+        // A tab always holds a panel in the product, and the host graph a
+        // focus change sends refuses one that does not; the background tabs
+        // hold the empty panel a new tab starts with.
+        foreach (var background in workspace.Tabs.Skip(1))
+        {
+            background.AddPanel(new PanelPlaceholderViewModel(
+                new PanelInstanceId($"{background.Id.Value}-placeholder")));
+        }
+
         workspace.Tabs[0].IsActive = true;
         // The active tab is what the canvas presents, and its setter is internal.
         typeof(RuntimeWorkspaceViewModel)
@@ -3030,9 +3155,18 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
     private static void SelectSegment(MainWindow window, string controlName, string segment)
     {
         var segments = window.GetVisualDescendants().OfType<SegmentedControl>()
-            .Single(control => string.Equals(control.Name, controlName, StringComparison.Ordinal));
-        segments.SelectedIndex = segments.Items.OfType<RadioButton>().ToList()
+            .SingleOrDefault(control => string.Equals(control.Name, controlName, StringComparison.Ordinal))
+            ?? throw new InvalidOperationException(
+                $"The route wanted the '{controlName}' segmented control, which is not in the tree.");
+        var index = segments.Items.OfType<RadioButton>().ToList()
             .FindIndex(item => string.Equals(AutomationProperties.GetName(item), segment, StringComparison.Ordinal));
+        if (index < 0)
+        {
+            throw new InvalidOperationException(
+                $"The '{controlName}' segmented control has no '{segment}' segment.");
+        }
+
+        segments.SelectedIndex = index;
     }
 
     private static void ShowKubernetesHelm(MainWindow window) =>
@@ -4167,250 +4301,18 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                     $"No route matched. Known routes: {string.Join(", ", known)}");
             }
 
+            var failures = new List<(string Name, Exception Error)>();
             foreach (var route in selected)
             {
-                var routeTheme = route.Theme ?? ThemePreference.Default;
-                ApplyTheme(
-                    Program.IsWebsiteExport
-                        ? WebsiteScreenshotExport.NormalizeTheme(routeTheme)
-                        : routeTheme,
-                    route.HighContrast);
-                if (Program.IsWebsiteExport)
+                try
                 {
-                    await ResetWebsiteRouteStateAsync(viewModel, window);
+                    await CaptureRouteAsync(route, window, viewModel);
                 }
-                ClearWorkspaceAgentActivity(viewModel);
-                // The sample agent conversation belongs to the one route that asks
-                // for it. Resetting first keeps that route from leaking a connected
-                // agent into whatever is captured after it, whatever the order.
-                AgentProfiles.Reset();
-                AgentRuntime.Reset();
-                Files.Reset();
-                // The sample drag ghost belongs to the one route that shows it;
-                // without this it floats over every capture that follows.
-                window.HideDragGhost();
-                // Likewise flyouts a route clicked open — the transfer manager
-                // otherwise floats over every capture after its own.
-                foreach (var popup in window.GetVisualDescendants()
-                             .OfType<Avalonia.Controls.Primitives.Popup>()
-                             .Where(popup => popup.IsOpen))
+                catch (Exception ex)
                 {
-                    popup.Close();
-                }
-
-                // A button's flyout hosts outside the window's visual tree, so
-                // the sweep above never sees it. Left open, it light-dismisses
-                // the next route's first click and that route silently captures
-                // a screen nothing was done to.
-                foreach (var button in window.GetVisualDescendants().OfType<Button>())
-                {
-                    button.Flyout?.Hide();
-                }
-
-                // And an editor a route left with unsaved changes, which refuses
-                // to be navigated away from — correctly, in the product, and
-                // ruinously here: every later route would capture the one before
-                // it and report nothing wrong.
-                viewModel.DismissWorkspaceEditor();
-                viewModel.DismissLayoutDesigner();
-                viewModel.CloseOverlay();
-                // Settings is a window of its own; one a route opened closes
-                // before the next route, or every later capture would wear it.
-                SettingsWindow.Current?.CloseForHost();
-                Dispatcher.UIThread.RunJobs();
-                if (viewModel.IsAgentPanelVisible)
-                {
-                    viewModel.ToggleAgentPanel();
-                }
-
-                route.Apply(viewModel);
-                MaterializeCurrentPresentation(window, viewModel);
-                if (Program.IsWebsiteExport
-                    && route.Name.StartsWith("workspace-agent", StringComparison.Ordinal)
-                    && viewModel.IsAgentPanelVisible
-                    && !viewModel.IsAgentPanelDocked)
-                {
-                    // Floating panels use a separate platform surface, which a
-                    // window-only bitmap cannot capture. Dock the same live
-                    // panel for website artwork so its actual state is visible.
-                    await viewModel.ToggleAgentPanelPinAsync(CancellationToken.None);
-                }
-                await Task.Delay(220);
-                Dispatcher.UIThread.RunJobs();
-                window.UpdateLayout();
-                await Task.Delay(120);
-
-                // A settings route renders the Settings window, which is where
-                // Settings is shown; an editor Settings opened lives in the
-                // main window and is captured there.
-                var settingsWindow = viewModel.IsSettingsVisible && !viewModel.HasOverlay && route.Dialog is null
-                    ? SettingsWindow.Current
-                    : null;
-                Window captureRoot = (Window?)settingsWindow ?? window;
-
-                if (route.FocusFirst is { } focusTarget)
-                {
-                    var control = captureRoot.GetVisualDescendants()
-                        .OfType<Control>()
-                        .FirstOrDefault(candidate =>
-                            string.Equals(candidate.Name, focusTarget, StringComparison.Ordinal)
-                            || string.Equals(
-                                AutomationProperties.GetName(candidate),
-                                focusTarget,
-                                StringComparison.Ordinal))
-                        ?? throw new InvalidOperationException(
-                            $"The route wanted to focus '{focusTarget}', which is not in the tree.");
-                    if (!control.Focus(NavigationMethod.Tab))
-                    {
-                        throw new InvalidOperationException(
-                            $"The route could not focus '{focusTarget}', so its focus "
-                            + "indicator cannot be accepted.");
-                    }
-
-                    await Task.Delay(140);
-                    Dispatcher.UIThread.RunJobs();
-                    if (!control.IsFocused)
-                    {
-                        throw new InvalidOperationException(
-                            $"The route lost focus from '{focusTarget}' before capture.");
-                    }
-                }
-
-                if (route.ClickFirst is { } clickTarget)
-                {
-                    var button = captureRoot.GetVisualDescendants()
-                        .OfType<Button>()
-                        .FirstOrDefault(candidate =>
-                            string.Equals(
-                                AutomationProperties.GetName(candidate),
-                                clickTarget,
-                                StringComparison.Ordinal))
-                        ?? throw new InvalidOperationException(
-                            $"The route wanted to click '{clickTarget}', which is not in the tree.");
-                    button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                    // Long enough for debounced effects of the click — the
-                    // appearance page coalesces edits for 220 ms before the
-                    // theme commit re-publishes the resources.
-                    await Task.Delay(500);
-                    Dispatcher.UIThread.RunJobs();
-                    captureRoot.UpdateLayout();
-                }
-
-                var captureWidth = Program.IsWebsiteExport
-                    ? WebsiteScreenshotExport.LogicalWidth
-                    : settingsWindow is not null
-                        ? SettingsCaptureWidth
-                        : route.Width;
-                var captureHeight = Program.IsWebsiteExport
-                    ? WebsiteScreenshotExport.LogicalHeight
-                    : settingsWindow is not null && route.Height == DefaultCaptureHeight
-                        ? SettingsCaptureHeight
-                        : route.Height;
-                if (captureRoot.Width != captureWidth || captureRoot.Height != captureHeight)
-                {
-                    captureRoot.Width = captureWidth;
-                    captureRoot.Height = captureHeight;
-                    await Task.Delay(200);
-                    Dispatcher.UIThread.RunJobs();
-                    captureRoot.UpdateLayout();
-                    await Task.Delay(120);
-                }
-
-                if (route.PrepareCapture is { } prepareCapture)
-                {
-                    prepareCapture(window);
-                    await Task.Delay(140);
-                    Dispatcher.UIThread.RunJobs();
-                    captureRoot.UpdateLayout();
-                }
-
-                await SettleDeferredPresentationAsync(window);
-                FreezeNondeterministicPresentation(captureRoot);
-
-                var path = Path.Combine(Program.OutputDirectory, $"{route.Name}.png");
-
-                // A dialog is a window of its own, so it is rendered as one. It
-                // is shown rather than shown modally: ShowDialog does not return
-                // until the dialog closes, and nothing here would close it.
-                if (route.Dialog is { } openDialog)
-                {
-                    var dialog = openDialog(viewModel);
-                    if (route.HighContrast)
-                    {
-                        dialog.Classes.Add("high-contrast");
-                    }
-
-                    dialog.Show(window);
-                    await Task.Delay(220);
-                    Dispatcher.UIThread.RunJobs();
-                    dialog.UpdateLayout();
-                    await Task.Delay(120);
-                    FreezeNondeterministicPresentation(dialog);
-                    if (Program.IsWebsiteExport)
-                    {
-                        WebsiteScreenshotExport.WriteDialogFrame(
-                            window,
-                            dialog,
-                            new PixelSize((int)dialog.Width, (int)dialog.Height),
-                            path);
-                    }
-                    else
-                    {
-                        using var dialogBitmap = new RenderTargetBitmap(
-                            new PixelSize((int)dialog.Width, (int)dialog.Height),
-                            new Vector(96, 96));
-                        dialogBitmap.Render(dialog);
-                        dialogBitmap.Save(path);
-                    }
-
-                    dialog.Close();
-                    Dispatcher.UIThread.RunJobs();
-                    Console.WriteLine($"CAPTURE {route.Name} -> {path}");
-                    continue;
-                }
-
-                if (Program.IsWebsiteExport)
-                {
-                    if (settingsWindow is not null)
-                    {
-                        WebsiteScreenshotExport.WriteDialogFrame(
-                            window,
-                            settingsWindow,
-                            new PixelSize((int)settingsWindow.Width, (int)settingsWindow.Height),
-                            path);
-                    }
-                    else
-                    {
-                        WebsiteScreenshotExport.WriteFrame(window, path);
-                    }
-
-                    Console.WriteLine($"CAPTURE {route.Name} -> {path}");
-                    continue;
-                }
-
-                var bitmapSize = new PixelSize(captureWidth, captureHeight);
-                var bitmapDpi = new Vector(96, 96);
-                using (var bitmap = new RenderTargetBitmap(bitmapSize, bitmapDpi))
-                {
-                    bitmap.Render(captureRoot);
-                    bitmap.Save(path);
-                }
-
-                Console.WriteLine($"CAPTURE {route.Name} -> {path}");
-
-                // The workspace route again at Retina density: the rail and panel
-                // chrome are the surfaces users judge at 2x, so pixel snapping
-                // there must be reviewable at the density they actually see.
-                if (!Program.IsWebsiteExport
-                    && string.Equals(route.Name, "workspace", StringComparison.Ordinal))
-                {
-                    var retinaPath = Path.Combine(Program.OutputDirectory, "workspace-2x.png");
-                    using var retina = new RenderTargetBitmap(
-                        new PixelSize(route.Width * 2, route.Height * 2),
-                        new Vector(192, 192));
-                    retina.Render(window);
-                    retina.Save(retinaPath);
-                    Console.WriteLine($"CAPTURE workspace-2x -> {retinaPath}");
+                    failures.Add((route.Name, ex));
+                    Console.Error.WriteLine($"FAILED {route.Name}: {ex}");
+                    CloseWindowsLeftOpen(desktop, window, viewModel);
                 }
             }
 
@@ -4420,11 +4322,34 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 ApplyTheme(Program.IsWebsiteExport
                     ? WebsiteScreenshotExport.NormalizeTheme(dialogTheme)
                     : dialogTheme);
-                await CaptureDialogAsync(dialog.Name, dialog.Create());
+                try
+                {
+                    await CaptureDialogAsync(dialog.Name, dialog.Create());
+                }
+                catch (Exception ex)
+                {
+                    failures.Add((dialog.Name, ex));
+                    Console.Error.WriteLine($"FAILED {dialog.Name}: {ex}");
+                    CloseWindowsLeftOpen(desktop, window, viewModel);
+                }
             }
 
             ApplyTheme(ThemePreference.Default);
-            if (Program.BaselineMode != DesignQaBaselineMode.None)
+
+            // One broken route is reported with the rest captured, rather than
+            // costing every route after it. The run still fails, and a baseline
+            // is neither verified nor approved over a matrix with holes in it.
+            if (failures.Count > 0)
+            {
+                exitCode = 1;
+                Console.Error.WriteLine(
+                    $"FAILED {failures.Count} of {selected.Length + selectedDialogs.Length} routes:");
+                foreach (var (name, error) in failures)
+                {
+                    Console.Error.WriteLine($"  {name}: {error.GetType().Name}: {error.Message}");
+                }
+            }
+            else if (Program.BaselineMode != DesignQaBaselineMode.None)
             {
                 DesignQaBaseline.Process(
                     Program.BaselineMode,
@@ -4445,6 +4370,333 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         }
     }
 
+    /// <summary>
+    /// After a route failed partway: anything it opened beside the main window
+    /// — a dialog, Settings, an editor window — goes, so the next route starts
+    /// from the main window alone.
+    /// </summary>
+    private static void CloseWindowsLeftOpen(
+        IClassicDesktopStyleApplicationLifetime desktop,
+        MainWindow window,
+        MainWindowViewModel viewModel)
+    {
+        try
+        {
+            UndoRouteSideEffects();
+            viewModel.DismissWorkspaceEditor();
+            viewModel.DismissLayoutDesigner();
+            viewModel.CloseOverlay();
+            SettingsWindow.Current?.CloseForHost();
+            foreach (var open in desktop.Windows.Where(candidate => !ReferenceEquals(candidate, window)).ToArray())
+            {
+                open.Close();
+            }
+
+            Dispatcher.UIThread.RunJobs();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"WARNING could not tidy up after a failed route: {ex.Message}");
+        }
+    }
+
+    private static async Task CaptureRouteAsync(
+        RouteCapture route,
+        MainWindow window,
+        MainWindowViewModel viewModel)
+    {
+        var routeTheme = route.Theme ?? ThemePreference.Default;
+        ApplyTheme(
+            Program.IsWebsiteExport
+                ? WebsiteScreenshotExport.NormalizeTheme(routeTheme)
+                : routeTheme,
+            route.HighContrast);
+        if (Program.IsWebsiteExport)
+        {
+            await ResetWebsiteRouteStateAsync(viewModel, window);
+        }
+        UndoRouteSideEffects();
+        ClearWorkspaceAgentActivity(viewModel);
+        // The sample agent conversation belongs to the one route that asks
+        // for it. Resetting first keeps that route from leaking a connected
+        // agent into whatever is captured after it, whatever the order.
+        AgentProfiles.Reset();
+        AgentRuntime.Reset();
+        Files.Reset();
+        // The sample drag ghost belongs to the one route that shows it;
+        // without this it floats over every capture that follows.
+        window.HideDragGhost();
+        // Likewise flyouts a route clicked open — the transfer manager
+        // otherwise floats over every capture after its own.
+        foreach (var popup in window.GetVisualDescendants()
+                     .OfType<Avalonia.Controls.Primitives.Popup>()
+                     .Where(popup => popup.IsOpen))
+        {
+            popup.Close();
+        }
+
+        // A button's flyout hosts outside the window's visual tree, so
+        // the sweep above never sees it. Left open, it light-dismisses
+        // the next route's first click and that route silently captures
+        // a screen nothing was done to.
+        foreach (var button in window.GetVisualDescendants().OfType<Button>())
+        {
+            button.Flyout?.Hide();
+        }
+
+        // And an editor a route left with unsaved changes, which refuses
+        // to be navigated away from — correctly, in the product, and
+        // ruinously here: every later route would capture the one before
+        // it and report nothing wrong.
+        viewModel.DismissWorkspaceEditor();
+        viewModel.DismissLayoutDesigner();
+        viewModel.CloseOverlay();
+        // Settings is a window of its own; one a route opened closes
+        // before the next route, or every later capture would wear it.
+        SettingsWindow.Current?.CloseForHost();
+        Dispatcher.UIThread.RunJobs();
+        if (viewModel.IsAgentPanelVisible)
+        {
+            viewModel.ToggleAgentPanel();
+        }
+
+        route.Apply(viewModel);
+        MaterializeCurrentPresentation(window, viewModel);
+        if (Program.IsWebsiteExport
+            && route.Name.StartsWith("workspace-agent", StringComparison.Ordinal)
+            && viewModel.IsAgentPanelVisible
+            && !viewModel.IsAgentPanelDocked)
+        {
+            // Floating panels use a separate platform surface, which a
+            // window-only bitmap cannot capture. Dock the same live
+            // panel for website artwork so its actual state is visible.
+            await viewModel.ToggleAgentPanelPinAsync(CancellationToken.None);
+        }
+        await Task.Delay(220);
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+        await Task.Delay(120);
+
+        // A route captures the window its surface is shown in: an editor's
+        // own window when one is open, else the Settings window for a
+        // settings route, else the main window.
+        Window? SecondaryWindow() => route.Dialog is not null
+            ? null
+            : (Window?)window.OpenWorkspaceEditorWindow
+                ?? window.OpenLayoutDesignerWindow
+                ?? (viewModel.IsSettingsVisible ? (Window?)SettingsWindow.Current : null);
+        var secondaryWindow = SecondaryWindow();
+        Window captureRoot = secondaryWindow ?? window;
+
+        if (route.FocusFirst is { } focusTarget)
+        {
+            var control = captureRoot.GetVisualDescendants()
+                .OfType<Control>()
+                .FirstOrDefault(candidate =>
+                    string.Equals(candidate.Name, focusTarget, StringComparison.Ordinal)
+                    || string.Equals(
+                        AutomationProperties.GetName(candidate),
+                        focusTarget,
+                        StringComparison.Ordinal))
+                ?? throw new InvalidOperationException(
+                    $"The route wanted to focus '{focusTarget}', which is not in the tree.");
+            if (!control.Focus(NavigationMethod.Tab))
+            {
+                throw new InvalidOperationException(
+                    $"The route could not focus '{focusTarget}', so its focus "
+                    + "indicator cannot be accepted.");
+            }
+
+            await Task.Delay(140);
+            Dispatcher.UIThread.RunJobs();
+            if (!control.IsFocused)
+            {
+                throw new InvalidOperationException(
+                    $"The route lost focus from '{focusTarget}' before capture.");
+            }
+        }
+
+        if (route.ClickFirst is { } clickTarget)
+        {
+            var button = captureRoot.GetVisualDescendants()
+                .OfType<Button>()
+                .FirstOrDefault(candidate =>
+                    string.Equals(
+                        AutomationProperties.GetName(candidate),
+                        clickTarget,
+                        StringComparison.Ordinal))
+                ?? throw new InvalidOperationException(
+                    $"The route wanted to click '{clickTarget}', which is not in the tree.");
+            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            // Long enough for debounced effects of the click — the
+            // appearance page coalesces edits for 220 ms before the
+            // theme commit re-publishes the resources.
+            await Task.Delay(500);
+            Dispatcher.UIThread.RunJobs();
+            captureRoot.UpdateLayout();
+        }
+
+        // A secondary window is captured at its own size; a route that asks
+        // for more height gets it, so a long page or editor is reviewable
+        // whole.
+        int CaptureWidth() => Program.IsWebsiteExport
+            ? WebsiteScreenshotExport.LogicalWidth
+            : secondaryWindow is SettingsWindow
+                ? SettingsCaptureWidth
+                : secondaryWindow is not null
+                    ? (int)secondaryWindow.Width
+                    : route.Width;
+        int CaptureHeight() => Program.IsWebsiteExport
+            ? WebsiteScreenshotExport.LogicalHeight
+            : secondaryWindow is not null && route.Height == DefaultCaptureHeight
+                ? secondaryWindow is SettingsWindow
+                    ? SettingsCaptureHeight
+                    : (int)secondaryWindow.Height
+                : route.Height;
+        var captureWidth = CaptureWidth();
+        var captureHeight = CaptureHeight();
+        async Task SizeCaptureRootAsync()
+        {
+            if (captureRoot is SettingsWindow settings)
+            {
+                // Settings fits its height to the page, at most nine tenths of
+                // the screen. A capture takes the frame the route asks for, so
+                // a long page can be reviewed whole rather than cut at the
+                // headless screen's edge.
+                settings.SizeToContent = SizeToContent.Manual;
+                settings.MaxHeight = double.PositiveInfinity;
+            }
+
+            if (captureRoot.Width != captureWidth || captureRoot.Height != captureHeight)
+            {
+                captureRoot.Width = captureWidth;
+                captureRoot.Height = captureHeight;
+                await Task.Delay(200);
+                Dispatcher.UIThread.RunJobs();
+                captureRoot.UpdateLayout();
+                await Task.Delay(120);
+            }
+        }
+
+        await SizeCaptureRootAsync();
+
+        if (route.PrepareCapture is { } prepareCapture)
+        {
+            prepareCapture(window);
+            await Task.Delay(140);
+            Dispatcher.UIThread.RunJobs();
+
+            // What the route did may have replaced the window its surface is
+            // in — switching the workspace being edited reopens the editor.
+            if (SecondaryWindow() is { } replacement && !ReferenceEquals(replacement, secondaryWindow))
+            {
+                secondaryWindow = replacement;
+                captureRoot = replacement;
+                captureWidth = CaptureWidth();
+                captureHeight = CaptureHeight();
+                await SizeCaptureRootAsync();
+            }
+
+            captureRoot.UpdateLayout();
+        }
+
+        // The main window always settles, since a dialog route's previews
+        // live there; a surface in a window of its own settles as well.
+        await SettleDeferredPresentationAsync(window);
+        if (!ReferenceEquals(captureRoot, window))
+        {
+            await SettleDeferredPresentationAsync(captureRoot);
+        }
+
+        FreezeNondeterministicPresentation(captureRoot);
+
+        var path = Path.Combine(Program.OutputDirectory, $"{route.Name}.png");
+
+        // A dialog is a window of its own, so it is rendered as one. It
+        // is shown rather than shown modally: ShowDialog does not return
+        // until the dialog closes, and nothing here would close it.
+        if (route.Dialog is { } openDialog)
+        {
+            var dialog = openDialog(viewModel);
+            if (route.HighContrast)
+            {
+                dialog.Classes.Add("high-contrast");
+            }
+
+            dialog.Show(window);
+            await Task.Delay(220);
+            Dispatcher.UIThread.RunJobs();
+            dialog.UpdateLayout();
+            await Task.Delay(120);
+            FreezeNondeterministicPresentation(dialog);
+            if (Program.IsWebsiteExport)
+            {
+                WebsiteScreenshotExport.WriteDialogFrame(
+                    window,
+                    dialog,
+                    new PixelSize((int)dialog.Width, (int)dialog.Height),
+                    path);
+            }
+            else
+            {
+                using var dialogBitmap = new RenderTargetBitmap(
+                    new PixelSize((int)dialog.Width, (int)dialog.Height),
+                    new Vector(96, 96));
+                dialogBitmap.Render(dialog);
+                dialogBitmap.Save(path);
+            }
+
+            dialog.Close();
+            Dispatcher.UIThread.RunJobs();
+            Console.WriteLine($"CAPTURE {route.Name} -> {path}");
+            return;
+        }
+
+        if (Program.IsWebsiteExport)
+        {
+            if (secondaryWindow is not null)
+            {
+                WebsiteScreenshotExport.WriteDialogFrame(
+                    window,
+                    secondaryWindow,
+                    new PixelSize((int)secondaryWindow.Width, (int)secondaryWindow.Height),
+                    path);
+            }
+            else
+            {
+                WebsiteScreenshotExport.WriteFrame(window, path);
+            }
+
+            Console.WriteLine($"CAPTURE {route.Name} -> {path}");
+            return;
+        }
+
+        var bitmapSize = new PixelSize(captureWidth, captureHeight);
+        var bitmapDpi = new Vector(96, 96);
+        using (var bitmap = new RenderTargetBitmap(bitmapSize, bitmapDpi))
+        {
+            bitmap.Render(captureRoot);
+            bitmap.Save(path);
+        }
+
+        Console.WriteLine($"CAPTURE {route.Name} -> {path}");
+
+        // The workspace route again at Retina density: the rail and panel
+        // chrome are the surfaces users judge at 2x, so pixel snapping
+        // there must be reviewable at the density they actually see.
+        if (!Program.IsWebsiteExport
+            && string.Equals(route.Name, "workspace", StringComparison.Ordinal))
+        {
+            var retinaPath = Path.Combine(Program.OutputDirectory, "workspace-2x.png");
+            using var retina = new RenderTargetBitmap(
+                new PixelSize(route.Width * 2, route.Height * 2),
+                new Vector(192, 192));
+            retina.Render(window);
+            retina.Save(retinaPath);
+            Console.WriteLine($"CAPTURE workspace-2x -> {retinaPath}");
+        }
+    }
+
     private static void MaterializeCurrentPresentation(
         MainWindow window,
         MainWindowViewModel viewModel)
@@ -4454,17 +4706,22 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             InvokeMaterializer(window, "EnsureSettingsRoute");
         }
 
-        var method = viewModel.Overlay switch
+        // The command palette is the one overlay left in the main window; the
+        // workspace editor and the Layout Designer open windows of their own,
+        // as they do when a person opens them.
+        if (viewModel.Overlay == ShellOverlay.CommandPalette)
         {
-            ShellOverlay.CommandPalette => "EnsureCommandPaletteOverlay",
-            ShellOverlay.NewPanel => "EnsureNewPanelChooserOverlay",
-            ShellOverlay.LayoutDesigner => "EnsureLayoutDesignerOverlay",
-            ShellOverlay.DefinitionEditor => "EnsureDefinitionEditorOverlay",
-            _ => null,
-        };
-        if (method is not null)
+            InvokeMaterializer(window, "EnsureCommandPaletteOverlay");
+        }
+
+        if (viewModel.IsDefinitionEditorVisible)
         {
-            InvokeMaterializer(window, method);
+            InvokeMaterializer(window, "PresentWorkspaceEditor");
+        }
+
+        if (viewModel.IsLayoutDesignerVisible)
+        {
+            InvokeMaterializer(window, "PresentLayoutDesigner");
         }
     }
 
@@ -4478,7 +4735,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         _ = method.Invoke(window, null);
     }
 
-    private static async Task SettleDeferredPresentationAsync(MainWindow window)
+    private static async Task SettleDeferredPresentationAsync(Window window)
     {
         const int maximumAttempts = 400;
         const int requiredStablePasses = 4;
