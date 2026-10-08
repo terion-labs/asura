@@ -140,7 +140,7 @@ public sealed partial class GitDiffView : UserControl, IFindTarget
         if (action == GitPatchAction.Discard && TopLevel.GetTopLevel(this) is Window window
             && !await new ConfirmationDialog(new ConfirmationDialogOptions
             {
-                Heading = "Discard these selected lines?",
+                Heading = "Discard Selected Lines?",
                 Detail = $"The selected edits in “{panel.DiffFileName ?? "this file"}” return to their last staged or committed content.",
                 Notice = "You can’t undo this action.",
                 ConfirmLabel = "Discard Selection",

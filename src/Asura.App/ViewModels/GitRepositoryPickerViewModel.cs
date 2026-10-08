@@ -53,6 +53,16 @@ public sealed class GitRepositoryPickerViewModel : ObservableObject
         _connectionDisplayName
         ?? (_connection.Endpoint is ConnectionEndpoint.Local ? "Local" : _connection.Name);
 
+    /// <summary>
+    /// The dialog's line under its title, naming the place being browsed as a
+    /// place: “this Mac” rather than the connection's “Local”, and another
+    /// connection by its name in quotation marks.
+    /// </summary>
+    public string Subtitle =>
+        $"Browsing {(_connection.Endpoint is ConnectionEndpoint.Local ? ThisComputer : $"“{ConnectionDisplayName}”")}. Folders that hold a repository are marked.";
+
+    private static string ThisComputer => OperatingSystem.IsMacOS() ? "this Mac" : "this computer";
+
     public string CurrentPath
     {
         get => _currentPath;

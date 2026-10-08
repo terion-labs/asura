@@ -30,9 +30,28 @@
     <Style Selector="ListBox.GitSections ListBoxItem">
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
       <Setter Property="Margin" Value="0" />
-      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="MinHeight" Value="24" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <!-- One size for the panel's rows and the controls among them: the
+         section list, the sidebar's refs, the file lists, the history and the
+         pull-downs above them all read at the row size, so no label stands a
+         size above the list it sits in. -->
+    <Style Selector="ListBox.GitSections ListBoxItem TextBlock">
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+    </Style>
+    <Style Selector="ListBox.GitSections ListBoxItem Border.GitCountBadge TextBlock">
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+    </Style>
+    <Style Selector="ListBox.GitSections ListBoxItem icons|SymbolIcon">
+      <Setter Property="FontSize" Value="{DynamicResource ShellIconSizeSm}" />
+    </Style>
+    <Style Selector="Button.Dense">
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+    </Style>
+    <Style Selector="Button.Dense TextBlock">
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
     </Style>
     <Style Selector="ListBox.GitSections:focus-within ListBoxItem:selected Border.GitCountBadge">
       <Setter Property="Background" Value="Transparent" />
@@ -67,8 +86,9 @@
     </Style>
     <!-- Ref names keep both ends, so feature/… branches stay apart. -->
     <Style Selector="TextBlock.GitSidebarRow">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="TextTrimming" Value="{x:Static TextTrimming.PrefixCharacterEllipsis}" />
     </Style>
     <!-- Ref trees use the shell's standard tree template with a single icon
@@ -83,7 +103,7 @@
     <Style Selector="TextBox.GitRefFilter">
       <Setter Property="MinHeight" Value="24" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="Grid.GitSidebarRowLayout">
@@ -147,16 +167,27 @@
       <Setter Property="MinHeight" Value="24" />
     </Style>
     <Style Selector="TextBlock.GitCommitCell">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
     </Style>
     <!-- A ref name is a label, not something to act on, so it wears a
-         neutral fill rather than the accent the selection and focus use. -->
+         neutral fill rather than the accent the selection and focus use. A
+         hairline keeps it a pill on a selected row, whose gray is the same
+         step as its fill; on a focused row it turns with the row's text. -->
     <Style Selector="Border.GitRefTag">
       <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellPillCornerRadius}" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs}" />
       <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ListBox.GitCommits ListBoxItem:selected Border.GitRefTag">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellMutedBrush}" />
+    </Style>
+    <Style Selector="ListBox.GitCommits:focus-within ListBoxItem:selected Border.GitRefTag">
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentForegroundBrush}" />
     </Style>
     <Style Selector="Border.GitRefTag TextBlock">
       <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
@@ -177,11 +208,22 @@
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
+    <!-- The commit's metadata is one secondary block: labels, values and the
+         signature line share the secondary size, the labels muted, so the
+         subject and message below are the step up. -->
     <Style Selector="TextBlock.GitMetaLabel">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
       <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.GitMetaValue">
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.GitCommitBody">
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight13}" />
     </Style>
     <Style Selector="controls|SegmentedControl#GitCompactSections">
       <Setter Property="IsVisible" Value="False" />
@@ -198,20 +240,23 @@
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <!-- Ref rows are plain data wrapped in a hit-testable band so the whole
-         row answers to the pointer; the current branch wears the accent. -->
+         row answers to the pointer. Every sidebar row puts its label in the
+         same column: a 16-point glyph column, then the name, whether the row
+         is a branch, a tag, a stash or a worktree. The current branch is
+         marked the way a Mac marks the current choice — a checkmark in the
+         glyph column and a heavier name — and never with a fill, so the
+         selection is the only filled row in the list. -->
     <Style Selector="Border.GitRefRow">
       <Setter Property="Background" Value="Transparent" />
-      <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="24" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
     </Style>
     <Style Selector="Border.GitRefRow:pointerover">
       <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
     </Style>
-    <Style Selector="Border.GitRefRow.current">
-      <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
-    </Style>
-    <Style Selector="Border.GitRefRow.current:pointerover">
-      <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
+    <Style Selector="icons|SymbolIcon.GitCurrentMark">
+      <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
     </Style>
     <!-- A ref tree with focus selects in accent, as a source list does. The
          rules reach only the selected row's own band and its own content (the
@@ -419,7 +464,7 @@
                   <Separator />
                   <MenuItem Header="Repository Statistics…" Tag="Statistics" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
                   <MenuItem Header="Activity Log…" Click="OnActivityLog" IsEnabled="{Binding CanReadRepository}" />
-                  <MenuItem x:Name="GitBenchmarkMenuItem" Header="Benchmark Status Read…" Tag="Benchmark" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem x:Name="GitBenchmarkMenuItem" Header="Measure Status Read Time…" Tag="Benchmark" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
                 </MenuItem>
                 <MenuItem Header="Patches">
                   <MenuItem Header="Copy Selected Patch" Click="OnCopySelectedPatch" IsEnabled="{Binding CanReadRepository}" />
@@ -583,7 +628,8 @@
                     Classes="SecondaryButton"
                     VerticalAlignment="Stretch"
                     Click="OnBrowseRepositoryClick"
-                    Content="Browse…" />
+                    Content="Choose…"
+                    AutomationProperties.Name="Choose repository folder" />
               </Grid>
             </controls:LabeledField>
             <Button

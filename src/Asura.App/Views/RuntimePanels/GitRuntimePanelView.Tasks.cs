@@ -46,15 +46,24 @@ public sealed partial class GitRuntimePanelView
             return;
         }
         var revision = viewModel.SelectedCommit?.Commit.Sha ?? "HEAD";
-        var fields = TaskFields(task, selection, revision);
+        var fields = TaskFields(task, selection, revision, RemoteNames(viewModel));
         var values = fields.Length == 0 ? new Dictionary<string, string>(StringComparer.Ordinal)
-            : await ShowGitFormAsync(TaskTitle(task), TaskAction(task), TaskDetail(task), fields);
+            : await ShowGitFormAsync(new GitWorkflowForm(TaskTitle(task), TaskDetail(task), new GitWorkflowAction(TaskAction(task)), fields)
+            {
+                Validate = TaskValidation(task),
+            });
         if (values is null)
         {
             return;
         }
 
-        var output = await viewModel.RunRepositoryTaskAsync(new(task, values.GetValueOrDefault("first"),
+        var first = task == GitRepositoryTask.RangeHistory
+            ? GitRuntimePanelViewModel.LineRangeArgument(
+                GitRuntimePanelViewModel.ParseLineNumber(values["start"]) ?? 1,
+                GitRuntimePanelViewModel.ParseLineNumber(values["end"]) ?? 1,
+                values["path"])
+            : values.GetValueOrDefault("first");
+        var output = await viewModel.RunRepositoryTaskAsync(new(task, first,
             values.GetValueOrDefault("second"), values.GetValueOrDefault("content")));
         if (output is { Length: > 0 })
         {
@@ -62,21 +71,33 @@ public sealed partial class GitRuntimePanelView
         }
     }
 
-    private static GitWorkflowField[] TaskFields(GitRepositoryTask task, string path, string revision) => task switch
+    internal static GitWorkflowField[] TaskFields(GitRepositoryTask task, string path, string revision, IReadOnlyList<string> remotes) => task switch
     {
         GitRepositoryTask.Statistics or GitRepositoryTask.Benchmark or GitRepositoryTask.LfsInstall or GitRepositoryTask.LfsFetch or GitRepositoryTask.LfsPull or GitRepositoryTask.LfsStatus => [],
         GitRepositoryTask.SetUpstream => [new("first", "Tracking branch", "origin/main"), new("second", "Local branch", "main")],
         GitRepositoryTask.UnsetUpstream => [new("first", "Local branch", "main")],
-        GitRepositoryTask.PruneRemote => [new("first", "Remote", "origin")],
+        GitRepositoryTask.PruneRemote => [GitWorkflowField.ChoiceOrText("first", "Remote", remotes, "origin")],
         GitRepositoryTask.IgnorePattern => [new("first", "Ignore pattern", path)],
         GitRepositoryTask.ApplyPatch => [new("content", "Patch content", Multiline: true)],
         GitRepositoryTask.ExportPatch => [new("first", "Revision range", revision + "^.." + revision)],
         GitRepositoryTask.BisectStart => [new("first", "Known bad revision", revision), new("second", "Known good revision")],
         GitRepositoryTask.Signature => [new("first", "Revision", revision)],
         GitRepositoryTask.ConflictForecast => [new("first", "Current revision", "HEAD"), new("second", "Incoming revision", revision)],
-        GitRepositoryTask.RangeHistory => [new("first", "Line range and file (start,end:path)", "1,20:" + path)],
+        GitRepositoryTask.RangeHistory => [new("start", "First line", "1"), new("end", "Last line", "20"), new("path", "File path", path)],
         _ => [new("first", task is GitRepositoryTask.LfsTrack or GitRepositoryTask.LfsUntrack ? "Path pattern" : "File path", path)],
     };
+
+    /// <summary>
+    /// The check a task form runs before it closes. Line History asks for its
+    /// lines and file as three fields and checks them where they are typed, as
+    /// File History's own Line History does.
+    /// </summary>
+    internal static Func<IReadOnlyDictionary<string, string>, GitWorkflowFieldError?>? TaskValidation(GitRepositoryTask task) =>
+        task == GitRepositoryTask.RangeHistory
+            ? values => GitRuntimePanelViewModel.ValidateLineRange(values["start"], values["end"], values["path"]) is { } error
+                ? new GitWorkflowFieldError(error.Field, error.Message)
+                : null
+            : null;
 
     private static string TaskTitle(GitRepositoryTask task) => task switch
     {
@@ -94,7 +115,7 @@ public sealed partial class GitRuntimePanelView
         GitRepositoryTask.ConflictForecast => "Preview Merge Conflicts",
         GitRepositoryTask.ExternalDiff => "External Diff Tool",
         GitRepositoryTask.ExternalMerge => "External Merge Tool",
-        GitRepositoryTask.Benchmark => "Status Benchmark",
+        GitRepositoryTask.Benchmark => "Status Read Time",
         _ => "Git LFS · " + task.ToString()[3..],
     };
 

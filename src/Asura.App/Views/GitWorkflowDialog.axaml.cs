@@ -1,6 +1,7 @@
 using Asura.App.Controls;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 
@@ -14,6 +15,28 @@ public sealed record GitWorkflowField(string Key, string Label, string Value = "
 
     /// <summary>A yes-or-no option, drawn as a checkbox rather than a Yes/No pop-up.</summary>
     public bool IsCheckBox { get; init; }
+
+    /// <summary>
+    /// Chooses a folder for a path field: a "Choose…" button beside the text
+    /// opens it, starting from what is typed, and a chosen folder replaces the
+    /// text. The system Open panel for a folder on this Mac; Asura's own folder
+    /// browser for one on an SSH connection, which the system panel cannot see.
+    /// </summary>
+    public Func<Window, string, Task<string?>>? ChooseFolder { get; init; }
+
+    /// <summary>
+    /// A field whose value is one of <paramref name="choices"/> when there are
+    /// any, and typed otherwise: a remote is picked from the remotes the
+    /// repository has rather than retyped, but a repository with none still
+    /// takes a name.
+    /// </summary>
+    public static GitWorkflowField ChoiceOrText(string key, string label, IReadOnlyList<string> choices, string fallback)
+    {
+        ArgumentNullException.ThrowIfNull(choices);
+        return choices.Count > 0
+            ? new(key, label, choices[0], Choices: choices)
+            : new(key, label, fallback);
+    }
 
     /// <summary>A yes-or-no option. Read it back with <see cref="GitWorkflowDialog.IsChecked"/>.</summary>
     public static GitWorkflowField CheckBox(string key, string label, bool value) =>
@@ -75,7 +98,7 @@ public sealed partial class GitWorkflowDialog : DialogWindow
             }
             else
             {
-                var labeled = new LabeledField { Label = field.Label, Content = input };
+                var labeled = new LabeledField { Label = field.Label, Content = Present(field, input) };
                 FieldValidation.SetFor(labeled, field.Key);
                 Fields.Children.Add(labeled);
             }
@@ -93,7 +116,16 @@ public sealed partial class GitWorkflowDialog : DialogWindow
         }
 
         PresentAction();
-        Opened += (_, _) => _inputs.FirstOrDefault().Input?.Focus();
+        Opened += (_, _) =>
+        {
+            // The first field takes the keyboard with its text selected, so a
+            // prefilled value is replaced by typing rather than added to.
+            if (_inputs.FirstOrDefault().Input is { } first)
+            {
+                first.Focus(NavigationMethod.Tab);
+                (first as TextBox)?.SelectAll();
+            }
+        };
     }
 
     /// <summary>Whether a checkbox field was ticked when the form closed.</summary>
@@ -125,13 +157,58 @@ public sealed partial class GitWorkflowDialog : DialogWindow
             };
         }
 
-        return new TextBox
+        var text = new TextBox
         {
             Text = field.Value,
             AcceptsReturn = field.Multiline,
             TextWrapping = field.Multiline ? TextWrapping.Wrap : TextWrapping.NoWrap,
             MinHeight = field.Multiline ? 160 : 0,
         };
+        if (!field.Multiline)
+        {
+            // Tabbing into a prefilled field selects its value, as a Mac form
+            // does; a click still puts the caret where it lands.
+            text.GotFocus += (_, focus) =>
+            {
+                if (focus.NavigationMethod is NavigationMethod.Tab or NavigationMethod.Directional)
+                {
+                    text.SelectAll();
+                }
+            };
+        }
+
+        return text;
+    }
+
+    /// <summary>The field as the form shows it: the input, with its Choose… button when it has one.</summary>
+    private Control Present(GitWorkflowField field, Control input)
+    {
+        if (field.ChooseFolder is not { } choose || input is not TextBox text)
+        {
+            return input;
+        }
+
+        var button = new Button
+        {
+            Content = "Choose…",
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch,
+        };
+        button.Classes.Add("SecondaryButton");
+        AutomationProperties.SetName(button, $"Choose {field.Label}");
+        button.Click += async (_, _) =>
+        {
+            if (await choose(this, text.Text ?? "") is { } chosen)
+            {
+                text.Text = chosen;
+                text.Focus();
+            }
+        };
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        row.Bind(Grid.ColumnSpacingProperty, row.GetResourceObservable("ShellSpaceXs"));
+        Grid.SetColumn(button, 1);
+        row.Children.Add(text);
+        row.Children.Add(button);
+        return row;
     }
 
     private Dictionary<string, string> ReadValues()

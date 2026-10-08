@@ -80,24 +80,19 @@ public sealed partial class GitFileHistoryDialog : DialogWindow
             [new("start", "First line", range.Start.ToString(CultureInfo.InvariantCulture)), new("end", "Last line", range.End.ToString(CultureInfo.InvariantCulture))])
         {
             // Checked in the form, beside the number that is wrong.
-            Validate = current => LineNumber(current["start"]) is not { } first
-                ? new GitWorkflowFieldError("start", "Enter a line number of 1 or more.")
-                : LineNumber(current["end"]) is not { } last
-                    ? new GitWorkflowFieldError("end", "Enter a line number of 1 or more.")
-                    : last < first
-                        ? new GitWorkflowFieldError("end", "Enter a last line at or after the first line.")
-                        : null,
+            Validate = current => GitRuntimePanelViewModel.ValidateLineRange(current["start"], current["end"]) is { } error
+                ? new GitWorkflowFieldError(error.Field, error.Message)
+                : null,
         }).ShowDialog<Dictionary<string, string>?>(this);
-        if (values is null || LineNumber(values["start"]) is not { } start || LineNumber(values["end"]) is not { } end)
+        if (values is null
+            || GitRuntimePanelViewModel.ParseLineNumber(values["start"]) is not { } start
+            || GitRuntimePanelViewModel.ParseLineNumber(values["end"]) is not { } end)
         {
             return;
         }
 
         await viewModel.LoadRangeAsync(start, end);
     }
-
-    private static int? LineNumber(string value) =>
-        int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var line) && line >= 1 ? line : null;
 
     private async void OnCopyPatch(object? sender, RoutedEventArgs e)
     {

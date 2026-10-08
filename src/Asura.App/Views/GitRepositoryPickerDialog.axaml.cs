@@ -24,6 +24,18 @@ public sealed partial class GitRepositoryPickerDialog : DialogWindow
         Opened += async (_, _) => await picker.LoadInitialAsync();
     }
 
+    /// <summary>
+    /// The same browser choosing a folder for something else — a clone's
+    /// destination over SSH — under <paramref name="title"/>, with
+    /// <paramref name="verb"/> on its button.
+    /// </summary>
+    public GitRepositoryPickerDialog(GitRepositoryPickerViewModel picker, string title, string verb)
+        : this(picker)
+    {
+        Shell.Title = title;
+        OpenButton.Content = verb;
+    }
+
     private GitRepositoryPickerViewModel? Picker => DataContext as GitRepositoryPickerViewModel;
 
     private void OnCancelClick(object? sender, RoutedEventArgs e)

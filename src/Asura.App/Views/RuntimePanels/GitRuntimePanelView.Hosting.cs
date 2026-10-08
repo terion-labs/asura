@@ -21,7 +21,11 @@ public sealed partial class GitRuntimePanelView
 
         var repository = selection.Repository;
         var values = await ShowGitFormAsync("Clone " + repository.Name, "Clone", $"Connection: {viewModel.ConnectionDisplayName}",
-            new("protocol", "Protocol", "HTTPS", Choices: ["HTTPS", "SSH"]), new("path", "Destination path", viewModel.RepositoryPathInput));
+            new("protocol", "Protocol", "HTTPS", Choices: ["HTTPS", "SSH"]),
+            new("path", "Destination path", viewModel.RepositoryPathInput)
+            {
+                ChooseFolder = FolderChooser("Choose a Folder for the Clone", repository.Name[(repository.Name.LastIndexOf('/') + 1)..]),
+            });
         if (values is not null)
         {
             await viewModel.CreateRepositoryAsync(values["path"], "main", string.Equals(values["protocol"], "SSH", StringComparison.Ordinal) ? repository.SshUrl : repository.CloneUrl, selection.Account);

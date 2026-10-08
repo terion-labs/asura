@@ -27,10 +27,16 @@
           <ListBox x:Name="Revisions" ItemsSource="{Binding Commits}" SelectedItem="{Binding SelectedCommit}" SelectionChanged="OnRevisionChanged" AutomationProperties.Name="File revisions">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="git:GitCommitItem">
+                <!-- The subject, then who and which revision on one secondary
+                     line. The secondary text is muted by class rather than by
+                     a fixed brush, so a focused selection turns it with the
+                     subject instead of leaving gray on the accent. -->
                 <StackPanel Spacing="{DynamicResource ShellSpaceXs}" Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}">
                   <TextBlock Text="{Binding Subject}" TextWrapping="Wrap" />
-                  <TextBlock Text="{Binding AuthorName}" FontSize="{DynamicResource ShellFontSize10}" Foreground="{DynamicResource ShellMutedBrush}" />
-                  <TextBlock Text="{Binding ShortSha}" FontFamily="{DynamicResource ShellMonospaceFont}" FontSize="{DynamicResource ShellFontSize10}" />
+                  <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding AuthorName}" />
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" FontFamily="{DynamicResource ShellDataFontFamily}" Text="{Binding ShortSha}" />
+                  </StackPanel>
                 </StackPanel>
               </DataTemplate>
             </ListBox.ItemTemplate>
@@ -49,7 +55,7 @@
                     <TextBlock Text="{Binding LineNumber}" />
                     <Button Grid.Column="1" Content="{Binding CommitSha}" ToolTip.Tip="{Binding Summary}" Click="OnBlameCommit" AutomationProperties.Name="Open responsible commit" />
                     <TextBlock Grid.Column="2" Text="{Binding Author}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AuthoredAt, Converter={x:Static vm:GitDateText.Converter}}" />
-                    <TextBlock Grid.Column="3" Text="{Binding Text}" FontFamily="{DynamicResource ShellMonospaceFont}" TextWrapping="NoWrap" />
+                    <TextBlock Grid.Column="3" Text="{Binding Text}" FontFamily="{DynamicResource ShellDataFontFamily}" TextWrapping="NoWrap" />
                   </Grid>
                 </DataTemplate>
               </ListBox.ItemTemplate>
