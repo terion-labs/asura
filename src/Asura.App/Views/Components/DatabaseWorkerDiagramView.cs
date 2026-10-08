@@ -1,6 +1,7 @@
 using Asura.App.ViewModels;
 using Asura.Application;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
@@ -44,6 +45,14 @@ public sealed class DatabaseWorkerDiagramView : UserControl
         };
         var smaller = new Button { Content = "−" };
         var larger = new Button { Content = "+" };
+        // The glyphs and the zoom percentage say nothing to VoiceOver, so
+        // each button is named for what it does, as in the Mermaid diagram.
+        AutomationProperties.SetName(smaller, "Zoom out of the ER diagram");
+        ToolTip.SetTip(smaller, "Zoom out");
+        AutomationProperties.SetName(larger, "Zoom into the ER diagram");
+        ToolTip.SetTip(larger, "Zoom in");
+        AutomationProperties.SetName(_fit, "Fit the ER diagram");
+        ToolTip.SetTip(_fit, "Fit the whole diagram");
         smaller.Click += (_, _) => ZoomBy(0.8);
         larger.Click += (_, _) => ZoomBy(1.25);
         _fit.Click += (_, _) => Fit();

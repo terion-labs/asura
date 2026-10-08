@@ -276,7 +276,7 @@
     <controls:PanelChrome.Footer>
       <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
         <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" LineHeight="{DynamicResource ShellLineHeight11}" Text="{Binding EnginePlatform}" />
-        <TextBlock Grid.Column="2" Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" LineHeight="{DynamicResource ShellLineHeight11}" Text="{Binding ConnectionDisplayName, StringFormat=Target · {0}}" />
+        <TextBlock Grid.Column="2" Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" LineHeight="{DynamicResource ShellLineHeight11}" Text="{Binding ConnectionDisplayName, StringFormat=Connection · {0}}" />
       </Grid>
     </controls:PanelChrome.Footer>
 

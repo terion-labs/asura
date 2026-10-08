@@ -886,7 +886,7 @@ public sealed class BrowserPresentationHost : ContentControl
             case BrowserProductEvent.PermissionDenied permission:
                 ShowProductNotice(
                     "Permission denied",
-                    $"{permission.Origin} requested {FormatPermissions(permission.Permissions)}. Asura denied it.");
+                    $"{permission.Origin} asked to use {FormatPermissions(permission.Permissions)}. Asura didn’t allow it.");
                 return;
             case BrowserProductEvent.CertificateRejected certificate:
                 ShowProductNotice(
@@ -1026,10 +1026,37 @@ public sealed class BrowserPresentationHost : ContentControl
         UpdateAutomationStatus();
     }
 
-    private static string FormatPermissions(BrowserPermissionKind permissions) =>
-        permissions == BrowserPermissionKind.None
-            ? "an unspecified browser permission"
-            : permissions.ToString().ToLowerInvariant();
+    /// <summary>
+    /// What the page asked for, in words: "the camera and the microphone",
+    /// not the flag names "camera, microphone" or "screencapture".
+    /// </summary>
+    private static string FormatPermissions(BrowserPermissionKind permissions)
+    {
+        var names = PermissionNames
+            .Where(entry => (permissions & entry.Kind) != 0)
+            .Select(entry => entry.Name)
+            .ToArray();
+        return names.Length switch
+        {
+            0 => "a browser permission",
+            1 => names[0],
+            _ => $"{string.Join(", ", names[..^1])} and {names[^1]}",
+        };
+    }
+
+    private static readonly (BrowserPermissionKind Kind, string Name)[] PermissionNames =
+    [
+        (BrowserPermissionKind.Camera, "the camera"),
+        (BrowserPermissionKind.Microphone, "the microphone"),
+        (BrowserPermissionKind.ScreenCapture, "screen recording"),
+        (BrowserPermissionKind.Location, "your location"),
+        (BrowserPermissionKind.Notifications, "notifications"),
+        (BrowserPermissionKind.Clipboard, "the clipboard"),
+        (BrowserPermissionKind.FileSystem, "files on this computer"),
+        (BrowserPermissionKind.Storage, "site storage"),
+        (BrowserPermissionKind.Device, "a connected device"),
+        (BrowserPermissionKind.Other, "another browser feature"),
+    ];
 
     private static string FormatDownloadProgress(long received, long? total)
     {

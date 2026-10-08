@@ -1093,7 +1093,7 @@ public sealed partial class DatabaseWorkspaceView
             ".json" => DatabaseGridExportFormat.Json,
             ".csv" or "" => DatabaseGridExportFormat.Csv,
             var extension => throw new InvalidDataException(
-                $"Unsupported database export extension '{extension}'. Use .csv or .json."),
+                $"Asura can’t export a page as a “{extension}” file. Use a name that ends in .csv or .json."),
         };
     }
 

@@ -48,7 +48,9 @@ public sealed class BrowserRuntimePanelViewModelTests
                 BrowserPermissionKind.Camera | BrowserPermissionKind.Microphone));
 
         Assert.Equal("Permission denied", browser.ProductHeading);
-        Assert.Contains("camera", browser.ProductMessage);
+        Assert.Equal(
+            "https://example.test asked to use the camera and the microphone. Asura didn’t allow it.",
+            browser.ProductMessage);
         Assert.False(browser.HasDownloadProgress);
 
         browser.ApplyProductEvent(

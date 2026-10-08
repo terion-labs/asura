@@ -1059,7 +1059,7 @@
                                         FontFamily="{DynamicResource ShellDataFontFamily}"
                                         IsReadOnly="True"
                                         Text="{Binding Address}"
-                                        AutomationProperties.Name="Forward local endpoint" />
+                                        AutomationProperties.Name="Forward local address" />
                                     <TextBlock Classes="Muted" Text="{Binding Status}" />
                                     <StackPanel Classes="ActionRow">
                                       <Button

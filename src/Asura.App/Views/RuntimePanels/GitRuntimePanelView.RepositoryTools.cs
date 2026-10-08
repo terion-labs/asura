@@ -47,7 +47,7 @@ public sealed partial class GitRuntimePanelView
         var values = await ShowGitFormAsync(
             clone ? "Clone Repository" : "Initialize Repository",
             clone ? "Clone" : "Initialize",
-            $"Target: {viewModel.ConnectionDisplayName}",
+            $"Connection: {viewModel.ConnectionDisplayName}",
             new("path", "Destination path", viewModel.RepositoryPathInput),
             new("source", clone ? "Repository URL" : "Initial branch", clone ? "" : "main"));
         if (values is null)

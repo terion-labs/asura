@@ -389,7 +389,7 @@ public sealed class KubernetesRuntimePanelHeadlessTests
             Dispatcher.UIThread.RunJobs();
             var menu = view.CreateResourceContextMenu();
             Assert.Equal(
-                ["Show Logs", "Open Shell", "Port Forward…", "Edit Manifest…", "-", "Copy Name", "-", "Delete…"],
+                ["Show Logs", "Open Pod Terminal", "Port Forward…", "Edit Manifest…", "-", "Copy Name", "-", "Delete…"],
                 Headers(menu),
                 StringComparer.Ordinal);
             Assert.All(menu.Items.OfType<MenuItem>().Where(item => !Equals(item.Header, "Port Forward…")), item => Assert.True(item.IsEnabled));

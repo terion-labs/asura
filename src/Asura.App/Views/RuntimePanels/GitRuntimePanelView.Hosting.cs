@@ -20,7 +20,7 @@ public sealed partial class GitRuntimePanelView
         }
 
         var repository = selection.Repository;
-        var values = await ShowGitFormAsync("Clone " + repository.Name, "Clone", $"Target: {viewModel.ConnectionDisplayName}",
+        var values = await ShowGitFormAsync("Clone " + repository.Name, "Clone", $"Connection: {viewModel.ConnectionDisplayName}",
             new("protocol", "Protocol", "HTTPS", Choices: ["HTTPS", "SSH"]), new("path", "Destination path", viewModel.RepositoryPathInput));
         if (values is not null)
         {

@@ -538,7 +538,7 @@
             Grid.Column="1"
             Classes="Muted"
             FontSize="{DynamicResource ShellSecondaryFontSize}"
-            Text="{Binding ConnectionDisplayName, StringFormat=Target · {0}}" />
+            Text="{Binding ConnectionDisplayName, StringFormat=Connection · {0}}" />
         <!-- Impersonation is visible, never silent: when Git runs as the
              repository's owner rather than the signed-in user, the footer
              says so for the panel's whole life. -->

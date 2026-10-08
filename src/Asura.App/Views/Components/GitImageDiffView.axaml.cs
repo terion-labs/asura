@@ -77,10 +77,10 @@ public sealed partial class GitImageDiffView : UserControl
         return OrdinaryImagePreviewDecoder.Decode(content);
     }
 
-    private static string Describe(Bitmap? bitmap, GitImageVersion version) => version.IsLfsPointer ? "LFS object needs download · " + version.LfsObjectId
-        : version.IsPreviewUnavailable ? "unsupported image or source exceeds preview size limits"
-        : bitmap is null ? "missing"
-        : $"{version.PixelWidth ?? bitmap.PixelSize.Width} × {version.PixelHeight ?? bitmap.PixelSize.Height}, {version.OriginalByteLength ?? version.Bytes.Length} bytes · {version.FormatName ?? "image"}";
+    private static string Describe(Bitmap? bitmap, GitImageVersion version) => version.IsLfsPointer ? "in Git LFS, not downloaded"
+        : version.IsPreviewUnavailable ? "too large to preview, or not a supported image"
+        : bitmap is null ? "none"
+        : $"{version.PixelWidth ?? bitmap.PixelSize.Width} × {version.PixelHeight ?? bitmap.PixelSize.Height}, {version.OriginalByteLength ?? version.Bytes.Length:N0} bytes · {version.FormatName ?? "image"}";
 
     private static Bitmap? Difference(GitImagePair pair)
     {

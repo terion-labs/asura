@@ -93,7 +93,9 @@ public sealed class DatabaseWorkspaceFileExportTests : IDisposable
         var error = Assert.Throws<InvalidDataException>(() =>
             DatabaseWorkspaceView.ResolvePageExportFormat("page.sql"));
 
-        Assert.Contains("Use .csv or .json", error.Message, StringComparison.Ordinal);
+        Assert.Equal(
+            "Asura can’t export a page as a “.sql” file. Use a name that ends in .csv or .json.",
+            error.Message);
     }
 
     [Fact]

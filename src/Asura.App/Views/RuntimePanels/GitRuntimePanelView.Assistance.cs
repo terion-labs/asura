@@ -65,7 +65,7 @@ public sealed partial class GitRuntimePanelView
 
         var values = await ShowGitFormAsync(new GitWorkflowForm(
             "Run Repository Command",
-            $"Target: {viewModel.ConnectionDisplayName}. Repository: {viewModel.RepositoryRoot}. Each argument is a separate line. Placeholders: {{repository}}, {{path}}, {{revision}}. Runs directly in the repository folder. Review before running.",
+            $"Connection: {viewModel.ConnectionDisplayName}. Repository: {viewModel.RepositoryRoot}. Each argument is a separate line. Placeholders: {{repository}}, {{path}}, {{revision}}. Runs directly in the repository folder. Review before running.",
             new GitWorkflowAction("Run"),
             [
                 new("name", "Save as (optional)", preset?.Name ?? "", Required: false),
