@@ -126,16 +126,23 @@
 
     <!-- Terminal palette -->
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
         <components:SectionHeader
             Heading="Terminal palette"
-            Description="Pick a preset or start from a custom palette." />
-        <!-- The palette is a draft: previewed live, applied with Apply
-             Terminal, and never dropped without asking. -->
-        <Button Grid.Column="1" Classes="SecondaryButton" Click="OnResetTerminalPaletteClick" Content="Reset Palette" />
-        <Button Grid.Column="2" Classes="SecondaryButton" Click="OnCancelTerminalClick" Content="Cancel" />
-        <Button Grid.Column="3" Classes="PrimaryButton" Click="OnApplyTerminalClick" Content="Apply Terminal" />
-        <controls:StatusChip Shape="Rounded" Tone="Default" IsOutlined="False" Grid.Column="4" VerticalAlignment="Center" Content="{Binding TerminalSettingsEditor.PaletteName}" />
+            Description="Pick a preset or start from a custom palette. Every terminal shows a change as it’s made." />
+        <!-- Applied as it changes, like every other setting here. Revert
+             puts back the palette and font this page opened with. -->
+        <Button
+            x:Name="RevertTerminalButton"
+            Grid.Column="1"
+            VerticalAlignment="Center"
+            Classes="TextButton"
+            Click="OnRevertTerminalClick"
+            Content="Revert"
+            IsEnabled="{Binding CanRevertTerminalAppearance}"
+            AutomationProperties.Name="Revert the terminal palette and font"
+            AutomationProperties.HelpText="Puts back the terminal palette and font as they were when this page opened." />
+        <controls:StatusChip Shape="Rounded" Tone="Default" IsOutlined="False" Grid.Column="2" VerticalAlignment="Center" Content="{Binding TerminalSettingsEditor.PaletteName}" />
       </Grid>
       <ItemsControl x:Name="TerminalPalettePresets" ItemsSource="{Binding TerminalSettingsEditor.PalettePresets}">
         <ItemsControl.ItemsPanel><ItemsPanelTemplate><controls:CardGridPanel MinItemWidth="168" Spacing="{DynamicResource ShellSpaceMd}" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>

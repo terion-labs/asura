@@ -44,6 +44,8 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
     private bool _profileTestHasResult;
     private CancellationTokenSource? _profileTestCancellation;
     private Task<bool>? _profileTestTask;
+    private bool _policyApplyRunning;
+    private bool _policyApplyPending;
     private bool _disposed;
 
     public NetworkSettingsViewModel(
@@ -55,6 +57,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
         _secretVault = secretVault ?? throw new ArgumentNullException(nameof(secretVault));
         _workspaceNetworkRuntime = workspaceNetworkRuntime;
         _policy = new([], NetworkPolicy.Direct);
+        _policy.Changed += OnPolicyChanged;
         _applicationSettingsName = ApplicationNetworkSettings.Default.Name;
         ApplyCatalog(_catalog.Snapshot);
     }
@@ -100,7 +103,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
     }
 
     public string ProfileTestActionLabel =>
-        IsTestingProfile ? "Cancel test" : "Test connection";
+        IsTestingProfile ? "Cancel Test" : "Test Connection";
 
     /// <summary>Whether a test has said anything yet; before it has, the dialog says nothing.</summary>
     public bool HasProfileTestResult => IsTestingProfile || _profileTestHasResult;
@@ -147,8 +150,79 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
             var previous = _policy;
             if (SetProperty(ref _policy, value))
             {
+                previous.Changed -= OnPolicyChanged;
                 previous.Dispose();
+                value.Changed += OnPolicyChanged;
+                OnPropertyChanged(nameof(PolicyValidationMessage));
+                OnPropertyChanged(nameof(HasPolicyValidationMessage));
             }
+        }
+    }
+
+    /// <summary>
+    /// What stops the application route from being applied, said under the
+    /// route itself, or null when it applies.
+    /// </summary>
+    public string? PolicyValidationMessage => Policy.IsValid
+        ? null
+        : Policy.HasMissingConnections
+            ? "A connection this route used was deleted. Choose another connection, or turn the route off."
+            : "Choose a connection to use, or turn the route off.";
+
+    public bool HasPolicyValidationMessage => PolicyValidationMessage is not null;
+
+    /// <summary>
+    /// The application route applies as it changes, like every other setting:
+    /// the switch, the connection and the kill switch are saved the moment
+    /// they are set. A route that can't apply yet says why under it and is
+    /// saved once it can.
+    /// </summary>
+    private void OnPolicyChanged(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        OnPropertyChanged(nameof(PolicyValidationMessage));
+        OnPropertyChanged(nameof(HasPolicyValidationMessage));
+        if (!_disposed && Policy.IsValid)
+        {
+            _ = ApplyPolicyAsync(CancellationToken.None);
+        }
+    }
+
+    /// <summary>
+    /// Saves the route as it now stands. A change made while a save is in
+    /// flight is saved after it, so the last choice is the one that stays.
+    /// </summary>
+    public async Task ApplyPolicyAsync(CancellationToken cancellationToken)
+    {
+        if (_policyApplyRunning)
+        {
+            _policyApplyPending = true;
+            return;
+        }
+
+        _policyApplyRunning = true;
+        try
+        {
+            do
+            {
+                _policyApplyPending = false;
+                if (!Policy.IsValid || !await SavePolicyCoreAsync(cancellationToken))
+                {
+                    break;
+                }
+            }
+            while (_policyApplyPending && !_disposed);
+        }
+        finally
+        {
+            _policyApplyRunning = false;
+        }
+
+        // Saved, with nothing newer waiting: the editor is the stored route.
+        if (!_disposed && !_policyApplyPending && Policy.IsDirty && Policy.IsValid)
+        {
+            DiscardPolicyDraft();
         }
     }
 
@@ -546,6 +620,17 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
 
     public async ValueTask<bool> SavePolicyAsync(CancellationToken cancellationToken)
     {
+        var saved = await SavePolicyCoreAsync(cancellationToken);
+        if (saved)
+        {
+            Succeed("Saved application networking.");
+        }
+
+        return saved;
+    }
+
+    private async ValueTask<bool> SavePolicyCoreAsync(CancellationToken cancellationToken)
+    {
         ThrowIfDisposed();
         NetworkPolicy policy;
         try
@@ -574,7 +659,11 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
         }
 
         ApplyCatalog(_catalog.Snapshot);
-        Succeed("Saved application networking.");
+        if (HasError)
+        {
+            ClearStatus();
+        }
+
         return true;
     }
 
@@ -622,7 +711,11 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
         ReplaceProfiles(snapshot.NetworkConnections);
         if (policyRevisionChanged || profilesChanged)
         {
-            var preserveDraft = !policyRevisionChanged && Policy.IsDirty && Policy.IsValid;
+            // A route being saved as it changes keeps whatever was chosen
+            // while the save was in flight; the save that follows stores it.
+            var preserveDraft = (!policyRevisionChanged || _policyApplyRunning)
+                && Policy.IsDirty
+                && Policy.IsValid;
             var policy = NetworkPolicyResolver.ResolveApplication(
                 preserveDraft ? Policy.CreatePolicy() : settings.Policy,
                 [.. snapshot.NetworkConnections.Select(item => item.Value)]);
@@ -654,6 +747,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
         _profileTestCancellation?.Cancel();
         DisposePendingCredentials();
         ProfileEditor = null;
+        Policy.Changed -= OnPolicyChanged;
         Policy.Dispose();
     }
 

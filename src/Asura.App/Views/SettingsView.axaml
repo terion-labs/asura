@@ -18,6 +18,9 @@
     <Style Selector="controls|SettingRow > CheckBox">
       <Setter Property="HorizontalAlignment" Value="Right" />
     </Style>
+    <!-- One boolean shape for every page: an option row leads with its
+         checkbox and names it in the box's own label. -->
+    <StyleInclude Source="avares://Asura.App/Views/SettingsPages/SettingOptionStyles.axaml" />
   </UserControl.Styles>
   <!--
     The Settings window's content. The window's own title bar names the page,
@@ -172,14 +175,12 @@
                 ApplicationAppearanceChanged="OnApplicationAppearanceChangedRequested"
                 TerminalAppearanceChanged="OnTerminalAppearanceChangedRequested"
                 ApplyRequested="OnAppearanceApplyRequested"
-                ApplyTerminalRequested="OnAppearanceApplyTerminalRequested"
                 CancelRequested="OnAppearanceCancelRequested"
-                CancelTerminalRequested="OnAppearanceCancelTerminalRequested"
                 ExportRequested="OnAppearanceExportRequested"
                 ImportRequested="OnAppearanceImportRequested"
                 PickColorRequested="OnPickColorRequested"
                 ResetRequested="OnAppearanceResetRequested"
-                ResetTerminalPaletteRequested="OnAppearanceResetTerminalPaletteRequested"
+                RevertTerminalRequested="OnAppearanceRevertTerminalRequested"
                 SelectTerminalPaletteRequested="OnSelectTerminalPaletteClick" />
 
             <Grid

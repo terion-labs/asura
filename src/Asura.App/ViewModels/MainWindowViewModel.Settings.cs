@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Asura.Core;
 
 namespace Asura.App.ViewModels;
 
@@ -9,10 +10,13 @@ namespace Asura.App.ViewModels;
 public sealed record SettingsDraft(SettingsPage Page, string Heading, string Detail);
 
 /// <summary>
-/// The Settings save model. Almost every setting applies the moment it
-/// changes; a few edits only make sense as a whole — a terminal palette being
-/// previewed, a set of shortcuts that must be free of conflicts — and those
-/// are drafts. A draft is never thrown away without asking.
+/// The Settings save model. Every setting applies the moment it changes, as
+/// a Mac settings window's do; the terminal palette and the application
+/// network route included. Two edits only make sense as a whole and stay
+/// drafts: a set of keyboard shortcuts that must be free of conflicts before
+/// any of it is saved, and a browser profile's HTTP authentication, whose
+/// password must not be stored half typed. A draft is never thrown away
+/// without asking.
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
@@ -22,14 +26,6 @@ public sealed partial class MainWindowViewModel
     /// </summary>
     public SettingsDraft? PendingSettingsDraft(SettingsPage page) => page switch
     {
-        SettingsPage.Appearance when HasTerminalAppearanceDraft => new(
-            page,
-            "Discard Terminal Appearance Changes?",
-            "The terminal colors you are previewing haven't been applied. Discard them, or keep editing and choose Apply Terminal."),
-        SettingsPage.Networking when NetworkSettings.Policy.IsDirty => new(
-            page,
-            "Discard Network Route Changes?",
-            "The application route you changed hasn't been saved. Discard the change, or keep editing and choose Save Route."),
         SettingsPage.Browser when BrowserProfileSettingsEditor.HasUnsavedAuthentication => new(
             page,
             "Discard HTTP Authentication Changes?",
@@ -96,14 +92,16 @@ public sealed partial class MainWindowViewModel
 
     /// <summary>
     /// The Terminal page applies each change too. The same profile carries
-    /// the palette the Appearance page previews as a draft, so only edits
-    /// made on the Terminal page itself, with no palette preview pending,
-    /// are applied here.
+    /// the palette the Appearance page edits, which previews each change on
+    /// every terminal before <see cref="ApplyTerminalAppearanceChangeAsync"/>
+    /// saves it; only edits made on the Terminal page itself, with no
+    /// palette preview in flight, are applied here.
     /// </summary>
     private void OnAutoAppliedTerminalEditorChanged(object? sender, PropertyChangedEventArgs e)
     {
         _ = sender;
         _ = e;
+        OnPropertyChanged(nameof(CanRevertTerminalAppearance));
         if (TerminalSettings.TerminalEditor is not { } editor
             || !IsSettingsVisible
             || SettingsPage != SettingsPage.Terminal
@@ -164,6 +162,117 @@ public sealed partial class MainWindowViewModel
         }
     }
 
+    private bool _terminalAppearanceApplyRunning;
+    private bool _terminalAppearanceApplyPending;
+    private TerminalProfile? _terminalAppearanceAtOpen;
+
+    /// <summary>
+    /// Saves the terminal appearance the Appearance page is previewing, as it
+    /// changes: there is no Apply. Changes made while a save is in flight are
+    /// saved after it, newest last, so dragging a colour costs one save per
+    /// round trip rather than one per step. The preview ends once what is
+    /// saved is what is shown.
+    /// </summary>
+    public async Task ApplyTerminalAppearanceChangeAsync(CancellationToken cancellationToken)
+    {
+        if (_terminalAppearanceApplyRunning)
+        {
+            _terminalAppearanceApplyPending = true;
+            return;
+        }
+
+        _terminalAppearanceApplyRunning = true;
+        try
+        {
+            do
+            {
+                _terminalAppearanceApplyPending = false;
+                var result = await SaveTerminalProfileAsync(cancellationToken);
+                if (!result.IsSuccess || _disposed)
+                {
+                    break;
+                }
+
+                _ = _appearancePreviewLease?.AdvanceTerminalBaseline(result.Value!.Revision);
+                if (!_terminalAppearanceApplyPending
+                    && OwnsAppearancePreview
+                    && TerminalSettings.TerminalEditor is { } editor
+                    && CanCreate(editor.CreateSaveRequest)
+                    && editor.CreateSaveRequest().Profile.RepresentsSameAs(result.Value!.Value))
+                {
+                    _ = _appearancePreviewLease?.ClearTerminal();
+                    ReleaseInactiveAppearanceLease();
+                }
+
+                PublishAppearanceDraftState();
+            }
+            while (_terminalAppearanceApplyPending && !_disposed);
+        }
+        finally
+        {
+            _terminalAppearanceApplyRunning = false;
+        }
+    }
+
+    /// <summary>
+    /// Remembers the terminal appearance as the Appearance page opened, for
+    /// <see cref="RevertTerminalAppearance"/>.
+    /// </summary>
+    public void BeginTerminalAppearanceSession()
+    {
+        _terminalAppearanceAtOpen = TerminalSettings.TerminalEditor is { } editor
+            && CanCreate(editor.CreateSaveRequest)
+                ? editor.CreateSaveRequest().Profile
+                : null;
+        OnPropertyChanged(nameof(CanRevertTerminalAppearance));
+    }
+
+    /// <summary>
+    /// Whether the terminal's palette, colours or font differ from what they
+    /// were when the Appearance page opened.
+    /// </summary>
+    public bool CanRevertTerminalAppearance =>
+        _terminalAppearanceAtOpen is { } atOpen
+        && TerminalSettings.TerminalEditor is { } editor
+        && !TerminalAppearanceMatches(editor, atOpen);
+
+    /// <summary>
+    /// Puts the palette, colours and font back as they were when the
+    /// Appearance page opened. The caller previews and saves the result like
+    /// any other change. Returns whether anything changed.
+    /// </summary>
+    public bool RevertTerminalAppearance()
+    {
+        if (_terminalAppearanceAtOpen is not { } atOpen
+            || TerminalSettings.TerminalEditor is not { } editor
+            || TerminalAppearanceMatches(editor, atOpen))
+        {
+            return false;
+        }
+
+        editor.ApplyPalettePreset(atOpen.Palette);
+        editor.FontFamily = atOpen.FontFamily;
+        editor.FontSize = atOpen.FontSize;
+        editor.LineHeight = atOpen.LineHeight;
+        OnPropertyChanged(nameof(CanRevertTerminalAppearance));
+        return true;
+    }
+
+    private static bool TerminalAppearanceMatches(TerminalProfileEditorViewModel editor, TerminalProfile profile)
+    {
+        if (!CanCreate(editor.CreateSaveRequest))
+        {
+            return false;
+        }
+
+        var current = editor.CreateSaveRequest().Profile;
+        return current.Palette.Matches(profile.Palette)
+            && string.Equals(current.Palette.Name, profile.Palette.Name, StringComparison.Ordinal)
+            && string.Equals(current.FontFamily, profile.FontFamily, StringComparison.Ordinal)
+            && current.FontSize.Equals(profile.FontSize)
+            && current.LineHeight.Equals(profile.LineHeight);
+    }
+
     private static bool CanCreate<T>(Func<T> create)
     {
         try
@@ -182,12 +291,6 @@ public sealed partial class MainWindowViewModel
     {
         switch (page)
         {
-            case SettingsPage.Appearance when HasTerminalAppearanceDraft:
-                CancelTerminalAppearanceDraft();
-                break;
-            case SettingsPage.Networking when NetworkSettings.Policy.IsDirty:
-                NetworkSettings.DiscardPolicyDraft();
-                break;
             case SettingsPage.Browser when BrowserProfileSettingsEditor.HasUnsavedAuthentication:
                 BrowserProfileSettingsEditor.DiscardAuthenticationDraft();
                 break;
