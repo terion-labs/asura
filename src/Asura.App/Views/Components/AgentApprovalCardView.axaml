@@ -47,7 +47,8 @@
             <DataTemplate x:DataType="vm:AgentApprovalArgumentViewModel">
               <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                 <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding DisplayName}" />
-                <SelectableTextBlock FontSize="{DynamicResource ShellFontSize12}"
+                <SelectableTextBlock
+                    LineHeight="{DynamicResource ShellLineHeight13}"
                     Text="{Binding DisplayValue}" TextWrapping="Wrap" />
               </StackPanel>
             </DataTemplate>
@@ -55,33 +56,67 @@
         </ItemsControl>
       </controls:SurfaceCard>
       <!-- Identifiers bind the decision to one exact action. They are here to
-           check, not to read: the heading above already says what and where. -->
-      <Expander Header="Details" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-          FontSize="{DynamicResource ShellFontSize10}">
-        <ScrollViewer MaxHeight="200" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel Spacing="{DynamicResource ShellSpaceSm}" Margin="{controls:Inset Top=Sm}">
-            <SelectableTextBlock Classes="Muted" Text="{Binding AgentChat.PendingApproval.ToolName, StringFormat={}Tool: {0}}" TextWrapping="Wrap" />
-            <TextBlock Classes="Muted" Text="{Binding AgentChat.PendingApproval.Risk, StringFormat={}Risk: {0}}" TextWrapping="Wrap" />
-            <TextBlock Classes="Muted" Text="{Binding AgentChat.PendingApproval.Permission, StringFormat={}Permission: {0}}" TextWrapping="Wrap" />
-            <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-              <TextBlock Classes="Muted" Text="Target" />
-              <SelectableTextBlock Text="{Binding AgentChat.PendingApproval.TargetTitle}" TextWrapping="Wrap" />
-              <SelectableTextBlock Text="{Binding AgentChat.PendingApproval.ExactTarget}" TextWrapping="Wrap" />
+           check, not to read: the heading above already says what and where.
+           Inside, one layout for every fact, a label over its value, in a
+           framed, inset well at body size. -->
+      <Expander Header="Details" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+        <Border
+            Margin="{controls:Inset Top=Xs}"
+            Padding="{controls:Inset Md}"
+            BorderBrush="{DynamicResource ShellBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="{DynamicResource ShellInnerCornerRadius}">
+          <Border.Styles>
+            <Style Selector="TextBlock.DetailLabel">
+              <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+              <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+              <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+            </Style>
+            <Style Selector="SelectableTextBlock.DetailValue, TextBlock.DetailValue">
+              <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight13}" />
+              <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
+          </Border.Styles>
+          <ScrollViewer MaxHeight="{controls:TextScaled 240}" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+              <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+                <TextBlock Classes="DetailLabel" Text="Tool" />
+                <SelectableTextBlock Classes="DetailValue" Text="{Binding AgentChat.PendingApproval.ToolName}" />
+              </StackPanel>
+              <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+                <TextBlock Classes="DetailLabel" Text="Risk" />
+                <TextBlock Classes="DetailValue" Text="{Binding AgentChat.PendingApproval.Risk}" />
+              </StackPanel>
+              <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+                <TextBlock Classes="DetailLabel" Text="Permission" />
+                <TextBlock Classes="DetailValue" Text="{Binding AgentChat.PendingApproval.Permission}" />
+              </StackPanel>
+              <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+                <TextBlock Classes="DetailLabel" Text="Target" />
+                <SelectableTextBlock Classes="DetailValue" Text="{Binding AgentChat.PendingApproval.TargetTitle}" />
+                <SelectableTextBlock Classes="DetailValue" Text="{Binding AgentChat.PendingApproval.ExactTarget}" />
+              </StackPanel>
+              <ItemsControl ItemsSource="{Binding AgentChat.PendingApproval.Arguments}"
+                  IsVisible="{Binding AgentChat.PendingApproval.HasArguments}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate><StackPanel Spacing="{DynamicResource ShellSpaceSm}" /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:AgentApprovalArgumentViewModel">
+                    <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+                      <TextBlock Classes="DetailLabel" Text="{Binding DisplayName}" ToolTip.Tip="{Binding Name}" />
+                      <SelectableTextBlock Classes="DetailValue" Text="{Binding DisplayValue}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+                <TextBlock Classes="DetailLabel" Text="Expires" />
+                <TextBlock Classes="DetailValue" Text="{Binding AgentChat.PendingApproval.ExpiresAt}" />
+              </StackPanel>
             </StackPanel>
-            <ItemsControl ItemsSource="{Binding AgentChat.PendingApproval.Arguments}"
-                IsVisible="{Binding AgentChat.PendingApproval.HasArguments}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:AgentApprovalArgumentViewModel">
-                  <StackPanel Spacing="{DynamicResource ShellSpaceXs}" Margin="{controls:Inset Bottom=Sm}">
-                    <TextBlock Classes="Muted" Text="{Binding Name}" />
-                    <SelectableTextBlock Text="{Binding DisplayValue}" TextWrapping="Wrap" />
-                  </StackPanel>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-            <TextBlock Classes="Muted" Text="{Binding AgentChat.PendingApproval.ExpiresAt, StringFormat={}Expires {0}}" TextWrapping="Wrap" />
-          </StackPanel>
-        </ScrollViewer>
+          </ScrollViewer>
+        </Border>
       </Expander>
       <controls:Callout
           Tone="Warning"

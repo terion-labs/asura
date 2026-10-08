@@ -11,9 +11,6 @@ public sealed partial class AboutWindow : Window
     public AboutWindow()
     {
         InitializeComponent();
-        var version = typeof(AboutWindow).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
-        this.FindControl<TextBlock>("VersionText")!.Text = $"Version {version}";
-        this.FindControl<Image>("ApplicationIcon")!.Source = MacOsApplicationIconImage.Read();
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);

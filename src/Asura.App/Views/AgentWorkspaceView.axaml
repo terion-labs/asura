@@ -36,6 +36,10 @@
     <Style Selector="Border#AgentComposer">
       <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
     </Style>
+    <!-- The raw-secrets help dims with its checkbox, as one option. -->
+    <Style Selector="TextBlock#AgentSendRawSecretsHelp:disabled">
+      <Setter Property="Opacity" Value="0.48" />
+    </Style>
     <Style Selector="Border#AgentComposer.dropTarget">
       <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
       <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
@@ -264,7 +268,7 @@
             Grid.Column="1"
             VerticalAlignment="Center"
             Classes="Headline"
-            Text="AI agent" />
+            Text="AI Agent" />
         <controls:StatusChip
             Grid.Column="2"
             VerticalAlignment="Center"
@@ -1149,6 +1153,7 @@
                   FontSize="{DynamicResource ShellSecondaryFontSize}"
                   Text="{Binding AgentChat.SendRawSecretsHelp}"
                   TextWrapping="Wrap"
+                  IsEnabled="{Binding AgentChat.CanEnterPrompt}"
                   IsVisible="{Binding !AgentChat.HasFailedTurn}" />
               <ComboBox Grid.Column="2" MinWidth="{controls:TextScaled 104}" Margin="4,0" MinHeight="{controls:TextScaled 26}"
                   VerticalAlignment="Center"
@@ -1162,73 +1167,6 @@
                   <DataTemplate x:DataType="vm:AgentReasoningEffortOption"><TextBlock Text="{Binding Label}" /></DataTemplate>
                 </ComboBox.ItemTemplate>
               </ComboBox>
-              <Button
-                  Grid.Column="3"
-                  MinWidth="{controls:TextScaled 26}"
-                  MinHeight="{controls:TextScaled 26}"
-                  Margin="0"
-                  Padding="0"
-                  HorizontalAlignment="Right"
-                  VerticalAlignment="Center"
-                  HorizontalContentAlignment="Center"
-                  VerticalContentAlignment="Center"
-                  Classes="IconButton ComposerControl"
-                  IsVisible="{Binding AgentChat.HasContextWindow}"
-                  ToolTip.Tip="{Binding AgentChat.ContextWindowUsageLabel}"
-                  AutomationProperties.Name="{Binding AgentChat.ContextWindowUsageLabel}">
-                <controls:ContextWindowDonut
-                    Width="17"
-                    Height="17"
-                    Percentage="{Binding AgentChat.ContextWindowPercent}"
-                    TrackBrush="{DynamicResource ShellBorderBrush}"
-                    IndicatorBrush="{DynamicResource ShellAccentBrush}"
-                    StrokeThickness="2" />
-                <Button.Flyout>
-                  <Flyout Placement="TopEdgeAlignedRight">
-                    <StackPanel Width="210" Spacing="{DynamicResource ShellSpaceSm}">
-                      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                        <Panel Width="44" Height="44">
-                          <controls:ContextWindowDonut
-                              x:Name="AgentContextWindowGauge"
-                              Percentage="{Binding AgentChat.ContextWindowPercent}"
-                              TrackBrush="{DynamicResource ShellBorderBrush}"
-                              IndicatorBrush="{DynamicResource ShellAccentBrush}"
-                              StrokeThickness="4"
-                              AutomationProperties.Name="Context window used" />
-                          <TextBlock
-                              HorizontalAlignment="Center"
-                              VerticalAlignment="Center"
-                              FontSize="{DynamicResource ShellFontSize10}"
-                              FontWeight="SemiBold"
-                              Text="{Binding AgentChat.ContextWindowPercentLabel}"
-                              AutomationProperties.AccessibilityView="Raw" />
-                        </Panel>
-                        <TextBlock
-                            Grid.Column="1"
-                            VerticalAlignment="Center"
-                            FontWeight="SemiBold"
-                            Text="Context window" />
-                      </Grid>
-                      <TextBlock
-                          Classes="Muted"
-                          Text="{Binding AgentChat.ContextWindowUsageLabel}" TextWrapping="Wrap" />
-                      <Button
-                          Classes="SecondaryButton"
-                          Content="{Binding AgentChat.CompactLabel}"
-                          Command="{Binding AgentChat.CompactCommand}"
-                          HorizontalAlignment="Stretch"
-                          HorizontalContentAlignment="Center"
-                          AutomationProperties.Name="Compact conversation context now"
-                          ToolTip.Tip="Summarize older context while preserving the latest turn and your chat history" />
-                      <TextBlock
-                          Text="{Binding AgentChat.CompactionStatus}"
-                          IsVisible="{Binding AgentChat.HasCompactionStatus}"
-                          TextWrapping="Wrap"
-                          Classes="Muted" />
-                    </StackPanel>
-                  </Flyout>
-                </Button.Flyout>
-              </Button>
             </Grid>
           </Border>
           <TextBox
@@ -1245,13 +1183,12 @@
               Text="{Binding AgentChat.Prompt, Mode=TwoWay}"
               PastingFromClipboard="OnAgentPromptPasting"
               IsEnabled="{Binding AgentChat.CanEnterPrompt}"
-              IsVisible="{Binding !AgentChat.HasFailedTurn}"
               PlaceholderText="{Binding AgentChat.PromptPlaceholder}"
               AutomationProperties.Name="AI agent prompt" />
           <Grid
               x:Name="AgentComposerToolbar"
               Grid.Row="2"
-              ColumnDefinitions="Auto,*,*,Auto,Auto"
+              ColumnDefinitions="Auto,*,*,Auto,Auto,Auto"
               ColumnSpacing="0"
               IsVisible="{Binding !AgentChat.HasFailedTurn}">
             <Button
@@ -1270,6 +1207,7 @@
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
                 Classes="TextButton ComposerControl ComposerSelector"
+                IsEnabled="{Binding AgentChat.HasProvider, FallbackValue=False}"
                 ToolTip.Tip="{Binding AgentChat.AccessModeLabel}"
                 AutomationProperties.Name="Choose how AI actions are approved">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
@@ -1474,9 +1412,90 @@
                 </Flyout>
               </Button.Flyout>
             </Button>
+            <!-- How full the context window is. Named in words, with the same
+                 words as its tooltip, and kept in the toolbar beside Send
+                 rather than in the row that belongs to the raw-secrets option. -->
+            <Button
+                x:Name="AgentContextWindowButton"
+                Grid.Column="3"
+                MinWidth="{controls:TextScaled 32}"
+                Padding="0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Classes="IconButton ComposerControl"
+                IsVisible="{Binding AgentChat.HasContextWindow}"
+                ToolTip.Tip="{Binding AgentChat.ContextWindowAccessibleName}"
+                AutomationProperties.Name="{Binding AgentChat.ContextWindowAccessibleName}"
+                AutomationProperties.HelpText="{Binding AgentChat.ContextWindowUsageLabel}">
+              <controls:ContextWindowDonut
+                  Width="17"
+                  Height="17"
+                  Percentage="{Binding AgentChat.ContextWindowPercent}"
+                  TrackBrush="{DynamicResource ShellBorderBrush}"
+                  IndicatorBrush="{DynamicResource ShellAccentBrush}"
+                  StrokeThickness="2" />
+              <Button.Flyout>
+                <Flyout Placement="TopEdgeAlignedRight">
+                  <StackPanel Width="{controls:TextScaled 240}" Margin="{DynamicResource ShellInsetMd}" Spacing="{DynamicResource ShellSpaceSm}">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                      <Panel Width="44" Height="44">
+                        <controls:ContextWindowDonut
+                            x:Name="AgentContextWindowGauge"
+                            Percentage="{Binding AgentChat.ContextWindowPercent}"
+                            TrackBrush="{DynamicResource ShellBorderBrush}"
+                            IndicatorBrush="{DynamicResource ShellAccentBrush}"
+                            StrokeThickness="4"
+                            AutomationProperties.Name="{Binding AgentChat.ContextWindowAccessibleName}" />
+                        <TextBlock
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            FontSize="{DynamicResource ShellFontSize10}"
+                            FontWeight="SemiBold"
+                            Text="{Binding AgentChat.ContextWindowPercentLabel}"
+                            AutomationProperties.AccessibilityView="Raw" />
+                      </Panel>
+                      <TextBlock
+                          Grid.Column="1"
+                          VerticalAlignment="Center"
+                          Classes="Headline"
+                          Text="Context window" />
+                    </Grid>
+                    <TextBlock
+                        Classes="Muted"
+                        LineHeight="{DynamicResource ShellLineHeight13}"
+                        Text="{Binding AgentChat.ContextWindowUsageLabel}" TextWrapping="Wrap" />
+                    <Button
+                        Classes="SecondaryButton"
+                        Content="{Binding AgentChat.CompactLabel}"
+                        Command="{Binding AgentChat.CompactCommand}"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        ToolTip.ShowOnDisabled="True"
+                        AutomationProperties.Name="Compact conversation context now"
+                        AutomationProperties.HelpText="{Binding AgentChat.CompactUnavailableReason}"
+                        ToolTip.Tip="Summarize older context while preserving the latest turn and your chat history" />
+                    <TextBlock
+                        Classes="Muted"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
+                        LineHeight="{DynamicResource ShellLineHeight11}"
+                        Text="{Binding AgentChat.CompactUnavailableReason}"
+                        IsVisible="{Binding AgentChat.HasCompactUnavailableReason}"
+                        TextWrapping="Wrap" />
+                    <TextBlock
+                        Text="{Binding AgentChat.CompactionStatus}"
+                        IsVisible="{Binding AgentChat.HasCompactionStatus}"
+                        LineHeight="{DynamicResource ShellLineHeight13}"
+                        TextWrapping="Wrap"
+                        Classes="Muted" />
+                  </StackPanel>
+                </Flyout>
+              </Button.Flyout>
+            </Button>
             <Button
                 x:Name="AgentSendButton"
-                Grid.Column="3"
+                Grid.Column="4"
                 Classes="PrimaryButton ComposerAction"
                 Click="OnSendAgentChatClick"
                 IsEnabled="{Binding AgentChat.CanSubmitPrompt}"
@@ -1487,7 +1506,7 @@
             </Button>
             <Button
                 x:Name="AgentStopButton"
-                Grid.Column="4"
+                Grid.Column="5"
                 Classes="PrimaryButton ComposerAction"
                 Click="OnCancelAgentChatClick"
                 IsEnabled="{Binding AgentChat.CanRequestStop}"

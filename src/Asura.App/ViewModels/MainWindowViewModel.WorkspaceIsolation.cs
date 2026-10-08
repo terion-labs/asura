@@ -396,7 +396,7 @@ public sealed partial class MainWindowViewModel
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            SetError("Workspace isolation startup was canceled.");
+            SetError("Opening the isolated workspace was canceled.");
             return WorkspaceIsolationPreparation.Failed;
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
@@ -464,7 +464,7 @@ public sealed partial class MainWindowViewModel
             var cleanupError = await ReleasePreparedWorkspaceIsolationAsync(
                 binding,
                 CancellationToken.None);
-            SetError("The workspace isolation runtime returned an invalid workspace binding.");
+            SetError("Asura couldn't start the isolated workspace. Close the workspace and open it again.");
             if (cleanupError is not null)
             {
                 SecretSafeDiagnosticProjection.WriteStandardError(

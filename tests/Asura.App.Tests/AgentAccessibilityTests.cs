@@ -527,6 +527,26 @@ public sealed partial class AgentChatViewModelTests
     }
 
     [Fact]
+    public void Context_ring_is_named_and_a_dimmed_compact_says_why()
+    {
+        var provider = Provider("provider", "Provider", order: 0);
+        using var runtime = new StubGovernedRuntime
+        {
+            Snapshot = Snapshot(providerId: provider.Id, target: Target()),
+        };
+        using var profiles = new StubProfileRuntime { Profiles = [provider] };
+        using var viewModel = new AgentChatViewModel(
+            runtime,
+            profiles,
+            ImmediateUiThreadDispatcher.Instance);
+
+        Assert.Equal($"Context: {viewModel.ContextWindowPercentLabel} used", viewModel.ContextWindowAccessibleName);
+        Assert.False(viewModel.CanCompact);
+        Assert.True(viewModel.HasCompactUnavailableReason);
+        Assert.Equal("There isn't enough conversation to compact yet.", viewModel.CompactUnavailableReason);
+    }
+
+    [Fact]
     public Task Context_gauge_reports_its_level_to_assistive_technology() =>
         RunAgentComposerHeadlessAsync(() =>
         {

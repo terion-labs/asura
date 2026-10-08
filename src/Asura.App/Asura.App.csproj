@@ -54,6 +54,9 @@
     <AvaloniaResource
         Include="@(AsuraTerminalFontFile)"
         Link="Assets/Fonts/JetBrainsMono/%(Filename)%(Extension)" />
+    <!-- The app icon for About and alerts when the system has none to give:
+         an unbundled run, or a host other than macOS. -->
+    <AvaloniaResource Include="Assets/AppIcon.png" />
   </ItemGroup>
 
   <Target

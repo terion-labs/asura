@@ -3,6 +3,8 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -864,17 +866,34 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public string ExecutableName => ProductIdentity.ExecutableName;
 
-    public string ApplicationVersion =>
-        $"v{typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3) ?? "0.0.0"}";
+    /// <summary>"Version 1.0.0 (abc1234)", as the standard About panel writes it.</summary>
+    public string ApplicationVersion => FormatApplicationVersion(
+        typeof(MainWindowViewModel).Assembly.GetName().Version,
+        typeof(MainWindowViewModel).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
+
+    public string Copyright => "Copyright © 2026 Terion Labs";
+
+    /// <summary>
+    /// The marketing version, then the build in parentheses: the source
+    /// revision a release was built from, or the fourth version number.
+    /// </summary>
+    internal static string FormatApplicationVersion(Version? version, string? informationalVersion)
+    {
+        var marketing = version?.ToString(3) ?? "0.0.0";
+        var build = informationalVersion?.Split('+', 2) is [_, { Length: > 0 } revision]
+            ? revision[..Math.Min(7, revision.Length)]
+            : version is { Revision: > 0 } numbered
+                ? numbered.Revision.ToString(CultureInfo.InvariantCulture)
+                : null;
+        return build is null ? $"Version {marketing}" : $"Version {marketing} ({build})";
+    }
 
     public string RuntimeDescription => RuntimeInformation.FrameworkDescription;
 
     public string PlatformDescription =>
         $"{PlatformName()} · {RuntimeInformation.ProcessArchitecture}";
 
-    public string AgentRuntimeDescription => AgentChat is null
-        ? "Unavailable · provider runtime not composed"
-        : AgentChat.RendererModeDescription;
 
     public ApplicationUpdateViewModel ApplicationUpdates { get; }
 

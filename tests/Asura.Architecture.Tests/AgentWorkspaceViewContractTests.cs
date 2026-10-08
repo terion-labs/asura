@@ -215,14 +215,17 @@ public sealed class AgentWorkspaceViewContractTests
             composer.Descendants(),
             element => string.Equals(element.Name.LocalName, "Button"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "AutomationProperties.Name")
-, "{Binding AgentChat.ContextWindowUsageLabel}", StringComparison.Ordinal));
+, "{Binding AgentChat.ContextWindowAccessibleName}", StringComparison.Ordinal));
         Assert.Null(AttributeValue(contextUsage, "Content"));
-        // Sized for 13 pt text and grown with the text-size setting.
+        // Sized by the composer controls' text-scaled style, in the toolbar
+        // beside Send rather than in the raw-secrets row.
         Assert.Null(AttributeValue(contextUsage, "Width"));
-        Assert.Equal("{controls:TextScaled 26}", AttributeValue(contextUsage, "MinWidth"));
-        Assert.Equal("{controls:TextScaled 26}", AttributeValue(contextUsage, "MinHeight"));
+        Assert.Null(AttributeValue(contextUsage, "MinHeight"));
         Assert.Equal("3", AttributeValue(contextUsage, "Grid.Column"));
-        Assert.Equal("4", AttributeValue(contextUsage.Ancestors().First(element => string.Equals(element.Name.LocalName, "Border", StringComparison.Ordinal)), "Grid.Row"));
+        Assert.Equal("AgentComposerToolbar", AttributeValue(contextUsage.Parent!, "Name"));
+        Assert.Equal(
+            "{Binding AgentChat.ContextWindowAccessibleName}",
+            AttributeValue(contextUsage, "ToolTip.Tip"));
         Assert.Contains("ComposerControl", AttributeValue(contextUsage, "Classes"), StringComparison.Ordinal);
         var contextDonut = Assert.Single(
             contextUsage.Elements(),
@@ -232,7 +235,7 @@ public sealed class AgentWorkspaceViewContractTests
             AttributeValue(contextDonut, "Percentage"));
         var composerToolbar = FindNamedElement(root, "AgentComposerToolbar");
         Assert.Equal(
-            "Auto,*,*,Auto,Auto",
+            "Auto,*,*,Auto,Auto,Auto",
             AttributeValue(composerToolbar, "ColumnDefinitions"));
         Assert.Equal("0", AttributeValue(composerToolbar, "ColumnSpacing"));
         var accessMode = Assert.Single(
@@ -265,7 +268,7 @@ public sealed class AgentWorkspaceViewContractTests
             "{Binding AgentChat.ShowStopAction, FallbackValue=False}",
             AttributeValue(stop, "IsVisible"));
         Assert.Same(composerToolbar, stop.Parent);
-        Assert.Equal("4", AttributeValue(stop, "Grid.Column"));
+        Assert.Equal("5", AttributeValue(stop, "Grid.Column"));
 
         var committedReasoning = Assert.Single(
             root.Descendants(),
@@ -716,7 +719,7 @@ public sealed class AgentWorkspaceViewContractTests
         Assert.Equal(
             "{Binding AgentChat.ContextWindowPercent}",
             AttributeValue(gauge, "Percentage"));
-        Assert.Equal("Context window used", AttributeValue(gauge, "AutomationProperties.Name"));
+        Assert.Equal("{Binding AgentChat.ContextWindowAccessibleName}", AttributeValue(gauge, "AutomationProperties.Name"));
         Assert.Contains(
             flyout.Descendants(),
             element => string.Equals(

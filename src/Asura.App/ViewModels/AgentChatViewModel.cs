@@ -132,6 +132,11 @@ public sealed record AgentChatMessageViewModel(
 
     public bool CanFork => IsAssistant && HasMessageText && ForkPoint is not null;
 
+    // Every count on a message's usage line, total included, in the
+    // reader's own digit grouping: "1,204" or "1 204", never a mix.
+    private static string Tokens(long count) =>
+        count.ToString("N0", CultureInfo.CurrentCulture);
+
     public bool HasReasoningRequest =>
         IsAssistant
         && (RequestedReasoningEffort is not null and not AgentReasoningEffort.Automatic
@@ -146,13 +151,13 @@ public sealed record AgentChatMessageViewModel(
     public string UsageLabel => Usage is not { } usage
         ? string.Empty
         : $"{CountText.Of(usage.TotalTokens, "token", "tokens")} · "
-            + $"{usage.InputTokens.ToString(CultureInfo.InvariantCulture)} in / "
-            + $"{usage.OutputTokens.ToString(CultureInfo.InvariantCulture)} out"
+            + $"{Tokens(usage.InputTokens)} in / "
+            + $"{Tokens(usage.OutputTokens)} out"
             + (usage.CachedInputTokens > 0
-                ? $" · {usage.CachedInputTokens.ToString(CultureInfo.InvariantCulture)} cached"
+                ? $" · {Tokens(usage.CachedInputTokens)} cached"
                 : string.Empty)
             + (usage.ReasoningTokens > 0
-                ? $" · {usage.ReasoningTokens.ToString(CultureInfo.InvariantCulture)} reasoning"
+                ? $" · {Tokens(usage.ReasoningTokens)} reasoning"
                 : string.Empty);
 
     public string ReasoningRequestLabel
@@ -182,12 +187,12 @@ public sealed record AgentChatMessageViewModel(
             }
 
             return $"{label} reasoning requested · provider reported "
-                + $"{usage.ReasoningTokens.ToString(CultureInfo.InvariantCulture)} reasoning tokens";
+                + $"{Tokens(usage.ReasoningTokens)} reasoning tokens";
         }
     }
 
     public string ReasoningTitle => Usage?.ReasoningTokens > 0
-        ? $"Reasoned · {Usage.ReasoningTokens.ToString(CultureInfo.InvariantCulture)} tokens"
+        ? $"Reasoned · {Tokens(Usage.ReasoningTokens)} tokens"
         : RequestedReasoningEffort is { } effort
             && effort is not AgentReasoningEffort.Automatic
             ? $"Reasoned · {ReasoningEffortLabel(effort)}"
@@ -287,6 +292,11 @@ public sealed record AgentApprovalArgumentViewModel(
     public string DisplayName => Name switch
     {
         "address" => "Destination",
+        "session_id" => "Session",
+        "window_id" => "Window",
+        "workspace_id" => "Workspace",
+        "tab_id" => "Tab",
+        "panel_id" => "Panel",
         "kind" => "Type",
         "operation_detail" => "Description",
         "orientation" => "Split",
@@ -320,6 +330,7 @@ public sealed record AgentApprovalArgumentViewModel(
             {
                 "url" => "URL",
                 "uid" => "UID",
+                "id" => "ID",
                 "json" => "JSON",
                 "http" => "HTTP",
                 "ms" => "(ms)",
@@ -1054,6 +1065,22 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public string ContextWindowPercentLabel =>
         $"{ContextWindowPercent.ToString("0", CultureInfo.CurrentCulture)}%";
 
+    /// <summary>The context ring's name: "Context: 12% used".</summary>
+    public string ContextWindowAccessibleName => $"Context: {ContextWindowPercentLabel} used";
+
+    /// <summary>
+    /// Why Compact Now is dimmed, when it is: a disabled button that does not
+    /// say why reads as broken.
+    /// </summary>
+    public string CompactUnavailableReason =>
+        CanCompact || IsCompacting
+            ? string.Empty
+            : IsBusy
+                ? "You can compact once the agent finishes this run."
+                : "There isn't enough conversation to compact yet.";
+
+    public bool HasCompactUnavailableReason => CompactUnavailableReason.Length > 0;
+
     public string ContextWindowUsageLabel => HasContextWindow
         ? $"{FormatTokenCount(ContextUsedTokens)} / {FormatTokenCount(ContextEffectiveLimit)} tokens used"
             + (SelectedModel?.ContextWindowTokens is null ? " · Local working budget; model limit unavailable" : string.Empty)
@@ -1690,9 +1717,6 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public string PolicyComparisonSummary =>
         $"Baseline → run → effective · generation {PolicyGeneration}";
 
-    public string RendererModeDescription =>
-        "AI agent for this workspace";
-
     public AgentApprovalCardViewModel? PendingApproval
     {
         get => _pendingApproval;
@@ -1826,8 +1850,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public string ActiveActionCancellationLabel =>
         _actionCancellationInFlight
         || ActiveTool is { CancellationRequested: true }
-            ? "Canceling action…"
-            : "Cancel action";
+            ? "Canceling Action…"
+            : "Cancel Action";
 
     public AgentYoloAuthorityViewModel? YoloAuthority
     {
@@ -1954,7 +1978,13 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             ? "Queue a message for the AI agent"
             : "Send AI agent prompt";
 
-    public string PromptPlaceholder => "Ask Asura…";
+    /// <summary>
+    /// After a failed first turn the field stays in place, dimmed, and says
+    /// what unlocks it, rather than leaving an empty frame under the error.
+    /// </summary>
+    public string PromptPlaceholder => HasFailedTurn
+        ? "Clear the failed run to write a new message"
+        : "Ask Asura…";
 
     // Preserved as an alias for callers that still use the old chat naming.
     public bool CanCancel => CanStop;
@@ -3889,14 +3919,14 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     {
         if (value < 1_000)
         {
-            return value.ToString(CultureInfo.InvariantCulture);
+            return value.ToString("N0", CultureInfo.CurrentCulture);
         }
 
         var divisor = value >= 1_000_000 ? 1_000_000d : 1_000d;
         var suffix = value >= 1_000_000 ? "m" : "k";
         var scaled = value / divisor;
         var format = scaled >= 100 ? "0" : "0.#";
-        return scaled.ToString(format, CultureInfo.InvariantCulture) + suffix;
+        return scaled.ToString(format, CultureInfo.CurrentCulture) + suffix;
     }
 
     private void NotifyContextWindowChanged()
@@ -3906,12 +3936,15 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ContextEffectiveLimit));
         OnPropertyChanged(nameof(ContextWindowPercent));
         OnPropertyChanged(nameof(ContextWindowPercentLabel));
+        OnPropertyChanged(nameof(ContextWindowAccessibleName));
         OnPropertyChanged(nameof(ContextWindowUsageLabel));
     }
 
     private void NotifyAvailabilityChanged()
     {
         OnPropertyChanged(nameof(CanCompact));
+        OnPropertyChanged(nameof(CompactUnavailableReason));
+        OnPropertyChanged(nameof(HasCompactUnavailableReason));
         CompactCommand.RaiseCanExecuteChanged();
         OnPropertyChanged(nameof(CanSend));
         OnPropertyChanged(nameof(CanOfferFollowUpQueue));
@@ -4225,6 +4258,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HasNoConversation));
         OnPropertyChanged(nameof(CanStartConversation));
         OnPropertyChanged(nameof(HasFailedTurn));
+        OnPropertyChanged(nameof(PromptPlaceholder));
         OnPropertyChanged(nameof(ShowPrimaryAction));
         OnPropertyChanged(nameof(ShowFooterStatus));
         OnPropertyChanged(nameof(FailureHeading));

@@ -102,12 +102,23 @@ internal sealed class ShellCommandExecutor(
         catch (OperationCanceledException) when (lifetime.IsCancellationRequested)
         {
         }
-        catch (Exception exception) when (
-            exception is InvalidOperationException or IOException)
+        catch (InvalidOperationException exception)
         {
             viewModel.SetError(exception.Message);
         }
+        catch (IOException exception)
+        {
+            // A file or session the command needed couldn't be reached. The
+            // system's wording goes to diagnostics, not to the window.
+            SecretSafeDiagnostics.WriteTraceAndStandardError(
+                "shell-command.io-failed",
+                exception);
+            viewModel.SetError(CommandIoFailureMessage);
+        }
     }
+
+    internal const string CommandIoFailureMessage =
+        "Asura couldn't finish that command because a file or session it needed wasn't available. Try again.";
 
     private async Task ExecuteAsync(ApplicationCommandAction action)
     {

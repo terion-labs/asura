@@ -646,11 +646,11 @@ public sealed class AgentFileActionComposer
         var targetTitle = target switch
         {
             AgentTarget.Panel exactPanel =>
-                $"{EscapeForApproval(panel.PanelTitle ?? "File Viewer")} — panel "
+                $"{EscapeForApproval(panel.PanelTitle ?? "Files")} — panel "
                 + $"{EscapeForApproval(exactPanel.PanelId.Value)} — session "
                 + EscapeForApproval(panel.SessionId!.Value.Value),
             AgentTarget.ConnectionSession exactSession =>
-                $"{EscapeForApproval(panel.PanelTitle ?? "File Viewer")} — session "
+                $"{EscapeForApproval(panel.PanelTitle ?? "Files")} — session "
                 + $"{EscapeForApproval(exactSession.SessionId.Value)} — panel "
                 + EscapeForApproval(panel.PanelId.Value),
             _ => throw new ArgumentOutOfRangeException(

@@ -373,7 +373,7 @@ public sealed class AgentProcessListActionComposer
         AgentContextPanel panel,
         AgentProcessListRequest request) =>
         new(
-            "Local Process Monitor",
+            "Processes",
             "Local host",
             workingDirectory: null,
             [
