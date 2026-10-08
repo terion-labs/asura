@@ -178,7 +178,7 @@ public sealed partial class GovernedAgentRuntimeTests
             Assert.True((await original.Runtime.SendAsync(original.Prompt(ChatCredential), default)).IsSuccess);
             reference = Assert.Single(original.Runtime.Snapshot.Messages[0].HiddenReferences!);
             Assert.Single(checkpoints.Values);
-            Assert.StartsWith("Conversation saved with hidden content", original.Runtime.Snapshot.PersistenceError, StringComparison.Ordinal);
+            Assert.StartsWith("The conversation was saved with hidden content", original.Runtime.Snapshot.PersistenceError, StringComparison.Ordinal);
             Assert.IsType<SecretVaultResult<string>.Success>(await original.Runtime.RevealChatSecretAsync(reference, default));
         }
         await using var restored = new RuntimeFixture(ProviderRound.AnswerEveryTurn(), checkpointStore: checkpoints, secretVault: vault, conversationScopeId: ChatScope);

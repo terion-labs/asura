@@ -59,7 +59,7 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         {
             return Failure<StoredDefinition<TDefinition>>(
                 DefinitionStoreErrorCode.Cancelled,
-                "The definition read was cancelled.");
+                "The definition read was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -127,7 +127,7 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         {
             return Failure<IReadOnlyList<StoredDefinition<TDefinition>>>(
                 DefinitionStoreErrorCode.Cancelled,
-                "The definition list was cancelled.");
+                "The definition list was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -277,7 +277,7 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         {
             return Failure<StoredDefinition<TDefinition>>(
                 DefinitionStoreErrorCode.Cancelled,
-                "The definition save was cancelled.");
+                "The definition save was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -378,7 +378,7 @@ public sealed class SqliteDefinitionRepository<TDefinition> : IDefinitionReposit
         {
             return Failure<Unit>(
                 DefinitionStoreErrorCode.Cancelled,
-                "The definition delete was cancelled.");
+                "The definition delete was canceled.");
         }
         catch (SqliteException exception)
         {

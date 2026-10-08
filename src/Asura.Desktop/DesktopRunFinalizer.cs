@@ -44,7 +44,7 @@ internal sealed class DesktopRunFinalizer
         {
             return Failure(
                 ApplicationRunErrorCode.Cancelled,
-                "Application shutdown was cancelled.");
+                "Application shutdown was canceled.");
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
@@ -80,7 +80,7 @@ internal sealed class DesktopRunFinalizer
         {
             return Failure(
                 ApplicationRunErrorCode.Cancelled,
-                "Application shutdown finalization was cancelled.");
+                "Application shutdown finalization was canceled.");
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {

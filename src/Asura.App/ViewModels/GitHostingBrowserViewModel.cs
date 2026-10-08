@@ -143,7 +143,7 @@ public sealed class GitHostingBrowserViewModel(IGitRepositoryClient client, Conn
         }
         catch (OperationCanceledException)
         {
-            Status = "Repository request cancelled or timed out.";
+            Status = "Repository request canceled or timed out.";
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NotSupportedException)
         {

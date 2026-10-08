@@ -142,7 +142,7 @@ public sealed class SqliteLayoutGraphStore : ILayoutGraphStore
         {
             return Failure(
                 DefinitionStoreErrorCode.Cancelled,
-                "The layout save was cancelled and rolled back.");
+                "The layout save was canceled and rolled back.");
         }
         catch (SqliteException)
         {
@@ -246,7 +246,7 @@ public sealed class SqliteLayoutGraphStore : ILayoutGraphStore
         {
             return new DefinitionStoreError(
                 DefinitionStoreErrorCode.Cancelled,
-                "The graph save was cancelled and rolled back.");
+                "The graph save was canceled and rolled back.");
         }
         catch (SqliteException)
         {

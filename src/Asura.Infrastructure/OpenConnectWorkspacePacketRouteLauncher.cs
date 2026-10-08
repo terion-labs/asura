@@ -215,7 +215,7 @@ internal sealed partial class WorkspaceVpnPacketRouteLauncher :
                 return Fail(
                     NetworkConnectionErrorCode.Cancelled,
                     "workspace_anyconnect_start_cancelled",
-                    "Connecting Cisco AnyConnect was cancelled.",
+                    "Connecting Cisco AnyConnect was canceled.",
                     retryable: false);
             }
             catch (IOException exception)
@@ -307,7 +307,7 @@ internal sealed partial class WorkspaceVpnPacketRouteLauncher :
             return Fail<byte[]>(
                 NetworkConnectionErrorCode.Cancelled,
                 "workspace_anyconnect_secret_cancelled",
-                $"Access to the {label} was cancelled.",
+                $"Access to the {label} was canceled.",
                 retryable: false);
         }
 

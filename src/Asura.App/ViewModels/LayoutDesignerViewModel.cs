@@ -435,7 +435,7 @@ public sealed class LayoutDesignerViewModel : ObservableObject
 
         var root = (IRootDock)_factory.CreateRootDock();
         root.Id = "layout-designer-root";
-        root.Title = "Layout designer";
+        root.Title = "Layout Designer";
         root.IsCollapsable = false;
         root.VisibleDockables = _factory.CreateList(body);
         root.ActiveDockable = body;

@@ -53,7 +53,7 @@ public sealed record ConnectionRuntimeError(
         ConnectionRuntimeErrorCode.DistributionNotFound =>
             New(code, "connection_distribution_not_found", "The selected WSL distribution is not installed.", false, ConnectionRecoveryAction.SelectDistribution),
         ConnectionRuntimeErrorCode.Cancelled =>
-            New(code, "connection_cancelled", "The connection operation was cancelled.", false, ConnectionRecoveryAction.None),
+            New(code, "connection_cancelled", "The connection operation was canceled.", false, ConnectionRecoveryAction.None),
         ConnectionRuntimeErrorCode.ProcessFailed =>
             New(code, "connection_process_failed", "The connection runtime failed.", true, ConnectionRecoveryAction.Retry),
         ConnectionRuntimeErrorCode.TerminalMultiplexerMissing =>

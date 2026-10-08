@@ -535,7 +535,7 @@ internal sealed partial class RuntimeDockLayoutController
             var document = new Document
             {
                 Id = slot.Id.Value,
-                Title = "Empty panel",
+                Title = "Empty Panel",
                 CanClose = false,
                 CanFloat = false,
                 CanDrag = true,
@@ -584,7 +584,7 @@ internal sealed partial class RuntimeDockLayoutController
     {
         var root = (IRootDock)Factory.CreateRootDock();
         root.Id = RootId;
-        root.Title = "Asura workspace";
+        root.Title = "Asura Workspace";
         root.IsCollapsable = false;
         root.VisibleDockables = Factory.CreateList<IDockable>();
         root.Windows = Factory.CreateList<IDockWindow>();

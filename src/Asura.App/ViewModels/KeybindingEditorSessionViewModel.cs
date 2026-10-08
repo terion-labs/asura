@@ -158,9 +158,11 @@ public sealed class KeybindingEditorSessionViewModel : ObservableObject, IDispos
     public string StateSummary => IsReadOnly
         ? "Built-in presets are read-only. Clone this preset to customize it."
         : HasConflicts
-            ? $"Resolve {ConflictCount} blocking conflict(s) before saving."
+            ? ConflictCount == 1
+                ? "Resolve 1 conflict before saving."
+                : $"Resolve {ConflictCount:N0} conflicts before saving."
             : IsDirty
-                ? "Unsaved keybinding changes."
+                ? "Unsaved shortcut changes."
                 : IsNew
                     ? "New keybinding profile has not been saved."
                 : "Saved keybinding profile.";

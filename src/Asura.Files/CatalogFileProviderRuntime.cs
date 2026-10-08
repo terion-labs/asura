@@ -241,7 +241,7 @@ public sealed class CatalogFileProviderRuntime :
                 new FilePanelError(
                     FilePanelErrorCode.Conflict,
                     "file_transfer_not_retryable",
-                    "Only failed or cancelled transfers can be retried.",
+                    "Only failed or canceled transfers can be retried.",
                     false)));
         }
 
@@ -285,7 +285,7 @@ public sealed class CatalogFileProviderRuntime :
             return new FileProviderTestResult(
                 false,
                 "file_provider_test_cancelled",
-                "The provider test was cancelled.");
+                "The provider test was canceled.");
         }
         catch (FileProviderAdapterConfigurationException exception)
         {

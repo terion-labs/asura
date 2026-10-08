@@ -53,7 +53,7 @@ public sealed partial class GovernedAgentRuntime
                 outcome = new(false,
                     result.ErrorCode is { } code ? StableCompactionCode(code) : "agent_compaction_failed",
                     result.ErrorCode == AgentCompactionErrorCode.Cancelled
-                        ? "Compaction cancelled. Your conversation is unchanged."
+                        ? "Compaction canceled. Your conversation is unchanged."
                         : "The conversation could not be compacted. Your conversation is unchanged.");
                 return outcome;
             }

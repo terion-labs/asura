@@ -3795,13 +3795,13 @@ public sealed partial class BrowserSurface :
         BrowserResult<T>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser wait observation was cancelled."));
+                "The browser wait observation was canceled."));
 
     private static BrowserResult<BrowserSessionState> Cancelled() =>
         BrowserResult<BrowserSessionState>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser operation was cancelled."));
+                "The browser operation was canceled."));
 
     private static BrowserResult<BrowserSessionState> RendererUnavailable(
         string message) =>
@@ -3840,7 +3840,7 @@ public sealed partial class BrowserSurface :
         BrowserResult<BrowserDocumentSnapshot>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser snapshot was cancelled."));
+                "The browser snapshot was canceled."));
 
     private static BrowserError SnapshotRendererUnavailable() =>
         BrowserError.Create(
@@ -3864,7 +3864,7 @@ public sealed partial class BrowserSurface :
         BrowserResult<BrowserClickReceipt>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser element activation was cancelled before dispatch."));
+                "The browser element activation was canceled before dispatch."));
 
     private static BrowserError InteractionRendererUnavailable() =>
         BrowserError.Create(
@@ -3947,7 +3947,7 @@ public sealed partial class BrowserSurface :
         BrowserResult<BrowserFillReceipt>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser element fill was cancelled before dispatch."));
+                "The browser element fill was canceled before dispatch."));
 
     private static BrowserError FillRendererUnavailable() =>
         BrowserError.Create(
@@ -3966,7 +3966,7 @@ public sealed partial class BrowserSurface :
         BrowserResult<BrowserCheckReceipt>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser element check was cancelled before dispatch."));
+                "The browser element check was canceled before dispatch."));
 
     private static BrowserError CheckRendererUnavailable() =>
         BrowserError.Create(

@@ -86,7 +86,7 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
         {
             return Failure<PortableDefinitionBundle>(
                 DefinitionStoreErrorCode.Cancelled,
-                "The definition export was cancelled.");
+                "The definition export was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -178,7 +178,7 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
         {
             return Failure<DefinitionImportPreflight>(
                 DefinitionStoreErrorCode.Cancelled,
-                "The definition import preflight was cancelled.");
+                "The definition import preflight was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -314,7 +314,7 @@ public sealed partial class SqliteDefinitionBundleStore : IDefinitionBundleStore
         {
             return Failure<DefinitionImportResult>(
                 DefinitionStoreErrorCode.Cancelled,
-                "The definition import was cancelled and rolled back.");
+                "The definition import was canceled and rolled back.");
         }
         catch (SqliteException exception)
         {

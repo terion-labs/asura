@@ -678,8 +678,8 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            TestStatus = "Test cancelled";
-            TestDetail = "The connection test was cancelled.";
+            TestStatus = "Test canceled";
+            TestDetail = "The connection test was canceled.";
         }
         catch (Exception)
         {
@@ -724,7 +724,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            TestStatus = "Host-key review cancelled";
+            TestStatus = "Host-key review canceled";
             TestDetail = "The trusted host key was not changed.";
         }
         catch (Exception)
@@ -1037,7 +1037,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     {
         ConnectionRecoveryAction.EditProfile => "Edit the profile and retry.",
         ConnectionRecoveryAction.InstallRuntime => "Install the required runtime and retry.",
-        ConnectionRecoveryAction.UnlockSecretVault => "Unlock the credential vault and retry.",
+        ConnectionRecoveryAction.UnlockSecretVault => $"Unlock {PlatformTerms.SecretStore}, then try again.",
         ConnectionRecoveryAction.ProvideAuthentication => "Update the authentication settings.",
         ConnectionRecoveryAction.ReviewHostKey => "Review the remote host key before reconnecting.",
         ConnectionRecoveryAction.GrantPermission => "Grant the required operating-system permission.",

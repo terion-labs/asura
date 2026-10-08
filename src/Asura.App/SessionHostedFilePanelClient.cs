@@ -714,7 +714,7 @@ public sealed class SessionHostedFilePanelClient :
             or SessionCloseOutcome.AlreadyClosed;
 
     private HostResult<T> Cancelled<T>() => HostResult<T>.Fail(
-        HostError.Create(HostErrorCode.Cancelled, "The operation was cancelled."),
+        HostError.Create(HostErrorCode.Cancelled, "The operation was canceled."),
         Revision ?? 0);
 
     private static FilePanelResult<T> HostFailure<T>(HostError error) =>

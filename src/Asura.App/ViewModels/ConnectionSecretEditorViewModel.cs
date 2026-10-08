@@ -48,10 +48,10 @@ public sealed class ConnectionSecretEditorViewModel(
     }
 
     public string StorageHint => vault.Availability.CanPersist
-        ? "Saved credentials remain in the vault if you cancel the connection. Manage them in Settings."
+        ? $"Saved credentials stay in {PlatformTerms.SecretStore} if you cancel the connection. Manage them in Settings › Security & Secrets."
         : vault.Availability.Message;
 
-    public string Title => kind == SecretKind.PrivateKey ? "Add private key" : "Add credential";
+    public string Title => kind == SecretKind.PrivateKey ? "Add Private Key" : "Add Credential";
 
     public bool IsMultiline => kind is SecretKind.PrivateKey or SecretKind.Other;
 
@@ -100,7 +100,7 @@ public sealed class ConnectionSecretEditorViewModel(
         catch (Exception)
         {
             // Provider exceptions can include input values; only show a fixed message.
-            Error = "The credential could not be saved. Check the credential vault and try again.";
+            Error = $"Asura couldn't save the credential. Check that {PlatformTerms.SecretStore} is unlocked, then try again.";
             return null;
         }
         finally

@@ -484,7 +484,7 @@ public sealed class TerminalRuntimePanelViewModelTests
         await runtime.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(ConnectionReconnectState.Cancelled, panel.ReconnectState);
         Assert.Equal(ConnectionPanelState.Failed, panel.ConnectionState);
-        Assert.Equal("Connection cancelled", panel.ConnectionStatus);
+        Assert.Equal("Connection canceled", panel.ConnectionStatus);
         Assert.Null(panel.SessionRequest);
         Assert.True(panel.CanRetry);
     }

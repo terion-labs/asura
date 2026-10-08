@@ -36,7 +36,7 @@ public sealed class AppearanceSettingsViewModel : ObservableObject, IDisposable
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             return DefinitionStoreResult<StoredDefinition<ThemePreference>>.Failure(new(
-                DefinitionStoreErrorCode.Cancelled, "Appearance changes were not saved because saving was cancelled."));
+                DefinitionStoreErrorCode.Cancelled, "Appearance changes were not saved because saving was canceled."));
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {

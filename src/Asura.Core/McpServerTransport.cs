@@ -99,7 +99,7 @@ public abstract record McpServerTransport
 , StringComparison.Ordinal) && (!allowInsecureTransport || !IsExactLoopback(endpoint)))
             {
                 throw new ArgumentException(
-                    "Plaintext Streamable HTTP is allowed only for an exact loopback endpoint with explicit insecure-transport acknowledgement.",
+                    "Plaintext Streamable HTTP is allowed only for an exact loopback endpoint with explicit insecure-transport acknowledgment.",
                     nameof(allowInsecureTransport));
             }
 

@@ -74,7 +74,7 @@ public sealed partial class FileSystemLocalArtifactControl : ILocalArtifactContr
         {
             return Failure<LocalArtifactInventory>(
                 LocalArtifactControlErrorCode.Cancelled,
-                "Local artifact inspection was cancelled.");
+                "Local artifact inspection was canceled.");
         }
         catch (ArtifactScanException exception)
         {
@@ -121,7 +121,7 @@ public sealed partial class FileSystemLocalArtifactControl : ILocalArtifactContr
         {
             return Failure<LocalArtifactClearReceipt>(
                 LocalArtifactControlErrorCode.Cancelled,
-                "Local artifact clearing was cancelled.");
+                "Local artifact clearing was canceled.");
         }
         catch (ArtifactScanException exception)
         {

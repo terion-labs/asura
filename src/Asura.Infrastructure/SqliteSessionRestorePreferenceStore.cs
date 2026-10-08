@@ -40,7 +40,7 @@ public sealed class SqliteSessionRestorePreferenceStore : ISessionRestorePrefere
         {
             return Failure<bool>(
                 ApplicationRunErrorCode.Cancelled,
-                "Loading the session restore preference was cancelled.");
+                "Loading the session restore preference was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -86,7 +86,7 @@ public sealed class SqliteSessionRestorePreferenceStore : ISessionRestorePrefere
         {
             return Failure<Unit>(
                 ApplicationRunErrorCode.Cancelled,
-                "Saving the session restore preference was cancelled.");
+                "Saving the session restore preference was canceled.");
         }
         catch (SqliteException exception)
         {

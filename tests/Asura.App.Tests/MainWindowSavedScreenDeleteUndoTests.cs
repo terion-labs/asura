@@ -259,7 +259,7 @@ public sealed class MainWindowSavedScreenDeleteUndoTests
         Assert.False(viewModel.SavedScreenDeleteUndo.IsRestoring);
         Assert.True(viewModel.SavedScreenDeleteUndo.CanUndo);
         Assert.Contains(
-            "Restore cancelled",
+            "Restore canceled",
             viewModel.SavedScreenDeleteUndo.Status,
             StringComparison.Ordinal);
     }

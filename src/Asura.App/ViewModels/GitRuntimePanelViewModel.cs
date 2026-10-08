@@ -2294,7 +2294,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
-            PresentFailure(new GitError(GitErrorCode.Cancelled, "Operation cancelled. The repository has been refreshed; inspect its state before retrying.", Retryable: false), "Git operation cancelled");
+            PresentFailure(new GitError(GitErrorCode.Cancelled, "Operation canceled. The repository has been refreshed; inspect its state before retrying.", Retryable: false), "Git operation canceled");
             return false;
         }
         catch (ArgumentException exception)

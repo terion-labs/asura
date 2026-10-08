@@ -241,7 +241,7 @@ public sealed class ApplicationEncryptionRuntimeTests : IAsyncDisposable
         await runtime.InitializeAsync(wrappedKeysPending: false, CancellationToken.None);
 
         Assert.True(runtime.IsEnabled);
-        Assert.Contains("key is not in", runtime.StartupError, StringComparison.Ordinal);
+        Assert.Contains("key isn't in", runtime.StartupError, StringComparison.Ordinal);
         Assert.Equal(original, await File.ReadAllBytesAsync(DatabasePath));
     }
 

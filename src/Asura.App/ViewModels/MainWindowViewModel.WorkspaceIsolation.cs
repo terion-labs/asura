@@ -396,7 +396,7 @@ public sealed partial class MainWindowViewModel
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            SetError("Workspace isolation startup was cancelled.");
+            SetError("Workspace isolation startup was canceled.");
             return WorkspaceIsolationPreparation.Failed;
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)

@@ -242,7 +242,7 @@ public sealed partial class GovernedAgentRuntime
             CancelCapabilityRequestAwaiter(
                 awaiter,
                 "capability_request_cancelled",
-                "The capability request was cancelled.");
+                "The capability request was canceled.");
             throw;
         }
 
@@ -682,7 +682,7 @@ public sealed partial class GovernedAgentRuntime
         CancelDetachedQuestionAwaiter(
             question,
             "question_cancelled",
-            "The agent question was cancelled.");
+            "The agent question was canceled.");
         NotifyChanged();
     }
 

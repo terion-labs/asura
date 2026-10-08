@@ -1,15 +1,11 @@
 namespace Asura.App.ViewModels;
 
 /// <summary>
-/// What the operating system's secret store is called where people will read
-/// the name: Keychain on macOS, Credential Manager on Windows, Secret Service
-/// on Linux. One name per platform, so a checkbox never says "keychain" on a
-/// machine that has none.
+/// The secret store's name for views that bind it as
+/// <c>vm:SecretStoreName.Current</c>. It is <see cref="Asura.Core.PlatformTerms.SecretStore"/>;
+/// new text uses <see cref="Asura.Core.PlatformTerms"/> directly.
 /// </summary>
 internal static class SecretStoreName
 {
-    public static string Current { get; } =
-        OperatingSystem.IsMacOS() ? "Keychain"
-        : OperatingSystem.IsWindows() ? "Credential Manager"
-        : "Secret Service";
+    public static string Current => Asura.Core.PlatformTerms.SecretStore;
 }

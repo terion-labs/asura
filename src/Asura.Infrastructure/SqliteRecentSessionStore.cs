@@ -61,7 +61,7 @@ public sealed class SqliteRecentSessionStore :
         {
             return Failure<StoredRecentSessionRetentionPolicy>(
                 RecentSessionStoreErrorCode.Cancelled,
-                "Reading recent-session retention was cancelled.");
+                "Reading recent-session retention was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -154,7 +154,7 @@ public sealed class SqliteRecentSessionStore :
         {
             return Failure<RecentSessionRetentionUpdateResult>(
                 RecentSessionStoreErrorCode.Cancelled,
-                "Updating recent-session retention was cancelled.");
+                "Updating recent-session retention was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -242,7 +242,7 @@ public sealed class SqliteRecentSessionStore :
         {
             return Failure<Unit>(
                 RecentSessionStoreErrorCode.Cancelled,
-                "Recording the recent session was cancelled.");
+                "Recording the recent session was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -360,7 +360,7 @@ public sealed class SqliteRecentSessionStore :
         {
             return Failure<Unit>(
                 RecentSessionStoreErrorCode.Cancelled,
-                "Recording the recent-session outcome was cancelled.");
+                "Recording the recent-session outcome was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -438,7 +438,7 @@ public sealed class SqliteRecentSessionStore :
         {
             return Failure<IReadOnlyList<RecentSessionRecord>>(
                 RecentSessionStoreErrorCode.Cancelled,
-                "Reading recent sessions was cancelled.");
+                "Reading recent sessions was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -501,7 +501,7 @@ public sealed class SqliteRecentSessionStore :
         {
             return Failure<int>(
                 RecentSessionStoreErrorCode.Cancelled,
-                "Reconciling interrupted recent sessions was cancelled.");
+                "Reconciling interrupted recent sessions was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -549,7 +549,7 @@ public sealed class SqliteRecentSessionStore :
         {
             return Failure<int>(
                 RecentSessionStoreErrorCode.Cancelled,
-                "Clearing recent-session history was cancelled.");
+                "Clearing recent-session history was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -581,7 +581,7 @@ public sealed class SqliteRecentSessionStore :
         {
             return Failure<int>(
                 RecentSessionStoreErrorCode.Cancelled,
-                "Clearing all recent-session history was cancelled.");
+                "Clearing all recent-session history was canceled.");
         }
         catch (SqliteException exception)
         {

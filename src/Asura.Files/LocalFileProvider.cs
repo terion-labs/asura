@@ -348,7 +348,7 @@ public abstract partial class LocalFileProvider : IFileProvider, ILocalFilePathS
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return Failure<T>(FileProviderErrorCode.Cancelled, "The file operation was cancelled.");
+            return Failure<T>(FileProviderErrorCode.Cancelled, "The file operation was canceled.");
         }
         catch (UnauthorizedAccessException exception)
         {

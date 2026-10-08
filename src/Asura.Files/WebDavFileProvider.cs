@@ -142,7 +142,7 @@ public sealed partial class WebDavFileProvider : IFileProvider
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return Failure<T>(FileProviderErrorCode.Cancelled, "The WebDAV operation was cancelled.");
+            return Failure<T>(FileProviderErrorCode.Cancelled, "The WebDAV operation was canceled.");
         }
         catch (OperationCanceledException exception)
         {

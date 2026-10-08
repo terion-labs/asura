@@ -240,7 +240,7 @@ public sealed class DatabaseConnectionSettingsCoordinator
         if (deleted is SecretVaultResult<Unit>.Failure)
         {
             _setVaultStatus(
-                "An unused database credential could not be removed from the system credential store.");
+                $"An unused database password couldn't be removed from {PlatformTerms.SecretStore}. Delete it in Settings › Security & Secrets.");
         }
     }
 

@@ -7,5 +7,8 @@ public sealed record DefinitionBundleExportReceipt(
     int ReconnectRequiredDatabasePanelCount = 0)
 {
     public string? Warning => ReconnectRequiredDatabasePanelCount == 0 ? null
-        : $"{ReconnectRequiredDatabasePanelCount} legacy database panel(s) require reconnection in this export because their saved targets contain credentials. Local saved connections are unchanged.";
+        : (ReconnectRequiredDatabasePanelCount == 1
+              ? "1 older database panel in this export needs its connection chosen again"
+              : $"{ReconnectRequiredDatabasePanelCount:N0} older database panels in this export need their connections chosen again")
+          + " because their saved connections contain credentials. Your saved connections on this computer are unchanged.";
 }

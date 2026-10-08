@@ -217,7 +217,7 @@ public sealed class SshNetDatabaseTunnelFactory(
                 or SecretVaultErrorCode.UserCancelled
                 ? new OperationCanceledException(cancellationToken)
                 : new InvalidOperationException(
-                    "The SSH credential could not be resolved from the vault.");
+                    $"Asura couldn't read the SSH credential from {PlatformTerms.SecretStore}. Check that it is unlocked, then try again.");
         }
 
         using var material = ((SecretVaultResult<SecretMaterial>.Success)result).Value;

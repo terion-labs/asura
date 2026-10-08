@@ -398,7 +398,7 @@ internal sealed class FakeFilePanelSession : IFilePanelSession
         _transfers[index] = _transfers[index] with
         {
             State = FilePanelTransferState.Cancelled,
-            Stage = "Cancelled",
+            Stage = "Canceled",
             CompletedAt = DateTimeOffset.UtcNow,
         };
         return ValueTask.FromResult(FilePanelResult<Unit>.Success(Unit.Value));
@@ -473,7 +473,7 @@ internal sealed class FakeFilePanelSession : IFilePanelSession
                     _transfers[index] = _transfers[index] with
                     {
                         State = FilePanelTransferState.Cancelled,
-                        Stage = "Cancelled",
+                        Stage = "Canceled",
                         CompletedAt = DateTimeOffset.UtcNow,
                     };
                 }

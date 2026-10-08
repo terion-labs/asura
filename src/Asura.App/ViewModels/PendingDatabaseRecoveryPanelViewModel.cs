@@ -12,7 +12,7 @@ public sealed class PendingDatabaseRecoveryPanelViewModel : UnavailableRuntimePa
 
     public PendingDatabaseRecoveryPanelViewModel(PanelInstanceId id, string title, string target,
         Func<PendingDatabaseRecoveryPanelViewModel, CancellationToken, Task<bool>> restore)
-        : base(id, PanelKind.DatabaseViewer, title, "Database", "Restoring the database target from this device's credential store…")
+        : base(id, PanelKind.DatabaseViewer, title, "Database", $"Restoring the database connection from {PlatformTerms.SecretStore}…")
     {
         Target = target;
         _restore = restore;
@@ -38,7 +38,7 @@ public sealed class PendingDatabaseRecoveryPanelViewModel : UnavailableRuntimePa
         {
             if (!await _restore(this, _lifetime.Token) && !_disposed)
             {
-                CapabilityMessage = "This database target could not be restored from the credential store. Unlock the store and retry, or choose the connection again.";
+                CapabilityMessage = $"Asura couldn't restore this database connection from {PlatformTerms.SecretStore}. Unlock {PlatformTerms.SecretStore} and try again, or choose the connection again.";
                 OnPropertyChanged(nameof(CapabilityMessage));
             }
         }
@@ -49,7 +49,7 @@ public sealed class PendingDatabaseRecoveryPanelViewModel : UnavailableRuntimePa
         {
             if (!_disposed)
             {
-                CapabilityMessage = "The database target could not be restored. Unlock the credential store and retry, or choose the connection again.";
+                CapabilityMessage = $"Asura couldn't restore the database connection. Unlock {PlatformTerms.SecretStore} and try again, or choose the connection again.";
                 OnPropertyChanged(nameof(CapabilityMessage));
             }
         }

@@ -54,7 +54,7 @@ public sealed partial class GitRuntimePanelViewModel
         {
             if (!_disposed)
             {
-                PresentFailure(new GitError(GitErrorCode.Cancelled, "Repository creation was cancelled. Inspect the destination before retrying.", Retryable: false), "Repository creation cancelled");
+                PresentFailure(new GitError(GitErrorCode.Cancelled, "Repository creation was canceled. Inspect the destination before retrying.", Retryable: false), "Repository creation canceled");
             }
         }
         catch (ArgumentException exception)

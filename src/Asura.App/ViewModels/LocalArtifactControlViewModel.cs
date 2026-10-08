@@ -316,7 +316,7 @@ public sealed class LocalArtifactControlViewModel : ObservableObject, IDisposabl
             await TryPublishAsync(() =>
             {
                 HasError = false;
-                StatusMessage = "The app-managed storage operation was cancelled.";
+                StatusMessage = "The app-managed storage operation was canceled.";
             }).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
@@ -349,7 +349,7 @@ public sealed class LocalArtifactControlViewModel : ObservableObject, IDisposabl
             HasError = result.Error!.Code != LocalArtifactControlErrorCode.Cancelled;
             Items = [];
             StatusMessage = result.Error.Code == LocalArtifactControlErrorCode.Cancelled
-                ? "The app-managed storage operation was cancelled."
+                ? "The app-managed storage operation was canceled."
                 : $"App-managed cache and log metadata could not be loaded. ({result.Error.Code})";
             return;
         }
@@ -382,7 +382,7 @@ public sealed class LocalArtifactControlViewModel : ObservableObject, IDisposabl
 
         HasError = error.Code != LocalArtifactControlErrorCode.Cancelled;
         StatusMessage = error.Code == LocalArtifactControlErrorCode.Cancelled
-            ? "The app-managed storage operation was cancelled before any files were removed."
+            ? "The app-managed storage operation was canceled before any files were removed."
             : $"The selected app-managed files could not be cleared. ({error.Code})";
     }
 

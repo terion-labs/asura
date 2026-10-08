@@ -650,7 +650,7 @@ public sealed partial class InMemorySessionHostClient
                 or AgentAuthorizationErrorCode.RunCancelled =>
                 HostError.Create(
                     HostErrorCode.Cancelled,
-                    "The governed process observation was cancelled."),
+                    "The governed process observation was canceled."),
             AgentAuthorizationErrorCode.AuditUnavailable =>
                 HostError.Create(
                     HostErrorCode.EngineFailed,
@@ -683,7 +683,7 @@ public sealed partial class InMemorySessionHostClient
             new HostError(
                 HostErrorCode.Cancelled,
                 stableCode,
-                "The governed process observation was cancelled."),
+                "The governed process observation was canceled."),
             revision);
     }
 

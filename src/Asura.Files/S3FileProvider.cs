@@ -440,7 +440,7 @@ public sealed partial class S3FileProvider : IFileProvider
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return Failure<T>(FileProviderErrorCode.Cancelled, "The S3 operation was cancelled.");
+            return Failure<T>(FileProviderErrorCode.Cancelled, "The S3 operation was canceled.");
         }
         catch (OperationCanceledException exception)
         {

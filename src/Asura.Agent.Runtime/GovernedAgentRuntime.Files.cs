@@ -165,7 +165,7 @@ public sealed partial class GovernedAgentRuntime
                     new HostError(
                         HostErrorCode.Cancelled,
                         "caller_cancelled",
-                        "The file action was cancelled."),
+                        "The file action was canceled."),
                     context.Revision);
             }
             catch (Exception exception)
@@ -270,7 +270,7 @@ public sealed partial class GovernedAgentRuntime
             new HostError(
                 HostErrorCode.Cancelled,
                 "caller_cancelled",
-                "The file action was cancelled."),
+                "The file action was canceled."),
             failure.CurrentRevision);
     }
 

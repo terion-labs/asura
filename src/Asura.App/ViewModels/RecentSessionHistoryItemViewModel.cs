@@ -144,7 +144,7 @@ public sealed record RecentSessionHistoryItemViewModel(
         RecentSessionOutcome.GracefullyClosed => "Closed",
         RecentSessionOutcome.ForceTerminated => "Force terminated",
         RecentSessionOutcome.Failed => "Failed",
-        RecentSessionOutcome.Cancelled => "Cancelled",
+        RecentSessionOutcome.Cancelled => "Canceled",
         RecentSessionOutcome.Interrupted => "Interrupted",
         _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, null),
     };

@@ -346,8 +346,8 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            TestStatus = "Test cancelled";
-            TestDetail = "The provider test was cancelled.";
+            TestStatus = "Test canceled";
+            TestDetail = "The provider test was canceled.";
         }
         catch (Exception)
         {
@@ -414,7 +414,7 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            _hostKeyReviewStatus = "Host-key trust was cancelled.";
+            _hostKeyReviewStatus = "Host-key trust was canceled.";
             OnPropertyChanged(nameof(HostKeyReviewStatus));
             return;
         }

@@ -172,7 +172,7 @@ public sealed class DefinitionDeleteUndoViewModel : ObservableObject
         {
             if (ReferenceEquals(_pending, pending))
             {
-                Status = $"Restore cancelled for “{pending.Receipt.Name}”. Retry or dismiss this undo.";
+                Status = $"Restore canceled for “{pending.Receipt.Name}”. Retry or dismiss this undo.";
             }
 
             throw;

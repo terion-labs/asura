@@ -272,7 +272,7 @@ public sealed class FilePanelSession : IFilePanelSession
             SessionHealth.Healthy,
             activeCount > 0,
             activeCount > 0
-                ? $"{activeCount} file transfer(s) are active."
+                ? (activeCount == 1 ? "1 file transfer is active." : $"{activeCount:N0} file transfers are active.")
                 : ReadyDetail()));
     }
 
@@ -413,7 +413,7 @@ public sealed class FilePanelSession : IFilePanelSession
             SessionLifecycle.Active,
             SessionHealth.Healthy,
             activeCount > 0
-                ? $"{activeCount} file transfer(s) are active."
+                ? (activeCount == 1 ? "1 file transfer is active." : $"{activeCount:N0} file transfers are active.")
                 : ReadyDetail());
     }
 

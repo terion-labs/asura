@@ -566,13 +566,13 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
             await operation.WaitAsync(cancellationToken);
             return saved ?? Failure(
                 RecentSessionStoreErrorCode.Cancelled,
-                "Saving recent-session retention was cancelled.");
+                "Saving recent-session retention was canceled.");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             return Failure(
                 RecentSessionStoreErrorCode.Cancelled,
-                "Saving recent-session retention was cancelled.");
+                "Saving recent-session retention was canceled.");
         }
         finally
         {
@@ -659,7 +659,7 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
         {
             return ApplicationRunResult<Unit>.Failure(new ApplicationRunError(
                 ApplicationRunErrorCode.Cancelled,
-                "Waiting for recent-session persistence was cancelled."));
+                "Waiting for recent-session persistence was canceled."));
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {

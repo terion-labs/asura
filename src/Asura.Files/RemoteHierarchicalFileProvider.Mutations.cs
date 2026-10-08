@@ -591,7 +591,7 @@ public abstract partial class RemoteHierarchicalFileProvider
                 {
                     return Failure<FileTransferReceipt>(
                         FileProviderErrorCode.PartialTransfer,
-                        "The destination committed, but deleting the remote source was cancelled.");
+                        "The destination committed, but deleting the remote source was canceled.");
                 }
             }
 

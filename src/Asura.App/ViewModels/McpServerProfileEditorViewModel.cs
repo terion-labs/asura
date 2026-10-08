@@ -49,7 +49,7 @@ public sealed record McpServerCredentialTrustReviewEntry(
     public bool HasWarning => State != McpServerCredentialReviewState.Available;
 
     public string AutomationName =>
-        $"{BindingName} vault binding: {MetadataSummary}; {StateSummary}";
+        $"{BindingName} stored credential: {MetadataSummary}; {StateSummary}";
 }
 
 public sealed record McpServerTrustReview
@@ -825,7 +825,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
 
         if (!transport.Environment.SequenceEqual(original.Environment))
         {
-            changes.Add("Change environment-to-vault bindings");
+            changes.Add("Change environment variables that use stored credentials");
         }
     }
 
@@ -842,7 +842,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
 
         if (!transport.Headers.SequenceEqual(original.Headers))
         {
-            changes.Add("Change HTTP-header-to-vault bindings");
+            changes.Add("Change HTTP headers that use stored credentials");
         }
     }
 

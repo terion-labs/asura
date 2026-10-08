@@ -62,7 +62,7 @@ public sealed class SqliteAgentModelFavoriteStore : IAgentModelFavoriteStore, ID
             return ApplicationRunResult<IReadOnlyList<AgentModelFavorite>>.Failure(
                 new ApplicationRunError(
                     ApplicationRunErrorCode.Cancelled,
-                    "Loading favorite AI models was cancelled."));
+                    "Loading favorite AI models was canceled."));
         }
         catch (Exception exception) when (IsStorageBoundaryFailure(exception))
         {
@@ -122,7 +122,7 @@ public sealed class SqliteAgentModelFavoriteStore : IAgentModelFavoriteStore, ID
         {
             return ApplicationRunResult<Unit>.Failure(new ApplicationRunError(
                 ApplicationRunErrorCode.Cancelled,
-                "Saving the favorite AI model was cancelled."));
+                "Saving the favorite AI model was canceled."));
         }
         catch (Exception exception) when (IsStorageBoundaryFailure(exception))
         {

@@ -521,7 +521,7 @@ public sealed class AgentCapabilityBroker :
             var revocation = new Revocation(
                 Error(
                     AgentAuthorizationErrorCode.RunCancelled,
-                    "The agent run was cancelled before the action started."),
+                    "The agent run was canceled before the action started."),
                 cancellation.Actor,
                 now);
             result = await RevokeInactiveActionsAsync(
@@ -2623,7 +2623,7 @@ public sealed class AgentCapabilityBroker :
     private static AgentAuthorizationError Cancelled() =>
         Error(
             AgentAuthorizationErrorCode.Cancelled,
-            "The authorization operation was cancelled.");
+            "The authorization operation was canceled.");
 
     private static AgentAuthorizationError BrokerDisposed() =>
         Error(
@@ -2638,7 +2638,7 @@ public sealed class AgentCapabilityBroker :
     private static AgentAuthorizationError RunCancelled() =>
         Error(
             AgentAuthorizationErrorCode.RunCancelled,
-            "The agent run has been cancelled.");
+            "The agent run has been canceled.");
 
     private static AgentAuthorizationError RunSuspended() =>
         Error(

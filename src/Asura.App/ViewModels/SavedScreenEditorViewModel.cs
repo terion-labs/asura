@@ -341,7 +341,7 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
     {
         DefinitionStoreErrorCode.RevisionConflict => "Revision conflict",
         DefinitionStoreErrorCode.DependencyConflict => "Missing dependency",
-        DefinitionStoreErrorCode.Cancelled => "Save cancelled",
+        DefinitionStoreErrorCode.Cancelled => "Save canceled",
         DefinitionStoreErrorCode.StorageUnavailable => "Storage unavailable",
         DefinitionStoreErrorCode.StorageFailure => "Storage failure",
         null => string.Empty,
@@ -499,7 +499,7 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
         {
             PersistenceError = new DefinitionStoreError(
                 DefinitionStoreErrorCode.Cancelled,
-                "Saving was cancelled. The draft remains open.");
+                "Saving was canceled. The draft remains open.");
             return false;
         }
         finally

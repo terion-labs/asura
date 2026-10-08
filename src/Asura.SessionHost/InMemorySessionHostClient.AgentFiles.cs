@@ -1030,7 +1030,7 @@ public sealed partial class InMemorySessionHostClient
             new HostError(
                 HostErrorCode.Cancelled,
                 completion.StableCode ?? "operation_cancelled",
-                "The governed file action was cancelled."),
+                "The governed file action was canceled."),
             revision);
     }
 
@@ -1613,7 +1613,7 @@ public sealed partial class InMemorySessionHostClient
                 or AgentAuthorizationErrorCode.RunCancelled =>
                 HostError.Create(
                     HostErrorCode.Cancelled,
-                    "The governed file action was cancelled."),
+                    "The governed file action was canceled."),
             AgentAuthorizationErrorCode.AuditUnavailable =>
                 HostError.Create(
                     HostErrorCode.EngineFailed,

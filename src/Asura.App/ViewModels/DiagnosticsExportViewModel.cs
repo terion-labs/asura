@@ -126,7 +126,7 @@ public sealed class DiagnosticsExportViewModel : ObservableObject
         DiagnosticsExportStatus.Collecting => "Collecting",
         DiagnosticsExportStatus.Exporting => "Exporting",
         DiagnosticsExportStatus.Success => "Created",
-        DiagnosticsExportStatus.Cancelled => "Cancelled",
+        DiagnosticsExportStatus.Cancelled => "Canceled",
         DiagnosticsExportStatus.Error => "Error",
         _ => string.Empty,
     };
@@ -203,7 +203,7 @@ public sealed class DiagnosticsExportViewModel : ObservableObject
             var destination = await _destinationPicker.PickAsync(CreateSuggestedFileName());
             if (destination is null)
             {
-                SetStatus(DiagnosticsExportStatus.Cancelled, "Diagnostics export was cancelled.");
+                SetStatus(DiagnosticsExportStatus.Cancelled, "Diagnostics export was canceled.");
                 return;
             }
 
@@ -244,7 +244,7 @@ public sealed class DiagnosticsExportViewModel : ObservableObject
         }
         catch (OperationCanceledException) when (operation.IsCancellationRequested)
         {
-            SetStatus(DiagnosticsExportStatus.Cancelled, "Diagnostics export was cancelled.");
+            SetStatus(DiagnosticsExportStatus.Cancelled, "Diagnostics export was canceled.");
         }
         catch (Exception)
         {
@@ -326,7 +326,7 @@ public sealed class DiagnosticsExportViewModel : ObservableObject
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            SetStatus(DiagnosticsExportStatus.Cancelled, "The bundle action was cancelled.");
+            SetStatus(DiagnosticsExportStatus.Cancelled, "The bundle action was canceled.");
         }
         catch (Exception)
         {
@@ -343,7 +343,7 @@ public sealed class DiagnosticsExportViewModel : ObservableObject
     {
         if (error.Code == DiagnosticsBundleErrorCode.Cancelled)
         {
-            SetStatus(DiagnosticsExportStatus.Cancelled, "Diagnostics export was cancelled.");
+            SetStatus(DiagnosticsExportStatus.Cancelled, "Diagnostics export was canceled.");
             return;
         }
 

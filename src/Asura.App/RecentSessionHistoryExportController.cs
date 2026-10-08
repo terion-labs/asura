@@ -45,7 +45,7 @@ public sealed class RecentSessionHistoryExportController
             {
                 outcome = Failure(
                     RecentSessionHistoryExportErrorCode.Cancelled,
-                    "The session-history export was cancelled.");
+                    "The session-history export was canceled.");
             }
             else
             {
@@ -92,7 +92,7 @@ public sealed class RecentSessionHistoryExportController
         {
             outcome = Failure(
                 RecentSessionHistoryExportErrorCode.Cancelled,
-                "The session-history export was cancelled.");
+                "The session-history export was canceled.");
         }
         catch (Exception exception) when (exception is ArgumentException
             or IOException

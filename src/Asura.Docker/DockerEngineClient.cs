@@ -1023,7 +1023,7 @@ public sealed class DockerEngineClient(
                 true),
             ConnectionCommandOutcome.Cancelled => new DockerError(
                 DockerErrorCode.Cancelled,
-                "The Docker operation was cancelled.",
+                "The Docker operation was canceled.",
                 true),
             _ when IsRuntimeUnavailableFailure(result.StandardError) => new DockerError(
                 DockerErrorCode.RuntimeUnavailable,
@@ -1052,7 +1052,7 @@ public sealed class DockerEngineClient(
                 true),
             ConnectionCommandOutcome.Cancelled => new DockerError(
                 DockerErrorCode.Cancelled,
-                "The Docker operation was cancelled.",
+                "The Docker operation was canceled.",
                 true),
             _ when IsRuntimeUnavailableFailure(result.StandardError) => new DockerError(
                 DockerErrorCode.RuntimeUnavailable,
@@ -1081,7 +1081,7 @@ public sealed class DockerEngineClient(
                 true),
             ConnectionCommandOutcome.Cancelled => new DockerError(
                 DockerErrorCode.Cancelled,
-                "The Docker operation was cancelled.",
+                "The Docker operation was canceled.",
                 true),
             _ when IsRuntimeUnavailableFailure(result.StandardError) => new DockerError(
                 DockerErrorCode.RuntimeUnavailable,

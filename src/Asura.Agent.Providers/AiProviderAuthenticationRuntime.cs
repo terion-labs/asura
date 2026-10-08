@@ -310,7 +310,7 @@ public sealed class AiProviderAuthenticationRuntime : IAiProviderAuthenticationR
                 await TryRespondAsync(callback, succeeded: false).ConfigureAwait(false);
                 return AiProviderAuthenticationResult.Failure(
                     "ai_provider_authentication_cancelled",
-                    "Authentication was cancelled.");
+                    "Authentication was canceled.");
             }
             catch (Exception exception) when (exception is AiProviderClientException
                 or JsonException
@@ -413,7 +413,7 @@ string.Equals(error, "access_denied"
         {
             return AiProviderAuthenticationResult.Failure(
                 "ai_provider_authentication_cancelled",
-                "Authentication was cancelled.");
+                "Authentication was canceled.");
         }
         catch (AiProviderClientException)
         {
@@ -502,7 +502,7 @@ string.Equals(error, "access_denied"
         {
             return AiProviderAuthenticationResult.Failure(
                 "ai_provider_authentication_cancelled",
-                "Authentication was cancelled.");
+                "Authentication was canceled.");
         }
         catch (AiProviderClientException)
         {
@@ -638,14 +638,14 @@ string.Equals(error, "access_denied"
         {
             return AiProviderAuthenticationResult.Failure(
                 "ai_provider_oauth_session_store_failed",
-                "The OAuth session could not be stored in the OS vault.");
+                $"Asura couldn't store the OAuth session in {PlatformTerms.SecretStore}. Check that it is unlocked, then try again.");
         }
         catch (AiProviderClientException exception)
             when (exception.Code == AiProviderRuntimeErrorCode.Cancelled)
         {
             return AiProviderAuthenticationResult.Failure(
                 "ai_provider_authentication_cancelled",
-                "Authentication was cancelled.");
+                "Authentication was canceled.");
         }
     }
 

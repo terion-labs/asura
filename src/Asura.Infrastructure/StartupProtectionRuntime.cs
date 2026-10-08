@@ -138,7 +138,7 @@ public sealed partial class StartupProtectionRuntime : IStartupProtection
         var pepper = await ResolveOrCreatePepperAsync(cancellationToken).ConfigureAwait(false);
         if (pepper is null)
         {
-            return "The OS keystore refused to store the protection pepper.";
+            return $"{PlatformTerms.SecretStore} didn't accept the PIN protection key. Check that it is unlocked, then try again.";
         }
 
         var salt = RandomNumberGenerator.GetBytes(16);
@@ -170,8 +170,8 @@ public sealed partial class StartupProtectionRuntime : IStartupProtection
             if (deletion is SecretVaultResult<Unit>.Failure)
             {
                 Changed?.Invoke(this, EventArgs.Empty);
-                return "The PIN was saved, but the OS keystore could not remove all unsealed encryption-key copies. "
-                    + "PIN-only key protection is incomplete; retry saving the PIN when the keystore is available.";
+                return $"The PIN was saved, but {PlatformTerms.SecretStore} couldn't remove every unprotected copy of the encryption keys. "
+                    + $"PIN protection isn't complete yet. Save the PIN again when {PlatformTerms.SecretStore} is available.";
             }
         }
 
@@ -204,7 +204,7 @@ public sealed partial class StartupProtectionRuntime : IStartupProtection
         var pepper = await ResolvePepperAsync(cancellationToken).ConfigureAwait(false);
         if (pepper is null)
         {
-            return "The OS keystore did not release the protection pepper.";
+            return $"{PlatformTerms.SecretStore} didn't return the PIN protection key. Check that it is unlocked, then try again.";
         }
 
         var derived = Derive(pin, Convert.FromHexString(state.Salt), pepper);
@@ -224,8 +224,8 @@ public sealed partial class StartupProtectionRuntime : IStartupProtection
         var deletion = await _encryption.ForgetKeystoreCopiesAsync(cancellationToken).ConfigureAwait(false);
         Changed?.Invoke(this, EventArgs.Empty);
         return deletion is SecretVaultResult<Unit>.Failure
-            ? "The encryption keys were sealed, but the OS keystore could not remove all unsealed copies. "
-                + "PIN-only key protection is incomplete; retry when the keystore is available."
+            ? $"The encryption keys were protected, but {PlatformTerms.SecretStore} couldn't remove every unprotected copy. "
+                + $"PIN protection isn't complete yet. Try again when {PlatformTerms.SecretStore} is available."
             : null;
     }
 
@@ -302,8 +302,8 @@ public sealed partial class StartupProtectionRuntime : IStartupProtection
                         cancellationToken)
                     .ConfigureAwait(false))
             {
-                return "The OS keystore refused to take the encryption keys back; "
-                    + "protection stays on.";
+                return $"{PlatformTerms.SecretStore} didn't accept the encryption keys back, "
+                    + "so PIN protection stays on.";
             }
         }
 

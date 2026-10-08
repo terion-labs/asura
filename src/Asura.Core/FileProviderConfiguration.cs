@@ -131,7 +131,7 @@ public abstract record FileProviderConfiguration : IPanelLaunchCapabilitySource
             if (security == FtpSecurityMode.Plaintext && !allowPlaintext)
             {
                 throw new ArgumentException(
-                    "Plaintext FTP requires an explicit insecure-transport acknowledgement.",
+                    "Plaintext FTP requires an explicit insecure-transport acknowledgment.",
                     nameof(allowPlaintext));
             }
 
@@ -365,7 +365,7 @@ public abstract record FileProviderConfiguration : IPanelLaunchCapabilitySource
         if (string.Equals(value.Scheme, "http", StringComparison.Ordinal) && !allowInsecureTransport)
         {
             throw new ArgumentException(
-                "HTTP transport requires an explicit insecure-transport acknowledgement.",
+                "HTTP transport requires an explicit insecure-transport acknowledgment.",
                 parameterName);
         }
 

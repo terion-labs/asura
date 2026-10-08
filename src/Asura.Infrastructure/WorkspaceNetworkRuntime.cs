@@ -565,7 +565,7 @@ public sealed partial class WorkspaceNetworkRuntime : IWorkspaceNetworkRuntime
                         new NetworkConnectionError(
                             NetworkConnectionErrorCode.Cancelled,
                             "network_connection_cancelled",
-                            "The network connection was cancelled.",
+                            "The network connection was canceled.",
                             retryable: false));
                 }
             }

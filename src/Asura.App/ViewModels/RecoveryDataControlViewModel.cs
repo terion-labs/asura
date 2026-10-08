@@ -14,7 +14,7 @@ public sealed record RecoveryRunItemViewModel
     {
         var displayNumber = displayIndex.ToString(CultureInfo.InvariantCulture);
         RunId = runId;
-        Title = $"Saved recovery {displayNumber}";
+        Title = $"Saved Recovery {displayNumber}";
         ClearAutomationName = $"Clear saved recovery {displayNumber}";
         SnapshotLabel =
             $"{snapshotCount.ToString("N0", CultureInfo.CurrentCulture)} "
@@ -312,7 +312,7 @@ public sealed class RecoveryDataControlViewModel : ObservableObject, IDisposable
                 await PublishAsync(() =>
                 {
                     HasError = false;
-                    StatusMessage = "The recovery data operation was cancelled.";
+                    StatusMessage = "The recovery data operation was canceled.";
                 }, CancellationToken.None).ConfigureAwait(false);
             }
             catch (ObjectDisposedException)
@@ -415,7 +415,7 @@ public sealed class RecoveryDataControlViewModel : ObservableObject, IDisposable
     {
         HasError = error.Code != ApplicationRunErrorCode.Cancelled;
         StatusMessage = error.Code == ApplicationRunErrorCode.Cancelled
-            ? "The recovery data operation was cancelled."
+            ? "The recovery data operation was canceled."
             : $"{fallback} ({error.Code})";
     }
 

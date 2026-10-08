@@ -300,7 +300,7 @@ public sealed partial class BrowserPanelSession
         BrowserResult<RendererAutomationCompletion>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser automation was cancelled.",
+                "The browser automation was canceled.",
                 retryable: true));
 
     private static BrowserResult<RendererAutomationCompletion> AutomationUnavailable() =>

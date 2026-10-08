@@ -323,7 +323,7 @@ internal sealed class IsolatedPosixFilePanelClient : IFilePanelClient
             return FilePanelResult<string>.Failure(new FilePanelError(
                 FilePanelErrorCode.Cancelled,
                 "file_operation_cancelled",
-                "The file operation was cancelled.",
+                "The file operation was canceled.",
                 Retryable: true));
         }
 

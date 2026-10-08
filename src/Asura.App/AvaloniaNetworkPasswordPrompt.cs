@@ -1,6 +1,7 @@
 using System.Text;
 using Asura.App.Views;
 using Asura.Application;
+using Asura.Core;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
@@ -32,7 +33,7 @@ public sealed class AvaloniaNetworkPasswordPrompt : INetworkPasswordPrompt
         _ = await ShowConfirmationAsync(new ConfirmationDialogOptions
         {
             Heading = "The stored password was not replaced",
-            Detail = $"Asura could not update the password for {request.ConnectionName}. It may have been edited while the prompt was open, or the credential store may be unavailable.",
+            Detail = $"Asura couldn't update the password for “{request.ConnectionName}”. The connection may have changed while this window was open, or {PlatformTerms.SecretStore} may be locked.",
             Notice = "This does not disconnect your connection. You can replace the stored password in connection settings.",
             ConfirmLabel = "OK",
             ShowsCancel = false,
@@ -191,6 +192,6 @@ public sealed class AvaloniaNetworkPasswordPrompt : INetworkPasswordPrompt
             new NetworkConnectionError(
                 NetworkConnectionErrorCode.Cancelled,
                 "network_password_prompt_cancelled",
-                "The password prompt was cancelled.",
+                "The password prompt was canceled.",
                 retryable: true));
 }

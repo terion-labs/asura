@@ -359,7 +359,7 @@ public sealed partial class InMemorySessionHostClient
             new HostError(
                 HostErrorCode.Cancelled,
                 stableCode,
-                "The governed workspace graph action was cancelled."),
+                "The governed workspace graph action was canceled."),
             revision);
     }
 
@@ -389,7 +389,7 @@ public sealed partial class InMemorySessionHostClient
                 or AgentAuthorizationErrorCode.RunCancelled =>
                 HostError.Create(
                     HostErrorCode.Cancelled,
-                    "The governed workspace graph action was cancelled."),
+                    "The governed workspace graph action was canceled."),
             AgentAuthorizationErrorCode.AuditUnavailable =>
                 HostError.Create(
                     HostErrorCode.EngineFailed,

@@ -288,7 +288,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         Assert.True(panel.IsConnected);
         Assert.Equal("Host=third;Password=fixture", panel.ConnectionString);
         Assert.Equal(target, panel.RecoveryTarget);
-        Assert.Contains("could not be saved", panel.ErrorMessage!, StringComparison.Ordinal);
+        Assert.Contains("couldn't save the connection", panel.ErrorMessage!, StringComparison.Ordinal);
         Assert.Equal("Host=second;Password=fixture", (await state.RestoreAsync(CancellationToken.None))!.ConnectionString);
     }
 
@@ -812,10 +812,10 @@ public sealed class DatabaseRuntimePanelViewModelTests
                     profile.ConnectionString,
                     secret));
             },
-            passwordStoreLabel: "Save in macOS Keychain");
+            passwordStoreLabel: "Save in Keychain");
 
         Assert.True(panel.CanStorePassword);
-        Assert.Equal("Save in macOS Keychain", panel.PasswordStoreLabel);
+        Assert.Equal("Save in Keychain", panel.PasswordStoreLabel);
 
         var stored = await panel.StoreSessionPasswordAsync("typed");
 

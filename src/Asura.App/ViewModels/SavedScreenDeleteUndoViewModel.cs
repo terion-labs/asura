@@ -102,7 +102,7 @@ public sealed class SavedScreenDeleteUndoViewModel : ObservableObject
             if (ReferenceEquals(_pending, pending))
             {
                 Status =
-                    $"Restore cancelled for “{pending.Receipt.ScreenName}”. Retry or dismiss this undo.";
+                    $"Restore canceled for “{pending.Receipt.ScreenName}”. Retry or dismiss this undo.";
             }
 
             throw;

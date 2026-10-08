@@ -1020,7 +1020,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            CompactionStatus = "Compaction cancelled.";
+            CompactionStatus = "Compaction canceled.";
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
@@ -1826,7 +1826,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public string ActiveActionCancellationLabel =>
         _actionCancellationInFlight
         || ActiveTool is { CancellationRequested: true }
-            ? "Cancelling action…"
+            ? "Canceling action…"
             : "Cancel action";
 
     public AgentYoloAuthorityViewModel? YoloAuthority
@@ -3577,7 +3577,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         code switch
         {
             AuditStoreErrorCode.Cancelled =>
-                "Loading recorded actions was cancelled.",
+                "Loading recorded actions was canceled.",
             AuditStoreErrorCode.InvalidQuery =>
                 "The audit position changed. Refresh the selected run.",
             AuditStoreErrorCode.StorageFailure =>

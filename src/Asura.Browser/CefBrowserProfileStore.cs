@@ -1092,7 +1092,7 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
     private static BrowserProfileClearResult Cancelled() => new(
         BrowserProfileClearStatus.Cancelled,
         0,
-        "Browser profile clearing was cancelled.");
+        "Browser profile clearing was canceled.");
 
     private static string ClearMessage(BrowserProfileDataCategory categories) =>
         categories switch

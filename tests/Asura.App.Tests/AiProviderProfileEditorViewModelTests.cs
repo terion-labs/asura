@@ -122,7 +122,7 @@ public sealed class AiProviderProfileEditorViewModelTests
         Assert.Equal(reference, editor.SelectedCredential?.Reference);
         Assert.Empty(editor.ApiKeyValue);
         Assert.False(editor.IsStoringCredential);
-        Assert.Contains("could not be stored", editor.CredentialStatus, StringComparison.Ordinal);
+        Assert.Contains("couldn't store the API key", editor.CredentialStatus, StringComparison.Ordinal);
         Assert.DoesNotContain("synthetic-secret-must-not-appear", editor.CredentialStatus, StringComparison.Ordinal);
     }
 
@@ -172,7 +172,7 @@ public sealed class AiProviderProfileEditorViewModelTests
         Assert.Null(runtime.LastProfile);
         Assert.Empty(editor.ApiKeyValue);
         Assert.False(editor.IsStoringCredential);
-        Assert.Contains("cancelled", editor.CredentialStatus, StringComparison.Ordinal);
+        Assert.Contains("canceled", editor.CredentialStatus, StringComparison.Ordinal);
     }
 
     private static SecretVaultResult<SecretMetadata> Stored(CreateSecretRequest request) =>
@@ -575,7 +575,7 @@ public sealed class AiProviderProfileEditorViewModelTests
             System.Text.Json.JsonSerializer.Serialize(request.Profile),
             StringComparison.Ordinal);
         Assert.Equal(
-            "Connected. The token session is stored in the OS vault.",
+            $"Connected. The sign-in session is stored in {PlatformTerms.SecretStore}.",
             editor.AuthenticationStatus);
     }
 

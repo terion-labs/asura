@@ -1,3 +1,5 @@
+using Asura.Core;
+
 namespace Asura.Application;
 
 public sealed record SecretVaultError(
@@ -18,23 +20,23 @@ public sealed record SecretVaultError(
             SecretVaultErrorCode.AlreadyExists =>
                 new(code, "secret_already_exists", "A secret with that reference already exists.", retryable),
             SecretVaultErrorCode.AccessDenied =>
-                new(code, "secret_access_denied", "Access to the secret is denied.", retryable),
+                new(code, "secret_access_denied", $"{PlatformTerms.SecretStore} denied access to the credential.", retryable),
             SecretVaultErrorCode.AuthenticationRequired =>
-                new(code, "secret_authentication_required", "Operating-system authentication is required.", retryable),
+                new(code, "secret_authentication_required", $"Unlock {PlatformTerms.SecretStore} to continue.", retryable),
             SecretVaultErrorCode.UserCancelled =>
-                new(code, "secret_user_cancelled", "The secret operation was cancelled by the user.", retryable),
+                new(code, "secret_user_cancelled", "The credential request was canceled.", retryable),
             SecretVaultErrorCode.CorruptEntry =>
-                new(code, "secret_entry_corrupt", "The stored secret entry is invalid or corrupt.", retryable),
+                new(code, "secret_entry_corrupt", $"The credential stored in {PlatformTerms.SecretStore} is damaged. Delete it and save it again.", retryable),
             SecretVaultErrorCode.PlatformFailure =>
-                new(code, "secret_platform_failure", "The operating-system secret store failed.", retryable),
+                new(code, "secret_platform_failure", $"{PlatformTerms.SecretStore} couldn't complete the request. Try again.", retryable),
             SecretVaultErrorCode.AuditPersistenceFailure =>
                 new(
                     code,
                     "secret_audit_persistence_failure",
-                    "The secret operation produced a result, but its audit completion could not be persisted. Reconcile vault state before retrying.",
+                    "The credential change happened, but Asura couldn't record it in the audit log. Check the credential in Settings › Security & Secrets before trying again.",
                     false),
             SecretVaultErrorCode.Cancelled =>
-                new(code, "secret_operation_cancelled", "The secret operation was cancelled.", retryable),
+                new(code, "secret_operation_cancelled", "The credential request was canceled.", retryable),
             _ => throw new ArgumentOutOfRangeException(nameof(code), code, null),
         };
 }

@@ -28,7 +28,7 @@ public sealed class AvaloniaDefinitionBundlePathPicker(Func<Window> owner)
         cancellationToken.ThrowIfCancellationRequested();
         var selected = await _owner().StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Export Asura definitions",
+            Title = "Export Asura Setup",
             SuggestedFileName = suggestedFileName,
             DefaultExtension = "json",
             FileTypeChoices = [BundleFileType],
@@ -50,7 +50,7 @@ public sealed class AvaloniaDefinitionBundlePathPicker(Func<Window> owner)
         cancellationToken.ThrowIfCancellationRequested();
         var selected = await _owner().StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Import Asura definitions",
+            Title = "Import Asura Setup",
             AllowMultiple = false,
             FileTypeFilter = [BundleFileType],
         });

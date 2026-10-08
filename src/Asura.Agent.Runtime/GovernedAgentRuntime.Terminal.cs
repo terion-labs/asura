@@ -158,7 +158,7 @@ public sealed partial class GovernedAgentRuntime
                     new HostError(
                         HostErrorCode.Cancelled,
                         "caller_cancelled",
-                        "The terminal action was cancelled."),
+                        "The terminal action was canceled."),
                     context.Revision);
             }
             catch (Exception exception) when (exception is not OutOfMemoryException)

@@ -234,7 +234,7 @@ public sealed partial class GovernedAgentRuntime
             new HostError(
                 HostErrorCode.Cancelled,
                 "caller_cancelled",
-                "The Statistics observation was cancelled."),
+                "The Statistics observation was canceled."),
             failure.CurrentRevision);
     }
 
@@ -244,7 +244,7 @@ public sealed partial class GovernedAgentRuntime
             new HostError(
                 HostErrorCode.Cancelled,
                 "caller_cancelled",
-                "The Statistics observation was cancelled."),
+                "The Statistics observation was canceled."),
             revision);
 
     private static bool IsStatisticsTool(string toolName) =>

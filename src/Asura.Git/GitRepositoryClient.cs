@@ -1207,7 +1207,7 @@ public sealed partial class GitRepositoryClient(
             case ConnectionCommandOutcome.Cancelled:
                 return new GitError(
                     GitErrorCode.Cancelled,
-                    "The operation was cancelled.",
+                    "The operation was canceled.",
                     Retryable: false);
             case ConnectionCommandOutcome.ConnectionFailed:
                 return new GitError(

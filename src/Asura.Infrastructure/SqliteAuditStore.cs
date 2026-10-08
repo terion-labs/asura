@@ -41,7 +41,7 @@ public sealed class SqliteAuditStore : IAuditStore
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return Failure<Unit>(AuditStoreErrorCode.Cancelled, "Writing the audit event was cancelled.");
+            return Failure<Unit>(AuditStoreErrorCode.Cancelled, "Writing the audit event was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -113,7 +113,7 @@ public sealed class SqliteAuditStore : IAuditStore
         {
             return Failure<AgentActionAuditClaimOutcome>(
                 AuditStoreErrorCode.Cancelled,
-                "Claiming the agent action was cancelled.");
+                "Claiming the agent action was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -208,7 +208,7 @@ public sealed class SqliteAuditStore : IAuditStore
         {
             return Failure<Unit>(
                 AuditStoreErrorCode.Cancelled,
-                "Writing the agent action phase was cancelled.");
+                "Writing the agent action phase was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -261,7 +261,7 @@ public sealed class SqliteAuditStore : IAuditStore
         {
             return Failure<IReadOnlyList<AuditEventRecord>>(
                 AuditStoreErrorCode.Cancelled,
-                "Reading the audit trail was cancelled.");
+                "Reading the audit trail was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -325,7 +325,7 @@ public sealed class SqliteAuditStore : IAuditStore
         {
             return Failure<IReadOnlyList<AuditEventRecord>>(
                 AuditStoreErrorCode.Cancelled,
-                "Reading incomplete agent actions was cancelled.");
+                "Reading incomplete agent actions was canceled.");
         }
         catch (SqliteException exception)
         {

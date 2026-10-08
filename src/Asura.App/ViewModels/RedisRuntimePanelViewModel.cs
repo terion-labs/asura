@@ -348,7 +348,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         Func<DatabaseConnectionProfile, CancellationToken, Task<string?>>? passwordResolver = null,
         Func<DatabaseConnectionProfileId, string, CancellationToken,
             Task<DatabaseConnectionProfile?>>? passwordPersister = null,
-        string passwordStoreLabel = "Save in system credential store",
+        string? passwordStoreLabel = null,
         TimeProvider? timeProvider = null,
         bool deferStoredCredentialAccess = false,
         string? sessionPassword = null,
@@ -369,7 +369,9 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         _recovery = recovery;
         _deferStoredCredentialAccess = deferStoredCredentialAccess;
         ConnectionString = connectionString ?? savedConnection?.ConnectionString ?? string.Empty;
-        PasswordStoreLabel = passwordStoreLabel;
+        PasswordStoreLabel = string.IsNullOrWhiteSpace(passwordStoreLabel)
+            ? PlatformTerms.SaveInSecretStore
+            : passwordStoreLabel;
 
         ConnectCommand = new AsyncActionCommand(ConnectAsync, () => !IsBusy && HasConnectionTarget);
         DisconnectCommand = new AsyncActionCommand(DisconnectAsync, () => IsConnected);
@@ -588,7 +590,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             {
                 if (!saved)
                 {
-                    ErrorMessage = "The database target could not be saved in the credential store. The previous saved target is unchanged.";
+                    ErrorMessage = $"Asura couldn't save the connection in {PlatformTerms.SecretStore}. The previously saved connection is unchanged.";
                     if (_recovery.CleanupIncomplete)
                     {
                         ErrorMessage += " An unused recovery credential may need removal in Security & secrets.";

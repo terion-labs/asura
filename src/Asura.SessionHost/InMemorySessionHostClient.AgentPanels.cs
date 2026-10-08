@@ -392,7 +392,7 @@ public sealed partial class InMemorySessionHostClient
             new HostError(
                 HostErrorCode.Cancelled,
                 stableCode,
-                "The governed panel action was cancelled."),
+                "The governed panel action was canceled."),
             revision);
     }
 
@@ -422,7 +422,7 @@ public sealed partial class InMemorySessionHostClient
                 or AgentAuthorizationErrorCode.RunCancelled =>
                 HostError.Create(
                     HostErrorCode.Cancelled,
-                    "The governed panel action was cancelled."),
+                    "The governed panel action was canceled."),
             AgentAuthorizationErrorCode.AuditUnavailable =>
                 HostError.Create(
                     HostErrorCode.EngineFailed,

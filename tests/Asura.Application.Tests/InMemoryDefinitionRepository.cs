@@ -196,7 +196,7 @@ internal sealed class InMemoryDefinitionRepository<TDefinition> : IDefinitionRep
 
     private static DefinitionStoreResult<T>? Cancelled<T>(CancellationToken cancellationToken) =>
         cancellationToken.IsCancellationRequested
-            ? Failure<T>(DefinitionStoreErrorCode.Cancelled, "The operation was cancelled.")
+            ? Failure<T>(DefinitionStoreErrorCode.Cancelled, "The operation was canceled.")
             : null;
 
     private static DefinitionStoreResult<T> Failure<T>(

@@ -284,7 +284,7 @@ public sealed record FileOperationIssue(
                     canRetry: true),
             FilePanelErrorCode.Cancelled => Create(
                 FileOperationIssueKind.Cancelled,
-                "Operation cancelled",
+                "Operation canceled",
                 error,
                 "Run the operation again when ready.",
                 canRetry: true),

@@ -60,7 +60,7 @@ public sealed class NetworkConnectionEditorDialogHeadlessTests
                     NetworkCredentialTarget.ProxyPassword,
                     editor.Credential.SelectedTarget?.Target);
                 Assert.False(editor.Credential.IsDocument);
-                Assert.Contains("password", editor.Credential.Title, StringComparison.Ordinal);
+                Assert.Equal("Add Proxy Password", editor.Credential.Title);
 
                 editor.Username = "alice";
                 editor.Credential.Label = "Office proxy password";

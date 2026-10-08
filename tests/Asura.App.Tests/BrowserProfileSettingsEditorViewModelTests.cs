@@ -68,7 +68,7 @@ public sealed class BrowserProfileSettingsEditorViewModelTests
         editor.CancelClearCommand.Execute(null);
         await WaitForAsync(() => !editor.IsClearing);
 
-        Assert.Equal("Browser profile clearing was cancelled.", editor.OperationStatus);
+        Assert.Equal("Browser profile clearing was canceled.", editor.OperationStatus);
     }
 
     [Fact]
@@ -540,7 +540,7 @@ public sealed class BrowserProfileSettingsEditorViewModelTests
                 return new BrowserProfileClearResult(
                     BrowserProfileClearStatus.Cancelled,
                     0,
-                    "Browser profile clearing was cancelled.");
+                    "Browser profile clearing was canceled.");
             }
         }
     }

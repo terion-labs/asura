@@ -452,7 +452,7 @@ public abstract partial class LocalFileProvider
         {
             return FileProviderError.Create(
                 FileProviderErrorCode.PartialTransfer,
-                "The destination was committed, but deleting the move source was cancelled.");
+                "The destination was committed, but deleting the move source was canceled.");
         }
         catch (UnauthorizedAccessException exception)
         {

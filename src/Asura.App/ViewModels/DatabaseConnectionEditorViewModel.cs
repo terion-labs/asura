@@ -49,7 +49,7 @@ public sealed record DatabaseTunnelOption(
 public sealed class DatabaseConnectionEditorViewModel : ObservableObject
 {
     public const string AgentAuthentication = "SSH agent";
-    public const string PasswordAuthentication = "Password (OS keychain)";
+    public const string PasswordAuthentication = "Password";
 
     private readonly IDatabaseConnectionCatalog _client;
     private readonly IReadOnlyList<ConnectionProfile> _connections;
@@ -629,11 +629,11 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         }
         else if (inline.Password is not null)
         {
-            // A freshly typed tunnel password reaches the OS keychain on save;
+            // A freshly typed tunnel password reaches the secret store on save;
             // until then the tunnel opener has nothing to resolve.
             throw new InvalidOperationException(
-                "Tunnel passwords are stored in the OS keychain on save. "
-                + "Save the connection first, then test.");
+                $"The tunnel password is stored in {PlatformTerms.SecretStore} when you save. "
+                + "Save the connection, then test it.");
         }
         else if (_existingInlineTunnel?.Authentication
             is ConnectionAuthentication.Password stored)

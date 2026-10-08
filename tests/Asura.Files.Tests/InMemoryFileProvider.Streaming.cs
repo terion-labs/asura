@@ -183,7 +183,7 @@ internal sealed partial class InMemoryFileProvider
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return Failure<T>(FileProviderErrorCode.Cancelled, "The file operation was cancelled.");
+            return Failure<T>(FileProviderErrorCode.Cancelled, "The file operation was canceled.");
         }
     }
 }

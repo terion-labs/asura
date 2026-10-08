@@ -628,7 +628,7 @@ public sealed partial class InMemorySessionHostClient
                 new HostError(
                     HostErrorCode.Cancelled,
                     "database_read_cancelled",
-                    "The governed database observation was cancelled."),
+                    "The governed database observation was canceled."),
             AgentAuthorizationErrorCode.AuditUnavailable =>
                 new HostError(
                     HostErrorCode.EngineFailed,
@@ -661,7 +661,7 @@ public sealed partial class InMemorySessionHostClient
             new HostError(
                 HostErrorCode.Cancelled,
                 stableCode,
-                "The governed database observation was cancelled."),
+                "The governed database observation was canceled."),
             revision);
     }
 

@@ -3019,7 +3019,7 @@ public sealed partial class AgentChatViewModelTests
                 runId: new AgentRunId("run-1"),
                 providerId: provider.Id,
                 target: Target(),
-                status: "Cancelling this action…",
+                status: "Canceling this action…",
                 activeTool: active with { CancellationRequested = true }),
         };
         using var profiles = new StubProfileRuntime
@@ -3041,7 +3041,7 @@ public sealed partial class AgentChatViewModelTests
             runtime.LastActionCancellationToken);
         Assert.False(viewModel.CanCancelActiveAction);
         Assert.Equal(
-            "Cancelling action…",
+            "Canceling action…",
             viewModel.ActiveActionCancellationLabel);
         Assert.True(viewModel.CanRequestStop);
         Assert.Equal(0, runtime.StopCount);
@@ -3083,7 +3083,7 @@ public sealed partial class AgentChatViewModelTests
         Assert.Equal(1, runtime.ActionCancellationCount);
         Assert.False(viewModel.CanCancelActiveAction);
         Assert.Equal(
-            "Cancelling action…",
+            "Canceling action…",
             viewModel.ActiveActionCancellationLabel);
         Assert.True(viewModel.CanRequestStop);
 

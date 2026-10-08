@@ -479,7 +479,7 @@ public sealed class WorkspaceAutoSaveCoordinator : IDisposable
 
     private ScreenPanelDefinition? CannotProtectDatabaseTarget()
     {
-        _captureError = "The workspace layout was not saved because an unavailable database target could not be protected. Unlock the credential store or restore its connection, then retry. The previous workspace is unchanged.";
+        _captureError = $"The workspace layout wasn't saved because a database connection couldn't be protected. Unlock {PlatformTerms.SecretStore} or restore the connection, then try again. The previous workspace is unchanged.";
         _reportCaptureError?.Invoke(_captureError);
         return null;
     }

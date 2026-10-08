@@ -1941,7 +1941,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             AgentSavedScreenTargetStatus =
-                "Creating the pending live instance was cancelled. No agent authority was granted.";
+                "Creating the pending live instance was canceled. No agent authority was granted.";
             throw;
         }
         finally
@@ -4260,7 +4260,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             await RestoreWorkspaceAfterFailedRecreateAsync(
                 workspaceId,
                 openInstance is not null);
-            SetError("Workspace environment recreation was cancelled.");
+            SetError("Workspace environment recreation was canceled.");
             return false;
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
@@ -4537,8 +4537,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 new McpServerTestPresentation(
                     revision,
                     McpServerTestPresentationState.Failed,
-                    "Test cancelled",
-                    "The MCP server test was cancelled."));
+                    "Test canceled",
+                    "The MCP server test was canceled."));
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
@@ -11304,7 +11304,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     _secretVault.Availability.CanPersist
                         ? StoreDatabasePasswordAsync
                         : null,
-                    DatabasePasswordStoreLabel(_secretVault.Availability.Adapter),
+                    PlatformTerms.SaveInSecretStore,
                     deferStoredCredentialAccess: deferStoredCredentialAccess,
                     sessionPassword: sessionPassword,
                     recovery: recovery,
@@ -11332,22 +11332,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 passwordPersister: _secretVault.Availability.CanPersist
                     ? StoreDatabasePasswordAsync
                     : null,
-                passwordStoreLabel: DatabasePasswordStoreLabel(
-                    _secretVault.Availability.Adapter),
+                passwordStoreLabel: PlatformTerms.SaveInSecretStore,
                 deferStoredCredentialAccess: deferStoredCredentialAccess,
                 sessionPassword: sessionPassword,
                 recovery: recovery,
                 persistedConnection: persistedConnection,
                 transientConnection: transientConnection);
     }
-
-    private static string DatabasePasswordStoreLabel(string adapter) => adapter switch
-    {
-        "macos-keychain" => "Save in macOS Keychain",
-        "windows-dpapi" => "Save securely for this Windows user",
-        "linux-secret-service" => "Save in Secret Service",
-        _ => "Save in system credential store",
-    };
 
     private RuntimePanelViewModel CreateDockerPanel(
         PanelInstanceId panelId,
@@ -11986,7 +11977,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (!inline.UseAgent)
             {
                 SetError(
-                    "Tunnel passwords live in the OS keychain. "
+                    $"Tunnel passwords are kept in {PlatformTerms.SecretStore}. "
                     + "Save the connection to use a password tunnel.");
                 return false;
             }

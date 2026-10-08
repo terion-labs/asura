@@ -2652,7 +2652,7 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
         ConnectionReconnectState.WaitingForSession => "Waiting for the reconnected terminal",
         ConnectionReconnectState.Connected => "Connection restored",
         ConnectionReconnectState.Exhausted => "Automatic reconnect attempts exhausted",
-        ConnectionReconnectState.Cancelled => "Automatic reconnect cancelled",
+        ConnectionReconnectState.Cancelled => "Automatic reconnect canceled",
         _ => string.Empty,
     };
 
@@ -2664,7 +2664,7 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
                 : "To start a fresh session, close this failed tab and reopen the connection. ")
             + "Proceed without continuity applies only to this tab. Your workspace setting stays unchanged.",
         ConnectionRecoveryAction.InstallRuntime => "Install the required runtime, then retry.",
-        ConnectionRecoveryAction.UnlockSecretVault => "Unlock the credential vault, then retry.",
+        ConnectionRecoveryAction.UnlockSecretVault => $"Unlock {PlatformTerms.SecretStore}, then try again.",
         ConnectionRecoveryAction.ProvideAuthentication => "Update authentication in the connection profile.",
         ConnectionRecoveryAction.ReviewHostKey => "Review the remote host key before reconnecting.",
         ConnectionRecoveryAction.GrantPermission => "Grant the required operating-system permission.",
@@ -2717,8 +2717,8 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
         NextReconnectDelay = null;
         ConnectionState = ConnectionPanelState.Failed;
         ConnectionStatus = ReconnectAttempt > 0
-            ? "Reconnect cancelled"
-            : "Connection cancelled";
+            ? "Reconnect canceled"
+            : "Connection canceled";
         ConnectionDetail = "The terminal remains disconnected. Retry when you are ready.";
     }
 

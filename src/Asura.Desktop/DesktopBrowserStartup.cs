@@ -211,7 +211,7 @@ internal sealed class DesktopBrowserStartup(
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 return new BrowserProfileClearResult(BrowserProfileClearStatus.Cancelled, result.ClearedBytes,
-                    "Browser data was cleared; clearing browsing history was cancelled.");
+                    "Browser data was cleared; clearing browsing history was canceled.");
             }
             catch (Exception exception)
             {

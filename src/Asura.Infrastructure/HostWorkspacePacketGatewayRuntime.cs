@@ -112,7 +112,7 @@ internal sealed class HostWorkspacePacketGatewayRuntime : IWorkspacePacketGatewa
                 Error(
                     NetworkConnectionErrorCode.Cancelled,
                     "workspace_packet_gateway_cancelled",
-                    "Starting the host packet gateway was cancelled.",
+                    "Starting the host packet gateway was canceled.",
                     retryable: false));
         }
         catch (Exception exception)

@@ -148,7 +148,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         ISqlLanguageService? sqlLanguageService = null,
         Func<DatabaseConnectionProfileId, string, CancellationToken,
             Task<DatabaseConnectionProfile?>>? passwordPersister = null,
-        string passwordStoreLabel = "Save in system credential store",
+        string? passwordStoreLabel = null,
         bool deferStoredCredentialAccess = false,
         string? sessionPassword = null,
         DatabaseRecoveryState? recovery = null,
@@ -171,7 +171,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         _deferStoredCredentialAccess = deferStoredCredentialAccess;
         _passwordPersister = passwordPersister;
         PasswordStoreLabel = string.IsNullOrWhiteSpace(passwordStoreLabel)
-            ? "Save in system credential store"
+            ? PlatformTerms.SaveInSecretStore
             : passwordStoreLabel;
         _forcedReadOnlyReason = string.IsNullOrWhiteSpace(forcedReadOnlyReason)
             ? null
@@ -1249,7 +1249,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             {
                 if (!saved)
                 {
-                    ErrorMessage = "The database target could not be saved in the credential store. The previous saved target is unchanged.";
+                    ErrorMessage = $"Asura couldn't save the connection in {PlatformTerms.SecretStore}. The previously saved connection is unchanged.";
                     if (_recovery.CleanupIncomplete)
                     {
                         ErrorMessage += " An unused recovery credential may need removal in Security & secrets.";

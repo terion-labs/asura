@@ -68,7 +68,7 @@ public sealed partial class GovernedAgentRuntimeTests
             Assert.Equal(fixture.Target.PanelId, activity.PanelId);
             Assert.True(activity.CancellationRequested);
             Assert.Equal(
-                "Cancelling this action…",
+                "Canceling this action…",
                 fixture.Runtime.Snapshot.Status);
 
             var duplicate = await fixture.Runtime.CancelActiveActionAsync(

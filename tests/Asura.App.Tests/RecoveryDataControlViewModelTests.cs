@@ -24,7 +24,7 @@ public sealed class RecoveryDataControlViewModelTests
         await viewModel.Initialization;
 
         var item = Assert.Single(viewModel.Runs);
-        Assert.Equal("Saved recovery 1", item.Title);
+        Assert.Equal("Saved Recovery 1", item.Title);
         Assert.Equal("Clear saved recovery 1", item.ClearAutomationName);
         Assert.Equal("2 snapshots", item.SnapshotLabel);
         Assert.Equal(ByteSize.Format(1536), item.SizeLabel);

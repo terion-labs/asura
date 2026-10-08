@@ -182,7 +182,7 @@ public sealed partial class SqliteAgentSessionCheckpointStore : IAgentSessionChe
         {
             return Failure<Unit>(
                 AgentSessionCheckpointStoreErrorCode.Cancelled,
-                "Saving the agent checkpoint was cancelled.");
+                "Saving the agent checkpoint was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -280,7 +280,7 @@ public sealed partial class SqliteAgentSessionCheckpointStore : IAgentSessionChe
         {
             return Failure<AgentSessionCheckpoint>(
                 AgentSessionCheckpointStoreErrorCode.Cancelled,
-                "Loading the agent checkpoint was cancelled.");
+                "Loading the agent checkpoint was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -374,7 +374,7 @@ public sealed partial class SqliteAgentSessionCheckpointStore : IAgentSessionChe
         {
             return Failure<bool>(
                 AgentSessionCheckpointStoreErrorCode.Cancelled,
-                "Deleting the agent checkpoint was cancelled.");
+                "Deleting the agent checkpoint was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -483,7 +483,7 @@ public sealed partial class SqliteAgentSessionCheckpointStore : IAgentSessionChe
         {
             return Failure<IReadOnlyList<AgentSessionCheckpointSummary>>(
                 AgentSessionCheckpointStoreErrorCode.Cancelled,
-                "Listing agent checkpoints was cancelled.");
+                "Listing agent checkpoints was canceled.");
         }
         catch (SqliteException exception)
         {

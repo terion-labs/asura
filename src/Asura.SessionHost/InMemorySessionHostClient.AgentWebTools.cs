@@ -300,7 +300,7 @@ public sealed partial class InMemorySessionHostClient
                 new HostError(
                     HostErrorCode.Cancelled,
                     prefix + "cancelled",
-                    "The governed web action was cancelled."),
+                    "The governed web action was canceled."),
             AgentAuthorizationErrorCode.AuditUnavailable =>
                 HostError.Create(
                     HostErrorCode.EngineFailed,
@@ -328,7 +328,7 @@ public sealed partial class InMemorySessionHostClient
             new HostError(
                 HostErrorCode.Cancelled,
                 stableCode,
-                "The governed web action was cancelled."),
+                "The governed web action was canceled."),
             revision);
     }
 

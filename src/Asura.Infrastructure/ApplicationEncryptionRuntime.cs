@@ -85,7 +85,7 @@ public sealed class ApplicationEncryptionRuntime : IApplicationEncryption, IDisp
 
     public string? UnsupportedReason => IsSupported
         ? null
-        : "Application encryption needs the operating system's keystore, which is unavailable: "
+        : $"Application encryption needs {PlatformTerms.SecretStore}, which isn't available. "
             + _vault.Availability.Message;
 
     /// <summary>
@@ -159,8 +159,8 @@ public sealed class ApplicationEncryptionRuntime : IApplicationEncryption, IDisp
         if (_configPassword is null)
         {
             StartupError =
-                "The configuration database is encrypted but its key is not in the OS keystore. "
-                + "Your data is kept. Try again or open a separate recovery workspace.";
+                $"The configuration database is encrypted, but its key isn't in {PlatformTerms.SecretStore}. "
+                + "Your data is kept. Try again, or open a separate recovery workspace.";
             return;
         }
 
@@ -217,7 +217,7 @@ public sealed class ApplicationEncryptionRuntime : IApplicationEncryption, IDisp
         if (protectedBackupsExist && retainedConfigKey is null)
         {
             return "Encrypted migration backups exist, but their recovery key is missing from "
-                + "the OS keystore. Restore that key before enabling application encryption.";
+                + $"{PlatformTerms.SecretStore}. Restore that key before turning on application encryption.";
         }
 
         var configKey = retainedConfigKey ?? NewKey();
@@ -243,7 +243,7 @@ public sealed class ApplicationEncryptionRuntime : IApplicationEncryption, IDisp
                         : [CacheKeyReference],
                     CancellationToken.None)
                 .ConfigureAwait(false);
-            return "The OS keystore refused to store the encryption keys.";
+            return $"{PlatformTerms.SecretStore} didn't accept the encryption keys. Check that it is unlocked, then try again.";
         }
 
         var rekeyDispatched = false;
@@ -373,7 +373,7 @@ public sealed class ApplicationEncryptionRuntime : IApplicationEncryption, IDisp
                 .ConfigureAwait(false))
         {
             return "Encrypted migration backups still depend on the active configuration key, "
-                + "and the OS keystore refused to retain it.";
+                + $"and {PlatformTerms.SecretStore} didn't keep it. Check that it is unlocked, then try again.";
         }
 
         var rekeyDispatched = false;

@@ -241,7 +241,9 @@ public sealed class KeybindingSettingsEditor
         if (blockingIssues.Length > 0)
         {
             throw new InvalidOperationException(
-                $"Resolve {blockingIssues.Length} keybinding conflict(s) before saving. "
+                (blockingIssues.Length == 1
+                    ? "Resolve 1 shortcut conflict before saving. "
+                    : $"Resolve {blockingIssues.Length:N0} shortcut conflicts before saving. ")
                 + string.Join(' ', blockingIssues.Select(issue => issue.Message)));
         }
 

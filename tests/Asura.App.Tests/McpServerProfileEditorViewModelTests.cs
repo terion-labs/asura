@@ -491,8 +491,8 @@ public sealed class McpServerProfileEditorViewModelTests
             "Choose at least one tool before enabling this server.",
             item.StatusDetail);
         Assert.True(item.HasWarning);
-        Assert.Equal("1 ordered arg", item.ArgumentSummary);
-        Assert.Equal("1 vault binding", item.EnvironmentBindingSummary);
+        Assert.Equal("1 argument", item.ArgumentSummary);
+        Assert.Equal("1 stored credential", item.EnvironmentBindingSummary);
         Assert.Equal("0 enabled tools", item.EnabledToolSummary);
     }
 
@@ -562,7 +562,7 @@ public sealed class McpServerProfileEditorViewModelTests
             "https://mcp.example.test/rpc",
             missing.Address);
         Assert.Equal("Streamable HTTP", missing.TransportSummary);
-        Assert.Equal("1 vault binding", missing.CredentialBindingSummary);
+        Assert.Equal("1 stored credential", missing.CredentialBindingSummary);
         Assert.Equal("Credential missing", missing.Status);
         Assert.Equal("Enabled for new runs", matching.Status);
         Assert.False(matching.HasWarning);
