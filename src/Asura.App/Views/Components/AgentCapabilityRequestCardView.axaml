@@ -98,7 +98,7 @@
             Grid.Column="1"
             Classes="PrimaryButton"
             Click="OnEnableAgentCapabilityAskClick"
-            Content="Enable Ask for this run"
+            Content="Enable Ask for This Run"
             IsEnabled="{Binding AgentChat.CanDecideCapabilityRequest}"
             TabIndex="1"
             AutomationProperties.Name="Enable Ask for this capability for this run"

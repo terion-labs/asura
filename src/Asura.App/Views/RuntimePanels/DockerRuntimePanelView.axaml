@@ -621,7 +621,7 @@
                   </StackPanel>
                 </ToggleButton>
                 <Border Grid.Column="3" Classes="ToolbarGroup" VerticalAlignment="Center">
-                  <Button Width="32" Height="32" Classes="IconButton ToolbarGroupAction" Click="OnDownloadLogsClick" IsEnabled="{Binding !IsDownloadingLogs}" ToolTip.Tip="Download complete container logs" AutomationProperties.Name="Download complete container logs">
+                  <Button Width="32" Height="32" Classes="IconButton ToolbarGroupAction" Click="OnDownloadLogsClick" IsEnabled="{Binding !IsDownloadingLogs}" ToolTip.Tip="Download all container logs" AutomationProperties.Name="Download all container logs">
                     <icons:SymbolIcon Symbol="DocumentArrowDown" FontSize="{DynamicResource ShellIconSizeMd}" />
                   </Button>
                 </Border>

@@ -849,7 +849,7 @@ public sealed partial class DatabaseWorkspaceView
 
             var selected = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Title = $"Use a file as {target.Column.Name}",
+                Title = $"Choose a File for “{target.Column.Name}”",
                 AllowMultiple = false,
             });
             if (selected.Count != 1)
@@ -997,7 +997,7 @@ public sealed partial class DatabaseWorkspaceView
             var sourcePage = CaptureGridPage(panel);
             var selected = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Title = "Import CSV rows",
+                Title = "Import CSV Rows",
                 AllowMultiple = false,
                 FileTypeFilter = [CsvFileType],
             });
@@ -1051,7 +1051,7 @@ public sealed partial class DatabaseWorkspaceView
             var sourcePage = CaptureGridPage(panel);
             var selected = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                Title = "Export the current database page",
+                Title = "Export Page",
                 SuggestedFileName = ExportFileStem(panel) + ".csv",
                 DefaultExtension = "csv",
                 FileTypeChoices = PageExportFileTypes,

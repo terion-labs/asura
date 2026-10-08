@@ -107,7 +107,7 @@ public sealed class RuntimePanelViewContractTests
             root.Descendants(),
             element => string.Equals(element.Name.LocalName, "Button"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "AutomationProperties.Name")
-, "Download complete container logs", StringComparison.Ordinal));
+, "Download all container logs", StringComparison.Ordinal));
     }
 
     [Fact]

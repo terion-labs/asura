@@ -84,7 +84,7 @@ public sealed partial class DatabaseWorkspaceView
         {
             var selected = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                Title = "Save the Mermaid ER diagram",
+                Title = "Save ER Diagram",
                 SuggestedFileName = "dbdiagram.md",
                 DefaultExtension = "md",
                 FileTypeChoices = [MermaidMarkdownFileType, MermaidSvgFileType],

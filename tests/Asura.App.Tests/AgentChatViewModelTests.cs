@@ -916,7 +916,7 @@ public sealed partial class AgentChatViewModelTests
             buttons,
             skip =>
             {
-                Assert.Equal("Skip / decline", skip.Attribute("Content")?.Value);
+                Assert.Equal("Skip", skip.Attribute("Content")?.Value);
                 Assert.Equal(
                     "{Binding AgentChat.CanDeclineQuestion}",
                     skip.Attribute("IsEnabled")?.Value);
@@ -926,7 +926,7 @@ public sealed partial class AgentChatViewModelTests
             },
             send =>
             {
-                Assert.Equal("Send answer", send.Attribute("Content")?.Value);
+                Assert.Equal("Send Answer", send.Attribute("Content")?.Value);
                 Assert.Equal(
                     "{Binding AgentChat.CanSubmitQuestionResponse}",
                     send.Attribute("IsEnabled")?.Value);
@@ -1251,7 +1251,7 @@ public sealed partial class AgentChatViewModelTests
             enableAsk =>
             {
                 Assert.Equal(
-                    "Enable Ask for this run",
+                    "Enable Ask for This Run",
                     enableAsk.Attribute("Content")?.Value);
                 Assert.Equal(
                     "OnEnableAgentCapabilityAskClick",

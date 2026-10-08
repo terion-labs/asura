@@ -1637,7 +1637,7 @@ public sealed partial class AgentChatViewModelTests
 
                 Assert.Contains(preview.GetVisualDescendants().OfType<CodePreviewView>(), code => code.Text == "block-199");
                 Assert.InRange(preview.GetVisualDescendants().OfType<CodePreviewView>().Count(), 1, 32);
-                var copy = Assert.Single(preview.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, "Copy all Markdown"));
+                var copy = Assert.Single(preview.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, "Copy All Markdown"));
                 copy.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Assert.Equal(markdown, await window.Clipboard!.TryGetTextAsync());
             }
@@ -1665,7 +1665,7 @@ public sealed partial class AgentChatViewModelTests
 
                 Assert.Empty(preview.GetVisualDescendants().OfType<CodePreviewView>());
                 Assert.InRange(preview.GetVisualDescendants().OfType<SelectableTextBlock>().Count(), 1, 40);
-                var nextRows = Assert.Single(preview.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, "Next rows"));
+                var nextRows = Assert.Single(preview.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, "Next Rows"));
                 while (nextRows.IsEnabled)
                 {
                     nextRows.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

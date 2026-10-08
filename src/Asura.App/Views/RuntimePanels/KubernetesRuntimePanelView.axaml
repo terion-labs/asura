@@ -776,7 +776,7 @@
                       HorizontalAlignment="Center"
                       Classes="TextButton Accent"
                       Command="{Binding LoadMoreCommand}"
-                      Content="Load more resources" />
+                      Content="Load More Resources" />
                 </Border>
               </Grid>
 
@@ -889,7 +889,7 @@
                               <RadioButton Content="Edit" AutomationProperties.Name="Edit" />
                               <RadioButton Content="Review" IsEnabled="{Binding HasMutationPreview}" ToolTip.Tip="The server dry run beside the current resource" AutomationProperties.Name="Review" />
                             </controls:SegmentedControl>
-                            <Button Classes="SecondaryButton" Command="{Binding DryRunCommand}" Content="Dry run" IsVisible="{Binding CanEditManifest}" />
+                            <Button Classes="SecondaryButton" Command="{Binding DryRunCommand}" Content="Dry Run" IsVisible="{Binding CanEditManifest}" />
                             <Button Classes="PrimaryButton" Command="{Binding ApplyManifestCommand}" Content="Apply" IsVisible="{Binding CanEditManifest}" />
                             <Button Classes="TextButton" Command="{Binding DiscardManifestCommand}" Content="Discard" IsVisible="{Binding CanEditManifest}" />
                             <CheckBox
@@ -968,7 +968,7 @@
                                 PlaceholderText="Container (optional)"
                                 ToolTip.Tip="Optional for single-container pods"
                                 AutomationProperties.Name="Pod log container" />
-                            <Button Classes="SecondaryButton" Command="{Binding LoadLogsCommand}" Content="Load recent" />
+                            <Button Classes="SecondaryButton" Command="{Binding LoadLogsCommand}" Content="Load Recent" />
                             <Button
                                 Classes="SecondaryButton"
                                 Click="OnFollowLogsClick"
@@ -1009,7 +1009,7 @@
                                 HorizontalAlignment="Left"
                                 Classes="SecondaryButton"
                                 Click="OnResolveServiceForwardClick"
-                                Content="Find ready backing pods"
+                                Content="Find Ready Backing Pods"
                                 IsEnabled="{Binding !IsBusy}"
                                 IsVisible="{Binding IsServiceForward}" />
                             <ComboBox
@@ -1036,7 +1036,7 @@
                                   Grid.Column="1"
                                   Classes="PrimaryButton"
                                   Click="OnStartForwardClick"
-                                  Content="Start forward"
+                                  Content="Start Forward"
                                   IsEnabled="{Binding !IsBusy}" />
                             </Grid>
                             <TextBlock
@@ -1065,18 +1065,18 @@
                                       <Button
                                           Classes="SecondaryButton"
                                           Click="OnOpenForwardBrowserClick"
-                                          Content="Open browser"
+                                          Content="Open in Browser"
                                           IsVisible="{Binding CanOpenBrowser}" />
                                       <Button
                                           Classes="TextButton"
                                           Command="{Binding StopCommand}"
-                                          Content="Stop forward"
+                                          Content="Stop Forward"
                                           Foreground="{DynamicResource ShellDangerBrush}" />
                                     </StackPanel>
                                     <ToggleButton
                                         x:Name="ForwardDatabaseDisclosure"
                                         Classes="SectionDisclosure"
-                                        Content="Open database through this forward"
+                                        Content="Open Database Through This Forward"
                                         IsVisible="{Binding CanOpenDatabase}" />
                                     <StackPanel
                                         IsVisible="{Binding #ForwardDatabaseDisclosure.IsChecked}"
@@ -1103,7 +1103,7 @@
                                           HorizontalAlignment="Left"
                                           Classes="SecondaryButton"
                                           Click="OnOpenForwardDatabaseClick"
-                                          Content="Open database panel" />
+                                          Content="Open Database" />
                                     </StackPanel>
                                   </StackPanel>
                                 </controls:SurfaceCard>
@@ -1138,8 +1138,8 @@
                                   AutomationProperties.Name="Pod shell executable" />
                             </controls:LabeledField>
                             <StackPanel Classes="ActionRow">
-                              <Button Classes="SecondaryButton" Click="OnShellClick" Content="Open pod terminal" IsEnabled="{Binding CanLaunchShell}" />
-                              <Button Classes="SecondaryButton" Click="OnFilesClick" Content="Browse container files" IsEnabled="{Binding CanLaunchShell}" />
+                              <Button Classes="SecondaryButton" Click="OnShellClick" Content="Open Pod Terminal" IsEnabled="{Binding CanLaunchShell}" />
+                              <Button Classes="SecondaryButton" Click="OnFilesClick" Content="Browse Container Files" IsEnabled="{Binding CanLaunchShell}" />
                             </StackPanel>
                             <TextBlock
                                 Classes="Muted"
@@ -1151,8 +1151,8 @@
                             <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                               <TextBlock Classes="SectionHeading" Text="Scheduling" />
                               <StackPanel Classes="ActionRow">
-                                <Button Classes="SecondaryButton" Click="OnReviewCordonClick" Content="Review cordon" IsEnabled="{Binding !IsBusy}" />
-                                <Button Classes="SecondaryButton" Click="OnReviewUncordonClick" Content="Review uncordon" IsEnabled="{Binding !IsBusy}" />
+                                <Button Classes="SecondaryButton" Click="OnReviewCordonClick" Content="Review Cordon" IsEnabled="{Binding !IsBusy}" />
+                                <Button Classes="SecondaryButton" Click="OnReviewUncordonClick" Content="Review Uncordon" IsEnabled="{Binding !IsBusy}" />
                               </StackPanel>
                             </StackPanel>
                             <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
@@ -1163,7 +1163,7 @@
                                   HorizontalAlignment="Left"
                                   Classes="SecondaryButton"
                                   Click="OnReviewDrainClick"
-                                  Content="Preview drain"
+                                  Content="Preview Drain"
                                   IsEnabled="{Binding !IsBusy}" />
                             </StackPanel>
                             <TextBlock FontSize="{DynamicResource ShellFontSize11}" Text="{Binding NodeStatus}" TextWrapping="Wrap" />
@@ -1183,7 +1183,7 @@
                                 HorizontalAlignment="Left"
                                 Classes="PrimaryButton"
                                 Click="OnConfirmNodeClick"
-                                Content="Confirm reviewed node operation"
+                                Content="Confirm Node Operation"
                                 IsEnabled="{Binding CanConfirmNode}" />
                             <ItemsControl ItemsSource="{Binding DrainResults}">
                               <ItemsControl.ItemTemplate>
@@ -1206,19 +1206,19 @@
                             <controls:LabeledField IsVisible="{Binding CanScale}" Label="Replicas">
                               <Grid ColumnDefinitions="96,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
                                 <TextBox Text="{Binding Replicas, Mode=TwoWay}" AutomationProperties.Name="Desired replica count" />
-                                <Button Grid.Column="1" Classes="SecondaryButton" Click="OnReviewScaleClick" Content="Review scale" />
+                                <Button Grid.Column="1" Classes="SecondaryButton" Click="OnReviewScaleClick" Content="Review Scale" />
                               </Grid>
                             </controls:LabeledField>
                             <StackPanel Classes="ActionRow">
                               <Button
                                   Classes="SecondaryButton"
                                   Click="OnReviewRestartClick"
-                                  Content="Review rollout restart"
+                                  Content="Review Rollout Restart"
                                   IsVisible="{Binding CanRestart}" />
                               <Button
                                   Classes="TextButton"
                                   Click="OnReviewDeleteClick"
-                                  Content="Review delete"
+                                  Content="Review Delete"
                                   Foreground="{DynamicResource ShellDangerBrush}"
                                   IsVisible="{Binding CanDelete}" />
                             </StackPanel>
@@ -1227,7 +1227,7 @@
                               <Button
                                   Classes="PrimaryButton"
                                   Click="OnConfirmOperationClick"
-                                  Content="Confirm reviewed operation"
+                                  Content="Confirm Operation"
                                   IsEnabled="{Binding CanConfirmOperation}" />
                               <Button
                                   Classes="TextButton"
@@ -1258,11 +1258,11 @@
                       Foreground="{DynamicResource ShellTextBrush}"
                       Text="Helm releases" />
                   <StackPanel Grid.Column="1" Classes="ActionRow">
-                    <Button Classes="SecondaryButton" Click="OnLoadHelmClick" Content="Load releases" IsEnabled="{Binding !IsBusy}" />
+                    <Button Classes="SecondaryButton" Click="OnLoadHelmClick" Content="Load Releases" IsEnabled="{Binding !IsBusy}" />
                     <Button
                         Classes="TextButton"
                         Click="OnLoadMoreHelmClick"
-                        Content="Load more"
+                        Content="Load More"
                         IsEnabled="{Binding !IsBusy}"
                         IsVisible="{Binding HasMoreHelm}" />
                   </StackPanel>
@@ -1384,14 +1384,14 @@
                             HorizontalAlignment="Left"
                             Classes="SecondaryButton"
                             Click="OnReviewHelmChangeClick"
-                            Content="Review Helm change"
+                            Content="Review Helm Change"
                             IsEnabled="{Binding !IsBusy}" />
                         <TextBlock FontSize="{DynamicResource ShellFontSize11}" Text="{Binding HelmChangeStatus}" TextWrapping="Wrap" />
                         <Button
                             HorizontalAlignment="Left"
                             Classes="PrimaryButton"
                             Click="OnConfirmHelmChangeClick"
-                            Content="Confirm reviewed Helm change"
+                            Content="Confirm Helm Change"
                             IsEnabled="{Binding CanConfirmHelm}" />
                       </StackPanel>
                     </ScrollViewer>

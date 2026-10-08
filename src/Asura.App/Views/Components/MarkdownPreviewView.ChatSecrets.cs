@@ -173,7 +173,7 @@ public sealed partial class MarkdownPreviewView
                 display.Text = revealed;
                 display.FontStyle = FontStyle.Normal;
                 AutomationProperties.SetName(button, "Hide revealed content");
-                var copy = new MenuItem { Header = "Copy revealed content" };
+                var copy = new MenuItem { Header = "Copy Revealed Content" };
                 copy.Click += async (_, _) =>
                 {
                     if (revealed is not null && TopLevel.GetTopLevel(button)?.Clipboard is { } clipboard)

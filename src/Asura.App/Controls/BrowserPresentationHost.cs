@@ -916,7 +916,7 @@ public sealed class BrowserPresentationHost : ContentControl
                 return;
             case BrowserProductEvent.DownloadCancelled:
                 ShowProductNotice(
-                    "Download cancelled",
+                    "Download canceled",
                     "No file was saved by this download.");
                 return;
             case BrowserProductEvent.RendererRecovered recovered:
@@ -928,7 +928,7 @@ public sealed class BrowserPresentationHost : ContentControl
                     "Page process restarted",
                     "The page process stopped. Cookies and persisted site data remain, but unsaved form input and other volatile page state were lost.",
                     hasAction: _recoveryAddress is not null,
-                    actionLabel: "Reload page");
+                    actionLabel: "Reload Page");
                 return;
             case BrowserProductEvent.RendererFailed failed:
                 _recoveryAddress = failed.LastAddress == BrowserAddress.Blank

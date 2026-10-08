@@ -41,16 +41,16 @@
         <Button
             Classes="SecondaryButton"
             Click="OnDeclineAgentQuestionClick"
-            Content="Skip / decline"
+            Content="Skip"
             IsEnabled="{Binding AgentChat.CanDeclineQuestion}"
             TabIndex="1"
-            AutomationProperties.Name="Skip or decline the AI agent question"
+            AutomationProperties.Name="Skip the AI agent question"
             AutomationProperties.HelpText="Continue without answering" />
         <Button
             Grid.Column="1"
             Classes="PrimaryButton"
             Click="OnSubmitAgentQuestionClick"
-            Content="Send answer"
+            Content="Send Answer"
             IsEnabled="{Binding AgentChat.CanSubmitQuestionResponse}"
             TabIndex="2"
             AutomationProperties.Name="Send answer to the AI agent" />

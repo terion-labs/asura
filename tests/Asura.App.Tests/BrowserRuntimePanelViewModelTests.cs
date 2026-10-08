@@ -33,7 +33,7 @@ public sealed class BrowserRuntimePanelViewModelTests
         Assert.Contains("volatile page state were lost", browser.ProductMessage);
         Assert.DoesNotContain("restored", browser.ProductMessage);
         Assert.True(browser.HasProductAction);
-        Assert.Equal("Reload page", browser.ProductActionLabel);
+        Assert.Equal("Reload Page", browser.ProductActionLabel);
         Assert.Equal(lostAddress.ToString(), browser.AddressText);
     }
 

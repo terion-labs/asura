@@ -1157,7 +1157,7 @@ public sealed class TerminalRuntimePanelViewModelTests
                 window.Show();
                 window.UpdateLayout();
                 var button = Assert.Single(view.GetVisualDescendants().OfType<Button>(),
-                    button => Equals(button.Content, "Proceed without continuity"));
+                    button => Equals(button.Content, "Proceed Without Continuity"));
                 Assert.True(button.IsEffectivelyVisible);
 
                 button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
