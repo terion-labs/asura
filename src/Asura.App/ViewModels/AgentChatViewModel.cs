@@ -1510,8 +1510,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             if (fileCount == ContextItems.Count)
             {
                 return fileCount == 1
-                    ? "1 File Viewer"
-                    : $"{fileCount.ToString(CultureInfo.InvariantCulture)} File Viewers";
+                    ? "1 Files panel"
+                    : $"{fileCount.ToString(CultureInfo.InvariantCulture)} Files panels";
             }
 
             if (statisticsCount == ContextItems.Count)
@@ -1524,8 +1524,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             if (processMonitorCount == ContextItems.Count)
             {
                 return processMonitorCount == 1
-                    ? "1 Process Monitor"
-                    : $"{processMonitorCount.ToString(CultureInfo.InvariantCulture)} Process Monitors";
+                    ? "1 Processes panel"
+                    : $"{processMonitorCount.ToString(CultureInfo.InvariantCulture)} Processes panels";
             }
 
             return $"{ContextItems.Count.ToString(CultureInfo.InvariantCulture)} panels";
@@ -3634,9 +3634,9 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         {
             PanelKind.Terminal => "terminal",
             PanelKind.Browser => "browser",
-            PanelKind.FileViewer => "File Viewer",
+            PanelKind.FileViewer => "Files",
             PanelKind.Statistics => "Statistics",
-            PanelKind.ProcessMonitor => "Process Monitor",
+            PanelKind.ProcessMonitor => "Processes",
             _ => "panel",
         };
         var title = item.PanelTitle ?? $"Unnamed {panelKind}";
@@ -3655,7 +3655,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                      && item.FileRootDisplay is { } trustedRoot =>
                 $"{providerProfile} · trusted root {trustedRoot}",
             PanelKind.FileViewer =>
-                "No File Viewer is available",
+                "No Files panel is available",
             PanelKind.Statistics =>
                 "Local resource statistics are available",
             PanelKind.ProcessMonitor =>
@@ -3727,7 +3727,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                     : hasBrowser
                         ? "Browser tools are available."
                         : hasFiles
-                            ? "File tools are limited to the selected File Viewer location."
+                            ? "File tools can reach only the folder open in the selected Files panel."
                             : hasStatistics
                                 ? statisticsNotice
                                 : hasProcesses
@@ -3741,7 +3741,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         if (hasFiles && (hasTerminal || hasBrowser))
         {
             capabilityNotice +=
-                " File tools are limited to the selected File Viewer location.";
+                " File tools can reach only the folder open in the selected Files panel.";
         }
 
         if (hasStatistics && (hasTerminal || hasBrowser || hasFiles))

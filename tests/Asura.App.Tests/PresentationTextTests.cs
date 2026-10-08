@@ -90,7 +90,7 @@ public sealed class KeySequenceDisplayTests
         {
             Assert.Equal("Close tab (⌘W)", ShortcutTips.CloseTab);
             Assert.Equal("New tab (⌥⌘T)", ShortcutTips.NewTab);
-            Assert.Equal("Toggle agent panel (⌃⌘A)", ShortcutTips.ToggleAgentPanel);
+            Assert.Equal("Show or hide the agent panel (⌃⌘A)", ShortcutTips.ToggleAgentPanel);
             Assert.Equal("Add panel (⇧⌘D)", ShortcutTips.AddPanel);
         }
         else

@@ -167,7 +167,7 @@ public sealed class RuntimeWorkspaceRecoveryCoordinator : IDisposable
             SecretSafeDiagnostics.WriteTraceAndStandardError(
                 "recovery.snapshot-prepare.failed",
                 exception);
-            _setError($"Runtime recovery state could not be prepared. {exception.Message}");
+            _setError("Asura couldn't save what it needs to reopen your tabs after a restart. Your work is unaffected.");
             return;
         }
 

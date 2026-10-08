@@ -68,7 +68,7 @@ public abstract partial class LocalFileProvider
         {
             return Failure<FileTransferReceipt>(
                 FileProviderErrorCode.InvalidLocation,
-                "A directory cannot be transferred into one of its descendants.");
+                "A folder cannot be transferred into one of its descendants.");
         }
 
         var destinationParent = ResolveParentDirectory(request.Destination);
@@ -319,7 +319,7 @@ public abstract partial class LocalFileProvider
             {
                 return Failure<long>(
                     FileProviderErrorCode.LinkNotAllowed,
-                    "A directory containing a link or reparse point cannot be transferred.");
+                    "A folder containing a link or reparse point cannot be transferred.");
             }
 
             var childDestination = Path.Combine(destinationPath, Path.GetFileName(childPath));
@@ -380,7 +380,7 @@ public abstract partial class LocalFileProvider
             {
                 return Failure<long>(
                     FileProviderErrorCode.LinkNotAllowed,
-                    "A directory containing a link or reparse point cannot be transferred.");
+                    "A folder containing a link or reparse point cannot be transferred.");
             }
 
             var childKind = attributes.HasFlag(FileAttributes.Directory)
@@ -416,14 +416,14 @@ public abstract partial class LocalFileProvider
         {
             return FileProviderError.Create(
                 FileProviderErrorCode.Conflict,
-                "Atomic directory replacement is not supported.");
+                "Atomic folder replacement is not supported.");
         }
 
         if (sourceKind == FileEntryKind.File && destination?.Kind == FileEntryKind.Directory)
         {
             return FileProviderError.Create(
                 FileProviderErrorCode.IsDirectory,
-                "A file transfer cannot replace a directory.");
+                "A file transfer cannot replace a folder.");
         }
 
         return null;

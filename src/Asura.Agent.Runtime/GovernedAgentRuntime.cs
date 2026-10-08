@@ -1019,7 +1019,7 @@ public sealed partial class GovernedAgentRuntime :
                 turnCancellation,
                 ProjectMessages(session!),
                 "agent_turn_orchestration_failed",
-                "An internal provider or tool adapter stopped the agent turn.");
+                "Something inside Asura stopped the agent's turn. Try sending the message again.");
         }
         finally
         {
@@ -3192,7 +3192,7 @@ public sealed partial class GovernedAgentRuntime :
     {
         var sessionId = panel.SessionId
             ?? throw new ArgumentException(
-                "A File Viewer panel requires a live session.",
+                "A Files panel requires a live session.",
                 nameof(panel));
         var now = _timeProvider.GetUtcNow();
         var result = await _sessionHost.GetSnapshotAsync(
@@ -5327,9 +5327,9 @@ public sealed partial class GovernedAgentRuntime :
                     {
                         PanelKind.Terminal => "Terminal",
                         PanelKind.Browser => "Browser",
-                        PanelKind.FileViewer => "File Viewer",
+                        PanelKind.FileViewer => "Files",
                         PanelKind.Statistics => "Statistics",
-                        PanelKind.ProcessMonitor => "Process Monitor",
+                        PanelKind.ProcessMonitor => "Processes",
                         _ => "Panel",
                     }
                     : first.PanelTitle,
@@ -5387,7 +5387,7 @@ public sealed partial class GovernedAgentRuntime :
         if (fileCount > 0)
         {
             return $"{fileCount} "
-                + (fileCount == 1 ? "File Viewer" : "File Viewers");
+                + (fileCount == 1 ? "Files panel" : "Files panels");
         }
 
         if (statisticsCount > 0)
@@ -5399,7 +5399,7 @@ public sealed partial class GovernedAgentRuntime :
         }
 
         return $"{processCount} "
-            + (processCount == 1 ? "Process Monitor" : "Process Monitors");
+            + (processCount == 1 ? "Processes panel" : "Processes panels");
     }
 
     private static ActorDescriptor ValidateApprovalPrincipal(

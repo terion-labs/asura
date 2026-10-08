@@ -56,7 +56,7 @@ internal sealed class HostedSession
         if ((engine.Kind == PanelKind.FileViewer) != (fileMetadata is not null))
         {
             throw new ArgumentException(
-                "Only File Viewer sessions require trusted file metadata.",
+                "Only Files panel sessions require trusted file metadata.",
                 nameof(fileMetadata));
         }
 

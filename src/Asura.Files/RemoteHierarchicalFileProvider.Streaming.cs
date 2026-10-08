@@ -57,7 +57,7 @@ public abstract partial class RemoteHierarchicalFileProvider
 
         if (entry.Kind == FileEntryKind.Directory)
         {
-            return Failure<FileReadReceipt>(FileProviderErrorCode.IsDirectory, "The remote location is a directory.");
+            return Failure<FileReadReceipt>(FileProviderErrorCode.IsDirectory, "The remote location is a folder.");
         }
 
         if (entry.Kind == FileEntryKind.Link)
@@ -194,7 +194,7 @@ public abstract partial class RemoteHierarchicalFileProvider
             .ConfigureAwait(false);
         if (existing?.Kind == FileEntryKind.Directory)
         {
-            return Failure<FileWriteReceipt>(FileProviderErrorCode.IsDirectory, "The destination is a directory.");
+            return Failure<FileWriteReceipt>(FileProviderErrorCode.IsDirectory, "The destination is a folder.");
         }
 
         if (existing?.Kind == FileEntryKind.Link)
@@ -308,7 +308,7 @@ public abstract partial class RemoteHierarchicalFileProvider
 
         if (current?.Kind == FileEntryKind.Directory)
         {
-            return Failure<RemoteCommit>(FileProviderErrorCode.IsDirectory, "The destination is a directory.");
+            return Failure<RemoteCommit>(FileProviderErrorCode.IsDirectory, "The destination is a folder.");
         }
 
         if (current?.Kind == FileEntryKind.Link)

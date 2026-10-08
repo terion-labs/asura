@@ -142,9 +142,9 @@ public sealed class KubernetesFilePanelClient : IFilePanelClient
             return exit switch
             {
                 0 => (await output.ConfigureAwait(false), null),
-                44 => (null, Error(FilePanelErrorCode.NotFound, "The path is missing or is not a regular file or directory.")),
+                44 => (null, Error(FilePanelErrorCode.NotFound, "The path is missing or is not a regular file or folder.")),
                 45 => (null, Error(FilePanelErrorCode.AccessDenied, "The container user cannot read this path.")),
-                46 => (null, Error(FilePanelErrorCode.UnsupportedCapability, "This directory exceeds the 10,000-entry browsing limit.")),
+                46 => (null, Error(FilePanelErrorCode.UnsupportedCapability, "This folder exceeds the 10,000-entry browsing limit.")),
                 126 or 127 => (null, Error(FilePanelErrorCode.UnsupportedCapability, "Container files require /bin/sh and head in the selected container.")),
                 _ => (null, Error(FilePanelErrorCode.IoFailure, "The container file command failed. Check the path and required container tools.")),
             };

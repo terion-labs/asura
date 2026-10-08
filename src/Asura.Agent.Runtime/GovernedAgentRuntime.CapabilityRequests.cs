@@ -980,8 +980,8 @@ public sealed partial class GovernedAgentRuntime
                 {
                     PanelKind.Terminal => "Terminal",
                     PanelKind.Browser => "Browser",
-                    PanelKind.FileViewer => "File Viewer",
-                    PanelKind.ProcessMonitor => "Process Monitor",
+                    PanelKind.FileViewer => "Files",
+                    PanelKind.ProcessMonitor => "Processes",
                     _ => "Panel",
                 },
             AgentTarget.OpenTab =>

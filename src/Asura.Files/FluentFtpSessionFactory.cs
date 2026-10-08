@@ -381,7 +381,7 @@ internal sealed class FluentFtpSessionFactory(
                 {
                     throw new RemoteFileSessionException(
                         RemoteFileSessionErrorCode.AlreadyExists,
-                        "The FTP directory could not be created.");
+                        "The FTP folder could not be created.");
                 }
             }
             catch (Exception exception) when (ShouldMap(exception))
@@ -426,7 +426,7 @@ internal sealed class FluentFtpSessionFactory(
             {
                 throw new RemoteFileSessionException(
                     RemoteFileSessionErrorCode.IoFailure,
-                    "The FTP server refused to remove the empty directory.");
+                    "The FTP server refused to remove the empty folder.");
             }
             catch (Exception exception) when (ShouldMap(exception))
             {
@@ -503,7 +503,7 @@ internal sealed class FluentFtpSessionFactory(
                 {
                     throw new RemoteFileSessionException(
                         RemoteFileSessionErrorCode.LimitExceeded,
-                        "The FTP directory exceeds the bounded metadata-scan limit.");
+                        "The FTP folder exceeds the bounded metadata-scan limit.");
                 }
 
                 if (string.Equals(entry.Name, name, StringComparison.Ordinal))

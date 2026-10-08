@@ -72,7 +72,10 @@ public sealed partial class FileRuntimePanelViewModel
                         catch (Exception exception) when (exception is IOException
                             or UnauthorizedAccessException)
                         {
-                            return $"“{Path.GetFileName(path)}” could not be moved to the Trash. {exception.Message}";
+                            SecretSafeDiagnostics.WriteTrace("files.trash.failed", exception);
+                            return exception is UnauthorizedAccessException
+                                ? $"“{Path.GetFileName(path)}” couldn't be moved to the Trash because you don't have permission to change it."
+                                : $"“{Path.GetFileName(path)}” couldn't be moved to the Trash. Check that it isn't open in another app, then try again.";
                         }
                     }
 

@@ -364,7 +364,7 @@ public sealed partial class GovernedAgentRuntime
             new HostError(
                 HostErrorCode.EngineFailed,
                 FileAgentToolResultJson.FileMutationOutcomeUnknownStableCode,
-                "The File Viewer mutation outcome is unknown.",
+                "The Files panel mutation outcome is unknown.",
                 Retryable: false),
             revision);
 

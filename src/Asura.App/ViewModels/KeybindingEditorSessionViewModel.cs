@@ -164,8 +164,8 @@ public sealed class KeybindingEditorSessionViewModel : ObservableObject, IDispos
             : IsDirty
                 ? "Unsaved shortcut changes."
                 : IsNew
-                    ? "New keybinding profile has not been saved."
-                : "Saved keybinding profile.";
+                    ? "The new shortcut profile hasn't been saved."
+                : "Saved shortcut profile.";
 
     public void RecordShortcut(
         KeybindingEditorRowId rowId,

@@ -2649,7 +2649,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                 && !cancellationToken.IsCancellationRequested
                 && IsConnected)
             {
-                SqlLanguageStatus = $"SQL intelligence is unavailable: {exception.Message}";
+                SecretSafeDiagnostics.WriteTrace("database.sql-language.catalog.failed", exception);
+                SqlLanguageStatus = "SQL completion and validation aren't available for this connection. Reconnect to try again.";
             }
         }
         finally

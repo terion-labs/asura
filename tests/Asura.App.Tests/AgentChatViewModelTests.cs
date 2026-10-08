@@ -2662,10 +2662,10 @@ public sealed partial class AgentChatViewModelTests
             profiles,
             ImmediateUiThreadDispatcher.Instance);
 
-        Assert.Equal("1 File Viewer", viewModel.ContextInspectorSummary);
+        Assert.Equal("1 Files panel", viewModel.ContextInspectorSummary);
         var item = Assert.Single(viewModel.ContextItems);
         Assert.Equal(PanelKind.FileViewer, item.Kind);
-        Assert.StartsWith("File Viewer · ", item.ExactIdentity);
+        Assert.StartsWith("Files · ", item.ExactIdentity);
         Assert.Equal(
             "builtin.files.home · trusted root .",
             item.Context);
@@ -2674,7 +2674,7 @@ public sealed partial class AgentChatViewModelTests
             item.Operations,
             StringComparison.Ordinal);
         Assert.Equal(
-            "File tools are limited to the selected File Viewer location.",
+            "File tools can reach only the folder open in the selected Files panel.",
             viewModel.CapabilityNotice);
     }
 
@@ -2712,10 +2712,10 @@ public sealed partial class AgentChatViewModelTests
             profiles,
             ImmediateUiThreadDispatcher.Instance);
 
-        Assert.Equal("1 Process Monitor", viewModel.ContextInspectorSummary);
+        Assert.Equal("1 Processes panel", viewModel.ContextInspectorSummary);
         var item = Assert.Single(viewModel.ContextItems);
         Assert.Equal(PanelKind.ProcessMonitor, item.Kind);
-        Assert.StartsWith("Process Monitor · ", item.ExactIdentity);
+        Assert.StartsWith("Processes · ", item.ExactIdentity);
         Assert.Equal(
             "Local processes are available",
             item.Context);

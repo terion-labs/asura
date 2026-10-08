@@ -63,6 +63,6 @@ internal sealed class RemoteDirectorySnapshot
     private static RemoteFileSessionException LimitExceeded() =>
         new(
             RemoteFileSessionErrorCode.LimitExceeded,
-            $"The remote directory exceeds the bounded snapshot limit of "
+            $"The remote folder exceeds the bounded snapshot limit of "
             + $"{MaximumEntryCount} entries or {MaximumNameUtf8Bytes} UTF-8 name bytes.");
 }

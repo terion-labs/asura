@@ -18,7 +18,7 @@ public static class ShortcutTips
         new KeyStroke("W", KeyModifiers.Meta));
 
     public static string ToggleAgentPanel { get; } = Tip(
-        "Toggle agent panel",
+        "Show or hide the agent panel",
         new KeyStroke("A", KeyModifiers.Control | KeyModifiers.Meta));
 
     public static string AddPanel { get; } = Tip(

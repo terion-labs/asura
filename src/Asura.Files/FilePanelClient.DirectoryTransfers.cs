@@ -20,7 +20,7 @@ public sealed partial class FilePanelClient
             return Failure<long>(
                 FilePanelErrorCode.UnsupportedCapability,
                 "file_directory_transfer_unsupported",
-                "Directory transfer requires listing and reading at the source, "
+                "Folder transfer requires listing and reading at the source, "
                 + "plus directory creation and streaming writes at the destination.");
         }
 
@@ -29,7 +29,7 @@ public sealed partial class FilePanelClient
             return Failure<long>(
                 FilePanelErrorCode.InvalidLocation,
                 "file_directory_destination_descendant",
-                "A directory cannot be transferred into one of its descendants.");
+                "A folder cannot be transferred into one of its descendants.");
         }
 
         var plan = await BuildDirectoryTransferPlanAsync(
@@ -102,7 +102,7 @@ public sealed partial class FilePanelClient
                 return Failure<long>(
                     FilePanelErrorCode.PartialTransfer,
                     "file_directory_move_source_delete_failed",
-                    "The destination was written, but the source directory could not be deleted safely.");
+                    "The destination was written, but the source folder could not be deleted safely.");
             }
         }
 
@@ -150,7 +150,7 @@ public sealed partial class FilePanelClient
                         return Failure<DirectoryTransferPlan>(
                             FilePanelErrorCode.LimitExceeded,
                             "file_directory_entry_limit_exceeded",
-                            "The directory contains too many entries for one queued transfer.");
+                            "The folder contains too many entries for one queued transfer.");
                     }
 
                     var name = EntryName(entry.Location);
@@ -175,7 +175,7 @@ public sealed partial class FilePanelClient
                         return Failure<DirectoryTransferPlan>(
                             FilePanelErrorCode.UnsupportedCapability,
                             "file_directory_entry_unsupported",
-                            "Directory transfer supports regular files and folders only.");
+                            "Folder transfer supports regular files and folders only.");
                     }
 
                     totalBytes = checked(totalBytes + size);

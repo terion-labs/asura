@@ -102,7 +102,7 @@ public sealed class GitFileInvestigationViewModel(IGitRepositoryClient client, G
             Diff = diff is GitResult<GitDiffDocument>.Success d ? d.Value.RawPatch : Error(diff);
             if (isDirectory)
             {
-                Content = "Directory history. Select a file in the Git tree to inspect its recorded content or blame.";
+                Content = "Folder history. Select a file in the Git tree to inspect its recorded content or blame.";
                 Blame.Clear();
                 return;
             }

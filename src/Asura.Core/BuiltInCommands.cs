@@ -154,8 +154,8 @@ public static class BuiltInCommands
                 orientationSchema,
                 arguments => arguments.GetValueOrDefault("orientation") switch
                 {
-                    "left-right" => "Split Panel Right",
-                    "top-bottom" => "Split Panel Down",
+                    "left-right" => "Split Right",
+                    "top-bottom" => "Split Down",
                     _ => null,
                 }),
             Define(
@@ -173,10 +173,10 @@ public static class BuiltInCommands
                     "next" => "Focus Next Panel",
                     _ => null,
                 }),
-            Define(TogglePanelZoom, "Toggle Panel Zoom", "Panels", CommandContext.Panel),
+            Define(TogglePanelZoom, "Zoom Panel", "Panels", CommandContext.Panel),
             Define(ClosePanel, "Close Panel", "Panels", CommandContext.Panel),
-            Define(RenameTab, "Rename Tab", "Tabs", CommandContext.Tab),
-            Define(ChangeTabIcon, "Change Tab Icon", "Tabs", CommandContext.Tab),
+            Define(RenameTab, "Rename Tab…", "Tabs", CommandContext.Tab),
+            Define(ChangeTabIcon, "Change Tab Icon…", "Tabs", CommandContext.Tab),
             Define(CloseTab, "Close Tab", "Tabs", CommandContext.Tab),
             Define(MoveTabLeft, "Move Tab Left", "Tabs", CommandContext.Tab),
             Define(MoveTabRight, "Move Tab Right", "Tabs", CommandContext.Tab),
@@ -224,7 +224,7 @@ public static class BuiltInCommands
             Define(DeleteWordForward, "Delete Next Word", "Terminal", CommandContext.Terminal),
             Define(MoveToLineStart, "Move to Line Start", "Terminal", CommandContext.Terminal),
             Define(MoveToLineEnd, "Move to Line End", "Terminal", CommandContext.Terminal),
-            Define(Find, "Find", "Terminal", CommandContext.Terminal),
+            Define(Find, "Find…", "Terminal", CommandContext.Terminal),
             Define(IncreaseFontSize, "Increase Font Size", "Terminal", CommandContext.Terminal),
             Define(DecreaseFontSize, "Decrease Font Size", "Terminal", CommandContext.Terminal),
             Define(ResetFontSize, "Reset Font Size", "Terminal", CommandContext.Terminal),
@@ -234,15 +234,15 @@ public static class BuiltInCommands
             Define(ClearScreen, "Clear Screen", "Terminal", CommandContext.Terminal),
 
             Define(About, "About Asura", "Application", CommandContext.Global),
-            Define(ShowSettings, "Settings", "Application", CommandContext.Global),
-            Define(CheckForUpdates, "Check for Updates", "Application", CommandContext.Global),
+            Define(ShowSettings, "Settings…", "Application", CommandContext.Global),
+            Define(CheckForUpdates, "Check for Updates…", "Application", CommandContext.Global),
 
             Define(NewWindow, "New Window", "Window", CommandContext.Global),
             Define(CloseWindow, "Close Window", "Window", CommandContext.Global),
             Define(MinimizeWindow, "Minimize Window", "Window", CommandContext.Global),
             Define(ZoomWindow, "Zoom Window", "Window", CommandContext.Global),
-            Define(ToggleFullScreen, "Toggle Full Screen", "Window", CommandContext.Global),
-            Define(BringAllToFront, "Bring All Windows to Front", "Window", CommandContext.Global),
+            Define(ToggleFullScreen, "Enter/Exit Full Screen", "Window", CommandContext.Global),
+            Define(BringAllToFront, "Bring All to Front", "Window", CommandContext.Global),
 
             Define(NewTerminalTab, "New Terminal Tab", "Tabs", CommandContext.Global),
             Define(
@@ -252,13 +252,13 @@ public static class BuiltInCommands
                 CommandContext.Workspace,
                 state: CommandStates.CanReopenClosedTab),
 
-            Define(ToggleSidebar, "Toggle Sidebar", "View", CommandContext.Workspace),
-            Define(ToggleAgentPanel, "Toggle Agent Panel", "View", CommandContext.Workspace),
-            Define(ShowCommandPalette, "Command Palette", "View", CommandContext.Window),
-            Define(ToggleQuickTerminal, "Toggle Quick Terminal", "View", CommandContext.Global),
+            Define(ToggleSidebar, "Show/Hide Sidebar", "View", CommandContext.Workspace),
+            Define(ToggleAgentPanel, "Show/Hide Agent Panel", "View", CommandContext.Workspace),
+            Define(ShowCommandPalette, "Command Palette…", "View", CommandContext.Window),
+            Define(ToggleQuickTerminal, "Show/Hide Quick Terminal", "View", CommandContext.Global),
 
-            Define(AddPanel, "Add Panel", "Panels", CommandContext.Tab),
-            Define(ShowLayoutDesigner, "Layout Designer", "Panels", CommandContext.Window),
+            Define(AddPanel, "Add Panel…", "Panels", CommandContext.Tab),
+            Define(ShowLayoutDesigner, "Layout Designer…", "Panels", CommandContext.Window),
 
             Define(EditUndo, "Undo", "Edit", CommandContext.Global, state: CommandStates.CanUndo),
             Define(EditRedo, "Redo", "Edit", CommandContext.Global, state: CommandStates.CanRedo),
@@ -273,7 +273,7 @@ public static class BuiltInCommands
                 state: CommandStates.CanPaste),
             Define(EditDelete, "Delete", "Edit", CommandContext.Global, state: CommandStates.CanDelete),
             Define(EditSelectAll, "Select All", "Edit", CommandContext.Global, state: CommandStates.CanSelectAll),
-            Define(EditFind, "Find", "Edit", CommandContext.Global, state: CommandStates.CanFind),
+            Define(EditFind, "Find…", "Edit", CommandContext.Global, state: CommandStates.CanFind),
             Define(EditFindNext, "Find Next", "Edit", CommandContext.Global, state: CommandStates.CanFindNext),
             Define(EditFindPrevious, "Find Previous", "Edit", CommandContext.Global, state: CommandStates.CanFindNext),
             Define(
@@ -306,7 +306,7 @@ public static class BuiltInCommands
             Define(ShowHelp, "Asura Help", "Help", CommandContext.Global),
             Define(ShowKeyboardShortcuts, "Keyboard Shortcuts", "Help", CommandContext.Global),
             Define(ShowReleaseNotes, "Release Notes", "Help", CommandContext.Global),
-            Define(ReportIssue, "Report an Issue", "Help", CommandContext.Global),
+            Define(ReportIssue, "Report an Issue…", "Help", CommandContext.Global),
         ]);
     }
 

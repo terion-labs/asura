@@ -143,7 +143,8 @@ public sealed class ApplicationSecurityEditorViewModel : ObservableObject
         }
         catch (Exception exception)
         {
-            StatusDetail = $"Changing application encryption failed: {exception.Message}";
+            SecretSafeDiagnostics.WriteTrace("application-encryption.change.failed", exception);
+            StatusDetail = "Asura couldn't change application encryption. Your data is unchanged. Try again.";
         }
         finally
         {

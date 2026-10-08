@@ -26,7 +26,7 @@ public abstract partial class LocalFileProvider : IFileProvider, ILocalFilePathS
         var attributes = File.GetAttributes(rootPath);
         if (!attributes.HasFlag(FileAttributes.Directory))
         {
-            throw new ArgumentException("The local provider root must be a directory.", nameof(options));
+            throw new ArgumentException("The local provider root must be a folder.", nameof(options));
         }
 
         if (attributes.HasFlag(FileAttributes.ReparsePoint))

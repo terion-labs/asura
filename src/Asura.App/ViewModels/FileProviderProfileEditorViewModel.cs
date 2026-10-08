@@ -327,7 +327,7 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         IsTesting = true;
         ClearHostKeyReview();
         TestStatus = "Testing provider";
-        TestDetail = "Resolving the adapter and listing its configured root…";
+        TestDetail = "Connecting and listing the starting folder…";
         try
         {
             var result = await _runtime.TestAsync(profile, cancellationToken);

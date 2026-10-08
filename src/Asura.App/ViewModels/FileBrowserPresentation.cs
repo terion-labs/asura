@@ -87,7 +87,7 @@ public sealed record FileBrowserContentPresentation(
                 "Loading files",
                 "Reading this location from the selected provider.",
                 string.Empty,
-                "File Viewer loading",
+                "Files panel loading",
                 CanRetry: false);
         }
 
@@ -104,10 +104,10 @@ public sealed record FileBrowserContentPresentation(
             };
             var accessibleName = state switch
             {
-                FileBrowserContentState.AccessRequired => "File Viewer access required",
-                FileBrowserContentState.Unsupported => "File Viewer location unsupported",
-                FileBrowserContentState.RecoverableError => "File Viewer recoverable error",
-                _ => "File Viewer unavailable",
+                FileBrowserContentState.AccessRequired => "Files panel access required",
+                FileBrowserContentState.Unsupported => "Files panel location unsupported",
+                FileBrowserContentState.RecoverableError => "Files panel recoverable error",
+                _ => "Files panel unavailable",
             };
             return new FileBrowserContentPresentation(
                 state,
@@ -127,7 +127,7 @@ public sealed record FileBrowserContentPresentation(
                 canCreateFolder
                     ? "Create a folder here, or choose another location."
                     : "Choose another location.",
-                "File Viewer empty location",
+                "Files panel empty location",
                 CanRetry: false);
         }
 
@@ -138,7 +138,7 @@ public sealed record FileBrowserContentPresentation(
                 "No matching items",
                 $"No files or folders match “{filter.Trim()}”.",
                 "Clear or change the filter to see this location's items.",
-                "File Viewer search has no results",
+                "Files panel search has no results",
                 CanRetry: false);
         }
 
@@ -147,7 +147,7 @@ public sealed record FileBrowserContentPresentation(
             string.Empty,
             string.Empty,
             string.Empty,
-            "File Viewer contents",
+            "Files panel contents",
             CanRetry: false);
     }
 }

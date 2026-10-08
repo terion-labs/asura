@@ -28,7 +28,7 @@ public abstract partial class RemoteHierarchicalFileProvider
             {
                 return Failure<FilePage>(
                     FileProviderErrorCode.InvalidLocation,
-                    $"The {_protocolName} continuation token is invalid for this directory.");
+                    $"The {_protocolName} continuation token is invalid for this folder.");
             }
 
             return FileProviderResult<FilePage>.Success(PageFromSnapshot(
@@ -52,12 +52,12 @@ public abstract partial class RemoteHierarchicalFileProvider
         var directoryEntry = inspection.Leaf;
         if (directoryEntry is null)
         {
-            return Failure<FilePage>(FileProviderErrorCode.NotFound, "The remote directory was not found.");
+            return Failure<FilePage>(FileProviderErrorCode.NotFound, "The remote folder was not found.");
         }
 
         if (directoryEntry.Kind != FileEntryKind.Directory)
         {
-            return Failure<FilePage>(FileProviderErrorCode.NotDirectory, "The remote location is not a directory.");
+            return Failure<FilePage>(FileProviderErrorCode.NotDirectory, "The remote location is not a folder.");
         }
 
         var locationVersionError = CheckLocationVersion(request.Location, directoryEntry);
@@ -223,7 +223,7 @@ public abstract partial class RemoteHierarchicalFileProvider
             return RemotePathInspection.Failed(
                 FileProviderError.Create(
                     FileProviderErrorCode.NotDirectory,
-                    "The remote filesystem root is not a directory."));
+                    "The remote filesystem root is not a folder."));
         }
 
         var components = _remoteRootSegments
@@ -261,7 +261,7 @@ public abstract partial class RemoteHierarchicalFileProvider
                 return RemotePathInspection.Failed(
                     FileProviderError.Create(
                         FileProviderErrorCode.NotDirectory,
-                        "A remote path component is not a directory."));
+                        "A remote path component is not a folder."));
             }
 
             currentEntry = entry;
@@ -302,7 +302,7 @@ public abstract partial class RemoteHierarchicalFileProvider
             return RemotePathInspection.Failed(
                 FileProviderError.Create(
                     FileProviderErrorCode.NotDirectory,
-                    "A remote path component is not a directory."));
+                    "A remote path component is not a folder."));
         }
 
         return new RemotePathInspection(null, includeLeaf ? entry : null);

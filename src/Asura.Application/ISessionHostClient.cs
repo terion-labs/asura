@@ -374,7 +374,7 @@ public interface ISessionHostClient
         FilePanelCreateDirectoryHostRequest request,
         OperationContext context,
         CancellationToken cancellationToken) =>
-        Unsupported<FilePanelResult<FilePanelEntry>>("Directory creation is not implemented by this client.");
+        Unsupported<FilePanelResult<FilePanelEntry>>("Folder creation is not implemented by this client.");
 
     ValueTask<HostResult<FilePanelResult<FilePanelEntry>>> RenameFileAsync(
         FilePanelRenameHostRequest request,

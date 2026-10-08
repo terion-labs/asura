@@ -107,7 +107,7 @@ public sealed record GovernedAgentContextItem
         if (kind != PanelKind.FileViewer && fileProviderProfileId is not null)
         {
             throw new ArgumentException(
-                "Only a File Viewer context can expose a governed file scope.",
+                "Only a Files panel context can expose a governed file scope.",
                 nameof(fileProviderProfileId));
         }
 

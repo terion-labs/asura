@@ -136,7 +136,7 @@ public sealed class AgentWorkspaceScopeViewModel : ObservableObject, IDisposable
         {
             target = null!;
             error =
-                "Open a terminal, browser, File Viewer, Statistics, or Process Monitor panel "
+                "Open a Terminal, Browser, Files, Statistics, or Processes panel "
                 + "before sending a request to the agent.";
             return false;
         }
@@ -185,8 +185,8 @@ public sealed class AgentWorkspaceScopeViewModel : ObservableObject, IDisposable
         {
             target = null!;
             error =
-                "Select an active terminal, browser, File Viewer, hosted Statistics, "
-                + "or hosted Process Monitor panel, or choose a broader agent scope.";
+                "Select a Terminal, Browser, Files, Statistics, or Processes panel, "
+                + "or choose a broader agent scope.";
             return false;
         }
 

@@ -981,7 +981,7 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
         catch (Exception)
         {
             await ApplyFailureAsync(
-                "Process monitor unavailable",
+                "Processes unavailable",
                 $"The process-monitor session for {ConnectionDisplayName} could not be started.",
                 CancellationToken.None);
             return;
@@ -990,7 +990,7 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
         if (result is HostResult<SessionSnapshot>.Failure failure)
         {
             await ApplyFailureAsync(
-                "Process monitor unavailable",
+                "Processes unavailable",
                 failure.Error.Message,
                 CancellationToken.None);
             return;

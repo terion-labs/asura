@@ -1410,7 +1410,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
                 && !string.Equals(profile.Id, _initialProfileId, StringComparison.Ordinal))
             {
                 SetOperationIssue(FileOperationIssue.Configuration(
-                    "This File Viewer is still waiting for its saved provider. "
+                    "This Files panel is still waiting for its saved provider. "
                     + "It will not substitute another provider before the saved session binds."));
                 return;
             }
@@ -2148,7 +2148,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             Status = "No file providers configured";
             SetContentIssue(FileOperationIssue.Configuration(
-                "Add a file-provider profile before opening the File Viewer."));
+                "Add a file-provider profile before opening the Files panel."));
             return;
         }
 
@@ -2159,7 +2159,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             Status = "Waiting for saved file provider";
             SetContentIssue(FileOperationIssue.Configuration(
-                "The saved File Viewer provider is not currently available."));
+                "The saved Files panel provider is not currently available."));
             return;
         }
 
@@ -2223,7 +2223,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             CurrentLocation = null;
             Status = "Saved file provider unavailable";
             SetContentIssue(FileOperationIssue.Configuration(
-                "The saved File Viewer provider is not currently available. Repair the saved screen or provider profile."));
+                "The saved Files panel provider is not currently available. Repair the saved screen or provider profile."));
             return;
         }
 
@@ -2234,7 +2234,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             CurrentLocation = null;
             Status = "No file providers configured";
             SetContentIssue(FileOperationIssue.Configuration(
-                "Add a file-provider profile before opening the File Viewer."));
+                "Add a file-provider profile before opening the Files panel."));
             return;
         }
 
@@ -2343,7 +2343,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
                 CurrentLocation = null;
                 Status = "Saved startup location invalid";
                 SetContentIssue(FileOperationIssue.Configuration(
-                    "The saved File Viewer startup location is not valid for this provider. Repair the saved screen before reopening it."));
+                    "The saved Files panel startup location is not valid for this provider. Repair the saved screen before reopening it."));
                 return;
             }
         }
@@ -2365,7 +2365,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
                 ? string.Empty
                 : FileLocationPresentation.Display(CurrentLocation);
             SetOperationIssue(FileOperationIssue.Configuration(
-                "This File Viewer must bind its exact saved startup location before navigating elsewhere."));
+                "This Files panel must bind its exact saved startup location before navigating elsewhere."));
             return;
         }
 

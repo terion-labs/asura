@@ -842,7 +842,7 @@ public sealed class CatalogFileProviderRuntime :
     {
         FileProviderAdapterConfigurationException => exception.Message,
         ArgumentException => exception.Message,
-        DirectoryNotFoundException => "The configured local root directory does not exist.",
+        DirectoryNotFoundException => "The configured local root folder does not exist.",
         UnauthorizedAccessException => "The configured provider root is not accessible.",
         _ => "The file-provider adapter could not be materialized.",
     };

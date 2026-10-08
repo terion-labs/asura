@@ -105,7 +105,7 @@ public static class ScreenValidator
         {
             issues.Add(new(
                 DefinitionValidationCode.InvalidPanel,
-                "Only File Viewer panels can bind a file-provider profile.",
+                "Only Files panels can bind a file-provider profile.",
                 panel.Id.Value));
         }
 

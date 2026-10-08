@@ -145,7 +145,7 @@ public sealed class AgentFileActionComposerTests
                 AgentActionRisk.Observation),
             (
                 BuiltInAgentTools.FilesCreateDirectory,
-                "Create directory",
+                "Create folder",
                 AgentCapability.EditFiles,
                 AgentActionRisk.Mutation),
             (

@@ -10702,7 +10702,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 PanelKindFromDefinition(panel.Kind),
                 title,
                 KindBadges.Panel(panel.Kind),
-                $"{panel.Kind} panels are defined, but their native adapter arrives in a later milestone.");
+                $"{PanelTypes.Name(panel.Kind)} panels aren't available in this version of Asura.");
         }
 
         var connection = panel.ConnectionId is { } connectionId
@@ -11055,7 +11055,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
         catch (Exception exception)
         {
-            SetError($"The browser could not open the link: {exception.Message}");
+            SecretSafeDiagnostics.WriteTrace("browser.new-tab-link.failed", exception);
+            SetError("The browser couldn't open the link. Try opening it again.");
         }
     }
 

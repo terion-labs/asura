@@ -62,7 +62,7 @@ public sealed record FileProviderRegistration
             && !provider.Capabilities.Supports(FileProviderCapability.CreateDirectory))
         {
             throw new ArgumentException(
-                "Governed directory creation requires provider directory-creation support.",
+                "Governed folder creation requires provider folder-creation support.",
                 nameof(governedMutationCapabilities));
         }
 

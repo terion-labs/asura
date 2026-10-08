@@ -382,7 +382,7 @@ internal sealed partial class DockerPanelSession : IDockerPanelSession
                 DockerErrorCode.TimedOut => "The Docker observation timed out.",
                 DockerErrorCode.Cancelled => "The Docker observation was canceled.",
                 DockerErrorCode.FileNotFound => "The Docker file was not found.",
-                DockerErrorCode.NotDirectory => "The Docker path is not a directory.",
+                DockerErrorCode.NotDirectory => "The Docker path is not a folder.",
                 DockerErrorCode.FileProtocolUnavailable =>
                     "The Docker resource cannot be browsed safely.",
                 _ => "The Docker engine returned an invalid response.",

@@ -162,7 +162,7 @@ public sealed class FileProviderSettingsViewModel : ObservableObject, IDisposabl
                 ?? warning?.Message
                 ?? (isLive
                     ? "Adapter loaded; credentials resolve only when the provider is used."
-                    : "Materializing the saved adapter…"),
+                    : "Opening the saved connection…"),
             error is not null,
             warning is not null);
     }

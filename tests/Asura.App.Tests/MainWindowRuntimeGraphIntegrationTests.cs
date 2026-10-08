@@ -8803,8 +8803,8 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(0, agentRuntime.SendCount);
         Assert.Equal("Try to target a non-agent panel.", viewModel.AgentChat.Prompt);
         Assert.Equal(
-            "Select an active terminal, browser, File Viewer, hosted Statistics, "
-            + "or hosted Process Monitor panel, or choose a broader agent scope.",
+            "Select a Terminal, Browser, Files, Statistics, or Processes panel, "
+            + "or choose a broader agent scope.",
             viewModel.AgentChat.Status);
     }
 

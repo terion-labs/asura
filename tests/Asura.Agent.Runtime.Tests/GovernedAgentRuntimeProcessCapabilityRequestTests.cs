@@ -56,7 +56,7 @@ public sealed partial class GovernedAgentRuntimeProcessTests
             AgentCapabilityProtocol.ProcessData,
             capabilityRequest.CapabilityToken);
         Assert.Equal("Process inspection", capabilityRequest.DisplayTitle);
-        Assert.Equal("Process Monitor", capabilityRequest.TargetTitle);
+        Assert.Equal("Processes", capabilityRequest.TargetTitle);
         Assert.Equal(
             "List local processes",
             Assert.Single(capabilityRequest.AffectedToolTitles));

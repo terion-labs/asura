@@ -33,7 +33,7 @@ public abstract partial class LocalFileProvider
                 {
                     return Failure<FilePage>(
                         FileProviderErrorCode.NotDirectory,
-                        "Only directories can be listed.");
+                        "Only folders can be listed.");
                 }
 
                 var scope = resolved.Value!.Path;

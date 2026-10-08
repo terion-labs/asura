@@ -41,14 +41,14 @@ public abstract partial class LocalFileProvider
                 {
                     return ValueTask.FromResult(Failure<FileEntry>(
                         FileProviderErrorCode.LinkNotAllowed,
-                        "A directory cannot replace a link or reparse point."));
+                        "A folder cannot replace a link or reparse point."));
                 }
 
                 if (existing is { Kind: not FileEntryKind.Directory })
                 {
                     return ValueTask.FromResult(Failure<FileEntry>(
                         FileProviderErrorCode.Conflict,
-                        "A non-directory entry already exists at the destination."));
+                        "An item that isn't a folder already exists at the destination."));
                 }
 
                 var preconditionError = CheckPrecondition(
@@ -120,7 +120,7 @@ public abstract partial class LocalFileProvider
                 {
                     return ValueTask.FromResult(Failure<FileEntry>(
                         FileProviderErrorCode.InvalidLocation,
-                        "A directory cannot be renamed into one of its descendants."));
+                        "A folder cannot be renamed into one of its descendants."));
                 }
 
                 var parent = ResolveParentDirectory(request.Destination);
@@ -158,7 +158,7 @@ public abstract partial class LocalFileProvider
                     {
                         return ValueTask.FromResult(Failure<FileEntry>(
                             FileProviderErrorCode.Conflict,
-                            "Atomic directory replacement is not supported."));
+                            "Atomic folder replacement is not supported."));
                     }
 
                     Directory.Move(source.Value!.Path, destination.Value!.Path);
