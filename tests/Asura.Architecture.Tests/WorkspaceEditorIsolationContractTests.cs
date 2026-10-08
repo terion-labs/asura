@@ -135,7 +135,7 @@ public sealed class WorkspaceEditorIsolationContractTests
                 "{Binding IsolationMounts}",
                 StringComparison.Ordinal));
 
-        var hostPath = FindAccessibleElement(mountRow, "Host mount source directory");
+        var hostPath = FindAccessibleElement(mountRow, "Host folder");
         Assert.Equal("{Binding HostPath, Mode=TwoWay}", AttributeValue(hostPath, "Text"));
         var guestPath = FindAccessibleElement(mountRow, "Host mount guest path");
         Assert.Equal("{Binding GuestPath, Mode=TwoWay}", AttributeValue(guestPath, "Text"));

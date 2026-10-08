@@ -16,7 +16,7 @@ internal static class AgentAttachmentImport
         {
             var files = await pickFiles(new FilePickerOpenOptions
             {
-                Title = "Attach files",
+                Title = "Attach Files",
                 AllowMultiple = true,
                 FileTypeFilter = [FilePickerFileTypes.All],
             });

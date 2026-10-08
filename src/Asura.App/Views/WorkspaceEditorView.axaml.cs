@@ -232,7 +232,7 @@ public sealed partial class WorkspaceEditorView : UserControl
 
         var picked = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "Choose a host folder",
+            Title = "Choose a Host Folder",
             AllowMultiple = false,
         });
         if (picked.Count > 0 && picked[0].TryGetLocalPath() is { } path)

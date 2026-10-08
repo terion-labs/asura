@@ -6,6 +6,7 @@
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:controls="using:Asura.App.Controls"
+    xmlns:views="using:Asura.App.Views"
     xmlns:icons="using:FluentIcons.Avalonia"
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch">
@@ -108,7 +109,7 @@
                           <Border Width="26" Height="26" Classes="IconTile Neutral"><icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Grid" FontSize="{DynamicResource ShellIconSizeSm}" /></Border>
                         </controls:ListItem.Leading>
                         <controls:ListItem.Trailing>
-                          <components:CountPill Value="{Binding PanelCount, StringFormat={}{0} panels}" />
+                          <components:CountPill Value="{Binding PanelCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=panel}" />
                         </controls:ListItem.Trailing>
                       </controls:ListItem>
                     </Button>

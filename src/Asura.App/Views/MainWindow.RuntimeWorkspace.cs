@@ -1749,7 +1749,7 @@ public sealed partial class MainWindow
         // rather than a path typed into a dialog.
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "Download to folder",
+            Title = "Download to Folder",
             AllowMultiple = false,
         });
         if (folders.Count != 1 || folders[0].TryGetLocalPath() is not { } destination)
@@ -1774,7 +1774,7 @@ public sealed partial class MainWindow
 
         var selected = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Upload a file from Home",
+            Title = "Upload File",
             AllowMultiple = false,
         });
         var path = selected.Count == 1 ? selected[0].TryGetLocalPath() : null;

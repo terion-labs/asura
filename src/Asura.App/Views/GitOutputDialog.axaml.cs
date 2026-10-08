@@ -30,7 +30,7 @@ public sealed partial class GitOutputDialog : DialogWindow
     {
         try
         {
-            var destination = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions { Title = "Save Git output", SuggestedFileName = "git-output.txt" });
+            var destination = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions { Title = "Save Git Output", SuggestedFileName = "git-output.txt" });
             if (destination is null)
             {
                 return;

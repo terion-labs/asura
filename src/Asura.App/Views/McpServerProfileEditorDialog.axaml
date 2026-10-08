@@ -76,10 +76,10 @@
                   PlaceholderText="/absolute/path/to/server"
                   AutomationProperties.Name="MCP server executable path" />
             </controls:LabeledField>
-            <controls:LabeledField Label="Working folder" controls:FieldValidation.For="WorkingDirectory">
+            <controls:LabeledField Label="Working directory" controls:FieldValidation.For="WorkingDirectory">
               <TextBox
                   Text="{Binding WorkingDirectory}"
-                  PlaceholderText="Optional absolute folder path"
+                  PlaceholderText="Optional absolute path"
                   AutomationProperties.Name="MCP server working directory" />
             </controls:LabeledField>
           </StackPanel>

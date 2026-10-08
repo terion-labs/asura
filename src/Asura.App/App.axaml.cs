@@ -242,7 +242,7 @@ public sealed partial class App : Avalonia.Application
                     "The desktop composition root did not provide app-managed storage controls."),
             _screenColorSampler
                 ?? throw new InvalidOperationException(
-                    "The desktop composition root did not provide a screen colour sampler."))
+                    "The desktop composition root did not provide a screen color sampler."))
         {
             DataContext = viewModel,
         };

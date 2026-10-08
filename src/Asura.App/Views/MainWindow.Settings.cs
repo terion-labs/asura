@@ -1110,7 +1110,7 @@ public sealed partial class MainWindow
         _pendingColorSampleField = field;
         Cursor = new Cursor(StandardCursorType.Cross);
         ViewModel.ShowApplicationKeySequenceHint(
-            $"Click anywhere to sample the {field.ToLowerInvariant()} colour · Esc to cancel");
+            $"Click anywhere to sample the {field.ToLowerInvariant()} color · Esc to cancel");
         AddHandler(PointerPressedEvent, OnColorSamplePointerPressed, RoutingStrategies.Tunnel);
         AddHandler(KeyDownEvent, OnColorSampleKeyDown, RoutingStrategies.Tunnel);
     }
@@ -1511,7 +1511,7 @@ public sealed partial class MainWindow
             var destination = await SettingsDialogOwner.StorageProvider.SaveFilePickerAsync(
                 new FilePickerSaveOptions
                 {
-                    Title = "Export Asura appearance",
+                    Title = "Export Appearance",
                     SuggestedFileName = PortableAppearanceThemeFile.SuggestedFileName,
                     DefaultExtension = "json",
                     FileTypeChoices = [AppearanceThemeFileType],
@@ -1552,7 +1552,7 @@ public sealed partial class MainWindow
             var selected = await SettingsDialogOwner.StorageProvider.OpenFilePickerAsync(
                 new FilePickerOpenOptions
                 {
-                    Title = "Import Asura appearance",
+                    Title = "Import Appearance",
                     AllowMultiple = false,
                     FileTypeFilter = [AppearanceThemeFileType],
                 });

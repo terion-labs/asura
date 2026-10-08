@@ -57,11 +57,14 @@ public sealed partial class WorkspaceView
         items.Add(status);
         if (network.IsKillSwitchEnabled)
         {
-            items.Add(new MenuItem
+            var killSwitch = new MenuItem
             {
-                Header = "Kill Switch On: traffic stays blocked if the connection fails",
+                Header = "Kill Switch On",
                 IsEnabled = false,
-            });
+            };
+            ToolTip.SetTip(killSwitch, "Traffic stays blocked if the connection fails.");
+            AutomationProperties.SetHelpText(killSwitch, "Traffic stays blocked if the connection fails.");
+            items.Add(killSwitch);
         }
 
         items.Add(new Separator());

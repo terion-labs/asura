@@ -567,7 +567,7 @@ public sealed partial class MainWindow : Window
         _ = e;
         if (_definitionBundles is null)
         {
-            ViewModel.SetError("Definition portability is unavailable in this host.");
+            ViewModel.SetError("Export and import aren’t available in this version of Asura.");
             return;
         }
 
@@ -577,7 +577,7 @@ public sealed partial class MainWindow : Window
         {
             var receipt = result.Value!;
             ViewModel.SetDefinitionBundleStatus(
-                $"Exported {receipt.DefinitionCount} definitions to {Path.GetFileName(receipt.Path)}."
+                $"Exported {CountLabel.Format(receipt.DefinitionCount, "item")} to “{Path.GetFileName(receipt.Path)}”."
                 + (receipt.Warning is { } warning ? " " + warning : string.Empty));
         }
         else if (result.Error!.Code != DefinitionStoreErrorCode.Cancelled)
@@ -591,7 +591,7 @@ public sealed partial class MainWindow : Window
         _ = e;
         if (_definitionBundles is null)
         {
-            ViewModel.SetError("Definition portability is unavailable in this host.");
+            ViewModel.SetError("Export and import aren’t available in this version of Asura.");
             return;
         }
 
@@ -641,12 +641,11 @@ public sealed partial class MainWindow : Window
         var receipt = applied.Value!;
         ViewModel.SetDefinitionBundleStatus(
             receipt.CatalogReloaded
-                ? $"Imported {receipt.Inserted} new and replaced {receipt.Replaced} definitions."
+                ? $"{ImportSummary(receipt)}."
                 : receipt.WorkspacesRemainUnavailable
-                    ? $"Imported {receipt.Inserted} new and replaced {receipt.Replaced} definitions, "
-                        + "but the catalog refresh failed. Imported workspaces remain unavailable "
-                        + "until a catalog refresh succeeds or Asura restarts."
-                : $"Imported {receipt.Inserted} new and replaced {receipt.Replaced} definitions, but the catalog refresh failed.");
+                    ? $"{ImportSummary(receipt)}, but Asura couldn’t reload its settings. "
+                        + "Imported workspaces stay unavailable until Asura reloads them or restarts."
+                : $"{ImportSummary(receipt)}, but Asura couldn’t reload its settings.");
         if (!receipt.CatalogReloaded)
         {
             ViewModel.SetError(receipt.ReloadError!.Message);
@@ -657,6 +656,11 @@ public sealed partial class MainWindow : Window
             await onboarding.RefreshAsync(_lifetime.Token);
         }
     }
+
+    private static string ImportSummary(DefinitionBundleImportReceipt receipt) =>
+        receipt.Replaced == 0
+            ? $"Imported {CountLabel.Format(receipt.Inserted, "new item")}"
+            : $"Imported {CountLabel.Format(receipt.Inserted, "new item")} and replaced {CountLabel.Format(receipt.Replaced, "item")}";
 
     private async void OnRetryOnboardingClick(object? sender, RoutedEventArgs e)
     {
@@ -1235,7 +1239,7 @@ public sealed partial class MainWindow : Window
     {
         if (_historyExport is null)
         {
-            ViewModel.SetHistoryExportStatus("Session-history export is unavailable.");
+            ViewModel.SetHistoryExportStatus("Session history export isn’t available.");
             return;
         }
 
@@ -1247,13 +1251,13 @@ public sealed partial class MainWindow : Window
         using var exportCancellation = CancellationTokenSource.CreateLinkedTokenSource(
             _lifetime.Token);
         _historyExportLifetime = exportCancellation;
-        var finalStatus = "Session-history export failed. Please choose a different destination and retry.";
+        var finalStatus = "Session history couldn’t be exported. Choose a different destination and try again.";
         try
         {
             var snapshot = ViewModel.CaptureHistoryExportSnapshot();
             if (snapshot.Count == 0)
             {
-                finalStatus = "There are no matching metadata records to export.";
+                finalStatus = "There’s no session history to export.";
                 return;
             }
 
@@ -1263,22 +1267,22 @@ public sealed partial class MainWindow : Window
             if (!result.IsSuccess)
             {
                 finalStatus = result.Error!.Code == RecentSessionHistoryExportErrorCode.Cancelled
-                    ? "Session-history export cancelled."
-                    : $"{result.Error.Message} Choose a different destination and retry.";
+                    ? "Session history export canceled."
+                    : $"{result.Error.Message} Choose a different destination and try again.";
                 return;
             }
 
             finalStatus =
-                $"Exported {result.Value!.Export.RecordCount:N0} metadata-only records to {Path.GetFileName(result.Value.Path)}.";
+                $"Exported {CountLabel.Format(result.Value!.Export.RecordCount, "session history record")} to “{Path.GetFileName(result.Value.Path)}”.";
         }
         catch (OperationCanceledException) when (exportCancellation.IsCancellationRequested)
         {
-            finalStatus = "Session-history export cancelled.";
+            finalStatus = "Session history export canceled.";
         }
         catch (Exception)
         {
             finalStatus =
-                "Session-history export failed unexpectedly. Choose a different destination and retry.";
+                "Session history couldn’t be exported. Choose a different destination and try again.";
         }
         finally
         {
@@ -1506,7 +1510,7 @@ public sealed partial class MainWindow : Window
             return DefinitionStoreResult<StoredDefinition<WorkspaceDefinition>>.Failure(
                 new DefinitionStoreError(
                     DefinitionStoreErrorCode.Cancelled,
-                    "Workspace isolation change was cancelled."));
+                    "The workspace isolation change was canceled."));
         }
 
         return await ViewModel.SaveWorkspaceEditorRestartingAsync(

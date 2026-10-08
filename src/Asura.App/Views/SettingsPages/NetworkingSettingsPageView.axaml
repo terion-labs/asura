@@ -4,6 +4,7 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:core="using:Asura.Core"
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia">
@@ -84,7 +85,7 @@
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
       <components:SectionHeader
           Heading="Network connections"
-          Description="Saved proxy and VPN definitions. Credentials stay in the operating-system vault." />
+          Description="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat={}Saved proxy and VPN connections. Credentials stay in {0}.}" />
 
       <Border IsVisible="{Binding !HasError}">
       <controls:Callout

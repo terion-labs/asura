@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:core="using:Asura.Core"
     xmlns:controls="using:Asura.App.Controls"
     Width="780"
     Height="720"
@@ -153,8 +154,8 @@
                 Click="OnStoreApiKeyClick"
                 Content="Store API Key"
                 IsEnabled="{Binding CanStoreCredential}"
-                AutomationProperties.Name="{Binding Source={x:Static vm:SecretStoreName.Current}, StringFormat={}Store the API key in {0}}" />
-            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Source={x:Static vm:SecretStoreName.Current}, StringFormat='Store, Test, or Save writes the entered key to {0} and selects it here. A stored key stays in {0} if you cancel; existing keys are not overwritten.'}" TextWrapping="Wrap" />
+                AutomationProperties.Name="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat={}Store the API key in {0}}" />
+            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Store, Test, or Save writes the entered key to {0} and selects it here. A stored key stays in {0} if you cancel; existing keys are not overwritten.'}" TextWrapping="Wrap" />
             <controls:LiveRegionTextBlock Text="{Binding CredentialStatus}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
           </StackPanel>
           <StackPanel

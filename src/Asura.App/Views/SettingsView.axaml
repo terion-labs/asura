@@ -4,6 +4,7 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:core="using:Asura.Core"
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia"
@@ -223,7 +224,7 @@
                   IsVisible="{Binding SavedScreenDeleteUndo.HasPending}"
                   AutomationProperties.LiveSetting="Polite"
                   AutomationProperties.Name="{Binding SavedScreenDeleteUndo.Status}"
-                  AutomationProperties.HelpText="Undo restores the exact saved definition that was deleted. Running screen instances are not changed.">
+                  AutomationProperties.HelpText="Undo brings back the saved screen exactly as it was. Tabs that already show it are not changed.">
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                   <TextBlock
                       VerticalAlignment="Center"
@@ -237,7 +238,7 @@
                       Content="Undo"
                       IsEnabled="{Binding SavedScreenDeleteUndo.CanUndo}"
                       AutomationProperties.Name="Undo deleted saved screen"
-                      AutomationProperties.HelpText="Restore the exact saved screen definition that was just deleted." />
+                      AutomationProperties.HelpText="Restore the saved screen you just deleted." />
                   <Button
                       Grid.Column="2"
                       Classes="TextButton"
@@ -389,7 +390,7 @@
                           </controls:ListItem.Leading>
                           <controls:ListItem.Trailing>
                             <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                              <controls:StatusChip Shape="Rounded" Tone="Default" Content="{Binding SlotCount, StringFormat={}{0} slots}" />
+                              <controls:StatusChip Shape="Rounded" Tone="Default" Content="{Binding SlotCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=slot}" />
                               <Button Classes="SecondaryButton" Click="OnEditLayoutClick" Content="Edit…" AutomationProperties.Name="{Binding Name, StringFormat={}Edit layout {0}}" />
                             </StackPanel>
                           </controls:ListItem.Trailing>
@@ -399,13 +400,13 @@
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
               </StackPanel>
-              <controls:SettingsGroup Heading="Definition portability">
+              <controls:SettingsGroup Heading="Export and import">
                 <controls:SettingRow
                     Label="Move your Asura setup"
-                    Description="Export or import connections, screens, layouts, profiles, themes, and keymaps as a strict JSON bundle.">
+                    Description="Export or import connections, screens, layouts, profiles, themes, and keyboard shortcuts as one JSON file.">
                   <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                    <Button Classes="SecondaryButton" Click="OnExportDefinitionsClick" Content="Export…" AutomationProperties.Name="Export definitions" />
-                    <Button Classes="SecondaryButton" Click="OnImportDefinitionsClick" Content="Import…" AutomationProperties.Name="Import definitions" />
+                    <Button Classes="SecondaryButton" Click="OnExportDefinitionsClick" Content="Export…" AutomationProperties.Name="Export your Asura setup" />
+                    <Button Classes="SecondaryButton" Click="OnImportDefinitionsClick" Content="Import…" AutomationProperties.Name="Import an Asura setup" />
                   </StackPanel>
                 </controls:SettingRow>
                 <controls:SettingsGroup.Footer>
@@ -458,8 +459,8 @@
                     </StackPanel>
                     <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding KeybindingEditorSession.StateSummary}" />
                   </StackPanel>
-                  <controls:StatusChip Grid.Column="1" Content="{Binding KeybindingEditorSession.ConflictCount, StringFormat={}{0} conflicts}" />
-                  <controls:StatusChip Grid.Column="2" Content="{Binding KeybindingEditorSession.WarningCount, StringFormat={}{0} warnings}" />
+                  <controls:StatusChip Grid.Column="1" Content="{Binding KeybindingEditorSession.ConflictCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=conflict}" />
+                  <controls:StatusChip Grid.Column="2" Content="{Binding KeybindingEditorSession.WarningCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=warning}" />
                 </Grid>
               </controls:SurfaceCard>
 
@@ -570,7 +571,7 @@
               </controls:SurfaceCard>
 
               <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Unknown commands are preserved so older builds never erase newer bindings." />
+                <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Shortcuts for commands this version doesn’t know are kept, so an older version never erases them." />
                 <Button Grid.Column="1" Classes="DestructiveButton" Click="OnResetAllKeybindingsClick" Content="Reset Profile" IsEnabled="{Binding KeybindingEditorSession.CanEditRows}" />
                 <Button Grid.Column="2" Classes="PrimaryButton" Click="OnSaveKeybindingsClick" Content="Save Shortcuts" IsEnabled="{Binding KeybindingEditorSession.CanSave}" />
               </Grid>
@@ -635,7 +636,7 @@
                 </StackPanel>
                 <controls:Callout
                     ShowsGlyph="False"
-                    Text="Home is always available as a built-in local provider. Saved profiles persist in SQLite; credentials remain in the OS vault." />
+                    Text="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Home is always available as a built-in local provider. Credentials for saved providers stay in {0}.'}" />
               </StackPanel>
               <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                 <controls:SettingsGroup Heading="Remote previews">
@@ -704,7 +705,7 @@
                 </controls:SettingRow>
                 <controls:SettingRow
                     Label="Default profile sharing"
-                    Description="Preserves legacy shared/per-workspace session isolation when the built-in Default browser profile is selected."
+                    Description="Whether browser panels that use the built-in Default profile share one session across workspaces or keep one for each workspace."
                     IsLast="True">
                   <ComboBox
                       Width="260"
@@ -726,7 +727,7 @@
               <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
                 <components:SectionHeader
                     Heading="Named profiles"
-                    Description="Durable profiles are sealed into encrypted application storage when Asura closes and restored on the next run. Private profiles are discarded when their panel closes. Select a profile to manage its authentication and stored data below." />
+                    Description="Persistent profiles are encrypted when Asura quits and restored the next time it opens. Private profiles are discarded when their panel closes. Select a profile to manage its authentication and saved data below." />
                 <controls:SurfaceCard Padding="0" ClipsContent="True">
                   <ListBox
                       Classes="Rows"
@@ -790,8 +791,8 @@
                       AutomationProperties.Name="New browser profile name" />
                   <Button Grid.Column="2" Classes="SecondaryButton"
                       Command="{Binding BrowserProfileSettingsEditor.CreateDurableCommand}"
-                      Content="Add Shared Profile"
-                      AutomationProperties.Name="Add durable-settings browser profile" />
+                      Content="Add Persistent Profile"
+                      AutomationProperties.Name="Add persistent browser profile" />
                   <Button Grid.Column="3" Classes="SecondaryButton"
                       Command="{Binding BrowserProfileSettingsEditor.CreatePrivateCommand}"
                       Content="Add Private Profile"
@@ -803,7 +804,7 @@
                   <TextBlock Classes="SectionHeading" Text="HTTP authentication" />
                   <TextBlock
                       Classes="Muted"
-                      Text="Answer Basic or Digest challenges only for this origin and network route. The password stays in the operating-system vault. Existing credentials default to HTTPS and local/direct; select an SSH route explicitly when needed."
+                      Text="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Answer Basic or Digest challenges only for this origin and network route. The password stays in {0}. Existing credentials use HTTPS and a direct route; choose an SSH route when you need one.'}"
                       TextWrapping="Wrap" />
                   <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                     <controls:LabeledField Label="Origin transport">
@@ -885,11 +886,11 @@
               </controls:SurfaceCard>
               <controls:SurfaceCard Padding="{DynamicResource ShellCardPaddingCompact}">
                 <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                  <TextBlock Classes="SectionHeading" Text="Exact browser data control" />
+                  <TextBlock Classes="SectionHeading" Text="Browsing data" />
                   <TextBlock Classes="Muted" Text="{Binding BrowserProfileSettingsEditor.StateText}" TextWrapping="Wrap" />
                   <TextBlock
                       Classes="Muted"
-                      Text="Cookies and HTTP authentication can be cleared independently for the selected profile revision. A full context reset requires every browser using that exact profile to be closed. Downloads are blocked, and cleanup never touches existing user files."
+                      Text="Clear cookies or HTTP authentication for the selected profile on their own. To reset all of its data, first close every browser panel that uses it. Downloads are blocked, and clearing never touches your own files."
                       TextWrapping="Wrap" />
                   <WrapPanel Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceSm}" LineSpacing="{DynamicResource ShellSpaceSm}">
                     <Button Classes="DestructiveButton"
@@ -902,7 +903,7 @@
                         AutomationProperties.Name="Clear HTTP authentication from selected browser profile revision" />
                     <Button Classes="DestructiveButton"
                         Command="{Binding BrowserProfileSettingsEditor.ResetEphemeralContentCommand}"
-                        Content="Reset Full Context"
+                        Content="Reset All Data"
                         AutomationProperties.Name="Reset all saved web content for selected browser profile revision" />
                     <Button Classes="SecondaryButton"
                         Command="{Binding BrowserProfileSettingsEditor.CancelClearCommand}"
@@ -1085,7 +1086,7 @@
                 <controls:SettingsGroup>
                   <controls:SettingRow
                       Label="Enable app encryption"
-                      Description="Encrypts everything the app itself writes: the configuration database, preview cache, and saved browser sessions. The keys are random and live only in the OS keystore. Turning this off deletes saved browser sessions instead of converting them to plaintext; browser profiles still work for the current run but are not restored. This protects data at rest; it is not a lock on the running app.">
+                      Description="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Encrypts everything Asura writes: the configuration database, the preview cache, and saved browser sessions. The keys are random and kept only in {0}. Turning this off deletes saved browser sessions instead of storing them unencrypted; browser profiles still work until you quit but are not restored. This protects data on disk; it does not lock the running app.'}">
                     <ToggleSwitch VerticalAlignment="Center"
                         IsChecked="{Binding ApplicationSecurityEditor.IsEncryptionEnabled}"
                         IsEnabled="{Binding ApplicationSecurityEditor.IsEncryptionSupported}"
@@ -1103,7 +1104,7 @@
                 </controls:SettingsGroup>
                 <controls:SettingsGroup
                     Heading="Startup protection"
-                    Description="Asks for a PIN when the app starts and whenever the lock timeout elapses. The PIN is never stored: the disk holds a verifier derived from it with a random pepper kept only in the OS keystore, and wrong guesses wait out a doubling delay that survives restarts. This gates the window; the data itself is protected by app encryption above."
+                    Description="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Asks for a PIN when Asura opens and whenever the lock timeout passes. The PIN itself is never stored: Asura keeps only a check value made with a random key kept in {0}, and each wrong guess doubles the wait, even across restarts. This locks the window; app encryption above protects the data.'}"
                     ControlWidth="300">
                   <controls:SettingRow
                       Label="Choose a PIN"
@@ -1182,10 +1183,10 @@
                     IsVisible="{Binding HasRecentSessionFailure}" />
                 <controls:SettingsGroup
                     Heading="Session history"
-                    Description="Off unless you ask for it. When on, the launcher remembers what was opened — definition metadata only, never commands, output, environment values, or credentials."
+                    Description="Off unless you turn it on. When on, the launcher remembers what you opened: names and locations only, never commands, output, environment values, or credentials."
                     ControlWidth="380">
                   <controls:SettingRow
-                      Label="Retain session metadata"
+                      Label="Keep session history"
                       Description="How long the launcher keeps a record of what was opened.">
                     <!-- Applies on choice; shortening it asks first, because
                          that removes history. -->
@@ -1288,7 +1289,7 @@
                 </controls:SettingsGroup.Footer>
               </controls:SettingsGroup>
               <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <TextBlock Classes="SectionHeading" Text="Stored metadata" />
+                <TextBlock Classes="SectionHeading" Text="Saved credentials" />
                 <controls:SurfaceCard Padding="0" ClipsContent="True" IsVisible="{Binding !HasNoSecrets}">
                   <ListBox
                       x:Name="SecretList"
@@ -1596,8 +1597,8 @@
                    explain the order, and its controls stay inert rather than
                    inviting a keystroke that cannot go anywhere. -->
               <controls:SettingsGroup
-                  Heading="Store profile credential"
-                  Description="Store an API key for a saved provider. Keys are kept in the system keychain."
+                  Heading="Provider API key"
+                  Description="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat={}Store an API key for a saved provider. Keys stay in {0}.}"
                   IsEnabled="{Binding HasAiProviders}">
                 <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceMd}">
                   <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
@@ -1745,7 +1746,7 @@
 
               <controls:SettingsGroup
                   Heading="Store MCP credential"
-                  Description="Store a credential for a saved MCP server. Values are kept in the system keychain.">
+                  Description="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat={}Store a credential for a saved MCP server. Values stay in {0}.}">
                 <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceMd}">
                   <Grid ColumnDefinitions="2*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                     <controls:LabeledField Label="Credential binding">

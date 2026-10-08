@@ -88,7 +88,7 @@
                   Tint="{Binding EffectiveColor}"
                   Symbol="{Binding TileSymbol}" />
               <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
-                <TextBlock Classes="Eyebrow Caps" Text="WORKSPACE TITLE" />
+                <TextBlock Classes="Eyebrow Caps" Text="WORKSPACE NAME" />
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBox
                       x:Name="WorkspaceNameInput"
@@ -112,10 +112,10 @@
 
             <controls:SettingsGroup
                 Heading="Appearance"
-                Description="How this workspace is recognised — on its tab, in the rail, and in the launcher."
+                Description="How this workspace is recognized — on its tab, in the rail, and in the launcher."
                 ControlWidth="470">
               <controls:SettingRow
-                  Label="Colour"
+                  Label="Color"
                   Description="The mark this workspace carries wherever it appears.">
                 <components:SwatchPicker
                     x:Name="ColorPicker"
@@ -200,7 +200,7 @@
                     HorizontalAlignment="Right"
                     Classes="SecondaryButton"
                     Click="OnRecreateWorkspaceIsolationClick"
-                    Content="Recreate environment"
+                    Content="Recreate Environment…"
                     IsEnabled="{Binding CanRecreateIsolationEnvironment}"
                     AutomationProperties.Name="Recreate workspace environment" />
               </controls:SettingRow>
@@ -226,7 +226,7 @@
                             <TextBox
                                 Text="{Binding HostPath, Mode=TwoWay}"
                                 PlaceholderText="Host folder, e.g. /Users/me/projects"
-                                AutomationProperties.Name="Host mount source directory" />
+                                AutomationProperties.Name="Host folder" />
                             <Button
                                 Grid.Column="1"
                                 Classes="IconButton"
@@ -250,13 +250,13 @@
                               <Grid ColumnDefinitions="Auto,Auto">
                                 <RadioButton
                                     Classes="Segment"
-                                    Content="Read only"
+                                    Content="Read-Only"
                                     IsChecked="{Binding IsReadOnly, Mode=TwoWay}"
                                     AutomationProperties.Name="Mount host path read only" />
                                 <RadioButton
                                     Grid.Column="1"
                                     Classes="Segment"
-                                    Content="Read &amp; write"
+                                    Content="Read &amp; Write"
                                     IsChecked="{Binding IsReadWrite, Mode=TwoWay}"
                                     AutomationProperties.Name="Mount host path read and write" />
                               </Grid>
@@ -283,7 +283,7 @@
                       <Button
                           Classes="TextButton Accent"
                           Click="OnAddIsolationMountClick"
-                          Content="Add host folder"
+                          Content="Add Host Folder"
                           IsEnabled="{Binding CanAddIsolationMount}"
                           AutomationProperties.Name="Add host mount" />
                       <TextBlock
@@ -291,7 +291,7 @@
                           VerticalAlignment="Center"
                           Classes="Muted"
                           FontSize="{DynamicResource ShellSecondaryFontSize}"
-                          Text="Read &amp; write lets processes in the environment change those host files."
+                          Text="Read &amp; Write lets processes in the environment change those host files."
                           TextWrapping="Wrap" />
                     </Grid>
                   </StackPanel>
@@ -310,13 +310,13 @@
                   <Grid ColumnDefinitions="Auto,Auto">
                     <RadioButton
                         Classes="Segment"
-                        Content="Follow application default"
+                        Content="Follow App Default"
                         IsChecked="{Binding FollowsApplicationNetwork, Mode=TwoWay}"
                         AutomationProperties.Name="Follow application networking" />
                     <RadioButton
                         Grid.Column="1"
                         Classes="Segment"
-                        Content="Custom for this workspace"
+                        Content="Custom for This Workspace"
                         IsChecked="{Binding OverridesNetworkSettings, Mode=TwoWay}"
                         AutomationProperties.Name="Override application networking for this workspace" />
                   </Grid>
@@ -395,7 +395,7 @@
                       IsVisible="{Binding NetworkPolicy.HasNoConnections}" />
                   <controls:Callout
                       Classes="Warning"
-                      Text="Untick the missing connections before saving this workspace."
+                      Text="Deselect the missing connections before saving this workspace."
                       IsVisible="{Binding NetworkPolicy.HasMissingConnections}" />
                 </StackPanel>
               </controls:SettingRow>
@@ -490,7 +490,7 @@
                         AutomationProperties.Name="Add a tab to this workspace">
                       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
                         <icons:SymbolIcon VerticalAlignment="Center" Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
-                        <TextBlock VerticalAlignment="Center" Text="Add tab" />
+                        <TextBlock VerticalAlignment="Center" Text="Add Tab…" />
                       </StackPanel>
                     </Button>
                     <TextBlock
@@ -588,15 +588,15 @@
                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                     <components:SectionHeader VerticalAlignment="Center" Heading="Panels" />
                     <WrapPanel Grid.Column="1" Orientation="Horizontal">
-                      <Button Classes="TextButton Accent" Click="OnAddTerminalPanelClick" Content="+ Terminal" IsEnabled="{Binding CanAddPanel}" />
-                      <Button Classes="TextButton Accent" Click="OnAddFilePanelClick" Content="+ Files" IsEnabled="{Binding CanAddPanel}" />
-                      <Button Classes="TextButton Accent" Click="OnAddBrowserPanelClick" Content="+ Browser" IsEnabled="{Binding CanAddPanel}" />
-                      <Button Classes="TextButton Accent" Click="OnAddStatisticsPanelClick" Content="+ Statistics" IsEnabled="{Binding CanAddPanel}" />
-                      <Button Classes="TextButton Accent" Click="OnAddProcessMonitorPanelClick" Content="+ Processes" IsEnabled="{Binding CanAddPanel}" />
-                      <Button Classes="TextButton Accent" Click="OnAddDatabasePanelClick" Content="+ Database" IsEnabled="{Binding CanAddPanel}" />
-                      <Button Classes="TextButton Accent" Click="OnAddDockerPanelClick" Content="+ Docker" IsEnabled="{Binding CanAddPanel}" />
-                      <Button Classes="TextButton Accent" Click="OnAddKubernetesPanelClick" Content="+ Kubernetes" IsEnabled="{Binding CanAddPanel}" />
-                      <Button Classes="TextButton Accent" Click="OnAddGitPanelClick" Content="+ Git" IsEnabled="{Binding CanAddPanel}" />
+                      <Button Classes="TextButton Accent" Click="OnAddTerminalPanelClick" Content="Add Terminal" IsEnabled="{Binding CanAddPanel}" />
+                      <Button Classes="TextButton Accent" Click="OnAddFilePanelClick" Content="Add Files" IsEnabled="{Binding CanAddPanel}" />
+                      <Button Classes="TextButton Accent" Click="OnAddBrowserPanelClick" Content="Add Browser" IsEnabled="{Binding CanAddPanel}" />
+                      <Button Classes="TextButton Accent" Click="OnAddStatisticsPanelClick" Content="Add Statistics" IsEnabled="{Binding CanAddPanel}" />
+                      <Button Classes="TextButton Accent" Click="OnAddProcessMonitorPanelClick" Content="Add Processes" IsEnabled="{Binding CanAddPanel}" />
+                      <Button Classes="TextButton Accent" Click="OnAddDatabasePanelClick" Content="Add Database" IsEnabled="{Binding CanAddPanel}" />
+                      <Button Classes="TextButton Accent" Click="OnAddDockerPanelClick" Content="Add Docker" IsEnabled="{Binding CanAddPanel}" />
+                      <Button Classes="TextButton Accent" Click="OnAddKubernetesPanelClick" Content="Add Kubernetes" IsEnabled="{Binding CanAddPanel}" />
+                      <Button Classes="TextButton Accent" Click="OnAddGitPanelClick" Content="Add Git" IsEnabled="{Binding CanAddPanel}" />
                     </WrapPanel>
                   </Grid>
 
@@ -621,7 +621,7 @@
                             <controls:Callout
                                 Tone="Notice"
                                 ShowsGlyph="False"
-                                Text="Choose an available slot and required definition before saving."
+                                Text="Choose an available slot and what the panel opens before saving."
                                 IsVisible="{Binding HasMissingDefinition}" />
 
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
@@ -677,13 +677,13 @@
                                   Grid.Column="1"
                                   MinWidth="260"
                                   Label="On delivery failure"
-                                  Hint="This governs delivery or acknowledgement failures while the terminal is live, not a shell command's exit status.">
+                                  Hint="What happens when a startup command can’t be delivered to the running terminal, or its delivery isn’t confirmed. A command’s own exit status doesn’t count.">
                                 <ComboBox
                                     MinWidth="260"
                                     ItemsSource="{Binding DeliveryFailurePolicyOptions}"
                                     SelectedItem="{Binding SelectedDeliveryFailurePolicy, Mode=TwoWay}"
                                     AutomationProperties.Name="{Binding KindLabel, StringFormat=Startup command delivery failure policy for {0} workspace tab panel}"
-                                    AutomationProperties.HelpText="Governs delivery or acknowledgement failures while the terminal is live, not a shell command's exit status.">
+                                    AutomationProperties.HelpText="What happens when a startup command can’t be delivered to the running terminal, or its delivery isn’t confirmed. A command’s own exit status doesn’t count.">
                                   <ComboBox.ItemTemplate>
                                     <DataTemplate>
                                       <TextBlock Text="{Binding DisplayName}" />

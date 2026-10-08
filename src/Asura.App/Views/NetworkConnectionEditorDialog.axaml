@@ -4,6 +4,7 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:core="using:Asura.Core"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:components="using:Asura.App.Views.Components"
     Width="720"
@@ -19,7 +20,7 @@
   -->
   <controls:DialogShell
       Title="{Binding ProfileEditor.EditorTitle}"
-      Subtitle="{Binding Source={x:Static vm:SecretStoreName.Current}, StringFormat={}The connection stores references to credentials; the values stay in {0}.}"
+      Subtitle="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat={}The connection stores references to credentials; the values stay in {0}.}"
       Chrome="Editor"
       FooterHint="{Binding ProfileEditor.FooterHint}">
     <controls:DialogShell.Footer>
@@ -132,7 +133,7 @@
           <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
             <components:NetworkCredentialPicker
                 Label="{Binding ConfigurationSecretLabel}"
-                Hint="The client configuration file, stored in the vault."
+                Hint="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='The client configuration file, stored in {0}.'}"
                 ItemsSource="{Binding ConfigurationCredentialOptions}"
                 SelectedItem="{Binding SelectedConfigurationCredential, Mode=TwoWay}"
                 Target="{Binding ConfigurationCredentialTarget}"
@@ -229,8 +230,8 @@
               Spacing="{DynamicResource ShellSpaceMd}">
             <components:SectionHeader
                 Heading="{Binding Title}"
-                Description="The value is held in memory until the connection is saved, then stored and cleared from this form." />
-            <controls:LabeledField Label="Label" Hint="How this credential is listed here and in Security &amp; secrets.">
+                Description="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='The value stays in memory until you save the connection, then moves to {0} and is cleared from this form.'}" />
+            <controls:LabeledField Label="Label" Hint="How this credential is listed here and in Settings › Security &amp; Secrets.">
               <TextBox
                   Text="{Binding Label, Mode=TwoWay}"
                   PlaceholderText="Office VPN password"

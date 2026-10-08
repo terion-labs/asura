@@ -627,7 +627,7 @@
         </Border>
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}" IsVisible="{Binding !HasRuntimeWorkspace}">
           <TextBlock Classes="Muted" Text="Open a workspace from the launcher." />
-          <Button Classes="PrimaryButton" Click="OnShowLauncherClick" Content="Open launcher" />
+          <Button Classes="PrimaryButton" Click="OnShowLauncherClick" Content="Open Launcher" />
         </StackPanel>
         <!--
           Where a tab landed, for the people who cannot see it land. Reordering

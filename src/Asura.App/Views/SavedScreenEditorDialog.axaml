@@ -6,6 +6,7 @@
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
+    xmlns:views="using:Asura.App.Views"
     Width="900"
     Height="820"
     MinWidth="720"
@@ -224,8 +225,8 @@
       </controls:SurfaceCard>
 
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Classes="SectionHeading" Text="PANELS &amp; CONNECTIONS" />
-        <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Panels.Count, StringFormat={}{0} slots}" />
+        <TextBlock Classes="SectionHeading" Text="Panels &amp; connections" />
+        <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Panels.Count, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=slot}" />
       </Grid>
 
       <ItemsControl ItemsSource="{Binding Panels}">
@@ -320,13 +321,13 @@
                       Grid.Column="1"
                       MinWidth="260"
                       Label="On delivery failure"
-                      Hint="This governs delivery or acknowledgement failures while the terminal is live, not a shell command's exit status.">
+                      Hint="What happens when a startup command can’t be delivered to the running terminal, or its delivery isn’t confirmed. A command’s own exit status doesn’t count.">
                     <ComboBox
                         MinWidth="260"
                         ItemsSource="{Binding DeliveryFailurePolicyOptions}"
                         SelectedItem="{Binding SelectedDeliveryFailurePolicy, Mode=TwoWay}"
                         AutomationProperties.Name="{Binding PanelLabel, StringFormat=Startup command delivery failure policy for {0}}"
-                        AutomationProperties.HelpText="Governs delivery or acknowledgement failures while the terminal is live, not a shell command's exit status.">
+                        AutomationProperties.HelpText="What happens when a startup command can’t be delivered to the running terminal, or its delivery isn’t confirmed. A command’s own exit status doesn’t count.">
                       <ComboBox.ItemTemplate>
                         <DataTemplate>
                           <TextBlock Text="{Binding DisplayName}" />

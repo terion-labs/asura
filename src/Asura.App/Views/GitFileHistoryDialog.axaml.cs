@@ -118,7 +118,7 @@ public sealed partial class GitFileHistoryDialog : DialogWindow
         {
             var destination = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                Title = "Save recorded file",
+                Title = "Save Revision",
                 SuggestedFileName = System.IO.Path.GetFileName(viewModel.Path),
             });
             if (destination is null || await viewModel.ReadSelectedBytesAsync() is not { } bytes)
