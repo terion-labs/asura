@@ -260,6 +260,41 @@ public sealed class DialogContractHeadlessTests
         });
     }
 
+    [Fact]
+    public async Task Confirmation_buttons_span_the_alert_and_stack_when_there_are_three()
+    {
+        await RunAsync(() =>
+        {
+            var pair = new ConfirmationDialog(new ConfirmationDialogOptions
+            {
+                Heading = "Merge?",
+                Detail = "The merge commits into the current branch.",
+                ConfirmLabel = "Merge",
+                Intent = ConfirmationIntent.Confirm,
+            });
+            var pairConfirm = pair.FindControl<Button>("ConfirmButton")!;
+            var pairCancel = pair.FindControl<Button>("CancelButton")!;
+            // Side by side, the default on the trailing side.
+            Assert.Equal(1, Grid.GetColumn(pairConfirm));
+            Assert.Equal(0, Grid.GetColumn(pairCancel));
+            Assert.Equal(Grid.GetRow(pairConfirm), Grid.GetRow(pairCancel));
+
+            var save = new ConfirmationDialog(new ConfirmationDialogOptions
+            {
+                Heading = "Save changes?",
+                Detail = "Your changes are lost if you don't save them.",
+                ConfirmLabel = "Save",
+                AlternateLabel = "Don't Save",
+                Intent = ConfirmationIntent.Confirm,
+            });
+            // Stacked: the default on top, Cancel at the bottom.
+            Assert.Equal(0, Grid.GetRow(save.FindControl<Button>("ConfirmButton")!));
+            Assert.Equal(1, Grid.GetRow(save.FindControl<Button>("AlternateButton")!));
+            Assert.Equal(2, Grid.GetRow(save.FindControl<Button>("CancelButton")!));
+            return Task.CompletedTask;
+        });
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

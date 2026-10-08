@@ -187,7 +187,7 @@ public sealed class LayoutDesignerViewModel : ObservableObject
         {
             return Reject(
                 DefinitionValidationCode.UnknownSlot,
-                $"Layout slot '{slotId}' doesn't exist.",
+                "That panel is no longer in the layout.",
                 slotId);
         }
 
@@ -218,7 +218,7 @@ public sealed class LayoutDesignerViewModel : ObservableObject
         {
             return Reject(
                 DefinitionValidationCode.UnknownSlot,
-                $"Layout slot '{slotId}' doesn't exist.",
+                "That panel is no longer in the layout.",
                 slotId);
         }
 
@@ -273,7 +273,7 @@ public sealed class LayoutDesignerViewModel : ObservableObject
         {
             return Reject(
                 DefinitionValidationCode.UnknownSlot,
-                $"Layout slot '{slotId}' doesn't exist.",
+                "That panel is no longer in the layout.",
                 slotId);
         }
 

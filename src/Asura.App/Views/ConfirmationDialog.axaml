@@ -6,7 +6,7 @@
     xmlns:views="using:Asura.App.Views"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia"
-    Width="460"
+    Width="300"
     SizeToContent="Height"
     CanResize="False">
   <!--
@@ -15,21 +15,17 @@
     There used to be ten of these — delete, clear, reset, discard, close,
     error — each its own Window with the same rows re-typed. What an alert asks
     is configuration; what one looks like is decided here, once, in the shape
-    of the host's alert: the app's icon, the question in bold, the detail
-    under it, and the buttons on the trailing edge. A destructive question
+    of the host's current alert: a narrow window with the app's icon on top,
+    the question in bold and the detail under it, both centred, and the
+    buttons across the full width at the bottom. A destructive question
     badges the icon with a caution mark; it does not repaint the alert red.
     The question is also the window's title, so it is never shown twice.
   -->
-  <Grid
-      Margin="{controls:Inset Xl}"
-      ColumnDefinitions="Auto,*"
-      RowDefinitions="Auto,Auto"
-      ColumnSpacing="{DynamicResource ShellSpaceLg}"
-      RowSpacing="{DynamicResource ShellSpaceLg}">
+  <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceMd}">
     <Panel
         Width="64"
         Height="64"
-        VerticalAlignment="Top"
+        HorizontalAlignment="Center"
         AutomationProperties.AccessibilityView="Raw">
       <Image x:Name="ApplicationIcon" Width="64" Height="64" />
       <icons:SymbolIcon
@@ -60,18 +56,20 @@
       </Border>
     </Panel>
 
-    <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceSm}">
+    <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
       <TextBlock
           x:Name="HeadingText"
           FontSize="{DynamicResource ShellFontSize13}"
           FontWeight="Bold"
           Text="{Binding Heading}"
+          TextAlignment="Center"
           TextWrapping="Wrap" />
       <TextBlock
           x:Name="DetailText"
           FontSize="{DynamicResource ShellFontSize11}"
           LineHeight="{DynamicResource ShellLineHeight11}"
           Text="{Binding Detail}"
+          TextAlignment="Center"
           TextWrapping="Wrap" />
       <!-- The blast radius, or the sessions a close would end: read after
            the detail, in the same voice, not boxed in a callout. -->
@@ -81,44 +79,47 @@
           FontSize="{DynamicResource ShellFontSize11}"
           LineHeight="{DynamicResource ShellLineHeight11}"
           Text="{Binding Notice}"
+          TextAlignment="Center"
           TextWrapping="Wrap"
           IsVisible="{Binding HasNotice}" />
     </StackPanel>
 
-    <!-- "Don't ask again" shares the button row, on the leading edge, so a
-         confirmation without one keeps exactly the layout it had. -->
-    <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-      <CheckBox
-          x:Name="SuppressionCheckBox"
-          VerticalAlignment="Center"
-          Content="{Binding SuppressionLabel}"
-          IsChecked="{Binding IsSuppressionChecked}"
-          IsVisible="{Binding HasSuppression}" />
-      <!-- Don't Save sits apart from Save and Cancel, on the leading edge,
-           as it does in every Mac save alert. -->
+    <!-- "Don't ask again" sits above the buttons, as the host's own
+         suppression checkbox does. -->
+    <CheckBox
+        x:Name="SuppressionCheckBox"
+        HorizontalAlignment="Left"
+        Content="{Binding SuppressionLabel}"
+        IsChecked="{Binding IsSuppressionChecked}"
+        IsVisible="{Binding HasSuppression}" />
+
+    <!-- Two answers share the row, the default on the trailing side. Three —
+         Save, Don't Save, Cancel — stack at full width with the default on
+         top, as the host stacks them; the code-behind picks the shape. -->
+    <Grid x:Name="ButtonRow" ColumnSpacing="{DynamicResource ShellSpaceSm}" RowSpacing="{DynamicResource ShellSpaceSm}">
+      <Button
+          x:Name="CancelButton"
+          HorizontalAlignment="Stretch"
+          HorizontalContentAlignment="Center"
+          Classes="SecondaryButton"
+          Click="OnCancelClick"
+          Content="{Binding CancelLabel}"
+          IsCancel="True"
+          IsVisible="{Binding ShowsCancel}" />
       <Button
           x:Name="AlternateButton"
-          MinWidth="88"
-          HorizontalAlignment="Left"
+          HorizontalAlignment="Stretch"
+          HorizontalContentAlignment="Center"
           Classes="SecondaryButton"
           Click="OnAlternateClick"
           Content="{Binding AlternateLabel}"
           IsVisible="{Binding HasAlternate}" />
-      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-        <Button
-            x:Name="CancelButton"
-            MinWidth="88"
-            Classes="SecondaryButton"
-            Click="OnCancelClick"
-            Content="{Binding CancelLabel}"
-            IsCancel="True"
-            IsVisible="{Binding ShowsCancel}" />
-        <Button
-            x:Name="ConfirmButton"
-            MinWidth="88"
-            Click="OnConfirmClick"
-            Content="{Binding ConfirmLabel}" />
-      </StackPanel>
+      <Button
+          x:Name="ConfirmButton"
+          HorizontalAlignment="Stretch"
+          HorizontalContentAlignment="Center"
+          Click="OnConfirmClick"
+          Content="{Binding ConfirmLabel}" />
     </Grid>
-  </Grid>
+  </StackPanel>
 </controls:DialogWindow>
