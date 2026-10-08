@@ -282,6 +282,35 @@ public sealed record FileOperationIssue(
                     error,
                     "Try again, then check the destination before you continue.",
                     canRetry: true),
+            FilePanelErrorCode.NotFound => Create(
+                FileOperationIssueKind.Stale,
+                "Item not found",
+                error,
+                "It may have been moved or deleted. Refresh to see what's in the folder now.",
+                canRetry: true),
+            FilePanelErrorCode.InvalidName => Create(
+                FileOperationIssueKind.Validation,
+                "Name not allowed",
+                error,
+                "Choose a shorter name without slashes or characters this location doesn't accept."),
+            FilePanelErrorCode.NotDirectory
+                or FilePanelErrorCode.IsDirectory
+                or FilePanelErrorCode.InvalidLocation => Create(
+                    FileOperationIssueKind.Validation,
+                    "Location not available",
+                    error,
+                    "Check the path, or go up to the enclosing folder and choose the item there."),
+            FilePanelErrorCode.OutsideRoot
+                or FilePanelErrorCode.RootMutationNotAllowed => Create(
+                    FileOperationIssueKind.Configuration,
+                    "Outside this connection",
+                    error,
+                    "Choose a location inside the connection's root folder, or edit the connection's root."),
+            FilePanelErrorCode.LimitExceeded => Create(
+                FileOperationIssueKind.QuotaExceeded,
+                "Too large",
+                error,
+                "Choose fewer or smaller items, then try again."),
             FilePanelErrorCode.Cancelled => Create(
                 FileOperationIssueKind.Cancelled,
                 "Canceled",
@@ -350,13 +379,18 @@ public sealed class FileEntryMetadataViewModel
 
     public string Name => Entry.Name;
 
-    /// <summary>The kind in the words the Files panel uses: a folder, not a directory.</summary>
+    /// <summary>
+    /// The kind in Finder's words: "Folder", "Alias", "Markdown document",
+    /// "ZIP archive". On macOS the system's own description of the content
+    /// type is used, so the words match Finder's Kind column exactly;
+    /// elsewhere, and for a type the system has never seen, a table of common
+    /// kinds answers.
+    /// </summary>
     public string Kind => Entry.Kind switch
     {
         FilePanelEntryKind.Directory => "Folder",
-        FilePanelEntryKind.Link => "Link",
-        FilePanelEntryKind.File => "File",
-        _ => "Other",
+        FilePanelEntryKind.Link => "Alias",
+        _ => FileTypeIcons.KindDescription(Entry.Name),
     };
 
     public string Size => Entry.Kind == FilePanelEntryKind.Directory
@@ -367,7 +401,14 @@ public sealed class FileEntryMetadataViewModel
 
     public string Location => FileLocationPresentation.Display(Entry.Location);
 
-    public string Version => Entry.Location.Version ?? "Unavailable";
+    /// <summary>
+    /// The provider's version tag (an ETag, a revision), when it has one. It
+    /// is a hash to most people, so the panel keeps it behind a disclosure
+    /// and says nothing at all when there is none.
+    /// </summary>
+    public string? Version => string.IsNullOrWhiteSpace(Entry.Location.Version)
+        ? null
+        : Entry.Location.Version;
 
-    public string Source => IsStatBacked ? "Live provider metadata" : "Listing metadata";
+    public bool HasVersion => Version is not null;
 }

@@ -273,7 +273,7 @@ internal sealed class SmbLibrarySession(
                     FileInformationClass.FileIdBothDirectoryInformation);
                 if (status is not (NTStatus.STATUS_SUCCESS or NTStatus.STATUS_NO_MORE_FILES))
                 {
-                    throw MapStatus(status, "list an SMB directory");
+                    throw MapStatus(status, "list the folder");
                 }
 
                 return [.. listed
@@ -392,7 +392,7 @@ internal sealed class SmbLibrarySession(
                     CreateDisposition.FILE_CREATE,
                     CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT
                     | CreateOptions.FILE_DIRECTORY_FILE);
-                CloseHandle(handle, "close a newly created SMB directory");
+                CloseHandle(handle, "close the new folder");
             },
             cancellationToken);
 

@@ -27,7 +27,7 @@ public sealed partial class PosixLocalFileProvider
 
         return mkdirat(parent.Descriptor, parent.LeafName!, mode: 0x1FF) == 0
             ? null
-            : NativeError("create the directory");
+            : NativeError("create the folder");
     }
 
     private protected override FileProviderError? DeleteEntry(
@@ -55,7 +55,7 @@ public sealed partial class PosixLocalFileProvider
             : 0;
         return unlinkat(parent.Descriptor, parent.LeafName!, flags) == 0
             ? null
-            : NativeError("delete the entry");
+            : NativeError("delete the item");
     }
 
     internal FileProviderError? SetModeNoFollow(FilePath path, uint mode)
@@ -73,14 +73,14 @@ public sealed partial class PosixLocalFileProvider
         return fchmodat(parent.Descriptor, parent.LeafName!, mode,
             OperatingSystem.IsMacOS() ? 0x20 : 0x100) == 0
             ? null
-            : NativeError("change the permissions without following links");
+            : NativeError("change the permissions");
     }
 
     private ParentDirectoryHandle OpenRootForAccessControl()
     {
         var descriptor = open(RootPath, DirectoryOpenFlags());
         return descriptor < 0
-            ? ParentDirectoryHandle.Failed(NativeError("open the configured provider root"))
+            ? ParentDirectoryHandle.Failed(NativeError("open the location's root folder"))
             : ParentDirectoryHandle.Opened(descriptor, ".");
     }
 
@@ -97,7 +97,7 @@ public sealed partial class PosixLocalFileProvider
         if (descriptor < 0)
         {
             return ParentDirectoryHandle.Failed(
-                NativeError("open the configured provider root"));
+                NativeError("open the location's root folder"));
         }
 
         for (var index = 0; index < path.Segments.Length - 1; index++)
@@ -108,7 +108,7 @@ public sealed partial class PosixLocalFileProvider
                 DirectoryOpenFlags());
             if (next < 0)
             {
-                var error = NativeError("open a parent directory");
+                var error = NativeError("open the enclosing folder");
                 _ = close(descriptor);
                 return ParentDirectoryHandle.Failed(error);
             }
@@ -131,7 +131,7 @@ public sealed partial class PosixLocalFileProvider
     private static FileProviderError NativeError(string operation)
     {
         var error = Marshal.GetLastPInvokeError();
-        var message = $"Unable to {operation}.";
+        var message = $"Couldn't {operation}.";
         return error switch
         {
             ErrorNotFound => FileProviderError.Create(

@@ -29,7 +29,7 @@ public sealed class MarkdownPreviewer : IFilePreviewer
             raw
                 ? new SourcePreviewRendering(text, source.FileName)
                 : new MarkdownPreviewRendering(text),
-            [new FilePreviewToggle(RawToggle, "Show raw", raw)]);
+            [new FilePreviewToggle(RawToggle, "Source", raw)]);
     }
 }
 
@@ -60,7 +60,7 @@ public sealed class WebPagePreviewer : IFilePreviewer
                     PreviewText.Utf8(source.Content.Span, source.IsTruncated),
                     source.FileName)
                 : new WebPagePreviewRendering(),
-            [new FilePreviewToggle(RawToggle, "Show source", raw)]);
+            [new FilePreviewToggle(RawToggle, "Source", raw)]);
     }
 }
 
@@ -100,7 +100,7 @@ public sealed class StructuredDataPreviewer : IFilePreviewer
             : PreviewText.Utf8(source.Content.Span, source.IsTruncated);
         return new FilePreviewOutcome(
             new SourcePreviewRendering(text, source.FileName),
-            [new FilePreviewToggle(PrettifyToggle, "Prettify", prettify)]);
+            [new FilePreviewToggle(PrettifyToggle, "Source", prettify, OnShowsSource: false)]);
     }
 }
 
@@ -132,7 +132,7 @@ public sealed class DelimitedTextPreviewer : IFilePreviewer
         ArgumentNullException.ThrowIfNull(source);
         var asTable = PreviewText.IsOn(toggles, TableToggle, byDefault: true);
         var text = PreviewText.Utf8(source.Content.Span, source.IsTruncated);
-        var toggle = new FilePreviewToggle(TableToggle, "As table", asTable);
+        var toggle = new FilePreviewToggle(TableToggle, "Source", asTable, OnShowsSource: false);
         if (!asTable)
         {
             return new FilePreviewOutcome(

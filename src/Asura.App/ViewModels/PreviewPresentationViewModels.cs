@@ -8,12 +8,20 @@ using Asura.Application.Previews;
 namespace Asura.App.ViewModels;
 
 /// <summary>
-/// A switch the current format offers. Flipping it re-reads the bytes already
-/// in hand rather than asking the provider for them again.
+/// The choice the current format offers between its preview and its source,
+/// drawn as a two-segment control. Changing it re-reads the bytes already in
+/// hand rather than asking the provider for them again.
 /// </summary>
 public sealed class PreviewToggleViewModel : ObservableObject
 {
+    /// <summary>The segment that shows the format laid out.</summary>
+    public const int PreviewSegment = 0;
+
+    /// <summary>The segment that shows the file as it is written.</summary>
+    public const int SourceSegment = 1;
+
     private readonly Action<string, bool> _changed;
+    private readonly bool _onShowsSource;
     private bool _isOn;
 
     public PreviewToggleViewModel(FilePreviewToggle toggle, Action<string, bool> changed)
@@ -22,13 +30,21 @@ public sealed class PreviewToggleViewModel : ObservableObject
         _changed = changed ?? throw new ArgumentNullException(nameof(changed));
         Id = toggle.Id;
         Label = toggle.Label;
+        _onShowsSource = toggle.OnShowsSource;
         _isOn = toggle.IsOn;
     }
 
     public string Id { get; }
 
+    /// <summary>The source segment's name: "Source", or "Hex".</summary>
     public string Label { get; }
 
+    public static string PreviewLabel => "Preview";
+
+    /// <summary>The control's spoken name, naming both sides.</summary>
+    public string AccessibleName => $"Show preview or {Label.ToLowerInvariant()}";
+
+    /// <summary>The underlying switch, in the previewer's own polarity.</summary>
     public bool IsOn
     {
         get => _isOn;
@@ -36,7 +52,29 @@ public sealed class PreviewToggleViewModel : ObservableObject
         {
             if (SetProperty(ref _isOn, value))
             {
+                OnPropertyChanged(nameof(ShowsSource));
+                OnPropertyChanged(nameof(SelectedSegment));
                 _changed(Id, value);
+            }
+        }
+    }
+
+    /// <summary>Whether the source side is chosen, whatever the switch is called.</summary>
+    public bool ShowsSource
+    {
+        get => _isOn == _onShowsSource;
+        set => IsOn = value == _onShowsSource;
+    }
+
+    /// <summary>The chosen segment: <see cref="PreviewSegment"/> or <see cref="SourceSegment"/>.</summary>
+    public int SelectedSegment
+    {
+        get => ShowsSource ? SourceSegment : PreviewSegment;
+        set
+        {
+            if (value is PreviewSegment or SourceSegment)
+            {
+                ShowsSource = value == SourceSegment;
             }
         }
     }

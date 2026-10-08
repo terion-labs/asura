@@ -16,10 +16,12 @@ public sealed record FilePreviewSettings(
     bool KeepPreviewsBetweenRuns,
     long CacheBudgetBytes)
 {
+    // Decimal megabytes, the unit every size in the app is written in, so
+    // the settings page and the preview's caption name the same number.
     public static FilePreviewSettings Default { get; } = new(
-        AutoLoadThresholdBytes: 2 * 1024 * 1024,
+        AutoLoadThresholdBytes: 2_000_000,
         KeepPreviewsBetweenRuns: true,
-        CacheBudgetBytes: 512L * 1024 * 1024);
+        CacheBudgetBytes: 512_000_000);
 
     private readonly long _autoLoadThresholdBytes = ClampThreshold(AutoLoadThresholdBytes);
     private readonly long _cacheBudgetBytes = ClampBudget(CacheBudgetBytes);
@@ -43,10 +45,10 @@ public sealed record FilePreviewSettings(
     }
 
     private static long ClampThreshold(long value) =>
-        Math.Clamp(value, 64 * 1024, 256L * 1024 * 1024);
+        Math.Clamp(value, 64_000, 256_000_000);
 
     private static long ClampBudget(long value) =>
-        Math.Clamp(value, 16L * 1024 * 1024, 16L * 1024 * 1024 * 1024);
+        Math.Clamp(value, 16_000_000, 16_384_000_000);
 }
 
 /// <summary>

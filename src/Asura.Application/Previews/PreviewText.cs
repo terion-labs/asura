@@ -93,6 +93,13 @@ public static class PreviewText
         var builder = new StringBuilder((shown.Length / 16 + 1) * 72);
         for (var offset = 0; offset < shown.Length; offset += 16)
         {
+            // Lines are joined rather than terminated: a trailing line break
+            // gives the editor one more, empty, numbered row below the dump.
+            if (offset > 0)
+            {
+                builder.Append('\n');
+            }
+
             var row = shown.Slice(offset, Math.Min(16, shown.Length - offset));
             builder.Append(offset.ToString("X8", CultureInfo.InvariantCulture));
             builder.Append("  ");
@@ -115,13 +122,16 @@ public static class PreviewText
             {
                 builder.Append(value is >= 32 and <= 126 ? (char)value : '.');
             }
-
-            builder.AppendLine();
         }
 
         if (providerTruncated || shown.Length < content.Length)
         {
-            builder.AppendLine(TruncationNotice);
+            if (builder.Length > 0)
+            {
+                builder.Append('\n');
+            }
+
+            builder.Append(TruncationNotice);
         }
 
         return builder.ToString();

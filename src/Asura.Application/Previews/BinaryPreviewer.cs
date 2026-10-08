@@ -45,7 +45,7 @@ public sealed class BinaryPreviewer : IFilePreviewer
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(toggles);
         var hex = PreviewText.IsOn(toggles, HexToggle, byDefault: false);
-        var toggle = new FilePreviewToggle(HexToggle, "Show hex", hex);
+        var toggle = new FilePreviewToggle(HexToggle, "Hex", hex);
         if (hex)
         {
             return new FilePreviewOutcome(
@@ -61,53 +61,35 @@ public sealed class BinaryPreviewer : IFilePreviewer
 }
 
 /// <summary>
-/// Names and symbols for the binary formats worth recognising. The symbol is a
-/// name rather than an icon: which glyph draws it is the panel's business, not
-/// this layer's.
+/// Names and symbols for the binary formats worth recognising, in the words
+/// Finder uses: "Dynamic library", not "DYLIB binary". The symbol is a name
+/// rather than an icon: which glyph draws it is the panel's business, not
+/// this layer's. The size is not repeated here; the file's details beside the
+/// preview already say it.
 /// </summary>
 public static class BinaryFormats
 {
     public sealed record BinaryFormat(string Symbol, string Name, string Detail);
 
+    private const string NoPreview = "No preview for this kind of file";
+
     public static BinaryFormat Describe(string fileName, string mediaType)
     {
         ArgumentNullException.ThrowIfNull(fileName);
-        var extension = PreviewText.Extension(fileName);
-        return extension switch
+        if (FileKinds.Find(fileName) is { } kind)
         {
-            "mp3" or "wav" or "flac" or "aac" or "ogg" or "m4a" or "opus" or "aiff" =>
-                new BinaryFormat("MusicNote1", Spell(extension) + " audio", "Audio file"),
-            "mp4" or "mov" or "mkv" or "avi" or "webm" or "m4v" or "wmv" =>
-                new BinaryFormat("Video", Spell(extension) + " video", "Video file"),
-            "ttf" or "otf" or "woff" or "woff2" or "eot" =>
-                new BinaryFormat("TextFont", Spell(extension) + " font", "Typeface"),
-            "exe" or "dll" or "so" or "dylib" or "bin" or "o" or "a" or "wasm" =>
-                new BinaryFormat("Code", Spell(extension) + " binary", "Compiled code"),
-            "iso" or "img" or "dmg" or "vhd" or "vmdk" =>
-                new BinaryFormat("Box", Spell(extension) + " image", "Disk image"),
-            "pack" or "idx" or "db" or "sqlite" or "dat" or "bin_" =>
-                new BinaryFormat("Database", Spell(extension) + " data", "Data file"),
-            "psd" or "ai" or "sketch" or "fig" or "xcf" =>
-                new BinaryFormat("Image", Spell(extension) + " document", "Design document"),
-            "doc" or "docx" or "xls" or "xlsx" or "ppt" or "pptx" or "odt" or "ods" =>
-                new BinaryFormat("DocumentBulletList", Spell(extension) + " document", "Office document"),
-            "" => new BinaryFormat("Document", "Binary file", DescribeMedia(mediaType)),
-            _ => new BinaryFormat(
-                "Document",
-                Spell(extension) + " file",
-                DescribeMedia(mediaType)),
-        };
+            return new BinaryFormat(kind.Symbol, kind.Name, NoPreview);
+        }
+
+        return new BinaryFormat(
+            FileKinds.DocumentSymbol,
+            PreviewText.Extension(fileName).Length == 0 ? "Binary file" : FileKinds.Describe(fileName),
+            DescribeMedia(mediaType));
     }
 
     private static string DescribeMedia(string mediaType) =>
         string.IsNullOrWhiteSpace(mediaType)
             || mediaType.StartsWith("application/octet-stream", StringComparison.OrdinalIgnoreCase)
-            ? "No preview for this format"
+            ? NoPreview
             : mediaType;
-
-    /// <summary>
-    /// An extension as a person writes it: "PDF", not "pdf" — but "WebM"
-    /// rather than "WEBM" would need a table, and the upper case reads fine.
-    /// </summary>
-    private static string Spell(string extension) => extension.ToUpperInvariant();
 }

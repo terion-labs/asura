@@ -127,7 +127,9 @@ public sealed class FilePanelHigConformanceTests
 
         foreach (var menu in new[] { panel.MenuActions, panel.EntryMenuActions })
         {
-            var delete = menu[^1];
+            // Last of what acts on the selection; the folder's own commands
+            // follow it in the overflow menu, under a rule of their own.
+            var delete = menu.Last(action => action.Scope == FilePanelActionScope.Selection);
             Assert.Equal(FilePanelAction.Delete, delete.Action);
             Assert.Equal(FileMenuBand.Remove, delete.Band);
             Assert.True(delete.StartsGroup);

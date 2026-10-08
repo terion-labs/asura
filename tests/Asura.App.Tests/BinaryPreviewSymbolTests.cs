@@ -36,7 +36,7 @@ public sealed class BinaryPreviewSymbolTests
         var format = BinaryFormats.Describe("track.flac", "application/octet-stream");
 
         Assert.Equal("FLAC audio", format.Name);
-        Assert.Equal("Audio file", format.Detail);
+        Assert.Equal("No preview for this kind of file", format.Detail);
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public sealed class BinaryPreviewSymbolTests
         var format = BinaryFormats.Describe("payload", "application/octet-stream");
 
         Assert.Equal("Binary file", format.Name);
-        Assert.Equal("No preview for this format", format.Detail);
+        Assert.Equal("No preview for this kind of file", format.Detail);
     }
 
     [Fact]

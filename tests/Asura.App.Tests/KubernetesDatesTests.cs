@@ -52,7 +52,7 @@ public sealed class KubernetesDatesTests
         var usage = new KubernetesUsageRow(new("api", "team", "api", sampled, "30s", 0.25m, 1.5m * 1024 * 1024 * 1024));
 
         Assert.Equal($"{DisplayDates.Format(sampled)} · Window 30s", usage.Sample);
-        Assert.Equal("CPU 0.25 cores · Memory 1.5 GB", usage.Usage);
+        Assert.Equal("CPU 0.25 cores · Memory 1.6 GB", usage.Usage);
         Assert.Equal(
             "Timestamp unavailable · Window 30s",
             new KubernetesUsageRow(new("api", "team", null, null, "30s", null, null)).Sample);
@@ -70,8 +70,8 @@ public sealed class KubernetesDatesTests
         ]);
 
         Assert.Equal(ByteSize.Format(3L * 1024 * 1024 * 1024), row.Memory);
-        Assert.Equal("3 GB", row.Memory);
-        Assert.Equal("512 MB / 2 GB used · Root filesystem (/)", row.DiskDetail);
+        Assert.Equal("3.2 GB", row.Memory);
+        Assert.Equal("536.9 MB / 2.1 GB used · Root filesystem (/)", row.DiskDetail);
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public sealed class KubernetesDatesTests
         var cpu = KubernetesHistoryRow.Create(
             new("app", [new(start, 0.5d)]), start, KubernetesHistoryMetric.CpuCores);
 
-        Assert.Equal("0–563.2 MB", memory.Scale);
+        Assert.Equal("0–590.6 MB", memory.Scale);
         Assert.Equal("0–0.55 cores", cpu.Scale);
     }
 

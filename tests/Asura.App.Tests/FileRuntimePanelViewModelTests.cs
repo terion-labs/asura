@@ -224,9 +224,37 @@ public sealed class FileRuntimePanelViewModelTests
         for (var index = 1; index < panel.MenuActions.Count; index++)
         {
             Assert.Equal(
-                panel.MenuActions[index - 1].Band != panel.MenuActions[index].Band,
+                panel.MenuActions[index - 1].Band != panel.MenuActions[index].Band
+                    || panel.MenuActions[index - 1].Scope != panel.MenuActions[index].Scope,
                 panel.MenuActions[index].StartsGroup);
         }
+    }
+
+    /// <summary>
+    /// The overflow menu is the item menu followed by the folder menu, in the
+    /// same order, so a command is in the same place in every menu it is in.
+    /// </summary>
+    [Fact]
+    public async Task TheOverflowMenuListsItemCommandsThenFolderCommands()
+    {
+        using var panel = new FileRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Files",
+            new StubFilePanelClient(),
+            deferInitialization: true);
+
+        await panel.StartInitialization();
+
+        Assert.Equal(
+            panel.EntryMenuActions.Concat(panel.FolderMenuActions).Select(action => action.Action),
+            panel.MenuActions.Select(action => action.Action));
+        var firstFolderCommand = panel.MenuActions.First(action => action.Scope == FilePanelActionScope.Folder);
+        Assert.True(firstFolderCommand.StartsGroup);
+        Assert.Contains(
+            panel.MenuActions.SkipWhile(action => action.Scope == FilePanelActionScope.Selection),
+            action => action.Action == FilePanelAction.NewFolder);
+        Assert.All(panel.ToolbarActions.Zip(panel.ToolbarActions.Skip(1)), pair =>
+            Assert.True(pair.First.Band <= pair.Second.Band));
     }
 
     /// <summary>
@@ -341,12 +369,12 @@ public sealed class FileRuntimePanelViewModelTests
         await panel.StartInitialization();
 
         Assert.Equal("2 items", panel.Status);
-        Assert.Equal("2", panel.ShortStatus);
+        Assert.Equal("2 items", panel.ShortStatus);
 
         panel.Filter = "alp";
 
         Assert.Equal("1 of 2 items", panel.Status);
-        Assert.Equal("1/2", panel.ShortStatus);
+        Assert.Equal("1 of 2", panel.ShortStatus);
     }
 
     private static FilePanelEntry Entry(StubFilePanelClient client, string name) =>
@@ -1174,9 +1202,9 @@ public sealed class FileRuntimePanelViewModelTests
 
         Assert.Equal(listed.Location, client.LastStatLocation);
         Assert.True(panel.SelectedMetadata?.IsStatBacked);
-        Assert.Equal("4 KB", panel.SelectedMetadata?.Size);
+        Assert.Equal("4.1 KB", panel.SelectedMetadata?.Size);
         Assert.Equal("stat-version", panel.SelectedMetadata?.Version);
-        Assert.Equal("Live provider metadata", panel.SelectedMetadata?.Source);
+        Assert.True(panel.SelectedMetadata?.HasVersion);
         Assert.Null(panel.MetadataIssue);
     }
 
@@ -1835,7 +1863,8 @@ public sealed class FileRuntimePanelViewModelTests
         var panel = await PreviewOf("notes.md", "# Title");
 
         var toggle = Assert.Single(panel.PreviewToggles);
-        Assert.Equal("Show raw", toggle.Label);
+        Assert.Equal("Source", toggle.Label);
+        Assert.Equal(PreviewToggleViewModel.PreviewSegment, toggle.SelectedSegment);
         Assert.True(panel.HasMarkdownPreview);
         panel.Dispose();
     }
@@ -1956,7 +1985,7 @@ public sealed class FileRuntimePanelViewModelTests
 
         Assert.True(panel.HasBinaryPreview);
         Assert.False(panel.HasSourcePreview);
-        Assert.Equal("DYLIB binary", panel.PreviewBinary!.FormatName);
+        Assert.Equal("Dynamic library", panel.PreviewBinary!.FormatName);
         panel.Dispose();
     }
 
@@ -2123,7 +2152,8 @@ public sealed class FileRuntimePanelViewModelTests
 
         Assert.False(panel.HasHexPreview);
         Assert.True(panel.HasTablePreview);
-        Assert.Equal("As table", panel.PreviewToggles.Single().Label);
+        Assert.Equal("Source", panel.PreviewToggles.Single().Label);
+        Assert.False(panel.PreviewToggles.Single().ShowsSource);
     }
 
     private static FilePanelPreview BinaryPreview(FilePanelLocation root, string name) =>
@@ -2333,7 +2363,7 @@ public sealed class FileRuntimePanelViewModelTests
         panel.PropertyChanged += (_, e) =>
             announced |= string.Equals(e.PropertyName, nameof(panel.AutoDownloadPreviewLabel), StringComparison.Ordinal);
         await preferences.ApplyAsync(
-            preferences.Current with { AutoLoadThresholdBytes = 8 * 1024 * 1024 },
+            preferences.Current with { AutoLoadThresholdBytes = 8_000_000 },
             CancellationToken.None);
 
         // A caption that promises a number must follow the number.

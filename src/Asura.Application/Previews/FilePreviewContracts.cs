@@ -14,11 +14,29 @@ public sealed record FilePreviewSource(
     bool IsTruncated);
 
 /// <summary>
-/// A switch a previewer offers for its format — "Show raw" for a page,
-/// "Prettify" for JSON. The panel shows these beside the file's details, and
-/// hands the chosen values back on the next call.
+/// The choice a previewer offers between its format laid out and the file as
+/// it is written: Markdown set as prose or its source, a CSV file as a table
+/// or its text, JSON indented or as written, a binary file named or as hex.
+/// The panel shows every one as the same two segments, "Preview" and
+/// <paramref name="Label"/>, so the side that shows the source is always the
+/// same side whatever the switch is called underneath.
 /// </summary>
-public sealed record FilePreviewToggle(string Id, string Label, bool IsOn);
+/// <param name="Id">The key the chosen value is handed back under.</param>
+/// <param name="Label">The source segment's name: "Source", or "Hex".</param>
+/// <param name="IsOn">The switch's value under <paramref name="Id"/>.</param>
+/// <param name="OnShowsSource">
+/// Whether <paramref name="IsOn"/> means the source side. "Show raw" does;
+/// "Prettify" and "As table" mean the preview side.
+/// </param>
+public sealed record FilePreviewToggle(
+    string Id,
+    string Label,
+    bool IsOn,
+    bool OnShowsSource = true)
+{
+    /// <summary>Whether the source side is the one chosen.</summary>
+    public bool ShowsSource => IsOn == OnShowsSource;
+}
 
 /// <summary>What to draw, and what the reader may change about it.</summary>
 public sealed record FilePreviewOutcome(
