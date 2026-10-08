@@ -2,6 +2,7 @@ using Asura.App.Controls;
 using Asura.App.Views;
 using Asura.Application;
 using Asura.Core;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
@@ -340,6 +341,78 @@ public sealed class DialogContractHeadlessTests
             var field = dialog.GetVisualDescendants().OfType<LabeledField>().Single();
             Assert.Equal("Enter a line number of 1 or more.", field.Error);
             Assert.Equal("abc", dialog.GetVisualDescendants().OfType<TextBox>().Single().Text);
+            dialog.Close();
+        });
+    }
+
+    [Fact]
+    public async Task Git_form_path_fields_choose_a_folder_and_remotes_are_a_pop_up()
+    {
+        await RunAsync(async () =>
+        {
+            string? startedFrom = null;
+            var dialog = new GitWorkflowDialog(new GitWorkflowForm(
+                "Clone Repository",
+                "Connection: Local",
+                new GitWorkflowAction("Clone"),
+                [
+                    new("path", "Destination path", "/Users/ada/src")
+                    {
+                        ChooseFolder = (_, current) =>
+                        {
+                            startedFrom = current;
+                            return Task.FromResult<string?>("/Users/ada/clones");
+                        },
+                    },
+                    GitWorkflowField.ChoiceOrText("remote", "Remote", ["origin", "upstream"], "origin"),
+                ]));
+            dialog.Show();
+            await Idle();
+
+            // The prefilled first field takes the keyboard with its text
+            // selected, so typing replaces it.
+            var path = dialog.GetVisualDescendants().OfType<TextBox>().First();
+            Assert.True(path.IsFocused);
+            Assert.Equal(0, path.SelectionStart);
+            Assert.Equal("/Users/ada/src".Length, path.SelectionEnd);
+
+            var choose = dialog.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Choose…"));
+            choose.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await Idle();
+            Assert.Equal("/Users/ada/src", startedFrom);
+            Assert.Equal("/Users/ada/clones", path.Text);
+
+            var remote = dialog.GetVisualDescendants().OfType<ComboBox>().Single();
+            Assert.Equal("origin", remote.SelectedItem);
+            Assert.Equal(2, remote.ItemCount);
+            dialog.Close();
+        });
+    }
+
+    [Fact]
+    public async Task Submodule_footer_keeps_its_primary_trailing_and_empty_wells_say_what_goes_in_them()
+    {
+        await RunAsync(async () =>
+        {
+            var dialog = new GitSubmoduleDialog { Width = 560 };
+            dialog.Show();
+            await Idle();
+
+            var row = dialog.FindControl<Grid>("FooterRow")!;
+            var open = dialog.FindControl<Button>("OpenButton")!;
+            var actions = dialog.FindControl<Button>("ActionsButton")!;
+            Assert.True(open.IsDefault);
+            Assert.IsType<MenuFlyout>(actions.Flyout);
+            Assert.DoesNotContain(dialog.GetVisualDescendants(), visual => visual is WrapPanel);
+            // One row: Actions on the leading edge, the primary on the
+            // trailing one, both on the same line.
+            var openCenter = open.TranslatePoint(new Point(0, open.Bounds.Height / 2), row)!.Value;
+            var actionsCenter = actions.TranslatePoint(new Point(0, actions.Bounds.Height / 2), row)!.Value;
+            Assert.Equal(actionsCenter.Y, openCenter.Y, 0.5);
+            Assert.True(actionsCenter.X < openCenter.X);
+            Assert.True(row.Bounds.Height < open.Bounds.Height * 2, "The footer wrapped onto a second row.");
+            Assert.True(dialog.FindControl<TextBlock>("ChangesEmpty")!.IsVisible);
+            Assert.True(dialog.FindControl<TextBlock>("PatchEmpty")!.IsVisible);
             dialog.Close();
         });
     }
