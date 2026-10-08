@@ -14,17 +14,7 @@ public sealed partial class GitConflictDialog : DialogWindow
     public GitConflictDialog()
     {
         InitializeComponent();
-        Shell.SizeChanged += (_, _) => SpanFooter();
-    }
-
-    /// <summary>
-    /// The shell sizes its footer to the footer's content, so the row is given
-    /// the footer's full width for Delete File… to reach the leading edge.
-    /// </summary>
-    private void SpanFooter()
-    {
-        var inset = this.TryFindResource("ShellSpaceLg", out var value) && value is double space ? space : 16;
-        FooterRow.Width = Math.Max(0, Shell.Bounds.Width - (2 * inset));
+        GitDialogFooter.Span(Shell, FooterRow);
     }
 
     public GitConflictDialog(

@@ -20,19 +20,8 @@ public sealed partial class GitSubmoduleDialog : DialogWindow
     public GitSubmoduleDialog()
     {
         InitializeComponent();
-        Shell.SizeChanged += (_, _) => SpanFooter();
+        GitDialogFooter.Span(Shell, FooterRow);
         Closed += (_, _) => { _lifetime.Cancel(); _lifetime.Dispose(); };
-    }
-
-    /// <summary>
-    /// The shell sizes its footer to the footer's content, so the row is given
-    /// the footer's full width for Actions to reach the leading edge while the
-    /// window's own buttons keep the trailing one.
-    /// </summary>
-    private void SpanFooter()
-    {
-        var inset = this.TryFindResource("ShellSpaceLg", out var value) && value is double space ? space : 16;
-        FooterRow.Width = Math.Max(0, Shell.Bounds.Width - (2 * inset));
     }
 
     private void OnClose(object? sender, RoutedEventArgs e) => Close();

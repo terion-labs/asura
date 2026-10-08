@@ -17,6 +17,7 @@ public sealed class GitHostingBrowserViewModel(IGitRepositoryClient client, Conn
     private bool _hasMore;
     private int _page;
     private GitHostingAccount? _selectedAccount;
+    private GitHostedRepository? _selectedRepository;
     private bool _presentingAccounts;
     private int _selectionVersion;
     public GitHostingAccount? LoadedAccount { get; private set; }
@@ -104,7 +105,28 @@ public sealed class GitHostingBrowserViewModel(IGitRepositoryClient client, Conn
     public string Filter { get => _filter; set { if (SetProperty(ref _filter, value)) { RaiseRepositoriesChanged(); } } }
     public string Status { get => _status; private set => SetProperty(ref _status, value); }
     public bool Starred { get => _starred; set { if (SetProperty(ref _starred, value)) { InvalidateRepositories(); } } }
-    public bool IsBusy { get => _isBusy; private set { if (SetProperty(ref _isBusy, value)) { OnPropertyChanged(nameof(CanRemoveAccount)); } } }
+    public bool IsBusy
+    {
+        get => _isBusy;
+        private set
+        {
+            if (SetProperty(ref _isBusy, value))
+            {
+                OnPropertyChanged(nameof(CanRemoveAccount));
+                OnPropertyChanged(nameof(CanClone));
+            }
+        }
+    }
+
+    /// <summary>The repository chosen in the list, which Clone Repository… clones.</summary>
+    public GitHostedRepository? SelectedRepository
+    {
+        get => _selectedRepository;
+        set { if (SetProperty(ref _selectedRepository, value)) { OnPropertyChanged(nameof(CanClone)); } }
+    }
+
+    /// <summary>Clone Repository… waits for a chosen repository and for any load or sign-in to finish.</summary>
+    public bool CanClone => SelectedRepository is not null && !IsBusy;
     public bool HasMore { get => _hasMore; private set => SetProperty(ref _hasMore, value); }
 
     public async Task LoadAccountsAsync()

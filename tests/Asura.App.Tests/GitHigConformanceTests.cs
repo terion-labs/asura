@@ -34,6 +34,43 @@ public sealed class GitHigConformanceTests
         Assert.Equal(message, error?.Message);
     }
 
+    [Theory]
+    [InlineData("https://github.com/ada/engine.git", "engine")]
+    [InlineData("git@github.com:ada/engine.git", "engine")]
+    [InlineData("ssh://git@example.com/ada/engine/", "engine")]
+    [InlineData("/Users/ada/src/engine", "engine")]
+    [InlineData("  ", null)]
+    public void A_clone_is_named_after_the_last_segment_of_its_url(string url, string? name) =>
+        Assert.Equal(name, GitRuntimePanelView.RepositoryFolderName(url));
+
+    [Fact]
+    public void Choosing_a_folder_that_has_files_for_a_clone_makes_a_folder_named_after_the_repository_inside_it()
+    {
+        var parent = Directory.CreateTempSubdirectory("asura-clone-");
+        var empty = parent.CreateSubdirectory("empty");
+        try
+        {
+            File.WriteAllText(Path.Combine(parent.FullName, "notes.txt"), "");
+            var name = GitRuntimePanelView.RepositoryFolderName("https://github.com/ada/engine.git");
+
+            Assert.Equal(Path.Combine(parent.FullName, "engine"), GitRuntimePanelView.ChosenDestination(parent.FullName, name));
+            Assert.Equal(empty.FullName, GitRuntimePanelView.ChosenDestination(empty.FullName, name));
+            Assert.Equal(parent.FullName, GitRuntimePanelView.ChosenDestination(parent.FullName, null));
+
+            // A typed folder that has files is caught in the form, with the
+            // folder the clone could use instead.
+            var error = GitRuntimePanelView.ValidateCloneDestination(parent.FullName, name);
+            Assert.Equal("path", error?.Key);
+            Assert.Contains(Path.Combine(parent.FullName, "engine"), error?.Message, StringComparison.Ordinal);
+            Assert.Null(GitRuntimePanelView.ValidateCloneDestination(empty.FullName, name));
+            Assert.Null(GitRuntimePanelView.ValidateCloneDestination(Path.Combine(parent.FullName, "engine"), name));
+        }
+        finally
+        {
+            parent.Delete(recursive: true);
+        }
+    }
+
     [Fact]
     public void Line_history_from_the_tools_menu_asks_for_lines_and_file_as_separate_checked_fields()
     {
@@ -149,6 +186,28 @@ public sealed class GitHigConformanceTests
         Assert.Equal("Choose Load Repositories to list this account’s repositories.", browser.EmptyListText);
         browser.Starred = true;
         Assert.Equal("Choose Load Repositories to list this account’s starred repositories.", browser.EmptyListText);
+    }
+
+    [Fact]
+    public async Task Hosting_clone_waits_for_a_chosen_repository_and_for_a_load_to_finish()
+    {
+        var client = new FakeGitRepositoryClient { HostedRepositoriesGate = new() };
+        using var browser = new GitHostingBrowserViewModel(client, BuiltInConnections.Local);
+        var repository = new GitHostedRepository("ada/engine", "https://example.com/ada/engine.git",
+            "git@example.com:ada/engine.git", "https://example.com/ada/engine", IsPrivate: false);
+        Assert.False(browser.CanClone);
+
+        browser.SelectedRepository = repository;
+        Assert.True(browser.CanClone);
+
+        var load = browser.LoadRepositoriesAsync(reset: true);
+        Assert.True(browser.IsBusy);
+        Assert.False(browser.CanClone);
+
+        client.HostedRepositoriesGate.SetResult(new([repository], 1, HasMore: false));
+        await load;
+        Assert.False(browser.IsBusy);
+        Assert.True(browser.CanClone);
     }
 
     [Fact]

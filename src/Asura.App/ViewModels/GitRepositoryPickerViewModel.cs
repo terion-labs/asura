@@ -36,6 +36,7 @@ public sealed class GitRepositoryPickerViewModel : ObservableObject
     private GitDirectoryEntryViewModel? _selectedDirectory;
     private bool _isLoading;
     private string? _issueMessage;
+    private bool _choosesFolder;
 
     public GitRepositoryPickerViewModel(
         IGitRepositoryClient client,
@@ -59,7 +60,26 @@ public sealed class GitRepositoryPickerViewModel : ObservableObject
     /// connection by its name in quotation marks.
     /// </summary>
     public string Subtitle =>
-        $"Browsing {(_connection.Endpoint is ConnectionEndpoint.Local ? ThisComputer : $"“{ConnectionDisplayName}”")}. Folders that hold a repository are marked.";
+        $"Browsing {(_connection.Endpoint is ConnectionEndpoint.Local ? ThisComputer : $"“{ConnectionDisplayName}”")}."
+        + (ChoosesFolder ? "" : " Folders that hold a repository are marked.");
+
+    /// <summary>
+    /// Whether the browser chooses a folder for something else, such as a
+    /// clone's destination, rather than a repository to open. Every folder,
+    /// a repository's included, is then a place to step into, and only the
+    /// dialog's button chooses.
+    /// </summary>
+    public bool ChoosesFolder
+    {
+        get => _choosesFolder;
+        set
+        {
+            if (SetProperty(ref _choosesFolder, value))
+            {
+                OnPropertyChanged(nameof(Subtitle));
+            }
+        }
+    }
 
     private static string ThisComputer => OperatingSystem.IsMacOS() ? "this Mac" : "this computer";
 

@@ -17,7 +17,7 @@
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
         <Button Content="Cancel" Click="OnCancel" Classes="SecondaryButton" IsCancel="True" />
-        <Button x:Name="CloneButton" IsEnabled="False" Content="Clone Repository…" Click="OnClone" Classes="PrimaryButton" IsDefault="True" />
+        <Button x:Name="CloneButton" IsEnabled="{Binding CanClone}" Content="Clone Repository…" Click="OnClone" Classes="PrimaryButton" IsDefault="True" />
       </StackPanel>
     </controls:DialogShell.Footer>
     <Grid IsEnabled="{Binding !IsBusy}" RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="{DynamicResource ShellSpaceSm}">
@@ -46,7 +46,7 @@
       </Grid>
       <Border Grid.Row="3" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
         <Panel>
-          <ListBox x:Name="Repositories" Classes="Rows" ItemsSource="{Binding Repositories}" SelectionChanged="OnRepositorySelection" AutomationProperties.Name="Hosting repositories">
+          <ListBox x:Name="Repositories" Classes="Rows" ItemsSource="{Binding Repositories}" SelectedItem="{Binding SelectedRepository}" AutomationProperties.Name="Hosting repositories">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="git:GitHostedRepository">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}" Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}">

@@ -45,15 +45,29 @@ public sealed partial class GitRuntimePanelView
         }
 
         var clone = string.Equals(kind, "Clone", StringComparison.Ordinal);
-        var values = await ShowGitFormAsync(
+        GitWorkflowField destination = new("path", "Destination path", viewModel.RepositoryPathInput)
+        {
+            // A clone usually goes in the folder that holds other repositories,
+            // so a chosen folder that already has files gets a new folder
+            // inside it named after the repository, as git clone itself does.
+            ChooseFolder = clone
+                ? FolderChooser("Choose a Folder for the Clone", values => RepositoryFolderName(values.GetValueOrDefault("source") ?? ""))
+                : FolderChooser("Choose a Folder to Initialize"),
+        };
+
+        // The URL comes first when cloning: it names the folder the clone goes in.
+        var values = await ShowGitFormAsync(new GitWorkflowForm(
             clone ? "Clone Repository" : "Initialize Repository",
-            clone ? "Clone" : "Initialize",
             $"Connection: {viewModel.ConnectionDisplayName}",
-            new("path", "Destination path", viewModel.RepositoryPathInput)
-            {
-                ChooseFolder = FolderChooser(clone ? "Choose a Folder for the Clone" : "Choose a Folder to Initialize"),
-            },
-            new("source", clone ? "Repository URL" : "Initial branch", clone ? "" : "main"));
+            new GitWorkflowAction(clone ? "Clone" : "Initialize"),
+            clone
+                ? [new("source", "Repository URL"), destination]
+                : [destination, new("source", "Initial branch", "main")])
+        {
+            Validate = clone && viewModel.UsesSystemFolderPicker
+                ? values => ValidateCloneDestination(values["path"], RepositoryFolderName(values["source"]))
+                : null,
+        });
         if (values is null)
         {
             return;
@@ -63,30 +77,74 @@ public sealed partial class GitRuntimePanelView
     }
 
     /// <summary>
+    /// The folder a clone of <paramref name="repositoryUrl"/> is named after:
+    /// the URL's last segment without ".git", as git clone names it.
+    /// </summary>
+    internal static string? RepositoryFolderName(string repositoryUrl)
+    {
+        var trimmed = repositoryUrl.Trim().TrimEnd('/', '\\');
+        var name = trimmed[(trimmed.LastIndexOfAny(['/', '\\', ':']) + 1)..];
+        if (name.EndsWith(".git", StringComparison.OrdinalIgnoreCase))
+        {
+            name = name[..^4];
+        }
+
+        return name.Length == 0 ? null : name;
+    }
+
+    /// <summary>
+    /// Git cannot clone into a folder on this Mac that already has files in it,
+    /// so the form says so under the field, with the folder it could use
+    /// instead, rather than the clone failing after the form has closed.
+    /// </summary>
+    internal static GitWorkflowFieldError? ValidateCloneDestination(string path, string? folderName)
+    {
+        if (!Directory.Exists(path) || !Directory.EnumerateFileSystemEntries(path).Any())
+        {
+            return null;
+        }
+
+        return folderName is not null && !string.Equals(Path.GetFileName(path.TrimEnd('/', '\\')), folderName, StringComparison.Ordinal)
+            ? new("path", $"This folder isn’t empty. To clone into a new folder inside it, use {Path.Combine(path, folderName)}.")
+            : new("path", "This folder isn’t empty. Choose an empty folder or a new folder name.");
+    }
+
+    /// <summary>
+    /// The folder chosen on this Mac when it is empty, otherwise a new folder
+    /// named <paramref name="folderName"/> inside it; the chosen folder itself
+    /// when there is no name to give one.
+    /// </summary>
+    internal static string ChosenDestination(string chosenFolder, string? folderName) =>
+        folderName is null ? chosenFolder : WorktreeDestination(chosenFolder, folderName);
+
+    /// <summary>
     /// The Choose… beside a destination field. A folder on this Mac comes from
     /// the system's Open panel, with its sidebar, recents and search; one over
     /// SSH from Asura's folder browser, which sees the connection's files. With
     /// <paramref name="folderName"/>, a chosen folder that already holds files
-    /// gets a new folder of that name inside it, as a worktree does.
+    /// gets a new folder inside it, named from the form's values, as a
+    /// worktree does.
     /// </summary>
-    private Func<Window, string, Task<string?>> FolderChooser(string title, string? folderName = null) =>
-        async (owner, current) =>
+    private Func<Window, string, IReadOnlyDictionary<string, string>, Task<string?>> FolderChooser(
+        string title, Func<IReadOnlyDictionary<string, string>, string?>? folderName = null) =>
+        async (owner, current, values) =>
         {
             if (ViewModel is not { } viewModel)
             {
                 return null;
             }
 
+            var name = folderName?.Invoke(values);
             if (SystemFolderPicker(owner) is { } storage && viewModel.UsesSystemFolderPicker)
             {
                 var start = Directory.Exists(current) ? current : Path.GetDirectoryName(current.TrimEnd('/', '\\'));
                 var local = await PickLocalFolderAsync(storage, title, start);
-                return local is null || folderName is null ? local : WorktreeDestination(local, folderName);
+                return local is null ? null : ChosenDestination(local, name);
             }
 
             var remote = await new GitRepositoryPickerDialog(viewModel.CreateRepositoryPicker(current), title, "Choose")
                 .ShowDialog<string?>(owner);
-            return remote is null || folderName is null ? remote : $"{remote.TrimEnd('/')}/{folderName}";
+            return remote is null || name is null ? remote : $"{remote.TrimEnd('/')}/{name}";
         };
 
     private async void OnNetworkOptions(object? sender, RoutedEventArgs e)

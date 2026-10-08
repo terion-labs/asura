@@ -27,11 +27,13 @@ public sealed partial class GitRepositoryPickerDialog : DialogWindow
     /// <summary>
     /// The same browser choosing a folder for something else — a clone's
     /// destination over SSH — under <paramref name="title"/>, with
-    /// <paramref name="verb"/> on its button.
+    /// <paramref name="verb"/> on its button. Double-clicking a folder steps
+    /// into it, a repository's too, so only the button chooses.
     /// </summary>
     public GitRepositoryPickerDialog(GitRepositoryPickerViewModel picker, string title, string verb)
         : this(picker)
     {
+        picker.ChoosesFolder = true;
         Shell.Title = title;
         OpenButton.Content = verb;
     }

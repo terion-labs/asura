@@ -20,9 +20,9 @@ public sealed partial class GitHostingDialog : DialogWindow
     private void OnCancel(object? sender, RoutedEventArgs e) => Close(null);
     private void OnClone(object? sender, RoutedEventArgs e)
     {
-        if (Repositories.SelectedItem is GitHostedRepository repository)
+        if (ViewModel is { CanClone: true, SelectedRepository: { } repository } vm)
         {
-            Close(new GitHostingCloneSelection(repository, ViewModel?.LoadedAccount));
+            Close(new GitHostingCloneSelection(repository, vm.LoadedAccount));
         }
     }
 
@@ -81,7 +81,4 @@ public sealed partial class GitHostingDialog : DialogWindow
             await vm.LoadRepositoriesAsync(reset: true);
         }
     }
-
-    private void OnRepositorySelection(object? sender, SelectionChangedEventArgs e) =>
-        CloneButton.IsEnabled = Repositories.SelectedItem is GitHostedRepository;
 }

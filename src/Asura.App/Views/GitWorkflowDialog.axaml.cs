@@ -21,8 +21,10 @@ public sealed record GitWorkflowField(string Key, string Label, string Value = "
     /// opens it, starting from what is typed, and a chosen folder replaces the
     /// text. The system Open panel for a folder on this Mac; Asura's own folder
     /// browser for one on an SSH connection, which the system panel cannot see.
+    /// It is also given the form's other values, so a clone can name its new
+    /// folder after the repository being cloned.
     /// </summary>
-    public Func<Window, string, Task<string?>>? ChooseFolder { get; init; }
+    public Func<Window, string, IReadOnlyDictionary<string, string>, Task<string?>>? ChooseFolder { get; init; }
 
     /// <summary>
     /// A field whose value is one of <paramref name="choices"/> when there are
@@ -197,7 +199,7 @@ public sealed partial class GitWorkflowDialog : DialogWindow
         AutomationProperties.SetName(button, $"Choose {field.Label}");
         button.Click += async (_, _) =>
         {
-            if (await choose(this, text.Text ?? "") is { } chosen)
+            if (await choose(this, text.Text ?? "", ReadValues()) is { } chosen)
             {
                 text.Text = chosen;
                 text.Focus();
