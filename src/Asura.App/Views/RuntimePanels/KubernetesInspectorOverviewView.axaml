@@ -139,13 +139,17 @@
                     <TextBlock Classes="Eyebrow MiddleTruncated" Text="{Binding Container}" />
                     <TextBlock Grid.Column="1" Classes="Eyebrow" Text="{Binding Scale}" />
                   </Grid>
+                  <!-- Line, fill, grid and labels come from the chart style's
+                       palette slot, so the stroke and its fill always match;
+                       the unit makes the ceiling and readout say cores or
+                       bytes the way the caption does. -->
                   <controls:TimeSeriesChart
                       Height="96"
-                      GridBrush="{DynamicResource ShellBorderBrush}"
-                      LineBrush="{DynamicResource ShellAccentBrush}"
                       Maximum="{Binding Maximum}"
+                      Unit="{Binding Unit}"
+                      SampleInterval="0:1:0"
                       Values="{Binding Values}"
-                      AutomationProperties.Name="Selected resource metric history over the past hour" />
+                      AutomationProperties.Name="{Binding AccessibleName}" />
                 </StackPanel>
               </DataTemplate>
             </ItemsControl.ItemTemplate>

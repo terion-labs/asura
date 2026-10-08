@@ -55,6 +55,11 @@
           <SolidColorBrush x:Key="ShellChartSeries2FillBrush" Color="#338F7BE6" />
           <SolidColorBrush x:Key="ShellChartSeries3FillBrush" Color="#338C9628" />
           <SolidColorBrush x:Key="ShellChartSeries4FillBrush" Color="#33D9599A" />
+          <!-- The find wash: the system's yellow behind a match, with black text.
+               Its edge stands at least 3:1 off the content behind it. -->
+          <SolidColorBrush x:Key="ShellFindHighlightBrush" Color="#FFD60A" />
+          <SolidColorBrush x:Key="ShellFindHighlightBorderBrush" Color="#FFD60A" />
+          <SolidColorBrush x:Key="ShellFindHighlightForegroundBrush" Color="#000000" />
           <!-- The wash behind a modal overlay pushes the window back rather
                than blacking it out. -->
           <SolidColorBrush x:Key="ShellScrimBrush" Color="#73000000" />
@@ -119,6 +124,11 @@
           <SolidColorBrush x:Key="ShellChartSeries2FillBrush" Color="#337A5AD6" />
           <SolidColorBrush x:Key="ShellChartSeries3FillBrush" Color="#337A8417" />
           <SolidColorBrush x:Key="ShellChartSeries4FillBrush" Color="#33C23D84" />
+          <!-- The find wash: the system's yellow behind a match, with black text.
+               Its edge stands at least 3:1 off the content behind it. -->
+          <SolidColorBrush x:Key="ShellFindHighlightBrush" Color="#FFD60A" />
+          <SolidColorBrush x:Key="ShellFindHighlightBorderBrush" Color="#8A6A00" />
+          <SolidColorBrush x:Key="ShellFindHighlightForegroundBrush" Color="#000000" />
           <SolidColorBrush x:Key="ShellScrimBrush" Color="#40000000" />
           <BoxShadows x:Key="ShellOverlayShadow">0 12 36 0 #2E000000, 0 1 3 0 #1F000000</BoxShadows>
           <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#F2F3F0" />

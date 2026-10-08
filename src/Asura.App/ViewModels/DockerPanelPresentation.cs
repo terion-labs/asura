@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
+using Asura.Application;
 using Asura.Docker;
 using FluentIcons.Common;
 
@@ -36,13 +38,20 @@ public sealed record DockerLogRowViewModel(
     bool StartsContextBlock,
     IReadOnlyList<DockerLogTextSegmentViewModel> MessageSegments)
 {
+    /// <summary>A line a search shows around a match, without a match of its own.</summary>
+    public bool IsContextLine { get; init; }
+
     /// <summary>
     /// When the engine wrote the line, in the reader's local time and
     /// culture. The engine sends UTC to the nanosecond; a line it sends in
     /// some other shape is shown as sent.
     /// </summary>
     public string DisplayTimestamp => ParseEngineTime(Timestamp) is { } moment
-        ? DisplayDates.FormatPreciseTime(moment)
+        ? moment.Ticks % TimeSpan.TicksPerSecond < TimeSpan.TicksPerMillisecond
+            // A whole second carries no fraction: ",000" on every line of an
+            // engine that writes whole seconds is noise, not precision.
+            ? DisplayDates.FormatTime(moment)
+            : DisplayDates.FormatPreciseTime(moment)
         : Timestamp;
 
     /// <summary>
@@ -78,6 +87,79 @@ public sealed record DockerLogRowViewModel(
             out var moment)
             ? moment
             : null;
+    }
+}
+
+/// <summary>
+/// Docker's own size text, rewritten by the application's one size
+/// formatter. The engine writes container usage in binary units ("12.5MiB")
+/// and image sizes in decimal ones ("123MB"), so one panel showed both MiB and
+/// MB; each size is read in the unit it was written in and written again the
+/// way the Files panel writes a size.
+/// </summary>
+internal static partial class DockerSizeText
+{
+    public static string Normalize(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return "—";
+        }
+
+        return SizePattern().Replace(text, match =>
+        {
+            if (!double.TryParse(match.Groups["value"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+                || UnitBytes(match.Groups["unit"].Value) is not { } unit)
+            {
+                return match.Value;
+            }
+
+            var bytes = Math.Min(Math.Round(value * unit), long.MaxValue);
+            return ByteSize.Format((long)Math.Max(0, bytes));
+        });
+    }
+
+    private static double? UnitBytes(string unit) => unit switch
+    {
+        "B" => 1,
+        "kB" or "KB" => 1e3,
+        "MB" => 1e6,
+        "GB" => 1e9,
+        "TB" => 1e12,
+        "KiB" => 1024d,
+        "MiB" => 1024d * 1024,
+        "GiB" => 1024d * 1024 * 1024,
+        "TiB" => 1024d * 1024 * 1024 * 1024,
+        _ => null,
+    };
+
+    [GeneratedRegex(@"(?<value>\d+(?:\.\d+)?)\s?(?<unit>[KMGT]iB|[kKMGT]B|B)\b", RegexOptions.CultureInvariant, 1000)]
+    private static partial Regex SizePattern();
+}
+
+/// <summary>
+/// One row of the Info view: the engine's field, with a time written in the
+/// reader's culture and a byte count written as a size, so the view carries
+/// one date style and one size style instead of whatever the engine sent.
+/// </summary>
+public sealed record DockerInspectionRow(string Name, string Value)
+{
+    public static DockerInspectionRow From(DockerInspectionProperty property)
+    {
+        ArgumentNullException.ThrowIfNull(property);
+        var value = property.Value;
+        if (DockerLogRowViewModel.ParseEngineTime(value) is { } moment)
+        {
+            // The engine writes "0001-01-01T00:00:00Z" for a time it never set.
+            value = moment.Year <= 1 ? "Never" : DisplayDates.Format(moment);
+        }
+        else if (property.Name.EndsWith("Size", StringComparison.Ordinal)
+            && long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var bytes))
+        {
+            value = ByteSize.Format(bytes);
+        }
+
+        return new(property.Name, value);
     }
 }
 
@@ -205,6 +287,15 @@ public sealed class DockerResourceItemViewModel : ObservableObject
 
     public DockerContainerSummary? Container { get; }
 
+    /// <summary>The container's usage figures, sizes in the application's units.</summary>
+    public string CpuText => Container is { } container && !string.IsNullOrWhiteSpace(container.Cpu) ? container.Cpu : "—";
+
+    public string MemoryText => DockerSizeText.Normalize(Container?.Memory);
+
+    public string NetworkIoText => DockerSizeText.Normalize(Container?.NetworkIo);
+
+    public string BlockIoText => DockerSizeText.Normalize(Container?.BlockIo);
+
     public bool IsSelected
     {
         get => _isSelected;
@@ -237,7 +328,7 @@ public sealed class DockerResourceItemViewModel : ObservableObject
             image.Id,
             $"{image.Repository}:{image.Tag}"),
         $"{image.Repository}:{image.Tag}",
-        image.Size,
+        DockerSizeText.Normalize(image.Size),
         image.Created,
         Symbol.Archive,
         null,
@@ -252,7 +343,7 @@ public sealed class DockerResourceItemViewModel : ObservableObject
             volume.Name,
             volume.Name),
         volume.Name,
-        volume.Size,
+        volume.SizeBytes is { } bytes ? ByteSize.Format(bytes) : DockerSizeText.Normalize(volume.Size),
         $"{volume.Driver} · {volume.Scope}",
         Symbol.HardDrive,
         null,

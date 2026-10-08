@@ -1,5 +1,6 @@
 using Asura.App.ViewModels;
 using Asura.App.Views.RuntimePanels;
+using Asura.Application;
 using Asura.Core;
 using Asura.Docker;
 using Avalonia;
@@ -384,7 +385,7 @@ public sealed class DockerRuntimePanelViewHeadlessTests
                 window.UpdateLayout();
 
                 Assert.False(indicator.IsVisible);
-                Assert.Equal("64 MB", Assert.Single(panel.Resources).Subtitle);
+                Assert.Equal(ByteSize.Format(64_000_000), Assert.Single(panel.Resources).Subtitle);
             }
             finally
             {

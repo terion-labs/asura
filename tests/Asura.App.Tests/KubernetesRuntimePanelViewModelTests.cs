@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Application;
 using Asura.Core;
@@ -227,17 +228,18 @@ public sealed class KubernetesRuntimePanelViewModelTests
     }
 
     [Fact]
-    public void MissingMetricSamplesRemainGapsAndMemoryUsesMebibytes()
+    public void MissingMetricSamplesRemainGapsAndMemoryIsChartedInBytes()
     {
         var start = new DateTimeOffset(2026, 9, 17, 10, 0, 0, TimeSpan.Zero);
         var row = KubernetesHistoryRow.Create(new("app", [new(start, 1048576), new(start.AddMinutes(2), null)]),
             start, KubernetesHistoryMetric.MemoryBytes);
         Assert.Equal(61, row.Values.Count);
-        Assert.Equal(1, row.Values[0]);
+        Assert.Equal(1048576, row.Values[0]);
         Assert.Null(row.Values[1]);
         Assert.Null(row.Values[2]);
-        Assert.Equal("MB", row.Unit);
-        Assert.Equal("0–1.1 MB", row.Scale);
+        Assert.Equal(TimeSeriesUnit.Bytes, row.Unit);
+        Assert.Equal("0–2 MB", row.Scale);
+        Assert.Equal("Memory history of container app over the past hour", row.AccessibleName);
         var usage = new KubernetesUsageRow(new("pod", "namespace", "app", null, "30s", null, null));
         Assert.Contains("CPU unavailable", usage.Usage, StringComparison.Ordinal);
         Assert.Contains("Memory unavailable", usage.Usage, StringComparison.Ordinal);

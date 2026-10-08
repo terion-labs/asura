@@ -88,7 +88,7 @@ public sealed class RuntimePanelViewContractTests
         var search = Assert.Single(
             root.Descendants(),
             element => string.Equals(element.Name.LocalName, "SearchField"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "PlaceholderText"), "Search all container logs", StringComparison.Ordinal));
+, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "PlaceholderText"), "Search this container’s logs", StringComparison.Ordinal));
         Assert.Equal("OnLogSearchKeyDown", AttributeValue(search, "KeyDown"));
         Assert.DoesNotContain(
             root.Descendants(),
@@ -467,7 +467,7 @@ public sealed class RuntimePanelViewContractTests
             .Where(element => AttributeValue(element, "ItemsSource") is
                 "{Binding ContainerStacks}"
                 or "{Binding Containers}"
-                or "{Binding Inspection.Properties}")
+                or "{Binding InspectionRows}")
             .ToArray();
 
         Assert.Equal(3, verticalCollections.Length);

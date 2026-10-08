@@ -1,4 +1,5 @@
 using Asura.App.ViewModels;
+using Asura.Application;
 using Asura.Core;
 using Asura.Docker;
 using Asura.Testing;
@@ -618,7 +619,11 @@ public sealed class DockerRuntimePanelViewModelTests
         Assert.Equal(
             ["also-large", "large", "small", "unknown"],
             panel.Resources.Select(item => item.Title), StringComparer.Ordinal);
-        Assert.Equal(["2 GB", "2 GB", "10 MB", "—"], panel.Resources.Select(item => item.Subtitle), StringComparer.Ordinal);
+        // Sizes go through the application's one size formatter, whatever
+        // unit the engine wrote them in.
+        Assert.Equal(
+            [ByteSize.Format(2_000_000_000), ByteSize.Format(2_000_000_000), ByteSize.Format(10_000_000), "—"],
+            panel.Resources.Select(item => item.Subtitle), StringComparer.Ordinal);
         Assert.Equal(1, client.VolumeUsageReadCount);
         Assert.Equal("4 resources", panel.ResourceSummary);
     }
@@ -656,7 +661,7 @@ public sealed class DockerRuntimePanelViewModelTests
         Assert.False(panel.ShowVolumeSizeLoading);
         Assert.False(panel.ShowResourceProgress);
         Assert.Equal("1 resource", panel.ResourceSummary);
-        Assert.Equal("64 MB", Assert.Single(panel.Resources).Subtitle);
+        Assert.Equal(ByteSize.Format(64_000_000), Assert.Single(panel.Resources).Subtitle);
     }
 
     [Fact]

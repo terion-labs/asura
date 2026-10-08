@@ -145,6 +145,8 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
                 OnPropertyChanged(nameof(ShowLoading));
                 OnPropertyChanged(nameof(ShowContent));
                 OnPropertyChanged(nameof(ShowTerminalError));
+                OnPropertyChanged(nameof(ShowUnavailable));
+                OnPropertyChanged(nameof(ShowStaleNotice));
                 _refreshCommand.RaiseCanExecuteChanged();
                 OnPropertyChanged(nameof(CpuText));
                 OnPropertyChanged(nameof(MemoryText));
@@ -170,6 +172,8 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
                 OnPropertyChanged(nameof(ShowLoading));
                 OnPropertyChanged(nameof(ShowContent));
                 OnPropertyChanged(nameof(ShowTerminalError));
+                OnPropertyChanged(nameof(ShowUnavailable));
+                OnPropertyChanged(nameof(ShowStaleNotice));
                 _refreshCommand.RaiseCanExecuteChanged();
             }
         }
@@ -189,6 +193,7 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
             if (SetProperty(ref _issueTitle, value))
             {
                 OnPropertyChanged(nameof(HasIssue));
+                OnPropertyChanged(nameof(ShowStaleNotice));
             }
         }
     }
@@ -238,6 +243,19 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
     public bool ShowContent => HasSnapshot;
 
     public bool ShowTerminalError => !HasSnapshot && State == SystemMonitorPanelState.Failed;
+
+    /// <summary>
+    /// No sample and nothing on the way: the panel stopped before its first
+    /// sample. Without this the area would be blank, because neither the wait
+    /// nor the failure applies.
+    /// </summary>
+    public bool ShowUnavailable => !HasSnapshot && !ShowLoading && !ShowTerminalError;
+
+    /// <summary>
+    /// The last refresh failed while older charts stay on screen: the reason
+    /// is shown in a notice under the header rather than over the charts.
+    /// </summary>
+    public bool ShowStaleNotice => HasSnapshot && HasIssue;
 
     public StatusTone StatusTone => State switch
     {
@@ -724,6 +742,8 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
                 OnPropertyChanged(nameof(ShowContent));
                 OnPropertyChanged(nameof(ShowTerminalError));
                 OnPropertyChanged(nameof(ShowInlineIssue));
+                OnPropertyChanged(nameof(ShowNoProcesses));
+                OnPropertyChanged(nameof(ShowUnavailable));
                 OnPropertyChanged(nameof(CapturedAtText));
             }
         }
@@ -838,6 +858,7 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
                 OnPropertyChanged(nameof(ShowContent));
                 OnPropertyChanged(nameof(ShowTerminalError));
                 OnPropertyChanged(nameof(ShowInlineIssue));
+                OnPropertyChanged(nameof(ShowUnavailable));
                 _refreshCommand.RaiseCanExecuteChanged();
             }
         }
@@ -909,6 +930,24 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
     public bool ShowTerminalError => !HasSnapshot && State == SystemMonitorPanelState.Failed;
 
     public bool ShowInlineIssue => HasSnapshot && HasIssue;
+
+    /// <summary>No sample and nothing on the way: the panel stopped before its first sample.</summary>
+    public bool ShowUnavailable => !HasSnapshot && !ShowLoading && !ShowTerminalError;
+
+    /// <summary>
+    /// A sample arrived but no row is left to show — the filter excludes
+    /// every process, or the host listed none. The table keeps its headers and
+    /// says so under them instead of standing empty.
+    /// </summary>
+    public bool ShowNoProcesses => HasSnapshot && Processes.Count == 0;
+
+    public string NoProcessesHeading => string.IsNullOrWhiteSpace(Filter)
+        ? "No processes"
+        : "No processes match";
+
+    public string NoProcessesBody => string.IsNullOrWhiteSpace(Filter)
+        ? "The host reported no processes Asura can read."
+        : "Check the spelling, or search by another name or process ID.";
 
     public StatusTone StatusTone => State switch
     {
@@ -1228,6 +1267,9 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
 
         OnPropertyChanged(nameof(SelectedProcesses));
         OnPropertyChanged(nameof(ShowingText));
+        OnPropertyChanged(nameof(ShowNoProcesses));
+        OnPropertyChanged(nameof(NoProcessesHeading));
+        OnPropertyChanged(nameof(NoProcessesBody));
     }
 
     private void NotifySortChanged()
