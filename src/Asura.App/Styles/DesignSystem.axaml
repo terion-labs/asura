@@ -172,7 +172,11 @@
                         IsVisible="{TemplateBinding HasAttention}"
                         ToolTip.Tip="This panel has an unread notification" />
                     <StackPanel Name="PART_HeaderActions" Orientation="Horizontal">
-                      <StackPanel Name="PART_SecondaryActions" Orientation="Horizontal">
+                      <!-- A wrap panel: one row in the header, which gives it
+                           all the width it asks for, and as many rows as it
+                           needs in the overflow strip, where it moves when
+                           the header is short of width. -->
+                      <WrapPanel Name="PART_SecondaryActions" Orientation="Horizontal">
                         <Button
                             Name="PART_Collapse"
                             AutomationProperties.Name="Collapse this panel"
@@ -219,7 +223,7 @@
                             ToolTip.Tip="Split top/bottom">
                           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="SplitHorizontal" />
                         </Button>
-                      </StackPanel>
+                      </WrapPanel>
                     </StackPanel>
                     <Button Name="PART_Overflow" Classes="IconButton Compact"
                         IsVisible="{TemplateBinding IsHeaderCondensed}"
@@ -299,13 +303,14 @@
                   BorderBrush="{DynamicResource ShellSidebarBorderBrush}"
                   BorderThickness="0,0,0,1"
                   Padding="{controls:Inset Horizontal=Sm, Vertical=Xs}">
-                <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
-                  <StackPanel Name="PART_OverflowActions" Orientation="Horizontal"
-                      HorizontalAlignment="Right" KeyboardNavigation.TabNavigation="Continue">
-                    <ContentPresenter Name="PART_BrowserOverflow"
-                        Content="{TemplateBinding HeaderOverflowContent}" />
-                  </StackPanel>
-                </ScrollViewer>
+                <!-- Wraps rather than scrolls, so every action in the strip is
+                     whole and in view. A scrolling row cut its last button in
+                     half on a narrow panel. -->
+                <WrapPanel Name="PART_OverflowActions" Orientation="Horizontal"
+                    HorizontalAlignment="Right" KeyboardNavigation.TabNavigation="Continue">
+                  <ContentPresenter Name="PART_BrowserOverflow"
+                      Content="{TemplateBinding HeaderOverflowContent}" />
+                </WrapPanel>
               </Border>
               <components:ErrorNoticesView Grid.Row="2" DataContext="{CompiledBinding $parent[controls:PanelChrome].((vm:ObservableObject)DataContext).ErrorNotices}" />
               <ContentPresenter
@@ -1217,12 +1222,18 @@
                 not a visual and so has no templated parent, which means a
                 TemplateBinding here silently resolves to nothing and both columns
                 fall back to an even split — the row still renders, just never at
-                the width the group asked for.
+                the width the group asked for. The code also gives the column up
+                when the row is too narrow for it and a readable label both: the
+                control then moves under the label, into the second row.
               -->
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
               </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
               <!-- The label is the control's accessible name too, and reads in
                    the regular weight the host gives a form row's label. -->
               <StackPanel
@@ -1243,6 +1254,7 @@
                     IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
               </StackPanel>
               <ContentPresenter
+                  Name="PART_Control"
                   Grid.Column="1"
                   Content="{TemplateBinding Content}"
                   ContentTemplate="{TemplateBinding ContentTemplate}"
@@ -1260,6 +1272,42 @@
 
       <Style Selector="^:last /template/ Border#PART_Separator">
         <Setter Property="IsVisible" Value="False" />
+      </Style>
+
+      <!-- A checkbox row, as the host lays one out: the box at the leading
+           edge with the setting's name as its title, so a click on the words
+           toggles it, and the description under the title, aligned with it
+           rather than with the box. The row hands the label to a checkbox
+           that has no content of its own. -->
+      <Style Selector="^:leading">
+        <Setter Property="Template">
+          <ControlTemplate>
+            <StackPanel>
+              <StackPanel
+                  Margin="{TemplateBinding Padding}"
+                  Spacing="{DynamicResource ShellSpaceXs}">
+                <ContentPresenter
+                    Name="PART_Control"
+                    Content="{TemplateBinding Content}"
+                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                    HorizontalContentAlignment="Left" />
+                <TextBlock
+                    Name="PART_Description"
+                    Margin="{DynamicResource ShellCheckBoxTitleInset}"
+                    Foreground="{DynamicResource ShellMutedBrush}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
+                    LineHeight="{DynamicResource ShellLineHeight11}"
+                    Text="{TemplateBinding Description}"
+                    TextWrapping="Wrap"
+                    IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              </StackPanel>
+              <Border
+                  Name="PART_Separator"
+                  Height="1"
+                  Background="{DynamicResource ShellBorderBrush}" />
+            </StackPanel>
+          </ControlTemplate>
+        </Setter>
       </Style>
 
       <!-- Stacked, the control takes the row's whole width under the label.

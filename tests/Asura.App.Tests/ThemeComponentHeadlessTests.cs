@@ -350,6 +350,69 @@ public sealed class ThemeComponentHeadlessTests
             });
         });
 
+    /// <summary>
+    /// The group's control width is a ceiling: the label keeps its minimum,
+    /// the control takes what is left, and on a row too narrow for both the
+    /// control moves under the label.
+    /// </summary>
+    [Theory]
+    [InlineData(900, false)]
+    [InlineData(560, false)]
+    [InlineData(360, true)]
+    public Task A_setting_row_keeps_its_label_readable(double width, bool wraps) =>
+        RunHeadlessAsync(window =>
+        {
+            var picker = new ComboBox { ItemsSource = new[] { "Comfortable" }, SelectedIndex = 0 };
+            var row = new SettingRow { Label = "Density", Description = "How much room controls get.", Content = picker };
+            var group = new SettingsGroup { ControlWidth = new GridLength(300), Items = { row }, Width = width };
+            Show(window, group);
+            window.Width = width + 40;
+            window.UpdateLayout();
+
+            var label = Part<TextBlock>(row, "PART_Label");
+            Assert.Equal(wraps, row.IsWrapped);
+            if (wraps)
+            {
+                Assert.True(
+                    picker.TranslatePoint(default, row)!.Value.Y > label.TranslatePoint(default, row)!.Value.Y + label.Bounds.Height - 1,
+                    "The control did not move under the label.");
+            }
+            else
+            {
+                Assert.True(label.Bounds.Width >= SettingRow.LabelMinimumWidth - 1, $"The label column is {label.Bounds.Width} wide.");
+                Assert.True(picker.Bounds.Width <= 300.5, $"The control is {picker.Bounds.Width} wide.");
+                Assert.True(picker.TranslatePoint(default, row)!.Value.X > label.TranslatePoint(default, row)!.Value.X + label.Bounds.Width);
+            }
+        });
+
+    /// <summary>
+    /// A checkbox row leads with the box, takes the setting's name as the
+    /// box's title and sets the description under the title.
+    /// </summary>
+    [Fact]
+    public Task A_leading_setting_row_titles_its_checkbox() =>
+        RunHeadlessAsync(window =>
+        {
+            var box = new CheckBox();
+            var row = new SettingRow
+            {
+                Label = "Show hidden files",
+                Description = "Files whose names start with a dot.",
+                IsLeading = true,
+                Content = box,
+            };
+            Show(window, new SettingsGroup { Items = { row }, Width = 500 });
+
+            Assert.Equal("Show hidden files", box.Content);
+            var title = box.GetVisualDescendants().OfType<TextBlock>().First(block => block.Text == "Show hidden files");
+            var description = Part<TextBlock>(row, "PART_Description");
+            Assert.Equal(
+                title.TranslatePoint(default, row)!.Value.X,
+                description.TranslatePoint(default, row)!.Value.X,
+                precision: 0);
+            Assert.True(box.TranslatePoint(default, row)!.Value.X < title.TranslatePoint(default, row)!.Value.X);
+        });
+
     private sealed record GridRow(string Name, string Value);
 
     private static TextBlock Heading(Visual owner, string text) =>

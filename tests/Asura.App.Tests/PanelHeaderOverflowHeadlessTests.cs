@@ -62,7 +62,7 @@ public sealed class PanelHeaderOverflowHeadlessTests
     [InlineData(470)]
     [InlineData(280)]
     [InlineData(200)]
-    public async Task StripReusesButtonsInOneRowAndRestoresTheWideHeader(int width)
+    public async Task StripReusesButtonsWithoutClippingAndRestoresTheWideHeader(int width)
     {
         await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
@@ -104,12 +104,19 @@ public sealed class PanelHeaderOverflowHeadlessTests
             chrome.IsZoomed = true;
             Assert.Equal("Restore all panels", AutomationProperties.GetName(visible[1]));
             chrome.IsZoomed = false;
-            Assert.InRange(strip.Bounds.Height, 24, 37);
             var origin = strip.TranslatePoint(default, chrome)!.Value;
             Assert.InRange(origin.X, 0, chrome.Bounds.Width);
             Assert.True(origin.X + strip.Bounds.Width <= chrome.Bounds.Width);
-            var row = visible[0].TranslatePoint(default, strip)!.Value.Y;
-            Assert.All(visible, button => Assert.InRange(button.TranslatePoint(default, strip)!.Value.Y, row - 4, row + 4));
+            // Every action is whole and inside the strip: the row wraps rather
+            // than running under the strip's edge.
+            Assert.All(visible, button =>
+            {
+                var at = button.TranslatePoint(default, strip)!.Value;
+                Assert.True(
+                    at.X >= 0 && at.X + button.Bounds.Width <= strip.Bounds.Width + 0.5
+                    && at.Y >= 0 && at.Y + button.Bounds.Height <= strip.Bounds.Height + 0.5,
+                    $"{button.Name} is cut by the strip at width {width}.");
+            });
             Assert.True(originals[0].IsFocused);
             window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
             Assert.True(originals[1].IsFocused);

@@ -17,8 +17,8 @@ internal sealed partial class PanelChrome
 
     private bool _isHeaderOverflowOpen;
     private StackPanel? _headerActions;
-    private StackPanel? _secondaryActions;
-    private StackPanel? _overflowActions;
+    private Panel? _secondaryActions;
+    private Panel? _overflowActions;
     private Button? _overflowTrigger;
 
     public Control? HeaderOverflowContent
@@ -40,8 +40,8 @@ internal sealed partial class PanelChrome
     private void AttachHeaderOverflow(TemplateAppliedEventArgs e)
     {
         _headerActions = e.NameScope.Find<StackPanel>("PART_HeaderActions");
-        _secondaryActions = e.NameScope.Find<StackPanel>("PART_SecondaryActions");
-        _overflowActions = e.NameScope.Find<StackPanel>("PART_OverflowActions");
+        _secondaryActions = e.NameScope.Find<Panel>("PART_SecondaryActions");
+        _overflowActions = e.NameScope.Find<Panel>("PART_OverflowActions");
         _overflowActions?.AddHandler(Button.ClickEvent, OnOverflowActionClick);
         AddHandler(KeyDownEvent, OnOverflowKeyDown, RoutingStrategies.Tunnel);
     }
@@ -52,6 +52,13 @@ internal sealed partial class PanelChrome
         RemoveHandler(KeyDownEvent, OnOverflowKeyDown);
     }
 
+    /// <summary>
+    /// Moves the panel's secondary actions between the header and the overflow
+    /// strip under the "…" button. The strip wraps rather than scrolls: a row
+    /// of actions wider than a narrow panel used to run under the strip's edge,
+    /// and its last button was cut in half with nothing to say more were
+    /// there.
+    /// </summary>
     private void UpdateHeaderOverflow()
     {
         // Keep one set of controls so icons, enabled states and accessibility

@@ -221,6 +221,10 @@
       <Thickness x:Key="ShellInsetMd">12</Thickness>
       <Thickness x:Key="ShellInsetLg">16</Thickness>
       <Thickness x:Key="ShellInsetXl">24</Thickness>
+      <!-- Where a checkbox's title starts: past the box and the gap after it,
+           which the stock checkbox draws at a fixed size. A line under the
+           title — a setting's description — starts here too. -->
+      <Thickness x:Key="ShellCheckBoxTitleInset">28,0,0,0</Thickness>
       <Thickness x:Key="ShellInsetXxl">32</Thickness>
       <Thickness x:Key="ShellCardPadding">16</Thickness>
       <!-- The tighter card inset, for cards that hold dense content — list
