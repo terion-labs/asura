@@ -1102,7 +1102,7 @@
               <DataGridTextColumn Header="Columns" Binding="{Binding Columns}" Width="220" />
               <DataGridTextColumn Header="Unique" Binding="{Binding Unique}" Width="80" />
               <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100" />
-              <DataGridTextColumn Header="Predicate / definition" Binding="{Binding Predicate}" Width="*" />
+              <DataGridTextColumn Header="Predicate or expression" Binding="{Binding Predicate}" Width="*" />
             </DataGrid.Columns>
           </DataGrid>
         </Grid>

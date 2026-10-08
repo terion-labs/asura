@@ -86,7 +86,7 @@ public sealed partial class AboutAsuraView : UserControl
         if (path is null)
         {
             ViewModel?.SetError(
-                "The bundled third-party notices could not be found. Reinstall this build.");
+                "Asura couldn’t find its acknowledgments file. Reinstall Asura to restore it.");
             return;
         }
 
@@ -94,7 +94,7 @@ public sealed partial class AboutAsuraView : UserControl
             && !await topLevel.Launcher.LaunchFileInfoAsync(new FileInfo(path)))
         {
             ViewModel?.SetError(
-                "The operating system did not provide an application for the notices file.");
+                "Asura couldn’t find an app to open the acknowledgments file.");
         }
     }
 

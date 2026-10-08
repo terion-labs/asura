@@ -740,7 +740,7 @@
           <controls:StateOverlay
               Kind="Loading"
               Heading="Reading Docker resources…"
-              Body="The same command boundary works locally and through saved SSH connections."
+              Body="Docker works the same way on this computer and over a saved SSH connection."
               IsVisible="{Binding ShowLoading}" />
 
           <controls:StateOverlay

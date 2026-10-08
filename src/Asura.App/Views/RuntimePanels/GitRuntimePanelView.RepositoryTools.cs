@@ -81,7 +81,8 @@ public sealed partial class GitRuntimePanelView
             new("source", networkAction == GitNetworkAction.Push ? "Source branch or revision (optional)" : "Remote branch (optional)", Required: false)];
         if (networkAction == GitNetworkAction.Pull)
         {
-            fields.Add(new("strategy", "Pull strategy", "FastForward", Choices: ["FastForward", "Merge", "Rebase"]));
+            fields.Add(new("strategy", "Pull strategy", PullStrategyLabel(GitPullStrategy.FastForward),
+                Choices: [.. Enum.GetValues<GitPullStrategy>().Select(PullStrategyLabel)]));
             fields.Add(GitWorkflowField.CheckBox("autostash", "Stash local edits first and restore them afterward", false));
         }
         if (networkAction == GitNetworkAction.Fetch)
@@ -126,9 +127,9 @@ public sealed partial class GitRuntimePanelView
             var confirmed = await new ConfirmationDialog(new ConfirmationDialogOptions
             {
                 Heading = $"Force push to “{values["remote"]}/{destinationBranch}”?",
-                Detail = $"{source ?? "HEAD"} replaces the remote branch. Commits on the remote that are not in it are dropped from the branch.",
+                Detail = $"{source ?? "HEAD"} replaces the remote branch. Commits on the remote that aren’t in it are dropped from the branch.",
                 Notice = lease.Length == 0
-                    ? "The branch does not exist on the remote yet. Git rejects the push if it appears before then."
+                    ? "The branch doesn’t exist on the remote yet. Git rejects the push if it appears before then."
                     : $"Expected remote revision: {lease}. Git rejects the push if that revision changes.",
                 ConfirmLabel = "Force Push",
                 Intent = ConfirmationIntent.Destructive,
@@ -141,13 +142,24 @@ public sealed partial class GitRuntimePanelView
 
         await viewModel.NetworkAsync(new(networkAction, values["remote"], source,
             destinationBranch,
-            values.TryGetValue("strategy", out var strategy) ? Enum.Parse<GitPullStrategy>(strategy) : GitPullStrategy.FastForward,
+            values.TryGetValue("strategy", out var strategy)
+                ? Enum.GetValues<GitPullStrategy>().Single(choice => string.Equals(PullStrategyLabel(choice), strategy, StringComparison.Ordinal))
+                : GitPullStrategy.FastForward,
             Prune: GitWorkflowDialog.IsChecked(values, "prune"),
             Tags: GitWorkflowDialog.IsChecked(values, "tags"),
             ForceWithLease: forceWithLease,
             AutoStash: GitWorkflowDialog.IsChecked(values, "autostash"),
             ExpectedRemoteSha: lease));
     }
+
+    /// <summary>What the pull strategy pop-up shows for each strategy, in place of its enum name.</summary>
+    private static string PullStrategyLabel(GitPullStrategy strategy) => strategy switch
+    {
+        GitPullStrategy.FastForward => "Fast-forward only",
+        GitPullStrategy.Merge => "Merge",
+        GitPullStrategy.Rebase => "Rebase",
+        _ => throw new ArgumentOutOfRangeException(nameof(strategy), strategy, null),
+    };
 
     private async void OnWorktreeTool(object? sender, RoutedEventArgs e)
     {
@@ -242,10 +254,10 @@ public sealed partial class GitRuntimePanelView
         }
 
         var keys = await viewModel.ReadSigningKeysAsync();
-        const string manualKey = "Use signing key field";
+        const string manualKey = "Enter a key below";
         var keyChoices = new[] { manualKey }.Concat(keys.Select(key => key.Fingerprint + " · " + key.Identity)).ToArray();
         var values = await ShowGitFormAsync("Repository Identity and Signing", "Save",
-            "These are effective Git settings, including inherited global values. Repository overrides apply only here. A key or signing-agent failure keeps your commit draft.",
+            "These are the Git settings in effect, including global values. Repository overrides apply only to this repository. If signing fails, your commit message is kept.",
             new("mode", "Settings source", "Repository overrides", Choices: ["Repository overrides", "Inherit global settings"]),
             new("name", "Author name", identity.Name), new("email", "Author email", identity.Email),
             GitWorkflowField.CheckBox("sign", "Sign commits", identity.SignCommits),

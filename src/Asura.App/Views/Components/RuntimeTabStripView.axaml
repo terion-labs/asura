@@ -126,7 +126,7 @@
         HorizontalScrollBarVisibility="Hidden"
         VerticalScrollBarVisibility="Disabled"
         ScrollChanged="OnTabScrollChanged"
-        AutomationProperties.Name="Open runtime tabs">
+        AutomationProperties.Name="Open tabs">
       <!-- The container theme stretches every generated presenter, or a
            side-docked tab is only as wide as its title and the close button
            trails the text instead of holding the row's edge. Stated as a

@@ -236,8 +236,8 @@
         <Button
             Classes="IconButton"
             Click="OnToggleNavigatorClick"
-            ToolTip.Tip="Toggle navigator"
-            AutomationProperties.Name="Toggle Kubernetes navigator">
+            ToolTip.Tip="Show or hide navigator"
+            AutomationProperties.Name="Show or hide Kubernetes navigator">
           <icons:SymbolIcon Symbol="Navigation" FontSize="{DynamicResource ShellIconSizeMd}" />
         </Button>
         <Button
@@ -1041,7 +1041,7 @@
                             </Grid>
                             <TextBlock
                                 Classes="Muted"
-                                Text="A free desktop loopback port is assigned. Forwards stay active until stopped or the workspace closes."
+                                Text="Asura picks a free local port. Forwards stay active until you stop them or close the workspace."
                                 TextWrapping="Wrap" />
                           </StackPanel>
 
@@ -1097,7 +1097,7 @@
                                       <TextBox Text="{Binding DatabasePassword, Mode=TwoWay}" PasswordChar="●" PlaceholderText="Session password" AutomationProperties.Name="Forwarded database session password" />
                                       <TextBlock
                                           Classes="Muted"
-                                          Text="Temporary connection. Reopen the forward after restarting Asura. Credentials are not saved."
+                                          Text="Temporary connection. Reopen the forward after restarting Asura. Credentials aren’t saved."
                                           TextWrapping="Wrap" />
                                       <Button
                                           HorizontalAlignment="Left"
@@ -1143,7 +1143,7 @@
                             </StackPanel>
                             <TextBlock
                                 Classes="Muted"
-                                Text="Opens a native terminal in this pod. Commands run in the selected container."
+                                Text="Opens a terminal in this pod. Commands run in the selected container."
                                 TextWrapping="Wrap" />
                           </StackPanel>
 

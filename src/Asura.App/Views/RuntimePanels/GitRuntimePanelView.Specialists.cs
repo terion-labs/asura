@@ -110,7 +110,7 @@ public sealed partial class GitRuntimePanelView
         if (ViewModel is not { } panel || OwnerWindow is not { } window || sender is not MenuItem { DataContext: GitSubmoduleItem item }) { return; }
         var result = await panel.OpenSubmoduleAsync(item.Path);
         if (result is GitResult<GitRepositoryHandle>.Success success) { await panel.OpenRepositoryAsync(success.Value.WorkingTreeRoot); }
-        else { await Confirmations.Problem("The submodule could not be opened", ((GitResult<GitRepositoryHandle>.Failure)result).Error.Message).ShowDialog(window); }
+        else { await Confirmations.Problem("The submodule couldn’t be opened", ((GitResult<GitRepositoryHandle>.Failure)result).Error.Message).ShowDialog(window); }
     }
 
     private async void OnGitFlowPending(object? sender, RoutedEventArgs e)
@@ -119,7 +119,7 @@ public sealed partial class GitRuntimePanelView
         var result = await panel.ReadGitFlowPendingFinishAsync();
         if (result is GitResult<GitFlowPendingFinish?>.Failure failure)
         {
-            await Confirmations.Problem("The Git Flow finish could not be read", failure.Error.Message).ShowDialog(window);
+            await Confirmations.Problem("The Git Flow finish couldn’t be read", failure.Error.Message).ShowDialog(window);
             return;
         }
         if (result is not GitResult<GitFlowPendingFinish?>.Success { Value: { } pending }) { return; }

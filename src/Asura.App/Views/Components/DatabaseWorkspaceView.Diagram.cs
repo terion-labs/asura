@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Application;
 using Avalonia.Controls;
@@ -63,7 +64,7 @@ public sealed partial class DatabaseWorkspaceView
         {
             if (ReferenceEquals(Panel, panel) && ReferenceEquals(panel.DiagramSession, session))
             {
-                panel.ReportInteractionError($"Could not copy the database diagram: {exception.Message}");
+                panel.ReportInteractionError($"Asura couldn’t copy the diagram. {FailureReason.Describe(exception)}");
             }
         }
     }
@@ -116,7 +117,7 @@ public sealed partial class DatabaseWorkspaceView
         }
         catch (Exception exception)
         {
-            panel.ReportInteractionError($"Could not save the Mermaid diagram: {exception.Message}");
+            panel.ReportInteractionError($"Asura couldn’t save the diagram. {FailureReason.Describe(exception)}");
         }
     }
 

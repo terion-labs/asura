@@ -255,7 +255,7 @@ public sealed partial class GitRuntimePanelView
                 var parentCount = items.Min(item => item.Commit.ParentShas.Count);
                 if (parentCount == 0)
                 {
-                    await Confirmations.Problem("Choose a different commit sequence", "A root commit and merge commits cannot share a mainline choice. Apply the root commit separately.").ShowDialog(window);
+                    await Confirmations.Problem("Choose a different commit sequence", "A root commit and merge commits can’t share a mainline choice. Apply the root commit separately.").ShowDialog(window);
                     return;
                 }
                 var mainline = await ShowGitFormAsync("Choose Merge Parent", "Use Parent",

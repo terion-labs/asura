@@ -142,7 +142,7 @@ public sealed partial class GitDiffView : UserControl, IFindTarget
             {
                 Heading = "Discard these selected lines?",
                 Detail = $"The selected edits in “{panel.DiffFileName ?? "this file"}” return to their last staged or committed content.",
-                Notice = "Asura cannot undo a discarded working-tree change.",
+                Notice = "You can’t undo this action.",
                 ConfirmLabel = "Discard Selection",
                 Intent = ConfirmationIntent.Destructive,
             }).ShowDialog<bool>(window))

@@ -825,12 +825,12 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
             {
                 _surface.SetInputReady(false);
                 DetachRenderer();
-                SetState(TerminalHostState.Error, exception.Message);
+                SetState(TerminalHostState.Error, "The terminal couldn’t start. Close this panel and open a new terminal.");
                 SessionInitializationFailed?.Invoke(
                     this,
                     new TerminalSessionFailureEventArgs(new SessionFailure(
                         "terminal_managed_renderer_initialization_failed",
-                        "The managed terminal renderer could not be initialized.",
+                        "The terminal couldn’t start drawing its text.",
                         Retryable: true)));
             }
 
@@ -968,7 +968,7 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
             }
 
             _pollTimer.Stop();
-            SetState(TerminalHostState.Error, exception.Message);
+            SetState(TerminalHostState.Error, "The terminal stopped responding. Close this panel and open a new terminal.");
             SecretSafeDiagnostics.WriteTrace("terminal.poll.failed", exception);
         }
         catch (Exception exception)
@@ -980,7 +980,7 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
                 return;
             }
 
-            SetState(TerminalHostState.Error, exception.Message);
+            SetState(TerminalHostState.Error, "The terminal stopped responding. Close this panel and open a new terminal.");
             SecretSafeDiagnostics.WriteTrace("terminal.poll.failed", exception);
         }
         finally
@@ -1385,11 +1385,11 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
             TerminalHostState.Starting => ("Starting", StatusTone.Neutral, detail ?? string.Empty),
             TerminalHostState.Live => ("Live", StatusTone.Success, string.Empty),
             TerminalHostState.Unavailable =>
-                ("Unavailable", StatusTone.Danger, detail ?? "Terminal unavailable."),
+                ("Unavailable", StatusTone.Danger, detail ?? "The terminal isn’t available."),
             TerminalHostState.Exited =>
                 ("Exited", StatusTone.Warning, detail ?? "The terminal session ended."),
             TerminalHostState.Error =>
-                ("Error", StatusTone.Danger, detail ?? "Unable to start the terminal."),
+                ("Error", StatusTone.Danger, detail ?? "The terminal couldn’t start."),
             TerminalHostState.Stopped => ("Stopped", StatusTone.Neutral, string.Empty),
             _ => throw new ArgumentOutOfRangeException(nameof(state), state, null),
         };

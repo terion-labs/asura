@@ -568,7 +568,7 @@
               <TextBlock Classes="Title3" Text="Open a repository" />
               <TextBlock
                   Classes="Muted"
-                  Text="Point the panel at a working tree on this connection. The target's own Git does the work."
+                  Text="Choose a repository folder on this connection. Asura uses the Git installed there."
                   TextWrapping="Wrap" />
             </StackPanel>
             <controls:LabeledField Label="Repository path">
@@ -813,7 +813,7 @@
                         Grid.Column="1"
                         Classes="IconButton Compact"
                         Click="OnAddRemoteClick"
-                        ToolTip.Tip="Add remote"
+                        ToolTip.Tip="Add remote…"
                         AutomationProperties.Name="Add remote">
                       <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                     </Button>
@@ -866,7 +866,7 @@
                         Grid.Column="1"
                         Classes="IconButton Compact"
                         Click="OnCreateTagClick"
-                        ToolTip.Tip="Create tag"
+                        ToolTip.Tip="Create tag…"
                         AutomationProperties.Name="Create tag">
                       <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                     </Button>
@@ -1550,13 +1550,13 @@
                         RowDefinitions="Auto,Auto,Auto,Auto"
                         ColumnSpacing="{DynamicResource ShellSpaceSm}"
                         RowSpacing="{DynamicResource ShellSpaceXs}">
-                      <TextBlock Classes="GitMetaLabel" Text="AUTHOR" />
+                      <TextBlock Classes="GitMetaLabel" Text="Author" />
                       <TextBlock
                           Grid.Column="1"
                           Classes="GitCommitCell"
                           Text="{Binding CommitDetailMeta}"
                           TextWrapping="Wrap" />
-                      <TextBlock Grid.Row="1" Classes="GitMetaLabel" Text="REFS" IsVisible="{Binding SelectedCommit.HasRefs}" />
+                      <TextBlock Grid.Row="1" Classes="GitMetaLabel" Text="Refs" IsVisible="{Binding SelectedCommit.HasRefs}" />
                       <ItemsControl
                           Grid.Row="1"
                           Grid.Column="1"
@@ -1583,7 +1583,7 @@
                           Classes="GitCommitCell Muted MiddleTruncated"
                           FontFamily="{DynamicResource ShellDataFontFamily}"
                           Text="{Binding SelectedCommit.Commit.Sha}" />
-                      <TextBlock Grid.Row="3" Classes="GitMetaLabel" Text="PARENTS" IsVisible="{Binding HasCommitParents}" />
+                      <TextBlock Grid.Row="3" Classes="GitMetaLabel" Text="Parents" IsVisible="{Binding HasCommitParents}" />
                       <ItemsControl
                           Grid.Row="3"
                           Grid.Column="1"

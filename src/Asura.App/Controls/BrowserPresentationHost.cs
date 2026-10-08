@@ -476,13 +476,13 @@ public sealed class BrowserPresentationHost : ContentControl
             });
             if (process is null)
             {
-                SetOperationMessage("The system browser could not be opened.");
+                SetOperationMessage("The system browser couldn’t be opened.");
             }
         }
         catch (Exception exception) when (exception is InvalidOperationException
             or System.ComponentModel.Win32Exception)
         {
-            SetOperationMessage("The system browser could not be opened.");
+            SetOperationMessage("The system browser couldn’t be opened.");
         }
     }
 
@@ -777,7 +777,7 @@ public sealed class BrowserPresentationHost : ContentControl
             if (generation == _initializationGeneration)
             {
                 UnsubscribeRenderer();
-                SetFailureState("The browser could not be initialized.");
+                SetFailureState("The browser couldn’t start.");
             }
 
             SecretSafeDiagnostics.WriteTrace(
@@ -801,7 +801,7 @@ public sealed class BrowserPresentationHost : ContentControl
             case HostResult<BrowserResult<BrowserSessionState>>.Success success:
                 SetOperationMessage(
                     success.Value.Error?.Message
-                    ?? "The browser operation could not be completed.");
+                    ?? "The browser couldn’t finish that action.");
                 break;
             case HostResult<BrowserResult<BrowserSessionState>>.Failure failure:
                 SetOperationMessage(failure.Error.Message);
@@ -891,7 +891,7 @@ public sealed class BrowserPresentationHost : ContentControl
             case BrowserProductEvent.CertificateRejected certificate:
                 ShowProductNotice(
                     "Certificate rejected",
-                    $"Asura did not trust the certificate for {certificate.Address}.");
+                    $"Asura doesn’t trust the certificate for {certificate.Address}.");
                 return;
             case BrowserProductEvent.DownloadRequested download:
                 ShowProductNotice(
@@ -925,8 +925,8 @@ public sealed class BrowserPresentationHost : ContentControl
                     : recovered.LostAddress;
                 AddressText = _recoveryAddress?.ToString() ?? string.Empty;
                 ShowProductNotice(
-                    "Page process restarted",
-                    "The page process stopped. Cookies and persisted site data remain, but unsaved form input and other volatile page state were lost.",
+                    "Page restarted",
+                    "The page stopped unexpectedly and was restarted. Cookies and saved site data remain, but unsaved form input and other page state were lost.",
                     hasAction: _recoveryAddress is not null,
                     actionLabel: "Reload Page");
                 return;
@@ -935,8 +935,8 @@ public sealed class BrowserPresentationHost : ContentControl
                     ? null
                     : failed.LastAddress;
                 ShowProductNotice(
-                    "Page process stopped",
-                    "The browser could not start a replacement process. Volatile page state was lost.");
+                    "Page stopped",
+                    "The browser couldn’t restart the page. Unsaved page state was lost.");
                 return;
             default:
                 throw new ArgumentOutOfRangeException(nameof(productEvent));

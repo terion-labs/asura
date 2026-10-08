@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Globalization;
 using System.Text;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Application;
 using Avalonia;
@@ -298,7 +299,7 @@ public sealed partial class DatabaseWorkspaceView
             CopyRowInsertMenuItem,
             panel.CanCopySelectedRowAsInsert
                 ? "Copy an executable INSERT for the active database."
-                : "INSERT copy requires a physical table result.");
+                : "Copying as INSERT needs rows from a single table.");
 
         BuildQuickFilterMenu(panel, target);
         QuickFilterMenuItem.IsVisible = panel.CanFilterTable;
@@ -733,7 +734,7 @@ public sealed partial class DatabaseWorkspaceView
             var text = await clipboard.TryGetTextAsync();
             if (text is null)
             {
-                panel.ReportInteractionError("The clipboard does not contain text.");
+                panel.ReportInteractionError("The clipboard doesn’t contain text.");
                 return;
             }
 
@@ -755,7 +756,7 @@ public sealed partial class DatabaseWorkspaceView
         }
         catch (Exception exception)
         {
-            panel.ReportInteractionError($"Could not paste from the clipboard: {exception.Message}");
+            panel.ReportInteractionError($"Asura couldn’t paste from the clipboard. {FailureReason.Describe(exception)}");
         }
     }
 
@@ -870,7 +871,7 @@ public sealed partial class DatabaseWorkspaceView
         }
         catch (Exception exception)
         {
-            panel.ReportInteractionError($"Could not add the selected file: {exception.Message}");
+            panel.ReportInteractionError($"Asura couldn’t add the selected file. {FailureReason.Describe(exception)}");
         }
     }
 
@@ -949,7 +950,7 @@ public sealed partial class DatabaseWorkspaceView
         catch (Exception exception)
         {
             panel.ReportInteractionError(
-                $"Could not format the selected database value: {exception.Message}");
+                $"Asura couldn’t copy the selected value. {FailureReason.Describe(exception)}");
         }
     }
 
@@ -975,7 +976,7 @@ public sealed partial class DatabaseWorkspaceView
         }
         catch (Exception exception)
         {
-            panel.ReportInteractionError($"Could not copy to the clipboard: {exception.Message}");
+            panel.ReportInteractionError($"Asura couldn’t copy to the clipboard. {FailureReason.Describe(exception)}");
             return false;
         }
     }
@@ -1030,7 +1031,7 @@ public sealed partial class DatabaseWorkspaceView
         }
         catch (Exception exception)
         {
-            panel.ReportInteractionError($"Could not import the CSV file: {exception.Message}");
+            panel.ReportInteractionError($"Asura couldn’t import the CSV file. {FailureReason.Describe(exception)}");
         }
     }
 
@@ -1080,7 +1081,7 @@ public sealed partial class DatabaseWorkspaceView
         }
         catch (Exception exception)
         {
-            panel.ReportInteractionError($"Could not export the database page: {exception.Message}");
+            panel.ReportInteractionError($"Asura couldn’t export the page. {FailureReason.Describe(exception)}");
         }
     }
 
@@ -1274,9 +1275,9 @@ public sealed partial class DatabaseWorkspaceView
             return;
         }
 
-        throw new InvalidOperationException(
-            "This storage provider cannot replace an export atomically. "
-            + "Choose a local filesystem destination so an interrupted export cannot damage an existing file.");
+        throw new InvalidDataException(
+            "This location can’t be replaced safely. "
+            + "Choose a folder on this computer so an interrupted export can’t damage an existing file.");
     }
 
     internal static async Task WriteLocalStorageFileAtomicallyAsync(
@@ -1285,7 +1286,7 @@ public sealed partial class DatabaseWorkspaceView
     {
         var target = Path.GetFullPath(localPath);
         var directory = Path.GetDirectoryName(target)
-            ?? throw new InvalidDataException("The export destination has no parent directory.");
+            ?? throw new InvalidDataException("The export destination has no parent folder.");
         var temporaryPath = Path.Combine(
             directory,
             $".{Path.GetFileName(target)}.asura-{Guid.NewGuid():N}.tmp");

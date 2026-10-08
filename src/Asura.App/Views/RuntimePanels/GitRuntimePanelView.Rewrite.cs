@@ -114,7 +114,7 @@ public sealed partial class GitRuntimePanelView
             return;
         }
 
-        var values = await ShowGitFormAsync("Choose Rebase Range", "Edit Rebase Plan…", "Commits after this base through HEAD will appear in the todo editor.",
+        var values = await ShowGitFormAsync("Choose Rebase Range", "Edit Rebase Plan…", "Commits after this base, through HEAD, open in the rebase plan editor.",
             new GitWorkflowField("base", "Base revision", viewModel.SelectedCommit?.Commit.Sha ?? "HEAD~1"));
         if (values is null)
         {

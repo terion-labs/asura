@@ -14,7 +14,7 @@
       Padding="{DynamicResource ShellCardPaddingCompact}"
       AutomationProperties.LiveSetting="Polite"
       AutomationProperties.Name="{CompiledBinding DefinitionDeleteUndo.Status}"
-      AutomationProperties.HelpText="Undo restores the exact saved definition that was deleted.">
+      AutomationProperties.HelpText="Undo restores exactly what was deleted.">
     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
       <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
         <TextBlock Text="{CompiledBinding DefinitionDeleteUndo.Status}" TextWrapping="Wrap" />
@@ -34,7 +34,7 @@
           Content="Undo"
           IsEnabled="{CompiledBinding DefinitionDeleteUndo.CanUndo}"
           AutomationProperties.Name="Undo delete"
-          AutomationProperties.HelpText="Restore the exact saved definition that was just deleted." />
+          AutomationProperties.HelpText="Restore exactly what was just deleted." />
       <Button
           Grid.Column="2"
           VerticalAlignment="Center"

@@ -29,8 +29,8 @@ public sealed class BrowserRuntimePanelViewModelTests
             new BrowserProductEvent.RendererRecovered(lostAddress));
 
         Assert.True(browser.IsProductNoticeVisible);
-        Assert.Equal("Page process restarted", browser.ProductHeading);
-        Assert.Contains("volatile page state were lost", browser.ProductMessage);
+        Assert.Equal("Page restarted", browser.ProductHeading);
+        Assert.Contains("unsaved form input and other page state were lost", browser.ProductMessage);
         Assert.DoesNotContain("restored", browser.ProductMessage);
         Assert.True(browser.HasProductAction);
         Assert.Equal("Reload Page", browser.ProductActionLabel);

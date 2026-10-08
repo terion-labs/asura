@@ -327,7 +327,9 @@ public sealed class ManagedTerminalSurfaceTests
         Assert.Equal(futureCommand, result.CommandId);
         Assert.True(result.ShouldHandle);
         Assert.Same(result, observed);
-        Assert.Contains(futureCommand.Value, result.Message, StringComparison.Ordinal);
+        // The message names no command ID: people never typed it and can't act on it.
+        Assert.DoesNotContain(futureCommand.Value, result.Message, StringComparison.Ordinal);
+        Assert.Equal("That command isn’t available in this version of Asura.", result.Message);
         Assert.Equal(result.Message, surface.CommandStatusMessage);
         Assert.Empty(sink.Text);
         Assert.Empty(sink.Keys);

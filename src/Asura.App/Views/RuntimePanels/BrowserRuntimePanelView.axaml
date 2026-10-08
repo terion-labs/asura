@@ -22,7 +22,7 @@
   <controls:PanelChrome
       x:Name="BrowserChrome"
       MinimumHeaderContentWidth="220"
-      CloseLabel="Close browser panel"
+      CloseLabel="Close Browser panel"
       CloseRequested="OnCloseClick"
       HasAttention="{Binding HasAttention}"
       IsActive="{Binding IsActive}"

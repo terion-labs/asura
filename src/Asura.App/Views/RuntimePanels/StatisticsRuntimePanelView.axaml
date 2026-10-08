@@ -99,7 +99,7 @@
                 <Grid RowDefinitions="Auto,Auto,Auto,108,Auto">
                   <TextBlock Classes="Eyebrow" Text="Process memory" />
                   <TextBlock Grid.Row="1" FontSize="{DynamicResource ShellFontSize24}" FontWeight="SemiBold" Text="{Binding MemoryText}" />
-                  <TextBlock Grid.Row="2" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Combined RSS from accessible processes" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="2" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Memory in use by the processes Asura can read" TextWrapping="Wrap" />
                   <controls:TimeSeriesChart
                       Grid.Row="3"
                       Margin="{controls:Inset Top=Md}"

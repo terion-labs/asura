@@ -34,7 +34,7 @@
 
     <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-        <StackPanel Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="SectionHeading" Text="Open-source components" /><TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Key runtime components are shown here; the bundled notice records the current managed inventory." TextWrapping="Wrap" /></StackPanel>
+        <StackPanel Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="SectionHeading" Text="Open-source components" /><TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="The main components Asura is built on. Acknowledgments lists every component and its license." TextWrapping="Wrap" /></StackPanel>
         <Button Grid.Column="1" Classes="SecondaryButton" Click="OnOpenThirdPartyNoticesClick" Content="Acknowledgments…" AutomationProperties.Name="Open bundled third-party notices" />
       </Grid>
       <ItemsControl ItemsSource="{Binding ProductComponents}">
@@ -59,7 +59,7 @@
       <controls:SurfaceCard Padding="0" IsVisible="{Binding HasNoProductComponents}">
         <controls:StateOverlay Margin="{controls:Inset Xl}"
             Kind="Unsupported"
-            Heading="No component inventory in this build"
+            Heading="No component list in this build"
             Body="The bundled notices remain available and record the licenses shipped with this copy." />
       </controls:SurfaceCard>
     </StackPanel>

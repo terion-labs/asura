@@ -46,7 +46,7 @@ public sealed partial class GitImageDiffView : UserControl
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NotSupportedException)
         {
-            Info.Text = "This binary content cannot be decoded as an image. For LFS pointers, download the objects from Repository → Git LFS.";
+            Info.Text = "This file can’t be shown as an image. If it’s stored in Git LFS, download it with Tools › Git LFS › Download Checkout Objects.";
         }
     }
 

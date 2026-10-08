@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Git;
 using Avalonia.Controls;
@@ -160,7 +161,7 @@ public sealed partial class GitRuntimePanelView
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            await Confirmations.Problem("The patch could not be saved", exception.Message).ShowDialog(window);
+            await Confirmations.Problem("The patch couldn’t be saved", FailureReason.Describe(exception)).ShowDialog(window);
         }
     }
 }
