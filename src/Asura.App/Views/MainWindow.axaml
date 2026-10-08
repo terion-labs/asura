@@ -554,10 +554,15 @@
         MaxWidth="520"
         Finished="OnDefinitionDeleteUndoFinished" />
 
-    <Border IsVisible="{CompiledBinding !ApplicationSecurityEditor.IsLocked}"
-            Margin="{controls:Inset Right=Lg, Bottom=Lg}"
-            HorizontalAlignment="Right" VerticalAlignment="Bottom" MaxWidth="520">
-      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
+    <!-- Error notices open from the bottom-right corner, which the agent
+         panel's composer shares; the code-behind moves them to the panel's
+         left edge while the panel reaches the bottom. -->
+    <Border x:Name="ErrorNoticesHost"
+            IsVisible="{CompiledBinding !ApplicationSecurityEditor.IsLocked}"
+            HorizontalAlignment="Right" VerticalAlignment="Bottom">
+      <Border Margin="{controls:Inset Right=Lg, Bottom=Lg}" MaxWidth="520">
+        <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
+      </Border>
     </Border>
 
     <Canvas

@@ -5,7 +5,7 @@
              xmlns:vm="using:Asura.App.ViewModels"
              xmlns:controls="using:Asura.App.Controls"
              xmlns:icons="using:FluentIcons.Avalonia"
-             IsVisible="{Binding HasErrors}">
+             IsVisible="{Binding HasErrors, FallbackValue=False}">
   <ScrollViewer MaxHeight="200" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <ItemsControl ItemsSource="{Binding Items}" Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}">
       <ItemsControl.ItemTemplate>

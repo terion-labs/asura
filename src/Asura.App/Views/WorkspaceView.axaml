@@ -773,7 +773,7 @@
         ZIndex="100"
         Width="440"
         MaxHeight="400"
-        Margin="{controls:Inset Right=Sm, Bottom=Sm}"
+        Margin="{controls:Inset Right=Lg, Bottom=Lg}"
         Padding="{controls:Inset Md}"
         HorizontalAlignment="Right"
         VerticalAlignment="Bottom"
@@ -785,7 +785,7 @@
       <Grid RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
           <StackPanel MinWidth="0" Spacing="{DynamicResource ShellSpaceXs}">
-            <TextBlock FontSize="{DynamicResource ShellFontSize11}" FontWeight="SemiBold" Text="File transfers" />
+            <TextBlock FontWeight="SemiBold" Text="File transfers" />
             <TextBlock
                 Classes="Muted"
                 FontSize="{DynamicResource ShellSecondaryFontSize}"
@@ -795,6 +795,7 @@
           <controls:StatusChip
               Grid.Column="1"
               VerticalAlignment="Center"
+              Tone="Default"
               Content="{Binding FileTransferStatusText}" />
           <Button
               x:Name="FileTransferManagerCloseButton"
@@ -808,28 +809,39 @@
         </Grid>
         <ScrollViewer Grid.Row="1" MaxHeight="310" VerticalScrollBarVisibility="Auto">
           <ItemsControl ItemsSource="{Binding FileTransfers}">
+            <!-- Rows are divided, not underlined: the last row has no rule
+                 between it and the card's own edge. -->
+            <ItemsControl.Styles>
+              <Style Selector="ContentPresenter:nth-last-child(1) > Border.TransferRow">
+                <Setter Property="BorderThickness" Value="0" />
+              </Style>
+            </ItemsControl.Styles>
             <ItemsControl.ItemTemplate>
               <DataTemplate>
                 <Border
+                    Classes="TransferRow"
                     Padding="{controls:Inset Vertical=Sm}"
                     BorderBrush="{DynamicResource ShellBorderBrush}"
                     BorderThickness="0,0,0,1">
                   <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                     <StackPanel MinWidth="0" Spacing="{DynamicResource ShellSpaceXs}">
                       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                        <TextBlock FontSize="{DynamicResource ShellFontSize10}" FontWeight="SemiBold" Text="{Binding Operation}" />
+                        <TextBlock FontWeight="SemiBold" Text="{Binding Operation}" />
                         <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Stage}" />
                       </StackPanel>
-                      <TextBlock Classes="Path" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Source}" />
+                      <TextBlock Classes="Path" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Source}" />
                       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
                         <icons:SymbolIcon Symbol="ArrowRight" FontSize="{DynamicResource ShellIconSizeXs}" Foreground="{DynamicResource ShellMutedBrush}" />
                         <TextBlock Classes="Muted Path" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Destination}" />
                       </StackPanel>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-                      <controls:StatusChip Content="{Binding State}" />
-                      <Button Classes="IconButton" Click="OnCancelFileTransferClick" IsVisible="{Binding CanCancel}" ToolTip.Tip="Cancel transfer" AutomationProperties.Name="Cancel file transfer"><icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeXs}" /></Button>
-                      <Button Classes="IconButton" Click="OnRetryFileTransferClick" IsVisible="{Binding CanRetry}" ToolTip.Tip="Retry transfer" AutomationProperties.Name="Retry file transfer"><icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellIconSizeXs}" /></Button>
+                      <controls:StatusChip
+                          Tone="{Binding State, Converter={x:Static views:WorkspaceView.TransferStateTone}}"
+                          Content="{Binding State}" />
+                      <!-- A stop glyph, not the ×: the × closes the card itself. -->
+                      <Button Classes="IconButton" Click="OnCancelFileTransferClick" IsVisible="{Binding CanCancel}" ToolTip.Tip="Cancel transfer" AutomationProperties.Name="Cancel Transfer"><icons:SymbolIcon Symbol="Stop" FontSize="{DynamicResource ShellIconSizeXs}" /></Button>
+                      <Button Classes="IconButton" Click="OnRetryFileTransferClick" IsVisible="{Binding CanRetry}" ToolTip.Tip="Retry transfer" AutomationProperties.Name="Retry Transfer"><icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellIconSizeXs}" /></Button>
                     </StackPanel>
                     <ProgressBar
                         Grid.Row="1"
