@@ -47,6 +47,15 @@ internal sealed class DialogShell : ContentControl
     public static readonly StyledProperty<object?> FooterProperty =
         AvaloniaProperty.Register<DialogShell, object?>(nameof(Footer));
 
+    /// <summary>
+    /// An auxiliary action at the footer's leading edge, apart from Cancel and
+    /// the default button: Test beside Save, Duplicate beside Save Screen. A
+    /// Mac dialog keeps such a button away from the ones that close it, so a
+    /// press meant for one never lands on the other.
+    /// </summary>
+    public static readonly StyledProperty<object?> FooterLeadingProperty =
+        AvaloniaProperty.Register<DialogShell, object?>(nameof(FooterLeading));
+
     /// <summary>The muted sentence at the footer's left edge.</summary>
     public static readonly StyledProperty<string?> FooterHintProperty =
         AvaloniaProperty.Register<DialogShell, string?>(nameof(FooterHint));
@@ -75,6 +84,8 @@ internal sealed class DialogShell : ContentControl
         FooterProperty.Changed.AddClassHandler<DialogShell>(
             (shell, _) => shell.UpdateFooterVisibility());
         FooterHintProperty.Changed.AddClassHandler<DialogShell>(
+            (shell, _) => shell.UpdateFooterVisibility());
+        FooterLeadingProperty.Changed.AddClassHandler<DialogShell>(
             (shell, _) => shell.UpdateFooterVisibility());
         TitleProperty.Changed.AddClassHandler<DialogShell>(
             (shell, _) => shell.NameWindow());
@@ -108,6 +119,12 @@ internal sealed class DialogShell : ContentControl
     {
         get => GetValue(FooterProperty);
         set => SetValue(FooterProperty, value);
+    }
+
+    public object? FooterLeading
+    {
+        get => GetValue(FooterLeadingProperty);
+        set => SetValue(FooterLeadingProperty, value);
     }
 
     public string? FooterHint
@@ -153,5 +170,5 @@ internal sealed class DialogShell : ContentControl
         PseudoClasses.Set(":editor", Chrome == DialogChrome.Editor);
 
     private void UpdateFooterVisibility() =>
-        IsFooterVisible = Footer is not null || FooterHint is not null;
+        IsFooterVisible = Footer is not null || FooterHint is not null || FooterLeading is not null;
 }

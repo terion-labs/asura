@@ -125,7 +125,7 @@ public sealed partial class ConnectionEditorDialog : DialogWindow
         if (ViewModel.Terminal.UsesSystemFolderPicker
             && StorageProvider is { CanPickFolder: true } storage)
         {
-            if (await PickLocalFolderAsync(storage, ViewModel.Terminal.RepositoryPath) is { } chosen)
+            if (await PickLocalFolderAsync(storage, ViewModel.Terminal.RepositoryPath, "Choose Repository") is { } chosen)
             {
                 ViewModel.Terminal.RepositoryPath = chosen;
             }
@@ -160,7 +160,7 @@ public sealed partial class ConnectionEditorDialog : DialogWindow
     /// One folder from the system's Open panel, starting at
     /// <paramref name="startPath"/> when it names a folder that exists.
     /// </summary>
-    private static async Task<string?> PickLocalFolderAsync(IStorageProvider storage, string? startPath)
+    private static async Task<string?> PickLocalFolderAsync(IStorageProvider storage, string? startPath, string title)
     {
         IStorageFolder? start = null;
         if (!string.IsNullOrWhiteSpace(startPath) && Directory.Exists(startPath))
@@ -170,11 +170,31 @@ public sealed partial class ConnectionEditorDialog : DialogWindow
 
         var picked = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "Choose Repository",
+            Title = title,
             AllowMultiple = false,
             SuggestedStartLocation = start,
         });
         return picked.Count > 0 ? picked[0].TryGetLocalPath() : null;
+    }
+
+    /// <summary>
+    /// A Files connection to a folder on this computer: the system's Open
+    /// panel chooses it, starting at the folder already entered.
+    /// </summary>
+    private async void OnChooseLocalFolderClick(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (ViewModel.Files is not { } files
+            || StorageProvider is not { CanPickFolder: true } storage)
+        {
+            return;
+        }
+
+        if (await PickLocalFolderAsync(storage, files.LocalRoot, "Choose Folder") is { } chosen)
+        {
+            files.LocalRoot = chosen;
+        }
     }
 
     private void OnRepositoryChosen(object? sender, string path)

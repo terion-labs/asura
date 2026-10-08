@@ -47,6 +47,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     private string _localShell = string.Empty;
     private string _host = string.Empty;
     private int _port = 22;
+    private string? _unparsedPort;
     private string _username = string.Empty;
     private string _container = string.Empty;
     private string _dockerContext = string.Empty;
@@ -67,7 +68,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     private SavedSshSourceOption _selectedSavedSshSource = SavedSshSourceOption.Manual;
     private bool _isTesting;
     private string _testStatus = "Not tested";
-    private string _testDetail = "Save is allowed without a test; opening validates the profile again.";
+    private string _testDetail = "You can save without testing.";
     private SshHostKeyReview? _hostKeyReview;
 
     public ConnectionEditorViewModel(
@@ -187,6 +188,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(ShowsSshEndpointFields));
                 OnPropertyChanged(nameof(SavedSshSourceSummary));
+                OnPropertyChanged(nameof(SavedSshSourceHint));
             }
         }
     }
@@ -203,6 +205,15 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     /// </summary>
     public bool ShowsSshEndpointFields =>
         !ShowsSavedSshSources || SelectedSavedSshSource.Profile is null;
+
+    /// <summary>
+    /// What the choice above means, said for the choice that is made: a saved
+    /// connection speaks for the endpoint, and "Enter manually" asks for it in
+    /// the fields below.
+    /// </summary>
+    public string SavedSshSourceHint => SelectedSavedSshSource.Profile is null
+        ? "Enter the host and credentials below."
+        : "Uses this connection’s host and credentials. Changes to it apply here too.";
 
     /// <summary>
     /// The referenced connection's current endpoint — the options carry the
@@ -283,7 +294,34 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     public int Port
     {
         get => _port;
-        set => SetProperty(ref _port, value);
+        set
+        {
+            if (SetProperty(ref _port, value))
+            {
+                _unparsedPort = null;
+                OnPropertyChanged(nameof(PortText));
+            }
+        }
+    }
+
+    /// <summary>The port field's text: the port, or what was typed when it isn't one.</summary>
+    public string PortText
+    {
+        get => _unparsedPort ?? PortNumber.Format(Port);
+        set
+        {
+            if (PortNumber.TryParse(value, out var port))
+            {
+                _unparsedPort = null;
+                Port = port;
+            }
+            else
+            {
+                _unparsedPort = value ?? string.Empty;
+            }
+
+            OnPropertyChanged();
+        }
     }
 
     public string Username
@@ -577,8 +615,8 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         ?? "No previously trusted key";
 
     public string TrustHostKeyLabel => HostKeyReview?.Disposition == SshHostKeyDisposition.Changed
-        ? "Replace trusted key…"
-        : "Trust host key…";
+        ? "Replace Trusted Key…"
+        : "Trust Host Key…";
 
     public bool CanTrustHostKey => !IsTesting
         && HostKeyReview?.Disposition is SshHostKeyDisposition.Unknown or SshHostKeyDisposition.Changed;
@@ -720,7 +758,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
 
             HostKeyReview = ((ConnectionRuntimeResult<SshHostKeyReview>.Success)result).Value;
             TestStatus = "Host key trusted";
-            TestDetail = "The trust decision was stored. Run diagnostics again to verify the endpoint.";
+            TestDetail = "The host key is trusted. Test again to check the connection.";
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -747,7 +785,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         var result = await _securityRuntime!.DiagnoseAsync(profile, progress, cancellationToken);
         if (result is ConnectionRuntimeResult<ConnectionDiagnosticsReport>.Failure failure)
         {
-            TestStatus = "Diagnostics failed";
+            TestStatus = "Test failed";
             TestDetail = $"{failure.Error.Message} {RecoveryText(failure.Error.RecoveryAction)}".Trim();
             ReportError(TestDetail, TestStatus);
             return;
@@ -771,7 +809,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
                 ConnectionRuntimeErrorCode.PermissionDenied => "Permission denied",
                 ConnectionRuntimeErrorCode.Timeout => "Connection timed out",
                 ConnectionRuntimeErrorCode.Offline => "Connection unavailable",
-                _ => "Diagnostics found a problem",
+                _ => "The test found a problem",
             };
             TestDetail = $"{diagnosticFailure.Message} {RecoveryText(diagnosticFailure.RecoveryAction)}".Trim();
             return;
@@ -779,7 +817,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
 
         TestStatus = report.Verification == ConnectionTestVerification.EndpointAuthenticated
             ? "Connection succeeded"
-            : "Diagnostics passed";
+            : "Test passed";
         TestDetail = report.Verification switch
         {
             ConnectionTestVerification.EndpointAuthenticated => "The SSH endpoint accepted authentication.",
@@ -787,7 +825,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
             ConnectionTestVerification.DistributionReachable => "The WSL distribution is reachable.",
             ConnectionTestVerification.RuntimeAvailable => "The required local runtime is available.",
             ConnectionTestVerification.ConfigurationValidated => "The connection configuration is valid.",
-            null => "All completed diagnostics passed.",
+            null => "All completed checks passed.",
             _ => throw new ArgumentOutOfRangeException(nameof(report.Verification)),
         };
         await ProbeGitRepositoryAsync(profile, cancellationToken);
@@ -844,7 +882,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         ConnectionKind.Local => new ConnectionEndpoint.Local(Optional(LocalShell)),
         ConnectionKind.Ssh => new ConnectionEndpoint.Ssh(
             Required(Host, "SSH host"),
-            Port,
+            ValidPort(),
             Optional(Username)),
         ConnectionKind.Docker => new ConnectionEndpoint.Docker(
             Required(Container, "Docker container"),
@@ -1018,6 +1056,10 @@ public sealed class ConnectionEditorViewModel : ObservableObject
 
     private static string? Optional(string value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private int ValidPort() => _unparsedPort is null
+        ? Port
+        : throw InvalidField.Exception(nameof(Port), PortNumber.Requirement);
 
     private static string ProgressTitle(ConnectionProgressStage stage) => stage switch
     {

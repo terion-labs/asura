@@ -1708,9 +1708,20 @@
                 IsVisible="{TemplateBinding IsFooterVisible}">
               <Grid
                   Margin="{controls:Inset Horizontal=Lg, Vertical=Md}"
-                  ColumnDefinitions="*,Auto"
-                  ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                  ColumnDefinitions="Auto,*,Auto">
+                <!-- An auxiliary action (Test, Duplicate) on the leading edge,
+                     away from Cancel and the default button. The gaps are
+                     margins rather than column spacing, so a footer without
+                     one keeps its hint flush with the edge. -->
+                <ContentPresenter
+                    Name="PART_FooterLeading"
+                    Margin="{controls:Inset Right=Md}"
+                    VerticalAlignment="Center"
+                    Content="{TemplateBinding FooterLeading}"
+                    IsVisible="{TemplateBinding FooterLeading, Converter={x:Static ObjectConverters.IsNotNull}}" />
                 <TextBlock
+                    Grid.Column="1"
+                    Margin="{controls:Inset Right=Sm}"
                     VerticalAlignment="Center"
                     Classes="Muted"
                     FontSize="{DynamicResource ShellSecondaryFontSize}"
@@ -1719,7 +1730,7 @@
                     TextWrapping="Wrap"
                     IsVisible="{TemplateBinding FooterHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                 <ContentPresenter
-                    Grid.Column="1"
+                    Grid.Column="2"
                     VerticalAlignment="Center"
                     Content="{TemplateBinding Footer}" />
               </Grid>

@@ -21,18 +21,18 @@
       <!-- A failure that names a field is shown under that field. What is
            left — a failure about the whole connection — is read here, at the
            top, where the dialog scrolls to it, not below every card. -->
-      <StackPanel x:Name="FormErrors" Spacing="{DynamicResource ShellSpaceSm}">
-        <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
-        <components:ErrorNoticesView DataContext="{Binding Terminal.ErrorNotices}" />
-        <components:ErrorNoticesView DataContext="{Binding Files.ErrorNotices}" />
-        <components:ErrorNoticesView DataContext="{Binding Database.ErrorNotices}" />
+      <StackPanel x:Name="FormErrors" Spacing="{DynamicResource ShellSpaceSm}" IsVisible="{Binding HasFormErrors}">
+        <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" IsVisible="{Binding HasErrors, FallbackValue=False}" />
+        <components:ErrorNoticesView DataContext="{Binding Terminal.ErrorNotices}" IsVisible="{Binding HasErrors, FallbackValue=False}" />
+        <components:ErrorNoticesView DataContext="{Binding Files.ErrorNotices}" IsVisible="{Binding HasErrors, FallbackValue=False}" />
+        <components:ErrorNoticesView DataContext="{Binding Database.ErrorNotices}" IsVisible="{Binding HasErrors, FallbackValue=False}" />
       </StackPanel>
 
       <!-- Every family starts the same way: a name and a type. -->
       <controls:SurfaceCard>
         <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
           <controls:LabeledField Label="Name" controls:FieldValidation.For="Name">
-            <TextBox Text="{Binding Name}" PlaceholderText="Production database" AutomationProperties.Name="Connection name" />
+            <TextBox Text="{Binding Name}" PlaceholderText="{Binding NamePlaceholder}" AutomationProperties.Name="Connection name" />
           </controls:LabeledField>
           <controls:LabeledField Label="Type">
             <ComboBox
@@ -65,7 +65,7 @@
                    later edits to the saved connection apply here too. -->
               <controls:LabeledField
                   Label="From saved connection"
-                  Hint="Uses the saved connection for host and credentials; changes to it apply here."
+                  Hint="{Binding SavedSshSourceHint}"
                   IsVisible="{Binding ShowsSavedSshSources}">
                 <ComboBox
                     HorizontalAlignment="Stretch"
@@ -92,7 +92,7 @@
               <StackPanel Spacing="{DynamicResource ShellSpaceMd}" IsVisible="{Binding ShowsSshEndpointFields}">
                 <Grid ColumnDefinitions="*,110,180" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                   <controls:LabeledField Label="Host" controls:FieldValidation.For="Host"><TextBox Text="{Binding Host}" PlaceholderText="server.example.com" /></controls:LabeledField>
-                  <controls:LabeledField Grid.Column="1" Label="Port"><NumericUpDown Minimum="1" Maximum="65535" Value="{Binding Port}" /></controls:LabeledField>
+                  <controls:LabeledField Grid.Column="1" Label="Port" controls:FieldValidation.For="Port"><TextBox Text="{Binding PortText}" AutomationProperties.Name="Port" /></controls:LabeledField>
                   <controls:LabeledField Grid.Column="2" Label="Username"><TextBox Text="{Binding Username}" PlaceholderText="Current local user" /></controls:LabeledField>
                 </Grid>
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
@@ -113,7 +113,7 @@
                         </DataTemplate>
                       </ComboBox.ItemTemplate>
                     </ComboBox>
-                    <Button Grid.Column="1" Classes="SecondaryButton" Click="OnAddCredentialClick" Content="Add New…" AutomationProperties.Name="Add connection credential" />
+                    <Button Grid.Column="1" Classes="SecondaryButton" Click="OnAddCredentialClick" Content="New Credential…" AutomationProperties.Name="New connection credential" />
                   </Grid>
                 </controls:LabeledField>
                 <controls:LabeledField Label="Passphrase (optional)" IsVisible="{Binding UsesPassphraseReference}">
@@ -126,7 +126,7 @@
                         </DataTemplate>
                       </ComboBox.ItemTemplate>
                     </ComboBox>
-                    <Button Grid.Column="1" Classes="SecondaryButton" Click="OnAddPassphraseClick" Content="Add New…" AutomationProperties.Name="Add private key passphrase" />
+                    <Button Grid.Column="1" Classes="SecondaryButton" Click="OnAddPassphraseClick" Content="New Passphrase…" AutomationProperties.Name="New private key passphrase" />
                   </Grid>
                 </controls:LabeledField>
                 <components:ConnectionCredentialDraftView
@@ -171,7 +171,7 @@
                     VerticalAlignment="Stretch"
                     Classes="SecondaryButton"
                     Click="OnBrowseRepositoryClick"
-                    Content="Browse…"
+                    Content="Choose…"
                     IsVisible="{Binding CanBrowseRepository}" />
               </Grid>
             </controls:LabeledField>
@@ -223,14 +223,13 @@
             </StackPanel>
           </controls:SurfaceCard>
 
-          <controls:Callout Tone="Notice" Title="{Binding TestStatus}" Text="{Binding TestDetail}" />
 
           <ItemsControl ItemsSource="{Binding Diagnostics}">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
                 <Grid Margin="{controls:Inset Xs}" ColumnDefinitions="9,110,80,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                   <Ellipse Width="7" Height="7" controls:StatusToneBrush.Fill="{Binding StatusTone}" />
-                  <TextBlock Grid.Column="1" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Stage}" />
+                  <TextBlock Grid.Column="1" Text="{Binding Stage}" />
                   <TextBlock Grid.Column="2" Classes="Eyebrow" Text="{Binding Status}" />
                   <TextBlock Grid.Column="3" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Message}" TextWrapping="Wrap" />
                 </Grid>
@@ -254,9 +253,9 @@
               </Grid>
               <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="{DynamicResource ShellSpaceXs}">
                 <TextBlock Classes="Eyebrow" Text="Algorithm" />
-                <TextBlock Grid.Column="1" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding HostKeyReview.Presented.Algorithm}" />
+                <TextBlock Grid.Column="1" Text="{Binding HostKeyReview.Presented.Algorithm}" />
                 <TextBlock Grid.Row="1" Classes="Eyebrow" Text="Presented" />
-                <TextBlock Grid.Row="1" Grid.Column="1" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding HostKeyReview.Presented.Sha256Fingerprint}" TextWrapping="Wrap" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding HostKeyReview.Presented.Sha256Fingerprint}" TextWrapping="Wrap" />
                 <TextBlock Grid.Row="2" Classes="Eyebrow" Text="Previous" />
                 <TextBlock Grid.Row="2" Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding TrustedHostKeyFingerprint}" TextWrapping="Wrap" />
               </Grid>
@@ -268,17 +267,30 @@
       <!-- Files family -->
       <StackPanel IsVisible="{Binding IsFiles}" Spacing="{DynamicResource ShellSpaceMd}">
         <StackPanel DataContext="{Binding Files}" Spacing="{DynamicResource ShellSpaceMd}">
+          <!-- One label for the folder, and the system's Open panel to choose
+               it: this is a folder on this Mac, so the panel sees it. -->
           <controls:SurfaceCard IsVisible="{Binding IsLocal}">
-            <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-              <TextBlock Classes="SectionHeading" Text="Local folder" />
-              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Asura stays inside this folder and doesn't follow links that lead outside it." TextWrapping="Wrap" />
-              <controls:LabeledField Label="Folder" controls:FieldValidation.For="LocalRoot"><TextBox Text="{Binding LocalRoot}" PlaceholderText="Absolute folder path" AutomationProperties.Name="Local folder" /></controls:LabeledField>
-            </StackPanel>
+            <controls:LabeledField
+                Label="Folder"
+                Hint="Asura stays inside this folder and doesn't follow links that lead outside it."
+                controls:FieldValidation.For="LocalRoot">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                <TextBox Text="{Binding LocalRoot}" PlaceholderText="/Users/you/Projects" AutomationProperties.Name="Folder" />
+                <Button
+                    x:Name="ChooseLocalFolderButton"
+                    Grid.Column="1"
+                    VerticalAlignment="Stretch"
+                    Classes="SecondaryButton"
+                    Click="OnChooseLocalFolderClick"
+                    Content="Choose…"
+                    AutomationProperties.Name="Choose a folder" />
+              </Grid>
+            </controls:LabeledField>
           </controls:SurfaceCard>
 
           <controls:SurfaceCard IsVisible="{Binding IsS3}">
             <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-              <TextBlock Classes="SectionHeading" Text="S3 / S3-compatible" />
+              <TextBlock Classes="Headline" Text="S3 / S3-compatible" />
               <Grid ColumnDefinitions="2*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                 <controls:LabeledField Label="Bucket" controls:FieldValidation.For="BucketName"><TextBox Text="{Binding BucketName}" /></controls:LabeledField>
                 <controls:LabeledField Grid.Column="1" Label="Region"><TextBox Text="{Binding Region}" PlaceholderText="us-east-1" /></controls:LabeledField>
@@ -291,7 +303,7 @@
 
           <controls:SurfaceCard IsVisible="{Binding IsSftp}">
             <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-              <TextBlock Classes="SectionHeading" Text="SFTP" />
+              <TextBlock Classes="Headline" Text="SFTP" />
               <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="SFTP uses the same SSH connection and credentials as the terminal." TextWrapping="Wrap" />
               <controls:LabeledField Label="SSH connection">
                 <ComboBox ItemsSource="{Binding SshConnections}" SelectedItem="{Binding SelectedSshConnection}"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
@@ -303,11 +315,11 @@
                   <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding HostKeyReviewStatus}" TextWrapping="Wrap" />
                   <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                     <TextBlock Classes="Eyebrow" Text="Presented" />
-                    <TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding PresentedHostKey}" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding PresentedHostKey}" TextWrapping="Wrap" />
                   </StackPanel>
                   <StackPanel Spacing="{DynamicResource ShellSpaceXs}" IsVisible="{Binding HasTrustedHostKey}">
                     <TextBlock Classes="Eyebrow" Text="Currently trusted" />
-                    <TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding TrustedHostKey}" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding TrustedHostKey}" TextWrapping="Wrap" />
                   </StackPanel>
                   <Button
                       HorizontalAlignment="Left"
@@ -322,10 +334,10 @@
 
           <controls:SurfaceCard IsVisible="{Binding IsFtp}">
             <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-              <TextBlock Classes="SectionHeading" Text="FTP / FTPS" />
+              <TextBlock Classes="Headline" Text="FTP / FTPS" />
               <Grid ColumnDefinitions="2*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                 <controls:LabeledField Label="Host" controls:FieldValidation.For="Host"><TextBox Text="{Binding Host}" /></controls:LabeledField>
-                <controls:LabeledField Grid.Column="1" Label="Port"><NumericUpDown Minimum="1" Maximum="65535" Value="{Binding Port}" /></controls:LabeledField>
+                <controls:LabeledField Grid.Column="1" Label="Port" controls:FieldValidation.For="Port"><TextBox Text="{Binding PortText}" AutomationProperties.Name="Port" /></controls:LabeledField>
               </Grid>
               <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                 <controls:LabeledField Label="TLS mode"><ComboBox ItemsSource="{Binding FtpSecurityModes}" SelectedItem="{Binding FtpSecurity}" /></controls:LabeledField>
@@ -341,7 +353,7 @@
 
           <controls:SurfaceCard IsVisible="{Binding IsSmb}">
             <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-              <TextBlock Classes="SectionHeading" Text="SMB 2/3" />
+              <TextBlock Classes="Headline" Text="SMB 2/3" />
               <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                 <controls:LabeledField Label="Server" controls:FieldValidation.For="Server"><TextBox Text="{Binding Server}" /></controls:LabeledField>
                 <controls:LabeledField Grid.Column="1" Label="Share" controls:FieldValidation.For="Share"><TextBox Text="{Binding Share}" /></controls:LabeledField>
@@ -359,7 +371,7 @@
 
           <controls:SurfaceCard IsVisible="{Binding IsWebDav}">
             <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-              <TextBlock Classes="SectionHeading" Text="WebDAV" />
+              <TextBlock Classes="Headline" Text="WebDAV" />
               <controls:LabeledField Label="Base URI" controls:FieldValidation.For="BaseUri"><TextBox Text="{Binding BaseUri}" /></controls:LabeledField>
               <controls:LabeledField Label="Username"><TextBox Text="{Binding Username}" PlaceholderText="Blank when authentication is not required" /></controls:LabeledField>
               <CheckBox IsChecked="{Binding AllowInsecureTransport}" Content="Allow unencrypted HTTP" />
@@ -368,10 +380,10 @@
 
           <controls:SurfaceCard IsVisible="{Binding UsesProviderCredential}">
             <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-              <TextBlock Classes="SectionHeading" Text="Saved credential" />
+              <TextBlock Classes="Headline" Text="Saved credential" />
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                 <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding SecretOptions}" SelectedItem="{Binding SelectedCredential}" AutomationProperties.Name="Credential"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
-                <Button Grid.Column="1" Classes="SecondaryButton" Click="OnAddFileCredentialClick" Content="Add New…" AutomationProperties.Name="Add file connection credential" />
+                <Button Grid.Column="1" Classes="SecondaryButton" Click="OnAddFileCredentialClick" Content="New Credential…" AutomationProperties.Name="New file connection credential" />
               </Grid>
               <components:ConnectionCredentialDraftView
                   x:Name="FileCredentialDraft"
@@ -382,7 +394,6 @@
             </StackPanel>
           </controls:SurfaceCard>
 
-          <controls:Callout Tone="Notice" Title="{Binding TestStatus}" Text="{Binding TestDetail}" />
         </StackPanel>
       </StackPanel>
 
@@ -448,8 +459,8 @@
                   <controls:LabeledField Grid.Column="1" Label="Port" controls:FieldValidation.For="Port"><TextBox Text="{Binding Port}" PlaceholderText="{Binding PortPlaceholder}" AutomationProperties.Name="Database port" /></controls:LabeledField>
                 </Grid>
 
-                <controls:LabeledField Label="User" IsVisible="{Binding IsServerBased}">
-                  <TextBox Text="{Binding Username}" PlaceholderText="User name" AutomationProperties.Name="Database user" />
+                <controls:LabeledField Label="Username" IsVisible="{Binding IsServerBased}">
+                  <TextBox Text="{Binding Username}" AutomationProperties.Name="Database username" />
                 </controls:LabeledField>
 
                 <controls:LabeledField Label="Password" IsVisible="{Binding IsServerBased}">
@@ -498,7 +509,7 @@
                 <controls:LabeledField Grid.Column="1" Label="Port" controls:FieldValidation.For="TunnelPort"><TextBox Text="{Binding TunnelPort}" PlaceholderText="22" AutomationProperties.Name="Tunnel port" /></controls:LabeledField>
               </Grid>
 
-              <controls:LabeledField Label="User" IsVisible="{Binding IsInlineTunnel}">
+              <controls:LabeledField Label="Username" IsVisible="{Binding IsInlineTunnel}">
                 <TextBox Text="{Binding TunnelUsername}" PlaceholderText="Current local user" AutomationProperties.Name="Tunnel username" />
               </controls:LabeledField>
 
@@ -535,11 +546,40 @@
               Text="A tunnel password is stored for this connection. Leaving the field empty keeps it; storing a new one replaces it."
               TextWrapping="Wrap" />
 
-          <controls:Callout Tone="Notice" Title="{Binding TestStatus}" Text="{Binding TestDetail}" />
+          <!-- The status says what went wrong in plain words; what the
+               driver itself said is here for whoever needs to look closer. -->
+          <Expander
+              x:Name="DatabaseTestDetails"
+              Header="Details"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Stretch"
+              IsVisible="{Binding HasTestFailureDetails}"
+              AutomationProperties.Name="Test failure details">
+            <SelectableTextBlock
+                Classes="Muted"
+                FontFamily="{DynamicResource ShellDataFontFamily}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
+                Text="{Binding TestFailureDetails}"
+                TextWrapping="Wrap" />
+          </Expander>
+
         </StackPanel>
       </StackPanel>
 
     </StackPanel>
+
+    <!-- Test is an auxiliary action: on the leading edge, the same width as
+         Cancel and Save, and away from them. -->
+    <controls:DialogShell.FooterLeading>
+      <Button
+          x:Name="TestButton"
+          MinWidth="88"
+          Classes="SecondaryButton"
+          Click="OnTestClick"
+          Content="{Binding TestLabel}"
+          IsEnabled="{Binding !IsTesting}"
+          IsVisible="{Binding CanTest}" />
+    </controls:DialogShell.FooterLeading>
 
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
@@ -551,13 +591,6 @@
               IsVisible="{Binding SupportsUnsavedConnect}"
               AutomationProperties.Name="Save this connection for later" />
         </Border>
-        <Button
-            MinWidth="120"
-            Classes="SecondaryButton"
-            Click="OnTestClick"
-            Content="{Binding TestLabel}"
-            IsEnabled="{Binding !IsTesting}"
-            IsVisible="{Binding CanTest}" />
         <Button MinWidth="88" Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
         <Button x:Name="SubmitButton" MinWidth="88" Classes="PrimaryButton" Click="OnSubmitClick" Content="Save" IsDefault="True" />
       </StackPanel>

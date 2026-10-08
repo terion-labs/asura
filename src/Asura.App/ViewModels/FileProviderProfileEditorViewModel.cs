@@ -48,6 +48,7 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
     private string _remoteRoot = "/";
     private string _host = string.Empty;
     private int _port = 21;
+    private string? _unparsedPort;
     private string _username = string.Empty;
     private FileProviderSecretOption? _selectedCredential;
     private FtpSecurityMode _ftpSecurity = FtpSecurityMode.ExplicitTls;
@@ -60,7 +61,7 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
     private string _baseUri = "https://";
     private bool _isTesting;
     private string _testStatus = "Not tested";
-    private string _testDetail = "Save is allowed without a test; opening validates the provider again.";
+    private string _testDetail = "You can save without testing.";
     private SshHostKeyReview? _hostKeyReview;
     private string _hostKeyReviewStatus = string.Empty;
     private bool _isApplyingHostKeyTrust;
@@ -188,7 +189,38 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
 
     public string Host { get => _host; set => SetProperty(ref _host, value); }
 
-    public int Port { get => _port; set => SetProperty(ref _port, value); }
+    public int Port
+    {
+        get => _port;
+        set
+        {
+            if (SetProperty(ref _port, value))
+            {
+                _unparsedPort = null;
+                OnPropertyChanged(nameof(PortText));
+            }
+        }
+    }
+
+    /// <summary>The port field's text: the port, or what was typed when it isn't one.</summary>
+    public string PortText
+    {
+        get => _unparsedPort ?? PortNumber.Format(Port);
+        set
+        {
+            if (PortNumber.TryParse(value, out var port))
+            {
+                _unparsedPort = null;
+                Port = port;
+            }
+            else
+            {
+                _unparsedPort = value ?? string.Empty;
+            }
+
+            OnPropertyChanged();
+        }
+    }
 
     public string Username { get => _username; set => SetProperty(ref _username, value); }
 
@@ -296,8 +328,8 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
     public string HostKeyReviewStatus => _hostKeyReviewStatus;
 
     public string HostKeyActionText => _hostKeyReview?.Disposition == SshHostKeyDisposition.Changed
-        ? "Replace trusted key"
-        : "Trust this key";
+        ? "Replace Trusted Key…"
+        : "Trust This Key…";
 
     public bool CanApplyHostKeyTrust => HasHostKeyReview && !IsTesting && !_isApplyingHostKeyTrust;
 
@@ -506,7 +538,7 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
             Required(RemoteRoot, "Remote root")),
         FileProviderKind.Ftp => new FileProviderConfiguration.Ftp(
             Required(Host, "FTP host"),
-            Port,
+            ValidPort(),
             Optional(Username),
             SelectedCredential?.Reference,
             FtpSecurity,
@@ -663,6 +695,10 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
 
     private static string? Optional(string value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private int ValidPort() => _unparsedPort is null
+        ? Port
+        : throw InvalidField.Exception(nameof(Port), PortNumber.Requirement);
 
     private static string? OptionalExact(string value) =>
         string.IsNullOrEmpty(value) ? null : value;
