@@ -457,7 +457,7 @@ public static class BuiltInAgentTools
             AgentActionRisk.Observation),
         Tool(
             FilesCreateDirectory,
-            "Create directory",
+            "Create folder",
             AgentCapability.EditFiles,
             AgentActionRisk.Mutation),
         Tool(

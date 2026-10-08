@@ -4,6 +4,7 @@ using System.Numerics;
 using System.Text;
 using System.Text.Json;
 using Asura.Application;
+using Asura.Core;
 
 namespace Asura.App.ViewModels;
 
@@ -145,7 +146,7 @@ public sealed class DatabaseResultCellViewModel : ObservableObject
         // read-only cell-size cap. Full streamed export remains available.
         if (content.Length > int.MaxValue || content.Length > Math.Max(0, availableMemoryBytes - reserve) / 6)
         {
-            throw new IOException("There is not enough memory to open this complete value in the text editor. Export the full value to a file, or free memory and retry.");
+            throw new IOException("There isn't enough memory to open this complete value in the text editor. Export the full value to a file, or free memory and retry.");
         }
 
         await using var source = content.OpenRead();
@@ -290,7 +291,7 @@ public sealed class DatabaseResultCellViewModel : ObservableObject
             _editText = value is null ? string.Empty : FormatValue(value.Value);
             _displayText = BoundDisplay(value is null ? "NULL" : _editText);
             ValidationError = value is null && Column.IsNullable == false
-                ? $"{Column.Name} does not allow NULL."
+                ? $"{Column.Name} doesn't allow NULL."
                 : null;
             RaiseValueStateChanged();
         }
@@ -369,7 +370,7 @@ public sealed class DatabaseResultCellViewModel : ObservableObject
         _currentValue = null;
         _booleanValue = null;
         ValidationError = Column.IsNullable == false
-            ? $"{Column.Name} does not allow NULL."
+            ? $"{Column.Name} doesn't allow NULL."
             : null;
         RaiseValueStateChanged();
     }
@@ -487,7 +488,7 @@ public sealed class DatabaseResultCellViewModel : ObservableObject
         if (_state == DatabaseEditValueState.Null)
         {
             ValidationError = Column.IsNullable == false
-                ? $"{Column.Name} does not allow NULL."
+                ? $"{Column.Name} doesn't allow NULL."
                 : null;
             return;
         }
@@ -514,7 +515,7 @@ public sealed class DatabaseResultCellViewModel : ObservableObject
 
         if (!IsEditable && _currentValue is null)
         {
-            ValidationError = $"{Column.Name} requires a value this viewer cannot edit safely.";
+            ValidationError = $"{Column.Name} needs a value that can't be edited safely here. Edit it with SQL instead.";
             return;
         }
 
@@ -614,7 +615,7 @@ public sealed class DatabaseResultCellViewModel : ObservableObject
         };
         error = success
             ? null
-            : $"{DescribeInvalidValue(text)} is not a valid {kind.ToString().ToLowerInvariant()} value.";
+            : $"“{DescribeInvalidValue(text)}” isn't {ExpectedValue(kind)}.";
         return success;
 
         object? Failed()
@@ -623,6 +624,23 @@ public sealed class DatabaseResultCellViewModel : ObservableObject
             return null;
         }
     }
+
+    // Names what the column expects, in words rather than the enum name.
+    private static string ExpectedValue(DatabaseValueKind kind) => kind switch
+    {
+        DatabaseValueKind.Json => "valid JSON",
+        DatabaseValueKind.Boolean => "true or false",
+        DatabaseValueKind.SignedInteger => "a whole number",
+        DatabaseValueKind.UnsignedInteger => "a whole number of 0 or more",
+        DatabaseValueKind.Decimal or DatabaseValueKind.FloatingPoint => "a number",
+        DatabaseValueKind.Date => "a date, such as 2026-10-08",
+        DatabaseValueKind.Time => "a time, such as 14:30:00",
+        DatabaseValueKind.Timestamp => "a date and time, such as 2026-10-08 14:30:00",
+        DatabaseValueKind.TimestampWithZone => "a date and time with a time zone, such as 2026-10-08 14:30:00+02:00",
+        DatabaseValueKind.Duration => "a duration, such as 01:30:00",
+        DatabaseValueKind.Guid => "a UUID",
+        _ => "a value this column accepts",
+    };
 
     private static string DescribeInvalidValue(string text)
     {
@@ -751,7 +769,7 @@ public sealed class DatabaseResultCellViewModel : ObservableObject
         var text = $"0x{Convert.ToHexString(shown)}";
         return bytes.Length <= BinaryPreviewByteCount
             ? text
-            : $"{text}… ({bytes.Length} bytes)";
+            : $"{text}… ({CountText.Of(bytes.Length, "byte", "bytes")})";
     }
 
     private static string StateText(DatabaseEditValueState state) => state switch

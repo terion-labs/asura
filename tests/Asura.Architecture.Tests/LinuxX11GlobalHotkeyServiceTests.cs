@@ -83,7 +83,10 @@ public sealed class LinuxX11GlobalHotkeyServiceTests
         Assert.Equal(expectedStableCode, failure.Error.StableCode);
         if (nativeError == 3)
         {
-            Assert.Contains("X11 error 3", failure.Error.Message, StringComparison.Ordinal);
+            // The native code goes to diagnostics, not the message people read.
+            Assert.Equal(
+                "The window system didn't accept this shortcut. Try again, or choose another one.",
+                failure.Error.Message);
         }
     }
 

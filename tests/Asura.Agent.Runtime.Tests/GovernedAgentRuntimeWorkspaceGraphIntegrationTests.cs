@@ -1145,7 +1145,7 @@ public sealed partial class GovernedAgentRuntimeTests
                     "Choose");
                 var launcherTab = new TabInstance(
                     SiblingTabId,
-                    "New tab",
+                    "New Tab",
                     [launcher],
                     launcher.Id);
                 return new WorkspaceInstance(

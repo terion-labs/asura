@@ -81,7 +81,7 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
                 return Failure(
                     GlobalHotkeyRegistrationErrorCode.InvalidGesture,
                     "global_hotkey_invalid_gesture",
-                    "The selected shortcut is not supported by the Windows hot-key adapter.");
+                    "Windows can't use this shortcut as a global shortcut. Choose another one.");
             }
 
             WindowsHotkeyNativeResult nativeResult;
@@ -269,18 +269,29 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
             ErrorHotkeyAlreadyRegistered => Failure(
                 GlobalHotkeyRegistrationErrorCode.Conflict,
                 "global_hotkey_conflict",
-                "Another application already owns this global shortcut."),
+                "Another app already uses this shortcut."),
             ErrorInvalidHotkey => Failure(
                 GlobalHotkeyRegistrationErrorCode.InvalidGesture,
                 "global_hotkey_invalid_gesture",
-                "Windows rejected the selected global shortcut."),
+                "Windows didn't accept this shortcut. Choose another one."),
             _ => NativeFailure(errorCode),
         };
 
-    private static GlobalHotkeyRegistrationResult NativeFailure(int errorCode) => Failure(
-        GlobalHotkeyRegistrationErrorCode.NativeFailure,
-        "global_hotkey_native_failure",
-        $"Windows could not register the global shortcut (Win32 error {errorCode}).");
+    /// <summary>The diagnostic code for a Win32 error, such as "desktop.hotkey.windows-native-failure.win32-5".</summary>
+    internal static string NativeFailureDiagnosticCode(int errorCode) =>
+        NativeStatusDiagnosticCode.Format("desktop.hotkey.windows-native-failure", "win32", errorCode);
+
+    // The Win32 error code goes to diagnostics, not the message people read.
+    private static GlobalHotkeyRegistrationResult NativeFailure(int errorCode)
+    {
+        SecretSafeDiagnosticProjection.WriteTrace(
+            NativeFailureDiagnosticCode(errorCode),
+            SecretSafeDiagnosticKind.Unexpected);
+        return Failure(
+            GlobalHotkeyRegistrationErrorCode.NativeFailure,
+            "global_hotkey_native_failure",
+            "Windows didn't accept this shortcut. Try again, or choose another one.");
+    }
 
     private static GlobalHotkeyRegistrationResult Failure(
         GlobalHotkeyRegistrationErrorCode code,

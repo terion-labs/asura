@@ -22,7 +22,8 @@ public sealed class DefinitionBundleControllerTests
         var result = await controller.ExportAsync(CancellationToken.None);
         Assert.True(result.IsSuccess);
         Assert.Equal(2, result.Value!.ReconnectRequiredDatabasePanelCount);
-        Assert.Contains("require reconnection", result.Value.Warning!, StringComparison.Ordinal);
+        Assert.Contains("2 older database panels", result.Value.Warning!, StringComparison.Ordinal);
+        Assert.Contains("need their connections chosen again", result.Value.Warning!, StringComparison.Ordinal);
         Assert.Contains("unchanged", result.Value.Warning!, StringComparison.Ordinal);
         Assert.DoesNotContain("reconnectRequiredDatabasePanelCount", await File.ReadAllTextAsync(path), StringComparison.OrdinalIgnoreCase);
     }
@@ -73,6 +74,8 @@ public sealed class DefinitionBundleControllerTests
         Assert.Equal(1, result.Value.DefinitionCount);
         Assert.Equal(bundle.ExportedAt, result.Value.ExportedAt);
         Assert.Equal(DefinitionBundleController.SuggestedExportFileName, picker.SuggestedFileName);
+        // The save panel is titled Export Asura Setup, so the name matches it.
+        Assert.Equal("asura-setup.json", picker.SuggestedFileName);
         var safety = Assert.Single(store.PreflightCalls);
         Assert.Same(bundle, safety.Bundle);
         Assert.Equal(DefinitionImportMode.ReplaceExisting, safety.Mode);
@@ -361,7 +364,7 @@ public sealed class DefinitionBundleControllerTests
 
         Assert.Equal(DefinitionStoreErrorCode.RevisionConflict, applied.Error?.Code);
         Assert.Contains(
-            "Close every affected workspace",
+            "Close the workspaces this import changes",
             applied.Error?.Message,
             StringComparison.Ordinal);
         Assert.Empty(store.Committed);
@@ -526,7 +529,7 @@ public sealed class DefinitionBundleControllerTests
         Assert.True(imported.Value!.WorkspacesRemainUnavailable);
         Assert.Equal(DefinitionStoreErrorCode.StorageUnavailable, imported.Value.ReloadError?.Code);
         Assert.Contains(
-            "remain unavailable until a catalog refresh succeeds or Asura restarts",
+            "The imported workspaces open after Asura restarts.",
             imported.Value.ReloadError?.Message,
             StringComparison.Ordinal);
         var workspaceKey = new DefinitionKey(WorkspaceDefinition.Kind, workspaceId);
@@ -584,7 +587,7 @@ public sealed class DefinitionBundleControllerTests
         Assert.True(imported.Value!.WorkspacesRemainUnavailable);
         Assert.Equal(DefinitionStoreErrorCode.StorageFailure, imported.Value.ReloadError?.Code);
         Assert.Contains(
-            "remain unavailable until a catalog refresh succeeds or Asura restarts",
+            "The imported workspaces open after Asura restarts.",
             imported.Value.ReloadError?.Message,
             StringComparison.Ordinal);
         Assert.False(occupancy.TryRegisterRuntime(

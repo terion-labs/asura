@@ -83,7 +83,10 @@ public sealed class WindowsGlobalHotkeyServiceTests
         Assert.Equal(expectedStableCode, failure.Error.StableCode);
         if (nativeError == 5)
         {
-            Assert.Contains("Win32 error 5", failure.Error.Message, StringComparison.Ordinal);
+            // The native code goes to diagnostics, not the message people read.
+            Assert.Equal(
+                "Windows didn't accept this shortcut. Try again, or choose another one.",
+                failure.Error.Message);
         }
     }
 

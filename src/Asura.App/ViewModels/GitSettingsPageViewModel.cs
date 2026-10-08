@@ -22,7 +22,7 @@ public static class GitPreferenceRules
         string.IsNullOrWhiteSpace(executable)
             ? "Enter a command name, such as git, or a full path."
             : executable.StartsWith('-')
-                ? "Enter a command name or path; it cannot start with a hyphen."
+                ? "Enter a command name or path. It can't start with a hyphen."
                 : executable.IndexOfAny(['\0', '\n', '\r']) >= 0
                     ? "Enter a command name or path on one line."
                     : null;

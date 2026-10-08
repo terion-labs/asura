@@ -599,7 +599,7 @@ public sealed partial class InMemorySessionHostClient
                 or AgentAuthorizationErrorCode.RunCancelled =>
                 HostError.Create(
                     HostErrorCode.Cancelled,
-                    "The governed Statistics observation was cancelled."),
+                    "The governed Statistics observation was canceled."),
             AgentAuthorizationErrorCode.AuditUnavailable =>
                 HostError.Create(
                     HostErrorCode.EngineFailed,
@@ -630,7 +630,7 @@ public sealed partial class InMemorySessionHostClient
             new HostError(
                 HostErrorCode.Cancelled,
                 stableCode,
-                "The governed Statistics observation was cancelled."),
+                "The governed Statistics observation was canceled."),
             revision);
     }
 

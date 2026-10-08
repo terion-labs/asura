@@ -88,7 +88,7 @@ public sealed partial class MainWindowViewModel
         if (source.IsolationBinding is not null)
         {
             SetError(
-                "Live tabs and panels cannot move between different workspace isolation scopes.");
+                "Open tabs and panels can't move between workspaces that are isolated differently. Open the item again in the other workspace.");
             return false;
         }
 
@@ -98,7 +98,7 @@ public sealed partial class MainWindowViewModel
         if (destination?.ActiveTab is not { } launcher)
         {
             SetError(window.OperationError
-                ?? "The new window could not open a workspace for the tab.");
+                ?? "The new window couldn't open a workspace for the tab. Try again.");
             return false;
         }
 

@@ -446,7 +446,7 @@ public sealed partial class InMemorySessionHostClient
                 new HostError(
                     HostErrorCode.Cancelled,
                     "git_action_cancelled",
-                    "The governed Git action was cancelled."),
+                    "The governed Git action was canceled."),
             AgentAuthorizationErrorCode.AuditUnavailable =>
                 new HostError(
                     HostErrorCode.EngineFailed,
@@ -477,7 +477,7 @@ public sealed partial class InMemorySessionHostClient
             new HostError(
                 HostErrorCode.Cancelled,
                 stableCode,
-                "The governed Git action was cancelled."),
+                "The governed Git action was canceled."),
             revision);
     }
 

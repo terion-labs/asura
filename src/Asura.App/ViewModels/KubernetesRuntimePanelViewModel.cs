@@ -91,7 +91,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
     public string ConnectionStatusLabel => ConnectionStatusTone switch
     {
         StatusTone.Success => $"Connected to {ContextName}",
-        StatusTone.Danger => $"Cannot reach {ContextName}",
+        StatusTone.Danger => $"Can't reach “{ContextName}”",
         StatusTone.Warning when _session is null => $"Connecting to {ContextName}",
         StatusTone.Warning => $"Connected to {ContextName} with a problem",
         _ => Profile is null ? "No Kubernetes connection" : $"Not connected to {ContextName}",
@@ -219,7 +219,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
                     ?? Kinds.FirstOrDefault();
                 if (discovery.UnavailableGroups.Count > 0)
                 {
-                    Issue = "Some API groups could not be discovered. Available resources are shown.";
+                    Issue = "Asura couldn't list some kinds of resources. The ones it could list are shown.";
                 }
             }
             if (SelectedKind is not { } kindToLoad) { Status = "No listable resource types were discovered."; return; }
@@ -236,7 +236,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
             OnPropertyChanged(nameof(HasMore));
             ApplyFilter();
             SelectedResource = Resources.FirstOrDefault(item => string.Equals(item.Reference.Uid, selectedUid, StringComparison.Ordinal));
-            Status = $"{page.Items.Count} resources{(page.IsTruncated || page.ContinueToken is not null ? " · Results limited" : "")}";
+            Status = $"{CountText.OrNone(page.Items.Count, "resource", "resources")}{(page.IsTruncated || page.ContinueToken is not null ? " · Results limited" : "")}";
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (KubernetesRequestException exception) { PresentError(exception); }

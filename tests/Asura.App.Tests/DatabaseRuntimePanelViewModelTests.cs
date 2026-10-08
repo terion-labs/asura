@@ -288,7 +288,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         Assert.True(panel.IsConnected);
         Assert.Equal("Host=third;Password=fixture", panel.ConnectionString);
         Assert.Equal(target, panel.RecoveryTarget);
-        Assert.Contains("could not be saved", panel.ErrorMessage!, StringComparison.Ordinal);
+        Assert.Contains("couldn't save the connection", panel.ErrorMessage!, StringComparison.Ordinal);
         Assert.Equal("Host=second;Password=fixture", (await state.RestoreAsync(CancellationToken.None))!.ConnectionString);
     }
 
@@ -812,10 +812,10 @@ public sealed class DatabaseRuntimePanelViewModelTests
                     profile.ConnectionString,
                     secret));
             },
-            passwordStoreLabel: "Save in macOS Keychain");
+            passwordStoreLabel: "Save in Keychain");
 
         Assert.True(panel.CanStorePassword);
-        Assert.Equal("Save in macOS Keychain", panel.PasswordStoreLabel);
+        Assert.Equal("Save in Keychain", panel.PasswordStoreLabel);
 
         var stored = await panel.StoreSessionPasswordAsync("typed");
 
@@ -998,7 +998,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         using var jsonWriter = new System.Text.Json.Utf8JsonWriter(content);
         var utf8Error = Assert.Throws<InvalidDataException>(() =>
             DatabaseGridExport.WriteJsonRow(jsonWriter, columns, row));
-        Assert.Contains("use CSV", utf8Error.Message, StringComparison.Ordinal);
+        Assert.Contains("Export as CSV instead", utf8Error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1376,7 +1376,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
 
         Assert.False(panel.ImportCsv("Name\nwrong case\n"));
         Assert.Equal(beforeFailure, panel.ResultRows.Count);
-        Assert.Contains("does not exist", panel.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains("isn't in this table", panel.ErrorMessage, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1396,7 +1396,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         Assert.False(panel.ImportCsv("id,name\n3,Grace\n"));
 
         Assert.Equal(before, panel.ResultRows.Count);
-        Assert.Contains("owned by the database", panel.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains("filled in by the database", panel.ErrorMessage, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1489,7 +1489,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         await panel.PreviewTableAsync(panel.Tables[0]);
 
         Assert.False(panel.CanEditRows);
-        Assert.Equal("This primary-key value cannot be edited safely.", panel.ReadOnlyReason);
+        Assert.Equal("This primary-key value can't be edited safely here. Edit it with SQL instead.", panel.ReadOnlyReason);
         Assert.Equal(DatabaseValueKind.Other, panel.ResultColumns[0].ValueKind);
         Assert.False(panel.ResultRows[0].Cells[0].IsEditable);
     }
@@ -2264,7 +2264,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         Assert.False(panel.CanEditRows);
         Assert.False(panel.CanMutateRows);
         Assert.Equal(
-            "This query result does not map exactly to one editable table.",
+            "This query result doesn't map exactly to one editable table.",
             panel.ReadOnlyReason);
         Assert.All(panel.ResultRows.SelectMany(row => row.Cells), cell => Assert.False(cell.IsEditable));
         Assert.True(panel.CanFilterTable);
@@ -2412,14 +2412,14 @@ public sealed class DatabaseRuntimePanelViewModelTests
 
         Assert.Equal("Ada", name.RawValue);
         Assert.False(name.IsDirty);
-        Assert.Contains("Oracle stores empty text as SQL NULL", panel.ErrorMessage);
+        Assert.Contains("Oracle stores empty text as NULL", panel.ErrorMessage);
 
         var rowCount = panel.ResultRows.Count;
         Assert.False(panel.ImportCsv("name\n\"\"\n"));
         Assert.Equal(rowCount, panel.ResultRows.Count);
         Assert.False(panel.HasPendingChanges);
         Assert.Contains("CSV row 2", panel.ErrorMessage);
-        Assert.Contains("Oracle stores empty text as SQL NULL", panel.ErrorMessage);
+        Assert.Contains("Oracle stores empty text as NULL", panel.ErrorMessage);
 
         name.EditText = string.Empty;
         Assert.True(panel.CanSaveChanges);
@@ -2428,7 +2428,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
 
         Assert.Equal(0, client.ApplyChangesCallCount);
         Assert.True(panel.HasPendingChanges);
-        Assert.Contains("Oracle stores empty text as SQL NULL", panel.ErrorMessage);
+        Assert.Contains("Oracle stores empty text as NULL", panel.ErrorMessage);
 
         await panel.RevertChangesAsync();
         panel.SelectRow(panel.ResultRows[0]);
@@ -2714,7 +2714,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         var payload = Assert.Single(row.Cells, cell => string.Equals(cell.Column.Name, "payload", StringComparison.Ordinal));
         Assert.False(payload.IsEditable);
         Assert.False(payload.IsValid);
-        Assert.Contains("requires a value this viewer cannot edit safely", payload.ValidationError);
+        Assert.Contains("needs a value that can't be edited safely here", payload.ValidationError);
         Assert.False(panel.CanSaveChanges);
 
         await panel.SaveChangesAsync();

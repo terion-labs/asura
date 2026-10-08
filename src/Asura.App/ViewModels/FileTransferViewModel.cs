@@ -57,7 +57,7 @@ public sealed class FileTransferViewModel : ObservableObject, IDisposable
                     ? active.HasKnownProgress
                         ? $"Transfer · {active.ProgressPercent:0}%"
                         : "Transfer in progress"
-                    : $"{ActiveCount} transfers";
+                    : CountText.Of(ActiveCount, "transfer", "transfers");
             }
 
             if (FailedCount > 0)
@@ -154,7 +154,7 @@ public sealed class FileTransferViewModel : ObservableObject, IDisposable
                 FileLocationPresentation.Display(snapshot.Request.Source),
                 FileLocationPresentation.Display(snapshot.EffectiveDestination),
                 snapshot.Request.Operation.ToString(),
-                snapshot.State.ToString(),
+                StateText(snapshot.State),
                 snapshot.Stage,
                 FormatProgress(snapshot),
                 snapshot.Error?.Message,
@@ -211,6 +211,12 @@ public sealed class FileTransferViewModel : ObservableObject, IDisposable
             }
         }
     }
+
+    private static string StateText(FilePanelTransferState state) => state switch
+    {
+        FilePanelTransferState.Cancelled => "Canceled",
+        _ => state.ToString(),
+    };
 
     private static string FormatProgress(FilePanelTransferSnapshot snapshot)
     {

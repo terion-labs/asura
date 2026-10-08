@@ -23,7 +23,7 @@ public sealed partial class GovernedAgentRuntime
             {
                 return SteeringFailure(
                     "agent_steering_cancelled",
-                    "The steering update was cancelled.");
+                    "The steering update was canceled.");
             }
 
             if (_snapshot.RunId != request.RunId)
@@ -112,7 +112,7 @@ public sealed partial class GovernedAgentRuntime
             RestoreSteeringAfterCancelledAttempt(lease);
             return SteeringFailure(
                 "agent_steering_cancelled",
-                "The steering update was cancelled.");
+                "The steering update was canceled.");
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
@@ -138,7 +138,7 @@ public sealed partial class GovernedAgentRuntime
             RestoreSteeringAfterCancelledAttempt(lease);
             return SteeringFailure(
                 "agent_steering_cancelled",
-                "The steering update was cancelled.");
+                "The steering update was canceled.");
         }
 
         if (contexts is null)
@@ -196,7 +196,7 @@ public sealed partial class GovernedAgentRuntime
                 changed = true;
                 outcome = SteeringFailure(
                     "agent_steering_cancelled",
-                    "The steering update was cancelled.");
+                    "The steering update was canceled.");
             }
             else if (!SteeringLifecycleMatchesUnsafe(lease))
             {

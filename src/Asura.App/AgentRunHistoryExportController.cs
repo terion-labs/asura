@@ -23,7 +23,7 @@ public static class AgentRunHistoryExportController
 
         var directory = Path.GetDirectoryName(path)
             ?? throw new ArgumentException(
-                "An agent history export directory is required.",
+                "Choose a folder for the export.",
                 nameof(destinationPath));
         Directory.CreateDirectory(directory);
         var temporaryPath = Path.Combine(
@@ -62,7 +62,7 @@ public static class AgentRunHistoryExportController
             agent.ReportHistoryExportPublicationFailure();
             return Failure(
                 AgentSessionCheckpointStoreErrorCode.Cancelled,
-                "Agent history export was cancelled.");
+                "Agent history export was canceled.");
         }
         catch (Exception exception) when (exception is IOException
             or UnauthorizedAccessException
@@ -72,7 +72,7 @@ public static class AgentRunHistoryExportController
             agent.ReportHistoryExportPublicationFailure();
             return Failure(
                 AgentSessionCheckpointStoreErrorCode.StorageUnavailable,
-                "Agent history export could not be written.");
+                "Asura couldn't save the agent history file. Choose another location, then try again.");
         }
         finally
         {

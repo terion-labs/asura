@@ -24,7 +24,7 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
     private string _recentSessionStatus =
         "Sessions you open will appear here without storing terminal content or commands.";
     private string _exportStatus =
-        "History exports contain definition metadata only; terminal commands and content are excluded.";
+        "History exports contain only names, times, and similar details. Terminal commands and output are left out.";
     private string _retentionStatus = "Loading local history privacy settings…";
     private bool _hasFailure;
     private bool _hasUnreadableHistory;
@@ -71,7 +71,7 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
     [
         new(
             "Off",
-            "Do not retain session metadata. Existing history is removed.",
+            "Don't retain session metadata. Existing history is removed.",
             new RecentSessionRetentionPolicy(0, TimeSpan.FromDays(30))),
         new(
             "Private · 20 / 7 days",
@@ -532,8 +532,8 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
                 if (!saved.IsSuccess)
                 {
                     RetentionStatus =
-                        $"History privacy settings could not be saved ({saved.Error!.Code}).";
-                    if (saved.Error.Code == RecentSessionStoreErrorCode.Conflict)
+                        "Asura couldn't save the history privacy settings. Try again.";
+                    if (saved.Error!.Code == RecentSessionStoreErrorCode.Conflict)
                     {
                         await RefreshCoreAsync(token, replaceRetentionSelection: true);
                         if (_storedRetention is { Revision: var revision }
@@ -566,13 +566,13 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
             await operation.WaitAsync(cancellationToken);
             return saved ?? Failure(
                 RecentSessionStoreErrorCode.Cancelled,
-                "Saving recent-session retention was cancelled.");
+                "Saving recent-session retention was canceled.");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             return Failure(
                 RecentSessionStoreErrorCode.Cancelled,
-                "Saving recent-session retention was cancelled.");
+                "Saving recent-session retention was canceled.");
         }
         finally
         {
@@ -659,13 +659,13 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
         {
             return ApplicationRunResult<Unit>.Failure(new ApplicationRunError(
                 ApplicationRunErrorCode.Cancelled,
-                "Waiting for recent-session persistence was cancelled."));
+                "Waiting for recent-session persistence was canceled."));
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
             return ApplicationRunResult<Unit>.Failure(new ApplicationRunError(
                 ApplicationRunErrorCode.StorageFailure,
-                "Recent-session persistence could not be drained."));
+                "Asura couldn't finish saving recent history. Try again."));
         }
 
         RecentSessionStoreError? error;
@@ -680,7 +680,7 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
                 error.Code == RecentSessionStoreErrorCode.StorageUnavailable
                     ? ApplicationRunErrorCode.StorageUnavailable
                     : ApplicationRunErrorCode.StorageFailure,
-                $"Recent-session metadata could not be persisted safely: {error.Message}"));
+                $"Asura couldn't save the list of recent sessions. {error.Message}"));
     }
 
     private Task QueueOperation(Func<CancellationToken, Task> operation)
@@ -777,7 +777,7 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
         ReplaceIfChanged(Sessions, items);
         ReplaceIfChanged(RecentSessions, [.. items.Take(8)]);
         RecentSessionStatus = Sessions.Count > 0
-            ? "Recent sessions store definition metadata only; commands and terminal content are excluded."
+            ? "Recent sessions keep only names, times, and similar details. Terminal commands and output aren't stored."
             : _storedRetention is { Policy.IsEnabled: false }
                 ? "Session history is disabled in the local privacy settings."
                 : "Sessions you open will appear here without storing terminal content or commands.";
@@ -838,7 +838,7 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
 
         RetentionStatus = stored.Policy.IsEnabled
             ? $"Local metadata retention: up to {stored.Policy.MaximumEntries:N0} records for {stored.Policy.MaximumAge.TotalDays:0} days."
-            : "Session history is disabled; newly opened sessions will not be retained.";
+            : "Session history is disabled; newly opened sessions won't be retained.";
         OnPropertyChanged(nameof(CanManageRetention));
         OnPropertyChanged(nameof(RequiresRetentionConfirmation));
     }

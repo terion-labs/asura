@@ -50,7 +50,7 @@ internal sealed class InMemoryDefinitionRepository<TDefinition> : IDefinitionRep
             ? DefinitionStoreResult<StoredDefinition<TDefinition>>.Success(stored)
             : Failure<StoredDefinition<TDefinition>>(
                 DefinitionStoreErrorCode.NotFound,
-                "The requested definition does not exist."));
+                "That item no longer exists."));
     }
 
     public ValueTask<DefinitionStoreResult<IReadOnlyList<StoredDefinition<TDefinition>>>> ListAsync(
@@ -140,7 +140,7 @@ internal sealed class InMemoryDefinitionRepository<TDefinition> : IDefinitionRep
         {
             return ValueTask.FromResult(DefinitionStoreResult<Unit>.Failure(new(
                 DefinitionStoreErrorCode.RevisionConflict,
-                "The definition changed before it could be deleted.",
+                "It changed somewhere else before it could be deleted. Reopen it and try again.",
                 current.Revision)));
         }
 
@@ -179,7 +179,7 @@ internal sealed class InMemoryDefinitionRepository<TDefinition> : IDefinitionRep
         {
             return DefinitionStoreResult<StoredDefinition<TDefinition>>.Failure(new(
                 DefinitionStoreErrorCode.RevisionConflict,
-                "The definition changed before it could be saved.",
+                "It changed somewhere else before it could be saved. Reopen it and try again.",
                 current.Revision));
         }
 
@@ -196,7 +196,7 @@ internal sealed class InMemoryDefinitionRepository<TDefinition> : IDefinitionRep
 
     private static DefinitionStoreResult<T>? Cancelled<T>(CancellationToken cancellationToken) =>
         cancellationToken.IsCancellationRequested
-            ? Failure<T>(DefinitionStoreErrorCode.Cancelled, "The operation was cancelled.")
+            ? Failure<T>(DefinitionStoreErrorCode.Cancelled, "The operation was canceled.")
             : null;
 
     private static DefinitionStoreResult<T> Failure<T>(

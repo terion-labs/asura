@@ -50,7 +50,7 @@ public sealed class FileTransferEditorViewModel : ObservableObject
             ArgumentNullException.ThrowIfNull(value);
             if (!Profiles.Any(profile => string.Equals(profile.Id, value.Id, StringComparison.Ordinal)))
             {
-                throw new ArgumentException("The destination profile is not available.", nameof(value));
+                throw new ArgumentException("The destination profile isn't available.", nameof(value));
             }
 
             if (SetProperty(ref _selectedDestinationProfile, value))

@@ -264,7 +264,7 @@ public sealed class KubernetesRuntimePanelViewModelTests
                 : ValueTask.FromResult<IKubernetesClientSession>(session));
         await panel.Initialization;
         Assert.Equal(StatusTone.Danger, panel.ConnectionStatusTone);
-        Assert.Equal("Cannot reach production", panel.ConnectionStatusLabel);
+        Assert.Equal("Can't reach “production”", panel.ConnectionStatusLabel);
         Assert.Equal(FluentIcons.Common.Symbol.ErrorCircle, panel.ConnectionStatusGlyph);
 
         await panel.RefreshAsync();

@@ -646,7 +646,7 @@ public sealed record WorkspaceIsolationError(
             New(code, "workspace_isolation_credential_broker_unavailable", "This connection requires a host credential helper that is not available inside the isolate.", false,
                 WorkspaceIsolationRecoveryAction.DisableIsolation),
         WorkspaceIsolationErrorCode.Cancelled =>
-            New(code, "workspace_isolation_cancelled", "Workspace isolation was cancelled.", false,
+            New(code, "workspace_isolation_cancelled", "Workspace isolation was canceled.", false,
                 WorkspaceIsolationRecoveryAction.None),
         WorkspaceIsolationErrorCode.Timeout =>
             New(code, "workspace_isolation_timeout", "The workspace isolation runtime timed out.", true,

@@ -1314,7 +1314,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.False(occupancy.IsOccupied(
             new DefinitionKey(WorkspaceDefinition.Kind, WorkspaceId.Value)));
         Assert.Contains(
-            "not available on this platform",
+            "isn't available on this platform",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -1598,7 +1598,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.False(recreated);
         Assert.NotNull(viewModel.RuntimeWorkspace);
         Assert.Contains(
-            "could not be recreated",
+            "couldn't set up the workspace again",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
         Assert.Equal(2, provider.PrepareRequests.Count);
@@ -2297,7 +2297,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(sourceTabs, source.Tabs);
         Assert.Equal(destinationTabs, destination.Tabs);
         Assert.Contains(
-            "different workspace isolation scopes",
+            "workspaces that are isolated differently",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -3633,7 +3633,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
                 disabledRecovery.RuntimeWorkspace!.Tabs.SelectMany(tab => tab.Panels),
                 panel => panel.Kind == PanelKind.Browser));
         Assert.Contains(
-            "disabled",
+            "turned off",
             disabled.CapabilityMessage,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -4854,7 +4854,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
 
         Assert.Null(viewModel.RuntimeWorkspace);
         Assert.Contains(
-            "invalid workspace registration receipt",
+            "couldn't confirm that the workspace opened",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -5001,7 +5001,9 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.False(activated);
         Assert.Same(originalTab, runtime.ActiveTab);
         Assert.Equal(1, runtime.HostRevision);
-        Assert.Contains("revision_conflict", viewModel.OperationError, StringComparison.Ordinal);
+        // Stable codes go to diagnostics; the message says what happened.
+        Assert.StartsWith("Asura couldn't finish the tab activation.", viewModel.OperationError, StringComparison.Ordinal);
+        Assert.DoesNotContain("revision_conflict", viewModel.OperationError, StringComparison.Ordinal);
         var call = Assert.Single(recorder.TabActivations);
         Assert.Equal(requestedTab.Id, call.Request.TabId);
         Assert.Equal(1, call.Context.ExpectedRevision);
@@ -5054,7 +5056,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(1, runtime.HostRevision);
         Assert.Equal(1, runtime.HostSequence);
         Assert.Contains(
-            "invalid tab activation receipt",
+            "couldn't confirm the tab activation",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -5094,7 +5096,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(1, runtime.HostRevision);
         Assert.Equal(1, runtime.HostSequence);
         Assert.Contains(
-            "invalid tab activation receipt",
+            "couldn't confirm the tab activation",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -5462,7 +5464,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(1, runtime.HostRevision);
         Assert.Equal(1, runtime.HostSequence);
         Assert.Contains(
-            "invalid panel activation receipt",
+            "couldn't confirm the panel activation",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -5571,7 +5573,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(1, runtime.HostRevision);
         Assert.Equal(1, runtime.HostSequence);
         Assert.Contains(
-            "invalid Files panel creation receipt",
+            "couldn't confirm the Files panel creation",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -6013,7 +6015,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     {
         var (client, recorder) = CreateSessionClient();
         using var viewModel = CreateViewModel(client, CreateTabAppendCatalogSnapshot());
-        Assert.Equal("New Session", viewModel.NewItemLauncherTitle);
+        Assert.Equal("New Workspace", viewModel.NewItemLauncherTitle);
         viewModel.LauncherSearchQuery = "Secondary local";
         // A palette row carries no action label of its own: Return opens it.
         Assert.Equal(
@@ -6863,7 +6865,9 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             originalTabIds,
             Assert.IsType<WorkspaceGraphSnapshot>(recorder.CurrentWorkspace)
                 .Workspace.Tabs.Select(tab => tab.Id));
-        Assert.Contains("revision_conflict", viewModel.OperationError, StringComparison.Ordinal);
+        // Stable codes go to diagnostics; the message says what happened.
+        Assert.StartsWith("Asura couldn't finish the", viewModel.OperationError, StringComparison.Ordinal);
+        Assert.DoesNotContain("revision_conflict", viewModel.OperationError, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -8002,7 +8006,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Null(agentRuntime.LastRequest);
         Assert.Null(viewModel.AgentSavedScreenLiveTarget);
         Assert.Contains(
-            "No live target or agent authority",
+            "The agent has no access yet",
             viewModel.AgentSavedScreenTargetStatus,
             StringComparison.Ordinal);
 
@@ -8088,7 +8092,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Null(viewModel.AgentSavedScreenLiveTarget);
         Assert.False(viewModel.HasAuthorizedAgentSavedScreenTarget);
         Assert.Contains(
-            "grants no agent authority",
+            "gives the agent no access",
             viewModel.AgentSavedScreenTargetStatus,
             StringComparison.Ordinal);
     }
@@ -8803,8 +8807,8 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(0, agentRuntime.SendCount);
         Assert.Equal("Try to target a non-agent panel.", viewModel.AgentChat.Prompt);
         Assert.Equal(
-            "Select an active terminal, browser, File Viewer, hosted Statistics, "
-            + "or hosted Process Monitor panel, or choose a broader agent scope.",
+            "Select a Terminal, Browser, Files, Statistics, or Processes panel, "
+            + "or choose a broader agent scope.",
             viewModel.AgentChat.Status);
     }
 

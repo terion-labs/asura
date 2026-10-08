@@ -208,7 +208,7 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
         var stored = _catalog.Snapshot.Keymaps.SingleOrDefault(item => item.Value.Id == profile.Id);
         if (stored is null)
         {
-            error = "That keybinding profile no longer exists.";
+            error = "That shortcut profile no longer exists.";
             return false;
         }
 
@@ -223,7 +223,7 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
         ThrowIfDisposed();
         if (SelectedKeybindingProfile is not { IsBuiltIn: true } selected)
         {
-            error = "Select a built-in keybinding preset to clone.";
+            error = "Select a built-in shortcut preset to clone.";
             return false;
         }
 
@@ -232,7 +232,7 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
             .SingleOrDefault(item => item.Id == selected.Id);
         if (source is null)
         {
-            error = "That built-in keybinding preset no longer exists.";
+            error = "That built-in shortcut preset no longer exists.";
             return false;
         }
 
@@ -266,7 +266,7 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
         if (KeybindingEditorSession is null)
         {
             return Fail<StoredDefinition<KeymapProfile>>(
-                "Select a keybinding profile before saving.");
+                "Select a shortcut profile before saving.");
         }
 
         KeybindingSettingsSaveRequest request;

@@ -90,7 +90,7 @@ public sealed record CommandParameterSchema
             {
                 if (parameter.Required)
                 {
-                    errors.Add($"Parameter '{parameter.Name}' is required.");
+                    errors.Add($"The command needs a value for “{parameter.Name}”.");
                 }
 
                 continue;
@@ -98,14 +98,14 @@ public sealed record CommandParameterSchema
 
             if (!parameter.Accepts(value))
             {
-                errors.Add($"Parameter '{parameter.Name}' does not accept '{value}'.");
+                errors.Add($"“{value}” isn't a value “{parameter.Name}” accepts.");
             }
         }
 
         var knownNames = Parameters.Select(parameter => parameter.Name).ToHashSet(StringComparer.Ordinal);
         foreach (var unknownName in arguments.Keys.Where(name => !knownNames.Contains(name)))
         {
-            errors.Add($"Parameter '{unknownName}' is not defined.");
+            errors.Add($"The command doesn't take “{unknownName}”.");
         }
 
         return errors.ToImmutable();

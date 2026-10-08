@@ -1,4 +1,5 @@
 using System.Buffers;
+using Asura.Application;
 
 namespace Asura.Files;
 
@@ -68,7 +69,7 @@ public abstract partial class LocalFileProvider
         {
             return Failure<FileTransferReceipt>(
                 FileProviderErrorCode.InvalidLocation,
-                "A directory cannot be transferred into one of its descendants.");
+                "A folder cannot be transferred into one of its descendants.");
         }
 
         var destinationParent = ResolveParentDirectory(request.Destination);
@@ -319,7 +320,7 @@ public abstract partial class LocalFileProvider
             {
                 return Failure<long>(
                     FileProviderErrorCode.LinkNotAllowed,
-                    "A directory containing a link or reparse point cannot be transferred.");
+                    "A folder containing a link or reparse point cannot be transferred.");
             }
 
             var childDestination = Path.Combine(destinationPath, Path.GetFileName(childPath));
@@ -380,7 +381,7 @@ public abstract partial class LocalFileProvider
             {
                 return Failure<long>(
                     FileProviderErrorCode.LinkNotAllowed,
-                    "A directory containing a link or reparse point cannot be transferred.");
+                    "A folder containing a link or reparse point cannot be transferred.");
             }
 
             var childKind = attributes.HasFlag(FileAttributes.Directory)
@@ -416,14 +417,14 @@ public abstract partial class LocalFileProvider
         {
             return FileProviderError.Create(
                 FileProviderErrorCode.Conflict,
-                "Atomic directory replacement is not supported.");
+                "Atomic folder replacement is not supported.");
         }
 
         if (sourceKind == FileEntryKind.File && destination?.Kind == FileEntryKind.Directory)
         {
             return FileProviderError.Create(
                 FileProviderErrorCode.IsDirectory,
-                "A file transfer cannot replace a directory.");
+                "A file transfer cannot replace a folder.");
         }
 
         return null;
@@ -452,19 +453,20 @@ public abstract partial class LocalFileProvider
         {
             return FileProviderError.Create(
                 FileProviderErrorCode.PartialTransfer,
-                "The destination was committed, but deleting the move source was cancelled.");
+                "The items were copied to the destination, but removing the originals was canceled. Delete the originals yourself if you no longer need them.");
         }
-        catch (UnauthorizedAccessException exception)
+        catch (UnauthorizedAccessException)
         {
             return FileProviderError.Create(
                 FileProviderErrorCode.PartialTransfer,
-                $"The destination was committed, but the move source could not be deleted: {exception.Message}");
+                "The items were copied to the destination, but you don't have permission to remove the originals.");
         }
         catch (IOException exception)
         {
+            SecretSafeDiagnosticProjection.WriteTrace("files.local.move-source-delete-failed", exception);
             return FileProviderError.Create(
                 FileProviderErrorCode.PartialTransfer,
-                $"The destination was committed, but the move source could not be deleted: {exception.Message}",
+                "The items were copied to the destination, but Asura couldn't remove the originals. Check that they aren't open in another app, then delete them.",
                 retryable: true);
         }
     }

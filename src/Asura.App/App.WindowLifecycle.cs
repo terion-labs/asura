@@ -113,7 +113,7 @@ public sealed partial class App
         window.Close();
         if (string.IsNullOrEmpty(sourceViewModel.OperationError))
         {
-            sourceViewModel.SetError("The tab could not move to a new window.");
+            sourceViewModel.SetError("Asura couldn't move the tab to a new window. Try again.");
         }
 
         source.Activate();

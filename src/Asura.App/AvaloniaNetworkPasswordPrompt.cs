@@ -1,6 +1,7 @@
 using System.Text;
 using Asura.App.Views;
 using Asura.Application;
+using Asura.Core;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
@@ -19,7 +20,7 @@ public sealed class AvaloniaNetworkPasswordPrompt : INetworkPasswordPrompt
         NetworkPasswordPromptRequest request, CancellationToken cancellationToken) =>
         ShowConfirmationAsync(new ConfirmationDialogOptions
         {
-            Heading = $"Update the stored password for {request.ConnectionName}?",
+            Heading = $"Update the stored password for “{request.ConnectionName}”?",
             Detail = "The replacement password worked.",
             Notice = "The stored password otherwise stays as it is, and this connection uses the replacement until it disconnects.",
             ConfirmLabel = "Update Password",
@@ -31,9 +32,9 @@ public sealed class AvaloniaNetworkPasswordPrompt : INetworkPasswordPrompt
     {
         _ = await ShowConfirmationAsync(new ConfirmationDialogOptions
         {
-            Heading = "The stored password was not replaced",
-            Detail = $"Asura could not update the password for {request.ConnectionName}. It may have been edited while the prompt was open, or the credential store may be unavailable.",
-            Notice = "This does not disconnect your connection. You can replace the stored password in connection settings.",
+            Heading = "Stored Password Not Updated",
+            Detail = $"Asura couldn't update the password for “{request.ConnectionName}”. The connection may have changed while this window was open, or {PlatformTerms.SecretStore} may be locked.",
+            Notice = "The connection stays connected. You can replace the stored password in Settings › Networking.",
             ConfirmLabel = "OK",
             ShowsCancel = false,
             Intent = ConfirmationIntent.Acknowledge,
@@ -106,7 +107,7 @@ public sealed class AvaloniaNetworkPasswordPrompt : INetworkPasswordPrompt
                 new NetworkConnectionError(
                     NetworkConnectionErrorCode.AuthenticationRequired,
                     "network_password_prompt_failed",
-                    "Asura could not open the password prompt.",
+                    "Asura couldn't show the password prompt. Try connecting again.",
                     retryable: true));
         }
         finally
@@ -128,7 +129,7 @@ public sealed class AvaloniaNetworkPasswordPrompt : INetworkPasswordPrompt
                 new NetworkConnectionError(
                     NetworkConnectionErrorCode.AuthenticationRequired,
                     "network_password_window_unavailable",
-                    $"{request.ConnectionName} needs a password, but no Asura window can show the prompt.",
+                    $"“{request.ConnectionName}” needs a password, but no Asura window is open to ask for it. Open a window, then connect again.",
                     retryable: true));
         }
 
@@ -157,7 +158,7 @@ public sealed class AvaloniaNetworkPasswordPrompt : INetworkPasswordPrompt
                 new NetworkConnectionError(
                     NetworkConnectionErrorCode.AuthenticationRequired,
                     "network_password_empty",
-                    $"{request.ConnectionName} needs a non-empty password.",
+                    $"Enter a password to connect to “{request.ConnectionName}”.",
                     retryable: true));
         }
 
@@ -191,6 +192,6 @@ public sealed class AvaloniaNetworkPasswordPrompt : INetworkPasswordPrompt
             new NetworkConnectionError(
                 NetworkConnectionErrorCode.Cancelled,
                 "network_password_prompt_cancelled",
-                "The password prompt was cancelled.",
+                "The password prompt was canceled.",
                 retryable: true));
 }

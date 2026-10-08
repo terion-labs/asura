@@ -52,19 +52,19 @@ public sealed record NetworkCredentialOption(
 
     public string Detail => State switch
     {
-        NetworkCredentialOptionState.None => "Do not use a credential for this field.",
+        NetworkCredentialOptionState.None => "Don't use a credential for this field.",
         NetworkCredentialOptionState.Prompt =>
-            "The password is used for that connection only and is not stored.",
+            "The password is used for that connection only and isn't stored.",
         NetworkCredentialOptionState.Available =>
             $"{KindLabel} · {PersistenceLabel} · Updated {UpdatedLabel}",
         NetworkCredentialOptionState.Pending =>
             $"{KindLabel} · Stored when the connection is saved",
         NetworkCredentialOptionState.Unavailable =>
-            "The saved credential was not found in this connection's vault scope.",
+            $"The saved credential is no longer in {PlatformTerms.SecretStore}. Choose another credential or add a new one.",
         NetworkCredentialOptionState.MetadataUnavailable =>
-            "The operating-system vault could not provide metadata for this binding.",
+            $"{PlatformTerms.SecretStore} couldn't provide details for this credential.",
         NetworkCredentialOptionState.Loading =>
-            "Reading this connection's credential metadata from the operating-system vault.",
+            $"Reading this connection's credentials from {PlatformTerms.SecretStore}…",
         _ => throw new ArgumentOutOfRangeException(nameof(State), State, null),
     };
 
@@ -84,7 +84,7 @@ public sealed record NetworkCredentialOption(
 
     private string PersistenceLabel => Persistence switch
     {
-        SecretVaultPersistenceKind.OsProtectedPersistent => "OS vault",
+        SecretVaultPersistenceKind.OsProtectedPersistent => PlatformTerms.SecretStore,
         SecretVaultPersistenceKind.MemoryOnly => "This session",
         _ => "Storage unavailable",
     };
@@ -139,8 +139,8 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
         KindOptions =
         [
             new(NetworkConnectionKind.Proxy, "Proxy", "SOCKS5, HTTP, or HTTPS proxy."),
-            new(NetworkConnectionKind.WireGuard, "WireGuard", "WireGuard client configuration stored in the credential vault."),
-            new(NetworkConnectionKind.OpenVpn, "OpenVPN", "OpenVPN client profile stored in the credential vault."),
+            new(NetworkConnectionKind.WireGuard, "WireGuard", $"WireGuard client configuration stored in {PlatformTerms.SecretStore}."),
+            new(NetworkConnectionKind.OpenVpn, "OpenVPN", $"OpenVPN client profile stored in {PlatformTerms.SecretStore}."),
             new(NetworkConnectionKind.AnyConnect, "AnyConnect", "Cisco AnyConnect-compatible gateway through OpenConnect."),
             new(NetworkConnectionKind.Tailscale, "Tailscale", "Tailscale exit node for workspace traffic."),
         ];
@@ -430,7 +430,7 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
 
     /// <summary>The footer's one sentence: what is still missing, or what saving does.</summary>
     public string FooterHint => TryBuild(out _, out var error)
-        ? "Saving stores any new credential in the operating-system vault."
+        ? $"Saving stores any new credential in {PlatformTerms.SecretStore}."
         : error;
 
     public NetworkConnectionProfileSaveRequest CreateSaveRequest()

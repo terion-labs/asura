@@ -195,7 +195,7 @@ internal sealed class ShellCommandExecutor(
                     lifetime))
                 {
                     viewModel.SetError(
-                        $"Tab position {action.TabPosition.Value} is not open.");
+                        $"Tab position {action.TabPosition.Value} isn't open.");
                 }
 
                 presentation.FocusActivePanel();

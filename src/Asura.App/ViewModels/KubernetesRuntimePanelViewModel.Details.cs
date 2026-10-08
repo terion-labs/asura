@@ -1,4 +1,5 @@
 using Asura.Application;
+using Asura.Core;
 
 namespace Asura.App.ViewModels;
 
@@ -67,7 +68,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
         var api = Kinds.FirstOrDefault(item => item.Group.Length == 0 && item.Resource is "events" && item.Version is "v1")
             ?? Kinds.FirstOrDefault(item => item.Group is "events.k8s.io" && item.Resource is "events");
         if (api is null || !api.Verbs.Contains("list", StringComparer.Ordinal))
-        { EventsStatus = "Events are not available in API discovery."; return; }
+        { EventsStatus = "Events aren't available in API discovery."; return; }
         if (uid.Length is < 1 or > 128 || uid.Any(character => !char.IsAsciiLetterOrDigit(character) && character != '-'))
         { EventsStatus = "Events require a valid resource identity."; return; }
         IsDetailsLoading = true;
@@ -82,7 +83,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
                 .OfType<KubernetesDetailEvent>().OrderByDescending(item => item.ObservedAt)];
             EventsStatus = page.IsTruncated || page.ContinueToken is not null || page.Items.Count > 100
                 ? "Showing the first 100 related events."
-                : RelatedEvents.Count == 0 ? "No events reported for this resource." : $"{RelatedEvents.Count} related events";
+                : RelatedEvents.Count == 0 ? "No events reported for this resource." : CountText.Of(RelatedEvents.Count, "related event", "related events");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested || _lifetime.IsCancellationRequested) { }
         catch (KubernetesRequestException exception)

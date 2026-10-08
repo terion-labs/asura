@@ -296,7 +296,7 @@ public abstract partial class RemoteHierarchicalFileProvider : IFileProvider
             {
                 return Failure<T>(
                     FileProviderErrorCode.Cancelled,
-                    $"The {_protocolName} operation was cancelled.");
+                    $"The {_protocolName} operation was canceled.");
             }
             catch (RemoteFileSessionException exception)
                 when (attempt + 1 < attempts && exception.Retryable)

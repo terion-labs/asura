@@ -64,7 +64,7 @@ public sealed class SqliteApplicationRunStore : IApplicationRunStore
         {
             return Failure<ApplicationRunStart>(
                 ApplicationRunErrorCode.Cancelled,
-                "Application startup was cancelled.");
+                "Application startup was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -117,7 +117,7 @@ public sealed class SqliteApplicationRunStore : IApplicationRunStore
         {
             return Failure<Unit>(
                 ApplicationRunErrorCode.Cancelled,
-                "Application shutdown finalization was cancelled.");
+                "Application shutdown finalization was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -148,7 +148,7 @@ public sealed class SqliteApplicationRunStore : IApplicationRunStore
         {
             return Failure<ApplicationRunState>(
                 ApplicationRunErrorCode.Cancelled,
-                "Reading application recovery state was cancelled.");
+                "Reading application recovery state was canceled.");
         }
         catch (SqliteException exception)
         {

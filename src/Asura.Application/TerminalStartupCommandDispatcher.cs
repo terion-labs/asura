@@ -183,7 +183,7 @@ public sealed class TerminalStartupCommandDispatcher
             ? TerminalStartupCommandDispatchResult.Failure(
                 new TerminalStartupCommandDispatchError(
                     TerminalStartupCommandDispatchErrorCode.Cancelled,
-                    "Sending the saved startup commands was cancelled.",
+                    "Sending the saved startup commands was canceled.",
                     Retryable: true))
             : AuditFailure(commandsDelivered: false);
     }
@@ -216,7 +216,7 @@ public sealed class TerminalStartupCommandDispatcher
         {
             return AuditStoreResult<Unit>.Failure(new AuditStoreError(
                 AuditStoreErrorCode.Cancelled,
-                "Writing the startup-command audit event was cancelled."));
+                "Writing the startup-command audit event was canceled."));
         }
         catch (Exception)
         {

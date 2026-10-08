@@ -6,7 +6,7 @@ namespace Asura.Architecture.Tests;
 /// <summary>
 /// A new tab asks what to open.
 ///
-/// The command is called "New tab", the plus beside the tabs opens a tab that
+/// The command is called "New Tab", the plus beside the tabs opens a tab that
 /// asks, and the keyboard opened a local terminal already running — one of the
 /// answers rather than the question, with no way to reach the others except to
 /// close it again. The two ways of asking for the same thing have to agree, and

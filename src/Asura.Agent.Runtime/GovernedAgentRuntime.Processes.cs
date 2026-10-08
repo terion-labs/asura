@@ -243,7 +243,7 @@ public sealed partial class GovernedAgentRuntime
             new HostError(
                 HostErrorCode.Cancelled,
                 "caller_cancelled",
-                "The process observation was cancelled."),
+                "The process observation was canceled."),
             failure.CurrentRevision);
     }
 
@@ -253,7 +253,7 @@ public sealed partial class GovernedAgentRuntime
             new HostError(
                 HostErrorCode.Cancelled,
                 "caller_cancelled",
-                "The process observation was cancelled."),
+                "The process observation was canceled."),
             revision);
 
     private static bool IsProcessTool(string toolName) =>

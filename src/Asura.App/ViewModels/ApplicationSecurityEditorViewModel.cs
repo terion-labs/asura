@@ -1,4 +1,5 @@
 using Asura.Application;
+using Asura.Core;
 using Avalonia.Threading;
 
 namespace Asura.App.ViewModels;
@@ -77,7 +78,7 @@ public sealed class ApplicationSecurityEditorViewModel : ObservableObject
         null => "This build has no application-encryption support.",
         { IsSupported: false } unsupported => unsupported.UnsupportedReason
             ?? "Application encryption is unavailable.",
-        _ => "Keys live in the OS keystore; nothing key-like is ever written beside the data.",
+        _ => $"The encryption keys are kept in {PlatformTerms.SecretStore}, never beside the data.",
     };
 
     public bool IsEncryptionEnabled
@@ -142,7 +143,8 @@ public sealed class ApplicationSecurityEditorViewModel : ObservableObject
         }
         catch (Exception exception)
         {
-            StatusDetail = $"Changing application encryption failed: {exception.Message}";
+            SecretSafeDiagnostics.WriteTrace("application-encryption.change.failed", exception);
+            StatusDetail = "Asura couldn't change application encryption. Your data is unchanged. Try again.";
         }
         finally
         {
@@ -222,7 +224,7 @@ public sealed class ApplicationSecurityEditorViewModel : ObservableObject
 
         if (!string.Equals(NewPin, NewPinConfirmation, StringComparison.Ordinal))
         {
-            ProtectionStatus = "The two PIN entries do not match.";
+            ProtectionStatus = "The two PIN entries don't match.";
             return;
         }
 

@@ -136,7 +136,7 @@ public sealed partial class GovernedAgentRuntime
                         selected.Request.IsMutation
                             ? "git_mutation_outcome_unknown"
                             : "caller_cancelled",
-                        "The governed Git action was cancelled."),
+                        "The governed Git action was canceled."),
                     context.Revision);
             }
             catch (Exception exception) when (exception is not OutOfMemoryException)

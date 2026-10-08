@@ -598,7 +598,7 @@ internal sealed class SingleInstanceCoordinator : IAsyncDisposable
         new SingleInstanceStartResult.Failure(new SingleInstanceError(
             SingleInstanceErrorCode.Cancelled,
             "single_instance_cancelled",
-            "Application activation was cancelled."));
+            "Application activation was canceled."));
 
     private static SingleInstanceStartResult ProfileUnavailable() =>
         new SingleInstanceStartResult.Failure(new SingleInstanceError(

@@ -243,7 +243,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
         catch (Exception)
         {
             editor.MarkCredentialMetadataUnavailable();
-            Warn("The operating-system vault could not provide credential metadata for this connection.");
+            Warn($"{PlatformTerms.SecretStore} couldn't provide the credential details for this connection.");
             return;
         }
 
@@ -280,7 +280,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
         }
         else
         {
-            Warn("The connection draft was discarded, but an unused credential could not be removed from the operating-system vault. Delete it in Security & secrets.");
+            Warn($"The connection draft was discarded, but an unused credential couldn't be removed from {PlatformTerms.SecretStore}. Delete it in Settings › Security & Secrets.");
         }
     }
 
@@ -335,10 +335,10 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
         {
             var cleanupFailures = await ResetStoredPendingCredentialsAsync(
                 CancellationToken.None);
-            var message = result.Error?.Message ?? "The network connection could not be saved.";
+            var message = result.Error?.Message ?? "Asura couldn't save the network connection. Try again.";
             return Fail(cleanupFailures == 0
                 ? message
-                : message + " An unused credential could not be removed from the operating-system vault.");
+                : message + $" An unused credential couldn't be removed from {PlatformTerms.SecretStore}.");
         }
 
         var finalReferences = CredentialReferences(request.Profile.Configuration);
@@ -363,7 +363,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
         }
         else
         {
-            Warn($"Saved {request.Profile.Name}, but an old credential could not be removed from the operating-system vault. Delete it in Security & secrets.");
+            Warn($"Saved “{request.Profile.Name}”, but an old credential couldn't be removed from {PlatformTerms.SecretStore}. Delete it in Settings › Security & Secrets.");
         }
 
         return true;
@@ -397,7 +397,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
                     cancellationToken) is false)
             {
                 _pendingCredentials.Add(target.Target, previous);
-                return Fail("The previous credential could not be replaced because it could not be removed from the operating-system vault.");
+                return Fail($"The previous credential couldn't be replaced because {PlatformTerms.SecretStore} didn't remove it. Try again.");
             }
 
             previous.Dispose();
@@ -420,7 +420,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
             target.Kind);
         editor.Credential.ClearValue();
         editor.CloseCredentialDraft();
-        Succeed($"{target.DisplayName} is ready. Save the connection to store it in the credential vault.");
+        Succeed($"{target.DisplayName} is ready. Save the connection to store it in {PlatformTerms.SecretStore}.");
         return true;
     }
 
@@ -518,7 +518,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
             cancellationToken);
         if (!result.IsSuccess)
         {
-            return Fail(result.Error?.Message ?? "The network connection could not be deleted.");
+            return Fail(result.Error?.Message ?? "Asura couldn't delete the network connection. Try again.");
         }
 
         var cleanupFailures = await DeleteCredentialsAsync(
@@ -538,7 +538,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
         }
         else
         {
-            Warn($"Deleted {item.Name}, but a credential could not be removed from the operating-system vault. Delete it in Security & secrets.");
+            Warn($"Deleted “{item.Name}”, but a credential couldn't be removed from {PlatformTerms.SecretStore}. Delete it in Settings › Security & Secrets.");
         }
 
         return true;
@@ -570,7 +570,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
             cancellationToken);
         if (!result.IsSuccess)
         {
-            return Fail(result.Error?.Message ?? "Application networking could not be saved.");
+            return Fail(result.Error?.Message ?? "Asura couldn't save the network settings. Try again.");
         }
 
         ApplyCatalog(_catalog.Snapshot);
@@ -679,7 +679,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
             {
                 SetProfileTestFailure(
                     "Connect in a workspace first",
-                    "No active workspace connection matches these settings. Save the connection and connect from a workspace to sign in, then test here. Testing will not create another Tailscale device.");
+                    "No active workspace connection matches these settings. Save the connection and connect from a workspace to sign in, then test here. Testing won't create another Tailscale device.");
                 return false;
             }
 
@@ -741,7 +741,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
                     SetProfileTestFailure(
                         "Test failed",
                         snapshot.Error?.Message
-                        ?? "The networking runtime did not establish the connection.");
+                        ?? "Asura couldn't connect. Check the connection's settings, then try again.");
                 }
             }
         }
@@ -751,8 +751,8 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
             {
                 acceptsProgress = false;
                 SetProfileTestFailure(
-                    "Test cancelled",
-                    "The connection test was cancelled and its temporary route was removed.");
+                    "Test canceled",
+                    "The connection test was canceled and its temporary route was removed.");
             }
         }
         catch (Exception)
@@ -762,7 +762,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
                 acceptsProgress = false;
                 SetProfileTestFailure(
                     "Test failed",
-                    "The networking runtime could not complete the connection test.");
+                    "Asura couldn't finish testing the connection. Try again.");
             }
         }
         finally
@@ -782,7 +782,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
                     succeeded = false;
                     SetProfileTestFailure(
                         "Cleanup failed",
-                        "The test route could not be removed cleanly. Restart Asura before using this connection.");
+                        "Asura couldn't fully close the test connection. Restart Asura before using this connection.");
                 }
             }
 
@@ -793,7 +793,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
                 succeeded = false;
                 SetProfileTestFailure(
                     "Credential cleanup failed",
-                    "A temporary test credential could not be removed from the operating-system vault. Cancel the draft to retry cleanup.");
+                    $"A temporary test credential couldn't be removed from {PlatformTerms.SecretStore}. Cancel the draft to try again.");
             }
         }
 

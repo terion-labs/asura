@@ -21,7 +21,7 @@ public sealed class RuntimeTabIdentityTests
         string icon,
         Symbol symbol)
     {
-        var tab = new RuntimeTabViewModel(TabInstanceId.New(), "New tab", "Launcher");
+        var tab = new RuntimeTabViewModel(TabInstanceId.New(), "New Tab", "Launcher");
 
         tab.AddPanel(new TestPanel(kind, "First panel"));
 

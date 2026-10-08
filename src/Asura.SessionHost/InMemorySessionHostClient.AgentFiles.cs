@@ -29,7 +29,7 @@ public sealed partial class InMemorySessionHostClient
             || _agentAuthorizationConsumer is null)
         {
             return Unsupported<AgentFileActionResult>(
-                "The governed File Viewer execution bridge is not composed.",
+                "The governed Files panel execution bridge is not composed.",
                 revision: 0);
         }
 
@@ -70,7 +70,7 @@ public sealed partial class InMemorySessionHostClient
                 is not long expectedSessionRevision)
             {
                 return InvalidAgentFileAction(
-                    "The exact File Viewer context has no matching live session revision.",
+                    "The exact Files panel context has no matching live session revision.",
                     revision);
             }
 
@@ -102,7 +102,7 @@ public sealed partial class InMemorySessionHostClient
             catch (ArgumentException)
             {
                 return InvalidAgentFileAction(
-                    "The prepared action no longer matches the exact live File Viewer target.",
+                    "The prepared action no longer matches the exact live Files panel target.",
                     revision);
             }
             catch (InvalidOperationException)
@@ -166,7 +166,7 @@ public sealed partial class InMemorySessionHostClient
             return HostResult<AgentFileActionResult>.Fail(
                 HostError.Create(
                     HostErrorCode.EngineFailed,
-                    "The File Viewer authorization broker is unavailable.",
+                    "The Files panel authorization broker is unavailable.",
                     retryable: true),
                 revision);
         }
@@ -247,7 +247,7 @@ public sealed partial class InMemorySessionHostClient
         catch (ArgumentException)
         {
             return InvalidAgentFileAction(
-                "The exact File Viewer target changed while authorization was consumed.",
+                "The exact Files panel target changed while authorization was consumed.",
                 revision);
         }
         catch (InvalidOperationException)
@@ -263,7 +263,7 @@ public sealed partial class InMemorySessionHostClient
                 currentBinding))
         {
             return InvalidAgentFileAction(
-                "The exact File Viewer execution binding changed before dispatch.",
+                "The exact Files panel execution binding changed before dispatch.",
                 revision);
         }
 
@@ -272,7 +272,7 @@ public sealed partial class InMemorySessionHostClient
         if (currentPanel?.SessionRevision != dispatch.ExpectedSessionRevision)
         {
             return InvalidAgentFileAction(
-                "The exact File Viewer session changed before dispatch.",
+                "The exact Files panel session changed before dispatch.",
                 revision);
         }
 
@@ -281,7 +281,7 @@ public sealed partial class InMemorySessionHostClient
             return HostResult<AgentFileActionResult>.Fail(
                 HostError.Create(
                     HostErrorCode.CapabilityNotSupported,
-                    "The File Viewer no longer supports the governed operation."),
+                    "The Files panel no longer supports the governed operation."),
                 revision);
         }
 
@@ -294,7 +294,7 @@ public sealed partial class InMemorySessionHostClient
                 dispatch.RuntimeCancellation))
         {
             return InvalidAgentFileAction(
-                "The exact File Viewer scope or capability changed before dispatch.",
+                "The exact Files panel scope or capability changed before dispatch.",
                 revision);
         }
 
@@ -322,7 +322,7 @@ public sealed partial class InMemorySessionHostClient
         {
             throw AgentFileDispatchFailure(
                 HostErrorCode.SessionClosed,
-                "The exact File Viewer session is no longer active.");
+                "The exact Files panel session is no longer active.");
         }
 
         if (session.Engine is not IFilePanelSession files
@@ -330,18 +330,18 @@ public sealed partial class InMemorySessionHostClient
         {
             throw AgentFileDispatchFailure(
                 HostErrorCode.CapabilityNotSupported,
-                "The exact session is not a File Viewer.");
+                "The exact session is not a Files panel.");
         }
 
         var metadata = snapshot.FileMetadata
             ?? throw AgentFileDispatchFailure(
                 HostErrorCode.InvalidRequest,
-                "The exact File Viewer session has no trusted file scope.");
+                "The exact Files panel session has no trusted file scope.");
         if (files.Metadata != metadata)
         {
             throw AgentFileDispatchFailure(
                 HostErrorCode.InvalidRequest,
-                "The File Viewer trusted scope no longer matches its hosted session.");
+                "The Files panel trusted scope no longer matches its hosted session.");
         }
 
         var requiredSessionCapability =
@@ -356,7 +356,7 @@ public sealed partial class InMemorySessionHostClient
         {
             throw AgentFileDispatchFailure(
                 HostErrorCode.CapabilityNotSupported,
-                "The File Viewer no longer supports the governed operation.");
+                "The Files panel no longer supports the governed operation.");
         }
 
         FilePanelLocation location;
@@ -469,7 +469,7 @@ public sealed partial class InMemorySessionHostClient
             result = HostResult<AgentFileActionResult>.Fail(
                 HostError.Create(
                     HostErrorCode.CapabilityNotSupported,
-                    "The File Viewer no longer supports the governed operation."),
+                    "The Files panel no longer supports the governed operation."),
                 dispatch.Revision);
         }
         else if (!dispatch.Session.CanExecuteAgentFileAction(
@@ -481,7 +481,7 @@ public sealed partial class InMemorySessionHostClient
                      dispatch.RuntimeCancellation))
         {
             result = InvalidAgentFileAction(
-                "The exact File Viewer scope or capability changed before dispatch.",
+                "The exact Files panel scope or capability changed before dispatch.",
                 dispatch.Revision);
         }
         else
@@ -601,7 +601,7 @@ public sealed partial class InMemorySessionHostClient
                     dispatch.RuntimeCancellation))
             {
                 return InvalidAgentFileAction(
-                    "The exact File Viewer scope changed while the operation was running.",
+                    "The exact Files panel scope changed while the operation was running.",
                     dispatch.Revision);
             }
 
@@ -620,7 +620,7 @@ public sealed partial class InMemorySessionHostClient
                 : HostResult<AgentFileActionResult>.Fail(
                     HostError.Create(
                         HostErrorCode.EngineFailed,
-                        "The File Viewer engine could not complete the governed action."),
+                        "The Files panel engine could not complete the governed action."),
                     dispatch.Revision);
         }
     }
@@ -1030,7 +1030,7 @@ public sealed partial class InMemorySessionHostClient
             new HostError(
                 HostErrorCode.Cancelled,
                 completion.StableCode ?? "operation_cancelled",
-                "The governed file action was cancelled."),
+                "The governed file action was canceled."),
             revision);
     }
 
@@ -1350,7 +1350,7 @@ public sealed partial class InMemorySessionHostClient
             new HostError(
                 code,
                 stableCode,
-                "The File Viewer provider rejected the governed action.",
+                "The Files panel provider rejected the governed action.",
                 retryable),
             revision);
     }
@@ -1378,7 +1378,7 @@ public sealed partial class InMemorySessionHostClient
             new HostError(
                 HostErrorCode.EngineFailed,
                 InvalidAgentFileResultCode,
-                "The File Viewer provider returned an invalid governed result."),
+                "The Files panel provider returned an invalid governed result."),
             revision);
 
     private static HostResult<AgentFileActionResult>
@@ -1387,7 +1387,7 @@ public sealed partial class InMemorySessionHostClient
             new HostError(
                 HostErrorCode.EngineFailed,
                 FileMutationOutcomeUnknownCode,
-                "The File Viewer mutation outcome is unknown.",
+                "The Files panel mutation outcome is unknown.",
                 Retryable: false),
             revision);
 
@@ -1613,7 +1613,7 @@ public sealed partial class InMemorySessionHostClient
                 or AgentAuthorizationErrorCode.RunCancelled =>
                 HostError.Create(
                     HostErrorCode.Cancelled,
-                    "The governed file action was cancelled."),
+                    "The governed file action was canceled."),
             AgentAuthorizationErrorCode.AuditUnavailable =>
                 HostError.Create(
                     HostErrorCode.EngineFailed,

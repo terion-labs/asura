@@ -328,7 +328,7 @@ public sealed partial class MainWindowViewModel
     {
         if (_shutdownStarted || _runtimeGraphLifetime.IsCancellationRequested)
         {
-            SetError("This window is closing, so the workspace cannot be opened.");
+            SetError("This window is closing, so the workspace can't open here. Open it in another window.");
             return ValueTask.FromResult(WorkspaceIsolationPreparation.Failed);
         }
 
@@ -339,7 +339,7 @@ public sealed partial class MainWindowViewModel
 
         if (_workspaceIsolationProvider is null)
         {
-            SetError("Workspace isolation is not available on this platform.");
+            SetError("Workspace isolation isn't available on this platform.");
             return ValueTask.FromResult(WorkspaceIsolationPreparation.Failed);
         }
 
@@ -348,7 +348,7 @@ public sealed partial class MainWindowViewModel
                 out var preparationId,
                 out var completion))
         {
-            SetError("This window is closing, so the workspace cannot be opened.");
+            SetError("This window is closing, so the workspace can't open here. Open it in another window.");
             return ValueTask.FromResult(WorkspaceIsolationPreparation.Failed);
         }
 
@@ -396,7 +396,7 @@ public sealed partial class MainWindowViewModel
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            SetError("Workspace isolation startup was cancelled.");
+            SetError("Workspace isolation startup was canceled.");
             return WorkspaceIsolationPreparation.Failed;
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
@@ -404,7 +404,7 @@ public sealed partial class MainWindowViewModel
             SecretSafeDiagnostics.WriteTraceAndStandardError(
                 "workspace-isolation.prepare.failed",
                 exception);
-            SetError("The workspace isolation runtime could not prepare the workspace.");
+            SetError("Asura couldn't set up the isolated workspace. Check the workspace's isolation settings, then try again.");
             return WorkspaceIsolationPreparation.Failed;
         }
         finally
@@ -507,8 +507,8 @@ public sealed partial class MainWindowViewModel
             if (recovered.IsIsolated)
             {
                 SetError(
-                    "The saved definition for this recovered isolated workspace is unavailable. "
-                    + "Recovery was stopped to prevent host execution.");
+                    "Asura couldn't find the saved settings for this isolated workspace, so it didn't restore it. "
+                    + "Restoring it without them would run its commands outside the isolated environment.");
                 return ValueTask.FromResult(WorkspaceIsolationPreparation.Failed);
             }
 

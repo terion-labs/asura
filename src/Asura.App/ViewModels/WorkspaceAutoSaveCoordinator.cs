@@ -55,7 +55,7 @@ public sealed class WorkspaceAutoSaveCoordinator : IDisposable
             var capture = await CaptureWorkspaceAutoSaveAsync(runtime, stored.Value, stored.Revision, cancellationToken);
             if (capture is null)
             {
-                return _captureError ?? "The workspace layout is not ready to save. Wait for its panels to finish opening and try again.";
+                return _captureError ?? "The workspace layout isn't ready to save. Wait for its panels to finish opening and try again.";
             }
 
             var error = await _catalog.SaveWorkspaceWithLayoutsAsync(capture.Workspace,
@@ -479,7 +479,7 @@ public sealed class WorkspaceAutoSaveCoordinator : IDisposable
 
     private ScreenPanelDefinition? CannotProtectDatabaseTarget()
     {
-        _captureError = "The workspace layout was not saved because an unavailable database target could not be protected. Unlock the credential store or restore its connection, then retry. The previous workspace is unchanged.";
+        _captureError = $"The workspace layout wasn't saved because a database connection couldn't be protected. Unlock {PlatformTerms.SecretStore} or restore the connection, then try again. The previous workspace is unchanged.";
         _reportCaptureError?.Invoke(_captureError);
         return null;
     }

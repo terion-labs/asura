@@ -40,7 +40,7 @@ public sealed class ApplicationUpdateViewModelTests
     }
 
     [Theory]
-    [InlineData(DistributionSource.AppleAppStore, "Apple App Store")]
+    [InlineData(DistributionSource.AppleAppStore, "Mac App Store")]
     [InlineData(DistributionSource.MicrosoftStore, "Microsoft Store")]
     [InlineData(DistributionSource.LinuxPackageManager, "Linux package manager")]
     public void Managed_distribution_uses_its_own_update_source(DistributionSource source, string channel)

@@ -484,7 +484,7 @@ public sealed class TerminalRuntimePanelViewModelTests
         await runtime.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(ConnectionReconnectState.Cancelled, panel.ReconnectState);
         Assert.Equal(ConnectionPanelState.Failed, panel.ConnectionState);
-        Assert.Equal("Connection cancelled", panel.ConnectionStatus);
+        Assert.Equal("Connection canceled", panel.ConnectionStatus);
         Assert.Null(panel.SessionRequest);
         Assert.True(panel.CanRetry);
     }
@@ -622,7 +622,7 @@ public sealed class TerminalRuntimePanelViewModelTests
         Assert.Same(error, panel.StartupCommandError);
         Assert.True(panel.HasStartupCommandError);
         Assert.DoesNotContain("Retrying", panel.StartupCommandErrorDetail, StringComparison.Ordinal);
-        Assert.Contains("will not be retried", panel.StartupCommandErrorDetail, StringComparison.Ordinal);
+        Assert.Contains("won't be retried", panel.StartupCommandErrorDetail, StringComparison.Ordinal);
         Assert.Contains("terminal remains open", panel.StartupCommandErrorDetail, StringComparison.Ordinal);
     }
 
@@ -681,7 +681,7 @@ public sealed class TerminalRuntimePanelViewModelTests
         Assert.Same(dispatchResult, dispatchState.LastResult);
         Assert.Empty(panel.StartupCommands);
         Assert.Same(error, panel.StartupCommandError);
-        Assert.Contains("will not be retried", panel.StartupCommandErrorDetail, StringComparison.Ordinal);
+        Assert.Contains("won't be retried", panel.StartupCommandErrorDetail, StringComparison.Ordinal);
     }
 
     [Fact]

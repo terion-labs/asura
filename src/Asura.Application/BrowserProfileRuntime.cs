@@ -124,7 +124,7 @@ public sealed class CatalogBrowserProfileRuntime(IDefinitionCatalog catalog)
         {
             return BrowserProfilePinResult.Failed(
                 BrowserProfilePinFailure.Disabled,
-                $"The browser profile '{stored.Value.Name}' is disabled. Enable it or choose another profile, then reopen this panel.");
+                $"The browser profile “{stored.Value.Name}” is turned off. Turn it on or choose another profile, then reopen this panel.");
         }
 
         return BrowserProfilePinResult.Success(new BrowserProfileBinding(

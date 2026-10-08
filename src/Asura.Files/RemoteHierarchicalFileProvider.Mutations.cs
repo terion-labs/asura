@@ -45,7 +45,7 @@ public abstract partial class RemoteHierarchicalFileProvider
                 ? ToFileEntry(request.Location, existing)
                 : Failure<FileEntry>(
                     FileProviderErrorCode.Conflict,
-                    "A non-directory remote entry already exists at the destination.");
+                    "An item that isn't a folder already exists at the destination.");
         }
 
         await session
@@ -58,7 +58,7 @@ public abstract partial class RemoteHierarchicalFileProvider
         {
             return Failure<FileEntry>(
                 FileProviderErrorCode.IoFailure,
-                "The remote server did not expose the created directory.");
+                "The remote server did not expose the created folder.");
         }
 
         return ToFileEntry(request.Location, created);
@@ -182,7 +182,7 @@ public abstract partial class RemoteHierarchicalFileProvider
         {
             return Failure<FileEntry>(
                 FileProviderErrorCode.Conflict,
-                "A remote directory cannot be replaced by rename.");
+                "A remote folder cannot be replaced by rename.");
         }
 
         var backupPath = destinationEntry is null
@@ -302,7 +302,7 @@ public abstract partial class RemoteHierarchicalFileProvider
                 {
                     return Failure<FileDeleteReceipt>(
                         FileProviderErrorCode.DirectoryNotEmpty,
-                        "The remote directory is not empty.");
+                        "The remote folder is not empty.");
                 }
 
                 await session
@@ -454,7 +454,7 @@ public abstract partial class RemoteHierarchicalFileProvider
         {
             return Failure<FileTransferReceipt>(
                 FileProviderErrorCode.UnsupportedCapability,
-                "Directory transfer is not supported by this provider.");
+                "Folder transfer is not supported by this provider.");
         }
 
         if (sourceEntry.Kind == FileEntryKind.Link)
@@ -498,7 +498,7 @@ public abstract partial class RemoteHierarchicalFileProvider
 
         if (destinationEntry?.Kind == FileEntryKind.Directory)
         {
-            return Failure<FileTransferReceipt>(FileProviderErrorCode.IsDirectory, "The destination is a directory.");
+            return Failure<FileTransferReceipt>(FileProviderErrorCode.IsDirectory, "The destination is a folder.");
         }
 
         if (destinationEntry?.Kind == FileEntryKind.Link)
@@ -591,7 +591,7 @@ public abstract partial class RemoteHierarchicalFileProvider
                 {
                     return Failure<FileTransferReceipt>(
                         FileProviderErrorCode.PartialTransfer,
-                        "The destination committed, but deleting the remote source was cancelled.");
+                        "The destination committed, but deleting the remote source was canceled.");
                 }
             }
 

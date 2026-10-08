@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Globalization;
 using Asura.Application;
+using Asura.Core;
 
 namespace Asura.App.ViewModels;
 
@@ -49,7 +51,11 @@ public sealed partial class KubernetesRuntimePanelViewModel
     public bool IsGenericTable => !IsPodTable && !IsNodeTable;
     public bool IsNamespaceScopeVisible => SelectedKind?.Namespaced == true;
     public string ResourceTitle => SelectedKind is { } kind ? KubernetesResourceNames.Title(kind) : "Resources";
-    public string ResourceCountLabel => Filter.Length > 0 ? $"{Resources.Count} of {_allResources.Count} items" : $"{Resources.Count} items{(HasMore ? "+" : "")}";
+    public string ResourceCountLabel => Filter.Length > 0
+        ? string.Create(CultureInfo.CurrentCulture, $"{Resources.Count:N0} of {CountText.Of(_allResources.Count, "item", "items")}")
+        : HasMore
+            ? string.Create(CultureInfo.CurrentCulture, $"{Resources.Count:N0}+ items")
+            : CountText.OrNone(Resources.Count, "item", "items");
     public string LabelSelector { get => _labelSelector; set { if (SetProperty(ref _labelSelector, value)) { OnPropertyChanged(nameof(Target)); } } }
     public string NamespaceSelection
     {
@@ -196,7 +202,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
         { if (HasUnsavedChanges) { Issue = "Apply or discard your manifest edits before navigating."; } return; }
         var kind = Kinds.FirstOrDefault(item => string.Equals(item.Group, reference.Group, StringComparison.Ordinal) && string.Equals(item.Resource, reference.Resource, StringComparison.Ordinal) && string.Equals(item.Version, reference.Version, StringComparison.Ordinal))
             ?? Kinds.FirstOrDefault(item => string.Equals(item.Group, reference.Group, StringComparison.Ordinal) && string.Equals(item.Resource, reference.Resource, StringComparison.Ordinal));
-        if (kind is null) { Issue = "This resource API is not available in the current cluster."; return; }
+        if (kind is null) { Issue = "This resource API isn't available in the current cluster."; return; }
         ClearScope();
         _selectedKind = kind;
         _namespace = reference.Namespace ?? string.Empty;

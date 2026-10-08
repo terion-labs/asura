@@ -65,7 +65,7 @@ internal static class AgentPolicyPresentation
             AgentCapability.TerminalRead => "Read visible terminal output.",
             AgentCapability.RunCommands => "Send commands to terminal sessions.",
             AgentCapability.EditFiles => "Create, modify, and delete files.",
-            AgentCapability.ReadFiles => "Read files and list directories.",
+            AgentCapability.ReadFiles => "Read files and list folders.",
             AgentCapability.Search => "Search file contents and paths.",
             AgentCapability.GitData => "Inspect Git repositories without changing them.",
             AgentCapability.Git => "Change Git repositories.",

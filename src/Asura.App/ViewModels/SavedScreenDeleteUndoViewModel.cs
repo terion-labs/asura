@@ -10,7 +10,7 @@ public sealed record SavedScreenDeleteUndoReceipt(
 public sealed class SavedScreenDeleteUndoViewModel : ObservableObject
 {
     private const string InitialStatus =
-        "No saved-screen deletion is available to undo. Running instances are not changed by saved-definition deletion.";
+        "There's no deleted screen to restore. Deleting a saved screen doesn't change tabs that are already open.";
 
     private readonly IDefinitionCatalog _catalog;
     private PendingSavedScreenDeleteState? _pending;
@@ -54,7 +54,7 @@ public sealed class SavedScreenDeleteUndoViewModel : ObservableObject
             deleted.Value.Name);
         _pending = new PendingSavedScreenDeleteState(deleted, receipt);
         Status =
-            $"Deleted “{receipt.ScreenName}”. Running instances were not changed. Undo restores this saved screen.";
+            $"Deleted “{receipt.ScreenName}”. Running instances weren't changed. Undo restores this saved screen.";
         NotifyPendingChanged();
     }
 
@@ -92,7 +92,7 @@ public sealed class SavedScreenDeleteUndoViewModel : ObservableObject
             else if (ReferenceEquals(_pending, pending))
             {
                 Status =
-                    $"Could not restore “{pending.Receipt.ScreenName}”. Retry or dismiss this undo.";
+                    $"Asura couldn't restore “{pending.Receipt.ScreenName}”. Try again, or dismiss this undo.";
             }
 
             return result;
@@ -102,7 +102,7 @@ public sealed class SavedScreenDeleteUndoViewModel : ObservableObject
             if (ReferenceEquals(_pending, pending))
             {
                 Status =
-                    $"Restore cancelled for “{pending.Receipt.ScreenName}”. Retry or dismiss this undo.";
+                    $"Restoring “{pending.Receipt.ScreenName}” was canceled. Try again, or dismiss this undo.";
             }
 
             throw;

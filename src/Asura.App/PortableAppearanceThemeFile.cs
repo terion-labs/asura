@@ -27,7 +27,7 @@ public sealed record PortableAppearanceTheme(
         if (FormatVersion != CurrentFormatVersion)
         {
             throw new JsonException(
-                $"Appearance theme format {FormatVersion} is not supported.");
+                $"Appearance theme format {FormatVersion} isn't supported.");
         }
 
         ArgumentNullException.ThrowIfNull(Application);

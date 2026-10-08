@@ -406,7 +406,7 @@ public sealed class FilePanelSessionTests
             _transfers[index] = _transfers[index] with
             {
                 State = FilePanelTransferState.Cancelled,
-                Stage = "Cancelled",
+                Stage = "Canceled",
                 CompletedAt = DateTimeOffset.UtcNow,
             };
             TransfersChanged?.Invoke(this, EventArgs.Empty);

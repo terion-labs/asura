@@ -436,7 +436,7 @@ internal sealed class SshNetSftpSessionFactory(
                 {
                     throw new RemoteFileSessionException(
                         RemoteFileSessionErrorCode.IsDirectory,
-                        "The SFTP path is a directory.");
+                        "That item is a folder.");
                 }
 
                 await entry.DeleteAsync(cancellationToken).ConfigureAwait(false);
@@ -460,7 +460,7 @@ internal sealed class SshNetSftpSessionFactory(
                 {
                     throw new RemoteFileSessionException(
                         RemoteFileSessionErrorCode.NotDirectory,
-                        "The SFTP path is not a directory.");
+                        "That item isn't a folder.");
                 }
 
                 await entry.DeleteAsync(cancellationToken).ConfigureAwait(false);
@@ -579,7 +579,7 @@ internal sealed class SshNetSftpSessionFactory(
                 {
                     throw new RemoteFileSessionException(
                         RemoteFileSessionErrorCode.LimitExceeded,
-                        "The SFTP directory exceeds the bounded metadata-scan limit.");
+                        "The folder has too many items for Asura to check.");
                 }
 
                 if (string.Equals(entry.Name, name, StringComparison.Ordinal))

@@ -44,7 +44,7 @@ public sealed class DatabaseGridCsvTests
 
         var ragged = Assert.Throws<InvalidDataException>(() =>
             DatabaseGridCsv.Parse("id,title\n1\n"));
-        Assert.Contains("expected 2", ragged.Message, StringComparison.Ordinal);
+        Assert.Contains("the header has 2 columns", ragged.Message, StringComparison.Ordinal);
     }
 
     [Theory]

@@ -19,12 +19,12 @@ public sealed record LocalArtifactItemViewModel
                 "Clear Asura app-managed cache"),
             LocalArtifactKind.InactiveApplicationLogs => (
                 "Inactive application logs",
-                "Persistent logs from earlier runs. This build does not write a persistent active log.",
+                "Logs saved by earlier runs of Asura. This version of Asura doesn't keep a log of the current run.",
                 "Clear inactive Asura application logs"),
             _ => throw new ArgumentOutOfRangeException(
                 nameof(summary),
                 summary.Kind,
-                "The local artifact kind is not supported."),
+                "The local artifact kind isn't supported."),
         };
         FileCountLabel = summary.FileCount == 0
             ? "No files"
@@ -262,18 +262,14 @@ public sealed class LocalArtifactControlViewModel : ObservableObject, IDisposabl
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             await PublishAsync(
-                () => ApplyPostClearRefreshFailure(
-                    clearStatus,
-                    LocalArtifactControlErrorCode.Cancelled),
+                () => ApplyPostClearRefreshFailure(clearStatus),
                 CancellationToken.None).ConfigureAwait(false);
             return;
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
             await PublishAsync(
-                () => ApplyPostClearRefreshFailure(
-                    clearStatus,
-                    LocalArtifactControlErrorCode.IoFailure),
+                () => ApplyPostClearRefreshFailure(clearStatus),
                 CancellationToken.None).ConfigureAwait(false);
             return;
         }
@@ -282,7 +278,7 @@ public sealed class LocalArtifactControlViewModel : ObservableObject, IDisposabl
         {
             if (!inventory.IsSuccess)
             {
-                ApplyPostClearRefreshFailure(clearStatus, inventory.Error!.Code);
+                ApplyPostClearRefreshFailure(clearStatus);
                 return;
             }
 
@@ -316,7 +312,7 @@ public sealed class LocalArtifactControlViewModel : ObservableObject, IDisposabl
             await TryPublishAsync(() =>
             {
                 HasError = false;
-                StatusMessage = "The app-managed storage operation was cancelled.";
+                StatusMessage = "The app-managed storage operation was canceled.";
             }).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
@@ -349,8 +345,8 @@ public sealed class LocalArtifactControlViewModel : ObservableObject, IDisposabl
             HasError = result.Error!.Code != LocalArtifactControlErrorCode.Cancelled;
             Items = [];
             StatusMessage = result.Error.Code == LocalArtifactControlErrorCode.Cancelled
-                ? "The app-managed storage operation was cancelled."
-                : $"App-managed cache and log metadata could not be loaded. ({result.Error.Code})";
+                ? "The app-managed storage operation was canceled."
+                : "Asura couldn't load details about its caches and logs. Try again.";
             return;
         }
 
@@ -375,25 +371,23 @@ public sealed class LocalArtifactControlViewModel : ObservableObject, IDisposabl
             RemoveStaleKind(kind);
             HasError = true;
             StatusMessage =
-                $"Removed {FormatFileCount(error.FilesRemoved)}, but cleanup did not finish. "
-                + $"Refresh before trying again. ({error.Code})";
+                $"Removed {FormatFileCount(error.FilesRemoved)}, but cleanup didn't finish. "
+                + "Refresh before trying again.";
             return;
         }
 
         HasError = error.Code != LocalArtifactControlErrorCode.Cancelled;
         StatusMessage = error.Code == LocalArtifactControlErrorCode.Cancelled
-            ? "The app-managed storage operation was cancelled before any files were removed."
-            : $"The selected app-managed files could not be cleared. ({error.Code})";
+            ? "The app-managed storage operation was canceled before any files were removed."
+            : "Asura couldn't clear the selected files. Try again.";
     }
 
     private void ApplyPostClearRefreshFailure(
-        string clearStatus,
-        LocalArtifactControlErrorCode errorCode)
+        string clearStatus)
     {
         HasError = true;
         StatusMessage =
-            $"{clearStatus} Current app-managed storage metadata could not be loaded. "
-            + $"({errorCode})";
+            $"{clearStatus} Asura couldn't load the current details about its caches and logs. Refresh to try again.";
     }
 
     private void RemoveStaleKind(LocalArtifactKind kind)

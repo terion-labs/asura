@@ -39,7 +39,7 @@ public sealed class SshNetDatabaseTunnelFactory(
         if (connection.Endpoint is not ConnectionEndpoint.Ssh endpoint)
         {
             throw new InvalidOperationException(
-                $"Connection '{connection.Name}' is not an SSH connection and cannot tunnel a database.");
+                $"“{connection.Name}” isn't an SSH connection, so the database can't go through it.");
         }
 
         if (string.IsNullOrWhiteSpace(endpoint.Username))
@@ -121,7 +121,7 @@ public sealed class SshNetDatabaseTunnelFactory(
             TryDispose(client);
             DisposeAuthentication(ownedBuffers, ownedDisposables);
             throw new InvalidOperationException(
-                $"The SSH tunnel through '{connection.Name}' could not be established: {exception.Message}",
+                SshTunnelFailureText.Describe("the SSH tunnel", connection, exception),
                 exception);
         }
         catch
@@ -217,7 +217,7 @@ public sealed class SshNetDatabaseTunnelFactory(
                 or SecretVaultErrorCode.UserCancelled
                 ? new OperationCanceledException(cancellationToken)
                 : new InvalidOperationException(
-                    "The SSH credential could not be resolved from the vault.");
+                    $"Asura couldn't read the SSH credential from {PlatformTerms.SecretStore}. Check that it is unlocked, then try again.");
         }
 
         using var material = ((SecretVaultResult<SecretMaterial>.Success)result).Value;

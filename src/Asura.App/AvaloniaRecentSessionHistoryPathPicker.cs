@@ -32,7 +32,7 @@ public sealed class AvaloniaRecentSessionHistoryPathPicker(Func<Window> owner)
         cancellationToken.ThrowIfCancellationRequested();
         var selected = await _owner().StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = $"Export {recordCount:N0} metadata-only history records",
+            Title = recordCount == 1 ? "Export Session History (1 Session)" : $"Export Session History ({recordCount:N0} Sessions)",
             SuggestedFileName = suggestedFileName,
             DefaultExtension = "json",
             FileTypeChoices = [HistoryFileType],

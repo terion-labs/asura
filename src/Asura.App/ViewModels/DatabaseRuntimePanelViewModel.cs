@@ -114,18 +114,18 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     private CancellationTokenSource? _sqlLanguageLoadCancellation;
     private ISqlLanguageSession? _sqlLanguageSession;
     private long _sqlLanguageLoadGeneration;
-    private string _sqlLanguageStatus = "SQL intelligence is unavailable in this build.";
+    private string _sqlLanguageStatus = "SQL completion and validation aren't available in this version of Asura.";
 
     private static readonly IReadOnlyList<DatabaseFilterOperatorViewModel> AllFilterOperators =
     [
         new(DatabaseFilterOperator.Equal, "Equals"),
-        new(DatabaseFilterOperator.NotEqual, "Does not equal"),
+        new(DatabaseFilterOperator.NotEqual, "Doesn't equal"),
         new(DatabaseFilterOperator.LessThan, "Less than"),
         new(DatabaseFilterOperator.GreaterThan, "Greater than"),
         new(DatabaseFilterOperator.LessThanOrEqual, "At most"),
         new(DatabaseFilterOperator.GreaterThanOrEqual, "At least"),
         new(DatabaseFilterOperator.Contains, "Contains"),
-        new(DatabaseFilterOperator.NotContains, "Does not contain"),
+        new(DatabaseFilterOperator.NotContains, "Doesn't contain"),
         new(DatabaseFilterOperator.StartsWith, "Starts with"),
         new(DatabaseFilterOperator.EndsWith, "Ends with"),
         new(DatabaseFilterOperator.In, "In"),
@@ -148,7 +148,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         ISqlLanguageService? sqlLanguageService = null,
         Func<DatabaseConnectionProfileId, string, CancellationToken,
             Task<DatabaseConnectionProfile?>>? passwordPersister = null,
-        string passwordStoreLabel = "Save in system credential store",
+        string? passwordStoreLabel = null,
         bool deferStoredCredentialAccess = false,
         string? sessionPassword = null,
         DatabaseRecoveryState? recovery = null,
@@ -171,7 +171,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         _deferStoredCredentialAccess = deferStoredCredentialAccess;
         _passwordPersister = passwordPersister;
         PasswordStoreLabel = string.IsNullOrWhiteSpace(passwordStoreLabel)
-            ? "Save in system credential store"
+            ? PlatformTerms.SaveInSecretStore
             : passwordStoreLabel;
         _forcedReadOnlyReason = string.IsNullOrWhiteSpace(forcedReadOnlyReason)
             ? null
@@ -848,7 +848,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         ?? (_selectedObjectDetails is null
             ? _resultSource == DatabaseResultSource.RawQuery
                 ? _rawQueryCanBrowse
-                    ? "This query result does not map exactly to one editable table."
+                    ? "This query result doesn't map exactly to one editable table."
                     : "This statement result can be copied or exported, but not rerun, "
                         + "filtered, sorted, or edited safely."
                 : "Run a table preview to edit rows."
@@ -1229,7 +1229,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     internal void RequireImportedConnection()
     {
         _importedConnectionRequired = true;
-        ErrorMessage = "This imported database panel needs a connection. Its device-local target and credentials were not imported.";
+        ErrorMessage = "This imported database panel needs a connection. Its device-local target and credentials weren't imported.";
         OnPropertyChanged(nameof(RecoveryTarget));
     }
 
@@ -1249,7 +1249,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             {
                 if (!saved)
                 {
-                    ErrorMessage = "The database target could not be saved in the credential store. The previous saved target is unchanged.";
+                    ErrorMessage = $"Asura couldn't save the connection in {PlatformTerms.SecretStore}. The previously saved connection is unchanged.";
                     if (_recovery.CleanupIncomplete)
                     {
                         ErrorMessage += " An unused recovery credential may need removal in Security & secrets.";
@@ -1313,7 +1313,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     public string ConnectionStatusLabel => IsConnected
         ? $"Connected to {ConnectionDisplayName}"
         : _connectionFailed
-            ? $"Could not connect to {ConnectionDisplayName}"
+            ? $"Couldn't connect to {ConnectionDisplayName}"
             : IsConnecting
                 ? $"Connecting to {ConnectionDisplayName}"
                 : HasConnectionTarget
@@ -1602,7 +1602,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                     table.KindLabel,
                 ],
                 widths))];
-        ResultSummary = $"{_allTables.Count} objects · {CurrentDatabaseLabel}";
+        ResultSummary = $"{CountText.OrNone(_allTables.Count, "object", "objects")} · {CurrentDatabaseLabel}";
         _isDatabaseOverview = true;
         OnPropertyChanged(nameof(IsDatabaseOverview));
         OnPropertyChanged(nameof(IsDatabaseObjectsOverview));
@@ -1955,7 +1955,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             candidate.Operator == filterOperator);
         if (option is null)
         {
-            ErrorMessage = $"{filterOperator} is not available for {cell.Column.Name}.";
+            ErrorMessage = $"{filterOperator} isn't available for {cell.Column.Name}.";
             return;
         }
 
@@ -1963,7 +1963,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             string.Equals(column.Name, cell.Column.Name, StringComparison.Ordinal));
         if (filterColumn is null)
         {
-            ErrorMessage = $"Column '{cell.Column.Name}' is no longer available.";
+            ErrorMessage = $"The column “{cell.Column.Name}” is no longer available.";
             return;
         }
 
@@ -1978,7 +1978,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             && filterOperator is not (DatabaseFilterOperator.IsNull
                 or DatabaseFilterOperator.IsNotNull))
         {
-            ErrorMessage = $"{cell.Column.Name} does not contain a valid filter value.";
+            ErrorMessage = $"{cell.Column.Name} doesn't contain a valid filter value.";
             return;
         }
 
@@ -2149,7 +2149,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     {
         if (!CanMutateRows || ResultColumns.Count == 0)
         {
-            ErrorMessage = ReadOnlyReason ?? "Rows cannot be imported right now.";
+            ErrorMessage = ReadOnlyReason ?? "Rows can't be imported right now. Try again when the current change finishes.";
             return false;
         }
 
@@ -2194,13 +2194,13 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             var header = document.Headers[index];
             if (!columnsByName.TryGetValue(header, out var match))
             {
-                ErrorMessage = $"CSV column '{DatabaseGridCsv.DescribeHeader(header)}' does not exist in this table.";
+                ErrorMessage = $"The CSV column “{DatabaseGridCsv.DescribeHeader(header)}” isn't in this table.";
                 return false;
             }
 
             if (match.column.Descriptor.IsReadOnly || match.column.Descriptor.IsIdentity)
             {
-                ErrorMessage = $"CSV column '{DatabaseGridCsv.DescribeHeader(header)}' is owned by the database and cannot be imported.";
+                ErrorMessage = $"The CSV column “{DatabaseGridCsv.DescribeHeader(header)}” is filled in by the database, so it can't be imported.";
                 return false;
             }
 
@@ -2218,7 +2218,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                 var cell = row.Cells[imported.Ordinal];
                 if (!cell.CanSetText)
                 {
-                    ErrorMessage = $"CSV column '{imported.Column.Name}' cannot accept text values.";
+                    ErrorMessage = $"The column “{imported.Column.Name}” can't hold text, so it can't be imported from CSV.";
                     return false;
                 }
 
@@ -2469,8 +2469,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             && cell.Column.ValueKind == DatabaseValueKind.Text
             && string.Equals(SelectedDriver.Id, "oracle", StringComparison.Ordinal))
         {
-            error = $"Oracle stores empty text as SQL NULL. Column '{cell.Column.Name}' "
-                + "must use explicit SQL NULL or a non-empty value.";
+            error = $"Oracle stores empty text as NULL. Enter a value for “{cell.Column.Name}”, "
+                + "or set it to NULL.";
             return false;
         }
 
@@ -2582,14 +2582,14 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         ResetSqlLanguageSession();
         if (_sqlLanguageService?.IsAvailable != true || !IsConnected)
         {
-            SqlLanguageStatus = "SQL intelligence worker is not installed.";
+            SqlLanguageStatus = "SQL completion and validation aren't installed with this copy of Asura.";
             return;
         }
 
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         _sqlLanguageLoadCancellation = cancellation;
         var generation = _sqlLanguageLoadGeneration;
-        SqlLanguageStatus = "Loading the database catalog for SQL intelligence…";
+        SqlLanguageStatus = "Loading the database catalog for SQL completion…";
         SqlLanguageInitialization = InitializeSqlLanguageAsync(
             generation,
             cancellation.Token);
@@ -2637,7 +2637,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                     ? $"SQL completion and validation know {catalogFacts} from a limited catalog. {catalog.Limitation} {coverageStatus}".TrimEnd()
                     : $"SQL completion and validation know {catalogFacts}. {coverageStatus}".TrimEnd()
                 : SqlLanguageSession?.UnavailableReason
-                    ?? "SQL intelligence worker is unavailable.";
+                    ?? "SQL completion and validation aren't available.";
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -2649,7 +2649,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                 && !cancellationToken.IsCancellationRequested
                 && IsConnected)
             {
-                SqlLanguageStatus = $"SQL intelligence is unavailable: {exception.Message}";
+                SecretSafeDiagnostics.WriteTrace("database.sql-language.catalog.failed", exception);
+                SqlLanguageStatus = "SQL completion and validation aren't available for this connection. Reconnect to try again.";
             }
         }
         finally
@@ -3149,8 +3150,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         var elapsedText = result.Elapsed.TotalMilliseconds
             .ToString("0", CultureInfo.InvariantCulture);
         ResultSummary = result.Truncated
-            ? $"First {result.ValueRows.Count} rows (truncated) · {elapsedText} ms"
-            : $"{result.ValueRows.Count} rows · {elapsedText} ms";
+            ? $"First {CountText.Of(result.ValueRows.Count, "row", "rows")} (truncated) · {elapsedText} ms"
+            : $"{CountText.OrNone(result.ValueRows.Count, "row", "rows")} · {elapsedText} ms";
         SelectedMode = DatabaseWorkspaceMode.Data;
         OnPropertyChanged(nameof(SelectedObject));
         OnPropertyChanged(nameof(HasSelectedObject));
@@ -3206,7 +3207,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             Columns = normalizedColumns,
             CanEdit = details.CanEdit && !hasDisplayOnlyKey,
             ReadOnlyReason = disableForDisplayOnlyKey
-                ? "This primary-key value cannot be edited safely."
+                ? "This primary-key value can't be edited safely here. Edit it with SQL instead."
                 : details.ReadOnlyReason,
         };
         var effectiveColumns = result.Columns.Select((column, ordinal) =>
@@ -3297,7 +3298,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         ResultRows = rows;
         var elapsed = result.Elapsed.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture);
         ResultSummary = result.Truncated && !page.HasMore
-            ? $"First {valueRows.Count} rows · paging requires a primary key · {elapsed} ms"
+            ? $"First {CountText.Of(valueRows.Count, "row", "rows")} · paging needs a primary key · {elapsed} ms"
             : valueRows.Count == 0
                 ? $"No rows · {elapsed} ms"
                 : $"Rows {page.Offset + 1}–{page.Offset + valueRows.Count} · {elapsed} ms";
@@ -3797,7 +3798,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                 }
                 if (content.Kind is not (DatabaseValueKind.Text or DatabaseValueKind.Json or DatabaseValueKind.Binary))
                 {
-                    throw new InvalidOperationException($"Column '{edit.ColumnName}' uses a value that cannot be represented safely in an INSERT script.");
+                    throw new InvalidOperationException($"The value in “{edit.ColumnName}” can't be written safely into an INSERT script. Copy the rows another way, such as CSV.");
                 }
                 using var source = content.OpenRead();
                 using var complete = new MemoryStream();
@@ -4083,7 +4084,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         ArgumentNullException.ThrowIfNull(destination);
         if (!destination.CanWrite)
         {
-            throw new ArgumentException("The export destination is not writable.", nameof(destination));
+            throw new ArgumentException("The export destination isn't writable.", nameof(destination));
         }
 
         if (IsBusy)
@@ -4177,7 +4178,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         if (row.Cells.Count != ResultColumns.Count)
         {
             throw new ArgumentException(
-                "The row does not match the current result columns.",
+                "The row doesn't match the current result columns.",
                 nameof(row));
         }
     }

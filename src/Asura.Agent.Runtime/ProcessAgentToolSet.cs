@@ -136,8 +136,8 @@ internal static class ProcessAgentToolSet
             panelIds is null
                 ? Description
                 : Description.Replace(
-                    "exact Process Monitor panel pinned to this run",
-                    "Process Monitor panel selected by panel_id",
+                    "exact Processes panel pinned to this run",
+                    "Processes panel selected by panel_id",
                     StringComparison.Ordinal),
             buffer.WrittenSpan.ToArray());
     }

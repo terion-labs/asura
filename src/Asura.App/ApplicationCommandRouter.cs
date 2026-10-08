@@ -152,12 +152,12 @@ internal static class ApplicationCommandRouter
         if (!BuiltInCommands.Registry.TryGet(commandId, out var definition)
             || definition is null)
         {
-            return Failure($"Command '{commandId}' is not registered.");
+            return Failure("Asura doesn't have that command.");
         }
 
         if (!definition.IsAvailable(invocation))
         {
-            return Failure($"Command '{definition.Title}' is unavailable in the current context or has invalid arguments.");
+            return Failure($"“{definition.Title}” isn't available here.");
         }
 
         var arguments = invocation.Arguments;
@@ -234,7 +234,7 @@ internal static class ApplicationCommandRouter
             "Edit" => Forward(ApplicationCommandActionKind.Edit, commandId),
             "Git" => Forward(ApplicationCommandActionKind.Git, commandId),
             "Terminal" => Forward(ApplicationCommandActionKind.Terminal, commandId),
-            _ => Failure($"Command '{definition.Title}' is not an application command."),
+            _ => Failure($"“{definition.Title}” can't run from here."),
         };
     }
 
@@ -253,7 +253,7 @@ internal static class ApplicationCommandRouter
                     ApplicationCommandActionKind.SplitPanel,
                     SplitOrientation: value),
                 null)
-            : Failure("The split orientation is not supported.");
+            : Failure("The split orientation isn't supported.");
     }
 
     private static ApplicationCommandRouteResult ParseFocusDirection(
@@ -274,7 +274,7 @@ internal static class ApplicationCommandRouter
                     ApplicationCommandActionKind.FocusPanel,
                     FocusDirection: value),
                 null)
-            : Failure("The panel focus direction is not supported.");
+            : Failure("The panel focus direction isn't supported.");
     }
 
     private static ApplicationCommandRouteResult ParseTabPosition(

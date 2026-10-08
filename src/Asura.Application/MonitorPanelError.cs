@@ -23,7 +23,7 @@ public sealed record MonitorPanelError(
         MonitorPanelErrorCode.SessionClosed =>
             New(code, "monitor_session_closed", "The monitoring session is closed.", false),
         MonitorPanelErrorCode.Cancelled =>
-            New(code, "monitor_cancelled", "The monitoring operation was cancelled.", false),
+            New(code, "monitor_cancelled", "The monitoring operation was canceled.", false),
         _ => throw new ArgumentOutOfRangeException(nameof(code), code, null),
     };
 

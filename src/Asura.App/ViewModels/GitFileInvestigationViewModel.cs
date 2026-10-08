@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Asura.Core;
 using Asura.Git;
 
 namespace Asura.App.ViewModels;
@@ -64,7 +65,7 @@ public sealed class GitFileInvestigationViewModel(IGitRepositoryClient client, G
             }
 
             HasMore = page.HasMore;
-            Status = $"{Commits.Count} revisions{(HasMore ? " · more available" : "")}";
+            Status = $"{CountText.OrNone(Commits.Count, "revision", "revisions")}{(HasMore ? " · more available" : "")}";
             SelectedCommit = reset ? Commits.FirstOrDefault() : SelectedCommit ?? Commits.FirstOrDefault();
         }
         catch (ArgumentException exception)
@@ -102,7 +103,7 @@ public sealed class GitFileInvestigationViewModel(IGitRepositoryClient client, G
             Diff = diff is GitResult<GitDiffDocument>.Success d ? d.Value.RawPatch : Error(diff);
             if (isDirectory)
             {
-                Content = "Directory history. Select a file in the Git tree to inspect its recorded content or blame.";
+                Content = "Folder history. Select a file in the Git tree to inspect its recorded content or blame.";
                 Blame.Clear();
                 return;
             }

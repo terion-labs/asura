@@ -900,7 +900,7 @@ public sealed partial class GovernedAgentRuntime :
                         if (!await _chatSecrets.CanResolveAsync(reference, turnCancellation.Token).ConfigureAwait(false))
                         {
                             return FinishRecoverableSetupFailure(turnCancellation, baseMessages,
-                                "agent_hidden_content_unavailable", "Selected hidden content is unavailable. Unlock the operating-system vault or send with originals unchecked.");
+                                "agent_hidden_content_unavailable", $"The selected hidden content isn't available. Unlock {PlatformTerms.SecretStore}, or send without the originals.");
                         }
                     }
                     disclosedDraftCount = request.DiscloseDraftSecrets
@@ -1019,7 +1019,7 @@ public sealed partial class GovernedAgentRuntime :
                 turnCancellation,
                 ProjectMessages(session!),
                 "agent_turn_orchestration_failed",
-                "An internal provider or tool adapter stopped the agent turn.");
+                "Something inside Asura stopped the agent's turn. Try sending the message again.");
         }
         finally
         {
@@ -1080,7 +1080,7 @@ public sealed partial class GovernedAgentRuntime :
             return new GovernedAgentDecisionResult(
                 false,
                 "approval_decision_cancelled",
-                "The approval decision was cancelled.");
+                "The approval decision was canceled.");
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
@@ -1136,7 +1136,7 @@ public sealed partial class GovernedAgentRuntime :
                 {
                     CancellationRequested = true,
                 },
-                Status = "Cancelling this action…",
+                Status = "Canceling this action…",
             };
         }
 
@@ -1223,14 +1223,14 @@ public sealed partial class GovernedAgentRuntime :
         CancelDetachedQuestionAwaiter(
             question,
             "question_cancelled",
-            "The agent question was cancelled.");
+            "The agent question was canceled.");
         await AuditDetachedCapabilityRequestCancellationAsync(
                 capabilityRequest)
             .ConfigureAwait(false);
         CancelDetachedCapabilityRequestAwaiter(
             capabilityRequest,
             "capability_request_cancelled",
-            "The capability request was cancelled.");
+            "The capability request was canceled.");
 
         var cancellationError = await CancelRegisteredRunBestEffortAsync(
                 "user_stop",
@@ -1648,14 +1648,14 @@ public sealed partial class GovernedAgentRuntime :
         CancelDetachedQuestionAwaiter(
             question,
             "question_cancelled",
-            "The agent question was cancelled.");
+            "The agent question was canceled.");
         await AuditDetachedCapabilityRequestCancellationAsync(
                 capabilityRequest)
             .ConfigureAwait(false);
         CancelDetachedCapabilityRequestAwaiter(
             capabilityRequest,
             "capability_request_cancelled",
-            "The capability request was cancelled.");
+            "The capability request was canceled.");
         await CancelRegisteredRunBestEffortAsync(
                 "runtime_disposed",
                 CancellationToken.None)
@@ -1787,7 +1787,7 @@ public sealed partial class GovernedAgentRuntime :
             {
                 return new AgentAuthorizationError(
                     AgentAuthorizationErrorCode.Cancelled,
-                    "The run policy update was cancelled.");
+                    "The run policy update was canceled.");
             }
             catch (Exception exception) when (exception is not OutOfMemoryException)
             {
@@ -1817,7 +1817,7 @@ public sealed partial class GovernedAgentRuntime :
             {
                 return new AgentAuthorizationError(
                     AgentAuthorizationErrorCode.Cancelled,
-                    "The run policy update was cancelled.");
+                    "The run policy update was canceled.");
             }
         }
 
@@ -2634,7 +2634,7 @@ public sealed partial class GovernedAgentRuntime :
                 new HostError(
                     HostErrorCode.Cancelled,
                     "caller_cancelled",
-                    "The terminal action was cancelled."),
+                    "The terminal action was canceled."),
                 value)
             : result;
     }
@@ -2652,7 +2652,7 @@ public sealed partial class GovernedAgentRuntime :
                 return new AgentAuthorizationResult.Denied(
                     new AgentAuthorizationError(
                         AgentAuthorizationErrorCode.Cancelled,
-                        "The agent run was cancelled."));
+                        "The agent run was canceled."));
             }
 
             _approvalAwaiter = awaiter;
@@ -3192,7 +3192,7 @@ public sealed partial class GovernedAgentRuntime :
     {
         var sessionId = panel.SessionId
             ?? throw new ArgumentException(
-                "A File Viewer panel requires a live session.",
+                "A Files panel requires a live session.",
                 nameof(panel));
         var now = _timeProvider.GetUtcNow();
         var result = await _sessionHost.GetSnapshotAsync(
@@ -3462,7 +3462,7 @@ public sealed partial class GovernedAgentRuntime :
                 return revocationError
                     ?? new AgentAuthorizationError(
                         AgentAuthorizationErrorCode.Cancelled,
-                        "The agent run was cancelled during registration.");
+                        "The agent run was canceled during registration.");
             }
         }
 
@@ -4717,7 +4717,7 @@ public sealed partial class GovernedAgentRuntime :
         return new GovernedAgentSendResult(
             false,
             "agent_cancelled",
-            "The governed agent turn was cancelled.",
+            "The governed agent turn was canceled.",
             initialPromptCommitted);
     }
 
@@ -4829,11 +4829,11 @@ public sealed partial class GovernedAgentRuntime :
         CancelDetachedQuestionAwaiter(
             question,
             "question_cancelled",
-            "The agent question was cancelled.");
+            "The agent question was canceled.");
         CancelDetachedCapabilityRequestAwaiter(
             capabilityRequest,
             "capability_request_cancelled",
-            "The capability request was cancelled.");
+            "The capability request was canceled.");
         turnCancellation.Dispose();
     }
 
@@ -5327,9 +5327,9 @@ public sealed partial class GovernedAgentRuntime :
                     {
                         PanelKind.Terminal => "Terminal",
                         PanelKind.Browser => "Browser",
-                        PanelKind.FileViewer => "File Viewer",
+                        PanelKind.FileViewer => "Files",
                         PanelKind.Statistics => "Statistics",
-                        PanelKind.ProcessMonitor => "Process Monitor",
+                        PanelKind.ProcessMonitor => "Processes",
                         _ => "Panel",
                     }
                     : first.PanelTitle,
@@ -5369,7 +5369,7 @@ public sealed partial class GovernedAgentRuntime :
             + (processCount > 0 ? 1 : 0);
         if (populatedKinds != 1)
         {
-            return $"{panels.Count} panels";
+            return CountText.Of(panels.Count, "panel", "panels");
         }
 
         if (terminalCount > 0)
@@ -5387,7 +5387,7 @@ public sealed partial class GovernedAgentRuntime :
         if (fileCount > 0)
         {
             return $"{fileCount} "
-                + (fileCount == 1 ? "File Viewer" : "File Viewers");
+                + (fileCount == 1 ? "Files panel" : "Files panels");
         }
 
         if (statisticsCount > 0)
@@ -5399,7 +5399,7 @@ public sealed partial class GovernedAgentRuntime :
         }
 
         return $"{processCount} "
-            + (processCount == 1 ? "Process Monitor" : "Process Monitors");
+            + (processCount == 1 ? "Processes panel" : "Processes panels");
     }
 
     private static ActorDescriptor ValidateApprovalPrincipal(

@@ -211,7 +211,7 @@ public sealed class TerminalSettingsViewModelTests
         var editor = Assert.IsType<QuickTerminalSettingsEditorViewModel>(
             viewModel.QuickTerminalEditor);
         Assert.Contains("Another application", editor.RegistrationStatus);
-        Assert.Contains("no global hotkey", editor.RegistrationStatus);
+        Assert.Contains("no global shortcut", editor.RegistrationStatus);
     }
 
     [Fact]

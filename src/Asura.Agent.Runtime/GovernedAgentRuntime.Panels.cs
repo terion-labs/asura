@@ -126,7 +126,7 @@ public sealed partial class GovernedAgentRuntime
                     new HostError(
                         HostErrorCode.Cancelled,
                         "caller_cancelled",
-                        "The panel action was cancelled."),
+                        "The panel action was canceled."),
                     context.Revision);
             }
             catch (Exception exception)

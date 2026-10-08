@@ -113,7 +113,7 @@ internal sealed class DeferredFileProvider : IFileProvider, IDisposable
         {
             return Failure<T>(
                 FileProviderErrorCode.Cancelled,
-                "The provider operation was cancelled.");
+                "The provider operation was canceled.");
         }
         catch (FileProviderAdapterConfigurationException)
         {

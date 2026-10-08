@@ -66,7 +66,7 @@ public sealed class OnboardingViewModelTests
         Assert.False(viewModel.IsVisible);
         viewModel.ShowReview();
         Assert.True(viewModel.IsVisible);
-        Assert.Equal("Check your setup", viewModel.Title);
+        Assert.Equal("Check Your Setup", viewModel.Title);
         Assert.Equal(
             "Make sure your terminal and secure password storage are ready to use.",
             viewModel.Introduction);

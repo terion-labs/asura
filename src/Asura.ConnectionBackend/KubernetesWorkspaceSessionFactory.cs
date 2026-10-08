@@ -131,7 +131,7 @@ internal sealed class KubernetesWorkspaceSessionFactory(
         if (result is not SecretVaultResult<SecretMaterial>.Success success)
         {
             throw new KubernetesRequestException(KubernetesErrorCode.InvalidConfiguration,
-                "Unlock or repair the Kubernetes configuration in the secret vault.");
+                $"Unlock {PlatformTerms.SecretStore}, or save the Kubernetes configuration again.");
         }
         using var material = success.Value;
         var bytes = new byte[material.Length];

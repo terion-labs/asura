@@ -85,7 +85,7 @@ public sealed partial class GitRepositoryClient
             remote, secretVault?.Availability.CanPersist == true, rejected, token).ConfigureAwait(false);
         if (credentials is null)
         {
-            return Failure<GitUnit>(GitErrorCode.Cancelled, "Git sign-in was cancelled.");
+            return Failure<GitUnit>(GitErrorCode.Cancelled, "Git sign-in was canceled.");
         }
 
         var result = await ExecuteAuthenticatedAsync(repository, arguments, remote, credentials.Material, token, inRepository).ConfigureAwait(false);

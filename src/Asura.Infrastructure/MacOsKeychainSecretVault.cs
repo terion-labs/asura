@@ -42,7 +42,7 @@ public sealed class MacOsKeychainSecretVault : ISecretVault
                 SecretVaultCapabilities.All,
                 "macos-keychain",
                 "macos_keychain_services",
-                "Credentials are stored in the current user's macOS Keychain.")
+                $"Credentials are stored in your login {PlatformTerms.SecretStore}.")
             : new SecretVaultAvailability(
                 SecretVaultAvailabilityState.Unavailable,
                 SecretVaultPersistenceKind.None,

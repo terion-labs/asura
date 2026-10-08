@@ -81,7 +81,7 @@ internal static class FileLocationPresentation
                 parent.Authority,
                 new FilePanelAddress.ObjectKey(name)),
             _ => throw new ArgumentException(
-                "This destination cannot contain files or folders.",
+                "This destination can't hold files or folders. Choose another one.",
                 nameof(parent)),
         };
     }

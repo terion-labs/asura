@@ -99,7 +99,12 @@ public sealed class MainWindowTabReorderTests
             rejectedFixture.Runtime.Tabs.Select(tab => tab.Title), StringComparer.Ordinal);
         Assert.Equal(1, rejectedFixture.Runtime.HostRevision);
         Assert.Equal(string.Empty, rejectedViewModel.TabReorderStatus);
-        Assert.Contains(
+        // Stable codes go to diagnostics; the message says what happened.
+        Assert.StartsWith(
+            "Asura couldn't finish the tab reorder.",
+            rejectedViewModel.OperationError,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
             "revision_conflict",
             rejectedViewModel.OperationError,
             StringComparison.Ordinal);
@@ -119,7 +124,7 @@ public sealed class MainWindowTabReorderTests
         Assert.Equal(1, invalidFixture.Runtime.HostRevision);
         Assert.Equal(string.Empty, invalidViewModel.TabReorderStatus);
         Assert.Contains(
-            "invalid tab reorder receipt",
+            "couldn't confirm the tab reorder",
             invalidViewModel.OperationError,
             StringComparison.Ordinal);
     }
@@ -183,7 +188,7 @@ public sealed class MainWindowTabReorderTests
         Assert.Equal(1, fixture.Runtime.HostSequence);
         Assert.Equal(string.Empty, viewModel.TabReorderStatus);
         Assert.Contains(
-            "invalid tab reorder receipt",
+            "couldn't confirm the tab reorder",
             viewModel.OperationError,
             StringComparison.Ordinal);
     }
@@ -205,7 +210,7 @@ public sealed class MainWindowTabReorderTests
         Assert.Equal(1, fixture.Runtime.HostSequence);
         Assert.Equal(string.Empty, viewModel.TabReorderStatus);
         Assert.Contains(
-            "invalid tab reorder receipt",
+            "couldn't confirm the tab reorder",
             viewModel.OperationError,
             StringComparison.Ordinal);
     }

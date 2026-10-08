@@ -1914,7 +1914,7 @@ public sealed partial class InMemorySessionHostClient :
                     .Select(target => new SessionCloseResult(
                         target.Id,
                         SessionCloseOutcome.Cancelled,
-                        "Close cancelled by the user."))
+                        "Close canceled by the user."))
                     .ToArray();
                 var cancelled = HostResult<CloseScopeResult>.Succeed(
                     new CloseScopeResult.Completed(request.Scope, request.TargetId, cancelledSessions),
@@ -1973,7 +1973,7 @@ public sealed partial class InMemorySessionHostClient :
                     }
 
                     outcome = PanelCloseOutcome.Cancelled;
-                    detail = "Close cancelled.";
+                    detail = "Close canceled.";
                 }
                 catch (Exception exception)
                 {
@@ -1983,8 +1983,9 @@ public sealed partial class InMemorySessionHostClient :
                             targetSnapshot.Descriptor.Revision);
                     }
 
+                    SecretSafeDiagnosticProjection.WriteTrace("session-host.close.failed", exception);
                     outcome = PanelCloseOutcome.EngineFailed;
-                    detail = exception.Message;
+                    detail = "The panel didn't close cleanly.";
                 }
 
                 target.ApplyCloseOutcome(outcome, detail);
@@ -2509,7 +2510,7 @@ public sealed partial class InMemorySessionHostClient :
 
     private static HostResult<T> Cancelled<T>(long revision) =>
         HostResult<T>.Fail(
-            HostError.Create(HostErrorCode.Cancelled, "The operation was cancelled."),
+            HostError.Create(HostErrorCode.Cancelled, "The operation was canceled."),
             revision);
 
     private static HostResult<T> OutcomeUncertain<T>(long revision) =>
@@ -2567,7 +2568,7 @@ public sealed partial class InMemorySessionHostClient :
     {
         PanelCloseOutcome.GracefullyClosed => "Session closed gracefully.",
         PanelCloseOutcome.ConfirmationRequired => "The session still has active work.",
-        PanelCloseOutcome.Cancelled => "Close cancelled.",
+        PanelCloseOutcome.Cancelled => "Close canceled.",
         PanelCloseOutcome.ForceTerminated => "Session force-terminated after confirmation.",
         PanelCloseOutcome.EngineFailed => "The terminal engine failed while closing.",
         PanelCloseOutcome.AlreadyClosed => "Session was already closed.",

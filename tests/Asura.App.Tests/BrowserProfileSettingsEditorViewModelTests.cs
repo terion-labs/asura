@@ -68,7 +68,7 @@ public sealed class BrowserProfileSettingsEditorViewModelTests
         editor.CancelClearCommand.Execute(null);
         await WaitForAsync(() => !editor.IsClearing);
 
-        Assert.Equal("Browser profile clearing was cancelled.", editor.OperationStatus);
+        Assert.Equal("Browser profile clearing was canceled.", editor.OperationStatus);
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public sealed class BrowserProfileSettingsEditorViewModelTests
 
         Assert.False(editor.ClearAuthenticationCommand.CanExecute(null));
         Assert.Contains("per workspace", editor.StateText, StringComparison.Ordinal);
-        Assert.Contains("will not issue a broad", editor.StateText, StringComparison.Ordinal);
+        Assert.Contains("won't issue a broad", editor.StateText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -540,7 +540,7 @@ public sealed class BrowserProfileSettingsEditorViewModelTests
                 return new BrowserProfileClearResult(
                     BrowserProfileClearStatus.Cancelled,
                     0,
-                    "Browser profile clearing was cancelled.");
+                    "Browser profile clearing was canceled.");
             }
         }
     }

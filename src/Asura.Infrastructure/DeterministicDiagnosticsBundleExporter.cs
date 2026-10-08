@@ -52,7 +52,7 @@ public sealed class DeterministicDiagnosticsBundleExporter : IDiagnosticsBundleE
 
         if (cancellationToken.IsCancellationRequested)
         {
-            return Failure(DiagnosticsBundleErrorCode.Cancelled, "Diagnostics export was cancelled.");
+            return Failure(DiagnosticsBundleErrorCode.Cancelled, "Diagnostics export was canceled.");
         }
 
         if (!CanWrite(destination))
@@ -76,7 +76,7 @@ public sealed class DeterministicDiagnosticsBundleExporter : IDiagnosticsBundleE
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return Failure(DiagnosticsBundleErrorCode.Cancelled, "Diagnostics export was cancelled.");
+            return Failure(DiagnosticsBundleErrorCode.Cancelled, "Diagnostics export was canceled.");
         }
 
         if (archiveBytes.LongLength > DiagnosticsBundleLimits.MaximumArchiveBytes)
@@ -92,7 +92,7 @@ public sealed class DeterministicDiagnosticsBundleExporter : IDiagnosticsBundleE
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return Failure(DiagnosticsBundleErrorCode.Cancelled, "Diagnostics export was cancelled.");
+            return Failure(DiagnosticsBundleErrorCode.Cancelled, "Diagnostics export was canceled.");
         }
         catch (Exception exception) when (IsDestinationFailure(exception))
         {
@@ -146,7 +146,7 @@ public sealed class DeterministicDiagnosticsBundleExporter : IDiagnosticsBundleE
                 return DiagnosticsBundleResult<PreparedRequest>.Failure(
                     new DiagnosticsBundleError(
                         DiagnosticsBundleErrorCode.Cancelled,
-                        "Diagnostics export was cancelled."));
+                        "Diagnostics export was canceled."));
             }
 
             var artifact = request.Artifacts[index];

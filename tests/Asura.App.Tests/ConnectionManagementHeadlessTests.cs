@@ -276,7 +276,7 @@ public sealed class ConnectionManagementHeadlessTests
         {
             var target = new PanelConnectionOptionViewModel.Target.FileProvider(new FileProviderProfileId("missing"));
             var shortcut = new SavedConnectionShortcutViewModel(target, "Unavailable files", "S3", "bucket", false,
-                new SavedConnectionLaunchViewModel(target, PanelKind.FileViewer, "Open files", FluentIcons.Common.Symbol.Folder), []);
+                new SavedConnectionLaunchViewModel(target, PanelKind.FileViewer, "Open Files", FluentIcons.Common.Symbol.Folder), []);
             var view = new SavedConnectionShortcutView { DataContext = shortcut };
             SavedConnectionShortcutViewModel? edited = null;
             view.EditRequested += (_, value) => edited = value;

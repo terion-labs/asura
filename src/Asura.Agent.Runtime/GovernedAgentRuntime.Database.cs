@@ -135,7 +135,7 @@ public sealed partial class GovernedAgentRuntime
                     new HostError(
                         HostErrorCode.Cancelled,
                         "caller_cancelled",
-                        "The database observation was cancelled."),
+                        "The database observation was canceled."),
                     context.Revision);
             }
             catch (Exception exception) when (exception is not OutOfMemoryException)

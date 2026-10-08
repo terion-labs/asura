@@ -104,7 +104,7 @@ internal sealed class AiProviderClientException : AgentProviderException
             AiProviderRuntimeErrorCode.Cancelled => new(
                 code,
                 "ai_provider_cancelled",
-                "The AI-provider request was cancelled.",
+                "The AI-provider request was canceled.",
                 retryAfter,
                 innerException),
             _ => throw new ArgumentOutOfRangeException(nameof(code), code, null),

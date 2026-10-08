@@ -504,7 +504,7 @@ public sealed class SavedScreenAgentPolicyEditorViewModel : ObservableObject, ID
         var option = options.FirstOrDefault(candidate =>
             candidate.Selection == selection);
         return option ?? throw new ArgumentException(
-            "The configured agent model route is not present in the model catalog.",
+            "The configured agent model route isn't present in the model catalog.",
             nameof(selection));
     }
 
@@ -514,7 +514,7 @@ public sealed class SavedScreenAgentPolicyEditorViewModel : ObservableObject, ID
         var option = TitleModelOptions.FirstOrDefault(candidate =>
             candidate.Selection == selection);
         return option ?? throw new ArgumentException(
-            "The configured title model route is not present in the model catalog.",
+            "The configured title model route isn't present in the model catalog.",
             nameof(selection));
     }
 
@@ -607,7 +607,7 @@ public sealed class SavedScreenAgentPolicyEditorViewModel : ObservableObject, ID
                 if (!Options.Contains(value))
                 {
                     throw new ArgumentException(
-                        "The selected permission cannot be saved.",
+                        "Asura can't save that permission. Choose another one.",
                         nameof(value));
                 }
 

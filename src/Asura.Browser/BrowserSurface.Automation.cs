@@ -624,7 +624,7 @@ string.Equals(nativeResult.StableCode, "script_result_not_serializable"
         BrowserResult<NativeAutomationCompletion>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser automation was cancelled.",
+                "The browser automation was canceled.",
                 retryable: true));
 
     private static BrowserResult<NativeAutomationCompletion> AutomationUnavailable() =>

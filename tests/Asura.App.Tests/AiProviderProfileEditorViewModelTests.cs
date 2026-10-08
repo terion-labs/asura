@@ -122,7 +122,7 @@ public sealed class AiProviderProfileEditorViewModelTests
         Assert.Equal(reference, editor.SelectedCredential?.Reference);
         Assert.Empty(editor.ApiKeyValue);
         Assert.False(editor.IsStoringCredential);
-        Assert.Contains("could not be stored", editor.CredentialStatus, StringComparison.Ordinal);
+        Assert.Contains("couldn't store the API key", editor.CredentialStatus, StringComparison.Ordinal);
         Assert.DoesNotContain("synthetic-secret-must-not-appear", editor.CredentialStatus, StringComparison.Ordinal);
     }
 
@@ -172,7 +172,7 @@ public sealed class AiProviderProfileEditorViewModelTests
         Assert.Null(runtime.LastProfile);
         Assert.Empty(editor.ApiKeyValue);
         Assert.False(editor.IsStoringCredential);
-        Assert.Contains("cancelled", editor.CredentialStatus, StringComparison.Ordinal);
+        Assert.Contains("canceled", editor.CredentialStatus, StringComparison.Ordinal);
     }
 
     private static SecretVaultResult<SecretMetadata> Stored(CreateSecretRequest request) =>
@@ -575,7 +575,7 @@ public sealed class AiProviderProfileEditorViewModelTests
             System.Text.Json.JsonSerializer.Serialize(request.Profile),
             StringComparison.Ordinal);
         Assert.Equal(
-            "Connected. The token session is stored in the OS vault.",
+            $"Connected. The sign-in session is stored in {PlatformTerms.SecretStore}.",
             editor.AuthenticationStatus);
     }
 
@@ -628,7 +628,7 @@ public sealed class AiProviderProfileEditorViewModelTests
 
         Assert.Null(launch);
         Assert.False(editor.IsAuthenticating);
-        Assert.Equal("Authentication could not be started.", editor.AuthenticationStatus);
+        Assert.Equal("Asura couldn't start signing in. Try again.", editor.AuthenticationStatus);
         Assert.DoesNotContain(
             "sensitive-provider-detail",
             editor.AuthenticationStatus,
@@ -745,7 +745,7 @@ public sealed class AiProviderProfileEditorViewModelTests
 
         Assert.False(editor.IsProviderRuntimeSupported);
         Assert.False(editor.CanTest);
-        Assert.Contains("not implemented", editor.ProviderAvailability);
+        Assert.Contains("doesn't support this AI provider yet", editor.ProviderAvailability);
         Assert.Equal("Provider unavailable", editor.TestStatus);
         Assert.Null(runtime.LastProfile);
         Assert.Throws<ArgumentException>(editor.CreateSaveRequest);
@@ -774,7 +774,7 @@ public sealed class AiProviderProfileEditorViewModelTests
             "Today",
             "Never",
             scope,
-            "No saved definition dependencies",
+            "Not used by any saved item",
             0);
 
     private sealed class StubRuntime : IAiProviderProfileRuntime

@@ -10,7 +10,7 @@ namespace Asura.App;
 public sealed class AvaloniaDefinitionBundlePathPicker(Func<Window> owner)
     : IDefinitionBundlePathPicker
 {
-    private static readonly FilePickerFileType BundleFileType = new("Asura definition bundle")
+    private static readonly FilePickerFileType BundleFileType = new("Asura Setup")
     {
         Patterns = ["*.json"],
         MimeTypes = ["application/json"],
@@ -28,7 +28,7 @@ public sealed class AvaloniaDefinitionBundlePathPicker(Func<Window> owner)
         cancellationToken.ThrowIfCancellationRequested();
         var selected = await _owner().StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Export Asura definitions",
+            Title = "Export Asura Setup",
             SuggestedFileName = suggestedFileName,
             DefaultExtension = "json",
             FileTypeChoices = [BundleFileType],
@@ -42,7 +42,7 @@ public sealed class AvaloniaDefinitionBundlePathPicker(Func<Window> owner)
 
         return selected.TryGetLocalPath()
             ?? throw new NotSupportedException(
-                "Definition bundles must be exported to a local filesystem path.");
+                "Choose a location on this computer to save the export.");
     }
 
     public async ValueTask<string?> PickImportPathAsync(CancellationToken cancellationToken)
@@ -50,7 +50,7 @@ public sealed class AvaloniaDefinitionBundlePathPicker(Func<Window> owner)
         cancellationToken.ThrowIfCancellationRequested();
         var selected = await _owner().StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Import Asura definitions",
+            Title = "Import Asura Setup",
             AllowMultiple = false,
             FileTypeFilter = [BundleFileType],
         });
@@ -62,6 +62,6 @@ public sealed class AvaloniaDefinitionBundlePathPicker(Func<Window> owner)
 
         return selected[0].TryGetLocalPath()
             ?? throw new NotSupportedException(
-                "Definition bundles must be imported from a local filesystem path.");
+                "Choose a file on this computer to import.");
     }
 }

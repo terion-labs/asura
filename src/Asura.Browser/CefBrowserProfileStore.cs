@@ -647,7 +647,7 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
                 if (_runtimeRoot is null)
                 {
                     throw new InvalidOperationException(
-                        "The durable browser runtime directory is unavailable.");
+                        "The browser's data folder isn't available.");
                 }
 
                 stateKey = new BrowserProfileStateKey(
@@ -1046,7 +1046,7 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
         if (File.Exists(fullPath))
         {
             throw new InvalidDataException(
-                "A browser runtime directory is occupied by a file.");
+                "Asura couldn't prepare the browser's data folder because a file is in its place.");
         }
 
         if (!Directory.Exists(fullPath))
@@ -1085,14 +1085,14 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
             || info.Attributes.HasFlag(FileAttributes.ReparsePoint))
         {
             throw new InvalidDataException(
-                "A browser runtime directory is linked or unavailable.");
+                "The browser's data folder is a link or isn't available.");
         }
     }
 
     private static BrowserProfileClearResult Cancelled() => new(
         BrowserProfileClearStatus.Cancelled,
         0,
-        "Browser profile clearing was cancelled.");
+        "Browser profile clearing was canceled.");
 
     private static string ClearMessage(BrowserProfileDataCategory categories) =>
         categories switch

@@ -56,7 +56,7 @@ public sealed class SqliteMcpServerDiagnosticStore(
             when (cancellationToken.IsCancellationRequested)
         {
             return Failure<McpServerDiagnosticsSnapshot>(
-                "Loading MCP diagnostics was cancelled.",
+                "Loading MCP diagnostics was canceled.",
                 ApplicationRunErrorCode.Cancelled);
         }
         catch (Exception exception) when (exception is
@@ -107,7 +107,7 @@ public sealed class SqliteMcpServerDiagnosticStore(
             when (cancellationToken.IsCancellationRequested)
         {
             return Failure<Unit>(
-                "Saving MCP diagnostics was cancelled.",
+                "Saving MCP diagnostics was canceled.",
                 ApplicationRunErrorCode.Cancelled);
         }
         catch (Exception exception) when (exception is

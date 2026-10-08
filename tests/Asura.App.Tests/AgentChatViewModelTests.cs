@@ -1968,7 +1968,7 @@ public sealed partial class AgentChatViewModelTests
 
         Assert.Equal(0, runtime.SendCount);
         Assert.Contains(
-            "does not support image input",
+            "doesn't support image input",
             viewModel.Status,
             StringComparison.OrdinalIgnoreCase);
         Assert.Single(viewModel.PendingImages);
@@ -2530,7 +2530,7 @@ public sealed partial class AgentChatViewModelTests
             second =>
             {
                 Assert.Equal("Unnamed terminal", second.Title);
-                Assert.Equal("Unnamed tab", second.TabTitle);
+                Assert.Equal("Untitled Tab", second.TabTitle);
                 Assert.Contains("Background", second.State);
             });
 
@@ -2662,10 +2662,10 @@ public sealed partial class AgentChatViewModelTests
             profiles,
             ImmediateUiThreadDispatcher.Instance);
 
-        Assert.Equal("1 File Viewer", viewModel.ContextInspectorSummary);
+        Assert.Equal("1 Files panel", viewModel.ContextInspectorSummary);
         var item = Assert.Single(viewModel.ContextItems);
         Assert.Equal(PanelKind.FileViewer, item.Kind);
-        Assert.StartsWith("File Viewer · ", item.ExactIdentity);
+        Assert.StartsWith("Files · ", item.ExactIdentity);
         Assert.Equal(
             "builtin.files.home · trusted root .",
             item.Context);
@@ -2674,7 +2674,7 @@ public sealed partial class AgentChatViewModelTests
             item.Operations,
             StringComparison.Ordinal);
         Assert.Equal(
-            "File tools are limited to the selected File Viewer location.",
+            "File tools can reach only the folder open in the selected Files panel.",
             viewModel.CapabilityNotice);
     }
 
@@ -2712,10 +2712,10 @@ public sealed partial class AgentChatViewModelTests
             profiles,
             ImmediateUiThreadDispatcher.Instance);
 
-        Assert.Equal("1 Process Monitor", viewModel.ContextInspectorSummary);
+        Assert.Equal("1 Processes panel", viewModel.ContextInspectorSummary);
         var item = Assert.Single(viewModel.ContextItems);
         Assert.Equal(PanelKind.ProcessMonitor, item.Kind);
-        Assert.StartsWith("Process Monitor · ", item.ExactIdentity);
+        Assert.StartsWith("Processes · ", item.ExactIdentity);
         Assert.Equal(
             "Local processes are available",
             item.Context);
@@ -3019,7 +3019,7 @@ public sealed partial class AgentChatViewModelTests
                 runId: new AgentRunId("run-1"),
                 providerId: provider.Id,
                 target: Target(),
-                status: "Cancelling this action…",
+                status: "Canceling this action…",
                 activeTool: active with { CancellationRequested = true }),
         };
         using var profiles = new StubProfileRuntime
@@ -3041,7 +3041,7 @@ public sealed partial class AgentChatViewModelTests
             runtime.LastActionCancellationToken);
         Assert.False(viewModel.CanCancelActiveAction);
         Assert.Equal(
-            "Cancelling action…",
+            "Canceling action…",
             viewModel.ActiveActionCancellationLabel);
         Assert.True(viewModel.CanRequestStop);
         Assert.Equal(0, runtime.StopCount);
@@ -3083,7 +3083,7 @@ public sealed partial class AgentChatViewModelTests
         Assert.Equal(1, runtime.ActionCancellationCount);
         Assert.False(viewModel.CanCancelActiveAction);
         Assert.Equal(
-            "Cancelling action…",
+            "Canceling action…",
             viewModel.ActiveActionCancellationLabel);
         Assert.True(viewModel.CanRequestStop);
 

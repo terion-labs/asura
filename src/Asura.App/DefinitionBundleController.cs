@@ -14,7 +14,7 @@ namespace Asura.App;
 public sealed class DefinitionBundleController
 {
     public const long MaximumImportBytes = 32L * 1024 * 1024;
-    public const string SuggestedExportFileName = "asura-definitions.json";
+    public const string SuggestedExportFileName = "asura-setup.json";
 
     private readonly IDefinitionBundleStore _bundleStore;
     private readonly IDefinitionBundlePathPicker _pathPicker;
@@ -45,7 +45,7 @@ public sealed class DefinitionBundleController
                 .ConfigureAwait(false);
             if (selectedPath is null)
             {
-                return Cancelled<DefinitionBundleExportReceipt>("The definition export was cancelled.");
+                return Cancelled<DefinitionBundleExportReceipt>("The export was canceled.");
             }
 
             var path = NormalizeSelectedPath(selectedPath);
@@ -85,27 +85,27 @@ public sealed class DefinitionBundleController
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return Cancelled<DefinitionBundleExportReceipt>("The definition export was cancelled.");
+            return Cancelled<DefinitionBundleExportReceipt>("The export was canceled.");
         }
-        catch (ArgumentException exception)
+        catch (ArgumentException)
         {
             return Invalid<DefinitionBundleExportReceipt>(
-                $"The selected export path is invalid: {exception.Message}");
+                "Asura can't save to that location. Choose another file name or folder.");
         }
         catch (JsonException)
         {
             return Invalid<DefinitionBundleExportReceipt>(
-                "The definition export could not be encoded safely.");
+                "Asura couldn't prepare the export. Try again.");
         }
         catch (NotSupportedException)
         {
             return Invalid<DefinitionBundleExportReceipt>(
-                "The definition export contains an unsupported value.");
+                "Your setup contains a value Asura can't write to an export file.");
         }
         catch (Exception exception) when (IsFileBoundaryFailure(exception))
         {
             return FileFailure<DefinitionBundleExportReceipt>(
-                "The selected definition export file could not be written.");
+                "Asura couldn't write the export file. Check that you can save to that folder, then try again.");
         }
     }
 
@@ -120,7 +120,7 @@ public sealed class DefinitionBundleController
                 .ConfigureAwait(false);
             if (selectedPath is null)
             {
-                return Cancelled<DefinitionBundleImportPlan>("The definition import was cancelled.");
+                return Cancelled<DefinitionBundleImportPlan>("The import was canceled.");
             }
 
             var path = NormalizeSelectedPath(selectedPath);
@@ -141,32 +141,32 @@ public sealed class DefinitionBundleController
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return Cancelled<DefinitionBundleImportPlan>("The definition import was cancelled.");
+            return Cancelled<DefinitionBundleImportPlan>("The import was canceled.");
         }
-        catch (ArgumentException exception)
+        catch (ArgumentException)
         {
             return Invalid<DefinitionBundleImportPlan>(
-                $"The selected import path is invalid: {exception.Message}");
+                "Asura can't open that location. Choose another file.");
         }
         catch (JsonException)
         {
             return Invalid<DefinitionBundleImportPlan>(
-                "The selected file is not a valid Asura definition bundle.");
+                "The selected file isn't an Asura setup export.");
         }
         catch (NotSupportedException)
         {
             return Invalid<DefinitionBundleImportPlan>(
-                "The selected definition bundle uses an unsupported JSON shape.");
+                "The selected file uses a format this version of Asura can't read.");
         }
         catch (InvalidDataException)
         {
             return Invalid<DefinitionBundleImportPlan>(
-                "The selected definition bundle contains an oversized or invalid Dock layout.");
+                "The selected file contains a layout that is too large or damaged.");
         }
         catch (Exception exception) when (IsFileBoundaryFailure(exception))
         {
             return FileFailure<DefinitionBundleImportPlan>(
-                "The selected definition bundle could not be read.");
+                "Asura couldn't read the selected file. Check that it still exists, then try again.");
         }
     }
 
@@ -184,7 +184,7 @@ public sealed class DefinitionBundleController
         if (plan.RequiresExecutionReview && executionApproval?.AppliesTo(plan.Preflight) != true)
         {
             return Invalid<DefinitionBundleImportReceipt>(
-                "Review and explicitly approve executable content and connection authority for this exact import plan.");
+                "Review and approve the commands and connections in this import before importing it.");
         }
         if (!plan.CanApply)
         {
@@ -204,7 +204,7 @@ public sealed class DefinitionBundleController
         {
             return Failure<DefinitionBundleImportReceipt>(new DefinitionStoreError(
                 DefinitionStoreErrorCode.RevisionConflict,
-                "Close every affected workspace before importing its definition."));
+                "Close the workspaces this import changes, then import again."));
         }
 
         DefinitionStoreResult<DefinitionImportResult> committed;
@@ -216,7 +216,7 @@ public sealed class DefinitionBundleController
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             return Cancelled<DefinitionBundleImportReceipt>(
-                "The definition import was cancelled before it committed.");
+                "The import was canceled. Nothing was changed.");
         }
 
         if (!committed.IsSuccess)
@@ -237,13 +237,13 @@ public sealed class DefinitionBundleController
         {
             reloadError = new DefinitionStoreError(
                 DefinitionStoreErrorCode.Cancelled,
-                "Definitions were imported, but refreshing the catalog was cancelled internally.");
+                "Your setup was imported, but Asura couldn't refresh its lists.");
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
             reloadError = new DefinitionStoreError(
                 DefinitionStoreErrorCode.StorageFailure,
-                "Definitions were imported, but the catalog refresh failed unexpectedly.");
+                "Your setup was imported, but Asura couldn't refresh its lists.");
         }
 
         var workspacesRemainUnavailable = reloadError is not null
@@ -258,8 +258,7 @@ public sealed class DefinitionBundleController
                 affectedWorkspaces);
             reloadError = reloadError with
             {
-                Message = $"{reloadError.Message} Imported workspaces remain unavailable until "
-                    + "a catalog refresh succeeds or Asura restarts.",
+                Message = $"{reloadError.Message} The imported workspaces open after Asura restarts.",
             };
         }
 

@@ -60,7 +60,7 @@ public sealed class KeybindingEditorSessionViewModelTests
         Assert.True(session.IsNew);
         Assert.False(session.IsDirty);
         Assert.True(session.CanSave);
-        Assert.Contains("not been saved", session.StateSummary, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("hasn't been saved", session.StateSummary, StringComparison.OrdinalIgnoreCase);
 
         session.Query = "copy";
         var copy = Assert.Single(session.Rows);

@@ -26,7 +26,7 @@ public sealed class AvaloniaDiagnosticsBundleDestinationPicker(Func<Window> owne
         ArgumentException.ThrowIfNullOrWhiteSpace(suggestedFileName);
         var selected = await _owner().StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Export Asura diagnostics",
+            Title = "Export Diagnostics",
             SuggestedFileName = suggestedFileName,
             DefaultExtension = "zip",
             FileTypeChoices = [BundleFileType],

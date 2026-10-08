@@ -1138,7 +1138,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
             if (result is GitResult<GitRepositoryHandle>.Failure failure)
             {
                 UntrustedRepositoryPath = failure.Error.Code == GitErrorCode.OwnershipUntrusted ? path.Trim() : null;
-                PresentFailure(failure.Error, "Could not open repository");
+                PresentFailure(failure.Error, "Couldn't open repository");
                 return;
             }
 
@@ -1185,7 +1185,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (openGeneration == _openGeneration)
             {
-                PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Invalid repository path");
+                PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the repository path");
             }
         }
         finally
@@ -1252,7 +1252,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         var result = await _client.TrustRepositoryWithExecutableAsync(_connection, path, _gitPreferences.GitExecutable, _lifetime.Token);
         if (result is GitResult<GitUnit>.Failure failure)
         {
-            PresentFailure(failure.Error, "Could not trust repository");
+            PresentFailure(failure.Error, "Couldn't trust repository");
             return;
         }
 
@@ -1307,7 +1307,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
             }
             else if (operation is GitResult<GitOperationState>.Failure operationFailure)
             {
-                PresentFailure(operationFailure.Error, "Could not read operation state");
+                PresentFailure(operationFailure.Error, "Couldn't read operation state");
             }
             await ReadGitFlowPendingFinishAsync(_lifetime.Token);
             if (Submodules.Count > 0)
@@ -1472,7 +1472,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         {
             snapshot.Head.IsUnborn ? $"{snapshot.Head.BranchName} (no commits)" : snapshot.Head.BranchName,
             tracking,
-            changeCount == 1 ? "1 change" : $"{changeCount} changes",
+            CountText.OrNone(changeCount, "change", "changes"),
         }.Where(part => part.Length > 0));
 
         // A full snapshot always re-asks for the diff — file content can
@@ -1521,7 +1521,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
             }
             if (result is GitResult<GitCommitPage>.Failure failure)
             {
-                PresentFailure(failure.Error, "Could not read history");
+                PresentFailure(failure.Error, "Couldn't read history");
                 return;
             }
 
@@ -1574,7 +1574,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (historyGeneration == _historyGeneration)
             {
-                PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Invalid history filter");
+                PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the history filter");
             }
         }
         finally
@@ -1649,7 +1649,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
 
             if (result is GitResult<GitCommitDetail>.Failure failure)
             {
-                PresentFailure(failure.Error, "Could not read commit");
+                PresentFailure(failure.Error, "Couldn't read commit");
                 return;
             }
 
@@ -1694,7 +1694,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
 
             if (result is GitResult<GitTreeListing>.Failure failure)
             {
-                PresentFailure(failure.Error, "Could not read tree");
+                PresentFailure(failure.Error, "Couldn't read tree");
                 return;
             }
 
@@ -1753,7 +1753,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
 
             if (result is GitResult<GitBlobSnapshot>.Failure failure)
             {
-                PresentFailure(failure.Error, "Could not read file");
+                PresentFailure(failure.Error, "Couldn't read file");
                 return;
             }
 
@@ -1866,7 +1866,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
 
             if (result is GitResult<GitDiffDocument>.Failure failure)
             {
-                PresentFailure(failure.Error, "Could not read diff");
+                PresentFailure(failure.Error, "Couldn't read diff");
                 _diffDocument = null;
                 _presentedDiffRequest = null;
                 _selectedDiffLines = [];
@@ -2294,12 +2294,12 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
-            PresentFailure(new GitError(GitErrorCode.Cancelled, "Operation cancelled. The repository has been refreshed; inspect its state before retrying.", Retryable: false), "Git operation cancelled");
+            PresentFailure(new GitError(GitErrorCode.Cancelled, "Operation canceled. The repository has been refreshed; inspect its state before retrying.", Retryable: false), "Git operation canceled");
             return false;
         }
         catch (ArgumentException exception)
         {
-            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Invalid Git request");
+            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the Git request");
             return false;
         }
         finally

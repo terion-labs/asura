@@ -242,7 +242,7 @@ public sealed partial class GovernedAgentRuntime
             CancelCapabilityRequestAwaiter(
                 awaiter,
                 "capability_request_cancelled",
-                "The capability request was cancelled.");
+                "The capability request was canceled.");
             throw;
         }
 
@@ -682,7 +682,7 @@ public sealed partial class GovernedAgentRuntime
         CancelDetachedQuestionAwaiter(
             question,
             "question_cancelled",
-            "The agent question was cancelled.");
+            "The agent question was canceled.");
         NotifyChanged();
     }
 
@@ -980,14 +980,14 @@ public sealed partial class GovernedAgentRuntime
                 {
                     PanelKind.Terminal => "Terminal",
                     PanelKind.Browser => "Browser",
-                    PanelKind.FileViewer => "File Viewer",
-                    PanelKind.ProcessMonitor => "Process Monitor",
+                    PanelKind.FileViewer => "Files",
+                    PanelKind.ProcessMonitor => "Processes",
                     _ => "Panel",
                 },
             AgentTarget.OpenTab =>
-                $"Current tab · {context.Panels.Count} panels",
+                $"Current tab · {CountText.Of(context.Panels.Count, "panel", "panels")}",
             AgentTarget.Workspace =>
-                $"Workspace · {context.Panels.Count} panels",
+                $"Workspace · {CountText.Of(context.Panels.Count, "panel", "panels")}",
             AgentTarget.SelectedPanels =>
                 $"Selected panels · {context.Panels.Count}",
             _ => throw new ArgumentOutOfRangeException(

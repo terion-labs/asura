@@ -32,7 +32,7 @@ public sealed class RecentSessionHistoryExportController
         ArgumentNullException.ThrowIfNull(recentSessions);
         var outcome = Failure(
             RecentSessionHistoryExportErrorCode.DestinationUnavailable,
-            "The selected session-history export file could not be written.");
+            "Asura couldn't save the history file. Choose another location, then try again.");
         string? temporaryPath = null;
         try
         {
@@ -45,14 +45,14 @@ public sealed class RecentSessionHistoryExportController
             {
                 outcome = Failure(
                     RecentSessionHistoryExportErrorCode.Cancelled,
-                    "The session-history export was cancelled.");
+                    "The session-history export was canceled.");
             }
             else
             {
                 var path = NormalizePath(selectedPath);
                 var directory = Path.GetDirectoryName(path)
                     ?? throw new ArgumentException(
-                        "An export directory is required.",
+                        "Choose a folder for the export.",
                         nameof(selectedPath));
                 _fileSystem.CreateDirectory(directory);
                 temporaryPath = Path.Combine(
@@ -92,7 +92,7 @@ public sealed class RecentSessionHistoryExportController
         {
             outcome = Failure(
                 RecentSessionHistoryExportErrorCode.Cancelled,
-                "The session-history export was cancelled.");
+                "The session-history export was canceled.");
         }
         catch (Exception exception) when (exception is ArgumentException
             or IOException
@@ -101,7 +101,7 @@ public sealed class RecentSessionHistoryExportController
         {
             outcome = Failure(
                 RecentSessionHistoryExportErrorCode.DestinationUnavailable,
-                "The selected session-history export file could not be written.");
+                "Asura couldn't save the history file. Choose another location, then try again.");
         }
         finally
         {
@@ -117,7 +117,7 @@ public sealed class RecentSessionHistoryExportController
                 {
                     outcome = Failure(
                         RecentSessionHistoryExportErrorCode.CleanupFailure,
-                        $"The export did not complete and temporary metadata file '{Path.GetFileName(temporaryPath)}' could not be removed. Delete it from the selected folder before retrying.");
+                        $"The export didn't finish, and Asura couldn't remove the temporary file “{Path.GetFileName(temporaryPath)}”. Delete it from the folder you chose, then try again.");
                 }
             }
         }

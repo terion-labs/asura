@@ -23,7 +23,7 @@ internal static class PortablePayloadSafety
         ArgumentNullException.ThrowIfNull(payloadJson);
         if (System.Text.Encoding.UTF8.GetByteCount(payloadJson) > MaximumPayloadBytes)
         {
-            error = "The definition payload exceeds the portable size limit.";
+            error = "An item is too large to import or export.";
             return false;
         }
 
@@ -40,13 +40,13 @@ internal static class PortablePayloadSafety
                 });
             if (document.RootElement.ValueKind != JsonValueKind.Object)
             {
-                error = "A definition payload must be a JSON object.";
+                error = "An item is damaged and can't be read.";
                 return false;
             }
 
             if (ContainsSecretValueProperty(document.RootElement))
             {
-                error = "A definition payload contains a field reserved for secret material.";
+                error = "An item contains secret data, which Asura never imports or exports.";
                 return false;
             }
 
@@ -55,7 +55,7 @@ internal static class PortablePayloadSafety
         }
         catch (JsonException)
         {
-            error = "The definition payload is not valid JSON.";
+            error = "An item is damaged and can't be read.";
             return false;
         }
     }

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
 using Asura.Application;
+using Asura.Core;
 
 namespace Asura.App.ViewModels;
 
@@ -45,7 +46,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
         if (!int.TryParse(Replicas, NumberStyles.None, CultureInfo.InvariantCulture, out var count) || count < 0)
         { Issue = "Enter a non-negative replica count."; return Task.CompletedTask; }
         var patch = new JsonArray(new JsonObject { ["op"] = "add", ["path"] = "/spec/replicas", ["value"] = count });
-        return ReviewOperationAsync(KubernetesMutationKind.JsonPatch, patch.ToJsonString(), $"Scale to {count.ToString(CultureInfo.InvariantCulture)} replicas");
+        return ReviewOperationAsync(KubernetesMutationKind.JsonPatch, patch.ToJsonString(), $"Scale to {CountText.Of(count, "replica", "replicas")}");
     }
     public Task ReviewRestartAsync()
     {
@@ -81,7 +82,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
                 OperationDescription = $"{description}: {ContextName} · {request.Resource.Namespace}/{request.Resource.Name}. Server dry run succeeded.";
                 PreviewManifest = result.Resource?.Json ?? Manifest;
             }
-            else { OperationDescription = "The operation could not be reviewed. No confirmation is available."; }
+            else { OperationDescription = "Asura couldn't prepare a review of this change, so it can't be confirmed. Try again."; }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (KubernetesRequestException exception) { PresentError(exception); }
@@ -99,7 +100,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             {
                 KubernetesMutationOutcome.Applied => "Operation completed. Refresh to inspect the current resource.",
                 KubernetesMutationOutcome.OutcomeUnknown => "Connection ended after dispatch. Inspect the resource before trying another operation.",
-                _ => "The operation was not dispatched.",
+                _ => "The operation wasn't dispatched.",
             };
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }

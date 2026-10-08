@@ -1,5 +1,6 @@
 using System.Globalization;
 using Asura.Application;
+using Asura.Core;
 
 namespace Asura.App.ViewModels;
 
@@ -122,7 +123,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             Releases = nextPage ? [.. Releases.Concat(page.Releases).Take(2000)] : page.Releases;
             _helmOffset = page.NextOffset;
             OnPropertyChanged(nameof(HasMoreHelm));
-            Status = $"{Releases.Count} Helm releases";
+            Status = CountText.OrNone(Releases.Count, "Helm release", "Helm releases");
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (KubernetesRequestException exception) { PresentError(exception); }

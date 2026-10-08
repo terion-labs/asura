@@ -108,7 +108,7 @@ public sealed class ProxyNetworkConnectionProvider : INetworkConnectionProvider
                 return Fail(
                     NetworkConnectionErrorCode.Cancelled,
                     "proxy_route_probe_cancelled",
-                    "Proxy route testing was cancelled.",
+                    "Proxy route testing was canceled.",
                     retryable: false);
             }
 
@@ -204,7 +204,7 @@ public sealed class ProxyNetworkConnectionProvider : INetworkConnectionProvider
             return Fail<byte[]>(
                 NetworkConnectionErrorCode.Cancelled,
                 "proxy_secret_cancelled",
-                "Proxy credential access was cancelled.",
+                "Proxy credential access was canceled.",
                 retryable: false);
         }
 

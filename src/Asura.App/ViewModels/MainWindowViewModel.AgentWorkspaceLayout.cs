@@ -747,7 +747,7 @@ public sealed partial class MainWindowViewModel
                 if (!attached)
                 {
                     throw new InvalidOperationException(
-                        "The host-approved panel could not be attached.");
+                        "The host-approved panel couldn't be attached.");
                 }
 
                 if (panel is not PanelPlaceholderViewModel)
@@ -1236,7 +1236,7 @@ public sealed partial class MainWindowViewModel
                     .AsTask(),
                 cancellationToken);
             return await (mutation ?? throw new InvalidOperationException(
-                "The UI dispatcher did not start the workspace layout mutation."));
+                "The UI dispatcher didn't start the workspace layout mutation."));
         }
 
         public IReadOnlyList<AgentWorkspaceConnectionOption> ListConnections()

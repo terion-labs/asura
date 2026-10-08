@@ -122,7 +122,7 @@ public sealed class LauncherSearchProjectionTests
             "not-present",
             [Result(
                 new LauncherSearchTarget.Command(new CommandId("tab.new")),
-                "New tab",
+                "New Tab",
                 searchTerms: ["command", "tabs"])]);
 
         Assert.Empty(results);

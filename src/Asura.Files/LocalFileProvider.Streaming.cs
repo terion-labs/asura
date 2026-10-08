@@ -69,7 +69,7 @@ public abstract partial class LocalFileProvider
         var entry = entryResult.Value!;
         if (entry.Kind == FileEntryKind.Directory)
         {
-            return Failure<FileReadReceipt>(FileProviderErrorCode.IsDirectory, "A directory cannot be read as a file.");
+            return Failure<FileReadReceipt>(FileProviderErrorCode.IsDirectory, "A folder cannot be read as a file.");
         }
 
         if (entry.Kind != FileEntryKind.File)
@@ -327,14 +327,14 @@ public abstract partial class LocalFileProvider
             ? parent
             : Failure<ResolvedLocalLocation>(
                 FileProviderErrorCode.NotDirectory,
-                "The destination parent is not a directory.");
+                "The destination parent is not a folder.");
     }
 
     private static FileProviderError? RejectNonFileDestination(FileEntry? existing) => existing?.Kind switch
     {
         FileEntryKind.Directory => FileProviderError.Create(
             FileProviderErrorCode.IsDirectory,
-            "A directory cannot be replaced with a file."),
+            "A folder cannot be replaced with a file."),
         FileEntryKind.Link => FileProviderError.Create(
             FileProviderErrorCode.LinkNotAllowed,
             "A link or reparse point cannot be replaced through a write operation."),

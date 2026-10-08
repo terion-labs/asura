@@ -95,7 +95,7 @@ internal sealed class ApplicationKeyController : IDisposable
             && resolution.ShouldHandle)
         {
             ShowTimedHint(
-                "That key is not bound after the application prefix.",
+                "That key isn't bound after the application prefix.",
                 TimeSpan.FromSeconds(2));
             return;
         }
@@ -198,7 +198,7 @@ internal sealed class ApplicationKeyController : IDisposable
         if (!await replay(strokes, _lifetime.Token))
         {
             _presentation.SetError(
-                "The application shortcut could not be passed through safely.");
+                "Asura couldn't send that shortcut to the panel. Try again.");
         }
     }
 

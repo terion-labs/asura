@@ -189,7 +189,7 @@ public sealed class AiProviderSettingsViewModel : ObservableObject, IDisposable
             error?.Message
                 ?? warning?.Message
                 ?? (needsCredential
-                    ? "Store the API key in the system keychain before testing."
+                    ? $"Store the API key in {PlatformTerms.SecretStore} before testing."
                     : item.Value.IsEnabled
                         ? "Ready."
                         : "This provider is disabled."),

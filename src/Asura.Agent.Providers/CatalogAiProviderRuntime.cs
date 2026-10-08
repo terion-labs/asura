@@ -141,7 +141,9 @@ public sealed class CatalogAiProviderRuntime :
             return new AiProviderTestResult(
                 true,
                 "ai_provider_test_succeeded",
-                $"Connected to {profile.Name}; {models.Count} model(s) are available.",
+                models.Count == 1
+                    ? $"Connected to {profile.Name}. 1 model is available."
+                    : $"Connected to {profile.Name}. {models.Count:N0} models are available.",
                 models);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -223,7 +225,7 @@ public sealed class CatalogAiProviderRuntime :
             return new AiProviderModelDiscoveryResult(
                 true,
                 "ai_provider_models_discovered",
-                $"{models.Count} model(s) are available.",
+                models.Count == 1 ? "1 model is available." : $"{models.Count:N0} models are available.",
                 models);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -504,7 +506,7 @@ public sealed class CatalogAiProviderRuntime :
                 sendResult = new AgentChatSendResult(
                     false,
                     "agent_chat_cancelled",
-                    "The chat response was cancelled.");
+                    "The chat response was canceled.");
             }
             else
             {
@@ -535,7 +537,7 @@ public sealed class CatalogAiProviderRuntime :
                         baseMessages,
                         string.Empty,
                         cancelled
-                            ? "Response cancelled."
+                            ? "Response canceled."
                             : FailureStatus(errorCode));
                     sendResult = new AgentChatSendResult(
                         false,
@@ -570,7 +572,7 @@ public sealed class CatalogAiProviderRuntime :
             {
                 State = AgentChatState.Cancelling,
                 ProvisionalAssistantText = string.Empty,
-                Status = "Cancelling response…",
+                Status = "Canceling response…",
             };
         }
 

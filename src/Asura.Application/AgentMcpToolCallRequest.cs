@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Asura.Core;
 
 namespace Asura.Application;
 
@@ -74,7 +75,7 @@ public sealed record AgentMcpToolCallRequest
             || ContainsLikelyLiteralSecret(arguments))
         {
             throw new ArgumentException(
-                "MCP tool arguments cannot contain literal credentials; configure the server to receive secrets through its profile-scoped vault environment.",
+                $"MCP tool arguments can't contain credentials. Save the credential in the MCP server's settings instead; Asura passes it to the server from {PlatformTerms.SecretStore}.",
                 nameof(arguments));
         }
 

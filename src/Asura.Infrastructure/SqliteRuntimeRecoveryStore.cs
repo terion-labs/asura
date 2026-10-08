@@ -120,7 +120,7 @@ public sealed class SqliteRuntimeRecoveryStore :
         {
             return Failure<IReadOnlyList<RuntimeRecoverySnapshot>>(
                 ApplicationRunErrorCode.Cancelled,
-                "Loading runtime recovery state was cancelled.");
+                "Loading runtime recovery state was canceled.");
         }
         catch (Exception exception) when (exception is InvalidDataException
             or ArgumentException
@@ -265,7 +265,7 @@ public sealed class SqliteRuntimeRecoveryStore :
         {
             return Failure<Unit>(
                 ApplicationRunErrorCode.Cancelled,
-                "Saving runtime recovery state was cancelled.");
+                "Saving runtime recovery state was canceled.");
         }
         catch (SqliteException exception)
         {
@@ -305,7 +305,7 @@ public sealed class SqliteRuntimeRecoveryStore :
             deleteAll: false,
             runId,
             requireInitializedState: false,
-            "Discarding runtime recovery state was cancelled.",
+            "Discarding runtime recovery state was canceled.",
             "Runtime recovery state could not be discarded.",
             cancellationToken).ConfigureAwait(false);
         return result.IsSuccess
@@ -345,7 +345,7 @@ public sealed class SqliteRuntimeRecoveryStore :
         {
             return Failure<RuntimeRecoveryInventory>(
                 ApplicationRunErrorCode.Cancelled,
-                "Loading stored recovery metadata was cancelled.");
+                "Loading stored recovery metadata was canceled.");
         }
         catch (Exception exception) when (exception is InvalidDataException
             or ArgumentException
@@ -523,7 +523,7 @@ public sealed class SqliteRuntimeRecoveryStore :
             deleteAll: false,
             runId,
             requireInitializedState: true,
-            "Discarding stored recovery data was cancelled.",
+            "Discarding stored recovery data was canceled.",
             "Stored recovery data could not be discarded.",
             cancellationToken);
     }
@@ -534,7 +534,7 @@ public sealed class SqliteRuntimeRecoveryStore :
             deleteAll: true,
             runId: null,
             requireInitializedState: true,
-            cancelledMessage: "Discarding stored recovery data was cancelled.",
+            cancelledMessage: "Discarding stored recovery data was canceled.",
             failureMessage: "Stored recovery data could not be discarded.",
             cancellationToken);
 

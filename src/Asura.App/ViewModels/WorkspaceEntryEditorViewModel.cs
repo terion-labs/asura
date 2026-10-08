@@ -161,7 +161,7 @@ public sealed class WorkspaceEntryEditorViewModel : ObservableObject, IDisposabl
                 ? screen.LayoutName
                 : $"{screen.Name} · {screen.LayoutName}",
         WorkspaceEditorEntryKind.WorkspaceTab => Tab is null
-            ? "Tab definition unavailable"
+            ? "Tab unavailable"
             : $"{Tab.SelectedLayout.DisplayName} · {Tab.Panels.Count} panel{(Tab.Panels.Count == 1 ? string.Empty : "s")}",
         _ => throw new ArgumentOutOfRangeException(),
     };

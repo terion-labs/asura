@@ -123,7 +123,7 @@ internal sealed class WorkspaceRuntimeLeaseCoordinator(
             if (binding is not null && !_preparedBindings.ContainsKey(binding.LeaseId))
             {
                 throw new InvalidOperationException(
-                    "The workspace isolation binding is not owned by this window.");
+                    "The workspace isolation binding isn't owned by this window.");
             }
 
             var networkEgressState = new WorkspaceNetworkEgressState();

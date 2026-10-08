@@ -236,7 +236,7 @@ public sealed class KubernetesResourceBrowserTests
         Assert.True(panel.IsInspectorVisible);
         panel.Filter = "does-not-exist";
         Assert.Empty(panel.Rows);
-        Assert.Equal("0 of 1 items", panel.ResourceCountLabel);
+        Assert.Equal("0 of 1 item", panel.ResourceCountLabel);
     }
 
     private static KubernetesResourceDocument Document(string resource, string kind, string json) =>

@@ -484,7 +484,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
                     authentication.PasswordSecret);
                 if (!removed)
                 {
-                    OperationStatus = "Browser profile metadata was deleted, but its old vault credential could not be removed. Delete that orphaned credential in Secrets.";
+                    OperationStatus = $"The browser profile was deleted, but its old password couldn't be removed from {PlatformTerms.SecretStore}. Delete it in Settings › Security & Secrets.";
                 }
             }
 
@@ -518,7 +518,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
         if (replacesPassword
             && passwordByteCount > BrowserHttpAuthentication.MaximumPasswordByteLength)
         {
-            OperationStatus = $"HTTP authentication passwords cannot exceed {BrowserHttpAuthentication.MaximumPasswordByteLength} UTF-8 bytes.";
+            OperationStatus = $"HTTP authentication passwords can't be longer than {BrowserHttpAuthentication.MaximumPasswordByteLength} UTF-8 bytes.";
             return;
         }
 
@@ -586,7 +586,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
 
             AuthenticationPassword = string.Empty;
             OperationStatus = current is null
-                ? "HTTP authentication attached. The password is stored only in the operating-system vault."
+                ? $"HTTP authentication added. The password is stored only in {PlatformTerms.SecretStore}."
                 : "HTTP authentication updated. Open browser panels keep their pinned profile revision.";
             if (replacesPassword
                 && current is not null
@@ -594,7 +594,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
                     profile.Id,
                     current.PasswordSecret))
             {
-                OperationStatus = "HTTP authentication was updated, but the previous vault credential could not be removed. Delete that orphaned credential in Secrets.";
+                OperationStatus = $"HTTP authentication was updated, but the previous password couldn't be removed from {PlatformTerms.SecretStore}. Delete it in Settings › Security & Secrets.";
             }
 
             ApplyCatalog(_catalog.Snapshot);
@@ -641,7 +641,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
                     profile.Id,
                     authentication.PasswordSecret))
             {
-                OperationStatus = "HTTP authentication was detached, but its old vault credential could not be removed. Delete that orphaned credential in Secrets.";
+                OperationStatus = $"HTTP authentication was removed, but its password couldn't be removed from {PlatformTerms.SecretStore}. Delete it in Settings › Security & Secrets.";
             }
 
             ApplyCatalog(_catalog.Snapshot);
@@ -870,7 +870,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
             StateText = SelectedProfile?.Persistence
                 == BrowserProfilePersistence.PrivateSession
                 ? "Each private panel owns a different in-memory context. Close that panel to destroy its cookies, cache, and site data."
-                : "The built-in profile has one encrypted browser session per workspace. Settings will not issue a broad cross-workspace clear.";
+                : "The built-in profile has one encrypted browser session per workspace. Settings won't issue a broad cross-workspace clear.";
             return;
         }
 
@@ -878,7 +878,9 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
         {
             var state = _dataControl.ReadState(selection, revision);
             StateText = state.HasData
-                ? $"{state.ActiveContexts} runtime context(s), {state.ActiveLeases} open browser owner(s), {state.StoredBytes} encrypted byte(s) saved between runs."
+                ? $"{Count(state.ActiveContexts, "open browser session", "open browser sessions")}, "
+                    + $"{Count(state.ActiveLeases, "panel using it", "panels using it")}, "
+                    + $"{Count(state.StoredBytes, "encrypted byte", "encrypted bytes")} saved between runs."
                 : "No saved or active web data for this profile.";
         }
         catch (Exception error) when (error is InvalidOperationException or IOException or UnauthorizedAccessException)
@@ -907,4 +909,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
 
         (CancelClearCommand as AsyncActionCommand)?.RaiseCanExecuteChanged();
     }
+
+    private static string Count(long count, string singular, string plural) =>
+        count == 1 ? $"1 {singular}" : $"{count:N0} {plural}";
 }

@@ -139,11 +139,11 @@ public sealed class GitHostingBrowserViewModel(IGitRepositoryClient client, Conn
             _page = page.Page;
             HasMore = page.HasMore;
             OnPropertyChanged(nameof(Repositories));
-            Status = $"{_repositories.Count} repositories{(HasMore ? " · more available" : "")}";
+            Status = $"{CountText.OrNone(_repositories.Count, "repository", "repositories")}{(HasMore ? " · more available" : "")}";
         }
         catch (OperationCanceledException)
         {
-            Status = "Repository request cancelled or timed out.";
+            Status = "Repository request canceled or timed out.";
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NotSupportedException)
         {

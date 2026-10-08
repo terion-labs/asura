@@ -41,7 +41,7 @@ public sealed partial class WindowsDpapiSecretVault : ISecretVault
                 SecretVaultCapabilities.All,
                 "windows-dpapi",
                 "windows_dpapi_current_user",
-                "Credentials are protected for the current Windows user with DPAPI.")
+                "Credentials are encrypted for your Windows user account.")
             : new SecretVaultAvailability(
                 SecretVaultAvailabilityState.Unavailable,
                 SecretVaultPersistenceKind.None,

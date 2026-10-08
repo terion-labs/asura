@@ -436,7 +436,7 @@ public sealed class AgentMcpSessionHost :
                 if (cancellationToken.IsCancellationRequested)
                 {
                     throw new OperationCanceledException(
-                        "MCP discovery was cancelled.",
+                        "MCP discovery was canceled.",
                         exception,
                         cancellationToken);
                 }
@@ -511,7 +511,7 @@ public sealed class AgentMcpSessionHost :
         {
             return Failure<AgentMcpToolCallReceipt>(
                 "caller_cancelled",
-                "The MCP call was cancelled before entering the run.");
+                "The MCP call was canceled before entering the run.");
         }
 
         try
@@ -543,7 +543,7 @@ public sealed class AgentMcpSessionHost :
         {
             return Failure<AgentMcpToolCallReceipt>(
                 "caller_cancelled",
-                "The MCP call was cancelled before entering the run.");
+                "The MCP call was canceled before entering the run.");
         }
 
         if (!entered)
@@ -1666,7 +1666,7 @@ public sealed class AgentMcpSessionHost :
         {
             return Failure<AgentMcpToolCallReceipt>(
                 "caller_cancelled",
-                "The MCP call was cancelled before authorization consumption.");
+                "The MCP call was canceled before authorization consumption.");
         }
         catch (McpHostFailureException exception)
         {
@@ -1706,7 +1706,7 @@ public sealed class AgentMcpSessionHost :
         {
             return Failure<AgentMcpToolCallReceipt>(
                 "caller_cancelled",
-                "The MCP call was cancelled before dispatch.");
+                "The MCP call was canceled before dispatch.");
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
@@ -1951,7 +1951,7 @@ public sealed class AgentMcpSessionHost :
         return completion
             ?? Failure<AgentMcpToolCallReceipt>(
                 "caller_cancelled",
-                "The MCP call was cancelled before dispatch.");
+                "The MCP call was canceled before dispatch.");
     }
 
     private async Task<ResolvedTransportSecrets> ResolveTransportSecretsAsync(
@@ -2132,7 +2132,7 @@ public sealed class AgentMcpSessionHost :
                 McpErrorCode.MissingToolsCapability =>
                     "The MCP server does not advertise tools.",
                 McpErrorCode.Cancelled =>
-                    "The MCP operation was cancelled.",
+                    "The MCP operation was canceled.",
                 _ => "The MCP server returned an invalid or unavailable tool surface.",
             });
 
@@ -2196,7 +2196,7 @@ public sealed class AgentMcpSessionHost :
         {
             return TestFailure(
                 "mcp_test_cancelled",
-                "The MCP server test was cancelled.",
+                "The MCP server test was canceled.",
                 retryable: true);
         }
 

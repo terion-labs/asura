@@ -12,7 +12,7 @@ internal sealed class UnavailableSqlLanguageSession : ISqlLanguageSession
 
     public bool IsAvailable => false;
 
-    public string? UnavailableReason => "The SQL intelligence worker is not installed.";
+    public string? UnavailableReason => "SQL completion and validation aren't installed with this copy of Asura.";
 
     public Task<SqlCompletionResult> CompleteAsync(
         string sql,

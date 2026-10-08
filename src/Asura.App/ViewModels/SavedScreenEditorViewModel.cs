@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using Asura.Application;
 using Asura.Core;
 
@@ -33,7 +34,7 @@ public sealed record SavedScreenLayoutOption(
     public int SlotCount => Definition?.Slots.Count ?? 0;
 
     public string DisplayName => IsAvailable && Definition is { } layout
-        ? $"{Name} · {layout.Grid.Columns}×{layout.Grid.Rows} · {SlotCount} panels"
+        ? $"{Name} · {layout.Grid.Columns}×{layout.Grid.Rows} · {CountText.Of(SlotCount, "panel", "panels")}"
         : $"Missing · {Name}";
 }
 
@@ -247,7 +248,7 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
     }
 
     public string LayoutSummary => SelectedLayout.Definition is { } layout
-        ? $"{layout.Grid.Columns} × {layout.Grid.Rows} grid · {layout.Slots.Count} panel slots"
+        ? $"{layout.Grid.Columns} × {layout.Grid.Rows} grid · {CountText.Of(layout.Slots.Count, "panel slot", "panel slots")}"
         : "The selected layout is no longer available.";
 
     public bool HasMissingLayout => !SelectedLayout.IsAvailable;
@@ -298,7 +299,7 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
         ? "Unsaved new screen"
         : IsDirty
             ? "Unsaved changes"
-            : "Saved definition";
+            : "Saved";
 
     public int MissingConnectionCount => _panels.Count(panel => panel.HasMissingConnection);
 
@@ -341,7 +342,7 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
     {
         DefinitionStoreErrorCode.RevisionConflict => "Revision conflict",
         DefinitionStoreErrorCode.DependencyConflict => "Missing dependency",
-        DefinitionStoreErrorCode.Cancelled => "Save cancelled",
+        DefinitionStoreErrorCode.Cancelled => "Save canceled",
         DefinitionStoreErrorCode.StorageUnavailable => "Storage unavailable",
         DefinitionStoreErrorCode.StorageFailure => "Storage failure",
         null => string.Empty,
@@ -444,8 +445,7 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
         var missing = _panels.Where(panel => panel.HasMissingDefinition).ToArray();
         if (missing.Length > 0)
         {
-            throw new ArgumentException(
-                $"Repair {missing.Length} missing panel definition{(missing.Length == 1 ? string.Empty : "s")} before saving.");
+            throw new ArgumentException(MissingSetupMessage(missing));
         }
 
         var definition = new ScreenDefinition(
@@ -492,14 +492,14 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
 
             PersistenceError = result.Error ?? new DefinitionStoreError(
                 DefinitionStoreErrorCode.StorageFailure,
-                "The saved screen could not be persisted.");
+                "Asura couldn't save the screen. Try again.");
             return false;
         }
         catch (OperationCanceledException)
         {
             PersistenceError = new DefinitionStoreError(
                 DefinitionStoreErrorCode.Cancelled,
-                "Saving was cancelled. The draft remains open.");
+                "Saving was canceled. The draft remains open.");
             return false;
         }
         finally
@@ -705,6 +705,26 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
         }
 
         return options.AsReadOnly();
+    }
+
+    // Names what each panel is missing, so a Files panel asks for a file
+    // provider rather than a connection.
+    private static string MissingSetupMessage(IReadOnlyList<SavedScreenPanelEditorViewModel> missing)
+    {
+        var choices = string.Join(
+            " or ",
+            missing
+                .Select(panel => panel.HasMissingKubernetes
+                    ? "a Kubernetes connection"
+                    : panel.HasMissingFileProvider
+                        ? "a file provider"
+                        : "a connection")
+                .Distinct(StringComparer.Ordinal));
+        return missing.Count == 1
+            ? $"Choose {choices} for the panel that's missing one, then save again."
+            : string.Create(
+                CultureInfo.CurrentCulture,
+                $"Choose {choices} for each of the {missing.Count:N0} panels that are missing one, then save again.");
     }
 }
 

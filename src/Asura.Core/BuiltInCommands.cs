@@ -145,7 +145,7 @@ public static class BuiltInCommands
         return new CommandRegistry(
         [
             // A new tab opens a workspace first when the window has none.
-            Define(NewTab, "New Tab", "Tabs", CommandContext.Window | CommandContext.Workspace),
+            Define(NewTab, "New Tab…", "Tabs", CommandContext.Window | CommandContext.Workspace),
             Define(
                 SplitPanel,
                 "Split Panel",
@@ -154,8 +154,8 @@ public static class BuiltInCommands
                 orientationSchema,
                 arguments => arguments.GetValueOrDefault("orientation") switch
                 {
-                    "left-right" => "Split Panel Right",
-                    "top-bottom" => "Split Panel Down",
+                    "left-right" => "Split Right",
+                    "top-bottom" => "Split Down",
                     _ => null,
                 }),
             Define(
@@ -173,10 +173,10 @@ public static class BuiltInCommands
                     "next" => "Focus Next Panel",
                     _ => null,
                 }),
-            Define(TogglePanelZoom, "Toggle Panel Zoom", "Panels", CommandContext.Panel),
+            Define(TogglePanelZoom, "Zoom Panel", "Panels", CommandContext.Panel),
             Define(ClosePanel, "Close Panel", "Panels", CommandContext.Panel),
-            Define(RenameTab, "Rename Tab", "Tabs", CommandContext.Tab),
-            Define(ChangeTabIcon, "Change Tab Icon", "Tabs", CommandContext.Tab),
+            Define(RenameTab, "Rename Tab…", "Tabs", CommandContext.Tab),
+            Define(ChangeTabIcon, "Change Tab Icon…", "Tabs", CommandContext.Tab),
             Define(CloseTab, "Close Tab", "Tabs", CommandContext.Tab),
             Define(MoveTabLeft, "Move Tab Left", "Tabs", CommandContext.Tab),
             Define(MoveTabRight, "Move Tab Right", "Tabs", CommandContext.Tab),
@@ -199,11 +199,11 @@ public static class BuiltInCommands
             Define(LastTab, "Show Last Active Tab", "Tabs", CommandContext.Tab),
             Define(
                 SelectTab,
-                "Select Tab by Position",
+                "Go to Tab by Position",
                 "Tabs",
                 CommandContext.Tab,
                 positionSchema,
-                arguments => PositionTitle("Select Tab", arguments)),
+                arguments => PositionTitle("Go to Tab", arguments)),
             Define(
                 SelectWorkspace,
                 "Go to Workspace by Position",
@@ -213,7 +213,7 @@ public static class BuiltInCommands
                 arguments => PositionTitle("Go to Workspace", arguments)),
             Define(FocusNextArea, "Move Focus to Next Area", "Window", CommandContext.Window),
             Define(FocusPreviousArea, "Move Focus to Previous Area", "Window", CommandContext.Window),
-            Define(EnterTerminalCopyMode, "Enter Terminal Copy Mode", "Terminal", CommandContext.Terminal),
+            Define(EnterTerminalCopyMode, "Enter Copy Mode", "Terminal", CommandContext.Terminal),
             Define(SendPrefix, "Send Literal Prefix", "Terminal", CommandContext.Terminal),
             Define(Copy, "Copy", "Terminal", CommandContext.Terminal),
             Define(Paste, "Paste", "Terminal", CommandContext.Terminal),
@@ -224,25 +224,30 @@ public static class BuiltInCommands
             Define(DeleteWordForward, "Delete Next Word", "Terminal", CommandContext.Terminal),
             Define(MoveToLineStart, "Move to Line Start", "Terminal", CommandContext.Terminal),
             Define(MoveToLineEnd, "Move to Line End", "Terminal", CommandContext.Terminal),
-            Define(Find, "Find", "Terminal", CommandContext.Terminal),
-            Define(IncreaseFontSize, "Increase Font Size", "Terminal", CommandContext.Terminal),
-            Define(DecreaseFontSize, "Decrease Font Size", "Terminal", CommandContext.Terminal),
-            Define(ResetFontSize, "Reset Font Size", "Terminal", CommandContext.Terminal),
+            Define(Find, "Find…", "Terminal", CommandContext.Terminal),
+            Define(IncreaseFontSize, "Bigger", "Terminal", CommandContext.Terminal),
+            Define(DecreaseFontSize, "Smaller", "Terminal", CommandContext.Terminal),
+            Define(ResetFontSize, "Actual Size", "Terminal", CommandContext.Terminal),
             Define(ClearScrollback, "Clear Scrollback", "Terminal", CommandContext.Terminal),
             Define(SendInterrupt, "Send Interrupt", "Terminal", CommandContext.Terminal),
             Define(SendEndOfFile, "Send End of File", "Terminal", CommandContext.Terminal),
             Define(ClearScreen, "Clear Screen", "Terminal", CommandContext.Terminal),
 
             Define(About, "About Asura", "Application", CommandContext.Global),
-            Define(ShowSettings, "Settings", "Application", CommandContext.Global),
-            Define(CheckForUpdates, "Check for Updates", "Application", CommandContext.Global),
+            Define(ShowSettings, "Settings…", "Application", CommandContext.Global),
+            Define(CheckForUpdates, "Check for Updates…", "Application", CommandContext.Global),
 
             Define(NewWindow, "New Window", "Window", CommandContext.Global),
             Define(CloseWindow, "Close Window", "Window", CommandContext.Global),
-            Define(MinimizeWindow, "Minimize Window", "Window", CommandContext.Global),
-            Define(ZoomWindow, "Zoom Window", "Window", CommandContext.Global),
-            Define(ToggleFullScreen, "Toggle Full Screen", "Window", CommandContext.Global),
-            Define(BringAllToFront, "Bring All Windows to Front", "Window", CommandContext.Global),
+            Define(MinimizeWindow, "Minimize", "Window", CommandContext.Global),
+            Define(ZoomWindow, "Zoom", "Window", CommandContext.Global),
+            Define(
+                ToggleFullScreen,
+                "Enter Full Screen",
+                "Window",
+                CommandContext.Global,
+                stateTitle: (CommandStates.IsFullScreen, "Exit Full Screen")),
+            Define(BringAllToFront, "Bring All to Front", "Window", CommandContext.Global),
 
             Define(NewTerminalTab, "New Terminal Tab", "Tabs", CommandContext.Global),
             Define(
@@ -252,13 +257,31 @@ public static class BuiltInCommands
                 CommandContext.Workspace,
                 state: CommandStates.CanReopenClosedTab),
 
-            Define(ToggleSidebar, "Toggle Sidebar", "View", CommandContext.Workspace),
-            Define(ToggleAgentPanel, "Toggle Agent Panel", "View", CommandContext.Workspace),
-            Define(ShowCommandPalette, "Command Palette", "View", CommandContext.Window),
-            Define(ToggleQuickTerminal, "Toggle Quick Terminal", "View", CommandContext.Global),
+            // A show/hide command names what it will do now, as the menu
+            // bar does. Its plain title is the "show" form, which lists that
+            // don't know the state, such as Keyboard Shortcuts, use.
+            Define(
+                ToggleSidebar,
+                "Show Sidebar",
+                "View",
+                CommandContext.Workspace,
+                stateTitle: (CommandStates.IsSidebarVisible, "Hide Sidebar")),
+            Define(
+                ToggleAgentPanel,
+                "Show Agent Panel",
+                "View",
+                CommandContext.Workspace,
+                stateTitle: (CommandStates.IsAgentPanelVisible, "Hide Agent Panel")),
+            Define(ShowCommandPalette, "Command Palette…", "View", CommandContext.Window),
+            Define(
+                ToggleQuickTerminal,
+                "Show Quick Terminal",
+                "View",
+                CommandContext.Global,
+                stateTitle: (CommandStates.IsQuickTerminalVisible, "Hide Quick Terminal")),
 
-            Define(AddPanel, "Add Panel", "Panels", CommandContext.Tab),
-            Define(ShowLayoutDesigner, "Layout Designer", "Panels", CommandContext.Window),
+            Define(AddPanel, "Add Panel…", "Panels", CommandContext.Tab),
+            Define(ShowLayoutDesigner, "Layout Designer…", "Panels", CommandContext.Window),
 
             Define(EditUndo, "Undo", "Edit", CommandContext.Global, state: CommandStates.CanUndo),
             Define(EditRedo, "Redo", "Edit", CommandContext.Global, state: CommandStates.CanRedo),
@@ -273,7 +296,7 @@ public static class BuiltInCommands
                 state: CommandStates.CanPaste),
             Define(EditDelete, "Delete", "Edit", CommandContext.Global, state: CommandStates.CanDelete),
             Define(EditSelectAll, "Select All", "Edit", CommandContext.Global, state: CommandStates.CanSelectAll),
-            Define(EditFind, "Find", "Edit", CommandContext.Global, state: CommandStates.CanFind),
+            Define(EditFind, "Find…", "Edit", CommandContext.Global, state: CommandStates.CanFind),
             Define(EditFindNext, "Find Next", "Edit", CommandContext.Global, state: CommandStates.CanFindNext),
             Define(EditFindPrevious, "Find Previous", "Edit", CommandContext.Global, state: CommandStates.CanFindNext),
             Define(
@@ -306,7 +329,7 @@ public static class BuiltInCommands
             Define(ShowHelp, "Asura Help", "Help", CommandContext.Global),
             Define(ShowKeyboardShortcuts, "Keyboard Shortcuts", "Help", CommandContext.Global),
             Define(ShowReleaseNotes, "Release Notes", "Help", CommandContext.Global),
-            Define(ReportIssue, "Report an Issue", "Help", CommandContext.Global),
+            Define(ReportIssue, "Report an Issue…", "Help", CommandContext.Global),
         ]);
     }
 
@@ -324,7 +347,8 @@ public static class BuiltInCommands
         CommandContext contexts,
         CommandParameterSchema? parameters = null,
         Func<IReadOnlyDictionary<string, string>, string?>? invocationTitle = null,
-        string? state = null)
+        string? state = null,
+        (string State, string Title)? stateTitle = null)
     {
         var defaults = BuiltInKeymaps.All
             .SelectMany(profile => profile.Bindings)
@@ -339,7 +363,8 @@ public static class BuiltInCommands
             parameters,
             defaults,
             state is null ? null : invocation => invocation.HasState(state),
-            invocationTitle);
+            invocationTitle,
+            stateTitle);
     }
 
     // Positions are stored from zero, as the router reads them; people count

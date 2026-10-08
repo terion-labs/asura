@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Asura.Core;
 
 namespace Asura.App.ViewModels;
 
@@ -86,7 +87,7 @@ internal static class DatabaseGridCsv
             if (row.Count != headers.Length)
             {
                 throw new InvalidDataException(
-                    $"CSV row {rowIndex + 1} has {row.Count} values; expected {headers.Length}.");
+                    $"Row {rowIndex + 1:N0} of the CSV file has {CountText.Of(row.Count, "value", "values")}, but the header has {CountText.Of(headers.Length, "column", "columns")}.");
             }
 
             data.Add(row);

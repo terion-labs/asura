@@ -49,7 +49,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
         try { await ForwardState.StartAsync(Profile, target, port); }
         catch (OperationCanceledException) { }
         catch (Asura.Application.KubernetesRequestException exception) { PresentError(exception); }
-        catch (IOException) { Issue = "The workspace network route could not open this forward. Check the route and retry."; }
+        catch (IOException) { Issue = "The workspace network couldn't open this forward. Check the workspace's network connection, then try again."; }
         finally { if (!_disposed) { IsBusy = false; } }
     }
 }

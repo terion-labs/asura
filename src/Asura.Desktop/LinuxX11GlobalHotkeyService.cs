@@ -94,7 +94,7 @@ internal sealed class LinuxX11GlobalHotkeyService : IGlobalHotkeyService
                 return Failure(
                     GlobalHotkeyRegistrationErrorCode.InvalidGesture,
                     "global_hotkey_invalid_gesture",
-                    "The selected shortcut is not supported by the X11 hot-key adapter.");
+                    "The window system can't use this shortcut as a global shortcut. Choose another one.");
             }
 
             var loopResult = TryGetLoop();
@@ -235,17 +235,12 @@ internal sealed class LinuxX11GlobalHotkeyService : IGlobalHotkeyService
             _loop.HotkeyPressed += OnHotkeyPressed;
             return (_loop, null);
         }
-        catch (X11HotkeyConnectionException exception)
+        catch (Exception exception) when (exception is X11HotkeyConnectionException
+            or DllNotFoundException
+            or EntryPointNotFoundException)
         {
-            return (null, NativeFailure(exception.Message));
-        }
-        catch (DllNotFoundException exception)
-        {
-            return (null, NativeFailure(exception.Message));
-        }
-        catch (EntryPointNotFoundException exception)
-        {
-            return (null, NativeFailure(exception.Message));
+            SecretSafeDiagnosticProjection.WriteTrace("desktop.hotkey.x11-connect.failed", exception);
+            return (null, NativeFailure());
         }
     }
 
@@ -300,18 +295,31 @@ internal sealed class LinuxX11GlobalHotkeyService : IGlobalHotkeyService
             BadAccess => Failure(
                 GlobalHotkeyRegistrationErrorCode.Conflict,
                 "global_hotkey_conflict",
-                "Another X11 client already owns this global shortcut."),
+                "Another app already uses this shortcut."),
             BadValue => Failure(
                 GlobalHotkeyRegistrationErrorCode.InvalidGesture,
                 "global_hotkey_invalid_gesture",
-                "X11 rejected the selected global shortcut."),
-            _ => NativeFailure($"X11 error {errorCode}"),
+                "The window system didn't accept this shortcut. Choose another one."),
+            _ => UnexpectedRegistrationFailure(errorCode),
         };
 
-    private static GlobalHotkeyRegistrationResult NativeFailure(string nativeDetail) => Failure(
+    /// <summary>The diagnostic code for an X11 error, such as "desktop.hotkey.x11-native-failure.x11-error-10".</summary>
+    internal static string NativeFailureDiagnosticCode(byte errorCode) =>
+        NativeStatusDiagnosticCode.Format("desktop.hotkey.x11-native-failure", "x11-error", errorCode);
+
+    // The X11 error code goes to diagnostics, not the message people read.
+    private static GlobalHotkeyRegistrationResult UnexpectedRegistrationFailure(byte errorCode)
+    {
+        SecretSafeDiagnosticProjection.WriteTrace(
+            NativeFailureDiagnosticCode(errorCode),
+            SecretSafeDiagnosticKind.Unexpected);
+        return NativeFailure();
+    }
+
+    private static GlobalHotkeyRegistrationResult NativeFailure() => Failure(
         GlobalHotkeyRegistrationErrorCode.NativeFailure,
         "global_hotkey_native_failure",
-        $"X11 could not register the global shortcut ({nativeDetail}).");
+        "The window system didn't accept this shortcut. Try again, or choose another one.");
 
     private static GlobalHotkeyRegistrationResult Failure(
         GlobalHotkeyRegistrationErrorCode code,

@@ -820,7 +820,7 @@ public sealed partial class AgentChatViewModelTests
                     button => string.Equals(AutomationProperties.GetName(button),
                         "Compact conversation context now", StringComparison.Ordinal));
                 Assert.True(compact.IsEffectivelyVisible);
-                Assert.Equal("Compact now", compact.Content);
+                Assert.Equal("Compact Now", compact.Content);
                 Assert.Same(viewModel.CompactCommand, compact.Command);
                 Assert.Equal(viewModel.CanCompact, compact.IsEffectivelyEnabled);
 

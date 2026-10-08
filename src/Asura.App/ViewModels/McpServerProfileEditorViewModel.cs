@@ -49,7 +49,7 @@ public sealed record McpServerCredentialTrustReviewEntry(
     public bool HasWarning => State != McpServerCredentialReviewState.Available;
 
     public string AutomationName =>
-        $"{BindingName} vault binding: {MetadataSummary}; {StateSummary}";
+        $"{BindingName} stored credential: {MetadataSummary}; {StateSummary}";
 }
 
 public sealed record McpServerTrustReview
@@ -672,7 +672,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
         {
             throw InvalidField.Exception(
                 nameof(WorkingDirectory),
-                "Working directory must be a fully qualified local path.");
+                "Enter the working directory as a full path on this computer.");
         }
 
         return new McpServerTransport.Stdio(
@@ -730,7 +730,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
         {
             if (!_original.IsTrusted)
             {
-                changes.Add("Trust this imported server definition");
+                changes.Add("Trust this imported server");
             }
 
             if (profile.Transport.Kind != _original.Transport.Kind)
@@ -770,7 +770,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
             profile.Name,
             profile.Transport.Kind,
             stdioTransport?.Executable ?? string.Empty,
-            stdioTransport?.WorkingDirectory ?? "Executable directory",
+            stdioTransport?.WorkingDirectory ?? "The program's folder",
             httpTransport?.Endpoint.AbsoluteUri ?? string.Empty,
             httpTransport is null
                 ? "Local process"
@@ -825,7 +825,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
 
         if (!transport.Environment.SequenceEqual(original.Environment))
         {
-            changes.Add("Change environment-to-vault bindings");
+            changes.Add("Change environment variables that use stored credentials");
         }
     }
 
@@ -842,7 +842,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
 
         if (!transport.Headers.SequenceEqual(original.Headers))
         {
-            changes.Add("Change HTTP-header-to-vault bindings");
+            changes.Add("Change HTTP headers that use stored credentials");
         }
     }
 
@@ -993,7 +993,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
         if (count >= maximum)
         {
             throw new InvalidOperationException(
-                $"An MCP server cannot define more than {maximum} {itemName}.");
+                $"An MCP server can't have more than {maximum} {itemName}.");
         }
     }
 

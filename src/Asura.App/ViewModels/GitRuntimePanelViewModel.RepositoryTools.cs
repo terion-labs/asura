@@ -17,7 +17,7 @@ public sealed partial class GitRuntimePanelViewModel
             return success.Value;
         }
 
-        PresentFailure(((GitResult<GitRepositoryStatistics>.Failure)result).Error, "Could not read statistics");
+        PresentFailure(((GitResult<GitRepositoryStatistics>.Failure)result).Error, "Couldn't read statistics");
         return null;
     }
     public async Task CreateRepositoryAsync(string path, string branch, string? cloneUrl = null, GitHostingAccount? account = null)
@@ -42,10 +42,10 @@ public sealed partial class GitRuntimePanelViewModel
                 if (cloneUrl is not null && failure.Error.Code == GitErrorCode.CredentialStorageFailed)
                 {
                     await OpenRepositoryAsync(path);
-                    PresentFailure(failure.Error, "Repository cloned; credentials could not be saved");
+                    PresentFailure(failure.Error, "Repository cloned, but the credentials couldn't be saved");
                     return;
                 }
-                PresentFailure(failure.Error, cloneUrl is null ? "Could not initialize repository" : "Could not clone repository");
+                PresentFailure(failure.Error, cloneUrl is null ? "Couldn't initialize repository" : "Couldn't clone repository");
                 return;
             }
             await OpenRepositoryAsync(((GitResult<GitRepositoryHandle>.Success)result).Value.WorkingTreeRoot);
@@ -54,12 +54,12 @@ public sealed partial class GitRuntimePanelViewModel
         {
             if (!_disposed)
             {
-                PresentFailure(new GitError(GitErrorCode.Cancelled, "Repository creation was cancelled. Inspect the destination before retrying.", Retryable: false), "Repository creation cancelled");
+                PresentFailure(new GitError(GitErrorCode.Cancelled, "Repository creation was canceled. Inspect the destination before retrying.", Retryable: false), "Repository creation canceled");
             }
         }
         catch (ArgumentException exception)
         {
-            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Invalid repository destination");
+            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the repository destination");
         }
         finally
         {
@@ -140,7 +140,7 @@ public sealed partial class GitRuntimePanelViewModel
         }
         catch (ArgumentException exception)
         {
-            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Invalid Git request");
+            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the Git request");
             return null;
         }
     }
@@ -158,7 +158,7 @@ public sealed partial class GitRuntimePanelViewModel
             return success.Value;
         }
 
-        PresentFailure(((GitResult<GitIdentitySettings>.Failure)result).Error, "Could not read Git identity");
+        PresentFailure(((GitResult<GitIdentitySettings>.Failure)result).Error, "Couldn't read Git identity");
         return null;
     }
 

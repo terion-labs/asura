@@ -400,7 +400,7 @@ public sealed class NetworkSettingsViewModelTests
             editor.SelectedConfigurationCredential);
         Assert.Equal(bound, selected.Reference);
         Assert.Equal("Office WireGuard · Configuration", selected.DisplayName);
-        Assert.Contains("OS vault", selected.Detail, StringComparison.Ordinal);
+        Assert.Contains(PlatformTerms.SecretStore, selected.Detail, StringComparison.Ordinal);
         Assert.Contains("Updated", selected.Detail, StringComparison.Ordinal);
 
         editor.SelectedConfigurationCredential = editor.ConfigurationCredentialOptions
@@ -431,7 +431,7 @@ public sealed class NetworkSettingsViewModelTests
             viewModel.ProfileEditor?.SelectedConfigurationCredential);
         Assert.Equal(NetworkCredentialOptionState.Unavailable, selected.State);
         Assert.Equal("Credential unavailable", selected.DisplayName);
-        Assert.Contains("not found", selected.Detail, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("no longer in", selected.Detail, StringComparison.Ordinal);
     }
 
     [Theory]

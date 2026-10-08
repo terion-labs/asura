@@ -236,7 +236,7 @@ public sealed partial class WorkspaceSdkIsolationProvider : IWorkspaceConnection
                 catch (Exception cleanupFailure) when (cleanupFailure is IOException or UnauthorizedAccessException)
                 {
                     SecretSafeDiagnosticProjection.WriteTrace("workspace.service.prepare-cleanup.failed", cleanupFailure);
-                    return Failure("The connection service failed to start and its private state could not be removed.");
+                    return Failure("The connection service couldn't start, and Asura couldn't remove its private files. Restart Asura, then try again.");
                 }
             }
             if (exception is OperationCanceledException && cancellationToken.IsCancellationRequested)

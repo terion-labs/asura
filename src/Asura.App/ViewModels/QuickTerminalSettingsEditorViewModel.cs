@@ -25,7 +25,7 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
     private bool _restoreOnStart;
     private bool _hideOnFocusLoss;
     private bool _hideOnEscape;
-    private string _registrationStatus = "Shortcut registration has not been checked yet.";
+    private string _registrationStatus = "Shortcut registration hasn't been checked yet.";
     private StatusTone _registrationStatusTone = StatusTone.Neutral;
 
     public QuickTerminalSettingsEditorViewModel(
@@ -198,8 +198,8 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
         {
             var close = QuickTerminalHotkeyText.FormatApplicationCommand("W");
             return HideOnEscape
-                ? $"Hide the panel with its global hotkey, {close}, or Escape."
-                : $"Hide the panel with its global hotkey or {close}. Escape goes to the terminal.";
+                ? $"Hide the panel with its global shortcut, {close}, or Escape."
+                : $"Hide the panel with its global shortcut or {close}. Escape goes to the terminal.";
         }
     }
 
@@ -259,9 +259,9 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
 
         var error = ((GlobalHotkeyRegistrationResult.Failure)result).Error;
         RegistrationStatus =
-            $"{configured} could not be registered: {error.Message} "
-            + "Quick Terminal has no global hotkey until you choose another shortcut. "
-            + "Show Quick Terminal from the View menu meanwhile.";
+            $"Asura couldn't set {configured} as the global shortcut. {error.Message} "
+            + "Quick Terminal has no global shortcut until you choose another one. "
+            + "Meanwhile, show it from the View menu.";
         RegistrationStatusTone = StatusTone.Warning;
     }
 }

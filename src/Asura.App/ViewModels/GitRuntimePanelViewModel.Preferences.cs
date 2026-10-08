@@ -98,7 +98,8 @@ public sealed partial class GitRuntimePanelViewModel
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
         {
-            return "Could not read the spelling dictionary: " + exception.Message;
+            SecretSafeDiagnostics.WriteTrace("git.spelling-dictionary.read.failed", exception);
+            return "Asura couldn't read the spelling dictionary. Check that the dictionary file still exists, then try again.";
         }
     }
 

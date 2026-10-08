@@ -760,7 +760,7 @@ public sealed class DefinitionBundleTests
         Assert.Contains(
             preflight.Value.Issues,
             issue => issue.Code == DefinitionImportIssueCode.InvalidPayload
-                && issue.Message.Contains("display order 0", StringComparison.Ordinal));
+                && issue.Message.Contains("same place in the list", StringComparison.Ordinal));
 
         var forged = new DefinitionImportPreflight(
             bundle,

@@ -20,7 +20,7 @@ public sealed class SecretSettingsViewModel : ObservableObject, IDisposable
     private readonly Action<SecretRef> _invalidateMcpTests;
     private readonly Action _clearError;
     private readonly Action<string> _setError;
-    private string _status = "Checking the operating-system vault…";
+    private string _status = $"Checking {PlatformTerms.SecretStore}…";
     private bool _disposed;
 
     public SecretSettingsViewModel(
@@ -327,7 +327,7 @@ public sealed class SecretSettingsViewModel : ObservableObject, IDisposable
         }
         catch (Exception) when (!_disposed)
         {
-            Status = "The operating-system credential vault could not be queried.";
+            Status = $"Asura couldn't read {PlatformTerms.SecretStore}. Check that it is unlocked, then try again.";
             OnPropertyChanged(nameof(HasNoSecrets));
         }
     }
@@ -431,7 +431,7 @@ public sealed class SecretSettingsViewModel : ObservableObject, IDisposable
                 System.Globalization.CultureInfo.InvariantCulture) ?? "Never",
             metadata.Scope,
             dependencies.Length == 0
-                ? "No saved definition dependencies"
+                ? "Not used by any saved item"
                 : $"Used by: {string.Join(", ", dependencies)}",
             dependencies.Length);
     }

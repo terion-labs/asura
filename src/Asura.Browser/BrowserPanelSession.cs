@@ -1887,7 +1887,7 @@ public sealed partial class BrowserPanelSession : IBrowserPanelSession
         BrowserResult<T>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser wait observation was cancelled."));
+                "The browser wait observation was canceled."));
 
     private static BrowserResult<T> WaitObservationStateChanged<T>() =>
         BrowserResult<T>.Failure(
@@ -1913,7 +1913,7 @@ public sealed partial class BrowserPanelSession : IBrowserPanelSession
         BrowserResult<BrowserSessionState>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser operation was cancelled."));
+                "The browser operation was canceled."));
 
     private static BrowserResult<BrowserSessionState> NavigationStateChanged() =>
         BrowserResult<BrowserSessionState>.Failure(
@@ -1942,7 +1942,7 @@ public sealed partial class BrowserPanelSession : IBrowserPanelSession
         BrowserResult<BrowserDocumentSnapshot>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser snapshot was cancelled."));
+                "The browser snapshot was canceled."));
 
     private static BrowserResult<BrowserDocumentSnapshot>
         SnapshotStateChanged() =>
@@ -1972,7 +1972,7 @@ public sealed partial class BrowserPanelSession : IBrowserPanelSession
         BrowserResult<BrowserClickReceipt>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser element activation was cancelled before dispatch."));
+                "The browser element activation was canceled before dispatch."));
 
     private static BrowserResult<BrowserClickReceipt>
         ClickStateChanged() =>
@@ -2009,7 +2009,7 @@ public sealed partial class BrowserPanelSession : IBrowserPanelSession
         BrowserResult<BrowserFillReceipt>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser element fill was cancelled before dispatch."));
+                "The browser element fill was canceled before dispatch."));
 
     private static BrowserResult<BrowserFillReceipt>
         FillStateChanged() =>
@@ -2046,7 +2046,7 @@ public sealed partial class BrowserPanelSession : IBrowserPanelSession
         BrowserResult<BrowserCheckReceipt>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser element check was cancelled before dispatch."));
+                "The browser element check was canceled before dispatch."));
 
     private static BrowserResult<BrowserCheckReceipt>
         CheckStateChanged() =>

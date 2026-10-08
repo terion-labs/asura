@@ -327,7 +327,7 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         IsTesting = true;
         ClearHostKeyReview();
         TestStatus = "Testing provider";
-        TestDetail = "Resolving the adapter and listing its configured root…";
+        TestDetail = "Connecting and listing the starting folder…";
         try
         {
             var result = await _runtime.TestAsync(profile, cancellationToken);
@@ -346,13 +346,13 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            TestStatus = "Test cancelled";
-            TestDetail = "The provider test was cancelled.";
+            TestStatus = "Test canceled";
+            TestDetail = "The provider test was canceled.";
         }
         catch (Exception)
         {
             TestStatus = "Test failed";
-            TestDetail = "The provider runtime could not complete the test.";
+            TestDetail = "Asura couldn't finish testing the file provider. Try again.";
             ReportError(TestDetail, TestStatus);
         }
         finally
@@ -414,7 +414,7 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            _hostKeyReviewStatus = "Host-key trust was cancelled.";
+            _hostKeyReviewStatus = "Host-key trust was canceled.";
             OnPropertyChanged(nameof(HostKeyReviewStatus));
             return;
         }

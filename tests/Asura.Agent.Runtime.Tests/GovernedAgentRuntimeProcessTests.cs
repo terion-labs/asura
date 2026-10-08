@@ -1428,7 +1428,7 @@ public sealed partial class GovernedAgentRuntimeProcessTests
                         new HostError(
                             HostErrorCode.Cancelled,
                             "caller_cancelled",
-                            "The process observation was cancelled."),
+                            "The process observation was canceled."),
                         1);
                 }
             }
@@ -1551,7 +1551,7 @@ public sealed partial class GovernedAgentRuntimeProcessTests
                         new HostError(
                             HostErrorCode.Cancelled,
                             "caller_cancelled",
-                            "The Statistics observation was cancelled."),
+                            "The Statistics observation was canceled."),
                         1);
                 }
             }

@@ -518,7 +518,7 @@ internal sealed partial class DockerPanelSession
         if (!string.Equals(expectedPath, actualPath, StringComparison.Ordinal))
         {
             throw new InvalidDataException(
-                "Docker returned a file outside the requested directory.");
+                "Docker returned a file outside the requested folder.");
         }
     }
 

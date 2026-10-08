@@ -126,7 +126,7 @@ public sealed class OnboardingViewModel : ObservableObject, IDisposable
 
     public bool CanFinish => IsVisible && _progress is not null && !IsBusy;
 
-    public string Title => _reviewRequested ? "Check your setup" : "Welcome to Asura";
+    public string Title => _reviewRequested ? "Check Your Setup" : "Welcome to Asura";
 
     public string Introduction => _reviewRequested
         ? "Make sure your terminal and secure password storage are ready to use."

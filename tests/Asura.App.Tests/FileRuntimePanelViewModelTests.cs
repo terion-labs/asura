@@ -440,7 +440,7 @@ public sealed class FileRuntimePanelViewModelTests
 
         Assert.Equal(FileBrowserContentState.Loading, panel.ContentState);
         Assert.True(panel.ShowLoadingState);
-        Assert.Equal("File Viewer loading", panel.ContentPresentation.AccessibleName);
+        Assert.Equal("Files panel loading", panel.ContentPresentation.AccessibleName);
 
         listing.SetResult(FilePanelResult<FilePanelPage>.Success(
             new FilePanelPage([], null)));
@@ -449,7 +449,7 @@ public sealed class FileRuntimePanelViewModelTests
         Assert.Equal(FileBrowserContentState.EmptyLocation, panel.ContentState);
         Assert.True(panel.ShowEmptyLocationState);
         Assert.False(panel.ShowSearchNoResultsState);
-        Assert.Equal("File Viewer empty location", panel.ContentPresentation.AccessibleName);
+        Assert.Equal("Files panel empty location", panel.ContentPresentation.AccessibleName);
         Assert.Contains(
             "Create a folder",
             panel.ContentPresentation.SuggestedAction,
@@ -526,7 +526,7 @@ public sealed class FileRuntimePanelViewModelTests
         Assert.Equal(FileBrowserContentState.SearchNoResults, panel.ContentState);
         Assert.True(panel.ShowSearchNoResultsState);
         Assert.Equal(
-            "File Viewer search has no results",
+            "Files panel search has no results",
             panel.ContentPresentation.AccessibleName);
         Assert.Contains("missing", panel.ContentPresentation.Message, StringComparison.Ordinal);
 
@@ -764,11 +764,11 @@ public sealed class FileRuntimePanelViewModelTests
     [InlineData(
         FilePanelErrorCode.AccessDenied,
         FileBrowserContentState.AccessRequired,
-        "File Viewer access required")]
+        "Files panel access required")]
     [InlineData(
         FilePanelErrorCode.UnsupportedCapability,
         FileBrowserContentState.Unsupported,
-        "File Viewer location unsupported")]
+        "Files panel location unsupported")]
     public async Task PermissionAndUnsupportedFailuresHaveDistinctPresentation(
         FilePanelErrorCode errorCode,
         FileBrowserContentState expectedState,
@@ -1101,7 +1101,7 @@ public sealed class FileRuntimePanelViewModelTests
         "Destination already exists",
         "Keep Both")]
     [InlineData(FilePanelErrorCode.SharingViolation, "File is in use", "process")]
-    [InlineData(FilePanelErrorCode.DirectoryNotEmpty, "Folder is not empty", "recursive")]
+    [InlineData(FilePanelErrorCode.DirectoryNotEmpty, "Folder isn't empty", "recursive")]
     public void ConflictFailuresKeepOperationSpecificRecovery(
         FilePanelErrorCode errorCode,
         string title,
@@ -1432,7 +1432,7 @@ public sealed class FileRuntimePanelViewModelTests
                 otherProfile.Root));
 
         Assert.Contains(
-            "does not belong",
+            "doesn't belong",
             error.Message,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -1593,7 +1593,7 @@ public sealed class FileRuntimePanelViewModelTests
 
         await panel.Initialization;
         Assert.Null(panel.SelectedProfile);
-        Assert.Contains("not currently available", panel.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains("file provider isn't available right now", panel.ErrorMessage, StringComparison.Ordinal);
 
         client.AddProfile("files.saved", "Saved provider");
 

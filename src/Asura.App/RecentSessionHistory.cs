@@ -48,7 +48,7 @@ public sealed class RecentSessionHistory
         {
             return RecentSessionStoreResult<int>.Failure(new RecentSessionStoreError(
                 RecentSessionStoreErrorCode.Cancelled,
-                "Reconciling interrupted recent sessions was cancelled."));
+                "Reconciling interrupted recent sessions was canceled."));
         }
 
         try

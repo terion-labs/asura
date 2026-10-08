@@ -235,8 +235,8 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     public int ResourceCount => Resources.Count;
 
     public string ResourceSummary => IsVolumesSection && IsCalculatingVolumeSizes
-        ? $"{ResourceCount} resources · Loading sizes…"
-        : $"{ResourceCount} resources";
+        ? $"{CountText.OrNone(ResourceCount, "resource", "resources")} · Loading sizes…"
+        : CountText.OrNone(ResourceCount, "resource", "resources");
 
     public bool ShowVolumeSizeLoading => IsVolumesSection && IsCalculatingVolumeSizes;
 
@@ -578,8 +578,8 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     public bool CanFollowLogs => !IsLogSearchActive;
 
     public string LogResultSummary => IsLogSearchActive
-        ? $"{LogRows.Count} filtered rows"
-        : $"{LogRows.Count} loaded rows";
+        ? CountText.OrNone(LogRows.Count, "matching row", "matching rows")
+        : CountText.OrNone(LogRows.Count, "loaded row", "loaded rows");
 
     public string LogDownloadFileName => SelectedResource?.Container is { } container
         ? $"{SanitizeFileName(container.Name)}-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log"
@@ -754,11 +754,11 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             {
                 PresentFailure(
                     firstFailure,
-                    $"Could not {ActionVerb(action)} every container in {stack.Name}");
+                    $"Couldn't {ActionVerb(action)} every container in {stack.Name}");
                 return;
             }
 
-            StatusText = $"{stack.Name} {ActionPastTense(action)} · {targets.Length} containers";
+            StatusText = $"{stack.Name} {ActionPastTense(action)} · {CountText.Of(targets.Length, "container", "containers")}";
         }
         finally
         {
@@ -1039,7 +1039,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             _lifetime.Token);
         if (result is DockerResult<bool>.Failure failure)
         {
-            PresentFailure(failure.Error, $"Could not {ActionVerb(action)} container");
+            PresentFailure(failure.Error, $"Couldn't {ActionVerb(action)} container");
             return;
         }
 
@@ -1070,7 +1070,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
 
             if (result is DockerResult<DockerResourceInspection>.Failure failure)
             {
-                PresentFailure(failure.Error, "Could not inspect resource");
+                PresentFailure(failure.Error, "Couldn't inspect resource");
                 return;
             }
 
