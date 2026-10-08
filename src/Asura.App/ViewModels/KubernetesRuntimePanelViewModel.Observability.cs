@@ -1,6 +1,7 @@
 using System.Globalization;
 using Asura.Application;
 using Asura.Core;
+using Avalonia.Data.Converters;
 
 namespace Asura.App.ViewModels;
 
@@ -13,6 +14,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
     private string _metricsStatus = "Load current usage from the cluster metrics API.";
     private bool _nodeMetrics;
     private int? _helmOffset;
+    private bool _hasLoadedHelm;
     public bool HasMetrics => _session?.Features.HasFlag(KubernetesSessionFeatures.Metrics) == true;
     public bool HasResourceMetrics => HasMetrics && SelectedResource?.Reference is { Group: "", Resource: "pods" or "nodes" };
     public bool HasHelm => _session?.Features.HasFlag(KubernetesSessionFeatures.HelmRead) == true;
@@ -22,6 +24,15 @@ public sealed partial class KubernetesRuntimePanelViewModel
     public IReadOnlyList<KubernetesHelmRelease> Releases { get => _releases; private set => SetProperty(ref _releases, value); }
     public IReadOnlyList<KubernetesHelmRevisionRow> HelmHistory { get => _helmHistory; private set => SetProperty(ref _helmHistory, value); }
     public bool HasMoreHelm => _helmOffset is not null && Releases.Count < 2000;
+
+    /// <summary>Releases have been listed once; the toolbar's button now refreshes them.</summary>
+    public bool HasLoadedHelm
+    {
+        get => _hasLoadedHelm;
+        private set { if (SetProperty(ref _hasLoadedHelm, value)) { OnPropertyChanged(nameof(HelmLoadLabel)); } }
+    }
+
+    public string HelmLoadLabel => HasLoadedHelm ? "Refresh" : "Load Releases";
     public Task HelmHistoryLoading { get; private set; } = Task.CompletedTask;
     public KubernetesHelmRelease? SelectedRelease
     {
@@ -123,6 +134,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             Releases = nextPage ? [.. Releases.Concat(page.Releases).Take(2000)] : page.Releases;
             _helmOffset = page.NextOffset;
             OnPropertyChanged(nameof(HasMoreHelm));
+            HasLoadedHelm = true;
             Status = CountText.OrNone(Releases.Count, "Helm release", "Helm releases");
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
@@ -143,6 +155,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
     private void ClearObservability()
     {
         ++_metricsVersion; IsMetricsLoading = false; ClearResourceUsage(); Releases = []; SelectedRelease = null; HelmHistory = []; _helmOffset = null;
+        HasLoadedHelm = false;
         OnPropertyChanged(nameof(HasMoreHelm));
     }
 }
@@ -152,7 +165,7 @@ public sealed record KubernetesUsageRow(KubernetesUsageEntry Entry)
     public string Identity => $"{Entry.Namespace}/{Entry.Name}{(Entry.Container is null ? "" : $" · {Entry.Container}")}";
     public string Usage => $"CPU {Format(Entry.CpuCores)} cores · Memory {(Entry.MemoryBytes is { } bytes ? KubernetesResourceRow.FormatBytes(bytes) : "unavailable")}";
     public string Sample => $"{DisplayDates.Format(Entry.Timestamp, "Timestamp unavailable")} · Window {Entry.Window}";
-    private static string Format(decimal? value) => value?.ToString("0.###", CultureInfo.InvariantCulture) ?? "unavailable";
+    private static string Format(decimal? value) => value?.ToString("0.000", CultureInfo.InvariantCulture) ?? "unavailable";
 }
 
 /// <summary>
@@ -164,22 +177,76 @@ public sealed record KubernetesUsageRow(KubernetesUsageEntry Entry)
 public sealed record KubernetesHelmRevisionRow(KubernetesHelmRevision Revision)
 {
     public int Number => Revision.Revision;
-    public string Status => Revision.Status;
+    public string Status => KubernetesHelmText.Status(Revision.Status);
+    public bool IsFailed => KubernetesHelmText.IsFailed(Revision.Status);
     public string Chart => Revision.Chart;
     public string Updated => FormatUpdated(Revision.Updated);
 
-    internal static string FormatUpdated(string value)
+    internal static string FormatUpdated(string value) => KubernetesHelmText.Updated(value);
+}
+
+/// <summary>
+/// Helm's own words, as the panel writes them: a status in sentence case
+/// ("Pending upgrade", not "pending-upgrade") and a time in the reader's
+/// culture, not Go's notation.
+/// </summary>
+public static class KubernetesHelmText
+{
+    /// <summary>A release's status, for a binding: "deployed" reads "Deployed".</summary>
+    public static IValueConverter StatusConverter { get; } =
+        new FuncValueConverter<string?, string>(value => Status(value));
+
+    /// <summary>Whether a release's status is a failure, for the danger tone.</summary>
+    public static IValueConverter FailedConverter { get; } =
+        new FuncValueConverter<string?, bool>(IsFailed);
+
+    /// <summary>A release's last change in the reader's culture.</summary>
+    public static IValueConverter UpdatedConverter { get; } =
+        new FuncValueConverter<string?, string>(value => Updated(value ?? string.Empty));
+
+    public static string Status(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status)) { return "Unknown"; }
+        var words = status.Trim().Replace('-', ' ').Replace('_', ' ').ToLowerInvariant();
+        return char.ToUpperInvariant(words[0]) + words[1..];
+    }
+
+    public static bool IsFailed(string? status) =>
+        string.Equals(status?.Trim(), "failed", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Helm writes a moment in Go's notation, "2026-09-16 10:30:00.123456789
+    /// +0000 UTC", sometimes with the zone name alone ("… UTC"), or as RFC
+    /// 3339. Each is read as the moment it names; anything else is kept.
+    /// </summary>
+    public static string Updated(string value)
     {
         if (string.IsNullOrWhiteSpace(value)) { return string.Empty; }
+        var parts = value.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var text = value.Trim();
-        var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length >= 3 && parts[2].Length == 5 && parts[2][0] is '+' or '-')
+        if (parts.Length >= 2 && parts[0].Length == 10 && parts[1].Contains(':', StringComparison.Ordinal))
         {
-            text = $"{parts[0]}T{parts[1]}{parts[2][..3]}:{parts[2][3..]}";
+            var time = TrimFraction(parts[1]);
+            if (parts.Length >= 3 && parts[2].Length == 5 && parts[2][0] is '+' or '-')
+            {
+                text = $"{parts[0]}T{time}{parts[2][..3]}:{parts[2][3..]}";
+            }
+            else if (parts.Length == 2 || string.Equals(parts[2], "UTC", StringComparison.Ordinal))
+            {
+                // A zone name with no offset: Helm writes UTC this way.
+                text = $"{parts[0]}T{time}Z";
+            }
         }
 
         return DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var moment)
             ? DisplayDates.Format(moment)
             : value;
+    }
+
+    // Go writes nanoseconds; .NET reads at most seven fractional digits.
+    private static string TrimFraction(string time)
+    {
+        var dot = time.IndexOf('.', StringComparison.Ordinal);
+        return dot >= 0 && time.Length - dot - 1 > 7 ? time[..(dot + 8)] : time;
     }
 }

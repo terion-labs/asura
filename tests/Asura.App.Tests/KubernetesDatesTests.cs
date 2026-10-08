@@ -53,7 +53,7 @@ public sealed class KubernetesDatesTests
         var usage = new KubernetesUsageRow(new("api", "team", "api", sampled, "30s", 0.25m, 1.5m * 1024 * 1024 * 1024));
 
         Assert.Equal($"{DisplayDates.Format(sampled)} · Window 30s", usage.Sample);
-        Assert.Equal("CPU 0.25 cores · Memory 1.5 GB", usage.Usage);
+        Assert.Equal("CPU 0.250 cores · Memory 1.5 GB", usage.Usage);
         Assert.Equal(
             "Timestamp unavailable · Window 30s",
             new KubernetesUsageRow(new("api", "team", null, null, "30s", null, null)).Sample);

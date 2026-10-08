@@ -41,7 +41,7 @@ public sealed class KubernetesMetricsProviderTests
         panel.SelectedResource = panel.Resources[0];
         await panel.SelectionLoading;
         await panel.LoadSelectedHistoryAsync();
-        Assert.Equal("0.25 cores", panel.SelectedCpuUsage);
+        Assert.Equal("0.250 cores", panel.SelectedCpuUsage);
         Assert.Equal("N/A", panel.SelectedMemoryUsage);
         Assert.All(history, request => Assert.Equal(TimeSpan.FromHours(1), request.End - request.Start));
         panel.MemoryHistory = true;

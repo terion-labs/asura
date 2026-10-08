@@ -56,7 +56,8 @@ public sealed record KubernetesResourceRow(KubernetesResourceDocument Document)
         {
             CpuValue = cpu,
             MemoryValue = memory,
-            Cpu = cpu?.ToString("0.###", CultureInfo.InvariantCulture) ?? "N/A",
+            // Cores to a fixed three places, so a column of them lines up.
+            Cpu = cpu?.ToString("0.000", CultureInfo.InvariantCulture) ?? "N/A",
             Memory = memory is { } bytes ? FormatBytes(bytes) : "N/A",
             Type = document.Kind,
         };

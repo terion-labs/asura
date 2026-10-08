@@ -190,7 +190,7 @@ public sealed class KubernetesResourceBrowserTests
         Assert.Equal("25%", row.Disk);
         Assert.Equal(25m, row.DiskPercentValue);
         Assert.Equal("25 GB / 100 GB used · Root filesystem (/)", row.DiskDetail);
-        Assert.Equal("0.5", row.Cpu);
+        Assert.Equal("0.500", row.Cpu);
     }
 
     [Theory]
@@ -205,7 +205,7 @@ public sealed class KubernetesResourceBrowserTests
             [new("api", "team", null, null, "30s", 0.5m, 1024m, used, capacity)]);
         Assert.Equal("N/A", row.Disk);
         Assert.Null(row.DiskPercentValue);
-        Assert.Equal("0.5", row.Cpu);
+        Assert.Equal("0.500", row.Cpu);
     }
 
     [Fact]
@@ -236,7 +236,7 @@ public sealed class KubernetesResourceBrowserTests
         Assert.True(panel.IsInspectorVisible);
         panel.Filter = "does-not-exist";
         Assert.Empty(panel.Rows);
-        Assert.Equal("0 of 1 item", panel.ResourceCountLabel);
+        Assert.Equal("0 of 1 resource", panel.ResourceCountLabel);
     }
 
     private static KubernetesResourceDocument Document(string resource, string kind, string json) =>

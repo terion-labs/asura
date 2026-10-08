@@ -236,7 +236,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
             OnPropertyChanged(nameof(HasMore));
             ApplyFilter();
             SelectedResource = Resources.FirstOrDefault(item => string.Equals(item.Reference.Uid, selectedUid, StringComparison.Ordinal));
-            Status = $"{CountText.OrNone(page.Items.Count, "resource", "resources")}{(page.IsTruncated || page.ContinueToken is not null ? " · Results limited" : "")}";
+            Status = TableStatus(page.IsTruncated || page.ContinueToken is not null ? "Results limited" : null);
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (KubernetesRequestException exception) { PresentError(exception); }
@@ -290,7 +290,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
             if (!_disposed && SelectedResource?.Reference == resource.Reference)
             {
                 Logs = page.Text;
-                Status = page.IsTruncated ? "Recent logs · Output limited" : "Recent logs loaded";
+                Status = page.IsTruncated ? "Showing the most recent log lines · Older lines omitted" : "Showing the most recent log lines";
             }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
@@ -346,11 +346,43 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
 
     private void PresentError(KubernetesRequestException exception)
     {
-        Status = exception.Code.ToString();
+        Status = ErrorStatus(exception.Code);
         Issue = exception.Code == KubernetesErrorCode.Forbidden
             ? "Access denied for this scope. Enter an allowed namespace and refresh, or review your Kubernetes permissions."
             : exception.Message;
     }
+
+    /// <summary>
+    /// What the status bar says about the table: which resources, where, and
+    /// how current they are. The count lives once, beside the filter.
+    /// </summary>
+    private string TableStatus(string? note)
+    {
+        var scope = SelectedKind?.Namespaced == true
+            ? EffectiveNamespace is { Length: > 0 } ns ? $"in {ns}" : "in all namespaces"
+            : "across the cluster";
+        var table = $"{ResourceTitle} {scope}";
+        return note is null ? table : $"{table} · {note}";
+    }
+
+    /// <summary>A request failure in the status bar, in words rather than an error code.</summary>
+    internal static string ErrorStatus(KubernetesErrorCode code) => code switch
+    {
+        KubernetesErrorCode.InvalidConfiguration => "Connection settings need attention",
+        KubernetesErrorCode.Unauthorized => "Sign-in required",
+        KubernetesErrorCode.Forbidden => "Access denied",
+        KubernetesErrorCode.NotFound => "Not found",
+        KubernetesErrorCode.Conflict => "Changed on the server",
+        KubernetesErrorCode.ResourceExpired => "Out of date",
+        KubernetesErrorCode.TooManyRequests => "The cluster is busy",
+        KubernetesErrorCode.ServerUnavailable => "Cluster unavailable",
+        KubernetesErrorCode.InvalidResponse => "Unexpected response from the cluster",
+        KubernetesErrorCode.ResponseTooLarge => "Response too large",
+        KubernetesErrorCode.TargetChanged => "The cluster changed",
+        KubernetesErrorCode.ConnectionFailed => "Can’t connect to the cluster",
+        KubernetesErrorCode.Unsupported => "Not supported by this cluster",
+        _ => "Request failed",
+    };
 
     public override void Dispose()
     {

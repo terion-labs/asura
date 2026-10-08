@@ -1,5 +1,4 @@
 using Asura.Application;
-using Asura.Core;
 
 namespace Asura.App.ViewModels;
 
@@ -18,7 +17,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             _allResources = [.. _allResources.Concat(page.Items).DistinctBy(item => item.Reference.Uid, StringComparer.Ordinal).Take(10000)];
             _continuation = page.ContinueToken;
             ApplyFilter();
-            Status = $"{CountText.OrNone(_allResources.Count, "resource", "resources")}{(_allResources.Count >= 10000 ? " · Narrow the namespace or resource type to see more" : "")}";
+            Status = TableStatus(_allResources.Count >= 10000 ? "Narrow the namespace or resource type to see more" : null);
             OnPropertyChanged(nameof(HasMore));
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }

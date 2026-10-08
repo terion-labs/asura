@@ -16,6 +16,25 @@
     VerticalContentAlignment="Stretch"
     IsVisible="{Binding IsVisibleInLayout}"
     AutomationProperties.Name="Kubernetes panel">
+  <UserControl.Resources>
+    <!-- A pod in a drain's preview or result: its name, and what happens to
+         it in words, toned where it blocks or fails. -->
+    <DataTemplate x:Key="KubernetesDrainPodTemplate" x:DataType="vm:KubernetesDrainPodRow">
+      <Border Classes="InspectorRecord">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+          <TextBlock Classes="MiddleTruncated" Text="{Binding Pod}" ToolTip.Tip="{Binding Pod}" />
+          <TextBlock
+              Grid.Column="1"
+              Classes="KubernetesStatus"
+              Classes.healthy="{Binding IsHealthy}"
+              Classes.warning="{Binding IsWarning}"
+              Classes.error="{Binding IsError}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
+              Text="{Binding Outcome}" />
+        </Grid>
+      </Border>
+    </DataTemplate>
+  </UserControl.Resources>
   <UserControl.Styles>
     <!-- While Helm is showing, the resource kind the browser will return to
          stays remembered but must not read as the current place. -->
@@ -27,7 +46,7 @@
          same rule the database toolbar follows. The kit's push button, text
          field and dense variants are 32, 28 and 24 tall, and a row that mixes
          them never lines up. Multi-line fields keep their own height. -->
-    <Style Selector="Button.PrimaryButton, Button.SecondaryButton, Button.TextButton, Button.PanelPicker">
+    <Style Selector="Button.PrimaryButton, Button.SecondaryButton, Button.DestructiveButton, Button.TextButton, Button.PanelPicker, ToggleButton.KubernetesFollowToggle">
       <Setter Property="Height" Value="26" />
       <Setter Property="MinHeight" Value="26" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Md}" />
@@ -102,6 +121,10 @@
     </Style>
     <Style Selector="TextBlock.KubernetesStatus.error">
       <Setter Property="Foreground" Value="{DynamicResource ShellDangerBrush}" />
+    </Style>
+    <!-- Numbers line up on the right, as a Mac table's numeric columns do. -->
+    <Style Selector="DataGridCell.NumericCell">
+      <Setter Property="HorizontalContentAlignment" Value="Right" />
     </Style>
 
     <!-- A cell that navigates is a value first. It takes the accent under the
@@ -225,14 +248,15 @@
 
     <controls:PanelChrome.Actions>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+        <!-- A toolbar action among icon buttons is an icon button too. -->
         <Button
-            VerticalAlignment="Center"
-            Classes="TextButton"
+            Classes="IconButton"
             Click="OnShowForwardsClick"
-            Content="Forwards"
             IsVisible="{Binding HasForwards}"
             ToolTip.Tip="Show active port forwards"
-            AutomationProperties.Name="Show active Kubernetes port forwards" />
+            AutomationProperties.Name="Show active Kubernetes port forwards">
+          <icons:SymbolIcon Symbol="PlugConnected" FontSize="{DynamicResource ShellIconSizeMd}" />
+        </Button>
         <Button
             Classes="IconButton"
             Click="OnToggleNavigatorClick"
@@ -312,7 +336,6 @@
                   Grid.Column="1"
                   VerticalAlignment="Center"
                   Classes="MiddleTruncated"
-                  FontSize="{DynamicResource ShellFontSize11}"
                   FontWeight="SemiBold"
                   Text="{Binding ContextName}" />
             </Grid>
@@ -330,7 +353,7 @@
                 Classes.selected="{Binding #HelmTab.IsSelected}"
                 Click="OnHelmNavigationClick"
                 IsVisible="{Binding IsHelmNavigationVisible}"
-                AutomationProperties.Name="Helm releases">
+                AutomationProperties.Name="Helm Releases">
               <Grid
                   Margin="{controls:Inset Horizontal=Md, Vertical=Xs}"
                   ColumnDefinitions="Auto,*"
@@ -343,8 +366,7 @@
                 <TextBlock
                     Grid.Column="1"
                     VerticalAlignment="Center"
-                    FontSize="{DynamicResource ShellFontSize11}"
-                    Text="Helm releases"
+                    Text="Helm Releases"
                     TextTrimming="CharacterEllipsis" />
               </Grid>
             </Button>
@@ -390,7 +412,6 @@
                               <TextBlock
                                   Margin="{controls:Inset Left=Xl, Right=Md, Vertical=Xs}"
                                   VerticalAlignment="Center"
-                                  FontSize="{DynamicResource ShellFontSize11}"
                                   Text="{Binding Title}"
                                   TextTrimming="CharacterEllipsis" />
                             </Button>
@@ -500,7 +521,6 @@
                                   <TextBlock
                                       Margin="{controls:Inset Horizontal=Sm, Vertical=Sm}"
                                       Classes="MiddleTruncated"
-                                      FontSize="{DynamicResource ShellFontSize11}"
                                       Text="{Binding}" />
                                 </DataTemplate>
                               </ListBox.ItemTemplate>
@@ -551,7 +571,10 @@
                     ContextRequested="OnResourceContextRequested"
                     AutomationProperties.Name="Kubernetes resources">
                   <DataGrid.Columns>
-                    <DataGridTemplateColumn Header="Name" SortMemberPath="Name" Width="3*" MinWidth="320">
+                    <!-- The name takes the spare width but no more than its share, so the
+                         status column stays whole with the inspector open;
+                         a long name is cut in the middle. -->
+                    <DataGridTemplateColumn Header="Name" SortMemberPath="Name" Width="2*" MinWidth="160">
                       <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="vm:KubernetesResourceRow">
                           <TextBlock
@@ -595,6 +618,7 @@
                         Header="CPU"
                         Binding="{Binding Cpu}"
                         SortMemberPath="CpuValue"
+                        CellStyleClasses="NumericCell"
                         Width="70"
                         MinWidth="70"
                         IsVisible="{Binding !#PanelRoot.((vm:KubernetesRuntimePanelViewModel)DataContext).IsGenericTable}" />
@@ -603,6 +627,7 @@
                         Header="Memory"
                         Binding="{Binding Memory}"
                         SortMemberPath="MemoryValue"
+                        CellStyleClasses="NumericCell"
                         Width="100"
                         MinWidth="100"
                         IsVisible="{Binding !#PanelRoot.((vm:KubernetesRuntimePanelViewModel)DataContext).IsGenericTable}" />
@@ -618,11 +643,12 @@
                         Header="Restarts"
                         Binding="{Binding Restarts}"
                         SortMemberPath="RestartCount"
+                        CellStyleClasses="NumericCell"
                         Width="100"
                         MinWidth="100"
                         IsVisible="{Binding #PanelRoot.((vm:KubernetesRuntimePanelViewModel)DataContext).IsPodTable}" />
                     <DataGridTemplateColumn
-                        Header="Controlled by"
+                        Header="Controlled By"
                         SortMemberPath="Owner"
                         Width="130"
                         MinWidth="130"
@@ -719,7 +745,7 @@
                         Width="85"
                         MinWidth="85"
                         IsVisible="{Binding #PanelRoot.((vm:KubernetesRuntimePanelViewModel)DataContext).IsNodeTable}" />
-                    <DataGridTemplateColumn Header="Status" SortMemberPath="Status" Width="95" MinWidth="95">
+                    <DataGridTemplateColumn Header="Status" SortMemberPath="Status" Width="120" MinWidth="95">
                       <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="vm:KubernetesResourceRow">
                           <StackPanel
@@ -736,7 +762,9 @@
                                 Classes.healthy="{Binding IsHealthy}"
                                 Classes.warning="{Binding IsWarning}"
                                 Classes.error="{Binding IsError}"
-                                Text="{Binding Status}" />
+                                Text="{Binding Status}"
+                                TextTrimming="CharacterEllipsis"
+                                ToolTip.Tip="{Binding Status}" />
                           </StackPanel>
                         </DataTemplate>
                       </DataGridTemplateColumn.CellTemplate>
@@ -823,7 +851,6 @@
                           Spacing="{DynamicResource ShellSpaceXs}">
                         <TextBlock
                             Classes="MiddleTruncated"
-                            FontSize="{DynamicResource ShellFontSize11}"
                             FontWeight="SemiBold"
                             Text="{Binding SelectionTitle}"
                             ToolTip.Tip="{Binding SelectionTitle}" />
@@ -916,8 +943,11 @@
                             Classes="Headless"
                             SelectedIndex="{Binding #ManifestModeSegments.SelectedIndex}">
                           <TabItem Header="Edit">
+                            <!-- Inset from the drawer's edge, so the line numbers
+                                 don't sit flush against the border. -->
                             <components:CodeEditBox
                                 x:Name="ManifestEditor"
+                                Margin="{controls:Inset Left=Sm, Top=Xs}"
                                 GrammarExtension="{Binding ManifestGrammarExtension}"
                                 IsReadOnly="{Binding ManifestReadOnly}"
                                 ShowLineNumbers="True"
@@ -961,24 +991,29 @@
                     <TabItem x:Name="LogsTab" Header="Logs">
                       <Grid RowDefinitions="Auto,*">
                         <Border BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="0,0,0,1">
+                          <!-- The container field is labelled like any other field;
+                               Follow is one switch that stays pressed while new
+                               lines stream in, not a Follow and a Pause. -->
                           <WrapPanel Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" ItemSpacing="{DynamicResource ShellSpaceXs}" LineSpacing="{DynamicResource ShellSpaceXs}" VerticalAlignment="Center">
-                            <TextBox
-                                Width="180"
-                                Text="{Binding Container, Mode=TwoWay}"
-                                PlaceholderText="Container (optional)"
-                                ToolTip.Tip="Optional for single-container pods"
-                                AutomationProperties.Name="Pod log container" />
-                            <Button Classes="SecondaryButton" Command="{Binding LoadLogsCommand}" Content="Load Recent" />
-                            <Button
-                                Classes="SecondaryButton"
-                                Click="OnFollowLogsClick"
+                            <controls:LabeledField Width="180" Label="Container" Hint="Optional for single-container pods">
+                              <TextBox
+                                  Text="{Binding Container, Mode=TwoWay}"
+                                  AutomationProperties.Name="Pod log container" />
+                            </controls:LabeledField>
+                            <Button VerticalAlignment="Bottom" Classes="SecondaryButton" Command="{Binding LoadLogsCommand}" Content="Load Recent" />
+                            <ToggleButton
+                                x:Name="FollowLogsToggle"
+                                VerticalAlignment="Bottom"
+                                Classes="KubernetesFollowToggle"
+                                Click="OnFollowLogsToggled"
                                 Content="Follow"
-                                IsEnabled="{Binding !FollowingLogs}"
-                                IsVisible="{Binding CanFollowLogs}" />
-                            <Button Classes="TextButton" Click="OnPauseLogsClick" Content="Pause" IsVisible="{Binding FollowingLogs}" />
+                                IsChecked="{Binding FollowingLogs, Mode=OneWay}"
+                                IsVisible="{Binding CanFollowLogs}"
+                                ToolTip.Tip="Keep showing new log lines as they arrive"
+                                AutomationProperties.Name="Follow pod logs" />
                             <CheckBox
                                 Margin="{controls:Inset Left=Sm}"
-                                VerticalAlignment="Center"
+                                VerticalAlignment="Bottom"
                                 Content="Previous container"
                                 IsChecked="{Binding PreviousLogs, Mode=TwoWay}" />
                           </WrapPanel>
@@ -1051,7 +1086,6 @@
                                 <controls:SurfaceCard Margin="{controls:Inset Bottom=Sm}" Padding="{controls:Inset Sm}">
                                   <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                                     <TextBlock
-                                        FontSize="{DynamicResource ShellFontSize11}"
                                         FontWeight="SemiBold"
                                         Text="{Binding Identity}"
                                         TextWrapping="Wrap" />
@@ -1068,10 +1102,9 @@
                                           Content="Open in Browser"
                                           IsVisible="{Binding CanOpenBrowser}" />
                                       <Button
-                                          Classes="TextButton"
+                                          Classes="SecondaryButton"
                                           Command="{Binding StopCommand}"
-                                          Content="Stop Forward"
-                                          Foreground="{DynamicResource ShellDangerBrush}" />
+                                          Content="Stop Forward" />
                                     </StackPanel>
                                     <ToggleButton
                                         x:Name="ForwardDatabaseDisclosure"
@@ -1151,8 +1184,10 @@
                             <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                               <TextBlock Classes="SectionHeading" Text="Scheduling" />
                               <StackPanel Classes="ActionRow">
-                                <Button Classes="SecondaryButton" Click="OnReviewCordonClick" Content="Review Cordon" IsEnabled="{Binding !IsBusy}" />
-                                <Button Classes="SecondaryButton" Click="OnReviewUncordonClick" Content="Review Uncordon" IsEnabled="{Binding !IsBusy}" />
+                                <!-- Only the change that applies: a schedulable node can be
+                                     cordoned, a cordoned one uncordoned. -->
+                                <Button Classes="SecondaryButton" Click="OnReviewCordonClick" Content="Review Cordon" IsEnabled="{Binding CanReviewCordon}" />
+                                <Button Classes="SecondaryButton" Click="OnReviewUncordonClick" Content="Review Uncordon" IsEnabled="{Binding CanReviewUncordon}" />
                               </StackPanel>
                             </StackPanel>
                             <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
@@ -1166,38 +1201,23 @@
                                   Content="Preview Drain"
                                   IsEnabled="{Binding !IsBusy}" />
                             </StackPanel>
-                            <TextBlock FontSize="{DynamicResource ShellFontSize11}" Text="{Binding NodeStatus}" TextWrapping="Wrap" />
-                            <ItemsControl ItemsSource="{Binding DrainPods}">
-                              <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="app:KubernetesDrainPod">
-                                  <Border Classes="InspectorRecord">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                                      <TextBlock Classes="MiddleTruncated" FontSize="{DynamicResource ShellFontSize11}" Text="{Binding Pod.Name}" />
-                                      <TextBlock Grid.Column="1" Classes="Muted" Text="{Binding Disposition}" />
-                                    </Grid>
-                                  </Border>
-                                </DataTemplate>
-                              </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <Button
-                                HorizontalAlignment="Left"
-                                Classes="PrimaryButton"
-                                Click="OnConfirmNodeClick"
-                                Content="Confirm Node Operation"
-                                IsEnabled="{Binding CanConfirmNode}" />
-                            <ItemsControl ItemsSource="{Binding DrainResults}">
-                              <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="app:KubernetesDrainPodResult">
-                                  <Border Classes="InspectorRecord">
-                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                                      <TextBlock Classes="MiddleTruncated" FontSize="{DynamicResource ShellFontSize11}" Text="{Binding Pod.Name}" />
-                                      <TextBlock Grid.Column="1" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Outcome}" />
-                                      <TextBlock Grid.Column="2" Classes="Muted" Text="{Binding ErrorCode}" />
-                                    </Grid>
-                                  </Border>
-                                </DataTemplate>
-                              </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            <TextBlock Text="{Binding NodeStatus}" TextWrapping="Wrap" />
+                            <ItemsControl ItemsSource="{Binding DrainPods}" ItemTemplate="{StaticResource KubernetesDrainPodTemplate}" />
+                            <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+                              <Button
+                                  HorizontalAlignment="Left"
+                                  Classes="PrimaryButton"
+                                  Click="OnConfirmNodeClick"
+                                  Content="{Binding NodeConfirmLabel}"
+                                  IsEnabled="{Binding CanConfirmNode}" />
+                              <!-- A dimmed Confirm says why it is dimmed. -->
+                              <TextBlock
+                                  Classes="Muted"
+                                  IsVisible="{Binding HasNodeConfirmHint}"
+                                  Text="{Binding NodeConfirmHint}"
+                                  TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ItemsControl ItemsSource="{Binding DrainResults}" ItemTemplate="{StaticResource KubernetesDrainPodTemplate}" />
                           </StackPanel>
 
                           <StackPanel IsVisible="{Binding HasResourceActions}" Spacing="{DynamicResource ShellSpaceMd}">
@@ -1216,18 +1236,20 @@
                                   Content="Review Rollout Restart"
                                   IsVisible="{Binding CanRestart}" />
                               <Button
-                                  Classes="TextButton"
+                                  Classes="DestructiveButton"
                                   Click="OnReviewDeleteClick"
                                   Content="Review Delete"
-                                  Foreground="{DynamicResource ShellDangerBrush}"
                                   IsVisible="{Binding CanDelete}" />
                             </StackPanel>
-                            <TextBlock FontSize="{DynamicResource ShellFontSize11}" Text="{Binding OperationDescription}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding OperationDescription}" TextWrapping="Wrap" />
+                            <!-- Confirm names what it does; a delete confirms in
+                                 the destructive style. -->
                             <StackPanel Classes="ActionRow" IsVisible="{Binding HasOperationReview}">
                               <Button
-                                  Classes="PrimaryButton"
+                                  Classes.PrimaryButton="{Binding !IsDeleteReview}"
+                                  Classes.DestructiveButton="{Binding IsDeleteReview}"
                                   Click="OnConfirmOperationClick"
-                                  Content="Confirm Operation"
+                                  Content="{Binding ConfirmOperationLabel}"
                                   IsEnabled="{Binding CanConfirmOperation}" />
                               <Button
                                   Classes="TextButton"
@@ -1256,9 +1278,9 @@
                       VerticalAlignment="Center"
                       Classes="SectionHeading"
                       Foreground="{DynamicResource ShellTextBrush}"
-                      Text="Helm releases" />
+                      Text="Helm Releases" />
                   <StackPanel Grid.Column="1" Classes="ActionRow">
-                    <Button Classes="SecondaryButton" Click="OnLoadHelmClick" Content="Load Releases" IsEnabled="{Binding !IsBusy}" />
+                    <Button Classes="SecondaryButton" Click="OnLoadHelmClick" Content="{Binding HelmLoadLabel}" IsEnabled="{Binding !IsBusy}" />
                     <Button
                         Classes="TextButton"
                         Click="OnLoadMoreHelmClick"
@@ -1278,7 +1300,7 @@
                     TextSearch.TextBinding="{Binding Name, DataType={x:Type app:KubernetesHelmRelease}}"
                     ItemsSource="{Binding Releases}"
                     SelectedItem="{Binding SelectedRelease, Mode=TwoWay}"
-                    AutomationProperties.Name="Helm releases">
+                    AutomationProperties.Name="Helm Releases">
                   <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="app:KubernetesHelmRelease">
                       <controls:ListItem
@@ -1286,11 +1308,13 @@
                           Title="{Binding Name}"
                           Detail="{Binding Chart}">
                         <controls:ListItem.Trailing>
-                          <StackPanel VerticalAlignment="Center">
+                          <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
                             <TextBlock
                                 HorizontalAlignment="Right"
+                                Classes="KubernetesStatus"
+                                Classes.error="{Binding Status, Converter={x:Static vm:KubernetesHelmText.FailedConverter}}"
                                 FontSize="{DynamicResource ShellSecondaryFontSize}"
-                                Text="{Binding Status}" />
+                                Text="{Binding Status, Converter={x:Static vm:KubernetesHelmText.StatusConverter}}" />
                             <TextBlock
                                 HorizontalAlignment="Right"
                                 Classes="Muted"
@@ -1324,12 +1348,11 @@
                         <ItemsControl.ItemTemplate>
                           <DataTemplate x:DataType="vm:KubernetesHelmRevisionRow">
                             <Border Classes="InspectorRecord">
-                              <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                              <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}" RowSpacing="{DynamicResource ShellSpaceXs}">
                                 <TextBlock
-                                    FontSize="{DynamicResource ShellFontSize11}"
                                     FontWeight="SemiBold"
                                     Text="{Binding Number, StringFormat='Revision {0}'}" />
-                                <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Status}" />
+                                <TextBlock Grid.Column="1" Classes="Muted KubernetesStatus" Classes.error="{Binding IsFailed}" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Status}" />
                                 <TextBlock
                                     Grid.Row="1"
                                     Classes="Muted MiddleTruncated"
@@ -1360,25 +1383,28 @@
                               AutomationProperties.Name="Helm change kind" />
                         </controls:LabeledField>
                         <StackPanel IsEnabled="{Binding !IsBusy}" IsVisible="{Binding IsHelmUpgrade}" Spacing="{DynamicResource ShellSpaceSm}">
-                          <TextBox Text="{Binding ChartReference, Mode=TwoWay}" PlaceholderText="OCI chart reference pinned with @sha256:…" AutomationProperties.Name="Pinned Helm OCI chart" />
-                          <TextBox Text="{Binding ChartVersion, Mode=TwoWay}" PlaceholderText="Exact chart version" AutomationProperties.Name="Helm chart version" />
-                          <TextBox
-                              MinHeight="80"
-                              MaxHeight="160"
-                              AcceptsReturn="True"
-                              FontFamily="{DynamicResource ShellDataFontFamily}"
-                              FontSize="{DynamicResource ShellFontSize11}"
-                              Text="{Binding ValuesYaml, Mode=TwoWay}"
-                              PlaceholderText="Values YAML, optional"
-                              AutomationProperties.Name="Helm values YAML" />
+                          <controls:LabeledField Label="Chart reference" Hint="An OCI reference pinned with @sha256:…">
+                            <TextBox Text="{Binding ChartReference, Mode=TwoWay}" AutomationProperties.Name="Pinned Helm OCI chart" />
+                          </controls:LabeledField>
+                          <controls:LabeledField Label="Chart version" Hint="The exact version to install.">
+                            <TextBox Text="{Binding ChartVersion, Mode=TwoWay}" AutomationProperties.Name="Helm chart version" />
+                          </controls:LabeledField>
+                          <controls:LabeledField Label="Values YAML" Hint="Optional.">
+                            <TextBox
+                                MinHeight="80"
+                                MaxHeight="160"
+                                AcceptsReturn="True"
+                                FontFamily="{DynamicResource ShellDataFontFamily}"
+                                Text="{Binding ValuesYaml, Mode=TwoWay}"
+                                AutomationProperties.Name="Helm values YAML" />
+                          </controls:LabeledField>
                           <CheckBox Content="Reuse release values" IsChecked="{Binding ReuseValues, Mode=TwoWay}" />
                         </StackPanel>
-                        <TextBox
-                            IsEnabled="{Binding !IsBusy}"
-                            IsVisible="{Binding IsHelmRollback}"
-                            Text="{Binding RollbackRevision, Mode=TwoWay}"
-                            PlaceholderText="Rollback revision"
-                            AutomationProperties.Name="Helm rollback revision" />
+                        <controls:LabeledField Label="Rollback revision" IsEnabled="{Binding !IsBusy}" IsVisible="{Binding IsHelmRollback}">
+                          <TextBox
+                              Text="{Binding RollbackRevision, Mode=TwoWay}"
+                              AutomationProperties.Name="Helm rollback revision" />
+                        </controls:LabeledField>
                         <CheckBox Content="Run chart hooks" IsChecked="{Binding AllowHooks, Mode=TwoWay}" IsEnabled="{Binding !IsBusy}" />
                         <Button
                             HorizontalAlignment="Left"
@@ -1386,7 +1412,7 @@
                             Click="OnReviewHelmChangeClick"
                             Content="Review Helm Change"
                             IsEnabled="{Binding !IsBusy}" />
-                        <TextBlock FontSize="{DynamicResource ShellFontSize11}" Text="{Binding HelmChangeStatus}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding HelmChangeStatus}" TextWrapping="Wrap" />
                         <Button
                             HorizontalAlignment="Left"
                             Classes="PrimaryButton"
