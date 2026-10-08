@@ -1,6 +1,7 @@
 <UserControl
     x:Class="Asura.App.Views.RuntimePanels.RedisRuntimePanelView"
     x:DataType="vm:RedisRuntimePanelViewModel"
+    x:Name="PanelRoot"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Asura.App.ViewModels"
@@ -15,12 +16,28 @@
     AutomationProperties.Name="Redis panel">
   <UserControl.Styles>
 
-    <Style Selector="Border.RedisSheetHeader">
-      <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="{DynamicResource ShellInnerCornerRadius}" />
-      <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
+    <!-- A value cell is one line: a long or multi-line value ends in an
+         ellipsis rather than growing the row or clipping mid-glyph. -->
+    <Style Selector="DataGrid.RedisValues DataGridCell TextBlock">
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Setter Property="TextWrapping" Value="NoWrap" />
+      <Setter Property="MaxLines" Value="1" />
+    </Style>
+
+    <!-- A JSON key is one document: its editor takes the value area the
+         rows would have used. -->
+    <Style Selector="Grid.RedisValueArea.document > Grid.RedisValueForms">
+      <Setter Property="Grid.Row" Value="1" />
+      <Setter Property="VerticalAlignment" Value="Top" />
+    </Style>
+    <Style Selector="Grid.RedisValueArea.document components|CodeEditBox.RedisDocumentEditor">
+      <Setter Property="MaxHeight" Value="480" />
+    </Style>
+
+    <!-- A dense form row keeps its check box at the dense size too. -->
+    <Style Selector="CheckBox.Dense">
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
     </Style>
 
     <!-- A row of a collection form: its inputs are one run, the remove sits
@@ -293,6 +310,8 @@
                 Body="Values load a page at a time, with editing matched to each key type." />
 
             <Grid
+                Classes="RedisValueArea"
+                Classes.document="{Binding !MutationForm.ShowsValueGrid}"
                 IsVisible="{Binding HasSelectedKey}"
                 RowDefinitions="Auto,*,Auto"
                 RowSpacing="{DynamicResource ShellSpaceSm}">
@@ -358,10 +377,10 @@
                   IsVisible="{Binding HasSelectedKeyLimitation}" />
               </StackPanel>
 
-              <controls:SurfaceCard Grid.Row="1" Padding="0" ClipsContent="True">
+              <controls:SurfaceCard Grid.Row="1" Padding="0" ClipsContent="True" IsVisible="{Binding MutationForm.ShowsValueGrid}">
                 <Grid>
                   <DataGrid
-                      Classes="DatabaseGrid"
+                      Classes="DatabaseGrid RedisValues"
                       ItemsSource="{Binding ValueEntries}"
                       SelectedItem="{Binding SelectedValueEntry, Mode=TwoWay}"
                       AutoGenerateColumns="False"
@@ -384,10 +403,24 @@
                       </ContextMenu>
                     </DataGrid.ContextMenu>
                     <DataGrid.Columns>
-                      <DataGridTextColumn Header="Identity" Binding="{Binding Identity}" Width="160" />
-                      <DataGridTextColumn Header="Field" Binding="{Binding Field}" Width="160" />
+                      <!-- A column only where it says something: a hash field is
+                           its own identity, and only a sorted set has scores. -->
+                      <DataGridTextColumn
+                          Header="Identity"
+                          Binding="{Binding Identity}"
+                          Width="160"
+                          IsVisible="{Binding #PanelRoot.((vm:RedisRuntimePanelViewModel)DataContext).ShowsIdentityColumn}" />
+                      <DataGridTextColumn
+                          Header="Field"
+                          Binding="{Binding Field}"
+                          Width="160"
+                          IsVisible="{Binding #PanelRoot.((vm:RedisRuntimePanelViewModel)DataContext).ShowsFieldColumn}" />
                       <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*" />
-                      <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="90" />
+                      <DataGridTextColumn
+                          Header="Score"
+                          Binding="{Binding Score}"
+                          Width="90"
+                          IsVisible="{Binding #PanelRoot.((vm:RedisRuntimePanelViewModel)DataContext).ShowsScoreColumn}" />
                     </DataGrid.Columns>
                   </DataGrid>
 
@@ -408,7 +441,7 @@
                    spaces its columns whether or not one of them has anything
                    in it, so a string — which has nothing to add to — was left
                    holding a column's worth of air at its right. -->
-              <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+              <Grid Grid.Row="2" Classes="RedisValueForms" ColumnDefinitions="*,Auto">
                 <controls:SurfaceCard
                     Tone="Raised"
                     Padding="{DynamicResource ShellCardPaddingCompact}"
@@ -467,6 +500,7 @@
                           IsVisible="{Binding MutationForm.EditsJson}">
                         <controls:SurfaceCard Tone="Sunken" Padding="{controls:Inset Xs}">
                           <components:CodeEditBox
+                              Classes="RedisDocumentEditor"
                               MinHeight="110"
                               MaxHeight="180"
                               GrammarExtension=".json"
@@ -487,7 +521,7 @@
                       <Grid ColumnDefinitions="Auto,*,Auto">
                         <Button
                             VerticalAlignment="Center"
-                            Classes="DestructiveButton Dense"
+                            Classes="DestructiveButton"
                             Command="{Binding RemoveEntryCommand}"
                             Content="{Binding RemoveEntryLabel}"
                             IsVisible="{Binding MutationForm.CanRemoveEntries}"
@@ -512,7 +546,7 @@
                     Padding="{DynamicResource ShellCardPaddingCompact}"
                     IsVisible="{Binding MutationForm.HasAddForm}">
                   <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                    <TextBlock Classes="SectionHeading" Text="{Binding MutationForm.ActionLabel}" />
+                    <TextBlock Classes="SectionHeading" Text="{Binding MutationForm.AddFormHeading}" />
 
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                       <controls:LabeledField
@@ -727,9 +761,11 @@
                       AutomationProperties.Name="Redis subscriptions">
                     <ListBox.ItemTemplate>
                       <DataTemplate>
+                        <!-- The row's text lines up with the fields above it in
+                             the card, not one list inset further in. -->
                         <controls:ListItem
                             Classes="RedisKeyRow"
-                            ContentPadding="{DynamicResource ShellListRowPadding}"
+                            ContentPadding="{controls:Inset Horizontal=Xs, Vertical=Xs}"
                             Title="{Binding Name}">
                           <controls:ListItem.Leading>
                             <controls:StatusChip Content="{Binding Kind}" Shape="Rounded" Tone="Default" />
@@ -750,14 +786,17 @@
                       Text="{Binding PublishChannel, Mode=TwoWay}"
                       AutomationProperties.Name="Redis channel to publish to" />
                   <TextBox
+                      Classes="Dense"
                       AcceptsReturn="True"
                       MinHeight="64"
+                      VerticalContentAlignment="Top"
                       PlaceholderText="Payload"
                       Text="{Binding PublishPayload, Mode=TwoWay}"
                       AutomationProperties.Name="Redis message payload" />
                   <Grid ColumnDefinitions="*,Auto">
                     <CheckBox
                         VerticalAlignment="Center"
+                        Classes="Dense"
                         Content="Sharded"
                         IsChecked="{Binding PublishSharded, Mode=TwoWay}"
                         AutomationProperties.Name="Publish to the shard channel" />
@@ -775,7 +814,7 @@
 
               <controls:Callout
                   Tone="Notice"
-                  ShowsGlyph="False"
+                  Glyph="Info"
                   Text="At-most-once: messages sent while unsubscribed are gone." />
             </StackPanel>
           </ScrollViewer>
@@ -809,12 +848,14 @@
           </controls:SurfaceCard>
         </Grid>
 
-        <!-- The create-key sheet is a region of the panel, anchored over the
-             list it adds to. As a flyout it was a window of its own and could
-             be drawn outside the frame it belongs to. -->
-        <Grid IsVisible="{Binding IsCreatingKey}">
+        <!-- The create-key popover is a region of the panel, anchored under
+             the + that opened it. As a flyout it was a window of its own and
+             could be drawn outside the frame it belongs to. Like a popover it
+             doesn't dim the panel and has no close button: Escape or a click
+             outside closes it. -->
+        <Grid x:Name="NewKeyLayer" IsVisible="{Binding IsCreatingKey}">
           <Border
-              Background="{DynamicResource ShellScrimBrush}"
+              Background="Transparent"
               PointerPressed="OnCancelCreateKeyClick" />
           <controls:SurfaceCard
               x:Name="NewKeySheet"
@@ -822,32 +863,17 @@
               HorizontalAlignment="Left"
               VerticalAlignment="Top"
               Margin="{controls:Inset Sm}"
-              Padding="{controls:Inset Sm}"
+              Padding="{controls:Inset Md}"
               Elevation="Overlay"
+              KeyDown="OnNewKeySheetKeyDown"
               KeyboardNavigation.TabNavigation="Cycle">
             <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-              <!-- The sheet says what it is in a block of its own, inset from
-                   the card's edge so its corners sit inside the card's. -->
-              <Border Classes="RedisSheetHeader">
-                <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock
-                      VerticalAlignment="Center"
-                      Classes="SectionHeading"
-                      Text="New Key" />
-                  <Button
-                      Grid.Column="1"
-                      Classes="IconButton Compact"
-                      Click="OnCancelCreateKeyClick"
-                      ToolTip.Tip="Close"
-                      AutomationProperties.Name="Close the new key sheet">
-                    <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeXs}" />
-                  </Button>
-                </Grid>
-              </Border>
+              <TextBlock Classes="Headline" Text="New Key" />
 <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                   <controls:LabeledField Label="Key">
                     <TextBox
+                        x:Name="NewKeyNameBox"
                         Text="{Binding NewKeyName, Mode=TwoWay}"
                         AutomationProperties.Name="New Redis key name" />
                   </controls:LabeledField>

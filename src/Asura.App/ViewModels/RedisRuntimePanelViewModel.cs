@@ -203,6 +203,21 @@ public sealed record RedisKeyForm(
 
     public bool EditsJson => CanEditEntry && IsJson;
 
+    /// <summary>
+    /// Whether the key's value is listed as rows. A JSON document is one
+    /// value: its editor shows the whole document, and a grid of its fields
+    /// beside it only repeated the document with each value cut short.
+    /// </summary>
+    public bool ShowsValueGrid => !IsJson;
+
+    /// <summary>
+    /// The add form's heading, in sentence case and in the type's own terms.
+    /// It used to repeat the button ("Add Fields") over the button itself.
+    /// </summary>
+    public string AddFormHeading => EntriesLabel is { } entries
+        ? $"New {entries.ToLowerInvariant()}"
+        : FieldLabel is not null ? "New entry" : $"New {ValueLabel.ToLowerInvariant()}";
+
     public static RedisKeyForm For(string type) => type switch
     {
         "hash" => new(
@@ -409,7 +424,13 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             OnPropertyChanged(nameof(HasKeys));
             OnPropertyChanged(nameof(ScanProgressText));
         };
-        ValueEntries.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasValueEntries));
+        ValueEntries.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasValueEntries));
+            OnPropertyChanged(nameof(ShowsIdentityColumn));
+            OnPropertyChanged(nameof(ShowsFieldColumn));
+            OnPropertyChanged(nameof(ShowsScoreColumn));
+        };
         PubSubMessages.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasPubSubMessages));
         Subscriptions.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasSubscriptions));
         SearchResults.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasSearchResults));
@@ -657,6 +678,17 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     public bool HasKeys => Keys.Count > 0;
 
     public bool HasValueEntries => ValueEntries.Count > 0;
+
+    /// <summary>
+    /// The identity column only where it says something the field column
+    /// does not: a hash field is its own identity, a list position is not.
+    /// </summary>
+    public bool ShowsIdentityColumn => ValueEntries.Count == 0
+        || ValueEntries.Any(entry => !string.Equals(entry.Identity, entry.Field, StringComparison.Ordinal));
+
+    public bool ShowsFieldColumn => ValueEntries.Any(entry => entry.Field.Length > 0);
+
+    public bool ShowsScoreColumn => ValueEntries.Any(entry => entry.Score.Length > 0);
 
     public bool HasPubSubMessages => PubSubMessages.Count > 0;
 
@@ -1032,7 +1064,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (Exception exception)
         {
-            ErrorMessage = exception.Message;
+            ErrorMessage = RedisErrorText.ForConnection(exception);
             _connectionProblem = RedisConnectionProblem.Failed;
             StatusText = "Connection failed";
             await DisconnectCoreAsync().ConfigureAwait(true);
@@ -1332,7 +1364,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         var name = NewKeyName.Trim();
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("Enter a key name.");
+            throw RedisErrorText.Curated(new ArgumentException("Enter a key name."));
         }
 
         var key = new RedisKeyReference(name, Encoding.UTF8.GetBytes(name));
@@ -1357,13 +1389,13 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             case "timeseries":
                 if (!double.TryParse(NewKeyValue, NumberStyles.Float, CultureInfo.InvariantCulture, out var sample))
                 {
-                    throw new ArgumentException("Enter a valid time-series sample value.");
+                    throw RedisErrorText.Curated(new ArgumentException("Enter a valid time-series sample value."));
                 }
 
                 await _session!.AddTimeSeriesSampleAsync(key, sample, token).ConfigureAwait(true);
                 break;
             default:
-                throw new ArgumentException($"Unsupported Redis key type: {NewKeyType}");
+                throw RedisErrorText.Curated(new ArgumentException($"Unsupported Redis key type: {NewKeyType}"));
         }
 
         if (ParseExpiry(NewKeyExpirySeconds) is { } expiry)
@@ -1489,7 +1521,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             case "timeseries":
                 if (!double.TryParse(MutationValue, NumberStyles.Float, CultureInfo.InvariantCulture, out var sample))
                 {
-                    throw new ArgumentException("Enter a valid time-series sample value.");
+                    throw RedisErrorText.Curated(new ArgumentException("Enter a valid time-series sample value."));
                 }
 
                 await _session.AddTimeSeriesSampleAsync(key, sample, token).ConfigureAwait(true);
@@ -1530,7 +1562,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             case "list" when entry is not null:
                 if (!long.TryParse(entry.Identity, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index))
                 {
-                    throw new InvalidOperationException("A list element is addressed by its position.");
+                    throw RedisErrorText.Curated(new InvalidOperationException("A list element is addressed by its position."));
                 }
 
                 await _session.SetListValueAsync(key, index, EditValue, token).ConfigureAwait(true);
@@ -1546,7 +1578,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             case "zset" when entry is not null:
                 if (!double.TryParse(EditScore, NumberStyles.Float, CultureInfo.InvariantCulture, out var score))
                 {
-                    throw new ArgumentException("Enter a valid sorted-set score.");
+                    throw RedisErrorText.Curated(new ArgumentException("Enter a valid sorted-set score."));
                 }
 
                 if (!string.Equals(entry.Value, EditValue, StringComparison.Ordinal))
@@ -1557,8 +1589,8 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
                 await _session.AddSortedSetValueAsync(key, EditValue, score, token).ConfigureAwait(true);
                 break;
             default:
-                throw new NotSupportedException(
-                    $"A {SelectedKeyType} entry can't be changed in place. Delete it and add it again.");
+                throw RedisErrorText.Curated(new NotSupportedException(
+                    $"A {SelectedKeyType} entry can't be changed in place. Delete it and add it again."));
         }
 
         await ReadSelectedKeyCoreAsync(key, token).ConfigureAwait(true);
@@ -1621,8 +1653,8 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         await ReadSelectedKeyCoreAsync(key, token).ConfigureAwait(true);
         if (outcome == RedisEntryRemovalOutcome.Stale)
         {
-            throw new InvalidOperationException(
-                "The Redis entry changed after it was displayed. The value was refreshed without deleting it.");
+            throw RedisErrorText.Curated(new InvalidOperationException(
+                "The Redis entry changed after it was displayed. The value was refreshed without deleting it."));
         }
     });
 
@@ -1729,7 +1761,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (Exception exception)
         {
-            ErrorMessage = exception.Message;
+            ErrorMessage = RedisErrorText.ForCommand(exception);
         }
         finally
         {
@@ -1760,7 +1792,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         return double.TryParse(seconds, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
             && parsed > 0
                 ? TimeSpan.FromSeconds(parsed)
-                : throw new ArgumentException("Expiry must be a positive number of seconds.");
+                : throw RedisErrorText.Curated(new ArgumentException("Expiry must be a positive number of seconds."));
     }
 
     /// <summary>
@@ -1788,7 +1820,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
                 case "hash":
                     if (string.IsNullOrWhiteSpace(entry.Field))
                     {
-                        throw new ArgumentException("Enter a field name for every row.");
+                        throw RedisErrorText.Curated(new ArgumentException("Enter a field name for every row."));
                     }
 
                     await _session!.SetHashFieldAsync(key, entry.Field, entry.Value, token)
@@ -1807,7 +1839,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
                             CultureInfo.InvariantCulture,
                             out var score))
                     {
-                        throw new ArgumentException("Enter a valid sorted-set score for every row.");
+                        throw RedisErrorText.Curated(new ArgumentException("Enter a valid sorted-set score for every row."));
                     }
 
                     await _session!.AddSortedSetValueAsync(key, entry.Value, score, token)
@@ -1820,7 +1852,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
 
         if (written == 0)
         {
-            throw new ArgumentException("Enter at least one entry.");
+            throw RedisErrorText.Curated(new ArgumentException("Enter at least one entry."));
         }
     }
 
@@ -1828,7 +1860,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     {
         if (string.IsNullOrWhiteSpace(MutationField))
         {
-            throw new ArgumentException("Enter a field name.");
+            throw RedisErrorText.Curated(new ArgumentException("Enter a field name."));
         }
     }
 
@@ -1836,7 +1868,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     {
         if (string.IsNullOrWhiteSpace(NewKeyField))
         {
-            throw new ArgumentException("Enter a field name for the new key.");
+            throw RedisErrorText.Curated(new ArgumentException("Enter a field name for the new key."));
         }
     }
 

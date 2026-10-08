@@ -1,9 +1,11 @@
 using System.ComponentModel;
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 
 namespace Asura.App.Views.RuntimePanels;
 
@@ -50,6 +52,44 @@ public sealed partial class RedisRuntimePanelView : UserControl
         if (e.PropertyName is null or nameof(RedisRuntimePanelViewModel.Perspective))
         {
             SyncPerspective();
+        }
+
+        if (e.PropertyName is nameof(RedisRuntimePanelViewModel.IsCreatingKey) && Panel?.IsCreatingKey == true)
+        {
+            // Once the layer is laid out, the popover hangs under the + that
+            // opened it and the key name takes focus.
+            Dispatcher.UIThread.Post(() =>
+            {
+                AnchorNewKeySheet();
+                NewKeyNameBox.Focus(NavigationMethod.Tab);
+            }, DispatcherPriority.Loaded);
+        }
+    }
+
+    /// <summary>
+    /// Places the New Key popover under the + button, its trailing edge on
+    /// the button's where the panel allows it.
+    /// </summary>
+    private void AnchorNewKeySheet()
+    {
+        if (NewKeyButton.TranslatePoint(new Point(NewKeyButton.Bounds.Width, NewKeyButton.Bounds.Height), NewKeyLayer) is not { } corner)
+        {
+            return;
+        }
+
+        const double inset = 8;
+        var left = Math.Max(inset, corner.X - NewKeySheet.Width);
+        NewKeySheet.Margin = new Thickness(left, corner.Y + 4, inset, inset);
+    }
+
+    // Escape closes the popover without creating a key, as it closes any popover.
+    private void OnNewKeySheetKeyDown(object? sender, KeyEventArgs e)
+    {
+        _ = sender;
+        if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None)
+        {
+            e.Handled = true;
+            Panel?.CancelCreateKey();
         }
     }
 
