@@ -45,7 +45,8 @@ public sealed class SettingsListPatternTests
             var deletes = new List<object?>();
             view.DeleteFileProviderRequested += (sender, _) => deletes.Add((sender as Control)?.DataContext);
 
-            await AssertListPatternAsync(view, "FileProviderList", "DeleteFileProviderButton", provider, deletes);
+            // A file provider is deleted at once with Undo; no question follows.
+            await AssertListPatternAsync(view, "FileProviderList", "DeleteFileProviderButton", provider, deletes, "Delete");
         });
 
     [Fact]
@@ -61,7 +62,7 @@ public sealed class SettingsListPatternTests
             var deletes = new List<object?>();
             view.DeleteAiProviderRequested += (sender, _) => deletes.Add((sender as Control)?.DataContext);
 
-            await AssertListPatternAsync(view, "AiProviderList", "DeleteAiProviderButton", provider, deletes);
+            await AssertListPatternAsync(view, "AiProviderList", "DeleteAiProviderButton", provider, deletes, "Delete…");
         });
     }
 
@@ -70,7 +71,8 @@ public sealed class SettingsListPatternTests
         string listName,
         string removeName,
         object item,
-        List<object?> deletes)
+        List<object?> deletes,
+        string deleteHeader)
     {
         var list = view.FindControl<ListBox>(listName)!;
         var minus = view.FindControl<Button>(removeName)!;
@@ -102,7 +104,7 @@ public sealed class SettingsListPatternTests
             .Select(control => control.ContextMenu)
             .First(found => found is not null)!;
         Assert.Equal(
-            ["Edit…", "Delete…"],
+            ["Edit…", deleteHeader],
             menu.Items.OfType<MenuItem>().Select(entry => entry.Header as string ?? string.Empty),
             StringComparer.Ordinal);
         var rowButtons = container.GetVisualDescendants().OfType<Button>().ToArray();

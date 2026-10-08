@@ -90,7 +90,7 @@ public sealed class WorkspaceEditorViewModelTests
 
         editor.Name = "Production";
         editor.Description = "Operations workspace";
-        editor.Accent = "#112233";
+        editor.Color = "#112233";
         editor.Icon = "server";
         editor.Entries[0].Alias = "Primary shell";
         Assert.True(editor.MoveEntry(new WorkspaceEntryId("tab-entry"), 0).IsSuccess);
@@ -110,7 +110,8 @@ public sealed class WorkspaceEditorViewModelTests
             original.AgentPolicyOverride?.Permissions.OrderBy(pair => pair.Key),
             request.Definition.AgentPolicyOverride?.Permissions.OrderBy(pair => pair.Key));
         Assert.Equal("server", request.Definition.Icon);
-        Assert.Equal("#112233", request.Definition.Accent);
+        Assert.Equal("#112233", request.Definition.Color);
+        Assert.Null(request.Definition.Accent);
         Assert.Equal(
             ["tab-entry", "connection-entry", "screen-entry"],
             request.Definition.Entries.Select(entry => entry.Id.Value), StringComparer.Ordinal);
@@ -334,81 +335,93 @@ public sealed class WorkspaceEditorViewModelTests
             []);
 
         editor.Name = " ";
-        editor.Accent = "orange";
         editor.Color = "also not a colour";
         editor.Icon = "Bad Icon";
 
         Assert.False(editor.IsValid);
         Assert.False(editor.CanSave);
         Assert.Contains(editor.ValidationIssues, issue => issue.Code == DefinitionValidationCode.Required);
-        // The colour and the accent are separate fields, so a complaint about one
-        // must name which one: "the workspace colour is wrong" pointing at the
-        // accent is a message that sends you to the wrong control.
-        Assert.Contains(editor.ValidationIssues, issue => issue.Message.Contains("accent"));
         Assert.Contains(editor.ValidationIssues, issue => issue.Message.Contains("color"));
         Assert.Contains(editor.ValidationIssues, issue => issue.Message.Contains("icon"));
         Assert.Throws<InvalidOperationException>(() => editor.CreateSaveRequest());
     }
 
     /// <summary>
-    /// The colour marks the workspace; the accent retints the shell. Saving one
-    /// as the other would make choosing a tab colour silently change the theme.
+    /// A workspace colour marks the workspace and never retints the shell. A
+    /// workspace saved when it could also carry an accent and no colour of its
+    /// own keeps that accent as its colour, and saving it writes the colour
+    /// only.
     /// </summary>
     [Fact]
-    public void The_identity_colour_and_the_accent_are_saved_as_separate_fields()
-    {
-        using var editor = new WorkspaceEditorViewModel(Workspace([]), 3, [], [], []);
-
-        editor.Color = "#5B8FD1";
-        editor.Accent = "#5FA97A";
-
-        var saved = editor.CreateSaveRequest().Definition;
-        Assert.Equal("#5B8FD1", saved.Color);
-        Assert.Equal("#5FA97A", saved.Accent);
-    }
-
-    /// <summary>
-    /// A workspace with no colour of its own still has to be drawn, and drawn as
-    /// something recognisable rather than as a hole.
-    /// </summary>
-    [Fact]
-    public void A_workspace_with_no_colour_falls_back_to_its_accent()
-    {
-        using var editor = new WorkspaceEditorViewModel(Workspace([]), 3, [], [], []);
-
-        Assert.Equal(string.Empty, editor.Color);
-        Assert.Equal("#B8793A", editor.EffectiveColor);
-
-        editor.Accent = string.Empty;
-        Assert.False(string.IsNullOrWhiteSpace(editor.EffectiveColor));
-
-        editor.Color = "#5B8FD1";
-        Assert.Equal("#5B8FD1", editor.EffectiveColor);
-    }
-
-    /// <summary>
-    /// The two swatch rows answer different questions, so they must not agree
-    /// by accident: a workspace with a colour and no accent has to show one
-    /// row marked and the other empty, or the accent row is claiming a value
-    /// the workspace does not have.
-    /// </summary>
-    [Fact]
-    public void A_colour_without_an_accent_marks_only_the_colour_row()
+    public void A_stored_accent_becomes_the_colour_and_is_not_written_back()
     {
         var workspace = new WorkspaceDefinition(
-            new WorkspaceId("data"),
+            new WorkspaceId("legacy"),
             WorkspaceDefinition.CurrentSchemaVersion,
-            "Data",
+            "Legacy",
             null,
-            accent: null,
+            accent: "#5FA97A",
+            [],
+            hasExplicitAccent: true);
+        using var editor = new WorkspaceEditorViewModel(workspace, 3, [], [], []);
+
+        Assert.Equal("#5FA97A", editor.Color);
+        Assert.Equal("#5FA97A", editor.EffectiveColor);
+        Assert.False(editor.IsDirty);
+
+        editor.Description = "Renamed";
+        var saved = editor.CreateSaveRequest().Definition;
+        Assert.Equal("#5FA97A", saved.Color);
+        Assert.Null(saved.Accent);
+        Assert.False(saved.HasExplicitAccent);
+    }
+
+    /// <summary>
+    /// A colour of its own wins over a stored accent, and the accent is
+    /// dropped on save rather than left to retint the shell.
+    /// </summary>
+    [Fact]
+    public void A_colour_of_its_own_wins_over_a_stored_accent()
+    {
+        var workspace = new WorkspaceDefinition(
+            new WorkspaceId("both"),
+            WorkspaceDefinition.CurrentSchemaVersion,
+            "Both",
+            null,
+            accent: "#5FA97A",
             [],
             color: "#5B8FD1");
         using var editor = new WorkspaceEditorViewModel(workspace, 3, [], [], []);
 
-        Assert.Equal("#5B8FD1", editor.EffectiveColor);
+        Assert.Equal("#5B8FD1", editor.Color);
         Assert.Single(editor.ColorChoices, choice => choice.IsSelected);
         Assert.Equal("#5B8FD1", editor.ColorChoices.Single(choice => choice.IsSelected).Hex);
-        Assert.DoesNotContain(editor.AccentChoices, choice => choice.IsSelected);
+
+        editor.Name = "Both again";
+        Assert.Null(editor.CreateSaveRequest().Definition.Accent);
+    }
+
+    /// <summary>
+    /// A workspace with no colour and no accent still has to be drawn, and
+    /// drawn as something recognisable rather than as a hole.
+    /// </summary>
+    [Fact]
+    public void A_workspace_with_no_colour_is_drawn_in_the_brand_colour()
+    {
+        var workspace = new WorkspaceDefinition(
+            new WorkspaceId("plain"),
+            WorkspaceDefinition.CurrentSchemaVersion,
+            "Plain",
+            null,
+            accent: null,
+            []);
+        using var editor = new WorkspaceEditorViewModel(workspace, 3, [], [], []);
+
+        Assert.Equal(string.Empty, editor.Color);
+        Assert.False(string.IsNullOrWhiteSpace(editor.EffectiveColor));
+
+        editor.Color = "#5B8FD1";
+        Assert.Equal("#5B8FD1", editor.EffectiveColor);
     }
 
     /// <summary>

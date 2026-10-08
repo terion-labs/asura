@@ -81,6 +81,45 @@ public sealed class MainWindowSettingsSaveFacadeTests
         Assert.Null(viewModel.OperationError);
     }
 
+    /// <summary>
+    /// The terminal palette and font apply as they change, as every other
+    /// setting does: no Apply, and so no draft to lose on leaving the page.
+    /// Revert puts back what the page opened with and saves that too.
+    /// </summary>
+    [Fact]
+    public async Task Terminal_appearance_saves_as_it_changes_and_revert_restores_what_the_page_opened_with()
+    {
+        var catalog = new RecordingDefinitionCatalog(SettingsSnapshot());
+        using var viewModel = CreateViewModel(catalog);
+        viewModel.ShowSettings(SettingsPage.Appearance);
+        viewModel.BeginTerminalAppearanceSession();
+        var editor = Assert.IsType<TerminalProfileEditorViewModel>(
+            viewModel.TerminalSettingsEditor);
+        var openedWith = editor.FontSize;
+        Assert.False(viewModel.CanRevertTerminalAppearance);
+
+        editor.FontSize = openedWith + 3;
+        Assert.True(viewModel.PreviewTerminalAppearance(editor.CreateSaveRequest().Profile));
+        await viewModel.ApplyTerminalAppearanceChangeAsync(CancellationToken.None);
+
+        var save = Assert.IsType<RecordedSave<TerminalProfile>>(catalog.TerminalSave);
+        Assert.Equal(openedWith + 3, save.Definition.FontSize);
+        Assert.Null(viewModel.PendingSettingsDraft(SettingsPage.Appearance));
+        Assert.True(viewModel.CanRevertTerminalAppearance);
+
+        Assert.True(viewModel.RevertTerminalAppearance());
+        var reverted = Assert.IsType<TerminalProfileEditorViewModel>(
+            viewModel.TerminalSettingsEditor);
+        Assert.Equal(openedWith, reverted.FontSize);
+        Assert.True(viewModel.PreviewTerminalAppearance(reverted.CreateSaveRequest().Profile));
+        await viewModel.ApplyTerminalAppearanceChangeAsync(CancellationToken.None);
+
+        save = Assert.IsType<RecordedSave<TerminalProfile>>(catalog.TerminalSave);
+        Assert.Equal(openedWith, save.Definition.FontSize);
+        Assert.False(viewModel.CanRevertTerminalAppearance);
+        Assert.False(viewModel.RevertTerminalAppearance());
+    }
+
     [Fact]
     public async Task Quick_terminal_save_forwards_the_live_draft_and_editor_revision()
     {

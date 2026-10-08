@@ -24,7 +24,7 @@
             Classes="SecondaryButton"
             Click="OnRefreshClick"
             Content="Refresh"
-            IsEnabled="{Binding CanRefresh}"
+            IsEnabled="{Binding CanRefresh, FallbackValue=False}"
             AutomationProperties.Name="Refresh the cache and log list" />
       </Grid>
 
@@ -37,12 +37,12 @@
           Classes="Muted"
           FontSize="{DynamicResource ShellSecondaryFontSize}"
           Text="{Binding StatusMessage}"
-          IsVisible="{Binding !HasError}"
+          IsVisible="{Binding HasInventory, FallbackValue=False}"
           TextWrapping="Wrap"
           AutomationProperties.LiveSetting="Polite"
           AutomationProperties.Name="{Binding StatusAutomationName}" />
 
-      <controls:SurfaceCard Padding="{DynamicResource ShellCardPaddingCompact}" IsVisible="{Binding HasNoInventory}">
+      <controls:SurfaceCard Padding="{DynamicResource ShellCardPaddingCompact}" IsVisible="{Binding HasNoInventory, FallbackValue=False}">
         <controls:EmptyStatePanel
             ShowsGlyph="False"
             Heading="Nothing listed yet"
@@ -50,16 +50,15 @@
       </controls:SurfaceCard>
 
       <controls:Callout
-          Tone="Notice"
-          ShowsGlyph="False"
+          Tone="Warning"
           Title="Storage couldn’t be checked"
           Text="Asura couldn’t finish checking its storage. Nothing was removed. Click Refresh to try again."
-          IsVisible="{Binding HasError}" />
+          IsVisible="{Binding HasError, FallbackValue=False}" />
 
       <ItemsControl
           ItemsSource="{Binding Items}"
-          IsEnabled="{Binding CanClearItems}"
-          IsVisible="{Binding HasInventory}">
+          IsEnabled="{Binding CanClearItems, FallbackValue=False}"
+          IsVisible="{Binding HasInventory, FallbackValue=False}">
         <ItemsControl.ItemTemplate>
           <DataTemplate>
             <controls:SurfaceCard Tone="Notice" Padding="{DynamicResource ShellCardPaddingCompact}" Margin="{controls:Inset Bottom=Sm}">
@@ -82,7 +81,7 @@
                     Classes="DestructiveButton"
                     Click="OnClearClick"
                     Content="Clear…"
-                    IsEnabled="{Binding HasFiles}"
+                    IsEnabled="{Binding HasFiles, FallbackValue=False}"
                     AutomationProperties.Name="{Binding ClearAutomationName}" />
               </Grid>
             </controls:SurfaceCard>

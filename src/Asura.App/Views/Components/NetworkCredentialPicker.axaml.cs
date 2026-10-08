@@ -28,6 +28,10 @@ public sealed partial class NetworkCredentialPicker : UserControl
             nameof(SelectedItem),
             defaultBindingMode: BindingMode.TwoWay);
 
+    /// <summary>What is wrong with the chosen credential, shown under the field.</summary>
+    public static readonly StyledProperty<string?> ErrorProperty =
+        AvaloniaProperty.Register<NetworkCredentialPicker, string?>(nameof(Error));
+
     public static readonly StyledProperty<NetworkCredentialTarget> TargetProperty =
         AvaloniaProperty.Register<NetworkCredentialPicker, NetworkCredentialTarget>(nameof(Target));
 
@@ -49,6 +53,12 @@ public sealed partial class NetworkCredentialPicker : UserControl
     {
         get => GetValue(HintProperty);
         set => SetValue(HintProperty, value);
+    }
+
+    public string? Error
+    {
+        get => GetValue(ErrorProperty);
+        set => SetValue(ErrorProperty, value);
     }
 
     public IEnumerable? ItemsSource

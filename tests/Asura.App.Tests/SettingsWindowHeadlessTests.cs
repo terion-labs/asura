@@ -219,7 +219,8 @@ public sealed class SettingsWindowHeadlessTests
                     .Select(control => control.ContextMenu)
                     .First(found => found is not null)!;
                 var headers = menu.Items.OfType<MenuItem>().Select(item => item.Header as string ?? string.Empty).ToArray();
-                Assert.Equal(["Edit…", "Delete…"], headers);
+                // Deleted at once with Undo, so no "…": no question follows.
+                Assert.Equal(["Edit…", "Delete"], headers);
 
                 list.SelectedItem = null;
                 Dispatcher.UIThread.RunJobs();

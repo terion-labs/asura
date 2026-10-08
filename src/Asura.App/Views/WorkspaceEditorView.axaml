@@ -9,7 +9,13 @@
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:application="using:Asura.Application"
     xmlns:views="using:Asura.App.Views"
+    xmlns:settingsPages="using:Asura.App.Views.SettingsPages"
     x:DataType="vm:WorkspaceEditorViewModel">
+  <UserControl.Styles>
+    <!-- The same boolean shape as Settings: an option is a checkbox that
+         names itself, its description under the words. -->
+    <settingsPages:SettingOptionStyles />
+  </UserControl.Styles>
   <!--
     A rail and a detail column, because editing a workspace is mostly comparing
     it with the others: the rail is how you get between them, and the detail is
@@ -38,8 +44,8 @@
                 Grid.Column="3"
                 Classes="IconButton"
                 Click="OnCreateWorkspaceClick"
-                ToolTip.Tip="New workspace"
-                AutomationProperties.Name="Create a workspace">
+                ToolTip.Tip="New workspace…"
+                AutomationProperties.Name="New Workspace…">
               <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>
           </Grid>
@@ -88,33 +94,22 @@
                   TileSize="Large"
                   Tint="{Binding EffectiveColor}"
                   Symbol="{Binding TileSymbol}" />
-              <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
-                <TextBlock Classes="Eyebrow Caps" Text="WORKSPACE NAME" />
-                <Grid ColumnDefinitions="*,Auto">
-                  <TextBox
-                      x:Name="WorkspaceNameInput"
-                      FontSize="{DynamicResource ShellFontSize22}"
-                      Text="{Binding Name, Mode=TwoWay}"
-                      PlaceholderText="Operations"
-                      AutomationProperties.Name="Workspace name" />
-                  <Button
-                      Grid.Column="1"
-                      Margin="{controls:Inset Left=Xs}"
-                      VerticalAlignment="Center"
-                      Classes="IconButton"
-                      Click="OnRenameWorkspaceClick"
-                      ToolTip.Tip="Rename this workspace"
-                      AutomationProperties.Name="Rename this workspace">
-                    <icons:SymbolIcon Symbol="Edit" FontSize="{DynamicResource ShellIconSizeSm}" />
-                  </Button>
-                </Grid>
-              </StackPanel>
+              <!-- The name is a field like any other: labeled, and edited by
+                   typing in it, with no pencil to press first. -->
+              <controls:LabeledField Grid.Column="1" VerticalAlignment="Center" Label="Name">
+                <TextBox
+                    x:Name="WorkspaceNameInput"
+                    FontSize="{DynamicResource ShellFontSize22}"
+                    Text="{Binding Name, Mode=TwoWay}"
+                    PlaceholderText="Operations"
+                    AutomationProperties.Name="Workspace name" />
+              </controls:LabeledField>
             </Grid>
 
             <controls:SettingsGroup
                 Heading="Appearance"
                 Description="How this workspace is recognized — on its tab, in the rail, and in the launcher."
-                ControlWidth="470">
+                ControlWidth="300">
               <controls:SettingRow
                   Label="Color"
                   Description="The mark this workspace carries wherever it appears.">
@@ -129,7 +124,8 @@
               </controls:SettingRow>
               <controls:SettingRow
                   Label="Icon"
-                  Description="Searchable across the whole set; the shortlist covers what workspaces are usually named after.">
+                  Description="Searchable across the whole set; the shortlist covers what workspaces are usually named after."
+                  IsLast="True">
                 <components:IconPicker
                     x:Name="IconPicker"
                     ItemsSource="{Binding IconChoices}"
@@ -139,33 +135,15 @@
                     Hint="{Binding IconHint}"
                     IconChosen="OnIconChosen" />
               </controls:SettingRow>
-              <!-- The accent is a separate decision from the colour: one marks the
-                   workspace, the other retints the shell around it. They share a
-                   palette, not a meaning, so they are two rows and not one. -->
-              <controls:SettingRow
-                  Label="Accent"
-                  Description="{Binding AccentSummary}"
-                  IsLast="True">
-                <components:SwatchPicker
-                    x:Name="AccentPicker"
-                    ItemsSource="{Binding AccentChoices}"
-                    Value="{Binding Accent, Mode=TwoWay}"
-                    FallbackValue="{Binding EffectiveColor}"
-                    Purpose="accent"
-                    CanSample="True"
-                    ClearLabel="Follow the app"
-                    CanClear="{Binding HasAccent}"
-                    SampleRequested="OnSampleColorRequested" />
-              </controls:SettingRow>
             </controls:SettingsGroup>
 
             <controls:SettingsGroup
                 Heading="Isolation"
                 Description="Isolation runs this workspace inside its own persistent environment, separate from the host and other workspaces."
-                ControlWidth="470">
+                ControlWidth="300">
               <controls:SettingRow
                   Label="Isolate workspace"
-                  Description="This workspace runs in its own persistent Linux environment. All of its panels, connections, and local terminals run and reach the network from there, and what you install there stays between sessions.">
+                  Description="This workspace runs in its own Linux environment that keeps what you install. Its panels, connections, and terminals run there and reach the network from there.">
                 <ToggleSwitch
                     IsChecked="{Binding IsIsolated, Mode=TwoWay}"
                     IsEnabled="{Binding CanToggleIsolation}"
@@ -191,11 +169,11 @@
                     HorizontalAlignment="Stretch"
                     FontFamily="{DynamicResource ShellDataFontFamily}"
                     Text="{Binding IsolationImageReference, Mode=TwoWay}"
-                    AutomationProperties.Name="Workspace isolation OCI image" />
+                    AutomationProperties.Name="Workspace environment image" />
               </controls:SettingRow>
               <controls:SettingRow
                   Label="Recreate environment"
-                  Description="Start again from the image above. Installed packages and guest-only files are removed; host folders are not."
+                  Description="Start again from the image above. Everything installed or saved only inside the environment is removed; your folders on this computer are not."
                   IsVisible="{Binding IsIsolated}">
                 <Button
                     HorizontalAlignment="Right"
@@ -209,8 +187,8 @@
                    label. Stacked, each mount gets one line: where it comes from,
                    where it lands, and what the environment may do to it. -->
               <controls:SettingRow
-                  Label="Host mounts"
-                  Description="Only these host folders are visible inside the environment, each at the path you give it. Saving mount changes restarts an open workspace after confirmation."
+                  Label="Shared folders"
+                  Description="Only these folders on this computer are visible inside the environment, each at the path you give it. Saving changes here restarts an open workspace after asking."
                   IsStacked="True"
                   IsVisible="{Binding IsIsolated}">
                 <controls:SurfaceCard Tone="Sunken" Padding="{DynamicResource ShellCardPaddingCompact}">
@@ -223,10 +201,14 @@
                       </ItemsControl.ItemsPanel>
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:WorkspaceIsolationMountEditorViewModel">
-                          <Grid ColumnDefinitions="*,Auto,Auto,*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                          <!-- The folder on this computer is usually the long path,
+                               so it gets the wider field. -->
+                          <Grid ColumnDefinitions="2*,Auto,Auto,*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                             <TextBox
+                                MinWidth="200"
                                 Text="{Binding HostPath, Mode=TwoWay}"
-                                PlaceholderText="Host folder, e.g. /Users/me/projects"
+                                PlaceholderText="Folder on this computer, such as /Users/me/projects"
+                                ToolTip.Tip="{Binding HostPath}"
                                 AutomationProperties.Name="Host folder" />
                             <Button
                                 Grid.Column="1"
@@ -245,8 +227,8 @@
                             <TextBox
                                 Grid.Column="3"
                                 Text="{Binding GuestPath, Mode=TwoWay}"
-                                PlaceholderText="Path inside the environment, e.g. /workspace"
-                                AutomationProperties.Name="Host mount guest path" />
+                                PlaceholderText="Path inside, such as /workspace"
+                                AutomationProperties.Name="Path inside the environment" />
                             <Border Grid.Column="4" VerticalAlignment="Center" Classes="Segmented">
                               <Grid ColumnDefinitions="Auto,Auto">
                                 <RadioButton
@@ -264,9 +246,9 @@
                             </Border>
                             <Button
                                 Grid.Column="5"
-                                Classes="IconButton"
+                                Classes="SecondaryButton"
                                 Click="OnRemoveIsolationMountClick"
-                                ToolTip.Tip="Remove this host mount"
+                                ToolTip.Tip="Remove this shared folder"
                                 AutomationProperties.Name="{Binding RemoveAccessibleName}">
                               <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                             </Button>
@@ -277,22 +259,22 @@
                     <TextBlock
                         Classes="Muted"
                         FontSize="{DynamicResource ShellSecondaryFontSize}"
-                        Text="No host folders are mounted. The environment uses guest-only storage until you add one."
+                        Text="No folders are shared. The environment keeps its files to itself until you add one."
                         TextWrapping="Wrap"
                         IsVisible="{Binding HasNoIsolationMounts}" />
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
                       <Button
-                          Classes="TextButton Accent"
+                          Classes="SecondaryButton"
                           Click="OnAddIsolationMountClick"
-                          Content="Add Host Folder"
+                          Content="Add Folder"
                           IsEnabled="{Binding CanAddIsolationMount}"
-                          AutomationProperties.Name="Add host mount" />
+                          AutomationProperties.Name="Add a shared folder" />
                       <TextBlock
                           Grid.Column="1"
                           VerticalAlignment="Center"
                           Classes="Muted"
                           FontSize="{DynamicResource ShellSecondaryFontSize}"
-                          Text="Read &amp; Write lets processes in the environment change those host files."
+                          Text="Read &amp; Write lets programs in the environment change those files."
                           TextWrapping="Wrap" />
                     </Grid>
                   </StackPanel>
@@ -303,7 +285,7 @@
             <controls:SettingsGroup
                 Heading="Networking"
                 Description="Which proxy or VPN route this workspace's panels, connections, and terminals use."
-                ControlWidth="470">
+                ControlWidth="300">
               <controls:SettingRow
                   Label="Network policy"
                   Description="{Binding NetworkModeSummary}">
@@ -311,7 +293,7 @@
                   <Grid ColumnDefinitions="Auto,Auto">
                     <RadioButton
                         Classes="Segment"
-                        Content="Follow App Default"
+                        Content="Use App Setting"
                         IsChecked="{Binding FollowsApplicationNetwork, Mode=TwoWay}"
                         AutomationProperties.Name="Follow application networking" />
                     <RadioButton
@@ -353,10 +335,11 @@
                 </ComboBox>
               </controls:SettingRow>
               <controls:SettingRow
-                  Label="Kill switch"
-                  Description="Block routed traffic if the connection fails instead of falling back to a direct route. Isolation enforces this for every guest process; host programs can ignore proxy settings."
+                  Classes="Option"
+                  Description="Block routed traffic if the connection fails instead of falling back to a direct route. An isolated workspace holds every program to it; other programs can ignore proxy settings."
                   IsVisible="{Binding OverridesNetworkSettings}">
-                <ToggleSwitch
+                <CheckBox
+                    Content="Kill switch"
                     IsChecked="{Binding NetworkPolicy.KillSwitchEnabled, Mode=TwoWay}"
                     AutomationProperties.Name="Workspace network kill switch" />
               </controls:SettingRow>
@@ -484,9 +467,11 @@
                   <Border Height="1" Background="{DynamicResource ShellBorderBrush}" />
 
                   <Grid Margin="{controls:Inset Lg}" ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                    <!-- Only Save is primary; adding is one of several things
+                         to do here. -->
                     <Button
                         x:Name="AddTabButton"
-                        Classes="PrimaryButton"
+                        Classes="SecondaryButton"
                         Click="OnAddTabClick"
                         AutomationProperties.Name="Add a tab to this workspace">
                       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
@@ -573,7 +558,7 @@
                     <components:SectionHeader
                         Heading="Workspace-only screen"
                         Description="This screen belongs to the workspace. Nothing else opens it." />
-                    <TextBlock Grid.Column="1" Foreground="{DynamicResource ShellDangerBrush}" FontSize="{DynamicResource ShellFontSize10}" IsVisible="{Binding HasMissingDefinition}" Text="Repair required" />
+                    <TextBlock Grid.Column="1" Foreground="{DynamicResource ShellDangerBrush}" FontSize="{DynamicResource ShellSecondaryFontSize}" IsVisible="{Binding HasMissingDefinition}" Text="Repair required" />
                   </Grid>
                   <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                     <controls:LabeledField Label="Screen name">
@@ -588,16 +573,16 @@
 
                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                     <components:SectionHeader VerticalAlignment="Center" Heading="Panels" />
-                    <WrapPanel Grid.Column="1" Orientation="Horizontal">
-                      <Button Classes="TextButton Accent" Click="OnAddTerminalPanelClick" Content="Add Terminal" IsEnabled="{Binding CanAddPanel}" />
-                      <Button Classes="TextButton Accent" Click="OnAddFilePanelClick" Content="Add Files" IsEnabled="{Binding CanAddPanel}" />
-                      <Button Classes="TextButton Accent" Click="OnAddBrowserPanelClick" Content="Add Browser" IsEnabled="{Binding CanAddPanel}" />
-                      <Button Classes="TextButton Accent" Click="OnAddStatisticsPanelClick" Content="Add Statistics" IsEnabled="{Binding CanAddPanel}" />
-                      <Button Classes="TextButton Accent" Click="OnAddProcessMonitorPanelClick" Content="Add Processes" IsEnabled="{Binding CanAddPanel}" />
-                      <Button Classes="TextButton Accent" Click="OnAddDatabasePanelClick" Content="Add Database" IsEnabled="{Binding CanAddPanel}" />
-                      <Button Classes="TextButton Accent" Click="OnAddDockerPanelClick" Content="Add Docker" IsEnabled="{Binding CanAddPanel}" />
-                      <Button Classes="TextButton Accent" Click="OnAddKubernetesPanelClick" Content="Add Kubernetes" IsEnabled="{Binding CanAddPanel}" />
-                      <Button Classes="TextButton Accent" Click="OnAddGitPanelClick" Content="Add Git" IsEnabled="{Binding CanAddPanel}" />
+                    <WrapPanel Grid.Column="1" Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceXs}" LineSpacing="{DynamicResource ShellSpaceXs}">
+                      <Button Classes="SecondaryButton" Click="OnAddTerminalPanelClick" Content="Add Terminal" IsEnabled="{Binding CanAddPanel}" />
+                      <Button Classes="SecondaryButton" Click="OnAddFilePanelClick" Content="Add Files" IsEnabled="{Binding CanAddPanel}" />
+                      <Button Classes="SecondaryButton" Click="OnAddBrowserPanelClick" Content="Add Browser" IsEnabled="{Binding CanAddPanel}" />
+                      <Button Classes="SecondaryButton" Click="OnAddStatisticsPanelClick" Content="Add Statistics" IsEnabled="{Binding CanAddPanel}" />
+                      <Button Classes="SecondaryButton" Click="OnAddProcessMonitorPanelClick" Content="Add Processes" IsEnabled="{Binding CanAddPanel}" />
+                      <Button Classes="SecondaryButton" Click="OnAddDatabasePanelClick" Content="Add Database" IsEnabled="{Binding CanAddPanel}" />
+                      <Button Classes="SecondaryButton" Click="OnAddDockerPanelClick" Content="Add Docker" IsEnabled="{Binding CanAddPanel}" />
+                      <Button Classes="SecondaryButton" Click="OnAddKubernetesPanelClick" Content="Add Kubernetes" IsEnabled="{Binding CanAddPanel}" />
+                      <Button Classes="SecondaryButton" Click="OnAddGitPanelClick" Content="Add Git" IsEnabled="{Binding CanAddPanel}" />
                     </WrapPanel>
                   </Grid>
 
@@ -831,14 +816,14 @@
                   </ItemsControl>
                   <TextBlock
                       Foreground="{DynamicResource ShellDangerBrush}"
-                      FontSize="{DynamicResource ShellFontSize10}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
                       Text="Choose an AI provider that’s available and turned on, and enter a model name."
                       IsVisible="{CompiledBinding !AgentPolicy.IsValid}" />
                 </StackPanel>
               </StackPanel>
             </controls:SettingsGroup>
 
-            <controls:SettingsGroup Heading="Details" ControlWidth="470">
+            <controls:SettingsGroup Heading="Details" ControlWidth="300">
               <controls:SettingRow
                   Label="Description"
                   Description="What this workspace is for. It shows in the launcher and in settings.">
@@ -851,10 +836,10 @@
                     AutomationProperties.Name="Workspace description" />
               </controls:SettingRow>
               <controls:SettingRow
-                  Label="Autosave"
+                  Classes="Option"
                   Description="Save tab and panel changes back to this workspace while you work.">
-                <ToggleSwitch
-                    HorizontalAlignment="Right"
+                <CheckBox
+                    Content="Autosave"
                     IsChecked="{Binding AutoSave, Mode=TwoWay}"
                     AutomationProperties.Name="Autosave workspace changes" />
               </controls:SettingRow>
@@ -862,7 +847,7 @@
                   Label="Terminal continuity"
                   Description="Choose whether SSH terminals in this workspace use app-managed tmux with GNU Screen as a fallback.">
                 <ComboBox
-                    Width="250"
+                    HorizontalAlignment="Stretch"
                     ItemsSource="{Binding TerminalMultiplexingOptions}"
                     SelectedItem="{Binding SelectedTerminalMultiplexing, Mode=TwoWay}"
                     AutomationProperties.Name="Workspace terminal continuity">
@@ -878,7 +863,7 @@
                   Description="Share cookies and site storage with other workspaces for this app session, or keep this workspace isolated."
                   IsLast="True">
                 <ComboBox
-                    Width="250"
+                    HorizontalAlignment="Stretch"
                     ItemsSource="{Binding BrowserProfileOptions}"
                     SelectedItem="{Binding SelectedBrowserProfile, Mode=TwoWay}"
                     AutomationProperties.Name="Workspace browser profile">

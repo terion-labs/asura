@@ -84,11 +84,6 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
         }
     }
 
-    public string HotkeyExample => QuickTerminalHotkeyText.Example;
-
-    public string HotkeyHelpText =>
-        $"Enter a modifier and key, for example {HotkeyExample}.";
-
     public string HotkeyText
     {
         get => _hotkeyText;
@@ -98,9 +93,24 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(HotkeyWarning));
                 OnPropertyChanged(nameof(HasHotkeyWarning));
+                OnPropertyChanged(nameof(UsesDefaultHotkey));
             }
         }
     }
+
+    /// <summary>Whether the shortcut is the one Quick Terminal arrives with.</summary>
+    public bool UsesDefaultHotkey => string.Equals(
+        HotkeyText,
+        QuickTerminalHotkeyText.Format(QuickTerminalSettings.DefaultHotkey),
+        StringComparison.Ordinal);
+
+    /// <summary>
+    /// Puts back the shortcut Quick Terminal arrives with. The shortcut is
+    /// recorded rather than typed, so this is how a recorded one is undone;
+    /// a Quick Terminal always has a shortcut, so there is nothing to clear.
+    /// </summary>
+    public void UseDefaultHotkey() =>
+        HotkeyText = QuickTerminalHotkeyText.Format(QuickTerminalSettings.DefaultHotkey);
 
     /// <summary>
     /// Warns while the field holds a shortcut that macOS or Asura's own menu

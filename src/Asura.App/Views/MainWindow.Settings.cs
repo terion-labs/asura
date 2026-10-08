@@ -1698,9 +1698,21 @@ public sealed partial class MainWindow
         _ = sender;
         _ = e;
         var input = SettingsRoute.CaptureConnectionSecretForm();
-        if (input.Connection is null || input.Kind is not { } secretKind)
+        if (input.Connection is null)
         {
-            ViewModel.SetError("Choose a connection and credential kind.");
+            SettingsRoute.ShowCredentialFormError(
+                CredentialForm.Connection,
+                CredentialFormField.Owner,
+                "Choose the connection this credential is for.");
+            return;
+        }
+
+        if (input.Kind is not { } secretKind)
+        {
+            SettingsRoute.ShowCredentialFormError(
+                CredentialForm.Connection,
+                CredentialFormField.Kind,
+                "Choose what kind of credential this is.");
             return;
         }
 
@@ -1722,9 +1734,21 @@ public sealed partial class MainWindow
         _ = sender;
         _ = e;
         var input = SettingsRoute.CaptureFileProviderSecretForm();
-        if (input.Profile is null || input.Kind is not { } secretKind)
+        if (input.Profile is null)
         {
-            ViewModel.SetError("Choose a file provider and credential kind.");
+            SettingsRoute.ShowCredentialFormError(
+                CredentialForm.FileProvider,
+                CredentialFormField.Owner,
+                "Choose the file provider this credential is for.");
+            return;
+        }
+
+        if (input.Kind is not { } secretKind)
+        {
+            SettingsRoute.ShowCredentialFormError(
+                CredentialForm.FileProvider,
+                CredentialFormField.Kind,
+                "Choose what kind of credential this is.");
             return;
         }
 
@@ -1748,7 +1772,10 @@ public sealed partial class MainWindow
         var input = SettingsRoute.CaptureAiProviderSecretForm();
         if (input.Profile is null)
         {
-            ViewModel.SetError("Choose an AI provider.");
+            SettingsRoute.ShowCredentialFormError(
+                CredentialForm.AiProvider,
+                CredentialFormField.Owner,
+                "Choose the provider this API key is for.");
             return;
         }
 
@@ -1769,9 +1796,21 @@ public sealed partial class MainWindow
         _ = sender;
         _ = e;
         var input = SettingsRoute.CaptureMcpServerSecretForm();
-        if (input.Target is null || input.Kind is not { } secretKind)
+        if (input.Target is null)
         {
-            ViewModel.SetError("Choose an MCP credential binding and credential kind.");
+            SettingsRoute.ShowCredentialFormError(
+                CredentialForm.McpServer,
+                CredentialFormField.Owner,
+                "Choose the server setting this credential fills.");
+            return;
+        }
+
+        if (input.Kind is not { } secretKind)
+        {
+            SettingsRoute.ShowCredentialFormError(
+                CredentialForm.McpServer,
+                CredentialFormField.Kind,
+                "Choose what kind of credential this is.");
             return;
         }
 

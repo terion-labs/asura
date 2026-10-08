@@ -46,11 +46,11 @@
         </StackPanel>
       </controls:SettingRow>
       <controls:SettingRow
-          Label="Fetch in the background"
+          Classes="Option"
           Description="Fetches from every remote every five minutes while a repository is open."
           IsLast="True">
         <CheckBox
-            VerticalAlignment="Center"
+            Content="Fetch in the background"
             IsChecked="{Binding BackgroundFetch}"
             AutomationProperties.Name="Fetch in the background" />
       </controls:SettingRow>
@@ -110,20 +110,20 @@
     <controls:SettingsGroup
         Heading="Diffs"
         Description="How Git panels show changes. A panel's View menu changes the same choices.">
-      <controls:SettingRow Label="Show side by side">
-        <CheckBox IsChecked="{Binding DiffIsSplit}" AutomationProperties.Name="Show diffs side by side" />
+      <controls:SettingRow Classes="Option">
+        <CheckBox Content="Show side by side" IsChecked="{Binding DiffIsSplit}" AutomationProperties.Name="Show diffs side by side" />
       </controls:SettingRow>
-      <controls:SettingRow Label="Wrap long lines">
-        <CheckBox IsChecked="{Binding DiffWrap}" AutomationProperties.Name="Wrap long lines in diffs" />
+      <controls:SettingRow Classes="Option">
+        <CheckBox Content="Wrap long lines" IsChecked="{Binding DiffWrap}" AutomationProperties.Name="Wrap long lines in diffs" />
       </controls:SettingRow>
-      <controls:SettingRow Label="Ignore whitespace changes">
-        <CheckBox IsChecked="{Binding DiffIgnoresWhitespace}" AutomationProperties.Name="Ignore whitespace changes in diffs" />
+      <controls:SettingRow Classes="Option">
+        <CheckBox Content="Ignore whitespace changes" IsChecked="{Binding DiffIgnoresWhitespace}" AutomationProperties.Name="Ignore whitespace changes in diffs" />
       </controls:SettingRow>
-      <controls:SettingRow Label="Show whitespace characters">
-        <CheckBox IsChecked="{Binding DiffShowsInvisibles}" AutomationProperties.Name="Show whitespace characters in diffs" />
+      <controls:SettingRow Classes="Option">
+        <CheckBox Content="Show whitespace characters" IsChecked="{Binding DiffShowsInvisibles}" AutomationProperties.Name="Show whitespace characters in diffs" />
       </controls:SettingRow>
-      <controls:SettingRow Label="Highlight changed words" IsLast="True">
-        <CheckBox IsChecked="{Binding DiffHighlightsWords}" AutomationProperties.Name="Highlight changed words in diffs" />
+      <controls:SettingRow Classes="Option" IsLast="True">
+        <CheckBox Content="Highlight changed words" IsChecked="{Binding DiffHighlightsWords}" AutomationProperties.Name="Highlight changed words in diffs" />
       </controls:SettingRow>
     </controls:SettingsGroup>
 

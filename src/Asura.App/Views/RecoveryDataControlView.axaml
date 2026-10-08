@@ -24,14 +24,14 @@
             Classes="SecondaryButton"
             Click="OnRefreshClick"
             Content="Refresh"
-            IsEnabled="{Binding CanRefresh}"
+            IsEnabled="{Binding CanRefresh, FallbackValue=False}"
             AutomationProperties.Name="Refresh crash recovery data" />
         <Button
             Grid.Column="2"
             Classes="DestructiveButton"
             Click="OnClearAllClick"
             Content="Clear All…"
-            IsEnabled="{Binding CanClearAll}"
+            IsEnabled="{Binding CanClearAll, FallbackValue=False}"
             AutomationProperties.Name="Clear all previous crash recovery data" />
       </Grid>
 
@@ -40,11 +40,13 @@
           Glyph="Shield"
           Text="Only snapshots from previous runs are shown here. The current run is protected." />
 
+      <!-- One state at a time: loading, nothing to show, couldn't load, or
+           the list with its summary line. -->
       <controls:LiveRegionTextBlock
           Classes="Muted"
           FontSize="{DynamicResource ShellSecondaryFontSize}"
           Text="{Binding StatusMessage}"
-          IsVisible="{Binding !HasError}"
+          IsVisible="{Binding HasRuns, FallbackValue=False}"
           TextWrapping="Wrap"
           AutomationProperties.LiveSetting="Polite"
           AutomationProperties.Name="{Binding StatusAutomationName}" />
@@ -53,13 +55,13 @@
           Kind="Loading"
           Heading="Loading recovery snapshots…"
           Body="This run’s own snapshot stays protected while earlier ones load."
-          IsVisible="{Binding IsBusy}" />
+          IsVisible="{Binding IsBusy, FallbackValue=False}" />
 
       <controls:StateOverlay
           Kind="Empty"
           Heading="No snapshots from earlier runs"
           Body="This run’s own snapshot is protected, so it isn’t listed."
-          IsVisible="{Binding HasNoRuns}" />
+          IsVisible="{Binding HasNoRuns, FallbackValue=False}" />
 
       <controls:StateOverlay
           Kind="Retry"
@@ -68,12 +70,12 @@
           ActionLabel="Refresh"
           ActionRequested="OnRefreshClick"
           FocusTarget="PrimaryAction"
-          IsVisible="{Binding HasError}" />
+          IsVisible="{Binding HasError, FallbackValue=False}" />
 
       <ItemsControl
           ItemsSource="{Binding Runs}"
-          IsEnabled="{Binding CanClearRuns}"
-          IsVisible="{Binding HasRuns}">
+          IsEnabled="{Binding CanClearRuns, FallbackValue=False}"
+          IsVisible="{Binding HasRuns, FallbackValue=False}">
         <ItemsControl.ItemTemplate>
           <DataTemplate>
             <controls:SurfaceCard Tone="Notice" Padding="{DynamicResource ShellCardPaddingCompact}" Margin="{controls:Inset Bottom=Sm}">
@@ -81,7 +83,7 @@
                 <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
                   <WrapPanel Orientation="Horizontal">
-                    <TextBlock Margin="{controls:Inset Right=Md}" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding SnapshotLabel}" />
+                    <TextBlock Margin="{controls:Inset Right=Md}" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding SnapshotLabel}" />
                     <TextBlock Margin="{controls:Inset Right=Md}" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding SizeLabel}" />
                     <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding UpdatedLabel}" />
                   </WrapPanel>

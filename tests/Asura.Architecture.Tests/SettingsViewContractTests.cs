@@ -299,9 +299,10 @@ public sealed class SettingsViewContractTests
     public void Workspace_settings_expose_the_persisted_session_restore_toggle()
     {
         var settings = LoadView("SettingsView");
+        // A minor option, so a checkbox that names itself, not a switch.
         var toggle = Assert.Single(
             settings.Descendants(),
-            element => string.Equals(element.Name.LocalName, "ToggleSwitch"
+            element => string.Equals(element.Name.LocalName, "CheckBox"
 , StringComparison.Ordinal) && string.Equals(
                     AttributeValue(element, "AutomationProperties.Name"),
                     "Restore sessions on start",
@@ -397,9 +398,9 @@ public sealed class SettingsViewContractTests
         var pageHeaders = root.Descendants()
             .Where(element => string.Equals(element.Name.LocalName, "SettingsPageHeader", StringComparison.Ordinal))
             .ToArray();
-        // AI is one navigation page with two explicit groups: agent defaults/providers
-        // and MCP servers. Every other page has one page header.
-        Assert.Equal(InlineSettingsPageVisibilityBindings.Length + 1, pageHeaders.Length);
+        // AI is one navigation page: MCP is a section of it under its own
+        // heading, not a second page header. Every page has one.
+        Assert.Equal(InlineSettingsPageVisibilityBindings.Length, pageHeaders.Length);
         Assert.All(pageHeaders, header =>
         {
             Assert.False(string.IsNullOrWhiteSpace(AttributeValue(header, "Heading")));
@@ -522,7 +523,7 @@ public sealed class SettingsViewContractTests
         // keeps the three exclusive itself.
         var overrideDisclosure = FindNamedElement(root, "AppearanceOverrideExpander");
         Assert.Equal("Expander", overrideDisclosure.Name.LocalName);
-        Assert.Equal("Override System Appearance", AttributeValue(overrideDisclosure, "Header"));
+        Assert.Equal("Override system appearance", AttributeValue(overrideDisclosure, "Header"));
         var overrideParent = FindNamedElement(root, "AppearanceModeDark").Parent;
         Assert.NotNull(overrideParent);
         foreach (var tileName in new[]
@@ -920,6 +921,118 @@ public sealed class SettingsViewContractTests
             AttributeValue(
                 FindNamedElement(editor.Root!, "CredentialValue"),
                 "IsVisible"));
+    }
+
+    /// <summary>
+    /// A credential form that is missing a choice says so under the picker it
+    /// is about, and focuses it, rather than in the window's error corner.
+    /// </summary>
+    [Fact]
+    public void Credential_form_problems_are_said_under_the_picker_they_are_about()
+    {
+        var root = Assert.IsType<XElement>(LoadView("SettingsView").Root);
+        foreach (var (field, picker) in new[]
+                 {
+                     ("SecretConnectionField", "SecretConnectionPicker"),
+                     ("SecretKindField", "SecretKindPicker"),
+                     ("SecretFileProviderField", "SecretFileProviderPicker"),
+                     ("FileProviderSecretKindField", "FileProviderSecretKindPicker"),
+                     ("AiProviderSecretProfileField", "AiProviderSecretProfilePicker"),
+                     ("McpServerSecretTargetField", "McpServerSecretTargetPicker"),
+                     ("McpServerSecretKindField", "McpServerSecretKindPicker"),
+                 })
+        {
+            var labeled = FindNamedElement(root, field);
+            Assert.Equal("LabeledField", labeled.Name.LocalName);
+            Assert.Single(
+                labeled.Descendants(),
+                element => string.Equals(AttributeValue(element, "Name"), picker, StringComparison.Ordinal));
+        }
+
+        // The pickers that start empty say what to choose.
+        foreach (var picker in new[] { "SecretConnectionPicker", "SecretFileProviderPicker" })
+        {
+            Assert.False(string.IsNullOrWhiteSpace(
+                AttributeValue(FindNamedElement(root, picker), "PlaceholderText")));
+        }
+
+        var handlers = File.ReadAllText(Path.Combine(
+            ApplicationViews.RepositoryRoot,
+            "src",
+            "Asura.App",
+            "Views",
+            "MainWindow.Settings.cs"));
+        Assert.Contains("SettingsRoute.ShowCredentialFormError(", handlers, StringComparison.Ordinal);
+        foreach (var form in new[] { "Connection", "FileProvider", "AiProvider", "McpServer" })
+        {
+            Assert.Contains($"CredentialForm.{form},", handlers, StringComparison.Ordinal);
+        }
+
+        Assert.DoesNotContain("ViewModel.SetError(\"Choose a", handlers, StringComparison.Ordinal);
+        Assert.DoesNotContain("ViewModel.SetError(\"Choose an", handlers, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// One rule for booleans: an option is a checkbox whose label is its own
+    /// text; a switch is kept only for the setting that turns a whole section
+    /// on or off.
+    /// </summary>
+    [Theory]
+    [InlineData("SettingsView", "Enable app encryption")]
+    [InlineData("SettingsPages/NetworkingSettingsPageView", "Use an application network connection")]
+    [InlineData("SettingsPages/LocalMcpServerSettingsView", "Enable Asura MCP server")]
+    [InlineData("SettingsPages/GitSettingsPageView", null)]
+    [InlineData("SettingsPages/QuickTerminalSettingsPageView", null)]
+    [InlineData("SettingsPages/AppearanceSettingsPageView", null)]
+    public void Settings_pages_keep_switches_for_section_masters_only(string view, string? master)
+    {
+        var root = Assert.IsType<XElement>(LoadView(view).Root);
+        var switches = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal)
+                || string.Equals(element.Name.LocalName, "ToggleField", StringComparison.Ordinal))
+            .Select(element => AttributeValue(element, "AutomationProperties.Name"))
+            .ToArray();
+        string?[] expected = master is null ? [] : [master];
+        Assert.Equal(expected, switches);
+
+        // Every checkbox in a settings row names itself; none sits bare at
+        // the row's trailing edge.
+        foreach (var row in root.Descendants().Where(element =>
+                     string.Equals(element.Name.LocalName, "SettingRow", StringComparison.Ordinal)
+                     && element.Elements().Any(child =>
+                         string.Equals(child.Name.LocalName, "CheckBox", StringComparison.Ordinal))))
+        {
+            Assert.Equal("Option", AttributeValue(row, "Classes"));
+            var box = row.Elements().Single(child =>
+                string.Equals(child.Name.LocalName, "CheckBox", StringComparison.Ordinal));
+            Assert.False(string.IsNullOrWhiteSpace(AttributeValue(box, "Content")));
+        }
+    }
+
+    /// <summary>
+    /// The terminal palette applies as it changes; Revert is the page's only
+    /// palette action, and nothing on it says Apply.
+    /// </summary>
+    [Fact]
+    public void Appearance_applies_the_terminal_palette_as_it_changes()
+    {
+        var root = Assert.IsType<XElement>(LoadSettingsPage("AppearanceSettingsPageView").Root);
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal)
+                && (AttributeValue(element, "Content") ?? string.Empty).StartsWith("Apply", StringComparison.Ordinal));
+        var revert = FindNamedElement(root, "RevertTerminalButton");
+        Assert.Equal("Revert", AttributeValue(revert, "Content"));
+        Assert.Equal("TextButton", AttributeValue(revert, "Classes"));
+        Assert.Equal("{Binding CanRevertTerminalAppearance}", AttributeValue(revert, "IsEnabled"));
+
+        // One home for each setting: the cursor lives on the Terminal page,
+        // the terminal font here.
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => string.Equals(AttributeValue(element, "AutomationProperties.Name"), "Cursor shape", StringComparison.Ordinal)
+                || string.Equals(AttributeValue(element, "AutomationProperties.Name"), "Blink cursor", StringComparison.Ordinal)
+                || string.Equals(AttributeValue(element, "Text"), "Set on the Terminal page", StringComparison.Ordinal));
     }
 
     private static readonly string[] InlineSettingsPageVisibilityBindings =

@@ -31,14 +31,6 @@ public sealed partial class AppearanceSettingsPageView : UserControl
     public AppearanceSettingsPageView()
     {
         InitializeComponent();
-        // A toggle field reports its state as a property, not an event.
-        TranslucentTerminalToggle.PropertyChanged += (sender, e) =>
-        {
-            if (e.Property == ToggleField.IsCheckedProperty)
-            {
-                OnAppearanceChanged(sender, new RoutedEventArgs());
-            }
-        };
     }
 
     /// <summary>
@@ -230,7 +222,7 @@ public sealed partial class AppearanceSettingsPageView : UserControl
             (int)Math.Round(BackdropOpacitySlider.Value),
             GlassPanelsToggle.IsChecked == true,
             OverrideOpacityToggle.IsChecked == true,
-            TranslucentTerminalToggle.IsChecked);
+            TranslucentTerminalToggle.IsChecked == true);
     }
 
     private TabStripPlacement SelectedTabStripPlacement() =>

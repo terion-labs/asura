@@ -385,7 +385,25 @@ public sealed class TerminalProfileEditorViewModel : ObservableObject
 
     public double FontSize { get => _fontSize; set => SetProperty(ref _fontSize, value); }
 
-    public double LineHeight { get => _lineHeight; set => SetProperty(ref _lineHeight, value); }
+    public double LineHeight
+    {
+        get => _lineHeight;
+        set
+        {
+            if (SetProperty(ref _lineHeight, value))
+            {
+                OnPropertyChanged(nameof(LineHeightText));
+            }
+        }
+    }
+
+    /// <summary>
+    /// The line height as the page shows it: "1.40" whatever the region's
+    /// number format, as the interface around it is written, and not "1,40"
+    /// beside English labels.
+    /// </summary>
+    public string LineHeightText =>
+        _lineHeight.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
 
     public int ScrollbackLines { get => _scrollbackLines; set => SetProperty(ref _scrollbackLines, value); }
 

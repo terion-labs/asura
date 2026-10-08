@@ -61,9 +61,13 @@
           Label="Server URL"
           Description="In the agent's MCP settings choose Streamable HTTP and paste this address.">
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+          <!-- Dimmed with the rest of the server's controls while the
+               server can't run: an address it isn't listening on is not one
+               to copy. -->
           <TextBox
               FontFamily="{DynamicResource ShellDataFontFamily}"
               IsReadOnly="True"
+              IsEnabled="{Binding CanEdit}"
               Text="{Binding Endpoint}"
               AutomationProperties.Name="Asura MCP server URL" />
           <Button
@@ -79,7 +83,7 @@
       </controls:SettingRow>
       <controls:SettingRow
           Label="Access token"
-          Description="Sent as an Authorization: Bearer header. Replacing it disconnects every connected agent until it uses the new one.">
+          Description="Sent with each request as a bearer token. Replacing it disconnects every connected agent until it uses the new one.">
         <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
           <Button
               Classes="SecondaryButton"

@@ -25,7 +25,6 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
         _readOnlyIsolationMounts;
     private string _name;
     private string _description;
-    private string _accent;
     private string _color;
     private string _icon;
     private bool _autoSave;
@@ -109,8 +108,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
         ExpectedRevision = expectedRevision;
         _name = workspace.Name;
         _description = workspace.Description ?? string.Empty;
-        _accent = workspace.Accent ?? string.Empty;
-        _color = workspace.Color ?? string.Empty;
+        _color = StoredColor(workspace);
         _icon = workspace.Icon;
         _autoSave = workspace.AutoSave;
         _isIsolated = workspace.IsIsolated;
@@ -143,7 +141,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
         NetworkPolicy.Changed += OnNetworkPolicyChanged;
         TerminalMultiplexingOptions =
         [
-            new(null, "Use application setting"),
+            new(null, "Use App Setting"),
             new(TerminalMultiplexingMode.Disabled, "Off for this workspace"),
             new(TerminalMultiplexingMode.Automatic, "tmux with Screen fallback"),
         ];
@@ -151,7 +149,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
             option.Mode == workspace.TerminalMultiplexingOverride);
         BrowserProfileOptions =
         [
-            new(null, "Use application setting"),
+            new(null, "Use App Setting"),
             new(WorkspaceBrowserProfileMode.Shared, "Share the global profile"),
             new(WorkspaceBrowserProfileMode.Isolated, "Isolate this workspace"),
         ];
@@ -201,14 +199,6 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
     public IReadOnlyList<WorkspaceAccentChoiceViewModel> ColorChoices { get; } =
         [.. WorkspaceAccents.All.Select(option => new WorkspaceAccentChoiceViewModel(option))];
 
-    /// <summary>
-    /// The accent presets. Deliberately a separate row from
-    /// <see cref="ColorChoices"/>: the colour marks the workspace, the accent
-    /// retints the shell, and one is not the other.
-    /// </summary>
-    public IReadOnlyList<WorkspaceAccentChoiceViewModel> AccentChoices { get; } =
-        [.. WorkspaceAccents.All.Select(option => new WorkspaceAccentChoiceViewModel(option))];
-
     public IReadOnlyList<WorkspaceTerminalMultiplexingOption> TerminalMultiplexingOptions { get; }
 
     public IReadOnlyList<WorkspaceBrowserProfileOption> BrowserProfileOptions { get; }
@@ -251,7 +241,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
     public string DefaultIsolationImageReference { get; }
 
     public string IsolationImageDescription =>
-        $"Bootable OCI image used by this workspace environment. It must provide /sbin/init. Default on this host: {DefaultIsolationImageReference}. Changing it recreates the environment and removes installed packages and guest-only files.";
+        $"The system image the environment starts from; it has to be able to start on its own. The default is {DefaultIsolationImageReference}. Changing it builds the environment again and removes anything installed or saved only inside it.";
 
     public WorkspaceTerminalMultiplexingOption SelectedTerminalMultiplexing
     {
@@ -369,11 +359,6 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
                 EffectiveColor,
                 StringComparison.OrdinalIgnoreCase);
         }
-
-        foreach (var choice in AccentChoices)
-        {
-            choice.IsSelected = string.Equals(choice.Hex, _accent, StringComparison.OrdinalIgnoreCase);
-        }
     }
 
     /// <summary>
@@ -461,7 +446,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
 
     public string InstallIsolationRuntimeLabel =>
         _isolationRuntimeDisplayName is null
-            ? "Install isolation runtime"
+            ? "Install Isolation Runtime\u2026"
             : $"Install {_isolationRuntimeDisplayName}\u2026";
 
     public string InstallIsolationRuntimeAccessibleName =>
@@ -491,8 +476,9 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// The colour this workspace is recognised by. Empty follows the accent,
-    /// and then the shell's own colour, so a workspace always has a mark.
+    /// The colour this workspace is recognised by, on its rail tile and tab
+    /// chip. Empty falls back to the brand colour, so a workspace always has
+    /// a mark. It never retints the shell: the accent is the person's.
     /// </summary>
     public string Color
     {
@@ -509,17 +495,10 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>What the tile actually paints — never empty. See <see cref="Color"/>.</summary>
-    public string EffectiveColor => WorkspaceTints.Of(_color, _accent);
+    public string EffectiveColor => WorkspaceTints.Of(_color, accent: null);
 
     /// <summary>The icon the header tile draws, resolved from the stored identifier.</summary>
     public FluentIcons.Common.Symbol TileSymbol => WorkspaceIcons.SymbolFor(_icon);
-
-    /// <summary>Whether this workspace retints the shell rather than following it.</summary>
-    public bool HasAccent => !string.IsNullOrWhiteSpace(_accent);
-
-    public string AccentSummary => HasAccent
-        ? "This workspace retints the shell while it is open."
-        : "Following the application accent.";
 
     public int TabCount => _entries.Count(entry => entry.IsWorkspaceTab);
 
@@ -534,23 +513,6 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
         {
             if (SetProperty(ref _description, value))
             {
-                Changed();
-            }
-        }
-    }
-
-    /// <summary>An empty value follows the effective application accent.</summary>
-    public string Accent
-    {
-        get => _accent;
-        set
-        {
-            if (SetProperty(ref _accent, value))
-            {
-                RefreshChoiceSelection();
-                OnPropertyChanged(nameof(HasAccent));
-                OnPropertyChanged(nameof(AccentSummary));
-                OnPropertyChanged(nameof(EffectiveColor));
                 Changed();
             }
         }
@@ -860,9 +822,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
         var nameChanged = !StringComparer.Ordinal.Equals(_name, _original.Name);
         var description = _original.Description ?? string.Empty;
         var descriptionChanged = !StringComparer.Ordinal.Equals(_description, description);
-        var accent = _original.Accent ?? string.Empty;
-        var accentChanged = !StringComparer.Ordinal.Equals(_accent, accent);
-        var color = _original.Color ?? string.Empty;
+        var color = StoredColor(_original);
         var colorChanged = !StringComparer.Ordinal.Equals(_color, color);
         var iconChanged = !StringComparer.Ordinal.Equals(_icon, _original.Icon);
         var autoSaveChanged = _autoSave != _original.AutoSave;
@@ -882,7 +842,6 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
             _overridesNetworkSettings != (_original.NetworkOverride is not null);
         _name = _original.Name;
         _description = description;
-        _accent = accent;
         _color = color;
         _icon = _original.Icon;
         _autoSave = _original.AutoSave;
@@ -902,20 +861,9 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
             OnPropertyChanged(nameof(Description));
         }
 
-        if (accentChanged)
-        {
-            OnPropertyChanged(nameof(Accent));
-            OnPropertyChanged(nameof(HasAccent));
-            OnPropertyChanged(nameof(AccentSummary));
-        }
-
         if (colorChanged)
         {
             OnPropertyChanged(nameof(Color));
-        }
-
-        if (accentChanged || colorChanged)
-        {
             OnPropertyChanged(nameof(EffectiveColor));
         }
 
@@ -1107,12 +1055,22 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
         _entries.Clear();
     }
 
+    /// <summary>
+    /// The colour a stored workspace is drawn with. A workspace saved when it
+    /// could also retint the shell may have only that accent; it becomes the
+    /// workspace's colour here, and the accent is not written back.
+    /// </summary>
+    private static string StoredColor(WorkspaceDefinition workspace) =>
+        !string.IsNullOrWhiteSpace(workspace.Color)
+            ? workspace.Color
+            : workspace.Accent ?? string.Empty;
+
     private WorkspaceDefinition BuildDefinition() => new(
         Id,
         SchemaVersion,
         (Name ?? string.Empty).Trim(),
         Description,
-        Accent,
+        accent: null,
         [.. _entries.Select(entry => entry.Build())],
         AgentPolicy.Build(),
         Icon,
@@ -1121,7 +1079,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
         _original.AgentPanelPinned,
         SelectedTerminalMultiplexing.Mode,
         SelectedBrowserProfile.Mode,
-        !string.IsNullOrWhiteSpace(Accent),
+        false,
         IsIsolated,
         [.. _isolationMounts.Select(mount => mount.Build())],
         string.Equals(
@@ -1163,22 +1121,17 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
             _entries.FirstOrDefault(entry => string.Equals(entry.Id.Value, issue.Target, StringComparison.Ordinal)) is { } entry
                 ? issue with { Message = $"“{entry.DisplayName}”: {issue.Message}" }
                 : issue)];
-        foreach (var (value, label) in new[] { (Accent, "accent"), (Color, "color") })
+        if (!string.IsNullOrWhiteSpace(Color))
         {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                continue;
-            }
-
             try
             {
-                _ = RgbColor.Parse(value);
+                _ = RgbColor.Parse(Color);
             }
             catch (FormatException)
             {
                 issues.Add(new(
                     DefinitionValidationCode.InvalidEntry,
-                    $"The workspace {label} must contain six hexadecimal digits.",
+                    "The workspace color must contain six hexadecimal digits.",
                     Id.Value));
             }
         }

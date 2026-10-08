@@ -15,19 +15,26 @@ public sealed class EnumDisplayConverterTests
             CultureInfo.InvariantCulture)
         ?? string.Empty;
 
+    /// <summary>
+    /// The converter writes a pop-up button's items, which are menu items and
+    /// so title case, the same as the profile names listed beside them.
+    /// </summary>
     [Theory]
-    [InlineData(TerminalLinkPolicy.ConfirmBeforeOpen, "Confirm before open")]
+    [InlineData(TerminalLinkPolicy.ConfirmBeforeOpen, "Confirm Before Open")]
     [InlineData(TerminalCursorStyle.Block, "Block")]
     [InlineData(TerminalShellIntegrationMode.Detect, "Detect")]
     [InlineData(TerminalBellMode.Visual, "Visual")]
-    public void Enum_names_read_as_prose(object value, string expected) =>
+    [InlineData(TerminalBellMode.SystemAndVisual, "System and Visual")]
+    [InlineData(FailedSequenceBehavior.DiscardAndShowHint, "Discard and Show Hint")]
+    public void Enum_names_read_as_title_case_menu_items(object value, string expected) =>
         Assert.Equal(expected, Convert(value));
 
     [Theory]
     [InlineData(AiProviderKind.OpenAi, "OpenAI")]
-    [InlineData(AiProviderKind.OpenAiCompatible, "OpenAI-compatible")]
+    [InlineData(AiProviderKind.OpenAiCompatible, "OpenAI-Compatible")]
+    [InlineData(TerminalCompatibilityProfile.Xterm256Color, "xterm-256color")]
     [InlineData(AiProviderKind.Anthropic, "Anthropic")]
-    public void Vendor_names_keep_their_own_spelling(AiProviderKind value, string expected) =>
+    public void Vendor_names_keep_their_own_spelling(object value, string expected) =>
         Assert.Equal(expected, Convert(value));
 
     [Fact]

@@ -6,6 +6,27 @@ namespace Asura.App.Tests;
 
 public sealed class QuickTerminalSettingsEditorViewModelTests
 {
+    /// <summary>
+    /// The shortcut is recorded, not typed, so Use Default is how a recorded
+    /// one is undone; it is dimmed while the default is already in use.
+    /// </summary>
+    [Fact]
+    public void Use_default_puts_back_the_shortcut_quick_terminal_arrives_with()
+    {
+        var editor = new QuickTerminalSettingsEditorViewModel(
+            QuickTerminalSettings.Default,
+            expectedRevision: 1);
+        Assert.True(editor.UsesDefaultHotkey);
+
+        editor.HotkeyText = QuickTerminalHotkeyText.Format(new KeyStroke("K", KeyModifiers.Control | KeyModifiers.Alt));
+        Assert.False(editor.UsesDefaultHotkey);
+
+        editor.UseDefaultHotkey();
+
+        Assert.True(editor.UsesDefaultHotkey);
+        Assert.Equal(QuickTerminalSettings.DefaultHotkey, editor.CreateSaveRequest().Settings.Hotkey);
+    }
+
     [Fact]
     public void Save_request_parses_hotkey_and_percent_fields()
     {

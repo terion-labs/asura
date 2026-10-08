@@ -512,7 +512,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
         {
             SetProfileTestFailure(
                 "Test unavailable",
-                "The app-scoped networking runtime is unavailable in this build.");
+                "Testing a connection isn’t available in this version of Asura.");
             return false;
         }
 

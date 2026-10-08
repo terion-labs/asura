@@ -7,10 +7,10 @@
     xmlns:core="using:Asura.Core"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:components="using:Asura.App.Views.Components"
-    Width="720"
-    Height="720"
+    Width="680"
     MinWidth="620"
-    MinHeight="520"
+    MaxHeight="860"
+    SizeToContent="Height"
     CanResize="True">
   <!--
     The editor for one proxy or VPN definition. It is a dialog like every other
@@ -112,7 +112,7 @@
               </controls:LabeledField>
             </Grid>
             <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-              <controls:LabeledField Label="Username" Hint="Optional. Required when a password is used.">
+              <controls:LabeledField Label="Username" Hint="Required when you use a password.">
                 <TextBox Text="{Binding Username, Mode=TwoWay}" AutomationProperties.Name="Proxy username" />
               </controls:LabeledField>
               <components:NetworkCredentialPicker
@@ -121,6 +121,7 @@
                   Hint="A stored password, or a prompt each time the connection starts."
                   ItemsSource="{Binding PasswordCredentialOptions}"
                   SelectedItem="{Binding SelectedPasswordCredential, Mode=TwoWay}"
+                  Error="{Binding SelectedPasswordCredential.Problem, FallbackValue={x:Null}}"
                   Target="{Binding PasswordCredentialTarget}"
                   AddRequested="OnAddCredentialRequested" />
             </Grid>
@@ -136,6 +137,7 @@
                 Hint="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='The client configuration file, stored in {0}.'}"
                 ItemsSource="{Binding ConfigurationCredentialOptions}"
                 SelectedItem="{Binding SelectedConfigurationCredential, Mode=TwoWay}"
+                Error="{Binding SelectedConfigurationCredential.Problem, FallbackValue={x:Null}}"
                 Target="{Binding ConfigurationCredentialTarget}"
                 AddRequested="OnAddCredentialRequested" />
             <Grid
@@ -151,6 +153,7 @@
                   Hint="Optional. Without a stored password you are prompted on each connection."
                   ItemsSource="{Binding PasswordCredentialOptions}"
                   SelectedItem="{Binding SelectedPasswordCredential, Mode=TwoWay}"
+                  Error="{Binding SelectedPasswordCredential.Problem, FallbackValue={x:Null}}"
                   Target="{Binding PasswordCredentialTarget}"
                   AddRequested="OnAddCredentialRequested" />
             </Grid>
@@ -181,6 +184,7 @@
                   Hint="A stored password, or a prompt each time the connection starts."
                   ItemsSource="{Binding PasswordCredentialOptions}"
                   SelectedItem="{Binding SelectedPasswordCredential, Mode=TwoWay}"
+                  Error="{Binding SelectedPasswordCredential.Problem, FallbackValue={x:Null}}"
                   Target="{Binding PasswordCredentialTarget}"
                   AddRequested="OnAddCredentialRequested" />
             </Grid>
@@ -189,6 +193,7 @@
                 Hint="Optional."
                 ItemsSource="{Binding ClientCertificateCredentialOptions}"
                 SelectedItem="{Binding SelectedClientCertificateCredential, Mode=TwoWay}"
+                Error="{Binding SelectedClientCertificateCredential.Problem, FallbackValue={x:Null}}"
                 Target="AnyConnectClientCertificate"
                 AddRequested="OnAddCredentialRequested" />
           </StackPanel>
@@ -216,6 +221,7 @@
                 Hint="Optional. Without a stored key, sign in using your default browser when connecting."
                 ItemsSource="{Binding AuthKeyCredentialOptions}"
                 SelectedItem="{Binding SelectedAuthKeyCredential, Mode=TwoWay}"
+                Error="{Binding SelectedAuthKeyCredential.Problem, FallbackValue={x:Null}}"
                 Target="TailscaleAuthKey"
                 AddRequested="OnAddCredentialRequested" />
           </StackPanel>
@@ -249,7 +255,7 @@
                     MinHeight="120"
                     MaxHeight="240"
                     FontFamily="{DynamicResource ShellDataFontFamily}"
-                    FontSize="{DynamicResource ShellFontSize10}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
                     Text="{Binding Value, Mode=TwoWay}"
                     TextWrapping="NoWrap"
                     PlaceholderText="Paste the file contents"
