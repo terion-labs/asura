@@ -2,6 +2,12 @@
   <!-- An inspector: consulted while working, so it opens beside the panel
        without blocking it and closes with ⌘W or Escape, like any window. -->
   <controls:DialogWindow.Styles>
+    <!-- The focused list's selected revision is the accent row with all of
+         its text in the accent's own foreground, the author and SHA line too;
+         muted gray left on the accent made the selection read faint. -->
+    <Style Selector="ListBox#Revisions:focus-within ListBoxItem:selected TextBlock.Muted">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    </Style>
     <Style Selector="TabItem">
       <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />

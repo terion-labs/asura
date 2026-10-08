@@ -1,32 +1,43 @@
-<controls:DialogWindow x:Class="Asura.App.Views.GitRebaseDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Asura.App.ViewModels" xmlns:controls="using:Asura.App.Controls" Width="900" Height="650" MinWidth="600" MinHeight="350">
+<controls:DialogWindow x:Class="Asura.App.Views.GitRebaseDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Asura.App.ViewModels" xmlns:controls="using:Asura.App.Controls" xmlns:icons="using:FluentIcons.Avalonia" Width="900" Height="650" MinWidth="600" MinHeight="350">
   <controls:DialogShell x:Name="Shell" Title="Interactive Rebase" Subtitle="Commits run from top to bottom. This rewrites history; published commits may require a force-with-lease push." Scrolls="False">
     <controls:DialogShell.Footer>
-      <WrapPanel Orientation="Horizontal">
-        <CheckBox Margin="{controls:Inset Right=Sm, Bottom=Xs}" x:Name="AutoStash" Content="Stash local edits and restore afterward" />
-        <CheckBox Margin="{controls:Inset Right=Sm, Bottom=Xs}" x:Name="UpdateRefs" Content="Update affected branches" />
-        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Content="Cancel" Click="OnCancel" Classes="SecondaryButton" IsCancel="True" />
-        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Content="Rebase" Click="OnApply" Classes="PrimaryButton" IsDefault="True" />
-      </WrapPanel>
+      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+        <Button Content="Cancel" Click="OnCancel" Classes="SecondaryButton" IsCancel="True" />
+        <Button Content="Rebase" Click="OnApply" Classes="PrimaryButton" IsDefault="True" />
+      </StackPanel>
     </controls:DialogShell.Footer>
-    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="{DynamicResource ShellSpaceSm}">
+    <Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="{DynamicResource ShellSpaceSm}">
       <TextBlock x:Name="BaseLabel" />
-      <ListBox x:Name="Rows" Grid.Row="1" AutomationProperties.Name="Rebase steps" PointerMoved="OnDragMove" PointerReleased="OnDragEnd" PointerCaptureLost="OnDragLost">
-        <ListBox.ItemTemplate>
-          <DataTemplate x:DataType="vm:GitRebaseRowViewModel">
-            <Grid ColumnDefinitions="Auto,Auto,140,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-              <Button Content="↑" Tag="Up" Click="OnMove" AutomationProperties.Name="Move commit earlier" />
-              <Button Grid.Column="1" Content="↓" Tag="Down" Click="OnMove" AutomationProperties.Name="Move commit later" />
-              <ComboBox Grid.Column="2" ItemsSource="{Binding Actions}" SelectedItem="{Binding Action}" AutomationProperties.Name="Rebase action" />
-              <StackPanel Grid.Column="3">
-                <TextBlock Text="{Binding Subject}" TextTrimming="CharacterEllipsis" />
-                <TextBox Text="{Binding Message}" AcceptsReturn="True" TextWrapping="Wrap" AutomationProperties.Name="Reworded commit message" />
-              </StackPanel>
-              <TextBlock Grid.Column="4" Classes="MiddleTruncated" FontFamily="{DynamicResource ShellDataFontFamily}" Text="{Binding Sha}" MaxWidth="90" PointerPressed="OnDragStart" ToolTip.Tip="Drag this commit to reorder it. The arrow buttons offer the same action." />
-            </Grid>
-          </DataTemplate>
-        </ListBox.ItemTemplate>
-      </ListBox>
-      <TextBlock x:Name="Validation" Grid.Row="2" Foreground="{DynamicResource ShellDangerBrush}" TextWrapping="Wrap" />
+      <Border Grid.Row="1" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
+        <ListBox x:Name="Rows" Classes="Rows" AutomationProperties.Name="Rebase steps" PointerMoved="OnDragMove" PointerReleased="OnDragEnd" PointerCaptureLost="OnDragLost">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:GitRebaseRowViewModel">
+              <!-- The row keeps the list's inset on both sides, so the arrows
+                   and the SHA don't run into the list's edges. -->
+              <Grid Margin="{controls:Inset Horizontal=Xs, Vertical=Xs}" ColumnDefinitions="Auto,Auto,120,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                <Button Classes="IconButton" Tag="Up" Click="OnMove" VerticalAlignment="Top" IsEnabled="{Binding CanMoveEarlier}" ToolTip.Tip="Move earlier" AutomationProperties.Name="{Binding MoveEarlierLabel}">
+                  <icons:SymbolIcon Symbol="ArrowUp" FontSize="{DynamicResource ShellIconSizeSm}" />
+                </Button>
+                <Button Grid.Column="1" Classes="IconButton" Tag="Down" Click="OnMove" VerticalAlignment="Top" IsEnabled="{Binding CanMoveLater}" ToolTip.Tip="Move later" AutomationProperties.Name="{Binding MoveLaterLabel}">
+                  <icons:SymbolIcon Symbol="ArrowDown" FontSize="{DynamicResource ShellIconSizeSm}" />
+                </Button>
+                <ComboBox Grid.Column="2" VerticalAlignment="Top" HorizontalAlignment="Stretch" ItemsSource="{Binding Actions}" SelectedItem="{Binding Action}" AutomationProperties.Name="Rebase action" />
+                <StackPanel Grid.Column="3" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
+                  <TextBlock Text="{Binding Subject}" TextTrimming="CharacterEllipsis" />
+                  <!-- Only a step that writes a message offers to edit one. -->
+                  <TextBox Text="{Binding Message}" AcceptsReturn="True" TextWrapping="Wrap" IsVisible="{Binding UsesMessage}" AutomationProperties.Name="Commit message" />
+                </StackPanel>
+                <TextBlock Grid.Column="4" VerticalAlignment="Center" Classes="Muted MiddleTruncated" FontFamily="{DynamicResource ShellDataFontFamily}" Text="{Binding Sha}" MaxWidth="90" Background="Transparent" Cursor="SizeNorthSouth" PointerPressed="OnDragStart" ToolTip.Tip="Drag this commit to reorder it. The arrow buttons offer the same action." />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Border>
+      <StackPanel Grid.Row="2" Spacing="{DynamicResource ShellSpaceXs}">
+        <CheckBox x:Name="AutoStash" Content="Stash local edits and restore afterward" />
+        <CheckBox x:Name="UpdateRefs" Content="Update affected branches" />
+      </StackPanel>
+      <TextBlock x:Name="Validation" Grid.Row="3" Foreground="{DynamicResource ShellDangerBrush}" TextWrapping="Wrap" IsVisible="{Binding $self.Text, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
     </Grid>
   </controls:DialogShell>
 </controls:DialogWindow>

@@ -16,13 +16,14 @@ public sealed class GitCommitGraphRowView : Control
     private const double DotRadius = 3;
     private const double EdgeThickness = 1.5;
 
-    private static readonly string[] LaneBrushKeys =
+    // The chart palette, not the accent: the accent marks what is selected
+    // and pressable, and a graph rail in it read as a second selection.
+    internal static readonly string[] LaneBrushKeys =
     [
-        "ShellAccentBrush",
-        "ShellSlotBadgeBlueBrush",
-        "ShellSlotBadgeGreenBrush",
-        "ShellSlotBadgePinkBrush",
-        "ShellSlotBadgeOrangeBrush",
+        "ShellChartSeries1Brush",
+        "ShellChartSeries2Brush",
+        "ShellChartSeries3Brush",
+        "ShellChartSeries4Brush",
     ];
 
     public static readonly StyledProperty<GitGraphRow?> RowProperty =

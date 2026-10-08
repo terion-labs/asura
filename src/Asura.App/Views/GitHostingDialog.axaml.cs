@@ -52,9 +52,36 @@ public sealed partial class GitHostingDialog : DialogWindow
 
     private async void OnRemoveAccount(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel is { } vm)
+        if (ViewModel is not { SelectedAccount: { } account } vm)
         {
-            await vm.RemoveAccountAsync();
+            return;
+        }
+
+        // Asura forgets the account and its stored token; the account itself
+        // on the host is untouched, and signing in again brings it back.
+        if (!await new ConfirmationDialog(new ConfirmationDialogOptions
+        {
+            Heading = $"Remove “{account.Username}” from Asura?",
+            Detail = $"Asura forgets this {GitHostingBrowserViewModel.ProviderName(account.Provider)} account and deletes its token from {Asura.Core.PlatformTerms.SecretStore}.",
+            Notice = "The account on the host isn’t changed. Sign in again to add it back.",
+            ConfirmLabel = "Remove Account",
+            Intent = ConfirmationIntent.Destructive,
+        }).ShowDialog<bool>(this))
+        {
+            return;
+        }
+
+        await vm.RemoveAccountAsync();
+    }
+
+    private async void OnStarredChanged(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel is { SelectedAccount: not null, IsBusy: false } vm)
+        {
+            await vm.LoadRepositoriesAsync(reset: true);
         }
     }
+
+    private void OnRepositorySelection(object? sender, SelectionChangedEventArgs e) =>
+        CloneButton.IsEnabled = Repositories.SelectedItem is GitHostedRepository;
 }

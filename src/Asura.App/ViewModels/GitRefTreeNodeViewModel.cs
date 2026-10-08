@@ -11,6 +11,12 @@ public sealed class GitRefTreeNodeViewModel(string name, string path, bool expan
     public bool IsFolder => Item is null;
     public bool HasRef => Item is not null;
     public string Path { get; } = path;
+
+    /// <summary>What VoiceOver reads for the row: the ref's full name, or the folder's.</summary>
+    public string AccessibleName => Item?.Name ?? Name;
+
+    /// <summary>The current branch's status, said beside its name; nothing for any other row.</summary>
+    public string? AccessibleStatus => Item is { IsCurrent: true } ? "Current branch" : null;
     public IReadOnlyList<GitRefTreeNodeViewModel> Children => _children;
     internal void Add(GitRefTreeNodeViewModel item) => _children.Add(item);
 

@@ -225,6 +225,12 @@
     <Style Selector="TextBlock.GitCommitBody">
       <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight13}" />
     </Style>
+    <Style Selector="Button.GitMetaLink">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
     <Style Selector="controls|SegmentedControl#GitCompactSections">
       <Setter Property="IsVisible" Value="False" />
     </Style>
@@ -235,7 +241,7 @@
          differently from arrows, and the whole point of one text run is a
          shared baseline. -->
     <Style Selector="TextBlock.GitTrackingText">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
@@ -690,11 +696,17 @@
               <Setter Property="BorderThickness" Value="0" />
               <Setter Property="MinHeight" Value="24" />
               <Setter Property="HorizontalAlignment" Value="Stretch" />
+              <!-- A ref row says what it is to VoiceOver by its name, and the
+                   current branch says so as its status, not only by its
+                   checkmark and weight. -->
+              <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleName}" />
+              <Setter Property="AutomationProperties.ItemStatus" Value="{Binding AccessibleStatus}" />
               <!-- State selectors override the Fluent template's fixed margins.
-                   The disclosure toggle is a 20 × 20 target around the
-                   8-point chevron, where it was 8 × 8. It sits four points
-                   into the folder name's column so the centred glyph still
-                   ends against the name rather than floating before it. -->
+                   The disclosure toggle is a 20 × 20 target, but the chevron
+                   drawn in it stays the section headers' small one rather
+                   than stretching to fill the target. The target ends where
+                   the folder name begins, so the gap before the name is the
+                   target's own room around the glyph and nothing overlaps. -->
               <Style Selector="^:not(:empty) /template/ Panel#PART_ExpandCollapseChevronContainer">
                 <Setter Property="Margin" Value="0" />
                 <Setter Property="Width" Value="20" />
@@ -702,11 +714,36 @@
               <Style Selector="^ /template/ ToggleButton#PART_ExpandCollapseChevron">
                 <Setter Property="Width" Value="20" />
                 <Setter Property="Height" Value="20" />
-                <Setter Property="Margin" Value="4,0,-4,0" />
+                <Setter Property="Margin" Value="0" />
                 <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+                <!-- Fluent stretches its chevron path to fill the toggle, so a
+                     20-point target drew a 20-point chevron. This draws the
+                     section headers' own glyph at its own size instead. -->
+                <Setter Property="Template">
+                  <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="{TemplateBinding Background}">
+                      <Panel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <icons:SymbolIcon
+                            Symbol="ChevronRight"
+                            FontSize="{DynamicResource ShellIconSizeXs}"
+                            Foreground="{TemplateBinding Foreground}"
+                            IsVisible="{TemplateBinding IsChecked, Converter={x:Static ObjectConverters.NotEqual}, ConverterParameter={x:True}}" />
+                        <icons:SymbolIcon
+                            Symbol="ChevronDown"
+                            FontSize="{DynamicResource ShellIconSizeXs}"
+                            Foreground="{TemplateBinding Foreground}"
+                            IsVisible="{TemplateBinding IsChecked, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:True}}" />
+                      </Panel>
+                    </Border>
+                  </ControlTemplate>
+                </Setter>
               </Style>
-              <!-- A leaf's ref icon occupies the disclosure column. Reserving
-                   an empty chevron here would double its apparent indent. -->
+              <!-- A leaf's ref glyph occupies the disclosure column. Reserving
+                   an empty chevron here would double its apparent indent, so
+                   every leaf, a branch, a remote branch or a tag, carries a
+                   16-point glyph column instead and its name lines up with
+                   a folder's name beside the chevron. -->
               <Style Selector="^:empty /template/ Panel#PART_ExpandCollapseChevronContainer">
                 <Setter Property="Margin" Value="0" />
                 <Setter Property="Width" Value="0" />
@@ -730,7 +767,7 @@
                   AutomationProperties.Name="Repository sections">
                 <ListBoxItem AutomationProperties.Name="Local Changes">
                   <Grid VerticalAlignment="Center" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="Edit" FontSize="{DynamicResource ShellIconSizeMd}" />
+                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="Edit" />
                     <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="Local Changes" />
                     <Border Grid.Column="2" HorizontalAlignment="Right" Classes="GitCountBadge">
                       <TextBlock Text="{Binding UnstagedCount}" />
@@ -739,7 +776,7 @@
                 </ListBoxItem>
                 <ListBoxItem AutomationProperties.Name="All Commits">
                   <Grid VerticalAlignment="Center" ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="History" FontSize="{DynamicResource ShellIconSizeMd}" />
+                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="History" />
                     <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="All Commits" />
                   </Grid>
                 </ListBoxItem>
@@ -771,7 +808,6 @@
                           <Border IsVisible="{Binding HasRef}">
                             <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" MinHeight="24"
                                 Classes="GitRefRow"
-                                Classes.current="{Binding IsCurrent}"
                                 DoubleTapped="OnBranchRowDoubleTapped">
                               <!-- Three groups: what you do with the branch,
                                    what you make from it, and deleting it,
@@ -823,7 +859,16 @@
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
                                     Symbol="BranchFork"
-                                    FontSize="{DynamicResource ShellIconSizeXs}" />
+                                    FontSize="{DynamicResource ShellIconSizeXs}"
+                                    IsVisible="{Binding !IsCurrent}" />
+                                <icons:SymbolIcon
+                                    Classes="GitCurrentMark"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Symbol="Checkmark"
+                                    FontSize="{DynamicResource ShellIconSizeXs}"
+                                    IsVisible="{Binding IsCurrent}"
+                                    ToolTip.Tip="Current branch" />
                                 <TextBlock
                                     Grid.Column="1"
                                     VerticalAlignment="Center"
@@ -935,7 +980,15 @@
                                   <MenuItem Header="Delete…" Click="OnDeleteTagClick" />
                                 </ContextMenu>
                               </Border.ContextMenu>
-                              <TextBlock Classes="GitSidebarRow" Text="{Binding LeafName}" ToolTip.Tip="{Binding Name}" />
+                              <Grid ColumnDefinitions="16,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                                <icons:SymbolIcon
+                                    Classes="GitRefGlyph"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Symbol="Tag"
+                                    FontSize="{DynamicResource ShellIconSizeXs}" />
+                                <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="GitSidebarRow" Text="{Binding LeafName}" ToolTip.Tip="{Binding Name}" />
+                              </Grid>
                             </Border>
                           </Border>
                         </Panel>
@@ -964,10 +1017,14 @@
                               <MenuItem Header="Drop Stash…" Click="OnStashDropClick" />
                             </ContextMenu>
                           </Border.ContextMenu>
-                          <TextBlock
-                              Classes="GitSidebarRow"
-                              Text="{Binding Subject}"
-                              ToolTip.Tip="{Binding Reference}" />
+                          <Grid ColumnDefinitions="16,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                            <icons:SymbolIcon Classes="GitRefGlyph" HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Archive" FontSize="{DynamicResource ShellIconSizeXs}" />
+                            <TextBlock
+                                Grid.Column="1"
+                                Classes="GitSidebarRow"
+                                Text="{Binding Subject}"
+                                ToolTip.Tip="{Binding Reference}" />
+                          </Grid>
                         </Border>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -994,10 +1051,14 @@
                               <MenuItem Header="Remove Worktree…" Tag="Remove" Click="OnWorktreeTool" />
                             </ContextMenu>
                           </Border.ContextMenu>
-                          <TextBlock
-                              Classes="GitSidebarRow Path"
-                              Text="{Binding Path}"
-                              ToolTip.Tip="{Binding Branch}" />
+                          <Grid ColumnDefinitions="16,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                            <icons:SymbolIcon Classes="GitRefGlyph" HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Folder" FontSize="{DynamicResource ShellIconSizeXs}" />
+                            <TextBlock
+                                Grid.Column="1"
+                                Classes="GitSidebarRow Path"
+                                Text="{Binding Path}"
+                                ToolTip.Tip="{Binding Branch}" />
+                          </Grid>
                         </Border>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -1025,10 +1086,14 @@
                               <MenuItem Header="Remove Submodule…" Tag="Remove" Click="OnSubmoduleTool" />
                             </ContextMenu>
                           </Border.ContextMenu>
-                          <TextBlock
-                              Classes="GitSidebarRow Path"
-                              Text="{Binding Path}"
-                              ToolTip.Tip="{Binding State}" />
+                          <Grid ColumnDefinitions="16,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                            <icons:SymbolIcon Classes="GitRefGlyph" HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Box" FontSize="{DynamicResource ShellIconSizeXs}" />
+                            <TextBlock
+                                Grid.Column="1"
+                                Classes="GitSidebarRow Path"
+                                Text="{Binding Path}"
+                                ToolTip.Tip="{Binding State}" />
+                          </Grid>
                         </Border>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -1136,9 +1201,9 @@
                       Grid.Column="6"
                       Classes="SecondaryButton Dense"
                       Command="{Binding StageAllCommand}"
-                      Content="All"
-                      ToolTip.Tip="Stage all"
-                      AutomationProperties.Name="Stage all" />
+                      Content="Stage All"
+                      ToolTip.Tip="Stage every unstaged change"
+                      AutomationProperties.Name="Stage All" />
                 </Grid>
               </Border>
               <ListBox
@@ -1159,6 +1224,7 @@
                 <ListBox.ItemTemplate>
                   <DataTemplate>
                     <controls:ListItem
+                        Classes="MiddleTruncatedDetail"
                         ContentPadding="{DynamicResource ShellListRowPadding}"
                         Title="{Binding FileName}"
                         Detail="{Binding Directory}"
@@ -1273,9 +1339,9 @@
                       Grid.Column="5"
                       Classes="SecondaryButton Dense"
                       Command="{Binding UnstageAllCommand}"
-                      Content="All"
-                      ToolTip.Tip="Unstage all"
-                      AutomationProperties.Name="Unstage all" />
+                      Content="Unstage All"
+                      ToolTip.Tip="Unstage every staged change"
+                      AutomationProperties.Name="Unstage All" />
                 </Grid>
               </Border>
               <ListBox
@@ -1296,6 +1362,7 @@
                 <ListBox.ItemTemplate>
                   <DataTemplate>
                     <controls:ListItem
+                        Classes="MiddleTruncatedDetail"
                         ContentPadding="{DynamicResource ShellListRowPadding}"
                         Title="{Binding FileName}"
                         Detail="{Binding Directory}"
@@ -1599,7 +1666,7 @@
                       <TextBlock Classes="GitMetaLabel" Text="Author" />
                       <TextBlock
                           Grid.Column="1"
-                          Classes="GitCommitCell"
+                          Classes="GitMetaValue"
                           Text="{Binding CommitDetailMeta}"
                           TextWrapping="Wrap" />
                       <TextBlock Grid.Row="1" Classes="GitMetaLabel" Text="Refs" IsVisible="{Binding SelectedCommit.HasRefs}" />
@@ -1626,7 +1693,7 @@
                       <TextBlock
                           Grid.Row="2"
                           Grid.Column="1"
-                          Classes="GitCommitCell Muted MiddleTruncated"
+                          Classes="GitMetaValue MiddleTruncated"
                           FontFamily="{DynamicResource ShellDataFontFamily}"
                           Text="{Binding SelectedCommit.Commit.Sha}" />
                       <TextBlock Grid.Row="3" Classes="GitMetaLabel" Text="Parents" IsVisible="{Binding HasCommitParents}" />
@@ -1642,8 +1709,10 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                           <DataTemplate>
+                            <!-- No padding, so the link starts in the value
+                                 column with the SHA above it. -->
                             <Button
-                                Classes="TextButton Accent Dense"
+                                Classes="TextButton Accent GitMetaLink"
                                 Click="OnParentShaClick"
                                 Content="{Binding}"
                                 FontFamily="{DynamicResource ShellDataFontFamily}" />
@@ -1652,13 +1721,14 @@
                       </ItemsControl>
                     </Grid>
 
-                    <TextBlock Classes="Muted" Text="{Binding CommitSignatureSummary}" TextWrapping="Wrap" IsVisible="{Binding CommitSignatureSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    <TextBlock Classes="GitMetaValue Muted" Text="{Binding CommitSignatureSummary}" TextWrapping="Wrap" IsVisible="{Binding CommitSignatureSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
                     <TextBlock
                         FontWeight="SemiBold"
                         Text="{Binding SelectedCommit.Subject}"
                         TextWrapping="Wrap" />
                     <TextBlock
+                        Classes="GitCommitBody"
                         Text="{Binding CommitDetailBody}"
                         TextWrapping="Wrap"
                         IsVisible="{Binding HasCommitDetailBody}" />
@@ -1748,6 +1818,7 @@
                   <ListBox.ItemTemplate>
                     <DataTemplate>
                       <controls:ListItem
+                          Classes="MiddleTruncatedDetail"
                           ContentPadding="{DynamicResource ShellListRowPadding}"
                           Title="{Binding FileName}"
                           Detail="{Binding Directory}"
@@ -1805,8 +1876,8 @@
                     <TextBlock
                         VerticalAlignment="Center"
                         FontFamily="{DynamicResource ShellDataFontFamily}"
-                        FontSize="{DynamicResource ShellFontSize10}"
-                        LineHeight="{DynamicResource ShellLineHeight10}"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
+                        LineHeight="{DynamicResource ShellLineHeight11}"
                         Classes="Path"
                         Text="{Binding CommitFileName}" />
                   </Border>

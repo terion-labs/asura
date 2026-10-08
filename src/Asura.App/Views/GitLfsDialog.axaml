@@ -2,6 +2,12 @@
   <!-- An inspector: consulted while working, so it opens beside the panel
        without blocking it and closes with ⌘W or Escape, like any window. -->
   <controls:DialogWindow.Styles>
+    <!-- The tabs' lists start at the toolbar's leading edge, not a tab
+         control's own inset further in. -->
+    <Style Selector="TabControl.LfsTabs">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0" />
+    </Style>
     <Style Selector="TabItem">
       <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
@@ -23,20 +29,12 @@
         <Button x:Name="UnlockButton" Content="Unlock Selected" Click="OnUnlock" IsEnabled="False" />
         <Button x:Name="ForceButton" Content="Force Unlock Selected…" Classes="DestructiveButton" Click="OnForceUnlock" IsEnabled="False" />
       </WrapPanel>
-      <TabControl Grid.Row="2">
+      <TabControl Grid.Row="2" Classes="LfsTabs">
         <TabItem Header="Locks">
           <ListBox x:Name="LocksList" SelectionChanged="OnLockSelection" AutomationProperties.Name="Verified LFS locks">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:GitLfsLockItemViewModel">
-                <StackPanel Margin="{DynamicResource ShellInsetSm}" Spacing="{DynamicResource ShellSpaceXs}">
-                  <TextBlock Text="{Binding Path}" TextWrapping="Wrap" FontWeight="SemiBold" />
-                  <WrapPanel ItemSpacing="{DynamicResource ShellSpaceMd}" LineSpacing="{DynamicResource ShellSpaceXs}">
-                    <TextBlock Text="{Binding OwnerName, StringFormat=Owner: {0}}" />
-                    <TextBlock Text="{Binding OwnershipLabel}" />
-                    <TextBlock Text="{Binding LockedAtText}" />
-                  </WrapPanel>
-                  <TextBlock Classes="Muted" Text="{Binding Id, StringFormat=Lock: {0}}" />
-                </StackPanel>
+                <controls:ListItem Classes="MiddleTruncatedTitle" Title="{Binding Path}" Detail="{Binding DetailLine}" ToolTip.Tip="{Binding IdTip}" />
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
@@ -45,11 +43,7 @@
           <ListBox x:Name="StatusList" AutomationProperties.Name="Changed LFS files">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="git:GitLfsStatusFile">
-                <StackPanel Margin="{DynamicResource ShellInsetSm}" Spacing="{DynamicResource ShellSpaceXs}">
-                  <TextBlock Text="{Binding Path}" TextWrapping="Wrap" FontWeight="SemiBold" />
-                  <TextBlock Text="{Binding Status}" />
-                  <TextBlock Classes="Muted" Text="{Binding OriginalPath}" />
-                </StackPanel>
+                <controls:ListItem Classes="MiddleTruncatedTitle" Title="{Binding Path}" Detail="{Binding Status}" ToolTip.Tip="{Binding OriginalPath}" />
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>

@@ -89,9 +89,10 @@
       <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
       <Setter Property="TextWrapping" Value="NoWrap" />
     </Style>
+    <!-- Line numbers at the code's own size, so a number sits on its line's
+         baseline rather than a step below it. -->
     <Style Selector="Border.GitDiffLine TextBlock.GitDiffNumber">
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
       <Setter Property="TextAlignment" Value="Right" />
       <Setter Property="Padding" Value="{controls:Inset Right=Xs}" />
     </Style>
@@ -117,8 +118,8 @@
         <TextBlock
             VerticalAlignment="Center"
             FontFamily="{DynamicResource ShellDataFontFamily}"
-            FontSize="{DynamicResource ShellFontSize10}"
-            LineHeight="{DynamicResource ShellLineHeight10}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
+            LineHeight="{DynamicResource ShellLineHeight11}"
             Classes="Path"
             Text="{Binding DiffFileName}" />
         <controls:StatusChip
@@ -260,9 +261,10 @@
     </Grid>
 
     <WrapPanel Grid.Row="2" ItemSpacing="{DynamicResource ShellSpaceXs}" LineSpacing="{DynamicResource ShellSpaceXs}" Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" IsVisible="{Binding IsLocalChangesSection}">
-      <Button Content="Stage Selection" Tag="Stage" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding !SelectedChange.IsStaged}" />
-      <Button Content="Unstage Selection" Tag="Unstage" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding SelectedChange.IsStaged}" />
-      <Button Classes="DestructiveButton" Content="Discard Selection…" Tag="Discard" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding !SelectedChange.IsStaged}" />
+      <!-- Dense, as the toolbar controls above them are. -->
+      <Button Classes="SecondaryButton Dense" Content="Stage Selection" Tag="Stage" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding !SelectedChange.IsStaged}" />
+      <Button Classes="SecondaryButton Dense" Content="Unstage Selection" Tag="Unstage" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding SelectedChange.IsStaged}" />
+      <Button Classes="DestructiveButton Dense" Content="Discard Selection…" Tag="Discard" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding !SelectedChange.IsStaged}" />
     </WrapPanel>
     <components:GitImageDiffView Grid.Row="3" ImagePair="{Binding DiffImages}" IsVisible="{Binding HasDiffImages}" />
     <ListBox

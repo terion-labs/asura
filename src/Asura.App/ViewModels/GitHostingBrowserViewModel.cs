@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Asura.Core;
 using Asura.Git;
+using Avalonia.Data.Converters;
 
 namespace Asura.App.ViewModels;
 
@@ -19,6 +20,18 @@ public sealed class GitHostingBrowserViewModel(IGitRepositoryClient client, Conn
     private bool _presentingAccounts;
     private int _selectionVersion;
     public GitHostingAccount? LoadedAccount { get; private set; }
+
+    /// <summary>A provider as its company spells it.</summary>
+    public static string ProviderName(GitHostingProvider provider) => provider switch
+    {
+        GitHostingProvider.GitHub => "GitHub",
+        GitHostingProvider.GitLab => "GitLab",
+        _ => provider.ToString(),
+    };
+
+    /// <summary><see cref="ProviderName"/> for a provider pop-up's rows.</summary>
+    public static IValueConverter ProviderNameConverter { get; } =
+        new FuncValueConverter<GitHostingProvider, string>(ProviderName);
     private void InvalidateRepositories()
     {
         if (_presentingAccounts)
@@ -30,8 +43,28 @@ public sealed class GitHostingBrowserViewModel(IGitRepositoryClient client, Conn
         _page = 0;
         HasMore = false;
         LoadedAccount = null;
-        OnPropertyChanged(nameof(Repositories));
+        RaiseRepositoriesChanged();
     }
+
+    private void RaiseRepositoriesChanged()
+    {
+        OnPropertyChanged(nameof(Repositories));
+        OnPropertyChanged(nameof(IsListEmpty));
+        OnPropertyChanged(nameof(EmptyListText));
+    }
+
+    /// <summary>Whether the repository list has no row to show, so it says why instead.</summary>
+    public bool IsListEmpty => Repositories.Count == 0;
+
+    /// <summary>What the empty repository list says: what to do next, or that the filter matched nothing.</summary>
+    public string EmptyListText =>
+        _repositories.Count > 0 ? $"No repositories match “{Filter}”."
+        : LoadedAccount is not null ? (Starred ? "This account hasn’t starred any repositories." : "This account has no repositories.")
+        : SelectedAccount is not null ? (Starred ? "Choose Load Repositories to list this account’s starred repositories." : "Choose Load Repositories to list this account’s repositories.")
+        : "Sign in to a hosting account to list its repositories.";
+
+    /// <summary>Remove Account acts on the chosen account, so it waits for one.</summary>
+    public bool CanRemoveAccount => SelectedAccount is not null && !IsBusy;
     public ObservableCollection<GitHostingAccount> Accounts { get; } = [];
     private readonly List<GitHostedRepository> _repositories = [];
     public IReadOnlyList<GitHostedRepository> Repositories => [.. _repositories.Where(repository => repository.Name.Contains(Filter, StringComparison.OrdinalIgnoreCase))];
@@ -56,6 +89,7 @@ public sealed class GitHostingBrowserViewModel(IGitRepositoryClient client, Conn
         {
             if (SetProperty(ref _selectedAccount, value))
             {
+                OnPropertyChanged(nameof(CanRemoveAccount));
                 InvalidateRepositories();
                 if (value is not null)
                 {
@@ -67,10 +101,10 @@ public sealed class GitHostingBrowserViewModel(IGitRepositoryClient client, Conn
     }
 
     public string ApiAddress { get => _apiAddress; set { if (SetProperty(ref _apiAddress, value)) { InvalidateRepositories(); } } }
-    public string Filter { get => _filter; set { if (SetProperty(ref _filter, value)) { OnPropertyChanged(nameof(Repositories)); } } }
+    public string Filter { get => _filter; set { if (SetProperty(ref _filter, value)) { RaiseRepositoriesChanged(); } } }
     public string Status { get => _status; private set => SetProperty(ref _status, value); }
     public bool Starred { get => _starred; set { if (SetProperty(ref _starred, value)) { InvalidateRepositories(); } } }
-    public bool IsBusy { get => _isBusy; private set => SetProperty(ref _isBusy, value); }
+    public bool IsBusy { get => _isBusy; private set { if (SetProperty(ref _isBusy, value)) { OnPropertyChanged(nameof(CanRemoveAccount)); } } }
     public bool HasMore { get => _hasMore; private set => SetProperty(ref _hasMore, value); }
 
     public async Task LoadAccountsAsync()
@@ -138,7 +172,7 @@ public sealed class GitHostingBrowserViewModel(IGitRepositoryClient client, Conn
             _repositories.AddRange(page.Repositories);
             _page = page.Page;
             HasMore = page.HasMore;
-            OnPropertyChanged(nameof(Repositories));
+            RaiseRepositoriesChanged();
             Status = $"{CountText.OrNone(_repositories.Count, "repository", "repositories")}{(HasMore ? " · more available" : "")}";
         }
         catch (OperationCanceledException)
