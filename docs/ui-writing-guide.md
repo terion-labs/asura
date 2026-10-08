@@ -199,7 +199,7 @@ python3 scripts/check-ui-copy.py --paths src/Asura.App/Views --exclude src/Asura
 python3 scripts/check-ui-copy.py --summary               # counts per rule
 ```
 
-The script reads AXAML attribute values that people see (Content, Header, Title, Text, PlaceholderText, Watermark, ToolTip.Tip, AutomationProperties.Name and HelpText, and the label and description properties of Asura's own controls) and C# string literals that are user-facing: those assigned to a member such as Title, Label, Status, or Message, those passed to the shell's status and error helpers, and any other literal that reads as prose. It skips bindings, comments, logging calls, attribute arguments, and lowercase code values.
+The script reads AXAML attribute values that people see (Content, Header, Title, Text, PlaceholderText, Watermark, ToolTip.Tip, AutomationProperties.Name and HelpText, and the label and description properties of Asura's own controls) and C# string literals that are user-facing: those assigned to a member such as Title, Label, Status, or Message, those passed to the shell's status and error helpers, and any other literal that reads as prose. A view model property whose name ends in `Label`, `ActionText`, or `ButtonText` and that a view binds to a button's Content or a menu item's Header is read as a button or menu label. It skips bindings, comments, logging calls, attribute arguments, and lowercase code values.
 
 It reports:
 
@@ -210,7 +210,8 @@ It reports:
 | `secret-store` | A hand-written name for the secret store |
 | `preferences` | "Preferences" |
 | `plural` | "(s)" plurals |
-| `title-case` | Title style errors in button labels, menu items, tab items, segment labels, window and dialog titles, and C# titles and headers |
+| `title-case` | Title style errors in button labels, menu items, tab items, segment labels, window and dialog titles, C# titles and headers, and C# label properties bound to buttons and menu items |
+| `vocabulary` | Glossary terms to avoid: "directory" (except "working directory" and "home directory"), "definition", "Keybindings", "hotkey", "Toggle", and the retired panel names "File Viewer", "Process Monitor", "Stats", and "Database Viewer". It reads AXAML and `src/Asura.App`, and skips exception messages. |
 
 When text is right as written, add a line to `scripts/ui-copy-allowlist.txt`:
 

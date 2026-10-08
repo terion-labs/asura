@@ -15,11 +15,22 @@ What is read:
   a capital letter and has a second word). Logging calls and attribute
   arguments are never read; lowercase code values ("cancelled") are skipped.
 
+* C# properties that AXAML binds to a button's Content or a menu item's
+  Header, when their names end in Label, ActionText, or ButtonText
+  ("TestLabel", "HostKeyActionText"): every literal in the property's body is
+  a button or menu label and takes title case.
+
 Rules: spelling (en-US), ellipsis ("..." instead of "…"), secret-store
 (hand-written names for the OS secret store; use Asura.Core.PlatformTerms),
-preferences ("Preferences" instead of "Settings"), plural ("item(s)"), and
+preferences ("Preferences" instead of "Settings"), plural ("item(s)"),
 title-case for button labels, menu items, tab items, segment labels, window
-titles, and their C# equivalents.
+titles, and their C# equivalents, and vocabulary (the glossary in
+docs/ui-writing-guide.md: "folder", not "directory"; no "definition",
+"keybindings", "hotkey", or "Toggle"; and the panel nouns Files, Processes,
+Statistics, and Database rather than the retired "File Viewer", "Process
+Monitor", "Stats", and "Database Viewer"). The vocabulary rule reads AXAML
+and the desktop app's C# (src/Asura.App), and skips exception messages,
+which name invariants for developers rather than speak to people.
 
 True exceptions go in scripts/ui-copy-allowlist.txt, one per line:
 
@@ -54,6 +65,7 @@ class UiString:
     text: str
     context: str
     title_case: bool = False
+    vocabulary: bool = True
 
 
 @dataclass(frozen=True)
@@ -142,6 +154,28 @@ SECRET_STORE_PHRASES = re.compile(
 )
 
 PREFERENCES = re.compile(r"\bPreferences\b")
+
+# The glossary, as (pattern, message). "working directory" and "home
+# directory" are the accepted terms of art; a dotted or hyphenated name such
+# as git's "safe.directory" is a code value, not a word.
+VOCABULARY = [
+    (
+        re.compile(r"(?<!working )(?<!home )(?<![.\w-])director(?:y|ies)\b", re.IGNORECASE),
+        "say “folder”; macOS has folders (“working directory” and “home directory” are fine)",
+    ),
+    (
+        re.compile(r"\bdefinitions?\b", re.IGNORECASE),
+        "name what it is (screen, layout, workspace) instead of “definition”",
+    ),
+    (re.compile(r"\bkey ?bindings?\b", re.IGNORECASE), "say “keyboard shortcuts”"),
+    (re.compile(r"\bhot ?keys?\b", re.IGNORECASE), "say “keyboard shortcut”"),
+    (re.compile(r"\bToggle\b"), "use a specific verb, or Show/Hide, instead of “Toggle”"),
+    (re.compile(r"\bfile viewer\b", re.IGNORECASE), "the panel is called “Files”"),
+    (re.compile(r"\bprocess monitor\b", re.IGNORECASE), "the panel is called “Processes”"),
+    (re.compile(r"\bStats\b"), "the panel is called “Statistics”"),
+    (re.compile(r"\bdatabase viewer\b", re.IGNORECASE), "the panel is called “Database”"),
+]
+VOCABULARY_CODE_PATHS = ("src/Asura.App/",)
 
 # "HTTP(S)" names two protocols; only a lowercase word with "(s)" is a plural.
 PLURAL_HACK = re.compile(r"\b\w*[a-z]\w*\((?:s|es)\)")
@@ -253,6 +287,10 @@ def check(item: UiString) -> list[Finding]:
     if item.title_case:
         for word, message in title_case_problems(text):
             add("title-case", word, message)
+    if item.vocabulary and not SQL_START.match(visible.strip()):
+        for pattern, message in VOCABULARY:
+            for match in pattern.finditer(visible):
+                add("vocabulary", match.group(0), message)
     return found
 
 
@@ -379,6 +417,40 @@ def axaml_strings(path: str, source: bytes) -> list[UiString]:
     except xml.parsers.expat.ExpatError as error:
         raise SystemExit(f"{path}: cannot parse AXAML: {error}") from error
     return strings
+
+
+BOUND_LABEL = re.compile(r"\w*(?:Label|ActionText|ButtonText)$")
+BINDING_PATH = re.compile(r"^\{(?:Binding|CompiledBinding|ReflectionBinding)\s*(?:Path=)?([^,}]*)")
+XAML_MENU_ITEMS = {"MenuItem", "NativeMenuItem"}
+
+
+def axaml_title_bindings(source: bytes) -> set[str]:
+    """Property names bound to a button's Content or a menu item's Header."""
+    names: set[str] = set()
+
+    def start(name: str, attributes: dict[str, str]) -> None:
+        local = _local(name)
+        if local in XAML_BUTTONS:
+            raw = attributes.get("Content")
+        elif local in XAML_MENU_ITEMS:
+            raw = attributes.get("Header")
+        else:
+            return
+        match = BINDING_PATH.match((raw or "").strip())
+        if not match:
+            return
+        member = re.split(r"[.)]", match.group(1).strip().rstrip(")"))
+        member = [part for part in member if part]
+        if member and BOUND_LABEL.fullmatch(member[-1].strip()):
+            names.add(member[-1].strip())
+
+    parser = xml.parsers.expat.ParserCreate()
+    parser.StartElementHandler = start
+    try:
+        parser.Parse(source, True)
+    except xml.parsers.expat.ExpatError:
+        return names
+    return names
 
 
 # --- C# ---------------------------------------------------------------------
@@ -638,8 +710,37 @@ def _normalized(name: str) -> str:
     return name[:1].upper() + name[1:]
 
 
-def csharp_strings(path: str, source: str) -> list[UiString]:
+STRING_PROPERTY = re.compile(r"\bstring\??\s+([A-Za-z_]\w*)\s*(=>|\{)")
+
+
+def _property_extents(blanked: str, names: set[str]) -> list[tuple[int, int, str]]:
+    """The bodies of string properties named in names, as (start, end, name)."""
+    extents = []
+    for match in STRING_PROPERTY.finditer(blanked):
+        name = match.group(1)
+        if name not in names:
+            continue
+        i = match.end()
+        depth = 0
+        while i < len(blanked):
+            c = blanked[i]
+            if c in "([{":
+                depth += 1
+            elif c in ")]}":
+                if depth == 0:
+                    break  # The closing brace of a "{ get => … }" body.
+                depth -= 1
+            elif c == ";" and depth == 0 and match.group(2) == "=>":
+                break
+            i += 1
+        extents.append((match.end(), i, name))
+    return extents
+
+
+def csharp_strings(path: str, source: str, title_properties: set[str] | frozenset[str] = frozenset()) -> list[UiString]:
     literals, blanked = scan_csharp(source)
+    label_bodies = _property_extents(blanked, set(title_properties)) if title_properties else []
+    vocabulary = path.startswith(VOCABULARY_CODE_PATHS)
     line_starts = [0] + [m.end() for m in re.finditer("\n", source)]
 
     def line_of(offset: int) -> int:
@@ -660,7 +761,9 @@ def csharp_strings(path: str, source: str) -> list[UiString]:
             checked, _, context = decisions[literal.parent]
             decisions[index] = (checked, False, context)
             if checked and value.strip() and not CODE_VALUE.match(value):
-                strings.append(UiString(path, line_of(literal.start), value, context))
+                strings.append(UiString(
+                    path, line_of(literal.start), value, context,
+                    vocabulary=vocabulary and not context.endswith("Exception() argument")))
             continue
         context = csharp_context(blanked, literal.start)
         checked = False
@@ -684,6 +787,11 @@ def csharp_strings(path: str, source: str) -> list[UiString]:
                 checked = True
             if TITLE_MEMBER.match(name):
                 checked = title = True
+        body = next((name for start, end, name in label_bodies if start <= literal.start < end), None)
+        if body is not None:
+            # A button or menu label returned by a property the markup binds.
+            checked = title = True
+            label = f"C# {body} (bound as a button or menu label)"
         visible = value.replace(HOLE, " ").strip()
         if not visible or CODE_VALUE.match(visible):
             checked = title = False
@@ -691,7 +799,11 @@ def csharp_strings(path: str, source: str) -> list[UiString]:
             checked = True
         decisions[index] = (checked, title, label)
         if checked:
-            strings.append(UiString(path, line_of(literal.start), value, label, title))
+            exception = context is not None and context.kind == "call" and (
+                context.name.endswith("Exception") or context.name.rsplit(".", 1)[-1].startswith("ThrowIf"))
+            strings.append(UiString(
+                path, line_of(literal.start), value, label, title,
+                vocabulary=vocabulary and not exception))
     return strings
 
 
@@ -751,12 +863,18 @@ def _under(relative: str, prefix: str) -> bool:
 
 def lint(root: Path, files: list[str], allowlist: list[AllowEntry]) -> list[Finding]:
     findings = []
+    # Every view's bindings, not only the linted files': a view model's label
+    # is a button label because some view, anywhere, binds it as one.
+    title_properties: set[str] = set()
+    for relative in source_files(root, ["src"], []):
+        if relative.endswith(".axaml"):
+            title_properties |= axaml_title_bindings((root / relative).read_bytes())
     for relative in files:
         data = (root / relative).read_bytes()
         if relative.endswith(".axaml"):
             strings = axaml_strings(relative, data)
         else:
-            strings = csharp_strings(relative, data.decode("utf-8-sig"))
+            strings = csharp_strings(relative, data.decode("utf-8-sig"), title_properties)
         for item in strings:
             findings.extend(f for f in check(item) if not any(e.allows(f) for e in allowlist))
     return findings
