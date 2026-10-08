@@ -24,7 +24,7 @@ internal sealed record ShellClosePresentation(
             ? confirmation with { TargetId = string.Empty, Sessions = [] }
             : confirmation),
         ShowErrorAsync = message => ShowErrorAsync(isLocked()
-            ? "The application could not finish closing. Unlock it to review the details."
+            ? "Asura couldn’t finish closing. Unlock it to see why."
             : message),
     };
 

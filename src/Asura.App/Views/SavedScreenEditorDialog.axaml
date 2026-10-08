@@ -16,7 +16,7 @@
       Chrome="Editor"
       Title="{Binding EditorTitle}"
       Subtitle="Choose a layout, then configure the panel assigned to each slot."
-      FooterHint="Saving changes only future opens; running instances stay independent.">
+      FooterHint="Changes apply the next time the screen opens. Tabs already open don’t change.">
     <controls:DialogShell.HeaderContent>
       <controls:StatusChip
           Content="{Binding DirtyStatus}"

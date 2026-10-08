@@ -10,7 +10,7 @@
     </controls:DialogShell.Footer>
     <Grid RowDefinitions="Auto,*,Auto" RowSpacing="{DynamicResource ShellSpaceSm}">
       <TextBlock x:Name="BaseLabel" />
-      <ListBox x:Name="Rows" Grid.Row="1" AutomationProperties.Name="Rebase todo" PointerMoved="OnDragMove" PointerReleased="OnDragEnd" PointerCaptureLost="OnDragLost">
+      <ListBox x:Name="Rows" Grid.Row="1" AutomationProperties.Name="Rebase steps" PointerMoved="OnDragMove" PointerReleased="OnDragEnd" PointerCaptureLost="OnDragLost">
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="vm:GitRebaseRowViewModel">
             <Grid ColumnDefinitions="Auto,Auto,140,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">

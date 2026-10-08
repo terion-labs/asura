@@ -11,14 +11,14 @@
     SizeToContent="Height"
     CanResize="False">
   <controls:DialogShell
-      Title="Review Definition Import"
-      Subtitle="Preflight is complete. Nothing has been imported yet."
+      Title="Review Import"
+      Subtitle="Asura checked the file. Nothing has been imported yet."
       FooterHint="{Binding CommitHint}"
       Scrolls="False">
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
         <Button MinWidth="88" Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
-        <Button x:Name="ImportButton" MinWidth="88" Classes="PrimaryButton" Click="OnImportClick" Content="Import Definitions" IsDefault="True" IsEnabled="{Binding CanApply}" />
+        <Button x:Name="ImportButton" MinWidth="88" Classes="PrimaryButton" Click="OnImportClick" Content="Import" IsDefault="True" IsEnabled="{Binding CanApply}" />
       </StackPanel>
     </controls:DialogShell.Footer>
   <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="{DynamicResource ShellSpaceLg}">
@@ -55,7 +55,7 @@
     </Grid>
 
     <StackPanel Grid.Row="2" IsVisible="{Binding HasExecutionReview}" Spacing="{DynamicResource ShellSpaceSm}">
-      <TextBlock FontWeight="SemiBold" Text="Executable content and connection authority" />
+      <TextBlock FontWeight="SemiBold" Text="Commands and connections" />
       <ListBox ItemsSource="{Binding ExecutionReview}" MaxHeight="220">
         <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
         <ListBox.ItemTemplate>
@@ -68,7 +68,7 @@
         </ListBox.ItemTemplate>
       </ListBox>
       <CheckBox x:Name="ExecutionAcknowledgement" IsChecked="False" IsCheckedChanged="OnExecutionAcknowledged">
-        <TextBlock Text="I reviewed and trust these commands, images, host mounts and connection destinations. Opening imported workspaces or panels may run code or connect using the displayed authority." TextWrapping="Wrap" />
+        <TextBlock Text="I reviewed and trust these commands, images, host mounts, and connection destinations. Opening an imported workspace or panel can run this code or connect with these settings." TextWrapping="Wrap" />
       </CheckBox>
     </StackPanel>
   </Grid>

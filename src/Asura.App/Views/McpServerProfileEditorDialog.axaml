@@ -109,7 +109,7 @@
               <TextBlock
                   Classes="Muted"
                   FontSize="{DynamicResource ShellSecondaryFontSize}"
-                  Text="Each row is one exact argv value. Rows are never joined into a shell command."
+                  Text="Each row is passed to the server as one argument, exactly as written. Rows are never joined into a shell command."
                   TextWrapping="Wrap" />
             </StackPanel>
             <Button
@@ -266,7 +266,7 @@
               <TextBlock
                   Classes="Muted"
                   FontSize="{DynamicResource ShellSecondaryFontSize}"
-                  Text="Only exact, case-sensitive names in this list can enter a frozen agent-run manifest."
+                  Text="The agent is offered only tools named here, spelled exactly and with matching case."
                   TextWrapping="Wrap" />
             </StackPanel>
             <Button

@@ -20,14 +20,14 @@ public sealed partial class DefinitionImportPreflightDialog : DialogWindow
         FileName = Path.GetFileName(plan.Path);
         Directory = Path.GetDirectoryName(plan.Path) ?? plan.Path;
         ModeLabel = plan.Mode == DefinitionImportMode.ReplaceExisting
-            ? "Replace matches"
-            : "Stop on conflict";
-        Summary = $"{plan.DefinitionCount} definitions · {plan.Conflicts.Count} identity conflicts · {plan.Issues.Count(issue => issue.IsBlocking)} blocking issues";
+            ? "Replace matching items"
+            : "Stop on conflicts";
+        Summary = $"{CountLabel.Format(plan.DefinitionCount, "item")} · {CountLabel.Format(plan.Conflicts.Count, "conflict")} · {CountLabel.Format(plan.Issues.Count(issue => issue.IsBlocking), "blocking issue")}";
         CommitHint = plan.CanApply
             ? plan.Mode == DefinitionImportMode.ReplaceExisting
-                ? "Matching identities will be replaced in one transaction. Bundles never import secret values; AI credential bindings are detached, and AI/MCP profiles are disabled for review."
-                : "The bundle will be committed in one transaction. Existing definitions remain unchanged. AI credential bindings are detached, and AI/MCP profiles are disabled for review."
-            : "Resolve blocking issues or choose a different file. This import cannot be applied.";
+                ? "Matching items are replaced all at once. Imports never include secret values: AI credentials are left unassigned, and AI providers and MCP servers stay off until you review them."
+                : "Everything is imported at once, and items you already have stay as they are. AI credentials are left unassigned, and AI providers and MCP servers stay off until you review them."
+            : "Fix the blocking issues or choose a different file. This file can’t be imported.";
         _canCommit = plan.CanApply;
         ExecutionReview = plan.ExecutionReview;
         Issues = [.. plan.Issues.Select(DefinitionImportIssueItem.From)];
@@ -37,7 +37,7 @@ public sealed partial class DefinitionImportPreflightDialog : DialogWindow
         DataContext = this;
     }
 
-    public string FileName { get; } = "Definition bundle";
+    public string FileName { get; } = "Asura setup";
 
     public string Directory { get; } = string.Empty;
 
@@ -85,23 +85,23 @@ public sealed partial class DefinitionImportPreflightDialog : DialogWindow
 public sealed record DefinitionImportIssueItem(string Label, string Heading, string Message)
 {
     public static DefinitionImportIssueItem From(DefinitionImportIssue issue) => new(
-        issue.IsBlocking ? "BLOCKING" : "Notice",
+        issue.IsBlocking ? "Blocking" : "Notice",
         Humanize(issue.Code),
         issue.Message);
 
     private static string Humanize(DefinitionImportIssueCode code) => code switch
     {
-        DefinitionImportIssueCode.ExistingIdentity => "Existing identity",
+        DefinitionImportIssueCode.ExistingIdentity => "Already exists",
         DefinitionImportIssueCode.MissingDependency => "Missing dependency",
-        DefinitionImportIssueCode.UnsupportedKind => "Unsupported definition kind",
-        DefinitionImportIssueCode.UnsupportedSchema => "Unsupported schema version",
-        DefinitionImportIssueCode.UnsafePayload => "Unsafe payload rejected",
-        DefinitionImportIssueCode.DuplicateIdentity => "Duplicate identity",
-        DefinitionImportIssueCode.InvalidPayload => "Invalid definition payload",
+        DefinitionImportIssueCode.UnsupportedKind => "Unsupported item type",
+        DefinitionImportIssueCode.UnsupportedSchema => "Unsupported file version",
+        DefinitionImportIssueCode.UnsafePayload => "Unsafe content rejected",
+        DefinitionImportIssueCode.DuplicateIdentity => "Duplicate item",
+        DefinitionImportIssueCode.InvalidPayload => "Damaged item",
         DefinitionImportIssueCode.ImportedMcpProfileDisabled =>
             "MCP server disabled for review",
         DefinitionImportIssueCode.ImportedAiProviderProfileDisabled =>
             "AI provider disabled for review",
-        _ => "Invalid definition bundle",
+        _ => "Damaged file",
     };
 }

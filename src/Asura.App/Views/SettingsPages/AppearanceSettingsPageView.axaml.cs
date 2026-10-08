@@ -152,8 +152,8 @@ public sealed partial class AppearanceSettingsPageView : UserControl
                 theme.Accent.Kind switch
                 {
                     AccentPreferenceKind.Custom => "Custom",
-                    AccentPreferenceKind.AsuraBronze => "Asura orange",
-                    _ => "Follow host",
+                    AccentPreferenceKind.AsuraBronze => "Asura Orange",
+                    _ => "Follow System",
                 });
 
             ApplicationTextScalePicker.ItemsSource =
@@ -211,7 +211,7 @@ public sealed partial class AppearanceSettingsPageView : UserControl
         {
             "Custom" => AccentPreference.Custom(
                 RgbColor.Parse(CustomAccentText.Text ?? ThemePreference.BrandAccent.ToString())),
-            "Asura orange" => AccentPreference.AsuraBronze,
+            "Asura Orange" => AccentPreference.AsuraBronze,
             _ => AccentPreference.FollowHost,
         };
         var textScale =

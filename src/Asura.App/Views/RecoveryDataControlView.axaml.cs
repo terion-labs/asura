@@ -35,9 +35,9 @@ public sealed partial class RecoveryDataControlView : UserControl
         }
 
         var confirmed = await Confirmations.RecoveryDataClear(
-                "Clear this saved recovery?",
-                $"{item.SnapshotLabel} from one previous run will be permanently removed.",
-                "Clear recovery")
+                "Clear this recovery snapshot?",
+                $"{item.SnapshotLabel} from one previous run will be deleted permanently.",
+                "Clear Snapshot")
             .ShowDialog<bool>(owner);
         if (confirmed)
         {

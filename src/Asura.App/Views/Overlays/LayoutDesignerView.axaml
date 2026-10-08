@@ -108,8 +108,8 @@
           <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Grid" FontSize="{DynamicResource ShellIconSizeMd}" Foreground="{DynamicResource ShellTextBrush}" />
         </Border>
         <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-          <TextBlock Classes="Title3" Text="Custom Layout" />
-          <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Split, drag, and resize panels — the canvas works like the workspace" TextWrapping="Wrap" />
+          <TextBlock Classes="Title3" Text="Layout Designer" />
+          <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Split, drag, and resize panels. The canvas works like a workspace." TextWrapping="Wrap" />
         </StackPanel>
         <!-- Only news is worth a badge: "saved" is the resting state, and
              a label saying so was furniture. -->
@@ -202,12 +202,12 @@
                 AutomationProperties.Name="Add a panel">
               <StackPanel HorizontalAlignment="Center" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
                 <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
-                <TextBlock Text="Add panel" />
+                <TextBlock Text="Add Panel" />
               </StackPanel>
             </Button>
 
             <controls:SurfaceCard Tone="Notice" Padding="{DynamicResource ShellCardPaddingCompact}">
-              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Panels are generic regions — assign connections later when you open the screen." TextWrapping="Wrap" />
+              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Panels here are empty slots. Choose what each one opens when you use the layout in a screen." TextWrapping="Wrap" />
             </controls:SurfaceCard>
 
             <components:ErrorNoticesView DataContext="{Binding LayoutDesignerEditor.ErrorNotices}" />

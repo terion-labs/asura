@@ -439,7 +439,7 @@ public sealed class AvaloniaHostAppearanceAdapterTests
     {
         Assert.Contains(
             MainWindow.AppearanceTextScaleOptions,
-            option => option.Scale is null && string.Equals(option.DisplayName, "Follow host", StringComparison.Ordinal));
+            option => option.Scale is null && string.Equals(option.DisplayName, "Follow System", StringComparison.Ordinal));
         Assert.Contains(
             MainWindow.AppearanceTextScaleOptions,
             option => option.Scale == 2 && string.Equals(option.DisplayName, "200%", StringComparison.Ordinal));

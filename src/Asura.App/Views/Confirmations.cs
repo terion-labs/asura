@@ -27,8 +27,8 @@ internal static class Confirmations
             Heading = $"Delete {kind}?",
             Detail = $"“{name}” will be removed from {provider}.",
             Notice = hasVersionHistory
-                ? "Asura cannot undo this operation. The provider advertises version history, so an administrator may be able to recover an older version."
-                : "This provider does not advertise trash or version recovery. Asura cannot undo this permanent deletion.",
+                ? "Asura can’t undo this. The location keeps version history, so an administrator may be able to recover an older version."
+                : "This location has no Trash or version history, so the deletion is permanent. Asura can’t undo it.",
             ConfirmLabel = "Delete Permanently",
             Intent = ConfirmationIntent.Destructive,
         });
@@ -36,8 +36,8 @@ internal static class Confirmations
     public static ConfirmationDialog DefinitionDelete(string definitionKind, string name) =>
         DefinitionDelete(
             $"Delete {definitionKind}?",
-            $"“{name}” will be permanently removed from this profile. Asura cannot undo this.",
-            "Referenced definitions are protected and will not be deleted.",
+            $"“{name}” will be deleted permanently. Asura can’t undo this.",
+            "Anything still in use elsewhere is kept and isn’t deleted.",
             "Delete");
 
     public static ConfirmationDialog DefinitionDelete(
@@ -58,7 +58,7 @@ internal static class Confirmations
 
     public static ConfirmationDialog DiscardChanges(
         string heading = "Discard layout changes?",
-        string detail = "The unsaved grid, panel geometry, order, and minimum-size changes will be lost.") =>
+        string detail = "Unsaved changes to the grid, panel sizes, order, and minimum sizes will be lost.") =>
         new(new ConfirmationDialogOptions
         {
             Heading = heading,
@@ -90,10 +90,10 @@ internal static class Confirmations
         new(new ConfirmationDialogOptions
         {
             Heading = $"Restart “{workspaceName}”?",
-            Detail = "Workspace will be restarted to change isolation configuration.",
+            Detail = "The workspace restarts to apply the new isolation settings.",
             Notice = rebuildsIsolate
                 ? "All workspace connections will stop. Changing the runtime image removes installed packages and guest-only files before the workspace reopens. Host-mounted files are not removed."
-                : "All connections and local terminals running in this workspace will be stopped. The workspace reopens from its saved definition.",
+                : "All connections and local terminals running in this workspace will stop. The workspace reopens with its saved settings.",
             ConfirmLabel = "Restart Workspace",
             // Running terminals end, and whatever they held ends with them.
             Intent = ConfirmationIntent.Destructive,
@@ -123,7 +123,7 @@ internal static class Confirmations
             Detail = count == 1
                 ? $"“{firstPath}” returns to its last staged or committed content; an untracked file is deleted."
                 : $"“{firstPath}” and {count - 1} more return to their last staged or committed content; untracked files are deleted.",
-            Notice = "Asura cannot undo a discarded working-tree change.",
+            Notice = "Asura can’t undo a discarded working-tree change.",
             ConfirmLabel = count == 1 ? "Discard Change" : "Discard Changes",
             Intent = ConfirmationIntent.Destructive,
             ConfirmAutomationName = "Confirm discard change",
@@ -171,7 +171,7 @@ internal static class Confirmations
         {
             Heading = "Drop this stash?",
             Detail = $"“{subject}” is removed from the stash list without being applied.",
-            Notice = "Asura cannot undo a dropped stash; its record survives only until Git prunes it.",
+            Notice = "Asura can’t undo a dropped stash; its record survives only until Git prunes it.",
             ConfirmLabel = "Drop Stash",
             Intent = ConfirmationIntent.Destructive,
             ConfirmAutomationName = "Confirm drop stash",
@@ -183,7 +183,7 @@ internal static class Confirmations
         {
             Heading = $"Delete branch “{name}”?",
             Detail = "The branch is deleted even when unmerged, so commits reachable only from it are left behind.",
-            Notice = "Asura cannot undo this deletion; an unmerged tip survives only in the reflog until Git prunes it.",
+            Notice = "Asura can’t undo this deletion; an unmerged tip survives only in the reflog until Git prunes it.",
             ConfirmLabel = "Delete Branch",
             Intent = ConfirmationIntent.Destructive,
             ConfirmAutomationName = "Confirm delete branch",
@@ -239,8 +239,8 @@ internal static class Confirmations
         new(new ConfirmationDialogOptions
         {
             Heading = "Clear recent sessions?",
-            Detail = "Recent definition metadata will be removed from this profile.",
-            Notice = "This does not close active sessions or delete saved connections, screens, or workspaces. Terminal content and commands were never stored here.",
+            Detail = "The list of recently opened workspaces, screens, and connections will be cleared.",
+            Notice = "This doesn’t close active sessions or delete saved connections, screens, or workspaces. Terminal content and commands were never stored here.",
             ConfirmLabel = "Clear",
             Intent = ConfirmationIntent.Destructive,
             ConfirmAutomationName = "Confirm clear history",
@@ -251,8 +251,8 @@ internal static class Confirmations
         new(new ConfirmationDialogOptions
         {
             Heading = "Reset unreadable history?",
-            Detail = "Asura could not safely read the retained session metadata. Resetting removes every history row, including malformed rows, so the local store can start clean.",
-            Notice = "This recovery action does not close active sessions or delete saved connections, screens, or workspaces. It cannot be limited to the rows shown because unreadable rows are hidden.",
+            Detail = "Asura couldn’t read the saved session history. Resetting removes all of it, including the damaged entries, so history can start fresh.",
+            Notice = "This doesn’t close active sessions or delete saved connections, screens, or workspaces. It can’t be limited to the entries shown, because the damaged entries can’t be shown.",
             ConfirmLabel = "Reset History",
             Intent = ConfirmationIntent.Destructive,
             ConfirmAutomationName = "Confirm reset unreadable history",
@@ -266,7 +266,7 @@ internal static class Confirmations
         {
             Heading = "Apply stricter history retention?",
             Detail = $"{option.DisplayName}: {option.Description}",
-            Notice = "Records outside the new limit are removed immediately and cannot be restored. Active sessions stay open, and saved connections, screens, and workspaces are not changed.",
+            Notice = "History outside the new limit is removed right away and can’t be restored. Active sessions stay open, and saved connections, screens, and workspaces don’t change.",
             ConfirmLabel = "Apply and Prune",
             Intent = ConfirmationIntent.Destructive,
             ConfirmAutomationName = "Confirm history retention change",
@@ -282,7 +282,7 @@ internal static class Confirmations
         {
             Heading = "Apply and prune agent history?",
             Detail = option.Description + ".",
-            Notice = "Saved conversations and their audit metadata outside the new limit are removed immediately. The current active run is protected. Prompts and tool content are never included in metadata exports.",
+            Notice = "Saved conversations and their activity records outside the new limit are removed right away. The run in progress is kept. Exports never include prompts or tool content.",
             ConfirmLabel = "Apply and Prune",
             Intent = ConfirmationIntent.Destructive,
             ConfirmAutomationName = "Confirm agent history retention change",
@@ -294,8 +294,8 @@ internal static class Confirmations
         new(new ConfirmationDialogOptions
         {
             Heading = "Delete this conversation?",
-            Detail = $"“{title}” and its retained audit metadata will be removed.",
-            Notice = "This cannot delete a run while it is working. Asura cannot undo the deletion.",
+            Detail = $"“{title}” and its activity record will be deleted.",
+            Notice = "A conversation can’t be deleted while it’s running. Asura can’t undo the deletion.",
             ConfirmLabel = "Delete Conversation",
             Intent = ConfirmationIntent.Destructive,
             ConfirmAutomationName = "Confirm delete agent conversation",
@@ -308,13 +308,13 @@ internal static class Confirmations
         ArgumentNullException.ThrowIfNull(target);
         return new ConfirmationDialog(new ConfirmationDialogOptions
         {
-            Heading = $"Authorize the live tab “{target.TabName}”?",
-            Detail = $"This exact tab contains {target.PanelCount} panels in “{target.WorkspaceName}”. It was created from template “{target.TemplateName}” revision {target.TemplateRevision}.",
-            Notice = $"Only the live identity {target.ExactIdentity} is accepted. The template itself grants no authority, and later template edits cannot retarget this context.",
-            ConfirmLabel = "Authorize Live Target",
+            Heading = $"Let the agent use the tab “{target.TabName}”?",
+            Detail = $"This open tab has {CountLabel.Format(target.PanelCount, "panel")} in “{target.WorkspaceName}”. It was opened from the saved screen “{target.TemplateName}” (version {target.TemplateRevision}).",
+            Notice = $"Only this open tab is allowed ({target.ExactIdentity}). The saved screen allows nothing by itself, and later edits to it can’t point this permission at another tab.",
+            ConfirmLabel = "Allow This Tab",
             Intent = ConfirmationIntent.Confirm,
-            ConfirmAutomationName = "Authorize exact live saved screen target",
-            CancelAutomationName = "Keep live target pending",
+            ConfirmAutomationName = "Allow the agent to use this open tab",
+            CancelAutomationName = "Don’t allow the agent to use this tab yet",
         });
     }
 
@@ -322,11 +322,11 @@ internal static class Confirmations
     {
         ArgumentNullException.ThrowIfNull(item);
         return LocalArtifactClear(
-            $"Clear {item.Title.ToLowerInvariant()}?",
-            $"Current inventory: {item.FileCountLabel}, {item.SizeLabel}. "
-            + "All eligible files present in this category when cleanup starts "
-            + "will be permanently removed from Asura’s dedicated storage location.",
-            $"Confirm {item.ClearAutomationName.ToLowerInvariant()}");
+            $"Clear {LowerFirst(item.Title)}?",
+            $"Now: {item.FileCountLabel}, {item.SizeLabel}. "
+            + "Every file in this category when clearing starts "
+            + "will be deleted permanently from Asura’s own storage folder.",
+            $"Confirm {LowerFirst(item.ClearAutomationName)}");
     }
 
     public static ConfirmationDialog LocalArtifactClear(
@@ -337,7 +337,7 @@ internal static class Confirmations
         {
             Heading = heading,
             Detail = detail,
-            Notice = "Saved definitions, secrets, history, recovery snapshots, terminal content, OS-managed data, and active sessions are unaffected.",
+            Notice = "Saved workspaces, screens, and connections, secrets, history, recovery snapshots, terminal content, data the system manages, and active sessions aren’t affected.",
             ConfirmLabel = "Clear Files",
             Intent = ConfirmationIntent.Destructive,
             ConfirmAutomationName = confirmAutomationName,
@@ -346,13 +346,13 @@ internal static class Confirmations
 
     public static ConfirmationDialog RecoveryDataClear(
         string heading = "Clear saved crash recovery data?",
-        string detail = "Recovery snapshots from previous runs will be permanently removed from this profile.",
+        string detail = "Recovery snapshots from previous runs will be deleted permanently.",
         string confirmLabel = "Clear Recovery Data") =>
         new(new ConfirmationDialogOptions
         {
             Heading = heading,
             Detail = detail,
-            Notice = "Saved connections, screens, workspaces, secrets, session history, active sessions, and the current run’s protected crash snapshot are unaffected.",
+            Notice = "Saved connections, screens, workspaces, secrets, session history, active sessions, and this run’s own recovery snapshot aren’t affected.",
             ConfirmLabel = confirmLabel,
             Intent = ConfirmationIntent.Destructive,
             ConfirmAutomationName = "Confirm clearing crash recovery data",
@@ -465,6 +465,13 @@ internal static class Confirmations
     }
 
     private const string DontAskAgain = "Don't ask again";
+
+    /// <summary>
+    /// A label used inside a sentence: its first letter lowered, and nothing
+    /// else, so a name such as Asura keeps its capital.
+    /// </summary>
+    private static string LowerFirst(string label) =>
+        label.Length == 0 ? label : char.ToLowerInvariant(label[0]) + label[1..];
 
     public static ConfirmationDialog OperationError(string message) =>
         new(new ConfirmationDialogOptions

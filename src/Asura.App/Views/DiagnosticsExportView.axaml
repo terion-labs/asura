@@ -35,9 +35,9 @@
         <controls:Callout
             Tone="Notice"
             Glyph="Shield"
-            Title="Secret-safe by construction"
+            Title="Secrets are never included"
             Text="{Binding RedactionAvailabilityMessage}"
-            Footnote="Terminal contents, commands, credentials, environment values, and secret material are never eligible artifacts." />
+            Footnote="Terminal contents, commands, credentials, environment values, and other secrets are never added to the bundle." />
 
         <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
           <Button

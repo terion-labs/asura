@@ -25,7 +25,7 @@ public sealed partial class MainWindow
 
     internal static IReadOnlyList<AppearanceTextScaleOption> AppearanceTextScaleOptions { get; } =
     [
-        new("Follow host", null),
+        new("Follow System", null),
         new("100%", 1),
         new("125%", 1.25),
         new("150%", 1.5),
@@ -749,7 +749,7 @@ public sealed partial class MainWindow
 
         if (ViewModel.KeybindingEditorSession?.IsDirty == true
             && !await Confirmations.DiscardChanges(
-                    "Discard keybinding changes?",
+                    "Discard shortcut changes?",
                     "The unsaved shortcuts, prefix, and conflict resolutions will be lost.")
                 .ShowDialog<bool>(SettingsDialogOwner))
         {
@@ -825,7 +825,7 @@ public sealed partial class MainWindow
 
         if (recorded.Count != 1)
         {
-            ViewModel.SetError("An application prefix must contain exactly one key stroke.");
+            ViewModel.SetError("The prefix must be a single keystroke.");
             return;
         }
 
@@ -1252,7 +1252,7 @@ public sealed partial class MainWindow
             ArgumentException or FormatException or InvalidOperationException)
         {
             SettingsRoute.SetAppearanceValidationStatus(
-                $"Cannot preview: {exception.Message}",
+                $"Can’t preview: {exception.Message}",
                 isWarning: true);
         }
     }
@@ -1290,7 +1290,7 @@ public sealed partial class MainWindow
             ArgumentException or FormatException or InvalidOperationException)
         {
             SettingsRoute.SetAppearanceValidationStatus(
-                $"Cannot preview: {exception.Message}",
+                $"Can’t preview: {exception.Message}",
                 isWarning: true);
         }
     }
@@ -1385,7 +1385,7 @@ public sealed partial class MainWindow
         return warnings.Count == 0
             ? theme is not null
                 ? "Application appearance saves automatically."
-                : "Terminal preview only. Apply terminal saves; Cancel restores the saved terminal appearance."
+                : "Previewing the terminal. Apply Terminal saves it; Cancel restores the saved terminal appearance."
             : "Contrast warning: " + string.Join("; ", warnings) + ".";
     }
 
@@ -1539,7 +1539,7 @@ public sealed partial class MainWindow
             ArgumentException or IOException or JsonException
             or NotSupportedException or UnauthorizedAccessException)
         {
-            ViewModel.SetError($"Appearance export failed: {exception.Message}");
+            ViewModel.SetError(AppearanceFileError(exception, exporting: true));
         }
     }
 
@@ -1619,9 +1619,26 @@ public sealed partial class MainWindow
             ArgumentException or IOException or JsonException
             or NotSupportedException or UnauthorizedAccessException)
         {
-            ViewModel.SetError($"Appearance import failed: {exception.Message}");
+            ViewModel.SetError(AppearanceFileError(exception, exporting: false));
         }
     }
+
+    /// <summary>
+    /// What went wrong with an appearance theme file, in words a person can
+    /// act on; the exception's own text names types and paths, not causes.
+    /// </summary>
+    private static string AppearanceFileError(Exception exception, bool exporting) => exception switch
+    {
+        UnauthorizedAccessException => exporting
+            ? "Asura doesn’t have permission to save there. Choose another folder."
+            : "Asura doesn’t have permission to open that file.",
+        IOException => exporting
+            ? "The appearance theme couldn’t be saved. Check that the disk has room, then try again."
+            : "The appearance theme couldn’t be read. Check that the file is still there, then try again.",
+        _ => exporting
+            ? "The appearance theme couldn’t be exported."
+            : "This file isn’t an Asura appearance theme, or it’s damaged.",
+    };
 
     /// <summary>
     /// Applying a preset only rewrites the open editor; it reaches the store when
@@ -1719,7 +1736,7 @@ public sealed partial class MainWindow
         var input = SettingsRoute.CaptureAiProviderSecretForm();
         if (input.Profile is null)
         {
-            ViewModel.SetError("Choose an AI-provider profile.");
+            ViewModel.SetError("Choose an AI provider.");
             return;
         }
 

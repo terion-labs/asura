@@ -42,7 +42,7 @@ public sealed class ShellClosePrivacyTests
                 ("Discard unsaved changes?", "Unsaved changes will be lost."), prompt));
             Assert.Empty(Assert.Single(scopes).Sessions);
             Assert.Empty(scopes[0].TargetId);
-            Assert.Equal("The application could not finish closing. Unlock it to review the details.", Assert.Single(errors));
+            Assert.Equal("Asura couldn’t finish closing. Unlock it to see why.", Assert.Single(errors));
         }
         else
         {

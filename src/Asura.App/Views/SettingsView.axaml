@@ -419,7 +419,7 @@
               <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                 <components:SettingsPageHeader
                     Heading="Keyboard Shortcuts"
-                    Description="Record, unbind, reset, and validate application or terminal shortcuts. Blocking conflicts cannot be saved." />
+                    Description="Record, unbind, reset, and check application and terminal shortcuts. Shortcuts with blocking conflicts can’t be saved." />
                 <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ActiveApplicationKeymapName, StringFormat={}Active application profile · {0}}" />
                 <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap" Text="Your newest custom application profile is the active one. To use the tmux-like prefix, choose its preset and clone it." />
               </StackPanel>
@@ -683,11 +683,11 @@
             <StackPanel x:Name="BrowserSettingsPage" Spacing="{DynamicResource ShellSpaceLg}" IsVisible="{Binding IsBrowserSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="Browser"
-                  Description="Manage named browser policies. Durable profiles restore cookies, local storage, IndexedDB, cache, and navigation state from encrypted storage. Permission requests and downloads are blocked." />
+                  Description="Manage browser profiles. Persistent profiles keep cookies, site storage, cache, and history in encrypted storage between runs. Permission requests and downloads are blocked." />
               <controls:SettingsGroup Heading="Defaults" ControlWidth="300">
                 <controls:SettingRow
                     Label="Default named profile"
-                    Description="Applies to new browser panels. A disabled or missing selection fails visibly and is never replaced with another profile.">
+                    Description="Used by new browser panels. If it’s turned off or missing, the panel says so instead of using another profile.">
                   <ComboBox
                       Width="280"
                       ItemsSource="{Binding BrowserProfileSettingsEditor.Profiles}"
@@ -880,7 +880,7 @@
                   </Grid>
                   <TextBlock
                       Classes="Muted"
-                      Text="The built-in profile cannot store authentication. Existing browser panels keep their pinned profile revision until they close."
+                      Text="The built-in profile can’t store authentication. Open browser panels keep the profile settings they started with until they close."
                       TextWrapping="Wrap" />
                 </StackPanel>
               </controls:SurfaceCard>
@@ -1152,7 +1152,7 @@
                   <controls:SettingsGroup.Footer>
                     <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                       <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
-                          Text="This build has no startup-protection support."
+                          Text="Startup protection isn’t available in this version of Asura."
                           IsVisible="{Binding !ApplicationSecurityEditor.IsProtectionAvailable}" />
                       <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
                           Text="Startup protection is on."
@@ -1171,7 +1171,7 @@
                 <controls:StateOverlay
                     Kind="Loading"
                     Heading="Loading session history…"
-                    Body="Retention controls remain unavailable until the saved policy is known."
+                    Body="History settings become available once the saved setting loads."
                     IsVisible="{Binding IsHistoryLoading}" />
                 <controls:StateOverlay
                     Kind="Retry"
@@ -1216,8 +1216,8 @@
                       <WrapPanel Grid.Column="1" HorizontalAlignment="Right" Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceXs}" LineSpacing="{DynamicResource ShellSpaceXs}">
                         <Button Classes="SecondaryButton" Click="OnExportAllHistoryClick" Content="Export All…" IsEnabled="{Binding CanExportAllHistory}" AutomationProperties.Name="Export all retained history metadata" />
                         <Button Classes="SecondaryButton" Click="OnCancelHistoryExportClick" Content="Cancel Export" IsVisible="{Binding IsHistoryExporting}" AutomationProperties.Name="Cancel session history export" />
-                        <Button Classes="DestructiveButton" Click="OnClearRecentSessionsClick" Content="Clear History" IsEnabled="{Binding CanClearRecentSessionHistory}" AutomationProperties.Name="Clear retained session history" />
-                        <Button Classes="DestructiveButton" Click="OnResetRecentSessionHistoryClick" Content="Reset Unreadable History" IsEnabled="{Binding CanResetRecentSessionHistory}" IsVisible="{Binding HasUnreadableRecentSessionHistory}" AutomationProperties.Name="Reset unreadable session history" />
+                        <Button Classes="DestructiveButton" Click="OnClearRecentSessionsClick" Content="Clear History…" IsEnabled="{Binding CanClearRecentSessionHistory}" AutomationProperties.Name="Clear retained session history" />
+                        <Button Classes="DestructiveButton" Click="OnResetRecentSessionHistoryClick" Content="Reset Unreadable History…" IsEnabled="{Binding CanResetRecentSessionHistory}" IsVisible="{Binding HasUnreadableRecentSessionHistory}" AutomationProperties.Name="Reset unreadable session history" />
                       </WrapPanel>
                     </Grid>
                   </controls:SettingsGroup.Footer>

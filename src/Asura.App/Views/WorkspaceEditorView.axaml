@@ -37,7 +37,7 @@
                 Grid.Column="3"
                 Classes="IconButton"
                 Click="OnCreateWorkspaceClick"
-                ToolTip.Tip="New workspace"
+                ToolTip.Tip="New Workspace"
                 AutomationProperties.Name="Create a workspace">
               <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>

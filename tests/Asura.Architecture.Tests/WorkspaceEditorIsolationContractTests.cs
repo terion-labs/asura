@@ -219,7 +219,7 @@ public sealed class WorkspaceEditorIsolationContractTests
         var editorHandler = File.ReadAllText(Path.Combine(views, "MainWindow.axaml.cs"));
 
         Assert.Contains(
-            "Workspace will be restarted to change isolation configuration.",
+            "The workspace restarts to apply the new isolation settings.",
             confirmation,
             StringComparison.Ordinal);
         Assert.Contains(

@@ -27,23 +27,23 @@
 
     <controls:SettingsGroup
         Heading="Activation"
-        Description="Choose the global shortcut used to summon or dismiss the panel."
+        Description="The shortcut that shows or hides Quick Terminal from any app."
         ControlWidth="300">
       <controls:SettingRow
-          Label="Global hotkey"
+          Label="Global shortcut"
           Description="{Binding QuickTerminalSettingsEditor.HotkeyHelpText}">
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
           <!-- Applied when the field is left, so a chord half typed is
                never registered on the way to the one meant. -->
           <TextBox
               Text="{Binding QuickTerminalSettingsEditor.HotkeyText, UpdateSourceTrigger=LostFocus}"
-              AutomationProperties.Name="Quick Terminal global hotkey" />
+              AutomationProperties.Name="Quick Terminal global shortcut" />
           <Button
               Grid.Column="1"
               Classes="SecondaryButton"
               Click="OnRecordHotkeyClick"
               Content="Record…"
-              AutomationProperties.Name="Record Quick Terminal global hotkey" />
+              AutomationProperties.Name="Record Quick Terminal global shortcut" />
         </Grid>
       </controls:SettingRow>
       <controls:SettingsGroup.Footer>
@@ -86,7 +86,7 @@
         ControlWidth="280">
       <controls:SettingRow
           Label="Show on display"
-          Description="Active window follows whichever app is in front and falls back to Asura where unsupported. Asura window follows this app; Primary always uses the OS primary display.">
+          Description="Active window follows whichever app is in front, or Asura where that isn’t possible. Asura window follows Asura. Primary display always uses the main display.">
         <ComboBox
             ItemsSource="{Binding QuickTerminalSettingsEditor.MonitorOptions}"
             SelectedItem="{Binding QuickTerminalSettingsEditor.SelectedMonitorOption}"
@@ -120,7 +120,7 @@
 
     <controls:SettingsGroup
         Heading="Background"
-        Description="Tune translucency and the compositor-backed blur treatment."
+        Description="How much of the desktop shows through Quick Terminal."
         ControlWidth="280">
       <controls:SettingRow
           Label="Background opacity"

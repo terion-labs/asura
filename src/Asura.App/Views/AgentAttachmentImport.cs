@@ -72,7 +72,7 @@ internal static class AgentAttachmentImport
             || agent.PendingImages.Sum(image => (long)image.Content.Length) + images.Sum(image => (long)image.Content.Length)
                 > AgentImageAttachment.MaximumTotalBytesPerMessage)
         {
-            throw new InvalidOperationException("At most four images totalling 8 MiB can be attached to one prompt.");
+            throw new InvalidOperationException("At most four images totaling 8 MiB can be attached to one prompt.");
         }
         if (images.Count > 0) { agent.AddPendingImages(images); }
         if (attachments.Count > 0) { agent.AddPendingFiles(attachments); }

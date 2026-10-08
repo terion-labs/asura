@@ -49,7 +49,7 @@ internal static class MainWindowCloseFlow
 
             if (result is not CloseScopeResult.Completed completed)
             {
-                await showError("The session still requires confirmation.");
+                await showError("A session still needs your confirmation before it can close.");
                 return false;
             }
 

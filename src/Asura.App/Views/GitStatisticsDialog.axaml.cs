@@ -17,7 +17,7 @@ public sealed partial class GitStatisticsDialog : DialogWindow
     public GitStatisticsDialog(GitRepositoryStatistics statistics) : this()
     {
         _directories = [.. statistics.Directories.Where(directory => directory.Bytes > 0)];
-        Summary.Text = $"{statistics.Directories.Sum(directory => directory.Files)} tracked files · {statistics.Directories.Sum(directory => directory.Bytes):N0} bytes";
+        Summary.Text = $"{CountLabel.Format(statistics.Directories.Sum(directory => directory.Files), "tracked file")} · {CountLabel.Format(statistics.Directories.Sum(directory => directory.Bytes), "byte")}";
         Contributors.Text = statistics.Contributors;
     }
 
@@ -74,7 +74,7 @@ public sealed partial class GitStatisticsDialog : DialogWindow
                 },
             },
         };
-        ToolTip.SetTip(card, $"{item.Path}: {item.Files:N0} files, {ByteSize.Format(item.Bytes)}");
+        ToolTip.SetTip(card, $"{item.Path}: {CountLabel.Format(item.Files, "file")}, {ByteSize.Format(item.Bytes)}");
         Canvas.SetLeft(card, rectangle.X); Canvas.SetTop(card, rectangle.Y);
         Treemap.Children.Add(card);
     }

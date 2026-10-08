@@ -1,5 +1,5 @@
-<controls:DialogWindow x:Class="Asura.App.Views.GitHostingDialog" x:DataType="vm:GitHostingBrowserViewModel" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Asura.App.ViewModels" xmlns:git="using:Asura.Git" xmlns:controls="using:Asura.App.Controls" Width="780" Height="650" MinWidth="540" MinHeight="420">
-  <controls:DialogShell Title="Hosting Accounts and Repositories" Subtitle="Browse account repositories and starred projects. Credentials use Asura's vault and the connection's network route." Scrolls="False">
+<controls:DialogWindow x:Class="Asura.App.Views.GitHostingDialog" x:DataType="vm:GitHostingBrowserViewModel" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Asura.App.ViewModels" xmlns:core="using:Asura.Core" xmlns:git="using:Asura.Git" xmlns:controls="using:Asura.App.Controls" Width="780" Height="650" MinWidth="540" MinHeight="420">
+  <controls:DialogShell Title="Hosting Accounts and Repositories" Subtitle="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Browse your account’s repositories and starred projects. Credentials stay in {0}, and requests use the connection’s network route.'}" Scrolls="False">
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
         <Button Content="Cancel" Click="OnCancel" Classes="SecondaryButton" IsCancel="True" />

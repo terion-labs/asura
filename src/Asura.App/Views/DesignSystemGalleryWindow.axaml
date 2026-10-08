@@ -347,7 +347,7 @@
             Description="The group owns the column width and the separators, so no row has to know where it sits."
             ControlWidth="240">
           <controls:SettingRow
-              Label="Global hotkey"
+              Label="Global shortcut"
               Description="Press the shortcut that summons the panel from anywhere.">
             <TextBox Text="Ctrl+Alt+T" />
           </controls:SettingRow>
@@ -415,7 +415,7 @@
             TextWrapping="Wrap" />
         <UniformGrid Columns="3" ColumnSpacing="{DynamicResource ShellSpaceMd}">
           <controls:SurfaceCard Tone="Raised">
-            <controls:LabeledField Label="Platform profile" Hint="Closest host-native chrome, radii, and density.">
+            <controls:LabeledField Label="Platform profile" Hint="Which system’s look to match: window controls, corner radius, and density.">
               <ComboBox HorizontalAlignment="Stretch" SelectedIndex="0">
                 <ComboBoxItem Content="Automatic" />
               </ComboBox>
