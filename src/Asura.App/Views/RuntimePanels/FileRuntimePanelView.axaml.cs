@@ -240,7 +240,7 @@ public sealed partial class FileRuntimePanelView : UserControl
                     Classes = { "Muted" },
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
-                    Text = "Web pages cannot be previewed on this system.",
+                    Text = "Web pages can’t be previewed on this computer.",
                 };
                 return;
             }

@@ -15,7 +15,7 @@
     IsVisible="{Binding IsVisibleInLayout}"
     AutomationProperties.Name="Database panel">
   <controls:PanelChrome
-      CloseLabel="Close database panel"
+      CloseLabel="Close Database panel"
       CloseRequested="OnCloseClick"
       HasAttention="{Binding HasAttention}"
       IsActive="{Binding IsActive}"

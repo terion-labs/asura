@@ -54,7 +54,7 @@ public sealed class TabWindowTransferStripHeadlessTests
             var newWindow = items.Single(item => Equals(item.Header, "Move to New Window"));
             Assert.Equal(Array.IndexOf(headers, "Move to Workspace") + 1, Array.IndexOf(headers, "Move to New Window"));
             Assert.False(newWindow.IsEnabled);
-            Assert.Equal("A Workspace Keeps Its Last Tab", ToolTip.GetTip(newWindow));
+            Assert.Equal("A workspace keeps its last tab", ToolTip.GetTip(newWindow));
             newWindow.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
             Assert.Null(moved);
             menu.Close();

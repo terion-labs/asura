@@ -853,7 +853,7 @@ public sealed class ManagedTerminalSurface : Control
             {
                 return await PublishCommandDispatchAsync(
                     TerminalCommandDispatchResult.UnsupportedSequence(
-                        "The expired terminal shortcut could not be passed through safely."));
+                        "The shortcut timed out and couldn’t be passed to the terminal safely."));
             }
 
             ClearCommandStatus();
@@ -1415,7 +1415,7 @@ public sealed class ManagedTerminalSurface : Control
         {
             return await PublishCommandDispatchAsync(
                 TerminalCommandDispatchResult.UnsupportedSequence(
-                    "The terminal shortcut could not be passed through safely."));
+                    "The shortcut couldn’t be passed to the terminal safely."));
         }
 
         return await PublishCommandDispatchAsync(TerminalCommandDispatchResult.PassedThrough());
@@ -1713,7 +1713,7 @@ public sealed class ManagedTerminalSurface : Control
                 ? TerminalCommandDispatchResult.Executed(commandId)
                 : TerminalCommandDispatchResult.Unavailable(
                     commandId,
-                    "The clipboard is empty or terminal clipboard reads are disabled.");
+                    "The clipboard is empty, or reading the clipboard is turned off for this terminal in Settings.");
         }
         else if (commandId == BuiltInCommands.SelectAll)
         {
@@ -1721,7 +1721,7 @@ public sealed class ManagedTerminalSurface : Control
                 ? TerminalCommandDispatchResult.Executed(commandId)
                 : TerminalCommandDispatchResult.Unavailable(
                     commandId,
-                    "Visible terminal content is not ready to select.");
+                    "The terminal isn’t ready to select text yet.");
         }
         else if (commandId == BuiltInCommands.IncreaseFontSize)
         {
@@ -1729,7 +1729,7 @@ public sealed class ManagedTerminalSurface : Control
                 ? TerminalCommandDispatchResult.Executed(commandId)
                 : TerminalCommandDispatchResult.Unavailable(
                     commandId,
-                    "A terminal render profile is not available.");
+                    "The text size can’t change until the terminal is ready.");
         }
         else if (commandId == BuiltInCommands.DecreaseFontSize)
         {
@@ -1737,7 +1737,7 @@ public sealed class ManagedTerminalSurface : Control
                 ? TerminalCommandDispatchResult.Executed(commandId)
                 : TerminalCommandDispatchResult.Unavailable(
                     commandId,
-                    "A terminal render profile is not available.");
+                    "The text size can’t change until the terminal is ready.");
         }
         else if (commandId == BuiltInCommands.ResetFontSize)
         {
@@ -1745,7 +1745,7 @@ public sealed class ManagedTerminalSurface : Control
                 ? TerminalCommandDispatchResult.Executed(commandId)
                 : TerminalCommandDispatchResult.Unavailable(
                     commandId,
-                    "A terminal render profile is not available.");
+                    "The text size can’t change until the terminal is ready.");
         }
         else if (commandId == BuiltInCommands.Find)
         {
@@ -1753,7 +1753,7 @@ public sealed class ManagedTerminalSurface : Control
                 ? TerminalCommandDispatchResult.Executed(commandId)
                 : TerminalCommandDispatchResult.Unavailable(
                     commandId,
-                    "Full-buffer find is unavailable for this terminal backend.");
+                    "Find isn’t available for this terminal.");
         }
         else if (commandId == BuiltInCommands.ClearScrollback)
         {
@@ -1768,7 +1768,7 @@ public sealed class ManagedTerminalSurface : Control
                 ? TerminalCommandDispatchResult.Executed(commandId)
                 : TerminalCommandDispatchResult.Unavailable(
                     commandId,
-                    "Clearing scrollback is unavailable for this terminal backend.");
+                    "This terminal can’t clear its scrollback.");
         }
         else if (CanonicalTerminalEditingText(commandId) is { } text)
         {
@@ -1777,9 +1777,9 @@ public sealed class ManagedTerminalSurface : Control
         }
         else
         {
-            var message = BuiltInCommands.Registry.Contains(commandId)
-                ? $"The managed terminal does not support '{commandId}' yet."
-                : $"Terminal command '{commandId}' is not available in this version.";
+            var message = BuiltInCommands.Registry.TryGet(commandId, out var command) && command is not null
+                ? $"{command.Title} isn’t available in a terminal yet."
+                : "That command isn’t available in this version of Asura.";
             result = TerminalCommandDispatchResult.Unsupported(commandId, message);
         }
 
@@ -1792,7 +1792,7 @@ public sealed class ManagedTerminalSurface : Control
             ?? TerminalClipboardPolicy.Default.WriteAccess;
         if (writeAccess == TerminalClipboardAccess.Deny)
         {
-            return "Clipboard writes are disabled for this terminal in Settings.";
+            return "Copying to the clipboard is turned off for this terminal in Settings.";
         }
 
         return _snapshot?.IsMouseTrackingEnabled == true
@@ -3299,7 +3299,7 @@ public sealed class ManagedTerminalSurface : Control
         {
             _ = await PublishCommandDispatchAsync(
                 TerminalCommandDispatchResult.UnsupportedSequence(
-                    "The expired terminal shortcut could not be passed through safely."));
+                    "The shortcut timed out and couldn’t be passed to the terminal safely."));
             return true;
         }
 

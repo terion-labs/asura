@@ -144,7 +144,7 @@ public sealed partial class RuntimeTabStripView
         {
             newWindow.IsVisible = canMove;
             newWindow.IsEnabled = tabCount > 1;
-            ToolTip.SetTip(newWindow, tabCount > 1 ? null : LastTabHint);
+            ToolTip.SetTip(newWindow, tabCount > 1 ? null : LastTabTip);
         }
     }
 
@@ -199,7 +199,10 @@ public sealed partial class RuntimeTabStripView
         }
     }
 
+    // The same fact in two places: a disabled menu item, which is title
+    // style, and a tooltip, which is sentence style.
     private const string LastTabHint = "A Workspace Keeps Its Last Tab";
+    private const string LastTabTip = "A workspace keeps its last tab";
 
     /// <summary>
     /// Raised as a Move to Workspace request whose destination is

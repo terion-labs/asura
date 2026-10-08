@@ -61,6 +61,6 @@ public sealed record TerminalCommandDispatchResult(
         ? new(
             Outcome.Rejected,
             CommandId: null,
-            "The terminal shortcut sequence is not bound.")
+            "That key sequence isn’t assigned to a command.")
         : NotMatched();
 }

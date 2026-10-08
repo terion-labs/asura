@@ -373,7 +373,7 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
         var single = names.Length == 1 && model?.HasSelection == true;
         var menu = new ContextMenu();
         menu.Items.Add(Item("Show Logs", single && model!.CanReadLogs, ShowLogsAsync));
-        menu.Items.Add(Item("Open Shell", single && model!.CanOpenShell, OpenShellAsync));
+        menu.Items.Add(Item("Open Pod Terminal", single && model!.CanOpenShell, OpenShellAsync));
         menu.Items.Add(Item("Port Forward…", single && model!.CanForward, () =>
         {
             InspectorView = KubernetesInspectorView.Ports;

@@ -273,7 +273,7 @@ public sealed class RedisRuntimePanelHigTests
                 // The views are one segmented control that follows the panel.
                 var views = view.GetVisualDescendants().OfType<SegmentedControl>().Single();
                 var segments = views.GetVisualDescendants().OfType<RadioButton>().ToArray();
-                Assert.Equal(["Browser", "Search", "Pub/Sub"], segments.Select(segment => segment.Content));
+                Assert.Equal(["Keys", "Search", "Pub/Sub"], segments.Select(segment => segment.Content));
                 Assert.True(segments[0].IsChecked);
                 segments[2].IsChecked = true;
                 Assert.Equal(RedisWorkspacePerspective.PubSub, panel.Perspective);

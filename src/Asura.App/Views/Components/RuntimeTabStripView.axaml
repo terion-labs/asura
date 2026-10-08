@@ -114,8 +114,8 @@
         VerticalAlignment="Center"
         Classes="IconButton"
         IsVisible="False"
-        ToolTip.Tip="Show All Tabs"
-        AutomationProperties.Name="Show All Tabs">
+        ToolTip.Tip="Show all tabs"
+        AutomationProperties.Name="Show all tabs">
       <icons:SymbolIcon Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
       <Button.Flyout>
         <MenuFlyout Placement="BottomEdgeAlignedRight" Opening="OnOverflowMenuOpening" />
@@ -126,7 +126,7 @@
         HorizontalScrollBarVisibility="Hidden"
         VerticalScrollBarVisibility="Disabled"
         ScrollChanged="OnTabScrollChanged"
-        AutomationProperties.Name="Open runtime tabs">
+        AutomationProperties.Name="Open tabs">
       <!-- The container theme stretches every generated presenter, or a
            side-docked tab is only as wide as its title and the close button
            trails the text instead of holding the row's edge. Stated as a

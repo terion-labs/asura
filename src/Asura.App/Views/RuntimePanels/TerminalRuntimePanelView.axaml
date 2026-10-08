@@ -228,12 +228,12 @@
                 <Button
                     Classes="PrimaryButton"
                     Click="OnProceedWithoutContinuityClick"
-                    Content="Proceed without continuity"
+                    Content="Proceed Without Continuity"
                     IsVisible="{Binding CanProceedWithoutContinuity}" />
                 <Button
                     Classes="SecondaryButton"
                     Click="OnRetryConnectionClick"
-                    Content="Retry connection"
+                    Content="Retry Connection"
                     IsVisible="{Binding CanRetry}" />
                 <Button
                     Classes="TextButton"

@@ -12,7 +12,7 @@
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch"
     IsVisible="{Binding IsVisibleInLayout}"
-    AutomationProperties.Name="Redis database panel">
+    AutomationProperties.Name="Redis panel">
   <UserControl.Styles>
 
     <Style Selector="Border.RedisSheetHeader">
@@ -173,7 +173,7 @@
               Grid.Column="1"
               SelectionChanged="OnPerspectiveSelectionChanged"
               AutomationProperties.Name="Redis view">
-            <RadioButton Content="Browser" AutomationProperties.Name="Browse Redis keys" />
+            <RadioButton Content="Keys" AutomationProperties.Name="Browse Redis keys" />
             <RadioButton Content="Search" AutomationProperties.Name="Query a Redis search index" />
             <RadioButton Content="Pub/Sub" AutomationProperties.Name="Show Redis publish and subscribe" />
           </controls:SegmentedControl>
@@ -217,7 +217,7 @@
                     Classes="IconButton"
                     Click="OnNewKeyClick"
                     IsEnabled="{Binding IsConnected}"
-                    ToolTip.Tip="New key"
+                    ToolTip.Tip="New key…"
                     AutomationProperties.Name="Create a Redis key">
                   <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                 </Button>
@@ -252,7 +252,7 @@
                     ShowsGlyph="False"
                     IsVisible="{Binding !HasKeys}"
                     Heading="No keys yet"
-                    Body="Connect, then scan — the pattern above bounds what is read." />
+                    Body="Connect, then scan. Only keys that match the pattern above are read." />
               </Grid>
 
               <Button
@@ -612,7 +612,7 @@
               IsVisible="{Binding !SearchAvailable}"
               Glyph="Search"
               Heading="Redis Search is unavailable"
-              Body="The server does not expose FT.SEARCH, or the current ACL cannot inspect command capabilities." />
+              Body="This server doesn’t support FT.SEARCH, or your Redis user can’t check which commands it supports." />
 
           <controls:SurfaceCard Tone="Raised" Padding="{DynamicResource ShellCardPaddingCompact}" IsVisible="{Binding SearchAvailable}">
             <Grid ColumnDefinitions="220,*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">

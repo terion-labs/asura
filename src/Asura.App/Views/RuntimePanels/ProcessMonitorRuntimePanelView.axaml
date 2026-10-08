@@ -14,7 +14,7 @@
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch"
     IsVisible="{Binding IsVisibleInLayout}"
-    AutomationProperties.Name="Process monitor panel">
+    AutomationProperties.Name="Processes panel">
   <UserControl.Styles>
     <!-- Numbers line up on the right in the data face, as a Mac table's
          numeric columns do, so magnitudes read down the column. -->
@@ -23,7 +23,7 @@
     </Style>
   </UserControl.Styles>
   <controls:PanelChrome
-      CloseLabel="Close Process Monitor panel"
+      CloseLabel="Close Processes panel"
       CloseRequested="OnCloseClick"
       HasAttention="{Binding HasAttention}"
       IsActive="{Binding IsActive}"
@@ -52,7 +52,7 @@
             FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding StatusText}"
             AutomationProperties.LiveSetting="Polite"
-            AutomationProperties.Name="Process monitor state" />
+            AutomationProperties.Name="Processes state" />
       </StackPanel>
     </controls:PanelChrome.Actions>
 
@@ -170,10 +170,10 @@
         <controls:StateOverlay
             Kind="Loading"
             Heading="Waiting for first sample…"
-            Body="Command lines, users, environments, and open files are not shown."
+            Body="Command lines, users, environments, and open files aren’t shown."
             IsVisible="{Binding ShowLoading, FallbackValue=False}"
             AutomationProperties.LiveSetting="Polite"
-            AutomationProperties.Name="Process monitor loading" />
+            AutomationProperties.Name="Processes loading" />
 
         <controls:StateOverlay
             Kind="TerminalError"
@@ -184,7 +184,7 @@
             ActionCommand="{Binding RefreshCommand}"
             IsVisible="{Binding ShowTerminalError, FallbackValue=False}"
             AutomationProperties.LiveSetting="Assertive"
-            AutomationProperties.Name="Process monitor unavailable" />
+            AutomationProperties.Name="Processes unavailable" />
 
         <controls:Callout
             Margin="{controls:Inset Md}"

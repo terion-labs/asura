@@ -29,11 +29,11 @@ public sealed class BrowserRuntimePanelViewModelTests
             new BrowserProductEvent.RendererRecovered(lostAddress));
 
         Assert.True(browser.IsProductNoticeVisible);
-        Assert.Equal("Page process restarted", browser.ProductHeading);
-        Assert.Contains("volatile page state were lost", browser.ProductMessage);
+        Assert.Equal("Page restarted", browser.ProductHeading);
+        Assert.Contains("unsaved form input and other page state were lost", browser.ProductMessage);
         Assert.DoesNotContain("restored", browser.ProductMessage);
         Assert.True(browser.HasProductAction);
-        Assert.Equal("Reload page", browser.ProductActionLabel);
+        Assert.Equal("Reload Page", browser.ProductActionLabel);
         Assert.Equal(lostAddress.ToString(), browser.AddressText);
     }
 
@@ -48,7 +48,9 @@ public sealed class BrowserRuntimePanelViewModelTests
                 BrowserPermissionKind.Camera | BrowserPermissionKind.Microphone));
 
         Assert.Equal("Permission denied", browser.ProductHeading);
-        Assert.Contains("camera", browser.ProductMessage);
+        Assert.Equal(
+            "https://example.test asked to use the camera and the microphone. Asura didn’t allow it.",
+            browser.ProductMessage);
         Assert.False(browser.HasDownloadProgress);
 
         browser.ApplyProductEvent(

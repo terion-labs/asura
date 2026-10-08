@@ -69,7 +69,7 @@ public sealed class ConnectionManagementHeadlessTests
                     ? "{\"accessKeyId\":\"test-key\",\"secretAccessKey\":\"test-secret\"}"
                     : "secret-canary";
                 var save = draftView.GetVisualDescendants().OfType<Button>()
-                    .Single(button => Equals(button.Content, "Save Credential"));
+                    .Single(button => Equals(button.Content, PlatformTerms.SaveInSecretStore));
                 Assert.True(save.IsDefault);
                 save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await Idle();

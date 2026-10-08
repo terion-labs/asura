@@ -107,7 +107,7 @@ public sealed class RuntimePanelViewContractTests
             root.Descendants(),
             element => string.Equals(element.Name.LocalName, "Button"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "AutomationProperties.Name")
-, "Download complete container logs", StringComparison.Ordinal));
+, "Download all container logs", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -215,7 +215,8 @@ public sealed class RuntimePanelViewContractTests
         Assert.True(HasClass(shell, "IconButton"));
         Assert.False(HasClass(shell, "PrimaryButton"));
         Assert.Equal("{Binding IsShellDetail}", AttributeValue(shell, "IsVisible"));
-        Assert.Equal("Open in New Tab", AttributeValue(shell, "ToolTip.Tip"));
+        Assert.Equal("Open shell in new tab", AttributeValue(shell, "ToolTip.Tip"));
+        Assert.Equal("Open shell in new tab", AttributeValue(shell, "AutomationProperties.Name"));
         Assert.Contains(
             shell.Descendants(),
             element => string.Equals(element.Name.LocalName, "SymbolIcon"
@@ -989,26 +990,26 @@ public sealed class RuntimePanelViewContractTests
     [InlineData(
         "BrowserRuntimePanelView",
         null,
-        "Close browser panel")]
+        "Close Browser panel")]
     [InlineData(
         "FileRuntimePanelView",
         null,
-        "Close File Viewer panel")]
+        "Close Files panel")]
     [InlineData(
         "StatisticsRuntimePanelView",
         "Statistics panel",
         "Close Statistics panel")]
     [InlineData(
         "ProcessMonitorRuntimePanelView",
-        "Process monitor panel",
-        "Close Process Monitor panel")]
+        "Processes panel",
+        "Close Processes panel")]
     [InlineData(
         "DatabaseRuntimePanelView",
         "Database panel",
-        "Close database panel")]
+        "Close Database panel")]
     [InlineData(
         "RedisRuntimePanelView",
-        "Redis database panel",
+        "Redis panel",
         "Close Redis panel")]
     [InlineData(
         "UnavailableRuntimePanelView",
@@ -1764,7 +1765,7 @@ public sealed class RuntimePanelViewContractTests
             root.Descendants(),
             element => string.Equals(element.Name.LocalName, "Button"
 , StringComparison.Ordinal) && HasClass(element, "FileToolbarAction"));
-        var previewToggle = FindUniqueAccessibleElement(root, "Toggle file preview");
+        var previewToggle = FindUniqueAccessibleElement(root, "Show or hide file preview");
         Assert.Equal("OnTogglePreviewClick", AttributeValue(previewToggle, "Click"));
         Assert.True(HasClass(previewToggle, "InsetToggle"));
         Assert.Equal(
@@ -1843,7 +1844,7 @@ public sealed class RuntimePanelViewContractTests
         Assert.Equal("filePanel", AttributeValue(containerQuery, "Name"));
         Assert.Equal("Width", AttributeValue(root, "Container.Sizing"));
 
-        var itemCount = FindUniqueAccessibleElement(root, "File Viewer item count");
+        var itemCount = FindUniqueAccessibleElement(root, "Files item count");
         Assert.Equal("{Binding Status}", AttributeValue(itemCount, "Value"));
         Assert.Equal("{Binding ShortStatus}", AttributeValue(itemCount, "CompactValue"));
         Assert.Equal(
@@ -1925,7 +1926,7 @@ public sealed class RuntimePanelViewContractTests
         Assert.Equal(
             "Polite",
             AttributeValue(
-                FindUniqueAccessibleElement(root, "File Viewer loading"),
+                FindUniqueAccessibleElement(root, "Files loading"),
                 "AutomationProperties.LiveSetting"));
         var retainedError = Assert.Single(LoadView("Components/ErrorNoticesView").Descendants(),
             element => element.Name.LocalName == "Callout");
@@ -2051,10 +2052,10 @@ public sealed class RuntimePanelViewContractTests
         "Statistics unavailable")]
     [InlineData(
         "ProcessMonitorRuntimePanelView",
-        "Process monitor state",
+        "Processes state",
         "Refresh processes",
-        "Process monitor loading",
-        "Process monitor unavailable")]
+        "Processes loading",
+        "Processes unavailable")]
     public void Monitoring_panel_views_preserve_commands_and_live_state_announcements(
         string panelView,
         string statusName,

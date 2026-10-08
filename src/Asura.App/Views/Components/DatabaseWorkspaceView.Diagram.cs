@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Application;
 using Avalonia.Controls;
@@ -63,7 +64,7 @@ public sealed partial class DatabaseWorkspaceView
         {
             if (ReferenceEquals(Panel, panel) && ReferenceEquals(panel.DiagramSession, session))
             {
-                panel.ReportInteractionError($"Could not copy the database diagram: {exception.Message}");
+                panel.ReportInteractionError($"Asura couldn’t copy the diagram. {FailureReason.Report("database.diagram.copy.failed", exception)}");
             }
         }
     }
@@ -84,7 +85,7 @@ public sealed partial class DatabaseWorkspaceView
         {
             var selected = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                Title = "Save the Mermaid ER diagram",
+                Title = "Save ER Diagram",
                 SuggestedFileName = "dbdiagram.md",
                 DefaultExtension = "md",
                 FileTypeChoices = [MermaidMarkdownFileType, MermaidSvgFileType],
@@ -116,7 +117,7 @@ public sealed partial class DatabaseWorkspaceView
         }
         catch (Exception exception)
         {
-            panel.ReportInteractionError($"Could not save the Mermaid diagram: {exception.Message}");
+            panel.ReportInteractionError($"Asura couldn’t save the diagram. {FailureReason.Report("database.diagram.save.failed", exception)}");
         }
     }
 

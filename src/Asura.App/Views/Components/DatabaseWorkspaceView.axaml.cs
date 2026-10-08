@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
@@ -600,7 +601,7 @@ public sealed partial class DatabaseWorkspaceView : UserControl
             catch (Exception exception)
             {
                 panel.ReportInteractionError(
-                    $"Could not format the selected database row: {exception.Message}");
+                    $"Asura couldn’t copy the selected row. {FailureReason.Report("database.row.copy.failed", exception)}");
             }
         }
     }

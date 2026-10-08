@@ -115,7 +115,7 @@
   </UserControl.Styles>
   <controls:PanelChrome
       Classes.embedded="{Binding IsEmbedded, ElementName=FileRuntimePanelRoot}"
-      CloseLabel="Close File Viewer panel"
+      CloseLabel="Close Files panel"
       CloseRequested="OnCloseClick"
       HasAttention="{Binding HasAttention}"
       IsActive="{Binding IsActive}"
@@ -146,9 +146,9 @@
           <Border
               Classes="FileToolbarGroup">
             <StackPanel Orientation="Horizontal">
-              <Button Classes="SecondaryButton" Content="Previous page"
+              <Button Classes="SecondaryButton" Content="Previous Page"
                   Command="{Binding PreviousPageCommand}" IsVisible="{Binding HasPreviousPage}" />
-              <Button Classes="SecondaryButton" Content="Next page"
+              <Button Classes="SecondaryButton" Content="Next Page"
                   Command="{Binding NextPageCommand}" IsVisible="{Binding HasNextPage}" />
               <Button Classes="IconButton FileToolbarAction" Click="OnNavigateUpClick" IsEnabled="{Binding CanNavigateUp}" ToolTip.Tip="Parent folder" AutomationProperties.Name="Parent folder">
                 <icons:SymbolIcon Symbol="ArrowUp" FontSize="{DynamicResource ShellIconSizeMd}" />
@@ -179,7 +179,7 @@
                 Value="{Binding Status}"
                 CompactValue="{Binding ShortStatus}"
                 AutomationProperties.LiveSetting="Polite"
-                AutomationProperties.Name="File Viewer item count" />
+                AutomationProperties.Name="Files item count" />
           </Grid>
           <Border
               Grid.Column="2"
@@ -212,7 +212,7 @@
                   Classes.active="{Binding IsPreviewVisible}"
                   Click="OnTogglePreviewClick"
                   ToolTip.Tip="Show or hide preview"
-                  AutomationProperties.Name="Toggle file preview"
+                  AutomationProperties.Name="Show or hide file preview"
                   AutomationProperties.ItemStatus="{Binding PreviewVisibilityStatus}">
                 <icons:SymbolIcon Symbol="PanelRight" FontSize="{DynamicResource ShellIconSizeMd}" />
               </Button>
@@ -543,7 +543,7 @@
               Background="{DynamicResource ShellSurfaceBrush}"
               IsVisible="{Binding ShowLoadingState}"
               AutomationProperties.LiveSetting="Polite"
-              AutomationProperties.Name="File Viewer loading">
+              AutomationProperties.Name="Files loading">
             <controls:StateOverlay
                 Kind="Loading"
                 Heading="{Binding ContentPresentation.Title}"
@@ -558,7 +558,7 @@
               AutomationProperties.Name="{Binding ContentPresentation.AccessibleName}">
             <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
               <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ContentPresentation.SuggestedAction}" TextWrapping="Wrap" />
-              <Button HorizontalAlignment="Left" Classes="SecondaryButton" Command="{Binding RetryCommand}" Content="Retry location" IsVisible="{Binding CanRetryContentState}" AutomationProperties.Name="Retry File Viewer location" />
+              <Button HorizontalAlignment="Left" Classes="SecondaryButton" Command="{Binding RetryCommand}" Content="Retry" IsVisible="{Binding CanRetryContentState}" AutomationProperties.Name="Retry reading this location" />
             </StackPanel>
           </controls:StateOverlay>
           <controls:StateOverlay
@@ -567,7 +567,7 @@
               Body="{Binding ContentPresentation.Message}"
               IsVisible="{Binding ShowEmptyLocationState}"
               AutomationProperties.LiveSetting="Polite"
-              AutomationProperties.Name="File Viewer empty location">
+              AutomationProperties.Name="Files empty location">
             <TextBlock MaxWidth="360" HorizontalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ContentPresentation.SuggestedAction}" TextAlignment="Center" TextWrapping="Wrap" />
           </controls:StateOverlay>
           <controls:StateOverlay
@@ -576,7 +576,7 @@
               Body="{Binding ContentPresentation.Message}"
               IsVisible="{Binding ShowSearchNoResultsState}"
               AutomationProperties.LiveSetting="Polite"
-              AutomationProperties.Name="File Viewer search has no results">
+              AutomationProperties.Name="Files search has no results">
             <TextBlock MaxWidth="360" HorizontalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ContentPresentation.SuggestedAction}" TextAlignment="Center" TextWrapping="Wrap" />
           </controls:StateOverlay>
 
@@ -712,8 +712,8 @@
               <!-- An archive is listed, never unpacked. -->
               <Grid RowDefinitions="Auto,*" IsVisible="{Binding HasTreePreview}">
                 <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                  <Button Content="Previous archive page" Command="{Binding PreviousArchivePageCommand}" IsVisible="{Binding HasPreviousArchivePage}" />
-                  <Button Content="Next archive page" Command="{Binding NextArchivePageCommand}" IsVisible="{Binding HasNextArchivePage}" />
+                  <Button Content="Previous Archive Page" Command="{Binding PreviousArchivePageCommand}" IsVisible="{Binding HasPreviousArchivePage}" />
+                  <Button Content="Next Archive Page" Command="{Binding NextArchivePageCommand}" IsVisible="{Binding HasNextArchivePage}" />
                 </StackPanel>
                 <components:PreviewTreeView Grid.Row="1" Margin="{controls:Inset Sm}" DataContext="{Binding PreviewTree}" />
               </Grid>
@@ -856,7 +856,7 @@
           Background="Transparent"
           IsVisible="{Binding ShowNavigationProgress}"
           AutomationProperties.LiveSetting="Polite"
-          AutomationProperties.Name="File Viewer loading folder" />
+          AutomationProperties.Name="Files loading folder" />
       <Rectangle
           x:Name="TransferDropOutline"
           Grid.RowSpan="2"

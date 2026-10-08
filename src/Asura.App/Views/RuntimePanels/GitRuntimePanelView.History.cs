@@ -119,7 +119,7 @@ public sealed partial class GitRuntimePanelView
         if (control == GitOperationControl.Abort && OwnerWindow is { } window
             && !await new ConfirmationDialog(new ConfirmationDialogOptions
             {
-                Heading = $"Abort {viewModel.Operation.Kind}?",
+                Heading = $"Abort {OperationTitle(viewModel.Operation.Kind)}?",
                 Detail = "Git will restore the state from before this operation. Resolution edits may be lost.",
                 ConfirmLabel = "Abort Operation",
                 Intent = ConfirmationIntent.Destructive,
@@ -255,7 +255,7 @@ public sealed partial class GitRuntimePanelView
                 var parentCount = items.Min(item => item.Commit.ParentShas.Count);
                 if (parentCount == 0)
                 {
-                    await Confirmations.Problem("Choose a different commit sequence", "A root commit and merge commits cannot share a mainline choice. Apply the root commit separately.").ShowDialog(window);
+                    await Confirmations.Problem("Choose a different commit sequence", "A root commit and merge commits can’t share a mainline choice. Apply the root commit separately.").ShowDialog(window);
                     return;
                 }
                 var mainline = await ShowGitFormAsync("Choose Merge Parent", "Use Parent",
@@ -310,4 +310,15 @@ public sealed partial class GitRuntimePanelView
             await viewModel.CommitAndPushAsync();
         }
     }
+
+    // "Abort CherryPick?" named the enum; the heading names the operation.
+    private static string OperationTitle(GitOperationKind kind) => kind switch
+    {
+        GitOperationKind.Merge => "Merge",
+        GitOperationKind.Rebase => "Rebase",
+        GitOperationKind.CherryPick => "Cherry-Pick",
+        GitOperationKind.Revert => "Revert",
+        GitOperationKind.Bisect => "Bisect",
+        _ => "Operation",
+    };
 }

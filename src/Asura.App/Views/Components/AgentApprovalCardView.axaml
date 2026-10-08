@@ -104,7 +104,7 @@
             Classes="PrimaryButton"
             HorizontalAlignment="Stretch"
             Click="OnApproveClick"
-            Content="Approve once"
+            Content="Approve Once"
             IsEnabled="{Binding AgentChat.CanDecideApproval}"
             KeyboardNavigation.TabIndex="1"
             AutomationProperties.Name="Approve AI agent action once" />

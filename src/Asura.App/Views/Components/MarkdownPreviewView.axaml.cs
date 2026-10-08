@@ -310,7 +310,7 @@ public sealed partial class MarkdownPreviewView : UserControl
             return;
         }
 
-        var copy = new Button { Content = "Copy all Markdown", HorizontalAlignment = HorizontalAlignment.Right };
+        var copy = new Button { Content = "Copy All Markdown", HorizontalAlignment = HorizontalAlignment.Right };
         copy.Click += async (_, _) =>
         {
             if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
@@ -385,10 +385,10 @@ public sealed partial class MarkdownPreviewView : UserControl
         var columnCount = Math.Max(block.HeaderCells.Length, block.Rows.IsEmpty ? 0 : block.Rows.Max(row => row.Length));
         var surface = new StackPanel();
         var navigation = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        var previousRows = new Button { Content = "Previous rows" };
-        var nextRows = new Button { Content = "Next rows" };
-        var previousColumns = new Button { Content = "Previous columns" };
-        var nextColumns = new Button { Content = "Next columns" };
+        var previousRows = new Button { Content = "Previous Rows" };
+        var nextRows = new Button { Content = "Next Rows" };
+        var previousColumns = new Button { Content = "Previous Columns" };
+        var nextColumns = new Button { Content = "Next Columns" };
         var summary = new TextBlock { TextWrapping = TextWrapping.Wrap };
         var content = new ContentControl();
         navigation.Children.Add(previousRows);

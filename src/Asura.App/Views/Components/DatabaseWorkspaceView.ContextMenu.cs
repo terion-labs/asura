@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Globalization;
 using System.Text;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Application;
 using Avalonia;
@@ -298,7 +299,7 @@ public sealed partial class DatabaseWorkspaceView
             CopyRowInsertMenuItem,
             panel.CanCopySelectedRowAsInsert
                 ? "Copy an executable INSERT for the active database."
-                : "INSERT copy requires a physical table result.");
+                : "Copying as INSERT needs rows from a single table.");
 
         BuildQuickFilterMenu(panel, target);
         QuickFilterMenuItem.IsVisible = panel.CanFilterTable;
@@ -733,7 +734,7 @@ public sealed partial class DatabaseWorkspaceView
             var text = await clipboard.TryGetTextAsync();
             if (text is null)
             {
-                panel.ReportInteractionError("The clipboard does not contain text.");
+                panel.ReportInteractionError("The clipboard doesn’t contain text.");
                 return;
             }
 
@@ -755,7 +756,7 @@ public sealed partial class DatabaseWorkspaceView
         }
         catch (Exception exception)
         {
-            panel.ReportInteractionError($"Could not paste from the clipboard: {exception.Message}");
+            panel.ReportInteractionError($"Asura couldn’t paste from the clipboard. {FailureReason.Report("database.cell.paste.failed", exception)}");
         }
     }
 
@@ -849,7 +850,7 @@ public sealed partial class DatabaseWorkspaceView
 
             var selected = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Title = $"Use a file as {target.Column.Name}",
+                Title = $"Choose a File for “{target.Column.Name}”",
                 AllowMultiple = false,
             });
             if (selected.Count != 1)
@@ -870,7 +871,7 @@ public sealed partial class DatabaseWorkspaceView
         }
         catch (Exception exception)
         {
-            panel.ReportInteractionError($"Could not add the selected file: {exception.Message}");
+            panel.ReportInteractionError($"Asura couldn’t add the selected file. {FailureReason.Report("database.cell.file-add.failed", exception)}");
         }
     }
 
@@ -949,7 +950,7 @@ public sealed partial class DatabaseWorkspaceView
         catch (Exception exception)
         {
             panel.ReportInteractionError(
-                $"Could not format the selected database value: {exception.Message}");
+                $"Asura couldn’t copy the selected value. {FailureReason.Report("database.value.copy.failed", exception)}");
         }
     }
 
@@ -975,7 +976,7 @@ public sealed partial class DatabaseWorkspaceView
         }
         catch (Exception exception)
         {
-            panel.ReportInteractionError($"Could not copy to the clipboard: {exception.Message}");
+            panel.ReportInteractionError($"Asura couldn’t copy to the clipboard. {FailureReason.Report("database.clipboard.write.failed", exception)}");
             return false;
         }
     }
@@ -997,7 +998,7 @@ public sealed partial class DatabaseWorkspaceView
             var sourcePage = CaptureGridPage(panel);
             var selected = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Title = "Import CSV rows",
+                Title = "Import CSV Rows",
                 AllowMultiple = false,
                 FileTypeFilter = [CsvFileType],
             });
@@ -1030,7 +1031,7 @@ public sealed partial class DatabaseWorkspaceView
         }
         catch (Exception exception)
         {
-            panel.ReportInteractionError($"Could not import the CSV file: {exception.Message}");
+            panel.ReportInteractionError($"Asura couldn’t import the CSV file. {FailureReason.Report("database.csv.import.failed", exception)}");
         }
     }
 
@@ -1051,7 +1052,7 @@ public sealed partial class DatabaseWorkspaceView
             var sourcePage = CaptureGridPage(panel);
             var selected = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                Title = "Export the current database page",
+                Title = "Export Page",
                 SuggestedFileName = ExportFileStem(panel) + ".csv",
                 DefaultExtension = "csv",
                 FileTypeChoices = PageExportFileTypes,
@@ -1080,7 +1081,7 @@ public sealed partial class DatabaseWorkspaceView
         }
         catch (Exception exception)
         {
-            panel.ReportInteractionError($"Could not export the database page: {exception.Message}");
+            panel.ReportInteractionError($"Asura couldn’t export the page. {FailureReason.Report("database.page.export.failed", exception)}");
         }
     }
 
@@ -1091,8 +1092,8 @@ public sealed partial class DatabaseWorkspaceView
         {
             ".json" => DatabaseGridExportFormat.Json,
             ".csv" or "" => DatabaseGridExportFormat.Csv,
-            var extension => throw new InvalidDataException(
-                $"Unsupported database export extension '{extension}'. Use .csv or .json."),
+            var extension => throw new ReadableFailureException(
+                $"Asura can’t export a page as a “{extension}” file. Use a name that ends in .csv or .json."),
         };
     }
 
@@ -1237,7 +1238,7 @@ public sealed partial class DatabaseWorkspaceView
         await using var source = await file.OpenReadAsync();
         if (source.CanSeek && source.Length > MaximumContextFileBytes)
         {
-            throw new InvalidDataException("The selected file is larger than 16 MiB.");
+            throw new ReadableFailureException("The selected file is larger than 16 MiB.");
         }
 
         using var content = new MemoryStream();
@@ -1252,7 +1253,7 @@ public sealed partial class DatabaseWorkspaceView
 
             if (content.Length + count > MaximumContextFileBytes)
             {
-                throw new InvalidDataException("The selected file is larger than 16 MiB.");
+                throw new ReadableFailureException("The selected file is larger than 16 MiB.");
             }
 
             await content.WriteAsync(buffer.AsMemory(0, count));
@@ -1274,9 +1275,9 @@ public sealed partial class DatabaseWorkspaceView
             return;
         }
 
-        throw new InvalidOperationException(
-            "This storage provider cannot replace an export atomically. "
-            + "Choose a local filesystem destination so an interrupted export cannot damage an existing file.");
+        throw new ReadableFailureException(
+            "This location can’t be replaced safely. "
+            + "Choose a folder on this computer so an interrupted export can’t damage an existing file.");
     }
 
     internal static async Task WriteLocalStorageFileAtomicallyAsync(
@@ -1285,7 +1286,7 @@ public sealed partial class DatabaseWorkspaceView
     {
         var target = Path.GetFullPath(localPath);
         var directory = Path.GetDirectoryName(target)
-            ?? throw new InvalidDataException("The export destination has no parent directory.");
+            ?? throw new ReadableFailureException("Choose a folder to export the page to.");
         var temporaryPath = Path.Combine(
             directory,
             $".{Path.GetFileName(target)}.asura-{Guid.NewGuid():N}.tmp");

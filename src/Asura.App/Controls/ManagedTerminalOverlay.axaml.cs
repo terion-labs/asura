@@ -32,8 +32,8 @@ public sealed partial class ManagedTerminalOverlay : UserControl
         : "Previous match (Shift+F3 or Shift+Enter)";
 
     public static string CopyModeHintText { get; } = OperatingSystem.IsMacOS()
-        ? "Copy Mode: ↑ ↓ move  ·  ⇧ selects lines  ·  ⌘C copies  ·  Esc exits"
-        : "Copy Mode: ↑ ↓ move  ·  Shift selects lines  ·  Ctrl+C copies  ·  Esc exits";
+        ? "Copy mode: ↑ ↓ move  ·  ⇧ selects lines  ·  ⌘C copies  ·  Esc exits"
+        : "Copy mode: ↑ ↓ move  ·  Shift selects lines  ·  Ctrl+C copies  ·  Esc exits";
 
     /// <summary>Raised when the surface should take keyboard focus back.</summary>
     internal event EventHandler? SurfaceFocusRequested;

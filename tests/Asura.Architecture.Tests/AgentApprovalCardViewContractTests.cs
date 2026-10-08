@@ -31,7 +31,7 @@ public sealed class AgentApprovalCardViewContractTests
             element => string.Equals(element.Name.LocalName, "Button"
 , StringComparison.Ordinal) && string.Equals(
                     AttributeValue(element, "Content"),
-                    "Approve once",
+                    "Approve Once",
                     StringComparison.Ordinal));
     }
 
@@ -60,7 +60,7 @@ public sealed class AgentApprovalCardViewContractTests
             StringComparison.Ordinal);
 
         var deny = FindButton(document, "Deny");
-        var approve = FindButton(document, "Approve once");
+        var approve = FindButton(document, "Approve Once");
         Assert.Equal("0", AttributeValue(deny, "KeyboardNavigation.TabIndex"));
         Assert.Equal("1", AttributeValue(approve, "KeyboardNavigation.TabIndex"));
         Assert.Equal("OnDenyClick", AttributeValue(deny, "Click"));

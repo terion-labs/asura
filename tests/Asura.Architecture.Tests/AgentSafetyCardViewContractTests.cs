@@ -61,10 +61,10 @@ public sealed class AgentSafetyCardViewContractTests
             AttributeValue(answer, "KeyDown"));
         Assert.Equal(
             "1",
-            AttributeValue(FindButton(document, "Skip / decline"), "TabIndex"));
+            AttributeValue(FindButton(document, "Skip"), "TabIndex"));
         Assert.Equal(
             "2",
-            AttributeValue(FindButton(document, "Send answer"), "TabIndex"));
+            AttributeValue(FindButton(document, "Send Answer"), "TabIndex"));
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public sealed class AgentSafetyCardViewContractTests
         Assert.Equal(
             "1",
             AttributeValue(
-                FindButton(document, "Enable Ask for this run"),
+                FindButton(document, "Enable Ask for This Run"),
                 "TabIndex"));
     }
 

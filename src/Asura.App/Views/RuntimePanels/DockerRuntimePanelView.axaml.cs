@@ -449,7 +449,7 @@ public sealed partial class DockerRuntimePanelView : UserControl
 
         var destination = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Download complete container logs",
+            Title = "Save Container Logs",
             SuggestedFileName = panel.LogDownloadFileName,
             DefaultExtension = "log",
             FileTypeChoices = [LogFileType],

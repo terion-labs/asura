@@ -276,7 +276,7 @@
     <controls:PanelChrome.Footer>
       <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
         <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" LineHeight="{DynamicResource ShellLineHeight11}" Text="{Binding EnginePlatform}" />
-        <TextBlock Grid.Column="2" Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" LineHeight="{DynamicResource ShellLineHeight11}" Text="{Binding ConnectionDisplayName, StringFormat=Target · {0}}" />
+        <TextBlock Grid.Column="2" Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" LineHeight="{DynamicResource ShellLineHeight11}" Text="{Binding ConnectionDisplayName, StringFormat=Connection · {0}}" />
       </Grid>
     </controls:PanelChrome.Footer>
 
@@ -519,8 +519,8 @@
                 Click="OnOpenShellClick"
                 IsEnabled="{Binding CanOpenShell}"
                 IsVisible="{Binding IsShellDetail}"
-                ToolTip.Tip="Open in New Tab"
-                AutomationProperties.Name="Open shell in a new tab">
+                ToolTip.Tip="Open shell in new tab"
+                AutomationProperties.Name="Open shell in new tab">
               <icons:SymbolIcon Symbol="Open" FontSize="{DynamicResource ShellIconSizeMd}" />
             </Button>
           </StackPanel>
@@ -621,7 +621,7 @@
                   </StackPanel>
                 </ToggleButton>
                 <Border Grid.Column="3" Classes="ToolbarGroup" VerticalAlignment="Center">
-                  <Button Width="32" Height="32" Classes="IconButton ToolbarGroupAction" Click="OnDownloadLogsClick" IsEnabled="{Binding !IsDownloadingLogs}" ToolTip.Tip="Download complete container logs" AutomationProperties.Name="Download complete container logs">
+                  <Button Width="32" Height="32" Classes="IconButton ToolbarGroupAction" Click="OnDownloadLogsClick" IsEnabled="{Binding !IsDownloadingLogs}" ToolTip.Tip="Download all container logs" AutomationProperties.Name="Download all container logs">
                     <icons:SymbolIcon Symbol="DocumentArrowDown" FontSize="{DynamicResource ShellIconSizeMd}" />
                   </Button>
                 </Border>
@@ -740,7 +740,7 @@
           <controls:StateOverlay
               Kind="Loading"
               Heading="Reading Docker resources…"
-              Body="The same command boundary works locally and through saved SSH connections."
+              Body="Docker works the same way on this computer and over a saved SSH connection."
               IsVisible="{Binding ShowLoading}" />
 
           <controls:StateOverlay
