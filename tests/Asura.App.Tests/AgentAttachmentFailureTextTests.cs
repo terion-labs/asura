@@ -1,5 +1,6 @@
 using Asura.App.Controls;
 using Asura.App.Views;
+using Asura.Application;
 using Asura.Core;
 
 namespace Asura.App.Tests;
@@ -17,17 +18,25 @@ public sealed class AgentAttachmentFailureTextTests
     [Fact]
     public void AttachmentRecordCheckNeverShowsItsParameterSuffix()
     {
-        var files = Enumerable.Range(0, AgentFileAttachment.MaximumPerMessage + 1)
-            .Select(index => new AgentFileAttachment(Guid.NewGuid().ToString("N"), $"file-{index}.txt", 1));
-        var exception = Assert.Throws<ArgumentException>(() => AgentFileAttachment.CopyBatch(files));
+        var exception = Assert.Throws<ArgumentException>(
+            () => new AgentFileAttachment(Guid.NewGuid().ToString("N"), "notes/../secret.txt", 1));
         Assert.Contains("(Parameter", exception.Message, StringComparison.Ordinal);
 
         var text = AgentAttachmentImport.FailureText(exception);
 
         Assert.DoesNotContain("Parameter", text, StringComparison.Ordinal);
         Assert.Equal(
-            "One of the files can’t be attached. Attach files with plain names, up to 50 MiB each and 200 MiB together.",
+            "One of the files can’t be attached because of its name. Rename it to a plain name of up to 255 characters, then attach it again.",
             text);
+    }
+
+    [Fact]
+    public void AFullAttachmentStoreSaysHowToMakeRoomInsteadOfTryAgain()
+    {
+        var text = AgentAttachmentImport.FailureText(new AgentAttachmentStorageLimitException());
+
+        Assert.Contains("Delete older conversations", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Try again", text, StringComparison.Ordinal);
     }
 
     [Theory]

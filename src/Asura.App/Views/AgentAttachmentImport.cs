@@ -1,5 +1,6 @@
 using Asura.App.Controls;
 using Asura.App.ViewModels;
+using Asura.Application;
 using Asura.Core;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
@@ -64,6 +65,9 @@ internal static class AgentAttachmentImport
         SecretSafeDiagnostics.WriteTrace("agent.attachment.refused", exception);
         return exception switch
         {
+            AgentAttachmentStorageLimitException =>
+                "This workspace’s agent conversations have used all 1 GiB of attachment storage. "
+                + "Delete older conversations from the conversation history, then attach the files again.",
             FileNotFoundException or DirectoryNotFoundException =>
                 "One of the files is no longer there. Choose it again.",
             UnauthorizedAccessException =>
@@ -72,8 +76,10 @@ internal static class AgentAttachmentImport
                 "Couldn’t read or save one of the files. Check that it still exists and that the disk has free space, then attach it again.",
             TimeoutException =>
                 "The clipboard didn’t respond in time. Copy the items again, then paste.",
+            // The import refuses the count and the sizes itself, so what's left
+            // of the attachment record's checks is the file's name.
             ArgumentException =>
-                "One of the files can’t be attached. Attach files with plain names, up to 50 MiB each and 200 MiB together.",
+                "One of the files can’t be attached because of its name. Rename it to a plain name of up to 255 characters, then attach it again.",
             _ => "Asura couldn’t attach the files. Try again.",
         };
     }
@@ -109,6 +115,10 @@ internal static class AgentAttachmentImport
             }
         }
         if (!agent.CanAttachFiles) { throw Refusal("The composer changed while importing files. Attach them again."); }
+        if (agent.PendingFiles.Concat(attachments).Sum(file => (long)file.ByteCount) > AgentFileAttachment.MaximumTotalBytesPerMessage)
+        {
+            throw Refusal("Attachments together can’t be larger than 200 MiB. Remove some, then try again.");
+        }
         // Validate both batches before changing the draft so a failed mixed selection does not partially attach.
         _ = AgentFileAttachment.CopyBatch(agent.PendingFiles.Concat(attachments));
         if (agent.PendingFiles.Count + agent.PendingImages.Count + attachments.Count + images.Count > AgentFileAttachment.MaximumPerMessage)
