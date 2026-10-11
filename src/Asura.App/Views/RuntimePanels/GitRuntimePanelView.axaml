@@ -1537,14 +1537,17 @@
 
             <Grid RowDefinitions="*,Auto">
               <!-- Compact history: graph rail, subject with ref tags,
-                   then author, SHA, and date columns. -->
+                   then author, SHA, and date columns. The current commit is
+                   joined to the list in code rather than bound to its
+                   SelectedItem: setting that collapses a multiple selection,
+                   and the current commit moves within one, as Finder's does
+                   when a selected row is right-clicked. -->
               <ListBox
                   x:Name="CommitHistory"
                   Classes="GitCommits"
                   SelectionMode="Multiple"
                   SelectionChanged="OnHistorySelection"
                   ItemsSource="{Binding Commits}"
-                  SelectedItem="{Binding SelectedCommit, Mode=TwoWay}"
                   AutomationProperties.Name="Commit history">
                 <ListBox.ContextMenu>
                   <ContextMenu x:Name="CommitContextMenu" Opening="OnHistoryContextMenuOpening">

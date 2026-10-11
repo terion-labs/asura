@@ -278,7 +278,7 @@ public sealed class PanelCommandTargetHeadlessTests
     public async Task The_innermost_panel_that_can_run_a_command_runs_it()
     {
         await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
-        await session.Dispatch(async () =>
+        Assert.True(await session.Dispatch(async () =>
         {
             var button = new Button();
             var inner = new FakePanel { Content = button };
@@ -303,7 +303,9 @@ public sealed class PanelCommandTargetHeadlessTests
             {
                 window.Close();
             }
-        }, CancellationToken.None);
+
+            return true;
+        }, CancellationToken.None));
     }
 
     /// <summary>
@@ -315,7 +317,7 @@ public sealed class PanelCommandTargetHeadlessTests
     public async Task A_hidden_panel_view_runs_no_commands()
     {
         await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
-        await session.Dispatch(() =>
+        Assert.True(await session.Dispatch(() =>
         {
             var hidden = new FakePanel { IsVisible = false };
             var shown = new FakePanel(BuiltInCommands.DockerStart);
@@ -342,8 +344,8 @@ public sealed class PanelCommandTargetHeadlessTests
                 window.Close();
             }
 
-            return Task.CompletedTask;
-        }, CancellationToken.None);
+            return true;
+        }, CancellationToken.None));
     }
 
     /// <summary>
@@ -356,7 +358,7 @@ public sealed class PanelCommandTargetHeadlessTests
     public async Task The_innermost_panel_reports_a_shared_fact()
     {
         await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
-        await session.Dispatch(() =>
+        Assert.True(await session.Dispatch(() =>
         {
             var button = new Button();
             var inner = new FakePanel { Content = button, Facts = [new(CommandStates.HasMultipleSelection, true)] };
@@ -382,8 +384,8 @@ public sealed class PanelCommandTargetHeadlessTests
                 window.Close();
             }
 
-            return Task.CompletedTask;
-        }, CancellationToken.None);
+            return true;
+        }, CancellationToken.None));
     }
 
     private static Dictionary<string, bool> State(Window window, Avalonia.Input.IInputElement focused)

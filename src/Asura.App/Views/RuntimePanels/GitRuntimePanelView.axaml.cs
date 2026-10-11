@@ -47,6 +47,7 @@ public sealed partial class GitRuntimePanelView : UserControl
         FollowRequests();
         PresentChangeSelection();
         PresentHistorySelection();
+        PresentHistoryCurrent();
         PresentSidebarCollapse();
         PresentRecentRepositories();
     }
@@ -81,6 +82,10 @@ public sealed partial class GitRuntimePanelView : UserControl
         else if (string.Equals(e.PropertyName, nameof(GitRuntimePanelViewModel.SelectedCommits), StringComparison.Ordinal))
         {
             PresentHistorySelection();
+        }
+        else if (string.Equals(e.PropertyName, nameof(GitRuntimePanelViewModel.SelectedCommit), StringComparison.Ordinal))
+        {
+            PresentHistoryCurrent();
         }
         else if (string.Equals(e.PropertyName, nameof(GitRuntimePanelViewModel.RepositoryRoot), StringComparison.Ordinal))
         {
