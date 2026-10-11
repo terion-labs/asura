@@ -37,6 +37,7 @@ public sealed class GitRepositoryPickerViewModel : ObservableObject
     private bool _isLoading;
     private string? _issueMessage;
     private bool _choosesFolder;
+    private string? _newFolderName;
 
     public GitRepositoryPickerViewModel(
         IGitRepositoryClient client,
@@ -61,7 +62,26 @@ public sealed class GitRepositoryPickerViewModel : ObservableObject
     /// </summary>
     public string Subtitle =>
         $"Browsing {(_connection.Endpoint is ConnectionEndpoint.Local ? ThisComputer : $"“{ConnectionDisplayName}”")}."
-        + (ChoosesFolder ? "" : " Folders that hold a repository are marked.");
+        + (!ChoosesFolder ? " Folders that hold a repository are marked."
+            : NewFolderName is { } name ? $" A new folder named “{name}” is made inside the folder you choose."
+            : "");
+
+    /// <summary>
+    /// When choosing a folder, the name of the folder that will be made inside
+    /// the chosen one, such as a clone's; the subtitle says so, because this
+    /// browser cannot tell whether a folder over SSH already holds files.
+    /// </summary>
+    public string? NewFolderName
+    {
+        get => _newFolderName;
+        set
+        {
+            if (SetProperty(ref _newFolderName, value))
+            {
+                OnPropertyChanged(nameof(Subtitle));
+            }
+        }
+    }
 
     /// <summary>
     /// Whether the browser chooses a folder for something else, such as a

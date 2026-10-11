@@ -24,7 +24,7 @@
                 <ComboBox Grid.Column="2" VerticalAlignment="Top" HorizontalAlignment="Stretch" ItemsSource="{Binding Actions}" SelectedItem="{Binding Action}" AutomationProperties.Name="Rebase action" />
                 <StackPanel Grid.Column="3" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock Text="{Binding Subject}" TextTrimming="CharacterEllipsis" />
-                  <!-- Only a step that writes a message offers to edit one. -->
+                  <!-- Only reword, the one step that takes a typed message, offers to edit one. -->
                   <TextBox Text="{Binding Message}" AcceptsReturn="True" TextWrapping="Wrap" IsVisible="{Binding UsesMessage}" AutomationProperties.Name="Commit message" />
                 </StackPanel>
                 <TextBlock Grid.Column="4" VerticalAlignment="Center" Classes="Muted MiddleTruncated" FontFamily="{DynamicResource ShellDataFontFamily}" Text="{Binding Sha}" MaxWidth="90" Background="Transparent" Cursor="SizeNorthSouth" PointerPressed="OnDragStart" ToolTip.Tip="Drag this commit to reorder it. The arrow buttons offer the same action." />

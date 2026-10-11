@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Git;
@@ -14,7 +15,12 @@ public sealed partial class GitHostingDialog : DialogWindow
     {
         DataContext = viewModel;
         Opened += async (_, _) => await viewModel.LoadAccountsAsync();
-        Closed += (_, _) => viewModel.Dispose();
+        viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        Closed += (_, _) =>
+        {
+            viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            viewModel.Dispose();
+        };
     }
 
     private void OnCancel(object? sender, RoutedEventArgs e) => Close(null);
@@ -74,9 +80,13 @@ public sealed partial class GitHostingDialog : DialogWindow
         await vm.RemoveAccountAsync();
     }
 
-    private async void OnStarredChanged(object? sender, RoutedEventArgs e)
+    // Reloads after the view model holds the new Starred value. The check
+    // box's own IsCheckedChanged fires before its binding writes back, so a
+    // load started there would ask for the old list and be discarded.
+    private async void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (ViewModel is { SelectedAccount: not null, IsBusy: false } vm)
+        if (string.Equals(e.PropertyName, nameof(GitHostingBrowserViewModel.Starred), StringComparison.Ordinal)
+            && ViewModel is { SelectedAccount: not null, IsBusy: false } vm)
         {
             await vm.LoadRepositoriesAsync(reset: true);
         }

@@ -14,7 +14,7 @@ public sealed partial class GitConflictDialog : DialogWindow
     public GitConflictDialog()
     {
         InitializeComponent();
-        GitDialogFooter.Span(Shell, FooterRow);
+        GitDialogFooter.Span(Shell, FooterRow, DeleteButton, ResolutionButtons);
     }
 
     public GitConflictDialog(

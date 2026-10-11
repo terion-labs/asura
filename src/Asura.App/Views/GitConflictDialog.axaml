@@ -18,10 +18,12 @@
     <controls:DialogShell.Footer>
       <!-- Deleting the file sits apart on the leading edge, away from the
            default button, as Don't Save does in a Mac save alert; the
-           resolutions that close the window are on the trailing edge. -->
-      <Grid x:Name="FooterRow" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+           resolutions that close the window are on the trailing edge. When
+           the window is too narrow for both, the resolutions drop to a
+           second line (GitDialogFooter.Span). -->
+      <Grid x:Name="FooterRow" ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
         <Button x:Name="DeleteButton" Classes="DestructiveButton" Content="Delete File…" Click="OnDelete" />
-        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+        <StackPanel x:Name="ResolutionButtons" Grid.Column="2" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
           <Button x:Name="CurrentButton" Classes="SecondaryButton" Content="Keep Current" Click="OnCurrent" />
           <Button x:Name="IncomingButton" Classes="SecondaryButton" Content="Keep Incoming" Click="OnIncoming" />
           <Button Classes="SecondaryButton" Margin="{controls:Inset Left=Md}" Content="Cancel" Click="OnCancel" IsCancel="True" />

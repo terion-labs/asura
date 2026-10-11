@@ -32,6 +32,12 @@ internal sealed class FakeGitRepositoryClient : IGitRepositoryClient
     /// <summary>When set, a hosted repository read waits for the test to answer it.</summary>
     public TaskCompletionSource<GitHostedRepositoryPage>? HostedRepositoriesGate { get; set; }
 
+    /// <summary>The repositories an ungated hosted read lists.</summary>
+    public IReadOnlyList<GitHostedRepository> HostedRepositories { get; init; } = [];
+
+    /// <summary>The Starred argument of every hosted repository read, in order.</summary>
+    public List<bool> HostedRepositoryReadsStarred { get; } = [];
+
     /// <summary>Replaces the default two-file unstaged list when set.</summary>
     public IReadOnlyList<GitFileChange>? UnstagedChangesOverride { get; init; }
 
@@ -279,8 +285,12 @@ internal sealed class FakeGitRepositoryClient : IGitRepositoryClient
 
     public async ValueTask<GitResult<GitHostedRepositoryPage>> ReadHostedRepositoriesAsync(ConnectionProfile connection,
         GitHostingProvider provider, Uri apiBase, GitHostingAccount? account, int page, bool starred,
-        CancellationToken cancellationToken) =>
-        new GitResult<GitHostedRepositoryPage>.Success(HostedRepositoriesGate is { } gate ? await gate.Task : new([], page, false));
+        CancellationToken cancellationToken)
+    {
+        HostedRepositoryReadsStarred.Add(starred);
+        return new GitResult<GitHostedRepositoryPage>.Success(
+            HostedRepositoriesGate is { } gate ? await gate.Task : new(HostedRepositories, page, false));
+    }
 
     public ValueTask<GitResult<GitUnit>> UnstageAsync(
         GitRepositoryHandle repository,

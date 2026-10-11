@@ -118,12 +118,22 @@ public sealed partial class GitRuntimePanelView
         folderName is null ? chosenFolder : WorktreeDestination(chosenFolder, folderName);
 
     /// <summary>
+    /// The folder chosen over SSH with a new folder named
+    /// <paramref name="folderName"/> inside it, always: the connection's folder
+    /// browser lists folders, not files, so it cannot tell an empty folder from
+    /// one that holds files, and the browser's subtitle says the folder is made.
+    /// </summary>
+    internal static string RemoteChosenDestination(string chosenFolder, string? folderName) =>
+        folderName is null ? chosenFolder : $"{chosenFolder.TrimEnd('/')}/{folderName}";
+
+    /// <summary>
     /// The Choose… beside a destination field. A folder on this Mac comes from
     /// the system's Open panel, with its sidebar, recents and search; one over
     /// SSH from Asura's folder browser, which sees the connection's files. With
-    /// <paramref name="folderName"/>, a chosen folder that already holds files
-    /// gets a new folder inside it, named from the form's values, as a
-    /// worktree does.
+    /// <paramref name="folderName"/>, a chosen folder on this Mac that already
+    /// holds files gets a new folder inside it, named from the form's values,
+    /// as a worktree does; over SSH the new folder is always made, and the
+    /// browser says so (<see cref="RemoteChosenDestination"/>).
     /// </summary>
     private Func<Window, string, IReadOnlyDictionary<string, string>, Task<string?>> FolderChooser(
         string title, Func<IReadOnlyDictionary<string, string>, string?>? folderName = null) =>
@@ -142,9 +152,9 @@ public sealed partial class GitRuntimePanelView
                 return local is null ? null : ChosenDestination(local, name);
             }
 
-            var remote = await new GitRepositoryPickerDialog(viewModel.CreateRepositoryPicker(current), title, "Choose")
+            var remote = await new GitRepositoryPickerDialog(viewModel.CreateRepositoryPicker(current), title, "Choose", name)
                 .ShowDialog<string?>(owner);
-            return remote is null || name is null ? remote : $"{remote.TrimEnd('/')}/{name}";
+            return remote is null ? null : RemoteChosenDestination(remote, name);
         };
 
     private async void OnNetworkOptions(object? sender, RoutedEventArgs e)

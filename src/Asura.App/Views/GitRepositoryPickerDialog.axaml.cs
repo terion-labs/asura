@@ -28,12 +28,15 @@ public sealed partial class GitRepositoryPickerDialog : DialogWindow
     /// The same browser choosing a folder for something else — a clone's
     /// destination over SSH — under <paramref name="title"/>, with
     /// <paramref name="verb"/> on its button. Double-clicking a folder steps
-    /// into it, a repository's too, so only the button chooses.
+    /// into it, a repository's too, so only the button chooses. With
+    /// <paramref name="newFolderName"/>, the subtitle says that folder is made
+    /// inside the chosen one.
     /// </summary>
-    public GitRepositoryPickerDialog(GitRepositoryPickerViewModel picker, string title, string verb)
+    public GitRepositoryPickerDialog(GitRepositoryPickerViewModel picker, string title, string verb, string? newFolderName = null)
         : this(picker)
     {
         picker.ChoosesFolder = true;
+        picker.NewFolderName = newFolderName;
         Shell.Title = title;
         OpenButton.Content = verb;
     }

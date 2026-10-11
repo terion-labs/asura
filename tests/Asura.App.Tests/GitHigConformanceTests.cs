@@ -116,14 +116,16 @@ public sealed class GitHigConformanceTests
     }
 
     [Fact]
-    public void Rebase_steps_edit_a_message_only_when_they_write_one_and_cannot_move_past_the_ends()
+    public void Rebase_steps_edit_a_message_only_when_the_rebase_uses_it_and_cannot_move_past_the_ends()
     {
         var row = new GitRebaseRowViewModel(new GitRebaseEntry("abc", "Subject"));
         Assert.False(row.UsesMessage);
         row.Action = GitRebaseAction.Reword;
         Assert.True(row.UsesMessage);
+        // The rebase runs without an editor and applies a typed message only
+        // to reword, so squash does not offer one it would throw away.
         row.Action = GitRebaseAction.Squash;
-        Assert.True(row.UsesMessage);
+        Assert.False(row.UsesMessage);
         row.Action = GitRebaseAction.Fixup;
         Assert.False(row.UsesMessage);
 

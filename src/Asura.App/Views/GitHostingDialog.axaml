@@ -39,8 +39,10 @@
       <Grid Grid.Row="2" Classes="HostingRow" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
         <controls:SearchField Text="{Binding Filter}" PlaceholderText="Filter repositories" MaxWidth="320" HorizontalAlignment="Stretch" AutomationProperties.Name="Filter hosting repositories" />
         <!-- Starred only changes which list is shown, so it reloads the list
-             it changes rather than waiting for Load Repositories. -->
-        <CheckBox Grid.Column="1" Content="Starred only" IsChecked="{Binding Starred}" IsCheckedChanged="OnStarredChanged" />
+             it changes rather than waiting for Load Repositories. The dialog
+             reloads once the binding has written Starred back, and the box
+             waits out a load the change would otherwise discard. -->
+        <CheckBox Grid.Column="1" x:Name="StarredCheckBox" Content="Starred only" IsChecked="{Binding Starred}" IsEnabled="{Binding !IsBusy}" />
         <Button Grid.Column="2" Content="Load Repositories" Click="OnLoad" IsEnabled="{Binding !IsBusy}" />
         <Button Grid.Column="3" Content="Load More" Click="OnLoadMore" IsVisible="{Binding HasMore}" IsEnabled="{Binding !IsBusy}" />
       </Grid>

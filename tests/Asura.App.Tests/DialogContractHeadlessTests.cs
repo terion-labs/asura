@@ -1,8 +1,10 @@
 using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views;
+using Asura.App.Views.RuntimePanels;
 using Asura.Application;
 using Asura.Core;
+using Asura.Git;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -440,6 +442,86 @@ public sealed class DialogContractHeadlessTests
             Assert.True(save.IsDefault);
             Assert.False(delete.IsDefault);
             AssertFooterSpansTheInsets(dialog, leading: delete, trailing: save);
+            dialog.Close();
+        });
+    }
+
+    [Fact]
+    public async Task Conflict_footer_moves_the_resolutions_to_a_second_line_when_the_window_is_narrow()
+    {
+        await RunAsync(async () =>
+        {
+            var dialog = new GitConflictDialog();
+            dialog.Width = dialog.MinWidth;
+            dialog.Show();
+            await Idle();
+            await Idle();
+
+            var row = dialog.FindControl<Grid>("FooterRow")!;
+            var delete = dialog.FindControl<Button>("DeleteButton")!;
+            var resolutions = dialog.FindControl<StackPanel>("ResolutionButtons")!;
+            var deleteBounds = new Rect(delete.TranslatePoint(default, row)!.Value, delete.Bounds.Size);
+            var resolutionBounds = new Rect(resolutions.TranslatePoint(default, row)!.Value, resolutions.Bounds.Size);
+            Assert.False(deleteBounds.Intersects(resolutionBounds), "Delete File… overlaps the resolution buttons.");
+            Assert.True(resolutionBounds.Right <= row.Bounds.Width + 0.5, "The resolution buttons run past the footer.");
+            Assert.Equal(0, deleteBounds.X, 0.5);
+
+            // Wide again, both share one line.
+            dialog.Width = 1400;
+            await Idle();
+            await Idle();
+            var deleteCenter = delete.TranslatePoint(new Point(0, delete.Bounds.Height / 2), row)!.Value;
+            var saveButton = dialog.FindControl<Button>("SaveButton")!;
+            var saveCenter = saveButton.TranslatePoint(new Point(0, saveButton.Bounds.Height / 2), row)!.Value;
+            Assert.Equal(deleteCenter.Y, saveCenter.Y, 0.5);
+            dialog.Close();
+        });
+    }
+
+    [Fact]
+    public async Task Hosting_starred_only_reloads_the_starred_list_when_ticked()
+    {
+        await RunAsync(async () =>
+        {
+            var repository = new GitHostedRepository("ada/engine", "https://example.com/ada/engine.git",
+                "git@example.com:ada/engine.git", "https://example.com/ada/engine", IsPrivate: false);
+            var client = new FakeGitRepositoryClient { HostedRepositories = [repository] };
+            // The dialog disposes its browser when it closes.
+            var browser = new GitHostingBrowserViewModel(client, BuiltInConnections.Local)
+            {
+                SelectedAccount = new GitHostingAccount(
+                    GitHostingProvider.GitHub, new Uri("https://api.github.com/"), "ada", new SecretRef("hosting-ada")),
+            };
+            var dialog = new GitHostingDialog(browser);
+            dialog.Show();
+            await Idle();
+
+            dialog.FindControl<CheckBox>("StarredCheckBox")!.IsChecked = true;
+            await Idle();
+            await Idle();
+
+            Assert.Equal([true], client.HostedRepositoryReadsStarred);
+            Assert.True(browser.Starred);
+            Assert.False(browser.IsBusy);
+            Assert.Equal([repository], browser.Repositories);
+            Assert.False(browser.IsListEmpty);
+            dialog.Close();
+        });
+    }
+
+    [Fact]
+    public async Task Choosing_a_clone_folder_over_SSH_says_a_folder_named_after_the_repository_is_made()
+    {
+        await RunAsync(async () =>
+        {
+            var picker = new GitRepositoryPickerViewModel(new FakeGitRepositoryClient(), BuiltInConnections.Local, "/home/qa");
+            var dialog = new GitRepositoryPickerDialog(picker, "Choose a Folder for the Clone", "Choose", "engine");
+            dialog.Show();
+            await Idle();
+
+            Assert.EndsWith("A new folder named “engine” is made inside the folder you choose.", picker.Subtitle, StringComparison.Ordinal);
+            Assert.Equal("/srv/empty/engine", GitRuntimePanelView.RemoteChosenDestination("/srv/empty/", "engine"));
+            Assert.Equal("/srv/empty", GitRuntimePanelView.RemoteChosenDestination("/srv/empty", null));
             dialog.Close();
         });
     }

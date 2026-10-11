@@ -28,11 +28,13 @@ public sealed class GitRebaseRowViewModel(GitRebaseEntry entry) : ObservableObje
     public string Message { get => _message; set => SetProperty(ref _message, value); }
 
     /// <summary>
-    /// Whether the step writes a commit message: reword replaces it and squash
-    /// combines it, so only those show the message editor. Pick, edit, fixup
-    /// and drop keep or discard the message without asking for one.
+    /// Whether the step takes the message typed here: only reword does, so
+    /// only reword shows the message editor. Squash keeps both commits'
+    /// messages together without asking (the rebase runs without an editor),
+    /// and pick, edit, fixup and drop keep or discard the message, so an
+    /// editor on those steps would offer an edit the rebase ignores.
     /// </summary>
-    public bool UsesMessage => Action is GitRebaseAction.Reword or GitRebaseAction.Squash;
+    public bool UsesMessage => Action is GitRebaseAction.Reword;
 
     /// <summary>Whether a step comes before this one, so Move Earlier has somewhere to go.</summary>
     public bool CanMoveEarlier { get => _canMoveEarlier; private set => SetProperty(ref _canMoveEarlier, value); }

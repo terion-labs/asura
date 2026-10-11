@@ -104,7 +104,24 @@ public sealed class GitHostingBrowserViewModel(IGitRepositoryClient client, Conn
     public string ApiAddress { get => _apiAddress; set { if (SetProperty(ref _apiAddress, value)) { InvalidateRepositories(); } } }
     public string Filter { get => _filter; set { if (SetProperty(ref _filter, value)) { RaiseRepositoriesChanged(); } } }
     public string Status { get => _status; private set => SetProperty(ref _status, value); }
-    public bool Starred { get => _starred; set { if (SetProperty(ref _starred, value)) { InvalidateRepositories(); } } }
+    /// <summary>
+    /// Whether the list is the account's starred repositories. The list is
+    /// cleared before Starred is announced, so a reload started from the
+    /// announcement (as the dialog does) is not then discarded as stale.
+    /// </summary>
+    public bool Starred
+    {
+        get => _starred;
+        set
+        {
+            if (_starred != value)
+            {
+                _starred = value;
+                InvalidateRepositories();
+                OnPropertyChanged();
+            }
+        }
+    }
     public bool IsBusy
     {
         get => _isBusy;

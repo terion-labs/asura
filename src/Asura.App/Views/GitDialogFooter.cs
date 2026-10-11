@@ -1,6 +1,7 @@
 using Asura.App.Controls;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Layout;
 
 namespace Asura.App.Views;
 
@@ -18,6 +19,37 @@ internal static class GitDialogFooter
     {
         shell.SizeChanged += (_, _) => Apply(shell, row);
         Apply(shell, row);
+    }
+
+    /// <summary>
+    /// Spans the footer like <see cref="Span"/>, and when the row is too narrow
+    /// for the leading command and the trailing cluster side by side, moves the
+    /// cluster to a second line, so the default button keeps the bottom
+    /// trailing corner and nothing overlaps or clips. The row needs two Auto
+    /// rows, the leading command in column 0 and the cluster in the last column.
+    /// </summary>
+    public static void Span(DialogShell shell, Grid row, Control leading, Control trailing)
+    {
+        shell.SizeChanged += (_, _) =>
+        {
+            Apply(shell, row);
+            Wrap(row, leading, trailing);
+        };
+        Apply(shell, row);
+    }
+
+    private static void Wrap(Grid row, Control leading, Control trailing)
+    {
+        // On its own line the cluster spans the row and keeps to the trailing
+        // edge, so its width no longer counts against the leading column. The
+        // second row only takes a gap while the cluster is on it.
+        var wraps = leading.DesiredSize.Width + row.ColumnSpacing + trailing.DesiredSize.Width > row.Width;
+        var lastColumn = row.ColumnDefinitions.Count - 1;
+        Grid.SetRow(trailing, wraps ? 1 : 0);
+        Grid.SetColumn(trailing, wraps ? 0 : lastColumn);
+        Grid.SetColumnSpan(trailing, wraps ? lastColumn + 1 : 1);
+        trailing.HorizontalAlignment = HorizontalAlignment.Right;
+        row.RowSpacing = wraps ? row.ColumnSpacing : 0;
     }
 
     private static void Apply(DialogShell shell, Control row)
