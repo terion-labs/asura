@@ -46,7 +46,7 @@ Pass route names to capture a subset:
 
 The full repository check runs a native, deterministic visual gate over every
 primary implemented surface. Its approved matrix includes the canonical
-1440 × 900 viewport, the supported minimum 1080 × 680 viewport, dark, light,
+1440 × 900 viewport, the window's minimum 640 × 480 viewport, dark, light,
 high-contrast, 100%, 200%, and 250% text scale, keyboard focus, overlays, and
 the shared state vocabulary.
 

@@ -125,11 +125,14 @@ internal sealed class QaOfflineAgentRuntime : IGovernedAgentRuntime
             new WorkspaceInstanceId("qa-workspace"),
             new TabInstanceId("qa-tab"),
             new PanelInstanceId("qa-panel"));
+        // The run is held for the person's decision, the state the product is
+        // in while a capability card waits; RunningTool showed the card over
+        // a run that claimed to be working.
         _snapshot = Offline with
         {
-            State = GovernedAgentState.RunningTool,
+            State = GovernedAgentState.AwaitingCapabilityDecision,
             Target = target,
-            TargetTitle = "Process Monitor · local machine",
+            TargetTitle = "Processes · local machine",
             Messages =
             [
                 new AgentChatMessage(
@@ -143,7 +146,7 @@ internal sealed class QaOfflineAgentRuntime : IGovernedAgentRuntime
                 "Process inspection",
                 ["List local processes"],
                 target,
-                "Process Monitor · local machine",
+                "Processes · local machine",
                 policyGeneration: 1,
                 expiresAtUtc: new DateTimeOffset(2026, 12, 31, 12, 0, 0, TimeSpan.Zero)),
             CapabilityNotice =

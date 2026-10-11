@@ -368,7 +368,9 @@ internal sealed class QaApplication : Avalonia.Application
             vm.BeginEditLayout(new LayoutId("grid-four"));
         }),
         new("workspace", vm => vm.ShowWorkspace()),
-        new("workspace-minimum", vm => vm.ShowWorkspace(), Width: 1080, Height: 680),
+        // The window's own minimum, 640 × 480: the size Split View and tiling
+        // can give it, and the one the layout has to hold together at.
+        new("workspace-minimum", vm => vm.ShowWorkspace(), Width: 640, Height: 480),
         // Every mark at once: a panel that asked, the tab and workspace that
         // inherit it, and the rail showing which workspaces are running.
         new(
@@ -618,12 +620,14 @@ internal sealed class QaApplication : Avalonia.Application
             vm.ShowWorkspace();
             AddSampleDockerPanel(vm);
         }),
-        // A container's usage figures lead its Info view now that the views
-        // are five segments; the capture keeps its name and shows them there.
-        new("workspace-docker-stats", vm =>
+        // A volume's Info: its own fields, not a container's.
+        new("workspace-docker-volume-info", vm =>
         {
             vm.ShowWorkspace();
-            AddSampleDockerPanel(vm).SelectDetail(DockerPanelDetail.Info);
+            var panel = AddSampleDockerPanel(vm);
+            panel.SelectSection(DockerPanelSection.Volumes);
+            panel.SelectedResource = panel.Resources[0];
+            panel.SelectDetail(DockerPanelDetail.Info);
         }),
         new("workspace-docker-logs", vm =>
         {
@@ -867,19 +871,14 @@ internal sealed class QaApplication : Avalonia.Application
             "appearance-corners-round",
             vm => vm.ShowWorkspace(),
             Theme: AppearanceExtreme(InterfaceDensity.Comfortable)),
-        // The side-docked strip is its own box model — margins, padding, row
-        // metrics all orientation-owned — and it shipped broken twice because
-        // nothing rendered it headlessly.
+        // The tab strip on the side, over the fixture's first tab. The side
+        // strip is a separate tree from the top strip — vertical orientation,
+        // its own icon-picker placement, its own concentric metrics — and
+        // the window reads the placement from the appearance it publishes,
+        // not from the route's resources, so the route publishes it there.
         new(
             "workspace-tabs-side",
-            vm => vm.ShowWorkspace(),
-            Theme: new ThemePreference(
-                ThemePreference.Default.Id,
-                ThemePreference.Default.Name,
-                AppearanceMode.Dark,
-                PlatformProfile.Automatic,
-                AccentPreference.FollowHost,
-                tabStripPlacement: TabStripPlacement.Left)),
+            ShowWorkspaceWithSideTabs),
         // The component gallery at every accessibility-relevant appearance
         // variant. These routes use the product appearance mapper rather than
         // maintaining a harness-only palette or font scale.
@@ -930,6 +929,50 @@ internal sealed class QaApplication : Avalonia.Application
     /// surface.
     /// </summary>
     private static readonly List<Action> s_undoAfterRoute = [];
+
+    /// <summary>The fixture catalog the window was built over.</summary>
+    private static QaDefinitionCatalog s_catalog = null!;
+
+    private static void ShowWorkspaceWithSideTabs(MainWindowViewModel viewModel)
+    {
+        viewModel.ShowWorkspace();
+        if (viewModel.RuntimeWorkspace is { Tabs: [var first, ..] } workspace)
+        {
+            ActivateTab(workspace, first);
+        }
+
+        // Published to the window's appearance only, never saved: a saved
+        // theme would be re-applied over every later route's own appearance.
+        var appearance = viewModel.AppearanceSettings;
+        var current = appearance.ActiveTheme;
+        var side = new ThemePreference(
+            current.Id,
+            current.Name,
+            current.Appearance,
+            current.PlatformProfile,
+            current.Accent,
+            current.TextScaleOverride,
+            current.Density,
+            current.ShowTabBar,
+            current.ShowWorkspacesPanel,
+            TabStripPlacement.Left,
+            current.WorkspacePanelPlacement,
+            current.IsTranslucent,
+            current.BackdropOpacityPercent,
+            current.HasGlassPanels,
+            current.OverridesBackdropOpacity,
+            current.HasTranslucentTerminal);
+        var snapshot = s_catalog.Snapshot;
+        appearance.ApplyCatalog(snapshot with
+        {
+            Themes =
+            [
+                .. snapshot.Themes.Where(item => item.Value.Id != side.Id),
+                new StoredDefinition<ThemePreference>(side, 1, QaData.Now, QaData.Now),
+            ],
+        });
+        s_undoAfterRoute.Add(() => appearance.ApplyCatalog(s_catalog.Snapshot));
+    }
 
     private static void UndoRouteSideEffects()
     {
@@ -1500,33 +1543,30 @@ internal sealed class QaApplication : Avalonia.Application
         ("rail-tiles-2x", CreateRailTileProbe, null),
         // The lock screen as a person meets it: the veil, the PIN box, and a
         // refusal message, over a stub gate that is locked and metering.
-        ("shell-locked", () => new Window
+        // A wrong PIN is tried before the capture, so the refusal it promises
+        // is on screen; the window's tag is that attempt.
+        ("shell-locked", () =>
         {
-            Width = 900,
-            Height = 620,
-            CanResize = false,
-            ShowInTaskbar = false,
-            Content = new Asura.App.Views.Components.ShellLockView
+            var security = new Asura.App.ViewModels.ApplicationSecurityEditorViewModel(
+                encryption: null,
+                protection: new QaLockedProtection(),
+                biometrics: new QaBiometrics())
             {
-                DataContext = new Asura.App.ViewModels.ApplicationSecurityEditorViewModel(
-                    encryption: null,
-                    protection: new QaLockedProtection(),
-                    biometrics: new QaBiometrics()),
-            },
+                UnlockPin = "0000",
+            };
+            return new Window
+            {
+                Width = 900,
+                Height = 620,
+                CanResize = false,
+                ShowInTaskbar = false,
+                Content = new Asura.App.Views.Components.ShellLockView { DataContext = security },
+                Tag = security.TryUnlockAsync(),
+            };
         }, null),
         // The statistics panel at a split-panel width, so the stat-card wrap is
         // reviewable at the size that used to clip every value.
-        ("stats-narrow", () => new Window
-        {
-            Width = 330,
-            Height = 940,
-            CanResize = false,
-            ShowInTaskbar = false,
-            Content = new Asura.App.Views.RuntimePanels.StatisticsRuntimePanelView
-            {
-                DataContext = new QaStatisticsPreview(),
-            },
-        }, null),
+        ("stats-narrow", () => MonitorWindow(QaMonitorPanels.Statistics(), 330, 940), null),
         // Space must reach the panel even though a ListBox treats it as a
         // selection key. The route raises a real tunneled key event through a
         // real control tree and captures what the panel did with it.
@@ -1545,6 +1585,8 @@ internal sealed class QaApplication : Avalonia.Application
             Content = new Border
             {
                 Classes = { "FloatingSidebar" },
+                // The inset every other preview route gives its content.
+                Padding = new Thickness(12),
                 Child = new Asura.App.Views.Components.MarkdownPreviewView
                 {
                     Text = QaData.SampleMarkdown,
@@ -1654,11 +1696,15 @@ internal sealed class QaApplication : Avalonia.Application
                             {
                                 Text = $"{decoded.FormatName} · {decoded.Width}×{decoded.Height}",
                             },
+                            // Shrunk to fit, never enlarged: the preview shows
+                            // a small image at its own size, as the panel does.
                             new Image
                             {
                                 Source = new Avalonia.Media.Imaging.Bitmap(stream),
                                 Stretch = Stretch.Uniform,
-                                Height = 220,
+                                StretchDirection = StretchDirection.DownOnly,
+                                MaxHeight = 220,
+                                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
                             },
                         },
                     },
@@ -1667,58 +1713,10 @@ internal sealed class QaApplication : Avalonia.Application
         }, null),
         // The database viewer opened on a real SQLite file through the shared
         // workspace component — the same one the file preview embeds.
-        ("database-preview", () =>
-        {
-            var viewer = new DatabaseRuntimePanelViewModel(
-                PanelInstanceId.New(),
-                "probe.db",
-                new Asura.Databases.DatabasePanelClient(),
-                "sqlite",
-                Program.SqliteProbePath);
-            _ = viewer.ConnectAsync();
-            return new Window
-            {
-                Width = 820,
-                Height = 460,
-                CanResize = false,
-                ShowInTaskbar = false,
-                Content = new Border
-                {
-                    Classes = { "FloatingSidebar" },
-                    Child = new Asura.App.Views.Components.DatabaseWorkspaceView
-                    {
-                        DataContext = viewer,
-                    },
-                },
-            };
-        }, null),
+        ("database-preview", () => CreateSqliteProbeWindow(820, 460), null),
         // And narrow, where the objects list folds into a picker beside the
         // statement editor rather than squeezing the results.
-        ("database-preview-narrow", () =>
-        {
-            var viewer = new DatabaseRuntimePanelViewModel(
-                PanelInstanceId.New(),
-                "probe.db",
-                new Asura.Databases.DatabasePanelClient(),
-                "sqlite",
-                Program.SqliteProbePath);
-            _ = viewer.ConnectAsync();
-            return new Window
-            {
-                Width = 340,
-                Height = 460,
-                CanResize = false,
-                ShowInTaskbar = false,
-                Content = new Border
-                {
-                    Classes = { "FloatingSidebar" },
-                    Child = new Asura.App.Views.Components.DatabaseWorkspaceView
-                    {
-                        DataContext = viewer,
-                    },
-                },
-            };
-        }, null),
+        ("database-preview-narrow", () => CreateSqliteProbeWindow(340, 460), null),
         // The real database grid context menu, opened over a real SQLite value
         // and rendered at Retina density so its item rhythm and nested-menu
         // affordances can be compared to the supplied reference without a
@@ -1755,6 +1753,7 @@ internal sealed class QaApplication : Avalonia.Application
             var host = new Border
             {
                 Classes = { "FloatingSidebar" },
+                Padding = new Thickness(12),
                 Width = 700,
                 Child = view,
             };
@@ -1970,9 +1969,15 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 + $"({rows.Rows.Count} rows)");
 
             var listWatch = System.Diagnostics.Stopwatch.StartNew();
+            // The view binds to the panel's hex view model, not to the
+            // rendering: handed the rendering, every binding missed and the
+            // final capture was blank. Its rows arrive a batch at a time; the
+            // capture waits for the last of them.
+            var hex = new PreviewHexViewModel(rows);
+            window.Tag = hex.FillAsync(CancellationToken.None);
             var list = new Asura.App.Views.Components.HexPreviewView
             {
-                DataContext = rows,
+                DataContext = hex,
             };
             window.Content = list;
             window.UpdateLayout();
@@ -2173,66 +2178,48 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         }, null),
         // A hex dump must not wrap: the rows are a fixed-width grid, and a
         // folded row stops lining up with the ones above it.
-        ("hex-preview", () => new Window
+        // The Files panel's own hex view, its rows filled before the capture.
+        ("hex-preview", () =>
         {
-            Width = 560,
-            Height = 260,
-            CanResize = false,
-            ShowInTaskbar = false,
-            Content = new Border
-            {
-                Classes = { "FloatingSidebar" },
-                Padding = new Thickness(12),
-                Child = new Asura.App.Views.Components.CodePreviewView
-                {
-                    FileName = "payload.bin",
-                    WordWrap = false,
-                    Text = Asura.Application.Previews.PreviewText.Hex(
-                        Enumerable.Range(0, 96).Select(value => (byte)value).ToArray(),
-                        providerTruncated: false),
-                },
-            },
+            var hex = new PreviewHexViewModel(
+                Asura.Application.Previews.PreviewText.HexRows(
+                    Enumerable.Range(0, 96).Select(value => (byte)value).ToArray(),
+                    providerTruncated: false));
+            return FilledPreviewWindow(
+                new Asura.App.Views.Components.HexPreviewView { DataContext = hex },
+                hex.FillAsync(CancellationToken.None),
+                560,
+                260,
+                padding: 12);
         }, null),
         // A delimited file as the table it describes.
-        ("csv-preview", () => new Window
+        ("csv-preview", () =>
         {
-            Width = 620,
-            Height = 320,
-            CanResize = false,
-            ShowInTaskbar = false,
-            Content = new Border
-            {
-                Classes = { "FloatingSidebar" },
-                Padding = new Thickness(8),
-                Child = new Asura.App.Views.Components.PreviewTableView
-                {
-                    DataContext = new PreviewTableViewModel(
-                        (TablePreviewRendering)new FilePreviewCatalog().Create(
-                            new FilePreviewSource(
-                                "deployments.csv",
-                                FilePanelPreviewKind.Text,
-                                "text/plain",
-                                System.Text.Encoding.UTF8.GetBytes(QaData.SampleCsv),
-                                IsTruncated: false)).Rendering),
-                },
-            },
+            var table = new PreviewTableViewModel(
+                (TablePreviewRendering)new FilePreviewCatalog().Create(
+                    new FilePreviewSource(
+                        "deployments.csv",
+                        FilePanelPreviewKind.Text,
+                        "text/plain",
+                        System.Text.Encoding.UTF8.GetBytes(QaData.SampleCsv),
+                        IsTruncated: false)).Rendering);
+            return FilledPreviewWindow(
+                new Asura.App.Views.Components.PreviewTableView { DataContext = table },
+                table.FillAsync(CancellationToken.None),
+                620,
+                320,
+                padding: 8);
         }, null),
         // An archive listed rather than unpacked.
-        ("archive-preview", () => new Window
+        ("archive-preview", () =>
         {
-            Width = 460,
-            Height = 380,
-            CanResize = false,
-            ShowInTaskbar = false,
-            Content = new Border
-            {
-                Classes = { "FloatingSidebar" },
-                Padding = new Thickness(8),
-                Child = new Asura.App.Views.Components.PreviewTreeView
-                {
-                    DataContext = CreateArchiveListing(),
-                },
-            },
+            var listing = CreateArchiveListing();
+            return FilledPreviewWindow(
+                new Asura.App.Views.Components.PreviewTreeView { DataContext = listing },
+                listing.FillAsync(CancellationToken.None),
+                460,
+                380,
+                padding: 8);
         }, null),
         ("code-preview-wrap", () => new Window
         {
@@ -2262,6 +2249,8 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             Content = new Border
             {
                 Classes = { "FloatingSidebar" },
+                // The inset every other preview route gives its content.
+                Padding = new Thickness(12),
                 Child = new Asura.App.Views.Components.MarkdownPreviewView
                 {
                     Text = QaData.MarkdownWithLongFence,
@@ -2287,41 +2276,11 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         }, null),
         // The process monitor at both widths: wide proves the name column trims
         // instead of overlapping CPU, narrow proves the Started column folds.
-        ("procs-wide", () => new Window
-        {
-            Width = 900,
-            Height = 620,
-            CanResize = false,
-            ShowInTaskbar = false,
-            Content = new Asura.App.Views.RuntimePanels.ProcessMonitorRuntimePanelView
-            {
-                DataContext = new QaProcessMonitorPreview(),
-            },
-        }, null),
-        ("procs-narrow", () => new Window
-        {
-            Width = 430,
-            Height = 620,
-            CanResize = false,
-            ShowInTaskbar = false,
-            Content = new Asura.App.Views.RuntimePanels.ProcessMonitorRuntimePanelView
-            {
-                DataContext = new QaProcessMonitorPreview(),
-            },
-        }, null),
+        ("procs-wide", () => MonitorWindow(QaMonitorPanels.Processes(), 900, 620), null),
+        ("procs-narrow", () => MonitorWindow(QaMonitorPanels.Processes(), 430, 620), null),
         // And wide, where the two-column cap keeps the cards sharing the full
         // width instead of packing at minimum width in a corner.
-        ("stats-wide", () => new Window
-        {
-            Width = 1100,
-            Height = 720,
-            CanResize = false,
-            ShowInTaskbar = false,
-            Content = new Asura.App.Views.RuntimePanels.StatisticsRuntimePanelView
-            {
-                DataContext = new QaStatisticsPreview(),
-            },
-        }, null),
+        ("stats-wide", () => MonitorWindow(QaMonitorPanels.Statistics(), 1100, 720), null),
         // The same chooser the placeholder panel embeds, at a split-panel width,
         // so the adaptive tile grid is reviewable at the size that used to crush
         // its labels to one letter.
@@ -2445,7 +2404,8 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             }
 
             // Typed into the field, as a person types, so the query shows
-            // in it and the match count follows from the surface.
+            // in it and the match count follows from the surface. Matches
+            // are not highlighted here: see QaTerminalInputSink for why.
             overlay.FindField.Text = "error";
             await Task.Delay(120);
         }), null),
@@ -2594,12 +2554,6 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             WindowStartupLocation = WindowStartupLocation.Manual,
             Position = new PixelPoint(40, 40),
         };
-        window.DataTemplates.Add(
-            new FuncDataTemplate<WebsiteMonitoringRuntimePanelViewModel>(
-                static (panel, _) => new WebsiteMonitoringRuntimePanelView
-                {
-                    DataContext = panel,
-                }));
         if (Program.IsWebsiteExport)
         {
             WebsiteScreenshotExport.PrepareWindow(window);
@@ -2619,6 +2573,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 WebsiteScreenshotExport.NormalizeSnapshot(QaData.Snapshot),
                 WebsiteScreenshotExport.NormalizeTheme)
             : new QaDefinitionCatalog(QaData.Snapshot);
+        s_catalog = catalog;
         // The product republishes the appearance whenever the catalog changes;
         // mirroring that here makes "settings apply immediately" capturable.
         catalog.Changed += (_, _) =>
@@ -2880,12 +2835,12 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         if (viewModel.RuntimeWorkspace is not { } workspace)
         {
             throw new InvalidOperationException(
-                "The File Viewer route needs a runtime workspace.");
+                "The Files route needs a runtime workspace.");
         }
 
         var tab = new RuntimeTabViewModel(
             new TabInstanceId("qa-tab-file-viewer"),
-            "File Viewer",
+            "Files",
             "Local");
         var panel = CreateSampleFilePanel();
         tab.AddPanel(panel);
@@ -2940,11 +2895,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             new TabInstanceId("qa-tab-statistics"),
             "Statistics",
             "Local");
-        var panel = new WebsiteMonitoringRuntimePanelViewModel(
-            new PanelInstanceId("qa-panel-statistics"),
-            PanelKind.Statistics,
-            "Statistics",
-            "Statistics");
+        var (panel, _) = QaMonitorPanels.Statistics(new PanelInstanceId("qa-panel-statistics"));
         tab.AddPanel(panel);
         _ = tab.ActivatePanel(panel.Id);
         tab.NotifyPanelLayoutChanged();
@@ -2957,18 +2908,14 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         if (viewModel.RuntimeWorkspace is not { } workspace)
         {
             throw new InvalidOperationException(
-                "The Process Monitor route needs a runtime workspace.");
+                "The Processes route needs a runtime workspace.");
         }
 
         var tab = new RuntimeTabViewModel(
             new TabInstanceId("qa-tab-process-monitor"),
-            "Process Monitor",
+            "Processes",
             "Local");
-        var panel = new WebsiteMonitoringRuntimePanelViewModel(
-            new PanelInstanceId("qa-panel-process-monitor"),
-            PanelKind.ProcessMonitor,
-            "Process Monitor",
-            "Process monitor");
+        var (panel, _) = QaMonitorPanels.Processes(new PanelInstanceId("qa-panel-process-monitor"));
         tab.AddPanel(panel);
         _ = tab.ActivatePanel(panel.Id);
         tab.NotifyPanelLayoutChanged();
@@ -3220,7 +3167,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 StringComparison.Ordinal)) is not { } notes)
         {
             throw new InvalidOperationException(
-                "The File Viewer route could not select its sample document.");
+                "The Files route could not select its sample document.");
         }
 
         panel.SelectedEntry = notes;
@@ -3662,6 +3609,51 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         return window;
     }
 
+    /// <summary>
+    /// The database workspace over the real SQLite probe, with its first
+    /// table opened as a person opens one, so the sidebar shows which object
+    /// the rows belong to. The window's tag is that opening.
+    /// </summary>
+    private static Window CreateSqliteProbeWindow(double width, double height)
+    {
+        var viewer = new DatabaseRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "probe.db",
+            new Asura.Databases.DatabasePanelClient(),
+            "sqlite",
+            Program.SqliteProbePath);
+        var prepared = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var window = new Window
+        {
+            Width = width,
+            Height = height,
+            CanResize = false,
+            ShowInTaskbar = false,
+            Content = new Border
+            {
+                Classes = { "FloatingSidebar" },
+                Child = new Asura.App.Views.Components.DatabaseWorkspaceView { DataContext = viewer },
+            },
+            Tag = prepared.Task,
+        };
+        window.Opened += async (_, _) =>
+        {
+            try
+            {
+                await viewer.ConnectAsync();
+                await viewer.PreviewTableAsync(viewer.Tables[0]);
+                window.UpdateLayout();
+                prepared.SetResult();
+            }
+            catch (Exception exception)
+            {
+                prepared.SetException(exception);
+            }
+        };
+        window.Closed += (_, _) => viewer.Dispose();
+        return window;
+    }
+
     private static async Task PreviewQaDeploymentTableAsync(
         DatabaseRuntimePanelViewModel viewer)
     {
@@ -3897,7 +3889,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
 
         var panel = new FileRuntimePanelViewModel(
             PanelInstanceId.New(),
-            "File Viewer",
+            "Files",
             client,
             archiveReader: new Asura.Previews.ArchiveTableOfContents());
         // Pumped rather than blocked on: the panel finishes its work on this
@@ -4004,13 +3996,69 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
     /// it. If the shortcut regresses to bubbling, the ListBox consumes the key
     /// and the capture still shows the waiting state.
     /// </summary>
+    /// <summary>
+    /// A monitor panel in a window of its own, with its real view model. The
+    /// window's tag is the panel's start, which the capture waits for, so the
+    /// charts and rows are on screen before the picture is taken.
+    /// </summary>
+    private static Window MonitorWindow<TPanel>((TPanel Panel, Task Started) monitor, double width, double height)
+        where TPanel : RuntimePanelViewModel
+    {
+        Control view = monitor.Panel switch
+        {
+            StatisticsRuntimePanelViewModel => new Asura.App.Views.RuntimePanels.StatisticsRuntimePanelView(),
+            ProcessMonitorRuntimePanelViewModel => new Asura.App.Views.RuntimePanels.ProcessMonitorRuntimePanelView(),
+            _ => throw new ArgumentOutOfRangeException(nameof(monitor)),
+        };
+        view.DataContext = monitor.Panel;
+        var window = new Window
+        {
+            Width = width,
+            Height = height,
+            CanResize = false,
+            ShowInTaskbar = false,
+            Content = view,
+            Tag = monitor.Started,
+        };
+        window.Closed += (_, _) => monitor.Panel.Dispose();
+        return window;
+    }
+
+    /// <summary>
+    /// A preview in a window of its own. Its rows arrive a batch at a time,
+    /// as they do in the panel; the window's tag is that fill, which the
+    /// capture waits for, so the picture shows rows rather than an empty list.
+    /// </summary>
+    private static Window FilledPreviewWindow(Control preview, Task fill, double width, double height, double padding) => new()
+    {
+        Width = width,
+        Height = height,
+        CanResize = false,
+        ShowInTaskbar = false,
+        Tag = fill,
+        Content = new Border
+        {
+            Classes = { "FloatingSidebar" },
+            Padding = new Thickness(padding),
+            Child = preview,
+        },
+    };
+
     private static Window CreateSpaceShortcutProbe()
     {
+        // A row padded as the Files panel pads its rows, so the selection
+        // plate the capture shows is the one a person sees.
         var list = new ListBox
         {
             ItemsSource = new[] { "payload.bin" },
             SelectedIndex = 0,
             Height = 90,
+            Focusable = true,
+            ItemTemplate = new FuncDataTemplate<string>(static (name, _) => new TextBlock
+            {
+                Margin = new Thickness(12, 6),
+                Text = name,
+            }),
         };
         var status = new TextBlock
         {
@@ -4044,11 +4092,20 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         };
         window.Opened += (_, _) =>
         {
-            list.Focus();
+            // The list has keyboard focus, as it does when a person presses
+            // Space in it; a key raised at an unfocused list proves nothing.
+            window.UpdateLayout();
+            if (!list.Focus(NavigationMethod.Tab))
+            {
+                status.Text = "the list could not take focus";
+                return;
+            }
+
             list.RaiseEvent(new KeyEventArgs
             {
                 RoutedEvent = InputElement.KeyDownEvent,
                 Key = Key.Space,
+                Source = list,
             });
         };
         return window;
@@ -4198,6 +4255,35 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         image.Quality = 92;
         image.Format = ImageMagick.MagickFormat.Jpeg;
         image.Write(Program.JpegProbePath);
+    }
+
+    /// <summary>
+    /// Renders a window's content at its whole height. At 200% and 250% text
+    /// the gallery is taller than any screen, and the system holds a window
+    /// to the screen, so a capture of the window was the top of the page
+    /// only. The content is laid out at the window's width and its own
+    /// height, over the window's background, and rendered whole.
+    /// </summary>
+    private static void RenderWholeHeight(Window window, string path)
+    {
+        if (window.Content is not Control content)
+        {
+            throw new InvalidOperationException("The window has no content to render.");
+        }
+
+        var width = window.Bounds.Width;
+        window.Content = null;
+        var page = new Border { Background = window.Background, Child = content };
+        window.Content = page;
+        window.UpdateLayout();
+        page.Measure(new Size(width, double.PositiveInfinity));
+        var height = Math.Ceiling(page.DesiredSize.Height);
+        page.Arrange(new Rect(0, 0, width, height));
+        using var bitmap = new RenderTargetBitmap(
+            new PixelSize((int)Math.Ceiling(width), (int)height),
+            new Vector(96, 96));
+        bitmap.Render(page);
+        bitmap.Save(path);
     }
 
     private static async Task CaptureDialogAsync(string name, Window dialog)
@@ -4583,7 +4669,10 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         if (route.PrepareCapture is { } prepareCapture)
         {
             prepareCapture(window);
-            await Task.Delay(140);
+            // Long enough for what the preparation set moving to settle: the
+            // rail tile's close action opens over 0.15 s and its hover wash
+            // fades in over 0.12 s, and a 140 ms wait caught both mid-way.
+            await Task.Delay(320);
             Dispatcher.UIThread.RunJobs();
 
             // What the route did may have replaced the window its surface is
@@ -4636,6 +4725,10 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                     dialog,
                     new PixelSize((int)dialog.Width, (int)dialog.Height),
                     path);
+            }
+            else if (route.Name.StartsWith("design-system-scale", StringComparison.Ordinal))
+            {
+                RenderWholeHeight(dialog, path);
             }
             else
             {
