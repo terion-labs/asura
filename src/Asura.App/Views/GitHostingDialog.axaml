@@ -37,7 +37,7 @@
         <Button Grid.Column="2" Content="Sign In…" Click="OnSignIn" IsEnabled="{Binding !IsBusy}" />
       </Grid>
       <Grid Grid.Row="2" Classes="HostingRow" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-        <controls:SearchField Text="{Binding Filter}" PlaceholderText="Filter repositories" MaxWidth="320" HorizontalAlignment="Stretch" AutomationProperties.Name="Filter hosting repositories" />
+        <controls:SearchField Text="{Binding Filter}" PlaceholderText="Filter repositories" MaxWidth="320" HorizontalAlignment="Left" AutomationProperties.Name="Filter hosting repositories" />
         <!-- Starred only changes which list is shown, so it reloads the list
              it changes rather than waiting for Load Repositories. The dialog
              reloads once the binding has written Starred back, and the box
