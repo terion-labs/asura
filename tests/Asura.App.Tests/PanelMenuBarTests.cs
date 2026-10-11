@@ -10,7 +10,7 @@ using Avalonia.Headless;
 namespace Asura.App.Tests;
 
 /// <summary>
-/// Every item of the Docker, Kubernetes, Files, Database and Processes
+/// Every item of the Docker, Kubernetes, Files, Database, Processes and Redis
 /// context menus has a menu-bar path under Panel, with the same title and
 /// key, which the focused panel runs and which is dimmed otherwise.
 /// </summary>
@@ -18,7 +18,7 @@ public sealed class PanelMenuBarTests
 {
     private static readonly ImmutableDictionary<string, string> NoArguments = [];
 
-    private static readonly string[] PanelMenus = ["Docker", "Kubernetes", "Files", "Database", "Processes"];
+    private static readonly string[] PanelMenus = ["Docker", "Kubernetes", "Files", "Database", "Processes", "Redis"];
 
     [Fact]
     public void The_panel_menu_ends_with_one_submenu_per_panel_kind()
@@ -29,8 +29,8 @@ public sealed class PanelMenuBarTests
         Assert.Equal(PanelMenus, submenus.Select(menu => menu.Title), StringComparer.Ordinal);
         Assert.IsType<MenuSeparatorNode>(panel.Items[^(submenus.Length + 1)]);
 
-        // One submenu level: the context menus' Copy Row As and Set Value
-        // submenus are spelled out as items.
+        // One submenu level: the context menus' Copy Row As, Quick Filter
+        // and Set Value submenus are spelled out as items.
         Assert.All(submenus, menu => Assert.DoesNotContain(menu.Items, item => item is MenuSubmenuNode));
     }
 
@@ -77,6 +77,43 @@ public sealed class PanelMenuBarTests
             Assert.Equal(ApplicationCommandActionKind.PanelContext, routed.Action!.Kind);
             Assert.Equal(command, routed.Action.Command);
         }
+    }
+
+    /// <summary>
+    /// Quick Filter offers a comparison with the cell's value for each
+    /// operator the column allows; the menu bar has an item for every one.
+    /// </summary>
+    [Fact]
+    public void Every_quick_filter_comparison_has_a_menu_bar_item()
+    {
+        var inMenus = ApplicationMenuLayout.AllCommands().Select(item => item.Command).ToHashSet();
+        var commands = Enum.GetValues<DatabaseFilterOperator>()
+            .Select(DatabaseWorkspaceView.QuickFilterCommand)
+            .ToArray();
+
+        Assert.Equal(commands.Length, commands.Distinct().Count());
+        Assert.All(commands, command =>
+        {
+            Assert.Contains(command, inMenus);
+            Assert.Contains(command, BuiltInCommands.PanelContextCommands);
+        });
+    }
+
+    [Fact]
+    public void State_titled_items_follow_the_panel()
+    {
+        var items = ApplicationMenuLayout.AllCommands()
+            .Where(item => BuiltInCommands.PanelContextCommands.Contains(item.Command))
+            .ToDictionary(item => item.Command);
+
+        Assert.Equal(
+            (CommandStates.IsDockerStackCollapsed, "Expand Stack"),
+            items[BuiltInCommands.DockerStackToggle].StateTitle);
+        Assert.Equal("Collapse Stack", items[BuiltInCommands.DockerStackToggle].Title);
+        Assert.Equal(
+            (CommandStates.IsDatabaseConnected, "Disconnect"),
+            items[BuiltInCommands.DatabaseToggleConnection].StateTitle);
+        Assert.Equal("Connect", items[BuiltInCommands.DatabaseToggleConnection].Title);
     }
 
     [Fact]
@@ -251,6 +288,86 @@ public sealed class PanelCommandTargetHeadlessTests
         }, CancellationToken.None);
     }
 
+    /// <summary>
+    /// A floated Docker window keeps its Files view while it shows another
+    /// detail. With nothing focused, a hidden view is no target, so Command-
+    /// Delete never trashes files the person cannot see.
+    /// </summary>
+    [Fact]
+    public async Task A_hidden_panel_view_runs_no_commands()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await session.Dispatch(() =>
+        {
+            var hidden = new FakePanel { IsVisible = false };
+            var shown = new FakePanel(BuiltInCommands.DockerStart);
+            var window = new Window { Content = new StackPanel { Children = { shown, new Border { Child = hidden } } } };
+            window.Show();
+            try
+            {
+                var targets = PanelCommandTargets.For(null, () => PanelCommandTargets.Within(window, panel: null));
+                Assert.Equal([shown], targets.Cast<FakePanel>());
+
+                var state = new List<KeyValuePair<string, bool>>();
+                PanelCommandTargets.AddState(state, targets, focused: null);
+                var facts = state.ToDictionary(fact => fact.Key, fact => fact.Value, StringComparer.Ordinal);
+                Assert.True(facts[CommandStates.CanExecute(BuiltInCommands.DockerStart)]);
+                Assert.False(facts[CommandStates.CanExecute(BuiltInCommands.FilesDelete)]);
+                Assert.False(facts[CommandStates.CanExecute(BuiltInCommands.FilesNewFolder)]);
+
+                // Shown again, it is a target again.
+                hidden.IsVisible = true;
+                Assert.Equal(2, PanelCommandTargets.Within(window, panel: null).Count());
+            }
+            finally
+            {
+                window.Close();
+            }
+
+            return Task.CompletedTask;
+        }, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Two nested panels can report the same fact, a Database workspace and
+    /// a Kubernetes view both reporting a multiple selection. The innermost
+    /// one runs the commands, so its value names the items, and the state
+    /// stays one fact per key for the router.
+    /// </summary>
+    [Fact]
+    public async Task The_innermost_panel_reports_a_shared_fact()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await session.Dispatch(() =>
+        {
+            var button = new Button();
+            var inner = new FakePanel { Content = button, Facts = [new(CommandStates.HasMultipleSelection, true)] };
+            var outer = new FakePanel(BuiltInCommands.DockerStart)
+            {
+                Content = inner,
+                Facts = [new(CommandStates.HasMultipleSelection, false), new(CommandStates.MovesToTrash, false)],
+            };
+            var window = new Window { Content = outer };
+            window.Show();
+            try
+            {
+                var state = new List<KeyValuePair<string, bool>>();
+                PanelCommandTargets.AddState(state, PanelCommandTargets.For(button, () => []), button);
+                var invocation = new CommandInvocation(CommandContext.All, state: state);
+
+                Assert.True(invocation.State[CommandStates.HasMultipleSelection]);
+                Assert.False(invocation.State[CommandStates.MovesToTrash]);
+                Assert.Single(state, fact => fact.Key == CommandStates.HasMultipleSelection);
+            }
+            finally
+            {
+                window.Close();
+            }
+
+            return Task.CompletedTask;
+        }, CancellationToken.None);
+    }
+
     private static Dictionary<string, bool> State(Window window, Avalonia.Input.IInputElement focused)
     {
         var state = new List<KeyValuePair<string, bool>>();
@@ -277,6 +394,8 @@ public sealed class PanelCommandTargetHeadlessTests
             return Task.CompletedTask;
         }
 
-        public IEnumerable<KeyValuePair<string, bool>> States => [new(CommandStates.MovesToTrash, true)];
+        public IReadOnlyList<KeyValuePair<string, bool>> Facts { get; init; } = [new(CommandStates.MovesToTrash, true)];
+
+        public IEnumerable<KeyValuePair<string, bool>> States => Facts;
     }
 }

@@ -393,6 +393,7 @@
               <controls:SurfaceCard Grid.Row="1" Padding="0" ClipsContent="True" IsVisible="{Binding MutationForm.ShowsValueGrid}">
                 <Grid>
                   <DataGrid
+                      x:Name="ValueEntriesGrid"
                       Classes="DatabaseGrid RedisValues"
                       ItemsSource="{Binding ValueEntries}"
                       SelectedItem="{Binding SelectedValueEntry, Mode=TwoWay}"
@@ -405,7 +406,10 @@
                       AutomationProperties.Name="Redis key value">
                     <DataGrid.ContextMenu>
                       <ContextMenu>
+                        <!-- Panel ▸ Redis ▸ Remove Entry is its menu-bar copy;
+                             here it names the entry by the key's type. -->
                         <MenuItem
+                            x:Name="RemoveEntryMenuItem"
                             Command="{Binding RemoveEntryCommand}"
                             Header="{Binding RemoveEntryLabel}"
                             AutomationProperties.Name="Remove the selected Redis entry">

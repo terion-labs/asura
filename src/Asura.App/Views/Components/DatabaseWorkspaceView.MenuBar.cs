@@ -1,4 +1,5 @@
 using Asura.App.ViewModels;
+using Asura.Application;
 using Asura.Core;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -6,9 +7,10 @@ using Avalonia.Interactivity;
 namespace Asura.App.Views.Components;
 
 /// <summary>
-/// The menu bar's Database items: the result grid's context menu, acting on
-/// the grid's current cell and row as the context menu's keyboard gesture
-/// does. Each item runs the context menu's own handler.
+/// The menu bar's Database items: the object list's context menu, acting on
+/// the object the workspace shows, and the result grid's, acting on the
+/// grid's current cell and row as the context menu's keyboard gesture does.
+/// Each item runs the context menu's own handler.
 /// </summary>
 public sealed partial class DatabaseWorkspaceView : IPanelCommandTarget
 {
@@ -39,6 +41,100 @@ public sealed partial class DatabaseWorkspaceView : IPanelCommandTarget
         SetFileMenuItem.Tag = BuiltInCommands.DatabaseSetFromFile;
     }
 
+    /// <summary>The Quick Filter submenu's comparisons, by their menu-bar command.</summary>
+    private static readonly IReadOnlyDictionary<CommandId, DatabaseFilterOperator> QuickFilterCommands =
+        new Dictionary<CommandId, DatabaseFilterOperator>
+        {
+            [BuiltInCommands.DatabaseFilterEqual] = DatabaseFilterOperator.Equal,
+            [BuiltInCommands.DatabaseFilterNotEqual] = DatabaseFilterOperator.NotEqual,
+            [BuiltInCommands.DatabaseFilterLessThan] = DatabaseFilterOperator.LessThan,
+            [BuiltInCommands.DatabaseFilterLessThanOrEqual] = DatabaseFilterOperator.LessThanOrEqual,
+            [BuiltInCommands.DatabaseFilterGreaterThan] = DatabaseFilterOperator.GreaterThan,
+            [BuiltInCommands.DatabaseFilterGreaterThanOrEqual] = DatabaseFilterOperator.GreaterThanOrEqual,
+            [BuiltInCommands.DatabaseFilterContains] = DatabaseFilterOperator.Contains,
+            [BuiltInCommands.DatabaseFilterNotContains] = DatabaseFilterOperator.NotContains,
+            [BuiltInCommands.DatabaseFilterStartsWith] = DatabaseFilterOperator.StartsWith,
+            [BuiltInCommands.DatabaseFilterEndsWith] = DatabaseFilterOperator.EndsWith,
+            [BuiltInCommands.DatabaseFilterIn] = DatabaseFilterOperator.In,
+            [BuiltInCommands.DatabaseFilterNotIn] = DatabaseFilterOperator.NotIn,
+            [BuiltInCommands.DatabaseFilterIsNull] = DatabaseFilterOperator.IsNull,
+            [BuiltInCommands.DatabaseFilterIsNotNull] = DatabaseFilterOperator.IsNotNull,
+        };
+
+    /// <summary>The menu-bar command for one of Quick Filter's comparisons.</summary>
+    internal static CommandId QuickFilterCommand(DatabaseFilterOperator filterOperator) =>
+        QuickFilterCommands.Single(entry => entry.Value == filterOperator).Key;
+
+    private static bool IsObjectCommand(CommandId command) =>
+        command == BuiltInCommands.DatabaseOpenObjectInTab
+        || command == BuiltInCommands.DatabaseOpenObjectInPanel
+        || command == BuiltInCommands.DatabaseOpenStructure
+        || command == BuiltInCommands.DatabaseCopyObjectName;
+
+    /// <summary>
+    /// The object the object list's menu-bar commands act on: the one the
+    /// workspace shows and the list highlights. The list takes no clicks
+    /// while edits are pending or work is running, so neither do they.
+    /// </summary>
+    private static DatabaseTableItemViewModel? ShownObject(DatabaseRuntimePanelViewModel panel) =>
+        panel is { IsDatabaseOverview: false, CanChangeSelectedObject: true, SelectedObject: { } item }
+            ? item
+            : null;
+
+    /// <summary>Runs one of the object list's context-menu commands on <paramref name="item"/>.</summary>
+    private async Task RunObjectCommandAsync(CommandId command, DatabaseTableItemViewModel item)
+    {
+        if (command == BuiltInCommands.DatabaseOpenObjectInTab)
+        {
+            OpenObjectInTabRequested?.Invoke(this, item.Descriptor);
+        }
+        else if (command == BuiltInCommands.DatabaseOpenObjectInPanel)
+        {
+            OpenObjectInPanelRequested?.Invoke(this, item.Descriptor);
+        }
+        else if (Panel is not { } panel)
+        {
+            return;
+        }
+        else if (command == BuiltInCommands.DatabaseOpenStructure)
+        {
+            await panel.PreviewTableAsync(item);
+            panel.SetMode(DatabaseWorkspaceMode.Structure);
+        }
+        else if (command == BuiltInCommands.DatabaseCopyObjectName)
+        {
+            _ = await CopyTextAsync(item.Name, panel);
+        }
+    }
+
+    /// <summary>
+    /// Titles the object list's context menu from the registry as it opens,
+    /// as each list row builds its own menu from the template.
+    /// </summary>
+    private void OnObjectContextMenuOpening(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        _ = e;
+        if (sender is ContextMenu menu)
+        {
+            foreach (var item in menu.Items.OfType<MenuItem>())
+            {
+                if (item.Tag is CommandId command)
+                {
+                    PanelCommandTargets.Bind(item, command);
+                }
+            }
+        }
+    }
+
+    private async void OnObjectCommandClick(object? sender, RoutedEventArgs e)
+    {
+        _ = e;
+        if (sender is MenuItem { Tag: CommandId command, DataContext: DatabaseTableItemViewModel item })
+        {
+            await RunObjectCommandAsync(command, item);
+        }
+    }
+
     /// <summary>
     /// Whether a grid command can run now: what the context menu would show
     /// and enable for the current cell. Commands on the page need no cell;
@@ -49,6 +145,11 @@ public sealed partial class DatabaseWorkspaceView : IPanelCommandTarget
         if (Panel is not { } panel)
         {
             return false;
+        }
+
+        if (IsObjectCommand(command))
+        {
+            return ShownObject(panel) is not null;
         }
 
         var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
@@ -75,6 +176,12 @@ public sealed partial class DatabaseWorkspaceView : IPanelCommandTarget
         if (ResolveCurrentCellTarget() is not { } target || !IsTargetCurrent(panel, target))
         {
             return false;
+        }
+
+        if (QuickFilterCommands.TryGetValue(command, out var filterOperator))
+        {
+            return panel.CanFilterTable
+                && panel.GetQuickFilterOperators(target.Ordinal).Any(option => option.Operator == filterOperator);
         }
 
         var cell = target.Cell;
@@ -112,9 +219,21 @@ public sealed partial class DatabaseWorkspaceView : IPanelCommandTarget
 
     Task IPanelCommandTarget.ExecuteAsync(CommandId command)
     {
-        if (!CanRun(command))
+        if (!CanRun(command) || Panel is not { } panel)
         {
             return Task.CompletedTask;
+        }
+
+        if (IsObjectCommand(command) && ShownObject(panel) is { } shown)
+        {
+            return RunObjectCommandAsync(command, shown);
+        }
+
+        if (QuickFilterCommands.TryGetValue(command, out var filterOperator)
+            && ResolveCurrentCellTarget() is { } target)
+        {
+            CommitGridEdit();
+            return panel.ApplyQuickFilterAsync(target.Ordinal, filterOperator);
         }
 
         var click = new RoutedEventArgs(MenuItem.ClickEvent);

@@ -40,6 +40,12 @@ public static class CommandStates
     /// <summary>The focused Files panel's delete moves to the Trash.</summary>
     public const string MovesToTrash = "files.moves-to-trash";
 
+    /// <summary>The stack of the focused Docker panel's selection is collapsed.</summary>
+    public const string IsDockerStackCollapsed = "docker.stack-collapsed";
+
+    /// <summary>The focused Database panel has a session open.</summary>
+    public const string IsDatabaseConnected = "database.connected";
+
     /// <summary>
     /// The fact a host reports when a panel-owned command, such as a Git
     /// operation, can run against the focused panel.

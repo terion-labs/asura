@@ -358,6 +358,48 @@ public sealed class RedisRuntimePanelViewHeadlessTests
             button.Bounds.Height);
     }
 
+    /// <summary>
+    /// The value grid's Remove item is in the menu bar as Panel ▸ Redis ▸
+    /// Remove Entry, available exactly when the grid's copy is.
+    /// </summary>
+    [Fact]
+    public Task TheMenuBarRemovesTheSelectedEntry() =>
+        RunHeadlessAsync(async () =>
+        {
+            var session = new RedisPanelFixtures.StubSession(null, type: "hash");
+            using var panel = RedisPanelFixtures.Panel(session);
+            await panel.Initialization;
+            panel.SelectedKey = panel.Keys[0];
+            var view = new RedisRuntimePanelView { DataContext = panel };
+            var window = new Window { Width = 1_200, Height = 700, Content = view };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                var target = (IPanelCommandTarget)view;
+                var grid = view.FindControl<DataGrid>("ValueEntriesGrid")!;
+                Assert.True(grid.IsEffectivelyVisible);
+                var menu = Assert.IsType<ContextMenu>(grid.ContextMenu);
+                menu.Open(grid);
+                window.UpdateLayout();
+                var item = Assert.Single(menu.Items.OfType<MenuItem>());
+                Assert.Equal("Remove Field", item.Header);
+                PanelContextMenuAssert.ItemsAreInTheMenuBar([item], "Remove Field", "Remove Member", "Remove Value");
+                menu.Close();
+
+                Assert.False(target.CanExecute(BuiltInCommands.RedisRemoveEntry));
+                panel.SelectedValueEntry = panel.ValueEntries[0];
+                Assert.True(target.CanExecute(BuiltInCommands.RedisRemoveEntry));
+                Assert.False(target.CanExecute(BuiltInCommands.DatabaseReconnect));
+                await target.ExecuteAsync(BuiltInCommands.RedisRemoveEntry);
+                Assert.Equal("hash email", Assert.Single(session.Removals));
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
     private static async Task RunHeadlessAsync(Func<Task> assertion)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));

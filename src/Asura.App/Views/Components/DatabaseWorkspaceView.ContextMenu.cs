@@ -373,6 +373,10 @@ public sealed partial class DatabaseWorkspaceView
             {
                 Header = BuildQuickFilterLabel(target, option.Operator),
                 IsEnabled = panel.CanFilterTable,
+
+                // Its menu-bar copy, under Panel ▸ Database, names the
+                // comparison rather than this cell's value.
+                Tag = QuickFilterCommand(option.Operator),
             };
             AutomationProperties.SetName(
                 item,

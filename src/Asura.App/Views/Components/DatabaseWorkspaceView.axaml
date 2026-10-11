@@ -8,6 +8,7 @@
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia"
     xmlns:local="using:Asura.App.Views.Components"
+    xmlns:core="using:Asura.Core"
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch"
     Container.Name="databaseWorkspace"
@@ -250,24 +251,32 @@
                       ToolTip.Tip="{Binding KindLabel}"
                       AutomationProperties.Name="{Binding Name, StringFormat=Open {0}}">
                     <Button.ContextMenu>
-                      <ContextMenu AutomationProperties.Name="Database object actions">
+                      <!-- Each item names its menu-bar command, under
+                           Panel ▸ Database, which titles it as it opens. -->
+                      <ContextMenu
+                          Opening="OnObjectContextMenuOpening"
+                          AutomationProperties.Name="Database object actions">
                         <MenuItem
-                            Click="OnObjectOpenInTabClick"
+                            Click="OnObjectCommandClick"
                             Header="Open in New Tab"
+                            Tag="{x:Static core:BuiltInCommands.DatabaseOpenObjectInTab}"
                             AutomationProperties.Name="Open this object in a new tab" />
                         <MenuItem
-                            Click="OnObjectOpenInPanelClick"
+                            Click="OnObjectCommandClick"
                             Header="Open in New Panel"
+                            Tag="{x:Static core:BuiltInCommands.DatabaseOpenObjectInPanel}"
                             AutomationProperties.Name="Open this object in a new panel beside this one" />
                         <Separator />
                         <MenuItem
-                            Click="OnObjectOpenStructureClick"
+                            Click="OnObjectCommandClick"
                             Header="Open Structure"
+                            Tag="{x:Static core:BuiltInCommands.DatabaseOpenStructure}"
                             AutomationProperties.Name="Open this object's structure" />
                         <Separator />
                         <MenuItem
-                            Click="OnObjectCopyNameClick"
+                            Click="OnObjectCommandClick"
                             Header="Copy Name"
+                            Tag="{x:Static core:BuiltInCommands.DatabaseCopyObjectName}"
                             AutomationProperties.Name="Copy this object's name" />
                       </ContextMenu>
                     </Button.ContextMenu>

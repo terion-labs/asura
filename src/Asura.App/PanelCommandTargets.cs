@@ -12,7 +12,7 @@ namespace Asura.App;
 /// <summary>
 /// A panel view that carries out its own context-menu commands for the menu
 /// bar, the command palette and keymaps: the Docker, Kubernetes, Files,
-/// Database and Processes commands in <see cref="BuiltInCommands.PanelContextCommands"/>.
+/// Database, Processes and Redis commands in <see cref="BuiltInCommands.PanelContextCommands"/>.
 /// The menu bar dims each one unless the focused panel can run it now, as the
 /// context menu dims its own copy.
 /// </summary>
@@ -67,20 +67,24 @@ internal static class PanelCommandTargets
     /// <summary>
     /// The targets inside <paramref name="root"/> whose panel is
     /// <paramref name="panel"/>, or every target inside it when
-    /// <paramref name="panel"/> is null.
+    /// <paramref name="panel"/> is null. A hidden view is no target: a Docker
+    /// panel keeps its Files view while it shows another detail, and Move to
+    /// Trash must not act on a file list the person cannot see.
     /// </summary>
     public static IEnumerable<IPanelCommandTarget> Within(Visual root, object? panel) =>
         root.GetVisualDescendants()
             .OfType<IPanelCommandTarget>()
-            .Where(target => panel is null
-                || (target is StyledElement element && ReferenceEquals(element.DataContext, panel)));
+            .Where(target => target is Visual { IsEffectivelyVisible: true }
+                && (panel is null
+                    || (target is StyledElement element && ReferenceEquals(element.DataContext, panel))));
 
     /// <summary>
     /// Adds whether each panel command can run, and the targets' own facts.
     /// A command with a menu key equivalent is unavailable while a text field
     /// has focus: AppKit offers a key to the menu before the focused control,
     /// so an enabled item would take Command-Delete or Shift-Command-N from
-    /// the field the person is typing in.
+    /// the field the person is typing in. When two targets report the same
+    /// fact, the innermost one's holds, as it is the one that runs commands.
     /// </summary>
     public static void AddState(
         ICollection<KeyValuePair<string, bool>> state,
@@ -97,11 +101,15 @@ internal static class PanelCommandTargets
                 !(typing && HasMenuKey(command)) && Runner(targets, command) is not null));
         }
 
+        var reported = new HashSet<string>(StringComparer.Ordinal);
         foreach (var target in targets)
         {
             foreach (var fact in target.States)
             {
-                state.Add(fact);
+                if (reported.Add(fact.Key))
+                {
+                    state.Add(fact);
+                }
             }
         }
     }

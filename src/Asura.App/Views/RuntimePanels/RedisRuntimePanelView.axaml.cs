@@ -9,7 +9,7 @@ using Avalonia.Threading;
 
 namespace Asura.App.Views.RuntimePanels;
 
-public sealed partial class RedisRuntimePanelView : UserControl
+public sealed partial class RedisRuntimePanelView : UserControl, IPanelCommandTarget
 {
     private RedisRuntimePanelViewModel? _observedPanel;
     private bool _synchronizingPerspective;
@@ -18,6 +18,7 @@ public sealed partial class RedisRuntimePanelView : UserControl
     {
         InitializeComponent();
         DataContextChanged += (_, _) => ObservePanel();
+        RemoveEntryMenuItem.Tag = Asura.Core.BuiltInCommands.RedisRemoveEntry;
     }
 
     public event EventHandler<RoutedEventArgs>? CloseRequested;
@@ -243,4 +244,23 @@ public sealed partial class RedisRuntimePanelView : UserControl
     private void OnNewConnectionRequested(object? sender, RoutedEventArgs e) => NewConnectionRequested?.Invoke(sender, e);
     private void OnEditConnectionClick(object? sender, RoutedEventArgs e) => EditConnectionRequested?.Invoke(this, e);
     private void OnSplitRequested(object? sender, PanelSplitOrientation orientation) => SplitRequested?.Invoke(sender, orientation);
+
+    /// <summary>
+    /// Remove Entry acts on the selected row of the value grid, and only
+    /// while the grid shows it.
+    /// </summary>
+    bool IPanelCommandTarget.CanExecute(Asura.Core.CommandId command) =>
+        command == Asura.Core.BuiltInCommands.RedisRemoveEntry
+        && ValueEntriesGrid.IsEffectivelyVisible
+        && Panel?.RemoveEntryCommand.CanExecute(null) == true;
+
+    Task IPanelCommandTarget.ExecuteAsync(Asura.Core.CommandId command)
+    {
+        if (((IPanelCommandTarget)this).CanExecute(command))
+        {
+            Panel?.RemoveEntryCommand.Execute(null);
+        }
+
+        return Task.CompletedTask;
+    }
 }

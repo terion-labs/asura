@@ -1,11 +1,12 @@
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
+using Asura.Core;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
 namespace Asura.App.Views.RuntimePanels;
 
-public sealed partial class DatabaseRuntimePanelView : UserControl
+public sealed partial class DatabaseRuntimePanelView : UserControl, IPanelCommandTarget
 {
     private DatabaseRuntimePanelViewModel? _observedPanel;
 
@@ -13,6 +14,11 @@ public sealed partial class DatabaseRuntimePanelView : UserControl
     {
         InitializeComponent();
         DataContextChanged += (_, _) => ObservePanel();
+
+        // The connection button's menu names its menu-bar commands, under
+        // Panel ▸ Database. Connect and Disconnect keep the button's label.
+        PanelCommandTargets.Bind(ReconnectMenuItem, BuiltInCommands.DatabaseReconnect);
+        ConnectionMenuItem.Tag = BuiltInCommands.DatabaseToggleConnection;
     }
 
     private void ObservePanel()
@@ -107,4 +113,25 @@ public sealed partial class DatabaseRuntimePanelView : UserControl
 
     private void OnSplitRequested(object? sender, PanelSplitOrientation orientation) =>
         SplitRequested?.Invoke(sender, orientation);
+
+    private System.Windows.Input.ICommand? ConnectionCommand(CommandId command) =>
+        command == BuiltInCommands.DatabaseReconnect ? Panel?.ReconnectCommand
+        : command == BuiltInCommands.DatabaseToggleConnection ? Panel?.ToggleConnectionCommand
+        : null;
+
+    bool IPanelCommandTarget.CanExecute(CommandId command) =>
+        ConnectionCommand(command)?.CanExecute(null) == true;
+
+    Task IPanelCommandTarget.ExecuteAsync(CommandId command)
+    {
+        if (ConnectionCommand(command) is { } connection && connection.CanExecute(null))
+        {
+            connection.Execute(null);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    IEnumerable<KeyValuePair<string, bool>> IPanelCommandTarget.States =>
+        Panel is { } panel ? [new(CommandStates.IsDatabaseConnected, panel.IsConnected)] : [];
 }
