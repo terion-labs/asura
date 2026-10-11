@@ -1,15 +1,5 @@
 <controls:DialogWindow x:Class="Asura.App.Views.GitConflictDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:Asura.App.Controls" Width="1000" Height="700" MinWidth="650" MinHeight="400">
   <controls:DialogWindow.Styles>
-    <Style Selector="TabItem">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
-      <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
-    </Style>
-    <!-- The tabs' content starts at the same edge as the title and the path
-         above it, not a tab control's own inset further in. -->
-    <Style Selector="TabControl.ConflictVersions">
-      <Setter Property="Padding" Value="0" />
-      <Setter Property="Margin" Value="0" />
-    </Style>
     <Style Selector="TabControl.ConflictVersions TextBox">
       <Setter Property="FontFamily" Value="{DynamicResource ShellDataFontFamily}" />
     </Style>
@@ -31,28 +21,45 @@
         </StackPanel>
       </Grid>
     </controls:DialogShell.Footer>
-    <Grid RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
+    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
       <TextBlock x:Name="PathLabel" TextWrapping="Wrap" />
-      <TabControl Grid.Row="1" Classes="ConflictVersions">
+      <!-- Four fixed versions of one file: the shared segmented control
+           picks the version, and the tab view below only hosts it. What
+           Current and Incoming mean is said on their segments. -->
+      <controls:SegmentedControl
+          x:Name="VersionSegments"
+          Grid.Row="1"
+          HorizontalAlignment="Center"
+          AutomationProperties.Name="Conflict version">
+        <RadioButton Content="Result" AutomationProperties.Name="Result" />
+        <RadioButton x:Name="CurrentSegment" Content="Current" AutomationProperties.Name="Current" />
+        <RadioButton x:Name="IncomingSegment" Content="Incoming" AutomationProperties.Name="Incoming" />
+        <RadioButton Content="Base" ToolTip.Tip="The file as it was where the two sides split" AutomationProperties.Name="Base" />
+      </controls:SegmentedControl>
+      <TabControl
+          x:Name="VersionViews"
+          Grid.Row="2"
+          Classes="Headless ConflictVersions"
+          SelectedIndex="{Binding #VersionSegments.SelectedIndex}">
         <TabItem Header="Result">
           <Grid RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
             <Button x:Name="BothButton" Classes="SecondaryButton Dense" HorizontalAlignment="Left" Content="Combine Current and Incoming" Click="OnBoth" ToolTip.Tip="Replace the result with the current version followed by the incoming one" />
             <TextBox Grid.Row="1" x:Name="ResultInput" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap" AutomationProperties.Name="Resolved file content" />
           </Grid>
         </TabItem>
-        <TabItem x:Name="CurrentTab" Header="Current">
+        <TabItem Header="Current">
           <Grid RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
             <SelectableTextBlock x:Name="CurrentIdentity" Classes="Muted" FontSize="{DynamicResource ShellFontSize11}" TextWrapping="Wrap" AutomationProperties.Name="Current revision and file object" />
             <TextBox Grid.Row="1" x:Name="CurrentInput" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" AutomationProperties.Name="Current version" />
           </Grid>
         </TabItem>
-        <TabItem x:Name="IncomingTab" Header="Incoming">
+        <TabItem Header="Incoming">
           <Grid RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
             <SelectableTextBlock x:Name="IncomingIdentity" Classes="Muted" FontSize="{DynamicResource ShellFontSize11}" TextWrapping="Wrap" AutomationProperties.Name="Incoming revision and file object" />
             <TextBox Grid.Row="1" x:Name="IncomingInput" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" AutomationProperties.Name="Incoming version" />
           </Grid>
         </TabItem>
-        <TabItem Header="Base" ToolTip.Tip="The file as it was where the two sides split">
+        <TabItem Header="Base">
           <Grid RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
             <SelectableTextBlock x:Name="BaseIdentity" Classes="Muted" FontSize="{DynamicResource ShellFontSize11}" TextWrapping="Wrap" AutomationProperties.Name="Common ancestor file object" />
             <TextBox Grid.Row="1" x:Name="BaseInput" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" AutomationProperties.Name="Common ancestor" />

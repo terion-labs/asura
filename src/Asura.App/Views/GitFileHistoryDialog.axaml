@@ -8,10 +8,6 @@
     <Style Selector="ListBox#Revisions:focus-within ListBoxItem:selected TextBlock.Muted">
       <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
     </Style>
-    <Style Selector="TabItem">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
-      <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
-    </Style>
   </controls:DialogWindow.Styles>
   <controls:DialogShell Title="File History" Subtitle="Follow revisions, compare changes, and trace lines to their commits." Scrolls="False">
     <controls:DialogShell.Footer>
@@ -50,24 +46,40 @@
           <Button Grid.Row="1" Content="Load More Revisions" IsVisible="{Binding HasMore}" Click="OnLoadMore" IsEnabled="{Binding !IsBusy}" />
         </Grid>
         <GridSplitter Grid.Column="1" Width="5" ResizeDirection="Columns" />
-        <TabControl Grid.Column="2">
-          <TabItem Header="Changes"><components:CodePreviewView Text="{Binding Diff}" FileName="changes.diff" WordWrap="False" /></TabItem>
-          <TabItem Header="File"><components:CodePreviewView x:Name="FileContent" Text="{Binding Content}" FileName="{Binding Path}" WordWrap="False" /></TabItem>
-          <TabItem Header="Blame">
-            <ListBox ItemsSource="{Binding Blame}" AutomationProperties.Name="Line attribution">
-              <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="git:GitBlameLine">
-                  <Grid ColumnDefinitions="45,90,140,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
-                    <TextBlock Text="{Binding LineNumber}" />
-                    <Button Grid.Column="1" Classes="TextButton" Content="{Binding CommitSha}" ToolTip.Tip="{Binding Summary}" Click="OnBlameCommit" AutomationProperties.Name="Open responsible commit" />
-                    <TextBlock Grid.Column="2" Text="{Binding Author}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AuthoredAt, Converter={x:Static vm:GitDateText.Converter}}" />
-                    <TextBlock Grid.Column="3" Text="{Binding Text}" FontFamily="{DynamicResource ShellDataFontFamily}" TextWrapping="NoWrap" />
-                  </Grid>
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
-          </TabItem>
-        </TabControl>
+        <!-- Three fixed views of the selected revision: the shared segmented
+             control picks one, and the tab view below only hosts it. -->
+        <Grid Grid.Column="2" RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
+          <controls:SegmentedControl
+              x:Name="RevisionViewSegments"
+              HorizontalAlignment="Center"
+              AutomationProperties.Name="Revision view">
+            <RadioButton Content="Changes" AutomationProperties.Name="Changes" />
+            <RadioButton Content="File" AutomationProperties.Name="File" />
+            <RadioButton Content="Blame" AutomationProperties.Name="Blame" />
+          </controls:SegmentedControl>
+          <TabControl
+              x:Name="RevisionViews"
+              Grid.Row="1"
+              Classes="Headless"
+              SelectedIndex="{Binding #RevisionViewSegments.SelectedIndex}">
+            <TabItem Header="Changes"><components:CodePreviewView Text="{Binding Diff}" FileName="changes.diff" WordWrap="False" /></TabItem>
+            <TabItem Header="File"><components:CodePreviewView x:Name="FileContent" Text="{Binding Content}" FileName="{Binding Path}" WordWrap="False" /></TabItem>
+            <TabItem Header="Blame">
+              <ListBox ItemsSource="{Binding Blame}" AutomationProperties.Name="Line attribution">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="git:GitBlameLine">
+                    <Grid ColumnDefinitions="45,90,140,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                      <TextBlock Text="{Binding LineNumber}" />
+                      <Button Grid.Column="1" Classes="TextButton" Content="{Binding CommitSha}" ToolTip.Tip="{Binding Summary}" Click="OnBlameCommit" AutomationProperties.Name="Open responsible commit" />
+                      <TextBlock Grid.Column="2" Text="{Binding Author}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AuthoredAt, Converter={x:Static vm:GitDateText.Converter}}" />
+                      <TextBlock Grid.Column="3" Text="{Binding Text}" FontFamily="{DynamicResource ShellDataFontFamily}" TextWrapping="NoWrap" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </TabItem>
+          </TabControl>
+        </Grid>
       </Grid>
       <TextBlock Grid.Row="3" Text="{Binding Status}" TextWrapping="Wrap" />
     </Grid>
