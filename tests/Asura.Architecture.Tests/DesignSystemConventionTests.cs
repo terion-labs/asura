@@ -674,6 +674,12 @@ public sealed partial class DesignSystemConventionTests
                      "design-system-high-contrast",
                      "design-system-scale-200",
                      "design-system-scale-250",
+                     "dialog-shortcut-recorder",
+                     "dialog-shortcut-recorder-reserved",
+                     "dialog-ssh-host-key-first-seen",
+                     "dialog-ssh-host-key-changed",
+                     "dialog-secret-editor-new",
+                     "dialog-secret-editor-existing",
                  })
         {
             Assert.Contains($"\"{route}\"", harness, StringComparison.Ordinal);

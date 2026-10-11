@@ -2411,6 +2411,16 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             // The harness never persists; capture is presentation only.
             static (_, _) => throw new NotSupportedException(
                 "The design QA harness does not save definitions.")), null),
+        // The shortcut recorder as it opens, and after a chord macOS keeps for
+        // itself, so the reserved-shortcut warning is reviewable in place.
+        ("dialog-shortcut-recorder", QaReviewDialogs.ShortcutRecorderIdle, null),
+        ("dialog-shortcut-recorder-reserved", QaReviewDialogs.ShortcutRecorderReserved, null),
+        // A first-seen host key answers Return with Trust; a changed key is
+        // destructive and answers Return with nothing.
+        ("dialog-ssh-host-key-first-seen", QaReviewDialogs.SshHostKeyFirstSeen, null),
+        ("dialog-ssh-host-key-changed", QaReviewDialogs.SshHostKeyChanged, null),
+        ("dialog-secret-editor-new", QaReviewDialogs.SecretEditorNew, null),
+        ("dialog-secret-editor-existing", QaReviewDialogs.SecretEditorExisting, null),
         // The design system itself, so a changed radius, gap, or tone shows up as a
         // diff in one image rather than as drift discovered later in a screenshot.
         // The terminal's find bar mid-search and its copy-mode hint, drawn by
