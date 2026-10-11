@@ -33,8 +33,10 @@
           <SolidColorBrush x:Key="ShellSelectedContentBrush" Color="#FF8400" />
           <SolidColorBrush x:Key="ShellSelectedContentForegroundBrush" Color="#000000" />
           <SolidColorBrush x:Key="ShellUnemphasizedSelectionBrush" Color="#2E2E2E" />
+          <SolidColorBrush x:Key="ShellGridSelectionBrush" Color="#474747" />
           <SolidColorBrush x:Key="ShellDangerBrush" Color="#FF7B72" />
           <SolidColorBrush x:Key="ShellDangerForegroundBrush" Color="#111111" />
+          <SolidColorBrush x:Key="ShellDangerTextBrush" Color="#FF8E86" />
           <SolidColorBrush x:Key="ShellDangerSoftBrush" Color="#3A1715" />
           <SolidColorBrush x:Key="ShellDangerBorderBrush" Color="#A84C45" />
           <SolidColorBrush x:Key="ShellSuccessBrush" Color="#77D797" />
@@ -47,6 +49,8 @@
           <SolidColorBrush x:Key="ShellInfoSoftBrush" Color="#15253A" />
           <SolidColorBrush x:Key="ShellInfoBorderBrush" Color="#2F5A86" />
           <SolidColorBrush x:Key="ShellStatusNeutralBrush" Color="#B8B9B6" />
+          <SolidColorBrush x:Key="ShellAttentionBrush" Color="#FF453A" />
+          <BoxShadows x:Key="ShellSegmentShadow">0 1 2 0 #59000000</BoxShadows>
           <SolidColorBrush x:Key="ShellChartSeries1Brush" Color="#1FA09D" />
           <SolidColorBrush x:Key="ShellChartSeries2Brush" Color="#8F7BE6" />
           <SolidColorBrush x:Key="ShellChartSeries3Brush" Color="#8C9628" />
@@ -59,6 +63,8 @@
                than blacking it out. -->
           <SolidColorBrush x:Key="ShellScrimBrush" Color="#73000000" />
           <BoxShadows x:Key="ShellOverlayShadow">0 18 54 0 #A0000000</BoxShadows>
+          <BoxShadows x:Key="ShellRailTileFloatShadow">0 0 0 2 #111111, 0 18 54 0 #A0000000</BoxShadows>
+          <BoxShadows x:Key="ShellFocusRingOnAccentShadow">0 0 0 2.5 #FF8400, inset 0 0 0 1 #111111</BoxShadows>
           <!-- Fluent's own interaction states for text inputs and popups jump
                to its stock light-on-dark values on hover, which read as a
                harsh flash against the shell's quiet fields. The states stay
@@ -97,8 +103,10 @@
           <SolidColorBrush x:Key="ShellSelectedContentBrush" Color="#FF8400" />
           <SolidColorBrush x:Key="ShellSelectedContentForegroundBrush" Color="#000000" />
           <SolidColorBrush x:Key="ShellUnemphasizedSelectionBrush" Color="#D7D8D5" />
+          <SolidColorBrush x:Key="ShellGridSelectionBrush" Color="#C4C5C2" />
           <SolidColorBrush x:Key="ShellDangerBrush" Color="#B42318" />
           <SolidColorBrush x:Key="ShellDangerForegroundBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="ShellDangerTextBrush" Color="#B42318" />
           <SolidColorBrush x:Key="ShellDangerSoftBrush" Color="#FDE8E5" />
           <SolidColorBrush x:Key="ShellDangerBorderBrush" Color="#A73528" />
           <SolidColorBrush x:Key="ShellSuccessBrush" Color="#147A3F" />
@@ -111,6 +119,8 @@
           <SolidColorBrush x:Key="ShellInfoSoftBrush" Color="#E5F0FC" />
           <SolidColorBrush x:Key="ShellInfoBorderBrush" Color="#6C9BD2" />
           <SolidColorBrush x:Key="ShellStatusNeutralBrush" Color="#5C5E5A" />
+          <SolidColorBrush x:Key="ShellAttentionBrush" Color="#FF3B30" />
+          <BoxShadows x:Key="ShellSegmentShadow">0 1 2 0 #26000000, 0 0 0 0.5 #1F000000</BoxShadows>
           <SolidColorBrush x:Key="ShellChartSeries1Brush" Color="#008F8A" />
           <SolidColorBrush x:Key="ShellChartSeries2Brush" Color="#7A5AD6" />
           <SolidColorBrush x:Key="ShellChartSeries3Brush" Color="#7A8417" />
@@ -121,6 +131,8 @@
           <SolidColorBrush x:Key="ShellChartSeries4FillBrush" Color="#33C23D84" />
           <SolidColorBrush x:Key="ShellScrimBrush" Color="#40000000" />
           <BoxShadows x:Key="ShellOverlayShadow">0 12 36 0 #2E000000, 0 1 3 0 #1F000000</BoxShadows>
+          <BoxShadows x:Key="ShellRailTileFloatShadow">0 0 0 2 #F2F3F0, 0 12 36 0 #2E000000, 0 1 3 0 #1F000000</BoxShadows>
+          <BoxShadows x:Key="ShellFocusRingOnAccentShadow">0 0 0 2.5 #FF8400, inset 0 0 0 1 #F2F3F0</BoxShadows>
           <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#F2F3F0" />
           <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#F2F3F0" />
           <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="#F2F3F0" />
@@ -213,6 +225,10 @@
       <Thickness x:Key="ShellInsetMd">12</Thickness>
       <Thickness x:Key="ShellInsetLg">16</Thickness>
       <Thickness x:Key="ShellInsetXl">24</Thickness>
+      <!-- Where a checkbox's title starts: past the box and the gap after it,
+           which the stock checkbox draws at a fixed size. A line under the
+           title — a setting's description — starts here too. -->
+      <Thickness x:Key="ShellCheckBoxTitleInset">28,0,0,0</Thickness>
       <Thickness x:Key="ShellInsetXxl">32</Thickness>
       <Thickness x:Key="ShellCardPadding">16</Thickness>
       <!-- The tighter card inset, for cards that hold dense content — list
@@ -265,7 +281,8 @@
            composition pipeline republishes this with the live accent; this is
            the before-first-publish fallback. -->
       <BoxShadows x:Key="ShellFlyoutShadow">0 8 48 0 #8C000000, 0 2 14 0 #59000000, inset 0 0 40 0 #38FF8400</BoxShadows>
-      <BoxShadows x:Key="ShellFocusRingShadow">0 0 0 3 #59FF8400</BoxShadows>
+      <BoxShadows x:Key="ShellFocusRingShadow">0 0 0 2.5 #FF8400</BoxShadows>
+      <SolidColorBrush x:Key="ShellFocusRingBrush" Color="#FF8400" />
       <SolidColorBrush x:Key="ShellAgentPanelGlowBrush" Color="#10FF8400" />
       <BoxShadows x:Key="ShellAgentPanelGlowShadow">inset 0 0 224 0 #46FF8400, inset 0 0 112 0 #5CFF8400, inset 0 0 51.2 0 #7AFF8400, inset 0 0 17.6 0 #C0FF8400</BoxShadows>
       <!-- The clearance between a hairline-framed control and its content: the

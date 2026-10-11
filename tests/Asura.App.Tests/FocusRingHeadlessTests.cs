@@ -15,10 +15,12 @@ namespace Asura.App.Tests;
 
 /// <summary>
 /// Keyboard focus has to be seen on every control a keyboard can reach. The
-/// shell suppresses Avalonia's own adorner and draws its ring by style, so the
-/// way this broke was style order: a later class that zeroed a border or
-/// repainted a presenter quietly took the ring away. Each case here tabs to a
-/// control under the real application styles and expects its drawing to change.
+/// shell replaces Avalonia's own adorner: fields and templated shapes draw the
+/// ring by style, and push buttons wear it as their focus adorner, which no
+/// clipping parent can cut. The way this broke was style order: a later class
+/// that zeroed a border or repainted a presenter quietly took the ring away.
+/// Each case here tabs to a control under the real application styles and
+/// expects its drawing to change.
 /// </summary>
 [Collection(AvaloniaUiCollection.Name)]
 public sealed class FocusRingHeadlessTests
@@ -86,11 +88,13 @@ public sealed class FocusRingHeadlessTests
         });
 
     /// <summary>
-    /// The ring on a primary button is the halo outside its accent fill: the
-    /// button has no border to recolour, which is how its focus was lost.
+    /// The ring on a primary button is the band outside its accent fill: the
+    /// button has no border to recolour, which is how its focus was lost. The
+    /// band is the accent too, so it stands a clear gap off the fill; flush,
+    /// it read as the button growing.
     /// </summary>
     [Fact]
-    public Task A_primary_button_wears_the_shared_focus_halo() =>
+    public Task A_primary_button_wears_the_shared_focus_ring() =>
         RunHeadlessAsync(() =>
         {
             var button = new Button { Content = "Save", Classes = { "PrimaryButton" } };
@@ -101,13 +105,103 @@ public sealed class FocusRingHeadlessTests
                 Assert.True(button.Focus(NavigationMethod.Tab));
                 window.UpdateLayout();
 
-                var presenter = button.GetVisualDescendants()
-                    .OfType<ContentPresenter>()
-                    .Single(candidate => candidate.Name == "PART_ContentPresenter");
-                Assert.True(presenter.BoxShadow.Count > 0, "The primary button shows no focus halo.");
+                var ring = Assert.Single(Rings(button));
                 Assert.Equal(
-                    Assert.IsType<BoxShadows>(window.FindResource("ShellFocusRingShadow")),
-                    presenter.BoxShadow);
+                    Assert.IsAssignableFrom<ISolidColorBrush>(window.FindResource("ShellFocusRingBrush")).Color,
+                    Assert.IsAssignableFrom<ISolidColorBrush>(ring.Brush).Color);
+                Assert.True(ring.GapWidth >= 1, $"The ring stands {ring.GapWidth} off the fill.");
+                Assert.Equal(
+                    button.Bounds.Width + (2 * (ring.GapWidth + ring.BandWidth)),
+                    ring.Bounds.Width,
+                    precision: 3);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+    /// <summary>
+    /// A focused list's selected row is the accent, and so is the ring, so on
+    /// that row the ring is parted from the fill by an inset line of the page
+    /// colour.
+    /// </summary>
+    [Fact]
+    public Task A_focused_accent_selected_row_parts_its_ring_from_the_fill() =>
+        RunHeadlessAsync(() =>
+        {
+            var list = new ListBox { ItemsSource = new[] { "One", "Two" }, SelectedIndex = 0 };
+            var window = new Window { Width = 300, Height = 200, Content = list };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                var row = Assert.IsType<ListBoxItem>(list.ContainerFromIndex(0));
+                Assert.True(row.Focus(NavigationMethod.Tab));
+                window.UpdateLayout();
+
+                var presenter = row.GetVisualDescendants()
+                    .OfType<ContentPresenter>()
+                    .Single(part => part.Name == "PART_ContentPresenter");
+                Assert.True(window.TryFindResource("ShellAccentBrush", window.ActualThemeVariant, out var accent));
+                Assert.Equal(
+                    Assert.IsAssignableFrom<ISolidColorBrush>(accent).Color,
+                    Assert.IsAssignableFrom<ISolidColorBrush>(presenter.Background).Color);
+                Assert.True(window.TryFindResource("ShellFocusRingOnAccentShadow", window.ActualThemeVariant, out var onAccent));
+                Assert.Equal(Assert.IsType<BoxShadows>(onAccent), presenter.BoxShadow);
+                var shadows = Enumerable.Range(0, presenter.BoxShadow.Count)
+                    .Select(index => presenter.BoxShadow[index])
+                    .ToList();
+                Assert.Contains(shadows, shadow => shadow.IsInset && shadow.Spread > 0);
+                Assert.Contains(shadows, shadow => !shadow.IsInset && shadow.Spread > 0);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+    /// <summary>
+    /// A button in a clipping strip — the browser's overflow, a toolbar group —
+    /// keeps its whole ring: the adorner layer does not clip it to the strip.
+    /// </summary>
+    [Fact]
+    public Task A_button_inside_a_clipping_parent_keeps_its_whole_ring() =>
+        RunHeadlessAsync(() =>
+        {
+            var button = new Button { Content = "Reload", Classes = { "IconButton" } };
+            var strip = new Border { ClipToBounds = true, Child = button, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left };
+            var window = new Window { Width = 300, Height = 200, Content = new ScrollViewer { Content = strip } };
+            try
+            {
+                window.Show();
+                Assert.True(button.Focus(NavigationMethod.Tab));
+                window.UpdateLayout();
+
+                var ring = Assert.Single(Rings(button));
+                Assert.False(AdornerLayer.GetIsClipEnabled(ring));
+                Assert.Null(ring.Clip);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+    /// <summary>A pointer click focuses a button without a ring.</summary>
+    [Fact]
+    public Task A_button_focused_by_the_pointer_shows_no_ring() =>
+        RunHeadlessAsync(() =>
+        {
+            var button = new Button { Content = "Save" };
+            var window = new Window { Width = 300, Height = 200, Content = button };
+            try
+            {
+                window.Show();
+                Assert.True(button.Focus(NavigationMethod.Pointer));
+                window.UpdateLayout();
+
+                Assert.Empty(Rings(button));
             }
             finally
             {
@@ -207,7 +301,7 @@ public sealed class FocusRingHeadlessTests
     /// clips anything drawn outside it — the frame inside the focused action.
     /// </summary>
     private static bool ShowsFocus(Visual root, BoxShadows ring) =>
-        root.GetSelfAndVisualDescendants().Any(visual => visual switch
+        Rings(root).Any() || root.GetSelfAndVisualDescendants().Any(visual => visual switch
         {
             Border { Name: "PART_Surface", BorderThickness.Left: 2 } border
                 when border.TemplatedParent is Button { Classes: var classes }
@@ -224,6 +318,11 @@ public sealed class FocusRingHeadlessTests
     private static string Drawing(Visual root)
     {
         var drawing = new StringBuilder();
+        foreach (var ring in Rings(root))
+        {
+            drawing.Append(CultureInfo.InvariantCulture, $"R{ring.BandWidth}|{Describe(ring.Brush)};");
+        }
+
         foreach (var visual in root.GetSelfAndVisualDescendants())
         {
             switch (visual)
@@ -242,6 +341,17 @@ public sealed class FocusRingHeadlessTests
 
         return drawing.ToString();
     }
+
+    /// <summary>
+    /// The focus rings the adorner layer holds for the root or anything in it.
+    /// </summary>
+    private static IEnumerable<FocusRing> Rings(Visual root) =>
+        AdornerLayer.GetAdornerLayer(root)?.Children
+            .OfType<FocusRing>()
+            .Where(ring => ring.IsVisible
+                && AdornerLayer.GetAdornedElement(ring) is { } adorned
+                && (adorned == root || root.IsVisualAncestorOf(adorned)))
+        ?? [];
 
     private static string Describe(IBrush? brush) => brush switch
     {

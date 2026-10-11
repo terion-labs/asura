@@ -7,6 +7,12 @@ namespace Asura.App.Controls;
 /// <summary>A dynamic status whose empty state is not an announcement.</summary>
 internal sealed class LiveRegionTextBlock : TextBlock
 {
+    /// <summary>
+    /// Styled as the text block it is, so a status written in the secondary
+    /// colour with TextBlock.Muted, or at a role's size, gets it.
+    /// </summary>
+    protected override Type StyleKeyOverride => typeof(TextBlock);
+
     protected override AutomationPeer OnCreateAutomationPeer() => new LiveRegionPeer(this);
 
     private sealed class LiveRegionPeer(LiveRegionTextBlock owner) : TextBlockAutomationPeer(owner)

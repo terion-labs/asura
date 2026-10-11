@@ -172,7 +172,11 @@
                         IsVisible="{TemplateBinding HasAttention}"
                         ToolTip.Tip="This panel has an unread notification" />
                     <StackPanel Name="PART_HeaderActions" Orientation="Horizontal">
-                      <StackPanel Name="PART_SecondaryActions" Orientation="Horizontal">
+                      <!-- A wrap panel: one row in the header, which gives it
+                           all the width it asks for, and as many rows as it
+                           needs in the overflow strip, where it moves when
+                           the header is short of width. -->
+                      <WrapPanel Name="PART_SecondaryActions" Orientation="Horizontal">
                         <Button
                             Name="PART_Collapse"
                             AutomationProperties.Name="Collapse this panel"
@@ -219,7 +223,7 @@
                             ToolTip.Tip="Split top/bottom">
                           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="SplitHorizontal" />
                         </Button>
-                      </StackPanel>
+                      </WrapPanel>
                     </StackPanel>
                     <Button Name="PART_Overflow" Classes="IconButton Compact"
                         IsVisible="{TemplateBinding IsHeaderCondensed}"
@@ -276,7 +280,6 @@
                           Spacing="{DynamicResource ShellSpaceSm}">
                         <TextBlock
                             FontSize="{DynamicResource ShellFontSize11}"
-                            FontWeight="SemiBold"
                             Text="{TemplateBinding Title}"
                             MaxWidth="{Binding $self.FontSize, Converter={x:Static controls:TextScaledLength.PanelTitle}}"
                             TextTrimming="CharacterEllipsis" />
@@ -300,13 +303,14 @@
                   BorderBrush="{DynamicResource ShellSidebarBorderBrush}"
                   BorderThickness="0,0,0,1"
                   Padding="{controls:Inset Horizontal=Sm, Vertical=Xs}">
-                <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
-                  <StackPanel Name="PART_OverflowActions" Orientation="Horizontal"
-                      HorizontalAlignment="Right" KeyboardNavigation.TabNavigation="Continue">
-                    <ContentPresenter Name="PART_BrowserOverflow"
-                        Content="{TemplateBinding HeaderOverflowContent}" />
-                  </StackPanel>
-                </ScrollViewer>
+                <!-- Wraps rather than scrolls, so every action in the strip is
+                     whole and in view. A scrolling row cut its last button in
+                     half on a narrow panel. -->
+                <WrapPanel Name="PART_OverflowActions" Orientation="Horizontal"
+                    HorizontalAlignment="Right" KeyboardNavigation.TabNavigation="Continue">
+                  <ContentPresenter Name="PART_BrowserOverflow"
+                      Content="{TemplateBinding HeaderOverflowContent}" />
+                </WrapPanel>
               </Border>
               <components:ErrorNoticesView Grid.Row="2" DataContext="{CompiledBinding $parent[controls:PanelChrome].((vm:ObservableObject)DataContext).ErrorNotices}" />
               <ContentPresenter
@@ -435,9 +439,9 @@
       <Setter Property="Width" Value="{DynamicResource ShellTileSizeMd}" />
       <Setter Property="Height" Value="{DynamicResource ShellTileSizeMd}" />
       <Setter Property="FontSize" Value="{DynamicResource ShellIconSizeMd}" />
-      <!-- The icon's colour is the one the palette guarantees against a filled
-           accent. A tile picking white itself is a contrast promise a view is
-           not in a position to make. -->
+      <!-- The fallback ink, for a tint that is not one solid colour. A solid
+           tint is measured by the tile itself: it is the workspace's own
+           colour, which the palette's accent pair knows nothing about. -->
       <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
       <Setter Property="Template">
         <ControlTemplate>
@@ -449,7 +453,7 @@
                 VerticalAlignment="Center"
                 Symbol="{TemplateBinding Symbol}"
                 FontSize="{TemplateBinding FontSize}"
-                Foreground="{TemplateBinding Foreground}" />
+                Foreground="{TemplateBinding Ink}" />
           </Border>
         </ControlTemplate>
       </Setter>
@@ -653,7 +657,7 @@
                 Width="{DynamicResource ShellTileSizeMd}"
                 Height="{DynamicResource ShellTileSizeMd}"
                 HorizontalAlignment="Left"
-                BorderBrush="{TemplateBinding AccentBrush}"
+                BorderBrush="{TemplateBinding MarkBrush}"
                 BorderThickness="{DynamicResource ShellWorkspaceRailRing}"
                 CornerRadius="{TemplateBinding CornerRadius}"
                 Opacity="0"
@@ -730,6 +734,12 @@
         </ControlTemplate>
       </Setter>
 
+      <!-- The state a tile opens in arrives at once; only later changes
+           move. See WorkspaceRailTile.OnLoaded. -->
+      <Style Selector="^:not(:settled) /template/ Border#PART_Surface, ^:not(:settled) /template/ Border#PART_Wash, ^:not(:settled) /template/ Border#PART_Ring">
+        <Setter Property="Transitions" Value="{x:Null}" />
+      </Style>
+
       <Style Selector="^.sortBefore /template/ Border#PART_SortBefore">
         <Setter Property="IsVisible" Value="True" />
       </Style>
@@ -737,9 +747,11 @@
         <Setter Property="IsVisible" Value="True" />
       </Style>
 
-      <!-- Alive, but not the one you are looking at: outlined in its own colour
-           while its fill stays at rest. Two different marks, because they are
-           two different facts. -->
+      <!-- Alive, but not the one you are looking at: a thin edge in the tile's
+           own ink while its fill stays at rest. Two different marks, because
+           they are two different facts. The edge was the workspace's colour,
+           which on an orange workspace was the accent the focus ring and the
+           selection are drawn in, so running read as focused. -->
       <Style Selector="^:running /template/ Border#PART_Ring">
         <Setter Property="Opacity" Value="1" />
       </Style>
@@ -773,14 +785,18 @@
       <Style Selector="^:closable:pointerover /template/ Border#PART_Surface, ^:closable:keyboard-focus-within /template/ Border#PART_Surface">
         <Setter Property="Width" Value="{DynamicResource ShellWorkspaceRailTileExpandedWidth}" />
         <!-- It is standing off the rail and over the canvas, so it casts the
-             same shadow anything else that floats above the page does. -->
-        <Setter Property="BoxShadow" Value="{DynamicResource ShellOverlayShadow}" />
+             same shadow anything else that floats above the page does, inside
+             a ring of the page colour that keeps it apart from the sidebar
+             row it opens over: its fill used to run into the selected tab's
+             corner and the two read as one shape. -->
+        <Setter Property="BoxShadow" Value="{DynamicResource ShellRailTileFloatShadow}" />
       </Style>
       <Style Selector="^:closable:pointerover /template/ Border#PART_Ring, ^:closable:keyboard-focus-within /template/ Border#PART_Ring">
         <Setter Property="Width" Value="{DynamicResource ShellWorkspaceRailTileExpandedWidth}" />
       </Style>
       <Style Selector="^:saveable:pointerover /template/ Border#PART_Surface, ^:saveable:keyboard-focus-within /template/ Border#PART_Surface">
         <Setter Property="Width" Value="{DynamicResource ShellWorkspaceRailTileExpandedWidth}" />
+        <Setter Property="BoxShadow" Value="{DynamicResource ShellRailTileFloatShadow}" />
       </Style>
       <Style Selector="^:saveable:pointerover /template/ Border#PART_Ring, ^:saveable:keyboard-focus-within /template/ Border#PART_Ring">
         <Setter Property="Width" Value="{DynamicResource ShellWorkspaceRailTileExpandedWidth}" />
@@ -850,10 +866,12 @@
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="IsHitTestVisible" Value="False" />
-      <!-- Secondary label colour by default: a dot says something is waiting,
-           not that something can be pressed, and the accent is kept for the
-           second. A caller with a tone sets its own fill. -->
-      <Setter Property="Background" Value="{DynamicResource ShellMutedBrush}" />
+      <!-- The host's badge red: a dot says something is waiting for you. It
+           was the secondary label colour, the same gray as an idle mark, so
+           a workspace asking for you looked like one with nothing to say; and
+           it is not the accent, which is kept for what can be pressed. A
+           caller with a tone sets its own fill. -->
+      <Setter Property="Background" Value="{DynamicResource ShellAttentionBrush}" />
       <!-- The ring is the page behind it, not a colour of its own: the dot is
            drawn over whatever it marks, and against a tile that happens to be
            accent-coloured an unringed dot is invisible. -->
@@ -945,9 +963,12 @@
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="HorizontalAlignment" Value="Left" />
-      <Setter Property="Background" Value="{DynamicResource ShellSuccessSoftBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource ShellSuccessBorderBrush}" />
-      <Setter Property="Foreground" Value="{DynamicResource ShellSuccessBrush}" />
+      <!-- Neutral unless told otherwise. A chip that only named a kind — a
+           key's type, a ref — came out in the success green and read as a
+           verdict nobody had made. -->
+      <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="Template">
         <ControlTemplate>
@@ -1001,10 +1022,10 @@
         <Setter Property="Foreground" Value="{DynamicResource ShellInfoBrush}" />
       </Style>
 
-      <Style Selector="^:tone-default">
-        <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
-        <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+      <Style Selector="^:tone-success">
+        <Setter Property="Background" Value="{DynamicResource ShellSuccessSoftBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ShellSuccessBorderBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource ShellSuccessBrush}" />
       </Style>
       <Style Selector="^:tone-raised, ^:tone-sunken">
         <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
@@ -1105,10 +1126,10 @@
                  labels: weight is what headings use to rank, and a form whose
                  every label was semibold had nothing left to rank with. The
                  field links this label to its control, so it is the control's
-                 accessible name as well. -->
+                 accessible name as well. It starts where the field starts:
+                 the inset it had set every label off the edge it names. -->
             <TextBlock
                 Name="PART_Label"
-                Margin="{controls:Inset Horizontal=Xs}"
                 Text="{TemplateBinding Label}"
                 TextTrimming="CharacterEllipsis" />
             <ContentPresenter
@@ -1121,7 +1142,6 @@
                  hint rather than stacking a second sentence under it. -->
             <Grid
                 Name="PART_Error"
-                Margin="{controls:Inset Horizontal=Xs}"
                 ColumnDefinitions="Auto,*"
                 ColumnSpacing="{DynamicResource ShellSpaceXs}"
                 IsVisible="False">
@@ -1140,7 +1160,6 @@
             </Grid>
             <TextBlock
                 Name="PART_Hint"
-                Margin="{controls:Inset Horizontal=Xs}"
                 Foreground="{DynamicResource ShellMutedBrush}"
                 FontSize="{DynamicResource ShellSecondaryFontSize}"
                 LineHeight="{DynamicResource ShellLineHeight11}"
@@ -1213,12 +1232,18 @@
                 not a visual and so has no templated parent, which means a
                 TemplateBinding here silently resolves to nothing and both columns
                 fall back to an even split — the row still renders, just never at
-                the width the group asked for.
+                the width the group asked for. The code also gives the column up
+                when the row is too narrow for it and a readable label both: the
+                control then moves under the label, into the second row.
               -->
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
               </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
               <!-- The label is the control's accessible name too, and reads in
                    the regular weight the host gives a form row's label. -->
               <StackPanel
@@ -1239,6 +1264,7 @@
                     IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
               </StackPanel>
               <ContentPresenter
+                  Name="PART_Control"
                   Grid.Column="1"
                   Content="{TemplateBinding Content}"
                   ContentTemplate="{TemplateBinding ContentTemplate}"
@@ -1256,6 +1282,42 @@
 
       <Style Selector="^:last /template/ Border#PART_Separator">
         <Setter Property="IsVisible" Value="False" />
+      </Style>
+
+      <!-- A checkbox row, as the host lays one out: the box at the leading
+           edge with the setting's name as its title, so a click on the words
+           toggles it, and the description under the title, aligned with it
+           rather than with the box. The row hands the label to a checkbox
+           that has no content of its own. -->
+      <Style Selector="^:leading">
+        <Setter Property="Template">
+          <ControlTemplate>
+            <StackPanel>
+              <StackPanel
+                  Margin="{TemplateBinding Padding}"
+                  Spacing="{DynamicResource ShellSpaceXs}">
+                <ContentPresenter
+                    Name="PART_Control"
+                    Content="{TemplateBinding Content}"
+                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                    HorizontalContentAlignment="Left" />
+                <TextBlock
+                    Name="PART_Description"
+                    Margin="{DynamicResource ShellCheckBoxTitleInset}"
+                    Foreground="{DynamicResource ShellMutedBrush}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
+                    LineHeight="{DynamicResource ShellLineHeight11}"
+                    Text="{TemplateBinding Description}"
+                    TextWrapping="Wrap"
+                    IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              </StackPanel>
+              <Border
+                  Name="PART_Separator"
+                  Height="1"
+                  Background="{DynamicResource ShellBorderBrush}" />
+            </StackPanel>
+          </ControlTemplate>
+        </Setter>
       </Style>
 
       <!-- Stacked, the control takes the row's whole width under the label.
@@ -1352,7 +1414,7 @@
     <!--
       A chooser tile sits on an overlay or launcher surface and reads as a
       sunken card the pointer can light up. Focus is the shell's focus ring, as
-      on every other control. The pointer stays an arrow: a Mac button is not a
+      on every push button. The pointer stays an arrow: a Mac button is not a
       link, and the hand said it was.
     -->
     <ControlTheme x:Key="{x:Type controls:ChooserTile}" TargetType="controls:ChooserTile">
@@ -1361,6 +1423,14 @@
       <Setter Property="Background" Value="{DynamicResource ShellBackgroundBrush}" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellCardCornerRadius}" />
       <Setter Property="Padding" Value="{DynamicResource ShellCardPadding}" />
+      <!-- The tile is a button styled by its own key, so the shell's rules for
+           Button do not reach it: without this it wore Avalonia's square white
+           adorner. It takes the push buttons' ring, around its rounded card. -->
+      <Setter Property="FocusAdorner">
+        <FocusAdornerTemplate>
+          <controls:FocusRing />
+        </FocusAdornerTemplate>
+      </Setter>
       <Setter Property="Template">
         <ControlTemplate>
           <Border
@@ -1402,9 +1472,6 @@
       </Style>
       <Style Selector="^:pressed /template/ Border#PART_Surface">
         <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
-      </Style>
-      <Style Selector="^:focus-visible /template/ Border#PART_Surface">
-        <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
       </Style>
       <!-- Disabled dims the icon and the name, not the sentence: the
            sentence is the reason the tile cannot be used, and it has to stay
@@ -1449,35 +1516,41 @@
         </ControlTemplate>
       </Setter>
 
+      <!-- Working sets its words as every other state does — the heading in
+           Title 3, the sentence in secondary text — with the bar under them
+           a step further down, so a page moving from loading to empty or to
+           a failure keeps one typography. -->
       <Style Selector="^:working">
         <Setter Property="Template">
           <ControlTemplate>
             <StackPanel
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
-                Spacing="{DynamicResource ShellSpaceSm}"
+                Spacing="{DynamicResource ShellSpaceMd}"
                 AutomationProperties.LiveSetting="{TemplateBinding AnnouncementMode}"
                 AutomationProperties.Name="{TemplateBinding AccessibleStatus}">
-              <ProgressBar
-                  Width="180"
-                  HorizontalAlignment="Center"
-                  IsIndeterminate="True" />
               <TextBlock
                   HorizontalAlignment="Center"
-                  FontWeight="SemiBold"
+                  Classes="Title3"
                   Text="{TemplateBinding Heading}"
                   TextAlignment="Center"
                   TextWrapping="Wrap" />
               <TextBlock
-                  MaxWidth="420"
+                  MaxWidth="280"
                   HorizontalAlignment="Center"
-                  Classes="Muted"
+                  Foreground="{DynamicResource ShellMutedBrush}"
                   FontSize="{DynamicResource ShellFontSize11}"
                   LineHeight="{DynamicResource ShellLineHeight11}"
                   Text="{TemplateBinding Body}"
                   TextAlignment="Center"
                   TextWrapping="Wrap"
                   IsVisible="{TemplateBinding Body, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <ProgressBar
+                  Name="PART_Progress"
+                  Width="180"
+                  Margin="{controls:Inset Top=Sm}"
+                  HorizontalAlignment="Center"
+                  IsIndeterminate="True" />
             </StackPanel>
           </ControlTemplate>
         </Setter>
@@ -1495,16 +1568,17 @@
                 AutomationProperties.Name="{TemplateBinding AccessibleStatus}">
               <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                 <icons:SymbolIcon
+                    Name="PART_Glyph"
                     HorizontalAlignment="Left"
                     Symbol="{TemplateBinding EffectiveGlyph}"
                     FontSize="{DynamicResource ShellFontSize24}"
-                    Foreground="{DynamicResource ShellDangerBrush}" />
+                    Foreground="{DynamicResource ShellMutedBrush}" />
                 <TextBlock
-                    Classes="Headline"
+                    Classes="Title3"
                     Text="{TemplateBinding Heading}"
                     TextWrapping="Wrap" />
                 <TextBlock
-                    Classes="Muted"
+                    Foreground="{DynamicResource ShellMutedBrush}"
                     FontSize="{DynamicResource ShellFontSize11}"
                     LineHeight="{DynamicResource ShellLineHeight11}"
                     Text="{TemplateBinding Body}"
@@ -1525,6 +1599,20 @@
             </controls:SurfaceCard>
           </ControlTemplate>
         </Setter>
+      </Style>
+
+      <!-- The glyph speaks in the state's tone, as a callout's does: a failure
+           drawn in the danger red and a warning in its own colour. Every
+           attention card used to draw the danger red, so a stale result and a
+           permission prompt looked like crashes. -->
+      <Style Selector="^:tone-warning /template/ icons|SymbolIcon#PART_Glyph">
+        <Setter Property="Foreground" Value="{DynamicResource ShellWarningBrush}" />
+      </Style>
+      <Style Selector="^:tone-danger /template/ icons|SymbolIcon#PART_Glyph">
+        <Setter Property="Foreground" Value="{DynamicResource ShellDangerBrush}" />
+      </Style>
+      <Style Selector="^:tone-notice /template/ icons|SymbolIcon#PART_Glyph">
+        <Setter Property="Foreground" Value="{DynamicResource ShellInfoBrush}" />
       </Style>
     </ControlTheme>
 
@@ -1558,8 +1646,13 @@
                     Text="{TemplateBinding Title}"
                     TextWrapping="Wrap"
                     IsVisible="{TemplateBinding Title, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                <!-- Body text at the body size and its own leading: inherited,
+                     it took whatever size the page around it happened to
+                     have, set solid. -->
                 <TextBlock
                     Classes="Muted"
+                    FontSize="{DynamicResource ShellBaseFontSize}"
+                    LineHeight="{DynamicResource ShellLineHeight13}"
                     Text="{TemplateBinding Text}"
                     TextWrapping="Wrap"
                     IsVisible="{TemplateBinding Text, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />

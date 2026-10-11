@@ -5,6 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Threading;
 using FluentIcons.Common;
 
 namespace Asura.App.Controls;
@@ -258,6 +259,27 @@ internal sealed class WorkspaceRailTile : TemplatedControl
         }
     }
 
+    /// <summary>
+    /// The tile's state changes are drawn as movements, but the state it
+    /// opens in is not a change: a rail that faded its current tile in every
+    /// time a window opened showed, for the first moments, no current tile at
+    /// all — which is what a capture taken then recorded. The transitions
+    /// apply only once the tile has settled.
+    /// </summary>
+    protected override void OnLoaded(RoutedEventArgs e)
+    {
+        base.OnLoaded(e);
+        Dispatcher.UIThread.Post(
+            () => PseudoClasses.Set(":settled", true),
+            DispatcherPriority.Background);
+    }
+
+    protected override void OnUnloaded(RoutedEventArgs e)
+    {
+        base.OnUnloaded(e);
+        PseudoClasses.Set(":settled", false);
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
@@ -361,13 +383,41 @@ internal sealed class WorkspaceRailTile : TemplatedControl
             return;
         }
 
+        // One ink for both fills, so the icon does not change colour when the
+        // tile lights up under the pointer — and measured against both. The
+        // resting fill is darker than the full colour, so dark ink that read on
+        // a bright tile could sink into the same tile at rest; the resting fill
+        // is lifted just enough to keep it.
+        var (rest, ink) = RestAndInk(accent);
         AccentBrush = new SolidColorBrush(accent);
-        RestingBrush = new SolidColorBrush(Rest(accent));
-        // Measured against the full colour rather than the resting one: the
-        // icon must not change colour when the tile lights up under the
-        // pointer, and the full colour is the brighter of the two, so a mark
-        // that reads on it reads on both.
-        MarkBrush = new SolidColorBrush(Ink(accent));
+        RestingBrush = new SolidColorBrush(rest);
+        MarkBrush = new SolidColorBrush(ink);
+    }
+
+    /// <summary>The contrast a non-text mark needs against what it sits on.</summary>
+    internal const double MarkContrast = 3;
+
+    /// <summary>
+    /// The resting fill for a workspace colour and the one ink that reads on
+    /// it and on the full colour alike. The ink is whichever of white and
+    /// near-black reads better on the full colour, which always clears the
+    /// mark standard there; the resting fill then moves away from that ink —
+    /// brighter under dark ink, darker under white — until it clears it too.
+    /// </summary>
+    internal static (Color Resting, Color Ink) RestAndInk(Color accent)
+    {
+        var ink = Ink(accent);
+        var brightness = RestingBrightness;
+        var rest = Rest(accent, brightness);
+        var step = ink == Colors.White ? -0.02 : 0.02;
+        while (EffectiveAppearanceResourceMapper.ContrastRatio(rest, ink) < MarkContrast
+               && brightness is > 0.02 and < 1.48)
+        {
+            brightness += step;
+            rest = Rest(accent, brightness);
+        }
+
+        return (rest, ink);
     }
 
     /// <summary>The dark ink a light fill takes.</summary>
@@ -392,18 +442,18 @@ internal sealed class WorkspaceRailTile : TemplatedControl
     /// one do not both come out as the same middle grey — the point of leaving
     /// any colour at all is that the rail stays readable at rest.
     /// </summary>
-    private static Color Rest(Color accent)
+    internal static Color Rest(Color accent, double brightness = RestingBrightness)
     {
         var luma = 0.2126 * accent.R + 0.7152 * accent.G + 0.0722 * accent.B;
         return Color.FromRgb(
-            Muted(accent.R, luma),
-            Muted(accent.G, luma),
-            Muted(accent.B, luma));
+            Muted(accent.R, luma, brightness),
+            Muted(accent.G, luma, brightness),
+            Muted(accent.B, luma, brightness));
     }
 
-    private static byte Muted(byte channel, double luma) =>
+    private static byte Muted(byte channel, double luma, double brightness) =>
         (byte)Math.Clamp(
-            (luma + ((channel - luma) * SurvivingSaturation)) * RestingBrightness,
+            (luma + ((channel - luma) * SurvivingSaturation)) * brightness,
             0,
             255);
 

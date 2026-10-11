@@ -100,10 +100,13 @@ internal static class DatabaseDataGridColumnFactory
             TextTrimming = TextTrimming.CharacterEllipsis,
         };
 
-        var header = new StackPanel
+        // The label takes the width and the sort chevron sits at the header's
+        // trailing edge, as a Mac table draws it, rather than an arrow
+        // trailing the label.
+        var header = new Grid
         {
-            Orientation = Orientation.Horizontal,
-            Spacing = 5,
+            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+            ColumnSpacing = 5,
             Children =
             {
                 label,
@@ -116,8 +119,10 @@ internal static class DatabaseDataGridColumnFactory
             // from the text so it grows with the text-size setting.
             var sortGlyph = new SymbolIcon
             {
-                Symbol = descending ? Symbol.ArrowDown : Symbol.ArrowUp,
+                Symbol = descending ? Symbol.ChevronDown : Symbol.ChevronUp,
+                VerticalAlignment = VerticalAlignment.Center,
             };
+            Grid.SetColumn(sortGlyph, 1);
             sortGlyph.Bind(
                 SymbolIcon.FontSizeProperty,
                 sortGlyph.GetResourceObservable("ShellIconSizeXs"));

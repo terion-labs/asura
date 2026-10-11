@@ -235,7 +235,10 @@ internal sealed record EffectiveAppearanceResources(
     Color SelectedContent,
     Color SelectedContentForeground,
     Color UnemphasizedSelection,
+    Color GridSelection,
+    Color FocusRing,
     Color Danger,
+    Color DangerText,
     Color DangerForeground,
     Color DangerSoft,
     Color DangerBorder,
@@ -249,6 +252,7 @@ internal sealed record EffectiveAppearanceResources(
     Color InfoSoft,
     Color InfoBorder,
     Color StatusNeutral,
+    Color Attention,
     Color Scrim,
     BoxShadows OverlayShadow,
     FontFamily FontFamily,
@@ -532,6 +536,36 @@ internal static class EffectiveAppearanceResourceMapper
             TextContrast,
             text);
 
+        // A table's selection once the table has lost focus. A table bands
+        // every other row with the faint sidebar wash, and the unemphasized
+        // plate was about 1.15:1 against a band, so the selected row went
+        // missing among the stripes as soon as focus moved. It is held a full
+        // step off the plates a table sits on and off the band on each.
+        var gridSelection = EnsureContrast(
+            unemphasizedSelection,
+            [
+                background,
+                surface,
+                sidebar,
+                Over(sidebarSelection, surface),
+                Over(sidebarSelection, sidebar),
+            ],
+            GridSelectionContrast,
+            text);
+
+        // The keyboard focus ring: the accent, solid, and held to the 3:1 a
+        // boundary needs against every surface a focusable control stands on
+        // and against a push button's neutral fill. It is not measured against
+        // an accent fill, which it matches: on an accent-filled control the
+        // ring stands a point off the edge, and the surface in that gap — held
+        // to 3:1 here — parts the two. It was the accent at a third of its
+        // strength, which on a raised dark control was about 1.6:1.
+        var focusRing = EnsureContrast(
+            accent,
+            [.. readingSurfaces, controlSurface, hover],
+            GraphicContrast,
+            text);
+
         // A strongly selected row. AppKit's selected-content colour when the
         // host has one; otherwise the accent, which is what that colour is.
         var selectedContent = hostSelection ?? accent;
@@ -563,21 +597,60 @@ internal static class EffectiveAppearanceResourceMapper
         // standard on the plates and on its own tinted fill.
         var dangerSoft = Parse(isLight ? "#FDE8E5" : "#3A1715");
         var successSoft = Parse(isLight ? "#E2F5E8" : "#173222");
-        var warningSoft = Parse(isLight ? "#FFF0D6" : "#32241A");
+        // A warning is amber, which with an orange accent was the accent: a
+        // warning chip and the default button were the same colour. Beside an
+        // orange accent the warning moves to yellow, so a status is never
+        // taken for something to press.
+        var warningIsYellow = IsOrange(requestedAccent);
+        var warningSoft = Parse(warningIsYellow
+            ? isLight ? "#FFF6CC" : "#2E2912"
+            : isLight ? "#FFF0D6" : "#32241A");
         // Notice is information, not a warning and not the accent: with an
         // orange accent a notice drawn in the accent read as a warning.
         var infoSoft = Parse(isLight ? "#E5F0FC" : "#15253A");
         var danger = StatusColor(isLight ? "#B42318" : "#FF7B72", dangerSoft);
         var success = StatusColor(isLight ? "#147A3F" : "#77D797", successSoft);
-        var warning = StatusColor(isLight ? "#8A4B08" : "#E1A45F", warningSoft);
+        var warning = StatusColor(
+            warningIsYellow
+                ? isLight ? "#7A5C00" : "#E5C547"
+                : isLight ? "#8A4B08" : "#E1A45F",
+            warningSoft);
         var info = StatusColor(isLight ? "#0B5CAD" : "#6CB4FF", infoSoft);
+        // The danger tone as the label of a push button. A button stands on
+        // the control surface, which on a Mac in the dark is lifted well above
+        // the page, and the plain danger red read at 3.6:1 there.
+        var dangerText = EnsureContrast(
+            danger,
+            [.. readingSurfaces, controlSurface, dangerSoft],
+            TextContrast,
+            text);
         // Idle, stopped, waiting: a status with nothing to report reads as
         // secondary text, so it shares that colour.
         var statusNeutral = muted;
+        // Something waiting for you: the host's badge red, apart from the
+        // neutral gray of an idle mark and from the brand orange alike. It is
+        // a mark, so it clears the graphic standard on every plate.
+        var attention = EnsureContrast(
+            Parse(isLight ? "#FF3B30" : "#FF453A"),
+            readingSurfaces,
+            theme.HighContrast ? TextContrast : GraphicContrast,
+            text);
         var dangerForeground = ContrastRatio(danger, Colors.Black)
             >= ContrastRatio(danger, Colors.White)
             ? Colors.Black
             : Colors.White;
+        // A tone's border on its own tinted card. At normal contrast these are
+        // quiet edges, as the neutral card's is; Increase Contrast holds them,
+        // as it holds the neutral one, to the 3:1 a boundary needs against the
+        // tint inside it and the page outside it.
+        var dangerBorder = ToneBorder(isLight ? "#A73528" : "#A84C45", dangerSoft);
+        var successBorder = ToneBorder(isLight ? "#41935E" : "#2E6743", successSoft);
+        var warningBorder = ToneBorder(
+            warningIsYellow
+                ? isLight ? "#B08A00" : "#7A6A2A"
+                : isLight ? "#B46B20" : "#75502F",
+            warningSoft);
+        var infoBorder = ToneBorder(isLight ? "#6C9BD2" : "#2F5A86", infoSoft);
 
         return new EffectiveAppearanceResources(
             isLight ? ThemeVariant.Light : ThemeVariant.Dark,
@@ -603,20 +676,24 @@ internal static class EffectiveAppearanceResourceMapper
             selectedContent,
             selectedContentForeground,
             unemphasizedSelection,
+            gridSelection,
+            focusRing,
             danger,
+            dangerText,
             dangerForeground,
             dangerSoft,
-            Parse(isLight ? "#A73528" : "#A84C45"),
+            dangerBorder,
             success,
             successSoft,
-            Parse(isLight ? "#41935E" : "#2E6743"),
+            successBorder,
             warning,
             warningSoft,
-            Parse(isLight ? "#B46B20" : "#75502F"),
+            warningBorder,
             info,
             infoSoft,
-            Parse(isLight ? "#6C9BD2" : "#2F5A86"),
+            infoBorder,
             statusNeutral,
+            attention,
             Scrim(isLight, theme.HighContrast),
             OverlayShadow(isLight),
             ResolveFontFamily(metrics),
@@ -655,6 +732,30 @@ internal static class EffectiveAppearanceResourceMapper
 
         Color StatusColor(string value, Color soft) =>
             EnsureContrast(Parse(value), [.. readingSurfaces, soft], TextContrast, text);
+
+        Color ToneBorder(string value, Color soft) => theme.HighContrast
+            ? EnsureContrast(Parse(value), [soft, background, surface], GraphicContrast, text)
+            : Parse(value);
+    }
+
+    /// <summary>
+    /// Whether a colour reads as orange: a hue between red and yellow, with
+    /// enough saturation to be a colour rather than a brown-gray. The brand
+    /// accent and the host's orange both are.
+    /// </summary>
+    internal static bool IsOrange(Color color)
+    {
+        var max = Math.Max(color.R, Math.Max(color.G, color.B)) / 255d;
+        var min = Math.Min(color.R, Math.Min(color.G, color.B)) / 255d;
+        var chroma = max - min;
+        if (max <= 0 || chroma / max < 0.4 || color.R / 255d < max)
+        {
+            return false;
+        }
+
+        // Red is the largest channel, so the hue is in the red sextant.
+        var hue = 60 * ((color.G - color.B) / 255d / chroma);
+        return hue is >= 15 and <= 42;
     }
 
     /// <summary>
@@ -720,6 +821,12 @@ internal static class EffectiveAppearanceResourceMapper
         InterfaceDensity.Comfortable => 1.22,
         _ => 1,
     };
+
+    /// <summary>
+    /// How far a table's unfocused selection stands off the rows around it:
+    /// not a contrast standard, a step large enough to find the row.
+    /// </summary>
+    internal const double GridSelectionContrast = 1.5;
 
     internal static double ContrastRatio(Color first, Color second)
     {

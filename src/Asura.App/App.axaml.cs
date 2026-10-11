@@ -499,6 +499,15 @@ public sealed partial class App : Avalonia.Application
     /// </summary>
     private SolidColorBrush Content(Color color) => WithAlpha(color, ContentAlpha);
 
+    /// <summary>How far the focus ring stands out from a control's edge.</summary>
+    internal const double FocusRingWidth = 2.5;
+
+    /// <summary>
+    /// The clear gap between an accent-filled control and its focus ring. The
+    /// ring is the accent too, so without the gap it read as the fill growing.
+    /// </summary>
+    internal const double FocusRingGap = 1;
+
     /// <summary>
     /// The same, as a number, for the surfaces that are drawn rather than
     /// filled — a terminal paints its own background from its palette.
@@ -809,6 +818,11 @@ public sealed partial class App : Avalonia.Application
         // out and a dark shadow read as a smudge.
         Publish("ShellScrimBrush", Brush(resources.Scrim));
         Publish("ShellOverlayShadow", resources.OverlayShadow);
+        // An open rail tile stands over the sidebar beside the rail, so it is
+        // ringed in the page colour before its shadow: without the gap its
+        // fill ran straight into the selected tab's corner and the two read
+        // as one shape.
+        Publish("ShellRailTileFloatShadow", RailTileFloatShadow(resources));
         Publish("ShellSurfaceHoverBrush", Brush(resources.HoverSurface));
         Publish("ShellBorderBrush", Brush(resources.Border));
         Publish("ShellControlSurfaceBrush", Brush(resources.ControlSurface));
@@ -832,13 +846,32 @@ public sealed partial class App : Avalonia.Application
                     : "0 8 48 0 #8C000000, 0 2 14 0 #59000000")
                 + $", inset 0 0 40 0 #38{accentHex}"));
         Publish("ShellAccentForegroundBrush", Brush(resources.AccentForeground));
+        // A toggle that is on, and the stock accent button, stand on the same
+        // accent fill as the default button, so they wear the same measured
+        // ink. The stock theme's white on an orange or yellow accent fell to
+        // between 1.4:1 and 2.5:1.
+        foreach (var state in new[] { string.Empty, "PointerOver", "Pressed" })
+        {
+            Publish($"ToggleButtonForegroundChecked{state}", Brush(resources.AccentForeground));
+            Publish($"AccentButtonForeground{state}", Brush(resources.AccentForeground));
+        }
+
+        // The chosen segment is a raised plate; its shadow is what lifts it
+        // off the track where the two surfaces are close in tone.
+        Publish(
+            "ShellSegmentShadow",
+            BoxShadows.Parse(resources.ThemeVariant == ThemeVariant.Light
+                ? "0 1 2 0 #26000000, 0 0 0 0.5 #1F000000"
+                : "0 1 2 0 #59000000"));
         Publish("ShellAccentSoftBrush", Brush(resources.AccentSoft));
         // A strongly selected row and its label, and the quieter selection of a
         // list that does not have focus — AppKit's own where it has them.
         Publish("ShellSelectedContentBrush", Brush(resources.SelectedContent));
         Publish("ShellSelectedContentForegroundBrush", Brush(resources.SelectedContentForeground));
         Publish("ShellUnemphasizedSelectionBrush", Brush(resources.UnemphasizedSelection));
+        Publish("ShellGridSelectionBrush", Brush(resources.GridSelection));
         Publish("ShellDangerBrush", Brush(resources.Danger));
+        Publish("ShellDangerTextBrush", Brush(resources.DangerText));
         Publish("ShellDangerForegroundBrush", Brush(resources.DangerForeground));
         Publish("ShellDangerSoftBrush", Brush(resources.DangerSoft));
         Publish("ShellDangerBorderBrush", Brush(resources.DangerBorder));
@@ -852,6 +885,7 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellInfoSoftBrush", Brush(resources.InfoSoft));
         Publish("ShellInfoBorderBrush", Brush(resources.InfoBorder));
         Publish("ShellStatusNeutralBrush", Brush(resources.StatusNeutral));
+        Publish("ShellAttentionBrush", Brush(resources.Attention));
         // Chart series take a palette of their own: a line coloured with the
         // accent read as something to press, and one in the success green
         // read as a verdict on the value it plots.
@@ -886,18 +920,19 @@ public sealed partial class App : Avalonia.Application
             resources.Accent.R,
             resources.Accent.G,
             resources.Accent.B));
-        // The focused field wears the host's accent halo — macOS's focus ring —
-        // rather than only a recolored border.
+        // The focus ring — macOS's — in the measured focus colour at full
+        // strength: drawn as a shadow on fields and templated shapes, and as
+        // the focus adorner of a push button, which no parent's clip can cut.
+        // It was the accent at about a third of its strength, which read at
+        // roughly 1.6:1 on a raised control.
+        Publish("ShellFocusRingBrush", Brush(resources.FocusRing));
         Publish("ShellFocusRingShadow", new BoxShadows(new BoxShadow
         {
             Blur = 0,
-            Spread = 3,
-            Color = Color.FromArgb(
-                0x59,
-                resources.Accent.R,
-                resources.Accent.G,
-                resources.Accent.B),
+            Spread = FocusRingWidth,
+            Color = resources.FocusRing,
         }));
+        Publish("ShellFocusRingOnAccentShadow", FocusRingOnAccentShadow(resources));
         Publish(
             "ShellAgentPanelGlowBrush",
             new SolidColorBrush(Color.FromArgb(
@@ -1132,6 +1167,38 @@ public sealed partial class App : Avalonia.Application
     }
 
     private static SolidColorBrush Brush(Color color) => new(color);
+
+    /// <summary>
+    /// A two-point ring in the page colour, then the floating shadow. A spread
+    /// shadow draws outside the shape without moving its content, and follows
+    /// the tile's corners and its width as it opens.
+    /// </summary>
+    internal static BoxShadows RailTileFloatShadow(EffectiveAppearanceResources resources)
+    {
+        var overlay = resources.OverlayShadow;
+        var rest = new BoxShadow[overlay.Count];
+        for (var index = 0; index < overlay.Count; index++)
+        {
+            rest[index] = overlay[index];
+        }
+
+        return new BoxShadows(
+            new BoxShadow { Spread = 2, Color = resources.Background },
+            rest);
+    }
+
+    /// <summary>
+    /// The focus ring on a control filled with the accent — a focused list's
+    /// selected row: the same band, parted from the fill by a point of the
+    /// page colour drawn just inside the edge. The ring is the accent, so
+    /// flush against an accent fill it read as the row growing. Both parts are
+    /// spread shadows, one outside and one inset, so they never overlap and
+    /// their order does not matter.
+    /// </summary>
+    internal static BoxShadows FocusRingOnAccentShadow(EffectiveAppearanceResources resources) =>
+        new(
+            new BoxShadow { Spread = FocusRingWidth, Color = resources.FocusRing },
+            [new BoxShadow { Spread = FocusRingGap, Color = resources.Background, IsInset = true }]);
 
     /// <summary>
     /// One step of the accent shade ramp: the accent blended toward black or

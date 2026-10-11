@@ -88,26 +88,28 @@ public sealed class CardGridPanel : Panel
         }
 
         var metrics = Resolve(finalSize.Width);
-        var x = 0d;
         var y = 0d;
-        var rowHeight = 0d;
 
-        for (var index = 0; index < Children.Count; index++)
+        // Every card in a row is as tall as the tallest one in it. Arranged at
+        // their own heights, a card with a two-line description stood taller
+        // than its neighbours and the row's bottom edge came out ragged.
+        for (var rowStart = 0; rowStart < Children.Count; rowStart += metrics.Columns)
         {
-            var child = Children[index];
-            rowHeight = Math.Max(rowHeight, child.DesiredSize.Height);
-            child.Arrange(new Rect(x, y, metrics.ItemWidth, child.DesiredSize.Height));
-
-            if ((index + 1) % metrics.Columns == 0)
+            var rowEnd = Math.Min(rowStart + metrics.Columns, Children.Count);
+            var rowHeight = 0d;
+            for (var index = rowStart; index < rowEnd; index++)
             {
-                x = 0;
-                y += rowHeight + Spacing;
-                rowHeight = 0;
+                rowHeight = Math.Max(rowHeight, Children[index].DesiredSize.Height);
             }
-            else
+
+            var x = 0d;
+            for (var index = rowStart; index < rowEnd; index++)
             {
+                Children[index].Arrange(new Rect(x, y, metrics.ItemWidth, rowHeight));
                 x += metrics.ItemWidth + Spacing;
             }
+
+            y += rowHeight + Spacing;
         }
 
         return finalSize;

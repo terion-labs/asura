@@ -191,6 +191,13 @@ internal sealed class StateOverlay : ContentControl
                 Kind == kind);
         }
 
+        foreach (var tone in Enum.GetValues<SurfaceTone>())
+        {
+            PseudoClasses.Set(
+                $":tone-{tone.ToString().ToLowerInvariant()}",
+                _presentationTone == tone);
+        }
+
         PseudoClasses.Set(":working", _presentation.Layout == StateOverlayLayout.Working);
         PseudoClasses.Set(":attention", _presentation.Layout == StateOverlayLayout.Attention);
     }

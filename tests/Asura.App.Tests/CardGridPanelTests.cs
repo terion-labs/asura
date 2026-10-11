@@ -85,3 +85,28 @@ public sealed class CardGridPanelTests
             $"The last card in the row ended at {last.Bounds.Right:0.##}, not {width}.");
     }
 }
+
+/// <summary>
+/// A row of cards shares one height. Arranged at their own heights, a card
+/// with a longer description stood taller than its neighbours and the row's
+/// bottom edge came out ragged.
+/// </summary>
+public sealed class CardGridPanelRowHeightTests
+{
+    [Fact]
+    public void Every_card_in_a_row_is_as_tall_as_the_tallest()
+    {
+        var panel = new CardGridPanel { MinItemWidth = 200, Spacing = 10, MaxColumns = 3 };
+        foreach (var height in new[] { 80d, 120d, 100d, 60d })
+        {
+            panel.Children.Add(new Border { MinHeight = height });
+        }
+
+        panel.Measure(new Size(640, double.PositiveInfinity));
+        panel.Arrange(new Rect(0, 0, 640, panel.DesiredSize.Height));
+
+        Assert.All(panel.Children.Take(3), card => Assert.Equal(120, card.Bounds.Height, precision: 3));
+        Assert.Equal(60, panel.Children[3].Bounds.Height, precision: 3);
+        Assert.Equal(130, panel.Children[3].Bounds.Top, precision: 3);
+    }
+}

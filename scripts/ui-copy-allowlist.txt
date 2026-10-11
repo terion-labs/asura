@@ -9,3 +9,4 @@
 
 preferences | src/Asura.Agent.Runtime/ProviderConversationCompactor.cs | Preferences | Section heading in a model prompt for conversation compaction; never shown in the UI.
 title-case | src/Asura.App/Views/SettingsView.axaml | container | Apple's container tool is named "container", lowercase, as Apple writes it ("Install Apple container…").
+title-case | src/Asura.App/Views/DesignSystemGalleryWindow.axaml | Run scope · This tab | A chip names a value in place, as status does, rather than a command, so it reads in sentence case like the status chips beside it.

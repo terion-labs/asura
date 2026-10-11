@@ -22,6 +22,14 @@ public sealed class EnumDisplayConverter : IValueConverter
     {
         ["OpenAi"] = "OpenAI",
         ["OpenAiCompatible"] = "OpenAI-compatible",
+        ["OpenAiResponses"] = "OpenAI Responses API",
+        ["GitHub"] = "GitHub",
+        ["GitHubCopilot"] = "GitHub Copilot",
+        ["GitLab"] = "GitLab",
+        ["DeepSeek"] = "DeepSeek",
+        ["MoonshotAi"] = "Moonshot AI",
+        ["OpenRouter"] = "OpenRouter",
+        ["XAi"] = "xAI",
     };
 
     /// <summary>
