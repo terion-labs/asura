@@ -916,7 +916,7 @@
               <TextBlock
                   Name="PART_Metadata"
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellPillFontSize}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
                   Text="{TemplateBinding Metadata}"
                   TextTrimming="CharacterEllipsis"
                   IsVisible="False" />

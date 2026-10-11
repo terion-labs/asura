@@ -25,12 +25,12 @@
       <controls:SurfaceCard>
         <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
           <TextBlock Classes="Eyebrow" Text="Endpoint" />
-          <TextBlock FontSize="{DynamicResource ShellFontSize11}" Text="{Binding Review.Endpoint}" />
+          <TextBlock FontSize="{DynamicResource ShellFontSize12}" Text="{Binding Review.Endpoint}" />
           <TextBlock Classes="Eyebrow" Text="Presented host key" />
-          <TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Review.Presented.Algorithm}" />
-          <TextBlock FontFamily="{DynamicResource ShellDataFontFamily}" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Review.Presented.Sha256Fingerprint}" TextWrapping="Wrap" />
+          <TextBlock FontSize="{DynamicResource ShellFontSize12}" Text="{Binding Review.Presented.Algorithm}" />
+          <TextBlock FontFamily="{DynamicResource ShellDataFontFamily}" FontSize="{DynamicResource ShellFontSize12}" Text="{Binding Review.Presented.Sha256Fingerprint}" TextWrapping="Wrap" />
           <TextBlock Classes="Eyebrow" Text="Previously trusted" IsVisible="{Binding Review.RequiresExplicitReplacement}" />
-          <TextBlock FontFamily="{DynamicResource ShellDataFontFamily}" FontSize="{DynamicResource ShellFontSize10}" Foreground="{DynamicResource ShellDangerBrush}" Text="{Binding Review.Trusted.Sha256Fingerprint}" TextWrapping="Wrap" IsVisible="{Binding Review.RequiresExplicitReplacement}" />
+          <TextBlock FontFamily="{DynamicResource ShellDataFontFamily}" FontSize="{DynamicResource ShellFontSize12}" Foreground="{DynamicResource ShellDangerBrush}" Text="{Binding Review.Trusted.Sha256Fingerprint}" TextWrapping="Wrap" IsVisible="{Binding Review.RequiresExplicitReplacement}" />
         </StackPanel>
       </controls:SurfaceCard>
       <controls:Callout
