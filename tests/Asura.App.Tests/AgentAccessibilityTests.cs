@@ -124,7 +124,7 @@ public sealed partial class AgentChatViewModelTests
                 new AgentApprovalFactViewModel("Workspace", "Operations"),
                 new AgentApprovalFactViewModel("Window", "Another window"),
             ],
-            AgentTargetPresentation.Place("this workspace", elsewhere, context));
+            AgentTargetPresentation.Place("Operations", elsewhere, context));
 
         // Levels nobody named are left out, not filled with identifiers.
         Assert.Equal(
@@ -140,6 +140,69 @@ public sealed partial class AgentChatViewModelTests
                     new AgentTarget.Panel(target.WindowId, target.WorkspaceId, target.TabId, new PanelInstanceId("01a0df93aaaaaaaaaaaaaaaaaaaaaaaa")),
                 ]),
                 context).Take(1));
+    }
+
+    [Fact]
+    public void Approval_details_leave_out_a_level_the_context_names_only_by_a_stand_in()
+    {
+        var listed = new AgentTarget.Panel(
+            new WindowInstanceId("01a0df93c28d7f37b282257dc68511d84"),
+            new WorkspaceInstanceId("01a0df93cae07372bf3c3f7e1de115cf"),
+            new TabInstanceId("01a0df93caed7642b128c7f1f894eb3ea"),
+            new PanelInstanceId("01a0df93caed736baaa598b6c213744d"));
+        GovernedAgentContextItem[] context =
+        [
+            new(
+                listed.WindowId,
+                listed.WorkspaceId,
+                listed.TabId,
+                listed.PanelId,
+                new SessionId("01a0df93caed71e99e7d2b4623b40c49"),
+                PanelKind.Browser,
+                workspaceTitle: "Operations",
+                tabTitle: "production-api",
+                panelTitle: "Browser",
+                connectionBoundary: null,
+                workingDirectory: null,
+                SessionLifecycle.Active,
+                SessionHealth.Healthy,
+                isVisible: true,
+                isFocused: true,
+                hasActiveWork: false,
+                [BuiltInAgentTools.BrowserNavigate]),
+        ];
+        // A panel in the same tab that the run's context does not list: the
+        // card's title for it is the stand-in "this panel".
+        var unlisted = new AgentTarget.Panel(
+            listed.WindowId,
+            listed.WorkspaceId,
+            listed.TabId,
+            new PanelInstanceId("01a0df93bbbbbbbbbbbbbbbbbbbbbbbb"));
+        var title = AgentTargetPresentation.HumanTitle(
+            $"Panel {unlisted.PanelId.Value}",
+            unlisted,
+            context: context);
+
+        Assert.Equal("this panel", title);
+        Assert.Equal(
+            [
+                new AgentApprovalFactViewModel("Tab", "production-api"),
+                new AgentApprovalFactViewModel("Workspace", "Operations"),
+                new AgentApprovalFactViewModel("Window", "This window"),
+            ],
+            AgentTargetPresentation.Place(title, unlisted, context));
+
+        // With nothing named at all, the one fact is the stand-in as a value
+        // that starts a line, never a lowercase fragment repeating its label.
+        Assert.Equal(
+            [new AgentApprovalFactViewModel("Target", "This panel")],
+            AgentTargetPresentation.Place(title, unlisted, []));
+        Assert.Equal(
+            [new AgentApprovalFactViewModel("Target", "This workspace")],
+            AgentTargetPresentation.Place(
+                "this workspace",
+                new AgentTarget.Workspace(listed.WindowId, new WorkspaceInstanceId("01a0df93cccccccccccccccccccccccc")),
+                []));
     }
 
     [Theory]

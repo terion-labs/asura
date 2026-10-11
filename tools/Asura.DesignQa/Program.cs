@@ -1743,6 +1743,9 @@ internal sealed class QaApplication : Avalonia.Application
         // server sort, and a context menu opened after running an edited raw
         // query whose complete base-table provenance keeps mutations safe.
         ("database-cell-editor-compact-2x", CreateDatabaseCellEditorCompactProbe, null),
+        // The narrowest editor the product allows: a 720-point panel beside
+        // the row inspector, where the actions stack at the editor's width.
+        ("database-cell-editor-stacked-2x", CreateDatabaseCellEditorStackedProbe, null),
         // Editing a prose-sized cell grows the expanded editor beside it; the
         // probe proves the popup opens on the real edit path and holds focus.
         ("database-cell-expand-editor-2x", CreateDatabaseCellExpandProbe, null),
@@ -2027,7 +2030,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 var preview = panel.PreviewSelectedAsync();
                 while (!preview.IsCompleted && watch.ElapsedMilliseconds < 10_000)
                 {
-                    Dispatcher.UIThread.RunJobs();
+                    Dispatcher.UIThread.RunJobs(DispatcherPriority.Input);
                     Thread.Sleep(1);
                 }
 
@@ -2039,7 +2042,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 {
                     watch.Restart();
                     panel.PreviewToggles.Single().IsOn = true;
-                    Dispatcher.UIThread.RunJobs();
+                    Dispatcher.UIThread.RunJobs(DispatcherPriority.Input);
                     window.UpdateLayout();
                     var blockingOn = watch.ElapsedMilliseconds;
                     watch.Restart();
@@ -2063,7 +2066,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
 
                     watch.Restart();
                     panel.PreviewToggles.Single().IsOn = false;
-                    Dispatcher.UIThread.RunJobs();
+                    Dispatcher.UIThread.RunJobs(DispatcherPriority.Input);
                     window.UpdateLayout();
                     Console.WriteLine($"TIMING toggle-from-hex blocking={watch.ElapsedMilliseconds}ms");
                     Dispatcher.UIThread.RunJobs();
@@ -2147,11 +2150,11 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 var preview = panel.PreviewSelectedAsync();
                 while (!preview.IsCompleted && watch.ElapsedMilliseconds < 10_000)
                 {
-                    Dispatcher.UIThread.RunJobs();
+                    Dispatcher.UIThread.RunJobs(DispatcherPriority.Input);
                     Thread.Sleep(1);
                 }
 
-                Dispatcher.UIThread.RunJobs();
+                Dispatcher.UIThread.RunJobs(DispatcherPriority.Input);
                 window.UpdateLayout();
                 var blocking = watch.ElapsedMilliseconds;
 
@@ -3431,13 +3434,21 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             });
 
     // The editor is as wide as the grid it edits, up to its designed width.
-    // Beside the row inspector a 720-point panel left the grid 160 points and
-    // the editor a column of two-word lines over stacked buttons; at 920 the
-    // grid gives it the compact width a narrow panel really has, under the
-    // designed width, with Cancel and Apply on one line.
+    // At 920 points the grid beside the row inspector gives it the compact
+    // width a narrow panel really has, under the designed width, with Cancel
+    // and Apply on one line.
     private static Window CreateDatabaseCellEditorCompactProbe() =>
+        CreateDatabaseCellEditorProbe(width: 920, stacked: false);
+
+    // At 720 points, a window the product allows, the grid beside the row
+    // inspector is about 160 points wide. The editor follows it, and its
+    // actions stack at its full width, Apply first, as a narrow alert does.
+    private static Window CreateDatabaseCellEditorStackedProbe() =>
+        CreateDatabaseCellEditorProbe(width: 720, stacked: true);
+
+    private static Window CreateDatabaseCellEditorProbe(double width, bool stacked) =>
         CreatePreparedDatabaseProbe(
-            width: 920,
+            width: width,
             height: 560,
             async (window, viewer, _) =>
             {
@@ -3511,13 +3522,26 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 var cancelOrigin = cancel.TranslatePoint(new Point(0, cancel.Bounds.Height / 2), dialog);
                 if (dialog.Bounds.Width >= 620
                     || applyOrigin is not { } applyAt
-                    || cancelOrigin is not { } cancelAt
-                    || Math.Abs(applyAt.Y - cancelAt.Y) > 1)
+                    || cancelOrigin is not { } cancelAt)
                 {
                     throw new InvalidOperationException(
-                        "The compact cell editor is no longer compact, or its actions left their one line "
+                        "The compact cell editor is no longer compact "
+                        + $"(editor {dialog.Bounds.Width:0} wide in a {grid.Bounds.Width:0}-point grid).");
+                }
+
+                var laidOutAsDesigned = stacked
+                    ? applyAt.Y < cancelAt.Y - 1
+                        && Math.Abs(apply.Bounds.Width - cancel.Bounds.Width) <= 1
+                    : Math.Abs(applyAt.Y - cancelAt.Y) <= 1;
+                if (!laidOutAsDesigned)
+                {
+                    throw new InvalidOperationException(
+                        (stacked
+                            ? "The narrow cell editor's actions did not stack at one width, Apply first "
+                            : "The compact cell editor's actions left their one line ")
                         + $"(editor {dialog.Bounds.Width:0} wide in a {grid.Bounds.Width:0}-point grid; "
-                        + $"Apply at {applyOrigin}, Cancel at {cancelOrigin}).");
+                        + $"Apply {apply.Bounds.Width:0} wide at {applyAt}, "
+                        + $"Cancel {cancel.Bounds.Width:0} wide at {cancelAt}).");
                 }
             });
 
