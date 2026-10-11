@@ -47,6 +47,39 @@ public sealed class ShortcutTextTests
     }
 
     [Fact]
+    public void Mac_key_symbols_name_text_faces_that_hold_them()
+    {
+        Assert.Equal(
+            ["Lucida Grande", "Apple Symbols"],
+            ShortcutText.SymbolFontFamilies(HostOperatingSystem.MacOS),
+            StringComparer.Ordinal);
+        Assert.Empty(ShortcutText.SymbolFontFamilies(HostOperatingSystem.Windows));
+        Assert.Empty(ShortcutText.SymbolFontFamilies(HostOperatingSystem.Linux));
+    }
+
+    [Fact]
+    public void Every_character_of_a_mac_symbol_is_a_key_symbol_and_nothing_else_is()
+    {
+        var all = KeyModifiers.Control | KeyModifiers.Alt | KeyModifiers.Shift | KeyModifiers.Meta;
+        foreach (var key in new[]
+        {
+            "ESCAPE", "ENTER", "RETURN", "BACKSPACE", "DELETE", "TAB", "HOME", "END", "PAGEUP", "PAGEDOWN",
+            "ARROWLEFT", "ARROWRIGHT", "ARROWUP", "ARROWDOWN",
+        })
+        {
+            var text = ShortcutText.Format(new KeyStroke(key, all), HostOperatingSystem.MacOS);
+            Assert.All(text, character => Assert.True(
+                ShortcutText.IsKeySymbol(character, HostOperatingSystem.MacOS),
+                $"U+{(int)character:X4} in {text} is not a key symbol."));
+            Assert.All(text, character => Assert.False(ShortcutText.IsKeySymbol(character, HostOperatingSystem.Windows)));
+        }
+
+        Assert.All(
+            ShortcutText.Format(new KeyStroke("SPACE", all), HostOperatingSystem.MacOS)[4..] + "K1,` ·",
+            character => Assert.False(ShortcutText.IsKeySymbol(character, HostOperatingSystem.MacOS)));
+    }
+
+    [Fact]
     public void Mac_modifiers_are_symbols_in_menu_order()
     {
         var stroke = new KeyStroke(

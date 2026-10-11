@@ -86,7 +86,7 @@
               <TextBlock
                   Grid.Column="2"
                   VerticalAlignment="Center"
-                  Classes="Muted"
+                  Classes="Muted Shortcut"
                   Text="{Binding TrailingText}"
                   IsVisible="{Binding HasTrailingText}" />
             </Grid>
@@ -110,7 +110,7 @@
       <Border Grid.Row="2" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="0,1,0,0">
         <Grid Margin="{controls:Inset Horizontal=Md}" ColumnDefinitions="*,Auto">
           <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Dimmed results can't be used right now." />
-          <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{x:Static overlays:CommandPaletteView.KeyHintText}" />
+          <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Muted Shortcut" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{x:Static overlays:CommandPaletteView.KeyHintText}" />
         </Grid>
       </Border>
     </Grid>

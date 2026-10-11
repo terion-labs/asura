@@ -306,8 +306,11 @@
        item printed Avalonia's notation, "Cmd+Down Arrow" and "Backspace". -->
   <!-- The stock template binds the text itself, which only a style with a
        condition outranks; a separator has no shortcut to write. -->
+  <!-- Its key symbols draw as monochrome text, never as an emoji tile: see
+       KeycapSymbols. -->
   <Style Selector="MenuItem:not(:separator) /template/ TextBlock#PART_InputGestureText">
     <Setter Property="Text" Value="{Binding InputGesture, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource KeyGestureDisplayConverter}}" />
+    <Setter Property="controls:KeycapSymbols.AsText" Value="True" />
   </Style>
 
   <Style Selector="Button.FlyoutMenuItem">
@@ -953,6 +956,15 @@
     <Setter Property="FontSize" Value="{DynamicResource ShellFontSize13}" />
     <Setter Property="FontWeight" Value="Bold" />
     <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight13}" />
+  </Style>
+
+  <!--
+    Text that writes a shortcut — ⌘↩, "↩ to open" — keeps the interface font
+    for its words and draws the key symbols as monochrome text rather than
+    leaving them to whichever face the renderer finds first.
+  -->
+  <Style Selector="TextBlock.Shortcut">
+    <Setter Property="controls:KeycapSymbols.AsText" Value="True" />
   </Style>
 
   <!--
@@ -1972,6 +1984,7 @@
   </Style>
 
   <Style Selector="Border.Keycap TextBlock">
+    <Setter Property="controls:KeycapSymbols.AsText" Value="True" />
     <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
   </Style>

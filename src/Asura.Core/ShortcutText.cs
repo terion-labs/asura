@@ -24,6 +24,13 @@ public static class ShortcutText
     // font's fallback chain.
     private const string TextPresentation = "\uFE0E";
 
+    // Faces that draw every macOS key symbol below as text. The interface font
+    // has few of them, and the renderer's own fallback took whichever loaded
+    // face answered first: Return came out of Apple Color Emoji as a picture
+    // and Escape out of a face nothing else used. Lucida Grande has the whole
+    // set in the shapes the menu bar long used; Apple Symbols backs it up.
+    private static readonly string[] MacSymbolFontFamilies = ["Lucida Grande", "Apple Symbols"];
+
     private static readonly Dictionary<string, string> MacKeyLabels = new(StringComparer.Ordinal)
     {
         ["ARROWLEFT"] = "←",
@@ -92,6 +99,29 @@ public static class ShortcutText
         ["OEMSEMICOLON"] = ";",
         ["OEMQUOTES"] = "'",
     };
+
+    // Declared after the tables it reads: static fields initialize in order.
+    private static readonly HashSet<char> MacSymbolCharacters =
+    [
+        .. MacControl, .. MacOption, .. MacShift, .. MacCommand,
+        .. MacKeyLabels.Values.Where(label => label.All(character => !char.IsAsciiLetter(character))).SelectMany(label => label),
+    ];
+
+    /// <summary>
+    /// The font families that draw this host's key symbols as monochrome
+    /// text, in the order to try them; none where the notation is words.
+    /// </summary>
+    public static IReadOnlyList<string> SymbolFontFamilies(HostOperatingSystem host) =>
+        host == HostOperatingSystem.MacOS ? MacSymbolFontFamilies : [];
+
+    /// <summary>
+    /// Whether <paramref name="character"/> is part of a key symbol this host
+    /// writes — ⌃⌥⇧⌘, ↩ ⎋ ⌫ and the arrows on a Mac, with the text-presentation
+    /// selector that follows some of them — and so belongs in a
+    /// <see cref="SymbolFontFamilies"/> face rather than the interface font.
+    /// </summary>
+    public static bool IsKeySymbol(char character, HostOperatingSystem host) =>
+        host == HostOperatingSystem.MacOS && MacSymbolCharacters.Contains(character);
 
     public static string Format(KeyStroke stroke, HostOperatingSystem host)
     {
