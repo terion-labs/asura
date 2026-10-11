@@ -15,9 +15,17 @@ public sealed partial class KubernetesRuntimePanelViewModel
     private bool _reuseValues = true;
     private string _helmChangeStatus = "Review the exact release change before confirming.";
     private int _helmEditGeneration;
-    public IReadOnlyList<KubernetesHelmChangeKind> HelmChangeKinds { get; } = [KubernetesHelmChangeKind.Upgrade, KubernetesHelmChangeKind.Rollback, KubernetesHelmChangeKind.Uninstall];
+    /// <summary>The Change pop-up's items, named in words rather than enum values.</summary>
+    public IReadOnlyList<KubernetesHelmChangeKindOption> HelmChangeKindOptions { get; } =
+        [.. new[] { KubernetesHelmChangeKind.Upgrade, KubernetesHelmChangeKind.Rollback, KubernetesHelmChangeKind.Uninstall }
+            .Select(kind => new KubernetesHelmChangeKindOption(kind, KubernetesHelmChangeText.Kind(kind)))];
+    public KubernetesHelmChangeKindOption SelectedHelmChangeKindOption
+    {
+        get => HelmChangeKindOptions.First(option => option.Value == HelmChangeKind);
+        set { ArgumentNullException.ThrowIfNull(value); HelmChangeKind = value.Value; }
+    }
     public bool HasHelmChanges => _session?.Features.HasFlag(KubernetesSessionFeatures.HelmChanges) == true && SelectedRelease is not null;
-    public KubernetesHelmChangeKind HelmChangeKind { get => _helmChangeKind; set { if (SetProperty(ref _helmChangeKind, value)) { ClearHelmReview(); OnPropertyChanged(nameof(IsHelmUpgrade)); OnPropertyChanged(nameof(IsHelmRollback)); } } }
+    public KubernetesHelmChangeKind HelmChangeKind { get => _helmChangeKind; set { if (SetProperty(ref _helmChangeKind, value)) { ClearHelmReview(); OnPropertyChanged(nameof(SelectedHelmChangeKindOption)); OnPropertyChanged(nameof(IsHelmUpgrade)); OnPropertyChanged(nameof(IsHelmRollback)); } } }
     public bool IsHelmUpgrade => HelmChangeKind == KubernetesHelmChangeKind.Upgrade;
     public bool IsHelmRollback => HelmChangeKind == KubernetesHelmChangeKind.Rollback;
     public string ChartReference { get => _chartReference; set { if (SetProperty(ref _chartReference, value)) { ClearHelmReview(); } } }
@@ -79,13 +87,16 @@ public sealed partial class KubernetesRuntimePanelViewModel
     }
 }
 
+public sealed record KubernetesHelmChangeKindOption(KubernetesHelmChangeKind Value, string Label);
+
 /// <summary>A Helm change review and its result in words, not enum or Boolean values.</summary>
 internal static class KubernetesHelmChangeText
 {
+    /// <summary>The change as a pop-up item and review heading, in title case: "Roll Back", not "Rollback".</summary>
     public static string Kind(KubernetesHelmChangeKind kind) => kind switch
     {
         KubernetesHelmChangeKind.Upgrade => "Upgrade",
-        KubernetesHelmChangeKind.Rollback => "Rollback",
+        KubernetesHelmChangeKind.Rollback => "Roll Back",
         KubernetesHelmChangeKind.Uninstall => "Uninstall",
         _ => "Helm change",
     };

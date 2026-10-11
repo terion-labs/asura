@@ -1392,9 +1392,15 @@
                           <ComboBox
                               HorizontalAlignment="Stretch"
                               IsEnabled="{Binding !IsBusy}"
-                              ItemsSource="{Binding HelmChangeKinds}"
-                              SelectedItem="{Binding HelmChangeKind, Mode=TwoWay}"
-                              AutomationProperties.Name="Helm change kind" />
+                              ItemsSource="{Binding HelmChangeKindOptions}"
+                              SelectedItem="{Binding SelectedHelmChangeKindOption, Mode=TwoWay}"
+                              AutomationProperties.Name="Helm change">
+                            <ComboBox.ItemTemplate>
+                              <DataTemplate x:DataType="vm:KubernetesHelmChangeKindOption">
+                                <TextBlock Text="{Binding Label}" />
+                              </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                          </ComboBox>
                         </controls:LabeledField>
                         <StackPanel IsEnabled="{Binding !IsBusy}" IsVisible="{Binding IsHelmUpgrade}" Spacing="{DynamicResource ShellSpaceSm}">
                           <controls:LabeledField Label="Chart reference" Hint="An OCI reference pinned with @sha256:…">

@@ -36,8 +36,20 @@ public sealed class SecretEditorViewModel : ObservableObject
     public string ReplacementValue
     {
         get => _replacementValue;
-        set => SetProperty(ref _replacementValue, value);
+        set
+        {
+            if (SetProperty(ref _replacementValue, value))
+            {
+                OnPropertyChanged(nameof(CanRotate));
+            }
+        }
     }
+
+    /// <summary>
+    /// Rotate Value has nothing to do until there is a value to rotate to, so
+    /// it stays unavailable until one is typed rather than refusing afterward.
+    /// </summary>
+    public bool CanRotate => !string.IsNullOrEmpty(ReplacementValue);
 
     public SecretEditRequest CreateRelabelRequest() => new(
         SecretEditAction.Relabel,
