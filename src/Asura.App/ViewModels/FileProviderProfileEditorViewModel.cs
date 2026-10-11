@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -351,7 +352,10 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         catch (Exception exception) when (exception is ArgumentException or UriFormatException)
         {
             TestStatus = "Validation failed";
-            TestDetail = exception.Message;
+            TestDetail = FailureReason.Refusal(
+                "file-provider.editor.test.refused",
+                exception,
+                "Asura can't test the file provider with these settings. Check each value, then test again.");
             ReportError(TestDetail, TestStatus);
             return;
         }
@@ -412,7 +416,10 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         }
         catch (ArgumentException exception)
         {
-            _hostKeyReviewStatus = exception.Message;
+            _hostKeyReviewStatus = FailureReason.Refusal(
+                "file-provider.editor.host-key.refused",
+                exception,
+                "Asura can't trust the host key until the provider's settings are complete. Check each value, then try again.");
             OnPropertyChanged(nameof(HostKeyReviewStatus));
             return;
         }

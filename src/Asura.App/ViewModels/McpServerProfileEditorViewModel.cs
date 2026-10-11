@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Net;
 using System.Runtime.CompilerServices;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -992,8 +993,8 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
     {
         if (count >= maximum)
         {
-            throw new InvalidOperationException(
-                $"An MCP server can't have more than {maximum} {itemName}.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                $"An MCP server can't have more than {maximum} {itemName}. Remove one before adding another."));
         }
     }
 

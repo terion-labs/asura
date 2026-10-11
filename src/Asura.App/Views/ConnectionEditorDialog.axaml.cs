@@ -144,7 +144,9 @@ public sealed partial class ConnectionEditorDialog : DialogWindow
         catch (Exception exception)
             when (exception is ArgumentException or InvalidOperationException)
         {
-            ShowValidationError(exception);
+            ShowValidationError(
+                exception,
+                "Asura can't browse for a repository with these settings. Check the host and sign-in values, then try again.");
             return;
         }
 
@@ -347,7 +349,9 @@ public sealed partial class ConnectionEditorDialog : DialogWindow
         }
         catch (InvalidOperationException exception)
         {
-            ShowValidationError(exception);
+            ShowValidationError(
+                exception,
+                "Asura can't store a credential for this connection right now. Try again.");
             return;
         }
 
@@ -405,23 +409,26 @@ public sealed partial class ConnectionEditorDialog : DialogWindow
         catch (Exception exception) when (exception
             is ArgumentException or OverflowException or UriFormatException or FormatException)
         {
-            ShowValidationError(exception);
+            ShowValidationError(
+                exception,
+                "Asura can't save the connection with these settings. Check each value, then try again.");
         }
     }
 
     /// <summary>
     /// Under the field the failure names, focused; or, when it names none, in
     /// the error list at the top of the form, scrolled into view. The dialog
-    /// stays open with everything typed so far.
+    /// stays open with everything typed so far. A profile rule's own text is
+    /// written for developers, so the list says what to check instead.
     /// </summary>
-    private void ShowValidationError(Exception exception)
+    private void ShowValidationError(Exception exception, string fallback)
     {
         if (FieldValidation.Present(this, exception))
         {
             return;
         }
 
-        ViewModel.ErrorNotices.Report(exception.Message);
+        ViewModel.ErrorNotices.Report(ConnectionEditorViewModel.DescribeRefusal(exception, fallback));
         this.FindControl<Control>("FormErrors")?.BringIntoView();
     }
 

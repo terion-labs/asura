@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 using Asura.Git;
@@ -639,7 +640,9 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         catch (Exception exception) when (exception is ArgumentException or OverflowException)
         {
             TestStatus = "Validation failed";
-            TestDetail = exception.Message;
+            TestDetail = DescribeRefusal(
+                exception,
+                "Asura can't test the connection with these settings. Check each value, then test again.");
             ReportError(TestDetail, TestStatus);
             return;
         }
@@ -839,6 +842,14 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     private ConnectionProfile? ReferencedSshSource =>
         OpensGitRepository && IsSsh ? SelectedSavedSshSource.Profile : null;
 
+    /// <summary>
+    /// Why the form's values can't make a connection. A field's own message
+    /// is shown as written; a profile rule's argument check is developer text,
+    /// so it goes to diagnostics and the form says what to check instead.
+    /// </summary>
+    internal static string DescribeRefusal(Exception exception, string fallback) =>
+        FailureReason.Refusal("connection.editor.refused", exception, fallback);
+
     private ConnectionProfile BuildProfile()
     {
         // A reference profile stores no endpoint or credentials of its own:
@@ -865,7 +876,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
             Required(Name, "Connection name"),
             endpoint,
             authentication,
-            new ConnectionStartup(directory, _environment, Optional(StartupCommand)),
+            new ConnectionStartup(directory, _environment, SingleLineCommand()),
             keepAlive,
             reference is not null
                 ? SshHostKeyPolicy.Strict
@@ -903,7 +914,8 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     {
         if (_gitClient is null)
         {
-            throw new InvalidOperationException("Git support is unavailable in this build.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "Git isn't available in this version of Asura, so repositories can't be browsed."));
         }
 
         // A chosen saved connection is the endpoint: the browse probe uses it
@@ -1057,7 +1069,14 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     private static string? Optional(string value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private int ValidPort() => _unparsedPort is null
+    private string? SingleLineCommand() => Optional(StartupCommand) is { } command
+        && command.Any(char.IsControl)
+            ? throw InvalidField.Exception(
+                nameof(StartupCommand),
+                "The startup command must be one line. Remove the line breaks and tabs from it.")
+            : Optional(StartupCommand);
+
+    private int ValidPort() => _unparsedPort is null && Port is >= 1 and <= 65535
         ? Port
         : throw InvalidField.Exception(nameof(Port), PortNumber.Requirement);
 

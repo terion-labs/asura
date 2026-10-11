@@ -75,6 +75,38 @@ public sealed class TerminalSettingsViewModelTests
     }
 
     [Fact]
+    public async Task A_refused_terminal_save_names_the_value_to_fix_not_the_profile_rule()
+    {
+        var fixture = CreateCatalog(Snapshot());
+        using var viewModel = new TerminalSettingsViewModel(fixture.Catalog);
+        var editor = Assert.IsType<TerminalProfileEditorViewModel>(viewModel.TerminalEditor);
+        editor.Cursor = "orange";
+
+        var result = await viewModel.SaveTerminalProfileAsync(CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(
+            "Enter the cursor color as six hexadecimal digits, such as #1E1E2E.",
+            result.Error?.Message);
+        Assert.Null(fixture.Proxy.LastExpectedTerminalRevision);
+    }
+
+    [Fact]
+    public async Task A_refused_quick_terminal_save_keeps_the_shortcut_fields_own_words()
+    {
+        var fixture = CreateCatalog(Snapshot());
+        using var viewModel = new TerminalSettingsViewModel(fixture.Catalog);
+        var editor = Assert.IsType<QuickTerminalSettingsEditorViewModel>(viewModel.QuickTerminalEditor);
+        editor.HotkeyText = "   ";
+
+        var result = await viewModel.SaveQuickTerminalSettingsAsync(CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.StartsWith("Enter a shortcut for Quick Terminal, for example ", result.Error?.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Parameter", result.Error?.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Unchanged_terminal_save_does_not_write_to_the_catalog()
     {
         var fixture = CreateCatalog(Snapshot());

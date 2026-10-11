@@ -78,9 +78,11 @@ public sealed class TerminalProfileEditorViewModelTests
             Background = "not-a-color",
         };
 
-        var error = Assert.Throws<FormatException>(() => editor.CreateSaveRequest());
+        // Named under the field it is about, in the editor's words.
+        var error = Assert.ThrowsAny<ArgumentException>(() => editor.CreateSaveRequest());
 
-        Assert.Contains("six hexadecimal digits", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(nameof(TerminalProfileEditorViewModel.Background), InvalidField.Of(error));
+        Assert.Equal("Enter the background color as six hexadecimal digits, such as #1E1E2E.", error.Message);
     }
 
     [Fact]
@@ -106,7 +108,10 @@ public sealed class TerminalProfileEditorViewModelTests
             ScrollbackLines = 10_000_001,
         };
 
-        _ = Assert.Throws<ArgumentOutOfRangeException>(() => editor.CreateSaveRequest());
+        var error = Assert.ThrowsAny<ArgumentException>(() => editor.CreateSaveRequest());
+
+        Assert.Equal(nameof(TerminalProfileEditorViewModel.ScrollbackLines), InvalidField.Of(error));
+        Assert.Equal("Choose a scrollback length from 0 to 10,000,000 lines.", error.Message);
     }
 
     [Fact]

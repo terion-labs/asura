@@ -96,7 +96,7 @@ public sealed partial class GitRuntimePanelViewModel
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { return []; }
         catch (ArgumentException exception)
         {
-            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the rebase range");
+            PresentFailure(GitRequestRefusal.Error(exception, GitRequestRefusal.RebaseRange), "Couldn't plan rebase");
             return [];
         }
         finally
@@ -143,7 +143,7 @@ public sealed partial class GitRuntimePanelViewModel
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
         catch (ArgumentException exception)
         {
-            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the revisions to compare");
+            PresentFailure(GitRequestRefusal.Error(exception, GitRequestRefusal.Comparison), "Couldn't compare revisions");
         }
         finally
         {

@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.Core;
 
 namespace Asura.App.ViewModels;
@@ -23,19 +24,29 @@ internal static class QuickTerminalHotkeyText
     public static string FormatApplicationCommand(string key) =>
         FormatApplicationCommand(key, HostPlatform.Current);
 
+    /// <summary>
+    /// The shortcut in <paramref name="text"/>. A refusal is written for the
+    /// person typing it and marked readable, so Settings shows it as written.
+    /// </summary>
     public static KeyStroke Parse(string text)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(text);
+        ArgumentNullException.ThrowIfNull(text);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            throw FailureReason.Readable(new FormatException(
+                $"Enter a shortcut for Quick Terminal, for example {Example}."));
+        }
+
         if (!ShortcutText.TryParseStroke(text, out var stroke))
         {
-            throw new FormatException(
-                $"Enter one key with at least one modifier, for example {Example}.");
+            throw FailureReason.Readable(new FormatException(
+                $"Enter one key with at least one modifier, for example {Example}."));
         }
 
         if (stroke.Modifiers == KeyModifiers.None)
         {
-            throw new FormatException(
-                $"Use at least one modifier with the key, for example {Example}.");
+            throw FailureReason.Readable(new FormatException(
+                $"Use at least one modifier with the key, for example {Example}."));
         }
 
         return stroke;

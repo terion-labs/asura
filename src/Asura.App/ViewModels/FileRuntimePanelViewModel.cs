@@ -1635,7 +1635,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         }
         catch (ArgumentException exception)
         {
-            SetOperationIssue(FileOperationIssue.Validation(exception.Message));
+            SetOperationIssue(FileOperationIssue.Validation(
+                FileLocationPresentation.DescribeLocationRefusal(exception)));
             return;
         }
 
@@ -1724,7 +1725,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         }
         catch (ArgumentException exception)
         {
-            SetOperationIssue(FileOperationIssue.Validation(exception.Message));
+            SetOperationIssue(FileOperationIssue.Validation(
+                FileLocationPresentation.DescribeNameRefusal(exception)));
             return false;
         }
 
@@ -1766,7 +1768,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         }
         catch (ArgumentException exception)
         {
-            SetOperationIssue(FileOperationIssue.Validation(exception.Message));
+            SetOperationIssue(FileOperationIssue.Validation(
+                FileLocationPresentation.DescribeNameRefusal(exception)));
             return false;
         }
 

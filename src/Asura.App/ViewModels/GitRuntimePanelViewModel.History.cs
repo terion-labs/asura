@@ -147,7 +147,7 @@ public sealed partial class GitRuntimePanelViewModel
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (ArgumentException exception)
         {
-            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the commit");
+            PresentFailure(GitRequestRefusal.Error(exception, GitRequestRefusal.Commit), "Couldn't find commit");
         }
     }
 

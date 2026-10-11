@@ -885,6 +885,26 @@ public sealed class UnifiedConnectionEditorViewModelTests
     }
 
     [Fact]
+    public async Task An_unreadable_connection_string_is_named_under_its_field_not_in_the_parsers_words()
+    {
+        var editor = new DatabaseConnectionEditorViewModel(new StructuralDatabaseClient(), [])
+        {
+            Name = "Probe",
+            UseConnectionString = true,
+            ConnectionStringInput = "Host=db.example;Port=five",
+        };
+
+        await editor.TestAsync(CancellationToken.None);
+
+        Assert.Equal("Validation failed", editor.TestStatus);
+        Assert.Equal(
+            "Asura can't read this connection string for PostgreSQL. Check its format, or choose Parameters and fill in the fields instead.",
+            editor.TestDetail);
+        var refusal = Assert.ThrowsAny<ArgumentException>(() => editor.CreateSaveRequest());
+        Assert.Equal(nameof(DatabaseConnectionEditorViewModel.ConnectionStringInput), InvalidField.Of(refusal));
+    }
+
+    [Fact]
     public void Database_test_failures_map_to_messages_with_a_next_step()
     {
         Assert.Contains(

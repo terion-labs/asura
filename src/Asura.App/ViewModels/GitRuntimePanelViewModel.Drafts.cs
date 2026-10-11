@@ -38,7 +38,7 @@ public sealed partial class GitRuntimePanelViewModel
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (Exception exception) when (exception is IOException or InvalidOperationException or DbException)
         {
-            PresentFailure(new Git.GitError(Git.GitErrorCode.CommandFailed, exception.Message, Retryable: true), "Recent repositories unavailable");
+            PresentFailure(GitRequestRefusal.Error(exception, GitRequestRefusal.RecentRepositories, retryable: true), "Recent repositories unavailable");
         }
     }
 

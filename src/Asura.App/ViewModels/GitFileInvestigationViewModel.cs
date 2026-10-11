@@ -70,7 +70,7 @@ public sealed class GitFileInvestigationViewModel(IGitRepositoryClient client, G
         }
         catch (ArgumentException exception)
         {
-            Status = exception.Message;
+            Status = GitRequestRefusal.Describe(exception, GitRequestRefusal.FileHistory);
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
         {
@@ -128,7 +128,7 @@ public sealed class GitFileInvestigationViewModel(IGitRepositoryClient client, G
         }
         catch (ArgumentException exception)
         {
-            Status = exception.Message;
+            Status = GitRequestRefusal.Describe(exception, GitRequestRefusal.FileHistory);
         }
         finally
         {

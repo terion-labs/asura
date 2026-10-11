@@ -59,7 +59,7 @@ public sealed partial class GitRuntimePanelViewModel
         }
         catch (ArgumentException exception)
         {
-            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the repository destination");
+            PresentFailure(GitRequestRefusal.Error(exception, GitRequestRefusal.RepositoryDestination), "Couldn't create repository");
         }
         finally
         {
@@ -140,7 +140,7 @@ public sealed partial class GitRuntimePanelViewModel
         }
         catch (ArgumentException exception)
         {
-            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the Git request");
+            PresentFailure(GitRequestRefusal.Error(exception, GitRequestRefusal.Operation), "Git action not started");
             return null;
         }
     }

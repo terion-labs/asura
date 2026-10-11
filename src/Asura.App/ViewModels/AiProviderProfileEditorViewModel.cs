@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Text;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -662,7 +663,9 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
         catch (Exception exception) when (exception is ArgumentException or UriFormatException)
         {
             TestStatus = "Validation failed";
-            TestDetail = exception.Message;
+            TestDetail = DescribeRefusal(
+                exception,
+                "Asura can't test the provider with these settings. Check the endpoint and authentication, then test again.");
             ReportError(TestDetail, TestStatus);
             return;
         }
@@ -724,11 +727,19 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Why the form's values can't make a provider. The editor's own messages
+    /// are shown as written; a profile rule's argument check is developer
+    /// text, so it goes to diagnostics and <paramref name="fallback"/> is shown.
+    /// </summary>
+    internal static string DescribeRefusal(Exception exception, string fallback) =>
+        FailureReason.Refusal("ai-provider.editor.refused", exception, fallback);
+
     private AiProviderProfile BuildProfile(string? discoveryModel = null)
     {
         if (!IsProviderRuntimeSupported)
         {
-            throw new ArgumentException(ProviderAvailability);
+            throw FailureReason.Readable(new ArgumentException(ProviderAvailability));
         }
 
         if (!Uri.TryCreate(Required(Endpoint, "Endpoint"), UriKind.Absolute, out var endpoint))
@@ -738,8 +749,8 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
 
         if (UseNoAuthentication && !CanDisableAuthentication)
         {
-            throw new ArgumentException(
-                "Only an OpenAI-compatible loopback provider can disable authentication.");
+            throw FailureReason.Readable(new ArgumentException(
+                "Only an OpenAI-compatible provider running on this computer can work without authentication. Choose an authentication method."));
         }
 
         var authentication = SelectedAuthentication?.Mode switch
@@ -759,7 +770,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
                     AiProviderOAuthFlow.Device),
             AiProviderEditorAuthenticationMode.AwsCredentialChain =>
                 new AiProviderAuthentication.AwsCredentialChain(),
-            _ => throw new ArgumentException("Choose an authentication method."),
+            _ => throw FailureReason.Readable(new ArgumentException("Choose an authentication method.")),
         };
         var keepModelMetadata = _modelCatalogProfile is { } tested
                 && tested.ProviderKind == Kind
@@ -921,8 +932,8 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
 
     private SecretRef RequireOAuthSession() =>
         _oauthSessionReference
-        ?? throw new ArgumentException(
-            "Connect this provider before saving its OAuth authentication method.");
+        ?? throw FailureReason.Readable(new ArgumentException(
+            "Connect this provider before saving its OAuth authentication method."));
 
     private void RebuildAuthenticationOptions(
         AiProviderEditorAuthenticationMode preferred)

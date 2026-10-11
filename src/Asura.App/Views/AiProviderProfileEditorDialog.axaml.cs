@@ -109,7 +109,9 @@ public sealed partial class AiProviderProfileEditorDialog : DialogWindow
             // failure about the whole provider goes to the list at the top.
             if (!FieldValidation.Present(this, exception))
             {
-                ShowValidationError(exception.Message);
+                ShowValidationError(AiProviderProfileEditorViewModel.DescribeRefusal(
+                    exception,
+                    "Asura can't save the provider with these settings. Check each value, then try again."));
             }
         }
     }

@@ -442,7 +442,10 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         catch (Exception exception) when (exception is ArgumentException or FormatException)
         {
             TestStatus = "Validation failed";
-            TestDetail = exception.Message;
+            TestDetail = FailureReason.Refusal(
+                "database.connection-editor.test.refused",
+                exception,
+                "Asura can't test the connection with these settings. Check each value, then test again.");
             ReportError(TestDetail, TestStatus);
             return;
         }
@@ -455,7 +458,10 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         catch (InvalidOperationException exception)
         {
             TestStatus = "Test unavailable";
-            TestDetail = exception.Message;
+            TestDetail = FailureReason.Refusal(
+                "database.connection-editor.tunnel.refused",
+                exception,
+                "Asura can't open the SSH tunnel for this test. Check the tunnel's settings, then test again.");
             ReportError(TestDetail, TestStatus);
             return;
         }
@@ -613,9 +619,21 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
                 throw InvalidField.Exception(nameof(ConnectionStringInput), "Enter a connection string or URL first.");
             }
 
-            return _client.ParseConnectionDetails(
-                SelectedDriver.Id,
-                ConnectionStringInput.Trim());
+            try
+            {
+                return _client.ParseConnectionDetails(
+                    SelectedDriver.Id,
+                    ConnectionStringInput.Trim());
+            }
+            catch (Exception exception) when (exception is ArgumentException or FormatException)
+            {
+                // The driver's parser names its own keywords and offsets; the
+                // field says what to do instead.
+                SecretSafeDiagnostics.WriteTrace("database.connection-editor.parse.refused", exception);
+                throw InvalidField.Exception(
+                    nameof(ConnectionStringInput),
+                    $"Asura can't read this connection string for {SelectedDriver.DisplayName}. Check its format, or choose Parameters and fill in the fields instead.");
+            }
         }
 
         if (IsFileBased)
@@ -669,8 +687,8 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         if (request.TunnelConnectionId is { } savedId)
         {
             return _connections.FirstOrDefault(item => item.Id == savedId)
-                ?? throw new InvalidOperationException(
-                    "The selected SSH tunnel connection no longer exists.");
+                ?? throw FailureReason.Readable(new InvalidOperationException(
+                    "The SSH connection chosen for the tunnel no longer exists. Choose another one, then test again."));
         }
 
         if (request.InlineTunnel is not { } inline)
@@ -687,9 +705,9 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         {
             // A freshly typed tunnel password reaches the secret store on save;
             // until then the tunnel opener has nothing to resolve.
-            throw new InvalidOperationException(
+            throw FailureReason.Readable(new InvalidOperationException(
                 $"The tunnel password is stored in {PlatformTerms.SecretStore} when you save. "
-                + "Save the connection, then test it.");
+                + "Save the connection, then test it."));
         }
         else if (_existingInlineTunnel?.Authentication
             is ConnectionAuthentication.Password stored)
@@ -698,8 +716,8 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         }
         else
         {
-            throw new InvalidOperationException(
-                "The SSH tunnel has no stored password to test with.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "The SSH tunnel has no stored password to test with. Enter its password, save the connection, then test it."));
         }
 
         return BuildInlineTunnelProfile(

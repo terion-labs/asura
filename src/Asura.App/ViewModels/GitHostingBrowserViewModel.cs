@@ -220,7 +220,7 @@ public sealed class GitHostingBrowserViewModel(IGitRepositoryClient client, Conn
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NotSupportedException)
         {
-            Status = exception.Message;
+            Status = GitRequestRefusal.Describe(exception, GitRequestRefusal.HostedRepositories);
         }
         finally
         {
