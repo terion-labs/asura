@@ -1049,7 +1049,7 @@ public sealed partial class DatabaseViewerConformanceTests
         fixture.AssertContextMenuCapabilities(environment.Provider.Expectations.CanEdit);
 
         await fixture.SetClipboardTextAsync("clipboard sentinel");
-        fixture.InvokeContextMenuItem("Copy the selected database row as INSERT");
+        fixture.InvokeContextMenuItem("Copy the selected database row as an SQL INSERT statement");
         await WaitForClipboardContainingAsync(
             fixture,
             "INSERT INTO",
@@ -1292,7 +1292,7 @@ public sealed partial class DatabaseViewerConformanceTests
 
         Assert.Null(panel.SelectedObject);
         Assert.False(panel.CanEditRows);
-        Assert.Contains("does not map exactly", panel.ReadOnlyReason, StringComparison.Ordinal);
+        Assert.Contains("doesn't map exactly", panel.ReadOnlyReason, StringComparison.Ordinal);
         fixture.AssertRawResultControlsVisibleAndReadOnly();
         await AssertHeadlessRawBrowseJourneyAsync(
             panel,
@@ -1458,7 +1458,7 @@ public sealed partial class DatabaseViewerConformanceTests
     {
         Assert.Null(panel.SelectedObject);
         Assert.False(panel.CanEditRows);
-        Assert.Contains("does not map exactly", panel.ReadOnlyReason, StringComparison.Ordinal);
+        Assert.Contains("doesn't map exactly", panel.ReadOnlyReason, StringComparison.Ordinal);
         fixture.AssertRawResultControlsVisibleAndReadOnly();
         Assert.True(fixture.RowsGrid.IsReadOnly);
     }
@@ -2466,7 +2466,7 @@ public sealed partial class DatabaseViewerConformanceTests
             AssertMenuItemAvailable("Copy the selected database row");
             AssertMenuItemAvailable("Copy the active database cell value");
             AssertMenuItemAvailable("Copy all values in the active database column");
-            var copyInsert = ContextMenuItem("Copy the selected database row as INSERT");
+            var copyInsert = ContextMenuItem("Copy the selected database row as an SQL INSERT statement");
             Assert.True(copyInsert.IsVisible);
             Assert.Equal(
                 Panel.CanCopySelectedRowAsInsert,
@@ -2554,9 +2554,11 @@ public sealed partial class DatabaseViewerConformanceTests
 
         public void AssertInsertInspectorActionAvailable()
         {
-            var button = NamedControl<Button>("Copy the row as INSERT");
+            // SQL INSERT is one choice of the inspector's Copy As pull-down.
+            var button = NamedControl<Button>("Copy the row in another format");
             Assert.True(button.IsEffectivelyVisible);
             Assert.True(button.IsEffectivelyEnabled);
+            Assert.True(Panel.CanCopySelectedRowAsInsert);
         }
 
         public void AssertReadOnlyContextMenu(DatabaseResultRowViewModel row)

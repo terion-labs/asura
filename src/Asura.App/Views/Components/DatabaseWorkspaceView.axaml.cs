@@ -94,7 +94,11 @@ public sealed partial class DatabaseWorkspaceView : UserControl
         CellExpandEditor.GrammarExtension = DatabaseValueGrammar.DetectExtension(
             cell.Column.ValueKind,
             cell.IsNull ? null : cell.EditText);
-        CellExpandPopup.PlacementTarget = e.EditingElement;
+        // Anchored to the cell rather than its editing element, which has
+        // not been laid out yet and sits inside the cell's padding.
+        var anchor = e.EditingElement.FindAncestorOfType<DataGridCell>() ?? e.EditingElement;
+        CellExpandPopup.PlacementTarget = anchor;
+        PlaceCellExpandPopup(anchor);
         CellExpandPopup.IsOpen = true;
         Dispatcher.UIThread.Post(
             () =>
@@ -105,6 +109,48 @@ public sealed partial class DatabaseWorkspaceView : UserControl
                 }
             },
             DispatcherPriority.Input);
+    }
+
+    /// <summary>
+    /// Keeps the expanded editor over the result grid rather than over the
+    /// inspector or the toolbar: as wide as the grid allows up to its designed
+    /// width, under the cell or above it when the grid has more room there,
+    /// and slid left instead of past the grid's right edge. The surface's
+    /// shadow margin is taken back out of the offsets, so its visible edge
+    /// meets the cell.
+    /// </summary>
+    private void PlaceCellExpandPopup(Control cell)
+    {
+        const double DesignedEditorWidth = 320;
+        const double NarrowestEditorWidth = 160;
+        var grid = ResultDataGrid.Bounds.Size;
+        if (cell.TranslatePoint(default, ResultDataGrid) is not { } origin
+            || grid.Width <= 0
+            || grid.Height <= 0)
+        {
+            return;
+        }
+
+        // Sized from the surface's own chrome rather than by measuring it:
+        // the editor inside is not in the visual tree until the popup opens.
+        // The tallest the editor grows decides whether it fits below.
+        var shadow = CellExpandSurface.Margin;
+        var padding = CellExpandSurface.Padding;
+        var border = CellExpandSurface.BorderThickness;
+        var chromeWidth = padding.Left + padding.Right + border.Left + border.Right;
+        var chromeHeight = padding.Top + padding.Bottom + border.Top + border.Bottom;
+        CellExpandEditor.Width = Math.Clamp(grid.Width - chromeWidth, NarrowestEditorWidth, DesignedEditorWidth);
+        var width = CellExpandEditor.Width + chromeWidth;
+        var height = CellExpandEditor.MaxHeight + chromeHeight;
+
+        var left = Math.Max(0, Math.Min(origin.X, grid.Width - width));
+        var below = grid.Height - (origin.Y + cell.Bounds.Height);
+        var opensAbove = below < height && origin.Y > below;
+        CellExpandPopup.Placement = opensAbove
+            ? PlacementMode.TopEdgeAlignedLeft
+            : PlacementMode.BottomEdgeAlignedLeft;
+        CellExpandPopup.HorizontalOffset = left - origin.X - shadow.Left;
+        CellExpandPopup.VerticalOffset = opensAbove ? shadow.Bottom : -shadow.Top;
     }
 
     private void CloseCellExpandEditor()

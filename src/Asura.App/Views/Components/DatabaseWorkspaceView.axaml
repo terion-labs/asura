@@ -38,8 +38,11 @@
 
     <!-- Placed by style rather than in the markup, so the narrow layout
          below can move them: a value set on the element would win over it. -->
-    <Style Selector="TextBox.filterValue">
+    <Style Selector="Grid.filterValueLine">
       <Setter Property="Grid.Column" Value="3" />
+    </Style>
+    <Style Selector="CheckBox.filterInclude">
+      <Setter Property="Content" Value="Filter" />
     </Style>
     <Style Selector="StackPanel.resultPager">
       <Setter Property="Grid.Column" Value="1" />
@@ -51,17 +54,19 @@
     <ContainerQuery Name="databaseData" Query="max-width:640">
       <!-- A condition takes two lines rather than squeezing its pickers until
            they read "Colum" and "Opera": what to compare on the first, the
-           value and its actions on the second. -->
+           value and its actions on the second. The second line is a grid of
+           its own, so the actions never claim width from the pickers above. -->
       <Style Selector="ComboBox.filterOperator">
-        <Setter Property="Grid.ColumnSpan" Value="3" />
+        <Setter Property="Grid.ColumnSpan" Value="2" />
       </Style>
-      <Style Selector="TextBox.filterValue">
+      <Style Selector="Grid.filterValueLine">
         <Setter Property="Grid.Row" Value="1" />
         <Setter Property="Grid.Column" Value="1" />
         <Setter Property="Grid.ColumnSpan" Value="3" />
       </Style>
-      <Style Selector="StackPanel.filterActions">
-        <Setter Property="Grid.Row" Value="1" />
+      <!-- The box keeps its accessible name; the caption is what goes. -->
+      <Style Selector="CheckBox.filterInclude">
+        <Setter Property="Content" Value="{x:Null}" />
       </Style>
       <!-- The pager takes a line of its own under the row actions. -->
       <Style Selector="StackPanel.resultPager">
@@ -474,7 +479,11 @@
                      losing what it says; Apply reads every included row. -->
                 <!-- Shown only where a filter can run: a disabled row of
                      controls over a catalog read as broken, not unavailable. -->
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}" IsVisible="{Binding CanFilterTable}">
+                <Grid
+                    ColumnDefinitions="*,Auto"
+                    ColumnSpacing="{DynamicResource ShellSpaceSm}"
+                    Grid.IsSharedSizeScope="True"
+                    IsVisible="{Binding CanFilterTable}">
                   <ItemsControl ItemsSource="{Binding FilterRows}">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate>
@@ -483,33 +492,36 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
-                        <!-- Proportional rails, each picker as wide as its
-                             longest choice: stacked rows still line up in
-                             columns because every row stretches to the same
-                             width. A narrow panel moves the value and the
-                             actions to a second line (the container query
-                             above) instead of squeezing the pickers. -->
+                        <!-- Proportional rails: stacked rows still line up
+                             in columns because every row stretches to the
+                             same width. A narrow panel moves the value and
+                             the actions to a second line (the container
+                             query above) instead of squeezing the pickers. -->
                         <Grid
                             Classes="filterRow"
-                            RowDefinitions="Auto,Auto"
                             ColumnSpacing="{DynamicResource ShellSpaceXs}"
                             RowSpacing="{DynamicResource ShellSpaceXs}">
-                          <!-- The minimums are the pickers' longest choices,
-                               "Doesn't contain" among them; held by the
-                               columns, so a picker never spills over the
-                               checkbox beside it. -->
+                          <!-- The minimums keep a picker readable at a narrow
+                               width; past them its choice trims with an
+                               ellipsis. Held by the columns, so a picker
+                               never spills over the checkbox beside it. -->
+                          <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" SharedSizeGroup="filterLine" />
+                            <RowDefinition Height="Auto" />
+                          </Grid.RowDefinitions>
                           <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" MinWidth="104" />
-                            <ColumnDefinition Width="*" MinWidth="128" />
+                            <ColumnDefinition Width="*" MinWidth="96" />
+                            <ColumnDefinition Width="*" MinWidth="112" />
                             <ColumnDefinition Width="2*" />
-                            <ColumnDefinition Width="Auto" />
                           </Grid.ColumnDefinitions>
                           <!-- Says what it switches: an unlabelled box at the
-                               start of the row read as a row selector. -->
+                               start of the row read as a row selector. The
+                               caption comes from the styles above, so a narrow
+                               panel can drop it. -->
                           <CheckBox
+                              Classes="filterInclude"
                               VerticalAlignment="Center"
-                              Content="Filter"
                               IsChecked="{Binding IsIncluded, Mode=TwoWay}"
                               ToolTip.Tip="Include this condition when the filter is applied"
                               AutomationProperties.Name="Include this filter condition" />
@@ -539,65 +551,76 @@
                               <DataTemplate><TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" /></DataTemplate>
                             </ComboBox.ItemTemplate>
                           </ComboBox>
-                          <TextBox
-                              Classes="Dense filterValue"
-                              MinWidth="80"
-                              VerticalAlignment="Center"
-                              Text="{Binding Value, Mode=TwoWay}"
-                              IsVisible="{Binding NeedsValue}"
-                              PlaceholderText="Value"
-                              KeyDown="OnFilterValueKeyDown"
-                              AutomationProperties.Name="Filter value" />
-                          <!-- One push-button style for the whole row, so
-                               remove and add read as controls beside Apply. -->
-                          <StackPanel
-                              Grid.Column="4"
-                              Classes="filterActions"
-                              Orientation="Horizontal"
-                              VerticalAlignment="Center"
-                              Spacing="{DynamicResource ShellSpaceXs}">
-                            <Button
-                                Classes="SecondaryButton Dense"
-                                Click="OnApplyFilterClick"
-                                ToolTip.Tip="Apply the table filter"
-                                AutomationProperties.Name="Apply the table filter">
-                              <Panel>
-                                <TextBlock Classes="rowActionLabel" Text="Apply" />
-                                <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
-                              </Panel>
-                            </Button>
-                            <Button
-                                Classes="SecondaryButton Dense"
-                                Click="OnRemoveFilterRowClick"
-                                ToolTip.Tip="Remove this condition"
-                                AutomationProperties.Name="Remove this filter condition">
-                              <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeXs}" />
-                            </Button>
-                            <Button
-                                Classes="SecondaryButton Dense"
-                                Click="OnAddFilterRowClick"
-                                ToolTip.Tip="Add a condition"
-                                AutomationProperties.Name="Add a filter condition">
-                              <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeXs}" />
-                            </Button>
-                          </StackPanel>
+                          <Grid
+                              Classes="filterValueLine"
+                              ColumnDefinitions="*,Auto"
+                              ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                            <TextBox
+                                Classes="Dense filterValue"
+                                MinWidth="80"
+                                VerticalAlignment="Center"
+                                Text="{Binding Value, Mode=TwoWay}"
+                                IsVisible="{Binding NeedsValue}"
+                                PlaceholderText="Value"
+                                KeyDown="OnFilterValueKeyDown"
+                                AutomationProperties.Name="Filter value" />
+                            <!-- One push-button style for the whole row, so
+                                 remove and add read as controls beside Apply. -->
+                            <StackPanel
+                                Grid.Column="1"
+                                Classes="filterActions"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                Spacing="{DynamicResource ShellSpaceXs}">
+                              <Button
+                                  Classes="SecondaryButton Dense"
+                                  Click="OnApplyFilterClick"
+                                  ToolTip.Tip="Apply the table filter"
+                                  AutomationProperties.Name="Apply the table filter">
+                                <Panel>
+                                  <TextBlock Classes="rowActionLabel" Text="Apply" />
+                                  <icons:SymbolIcon Classes="rowActionGlyph" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
+                                </Panel>
+                              </Button>
+                              <Button
+                                  Classes="SecondaryButton Dense"
+                                  Click="OnRemoveFilterRowClick"
+                                  ToolTip.Tip="Remove this condition"
+                                  AutomationProperties.Name="Remove this filter condition">
+                                <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeXs}" />
+                              </Button>
+                              <Button
+                                  Classes="SecondaryButton Dense"
+                                  Click="OnAddFilterRowClick"
+                                  ToolTip.Tip="Add a condition"
+                                  AutomationProperties.Name="Add a filter condition">
+                                <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeXs}" />
+                              </Button>
+                            </StackPanel>
+                          </Grid>
                         </Grid>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
-                  <!-- The same push button as Apply: one style per strip. -->
-                  <Button
-                      Grid.Column="1"
-                      VerticalAlignment="Top"
-                      Classes="SecondaryButton Dense"
-                      Click="OnClearFilterClick"
-                      ToolTip.Tip="Clear the table filter"
-                      AutomationProperties.Name="Clear the table filter">
-                    <Panel>
-                      <TextBlock Classes="rowActionLabel" Text="Clear" />
-                      <icons:SymbolIcon Classes="rowActionGlyph" Symbol="FilterDismiss" FontSize="{DynamicResource ShellIconSizeSm}" />
-                    </Panel>
-                  </Button>
+                  <!-- The same push button as Apply: one style per strip.
+                       Centered in a band as tall as the first condition's
+                       first line, so it sits on the same line as Apply. -->
+                  <Grid Grid.Column="1" VerticalAlignment="Top">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto" SharedSizeGroup="filterLine" />
+                    </Grid.RowDefinitions>
+                    <Button
+                        VerticalAlignment="Center"
+                        Classes="SecondaryButton Dense"
+                        Click="OnClearFilterClick"
+                        ToolTip.Tip="Clear the table filter"
+                        AutomationProperties.Name="Clear the table filter">
+                      <Panel>
+                        <TextBlock Classes="rowActionLabel" Text="Clear" />
+                        <icons:SymbolIcon Classes="rowActionGlyph" Symbol="FilterDismiss" FontSize="{DynamicResource ShellIconSizeSm}" />
+                      </Panel>
+                    </Button>
+                  </Grid>
                 </Grid>
 
                 <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}" RowSpacing="{DynamicResource ShellSpaceXs}">
@@ -896,8 +919,11 @@
               <!-- The expanded editor for prose-sized cells (text, JSON). It
                    belongs to the workspace, not the cell template, so the
                    grid's edit lifecycle cannot tear it down mid-keystroke;
-                   both editors stage into the same cell view model. It flips
-                   above the cell when the viewport runs out below. -->
+                   both editors stage into the same cell view model. Code
+                   places it over the result grid (PlaceCellExpandPopup):
+                   under the cell, or above it when the grid runs out below,
+                   and slid left rather than past the grid's right edge. The
+                   window constraint stays as the last resort. -->
               <Popup
                   x:Name="CellExpandPopup"
                   WindowManagerAddShadowHint="True"
@@ -907,8 +933,10 @@
                   PlacementConstraintAdjustment="FlipY, SlideX">
                 <!-- A popover's edge: hairline and shadow, the accent being
                      kept for the focus inside it. The margin leaves the
-                     shadow room where popups are drawn in the window. -->
+                     shadow room where popups are drawn in the window; the
+                     placement offsets it, so the edge meets the cell. -->
                 <Border
+                    x:Name="CellExpandSurface"
                     Margin="{controls:Inset Sm}"
                     Padding="{controls:Inset Xs}"
                     Background="{DynamicResource ShellPopupSurfaceBrush}"
@@ -994,7 +1022,7 @@
                             x:Name="InspectorCopyAsButton"
                             Classes="SecondaryButton Dense CopyAction"
                             ToolTip.Tip="Copy this row in another format"
-                            AutomationProperties.Name="Copy the row as">
+                            AutomationProperties.Name="Copy the row in another format">
                           <Panel>
                             <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
                               <TextBlock Classes="CopyLabel" VerticalAlignment="Center" Text="Copy As" />

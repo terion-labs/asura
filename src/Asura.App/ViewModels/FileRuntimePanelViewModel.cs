@@ -2675,7 +2675,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
                 SelectedMetadata = new FileEntryMetadataViewModel(
                     entry.Entry,
                     isStatBacked: false,
-                ProviderKeepsVersions);
+                    ProviderKeepsVersions);
                 MetadataIssue = FileOperationIssue.Unexpected(
                     "The provider failed unexpectedly while reading item metadata.");
             }
@@ -3301,10 +3301,10 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         // The noun stays, so the pill reads as a count of something rather
         // than a bare number beside a path. A "+" marks a listing that has not
         // been read to the end, so it does not claim exactly this many.
-        var more = HasMore ? "+" : string.Empty;
+        var loadedItems = HasMore ? $"{loadedCount}+ items" : CountOf(_allEntries.Count, "item");
         ShortStatus = unfiltered
-            ? HasMore ? $"{loadedCount}+ items" : CountOf(_allEntries.Count, "item")
-            : $"{shownCount} of {loadedCount}{more}";
+            ? loadedItems
+            : $"{shownCount} of {loadedItems}";
     }
 
     /// <summary>

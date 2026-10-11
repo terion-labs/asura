@@ -152,7 +152,7 @@ public sealed class FilePreviewHigTests
     public void A_link_is_underlined_word_by_word() =>
         Assert.Equal(
             ["Read", " ", "the", " ", "guide", " "],
-            SelectableMarkdownDocument.SplitAtWhitespace("Read the guide "),
+            MarkdownLinks.SplitAtWhitespace("Read the guide "),
             StringComparer.Ordinal);
 
     [Theory]
@@ -162,14 +162,7 @@ public sealed class FilePreviewHigTests
     [InlineData("javascript:alert(1)", false)]
     [InlineData("docs/guide.md", false)]
     public void Only_web_and_mail_links_open_on_a_click(string target, bool opens) =>
-        Assert.Equal(opens, SelectableMarkdownDocument.OpensOnClick(target));
-
-    [Fact]
-    public void A_one_page_archive_has_no_page_number()
-    {
-        // The summary alone, rather than "Page 1:" in front of it.
-        Assert.DoesNotContain("Page 1", new PreviewTreeViewModel([], "3 items").Summary, StringComparison.Ordinal);
-    }
+        Assert.Equal(opens, MarkdownLinks.OpensOnClick(target));
 
     [Fact]
     public void A_narrow_hex_view_lays_each_row_out_as_two_halves()

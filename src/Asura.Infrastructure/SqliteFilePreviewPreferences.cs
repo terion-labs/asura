@@ -48,7 +48,7 @@ public sealed class SqliteFilePreviewPreferences : IFilePreviewPreferences
                 .ConfigureAwait(false);
             if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
-                _current = new FilePreviewSettings(
+                _current = FilePreviewSettings.FromStorage(
                     reader.GetInt64(0),
                     reader.GetInt64(1) != 0,
                     reader.GetInt64(2));

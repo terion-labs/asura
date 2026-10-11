@@ -184,7 +184,7 @@ internal sealed class SelectableMarkdownDocument : Control
             // A pointing hand over what a click opens; the text beam over
             // everything else, links that only copy included.
             var hovered = _selecting ? null : LinkAt(e.GetPosition(this));
-            var cursor = hovered is not null && OpensOnClick(hovered) ? LinkCursor : TextCursor;
+            var cursor = hovered is not null && MarkdownLinks.OpensOnClick(hovered) ? LinkCursor : TextCursor;
             if (!ReferenceEquals(Cursor, cursor))
             {
                 Cursor = cursor;
@@ -218,7 +218,7 @@ internal sealed class SelectableMarkdownDocument : Control
             && _selectionAnchor == _selectionEnd
             && string.Equals(LinkAt(e.GetPosition(this)), pressed, StringComparison.Ordinal))
         {
-            OpenLink(pressed);
+            MarkdownLinks.Open(this, pressed);
         }
 
         InvalidateVisual();
@@ -508,33 +508,6 @@ internal sealed class SelectableMarkdownDocument : Control
         return null;
     }
 
-    private void OpenLink(string target)
-    {
-        if (!OpensOnClick(target)
-            || TopLevel.GetTopLevel(this)?.Launcher is not { } launcher)
-        {
-            return;
-        }
-
-        _ = launcher.LaunchUriAsync(new Uri(target));
-    }
-
-    private async Task CopyLinkAsync(string target)
-    {
-        try
-        {
-            if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
-            {
-                await clipboard.SetTextAsync(target);
-            }
-        }
-        catch (Exception exception) when (exception is not OutOfMemoryException)
-        {
-            // As with a copied selection: the clipboard can go away during
-            // shutdown, and there is nothing to undo.
-        }
-    }
-
     /// <summary>
     /// Over a link the menu offers the link itself; anywhere else the
     /// document has no menu of its own.
@@ -546,19 +519,7 @@ internal sealed class SelectableMarkdownDocument : Control
             return;
         }
 
-        var items = new List<MenuItem>();
-        if (OpensOnClick(target))
-        {
-            var open = new MenuItem { Header = "Open Link" };
-            open.Click += (_, _) => OpenLink(target);
-            items.Add(open);
-        }
-
-        var copy = new MenuItem { Header = "Copy Link" };
-        copy.Click += (_, _) => _ = CopyLinkAsync(target);
-        items.Add(copy);
-        var menu = new ContextMenu { ItemsSource = items };
-        menu.Open(this);
+        MarkdownLinks.ShowMenu(this, target);
         e.Handled = true;
     }
 
@@ -669,38 +630,9 @@ internal sealed class SelectableMarkdownDocument : Control
 
         return [.. block.Runs.SelectMany(run => run.LinkTarget is null
             ? [new SourceRun(run.Text, run.Style, null, false)]
-            : SplitAtWhitespace(run.Text)
+            : MarkdownLinks.SplitAtWhitespace(run.Text)
                 .Select(part => new SourceRun(part, run.Style, run.LinkTarget, false)))];
     }
-
-    /// <summary>
-    /// A link's text in words and the spaces between them, so each can be
-    /// drawn on its own: the words underlined, the spaces not.
-    /// </summary>
-    internal static IEnumerable<string> SplitAtWhitespace(string text)
-    {
-        var start = 0;
-        for (var index = 1; index <= text.Length; index++)
-        {
-            if (index == text.Length
-                || char.IsWhiteSpace(text[index]) != char.IsWhiteSpace(text[index - 1]))
-            {
-                yield return text[start..index];
-                start = index;
-            }
-        }
-    }
-
-    /// <summary>
-    /// The schemes a click hands to the system: a web page or a new mail.
-    /// Anything else in a document — a file path, a custom scheme — could
-    /// start something on this machine, so it is only ever copied.
-    /// </summary>
-    internal static bool OpensOnClick(string target) =>
-        Uri.TryCreate(target, UriKind.Absolute, out var uri)
-        && (string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal)
-            || string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.Ordinal)
-            || string.Equals(uri.Scheme, Uri.UriSchemeMailto, StringComparison.Ordinal));
 
     private static double ContentOffset(SourceBlock block) => block.Kind switch
     {

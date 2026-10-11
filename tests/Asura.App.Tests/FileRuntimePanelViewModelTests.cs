@@ -374,7 +374,7 @@ public sealed class FileRuntimePanelViewModelTests
         panel.Filter = "alp";
 
         Assert.Equal("1 of 2 items", panel.Status);
-        Assert.Equal("1 of 2", panel.ShortStatus);
+        Assert.Equal("1 of 2 items", panel.ShortStatus);
     }
 
     private static FilePanelEntry Entry(StubFilePanelClient client, string name) =>
@@ -2106,6 +2106,8 @@ public sealed class FileRuntimePanelViewModelTests
         Assert.True(panel.HasTreePreview);
         Assert.Equal(2, panel.PreviewTree!.Nodes.Count);
         Assert.Equal(["docs", "src"], panel.PreviewTree.Nodes.Select(node => node.Name), StringComparer.Ordinal);
+        // One page: the summary alone, with no "Page 1" in front of it.
+        Assert.DoesNotContain("Page", panel.PreviewTree.Summary, StringComparison.Ordinal);
     }
 
     private sealed class StubArchiveReader(IReadOnlyList<ArchiveEntryDescriptor> entries)
@@ -2144,11 +2146,15 @@ public sealed class FileRuntimePanelViewModelTests
         await panel.PreviewSelectedAsync();
         Assert.Equal(250, panel.PreviewTree!.Nodes.Count);
         Assert.True(panel.HasNextArchivePage);
+        // Several pages: each summary says which page it is.
+        Assert.StartsWith("Page 1 · ", panel.PreviewTree.Summary, StringComparison.Ordinal);
         await panel.ChangeArchivePageAsync(1);
         Assert.Equal(250, panel.PreviewTree!.Nodes.Count);
         Assert.True(panel.HasPreviousArchivePage);
+        Assert.StartsWith("Page 2 · ", panel.PreviewTree.Summary, StringComparison.Ordinal);
         await panel.ChangeArchivePageAsync(1);
         Assert.Equal("entry-500.txt", Assert.Single(panel.PreviewTree!.Nodes).Name);
+        Assert.StartsWith("Page 3 · ", panel.PreviewTree.Summary, StringComparison.Ordinal);
         Assert.False(panel.HasNextArchivePage);
         await panel.ChangeArchivePageAsync(-1);
         Assert.Equal(250, panel.PreviewTree!.Nodes.Count);

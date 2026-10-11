@@ -949,6 +949,11 @@ public sealed partial class MarkdownPreviewView : UserControl
             text.Inlines?.Add(Inline(run));
         }
 
+        if (runs.Any(run => run.LinkTarget is not null))
+        {
+            MarkdownLinks.Attach(text);
+        }
+
         return text;
     }
 
@@ -977,6 +982,34 @@ public sealed partial class MarkdownPreviewView : UserControl
             }
         }
 
+        if (run.LinkTarget is not null)
+        {
+            // A link acts as one wherever it is drawn (see MarkdownLinks):
+            // the words underlined, the spaces between them not.
+            var link = new Span();
+            MarkdownLinks.SetTarget(link, run.LinkTarget);
+            foreach (var part in MarkdownLinks.SplitAtWhitespace(run.Text))
+            {
+                var word = Styled(run with { Text = part });
+                Tint(word, "ShellAccentTextBrush");
+                if (!string.IsNullOrWhiteSpace(part))
+                {
+                    word.TextDecorations = run.Style.HasFlag(MarkdownRunStyle.Strikethrough)
+                        ? Decorations(TextDecorationLocation.Underline, TextDecorationLocation.Strikethrough)
+                        : Decorations(TextDecorationLocation.Underline);
+                }
+
+                link.Inlines.Add(word);
+            }
+
+            return link;
+        }
+
+        return Styled(run);
+    }
+
+    private Run Styled(MarkdownRun run)
+    {
         var inline = new Run(run.Text);
         if (run.Style.HasFlag(MarkdownRunStyle.Bold))
         {
@@ -990,7 +1023,7 @@ public sealed partial class MarkdownPreviewView : UserControl
 
         if (run.Style.HasFlag(MarkdownRunStyle.Strikethrough))
         {
-            inline.TextDecorations = TextDecorations.Strikethrough;
+            inline.TextDecorations = Decorations(TextDecorationLocation.Strikethrough);
         }
 
         if (run.Style.HasFlag(MarkdownRunStyle.Code))
@@ -1008,15 +1041,23 @@ public sealed partial class MarkdownPreviewView : UserControl
             }
         }
 
-        if (run.LinkTarget is not null)
+        return inline;
+    }
+
+    /// <summary>
+    /// A decoration set of the inline's own. Avalonia's shared
+    /// <see cref="TextDecorations"/> sets belong to the thread that first
+    /// read them.
+    /// </summary>
+    private static TextDecorationCollection Decorations(params TextDecorationLocation[] locations)
+    {
+        var decorations = new TextDecorationCollection();
+        foreach (var location in locations)
         {
-            // Shown as a link and copyable as text; a preview does not open
-            // things on the user's behalf.
-            Tint(inline, "ShellAccentTextBrush");
-            inline.TextDecorations = TextDecorations.Underline;
+            decorations.Add(new TextDecoration { Location = location });
         }
 
-        return inline;
+        return decorations;
     }
 
     private static FlowDirection Direction(ImmutableArray<MarkdownRun> runs) =>
