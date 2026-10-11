@@ -356,6 +356,9 @@ public sealed record AgentApprovalArgumentViewModel(
     }
 }
 
+/// <summary>One labelled fact in an approval's Details: a label over its value.</summary>
+public sealed record AgentApprovalFactViewModel(string Label, string Value);
+
 public sealed record AgentApprovalCardViewModel(
     AgentApprovalId Id,
     string ToolName,
@@ -377,11 +380,30 @@ public sealed record AgentApprovalCardViewModel(
     /// <summary>The place the action runs, without identifiers or jargon.</summary>
     public string TargetDisplayTitle { get; init; } = AgentTargetPresentation.HumanTitle(TargetTitle);
 
+    /// <summary>
+    /// Where the action runs, level by level and by title, for Details. Set
+    /// from the exact target and the run's context; on its own it is the one
+    /// human title.
+    /// </summary>
+    public IReadOnlyList<AgentApprovalFactViewModel> TargetPlace { get; init; } = [];
+
+    public IReadOnlyList<AgentApprovalFactViewModel> TargetFacts =>
+        TargetPlace.Count > 0 ? TargetPlace : [new("Target", TargetDisplayTitle)];
+
     public string AccessibleName =>
         $"Approval required · {ToolTitle} · in {TargetDisplayTitle} · {Risk}";
 
     public IReadOnlyList<AgentApprovalArgumentViewModel> ActionArguments =>
         [.. Arguments.Where(argument => !argument.IsRoutingIdentifier)];
+
+    /// <summary>
+    /// The identifiers that bind the decision — panel, session, revision —
+    /// kept for Technical Details, never for the card itself.
+    /// </summary>
+    public IReadOnlyList<AgentApprovalArgumentViewModel> RoutingArguments =>
+        [.. Arguments.Where(argument => argument.IsRoutingIdentifier)];
+
+    public bool HasRoutingArguments => Arguments.Any(argument => argument.IsRoutingIdentifier);
 
     public bool HasActionArguments => Arguments.Any(argument => !argument.IsRoutingIdentifier);
 
@@ -3855,6 +3877,10 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             return null;
         }
 
+        var displayTitle = AgentTargetPresentation.HumanTitle(
+            approval.Presentation.TargetTitle,
+            approval.Target,
+            context: context);
         return new AgentApprovalCardViewModel(
             approval.Id,
             approval.ToolName,
@@ -3873,10 +3899,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             AgentPresentationTime.Friendly(approval.ExpiresAtUtc),
             approval.TemporarilyYieldsTerminalInput)
         {
-            TargetDisplayTitle = AgentTargetPresentation.HumanTitle(
-                approval.Presentation.TargetTitle,
-                approval.Target,
-                context: context),
+            TargetDisplayTitle = displayTitle,
+            TargetPlace = AgentTargetPresentation.Place(displayTitle, approval.Target, context),
         };
     }
 

@@ -299,42 +299,114 @@ public sealed class DatabaseWorkspaceHigHeadlessTests
             window.UpdateLayout();
             Assert.Equal(CenterY(apply, view), CenterY(clear, view), 0.5);
 
-            // A table open in a 340 pt data column: every filter control is
-            // inside the column, and none overlaps another.
+            // A table open in a narrow data column — two lines at 520 pt, three
+            // at 340 — keeps every filter control inside the column, none
+            // overlapping another, and the switch still captioned.
             var host = new Border { HorizontalAlignment = HorizontalAlignment.Left, Width = view.Bounds.Width };
             window.Content = null;
             host.Child = view;
             window.Content = host;
-            for (var attempt = 0; attempt < 6 && Math.Abs(data.Bounds.Width - 340) > 0.5; attempt++)
+            foreach (var width in new[] { 520.0, 340.0 })
             {
-                host.Width -= data.Bounds.Width - 340;
-                window.UpdateLayout();
-                window.UpdateLayout();
-            }
-
-            Assert.Equal(340, data.Bounds.Width, 0.5);
-            Assert.Null(Named<CheckBox>(view, "Include this filter condition").Content);
-            var rects = filterControls
-                .Select(name => Named<Control>(view, name))
-                .Select(control => new Rect(control.TranslatePoint(default, data)!.Value, control.Bounds.Size))
-                .ToArray();
-            foreach (var rect in rects)
-            {
-                Assert.InRange(rect.Left, 0, data.Bounds.Width);
-                Assert.InRange(rect.Right, 0, data.Bounds.Width + 0.5);
-            }
-
-            for (var first = 0; first < rects.Length; first++)
-            {
-                for (var second = first + 1; second < rects.Length; second++)
+                for (var attempt = 0; attempt < 6 && Math.Abs(data.Bounds.Width - width) > 0.5; attempt++)
                 {
-                    Assert.False(
-                        rects[first].Intersects(rects[second]),
-                        $"{filterControls[first]} overlaps {filterControls[second]}");
+                    host.Width -= data.Bounds.Width - width;
+                    window.UpdateLayout();
+                    window.UpdateLayout();
                 }
+
+                Assert.Equal(width, data.Bounds.Width, 0.5);
+                // The switch keeps saying what it switches when the row folds:
+                // a bare box at the start of a row reads as a row selector.
+                var include = Named<CheckBox>(view, "Include this filter condition");
+                Assert.Equal("Filter", include.Content);
+                var caption = Assert.Single(
+                    include.GetVisualDescendants().OfType<TextBlock>(),
+                    text => string.Equals(text.Text, "Filter", StringComparison.Ordinal));
+                Assert.True(caption.IsEffectivelyVisible);
+                Assert.True(
+                    caption.DesiredSize.Width <= caption.Bounds.Width + 0.5,
+                    $"The Filter caption is clipped in a {width} pt data column.");
+                var rects = filterControls
+                    .Select(name => Named<Control>(view, name))
+                    .Select(control => new Rect(control.TranslatePoint(default, data)!.Value, control.Bounds.Size))
+                    .ToArray();
+                foreach (var rect in rects)
+                {
+                    Assert.InRange(rect.Left, 0, data.Bounds.Width);
+                    Assert.InRange(rect.Right, 0, data.Bounds.Width + 0.5);
+                }
+
+                for (var first = 0; first < rects.Length; first++)
+                {
+                    for (var second = first + 1; second < rects.Length; second++)
+                    {
+                        Assert.False(
+                            rects[first].Intersects(rects[second]),
+                            $"At {width} pt {filterControls[first]} overlaps {filterControls[second]}.");
+                    }
+                }
+
+                // Clear stays on the switch's line.
+                Assert.Equal(CenterY(include, view), CenterY(clear, view), 0.5);
             }
 
             await Task.CompletedTask;
+        });
+
+    [Fact]
+    public Task AnOpenInspectorDraftWearsTheSharedFocusRing() =>
+        RunAsync(async (panel, window) =>
+        {
+            panel.SelectRow(panel.ResultRows[0]);
+            var view = new DatabaseWorkspaceView { DataContext = panel };
+            window.Content = view;
+            window.UpdateLayout();
+            var field = panel.SelectedRowFields.First(candidate => candidate.ShowsEditAction && candidate.Cell.UsesTextEditor);
+
+            // Started the way a person starts it, from the field's Edit button.
+            var edit = Named<Button>(view, $"Edit {field.Name}");
+            edit.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            var focusManager = TopLevel.GetTopLevel(view)!.FocusManager!;
+            Panel? draft = null;
+            for (var attempt = 0; attempt < 100; attempt++)
+            {
+                await Task.Delay(10);
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+                draft = view.GetVisualDescendants().OfType<Panel>()
+                    .FirstOrDefault(candidate => candidate.Classes.Contains("InspectorDraft") && candidate.IsEffectivelyVisible);
+                if (draft is not null
+                    && focusManager.GetFocusedElement() is Visual focused
+                    && focused.GetVisualAncestors().Contains(draft))
+                {
+                    break;
+                }
+            }
+
+            Assert.True(field.IsEditing);
+            Assert.NotNull(draft);
+            Assert.Contains(
+                draft,
+                Assert.IsAssignableFrom<Visual>(focusManager.GetFocusedElement()).GetVisualAncestors());
+
+            // The text field's ring: the accent edge and the shared halo.
+            var edge = Assert.Single(draft.Children.OfType<Border>(), border => border.Classes.Contains("InspectorDraftEdge"));
+            var ring = Assert.Single(draft.Children.OfType<Border>(), border => border.Classes.Contains("InspectorDraftRing"));
+            Assert.True(view.TryFindResource("ShellAccentBrush", view.ActualThemeVariant, out var accent));
+            Assert.True(view.TryFindResource("ShellFocusRingShadow", view.ActualThemeVariant, out var halo));
+            Assert.Equal(accent, edge.BorderBrush);
+            Assert.Equal(halo, ring.BoxShadow);
+            // The halo is never on the editor's own border: there it stops the
+            // code editor's text layer drawing.
+            Assert.Equal(default, edge.BoxShadow);
+            Assert.Equal(edge.Bounds, ring.Bounds);
+
+            // Leaving the draft takes the ring away again.
+            Named<DataGrid>(view, "Database rows").Focus();
+            window.UpdateLayout();
+            Assert.NotEqual(accent, edge.BorderBrush);
+            Assert.Equal(default, ring.BoxShadow);
         });
 
     [Fact]

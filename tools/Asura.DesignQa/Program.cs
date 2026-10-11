@@ -479,7 +479,7 @@ internal sealed class QaApplication : Avalonia.Application
         }, PrepareCapture: window =>
         {
             var approval = window.GetVisualDescendants().OfType<AgentApprovalCardView>().Single();
-            approval.GetVisualDescendants().OfType<Expander>().Single().IsExpanded = true;
+            ApprovalDetails(approval).IsExpanded = true;
         }),
         new("workspace-agent-approval-light", vm =>
         {
@@ -496,7 +496,7 @@ internal sealed class QaApplication : Avalonia.Application
             PlatformProfile.Automatic, AccentPreference.FollowHost), PrepareCapture: window =>
         {
             var approval = window.GetVisualDescendants().OfType<AgentApprovalCardView>().Single();
-            approval.GetVisualDescendants().OfType<Expander>().Single().IsExpanded = false;
+            ApprovalDetails(approval).IsExpanded = false;
         }),
         new("workspace-agent-capability", vm =>
         {
@@ -1256,9 +1256,19 @@ internal sealed class QaApplication : Avalonia.Application
         {
             item.HasAttention = true;
             item.IsOpen = true;
-            item.IsInFront = item == viewModel.Workspaces[0];
+            item.IsInFront = item.Id == QaRuntimeWorkspaceDefinition.Id;
         }
     }
+
+    /// <summary>
+    /// The approval card's Details disclosure. Technical Details is a second
+    /// disclosure inside it, so the card holds more than one once Details has
+    /// been opened.
+    /// </summary>
+    private static Expander ApprovalDetails(AgentApprovalCardView approval) =>
+        approval.GetVisualDescendants()
+            .OfType<Expander>()
+            .Single(expander => Equals(expander.Header, "Details"));
 
     /// <summary>
     /// Opens the close action on the first rail tile that offers one.
@@ -1347,12 +1357,12 @@ internal sealed class QaApplication : Avalonia.Application
             workspace.HasAttention = false;
         }
 
-        for (var index = 0; index < viewModel.Workspaces.Count; index++)
+        foreach (var item in viewModel.Workspaces)
         {
-            var item = viewModel.Workspaces[index];
+            var isRuntimeWorkspace = item.Id == QaRuntimeWorkspaceDefinition.Id;
             item.HasAttention = false;
-            item.IsOpen = index == 0;
-            item.IsInFront = index == 0;
+            item.IsOpen = isRuntimeWorkspace;
+            item.IsInFront = isRuntimeWorkspace;
         }
     }
 
@@ -1733,6 +1743,9 @@ internal sealed class QaApplication : Avalonia.Application
         // server sort, and a context menu opened after running an edited raw
         // query whose complete base-table provenance keeps mutations safe.
         ("database-cell-editor-compact-2x", CreateDatabaseCellEditorCompactProbe, null),
+        // The narrowest editor the product allows: a 720-point panel beside
+        // the row inspector, where the actions stack at the editor's width.
+        ("database-cell-editor-stacked-2x", CreateDatabaseCellEditorStackedProbe, null),
         // Editing a prose-sized cell grows the expanded editor beside it; the
         // probe proves the popup opens on the real edit path and holds focus.
         ("database-cell-expand-editor-2x", CreateDatabaseCellExpandProbe, null),
@@ -2572,6 +2585,15 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         base.OnFrameworkInitializationCompleted();
     }
 
+    /// <summary>
+    /// The saved workspace the harness's one runtime workspace was opened
+    /// from: Operations, whose title and colour it carries.
+    /// </summary>
+    private static WorkspaceDefinition QaRuntimeWorkspaceDefinition =>
+        QaData.Workspaces
+            .Select(stored => stored.Value)
+            .Single(workspace => string.Equals(workspace.Id.Value, "operations", StringComparison.Ordinal));
+
     private static MainWindowViewModel CreateViewModel()
     {
         var catalog = Program.IsWebsiteExport
@@ -2703,6 +2725,17 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 .GetField("_openWorkspaces", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .GetValue(viewModel)!;
         openWorkspaces.Add(workspace);
+        // And the definition it was opened from, as the product records when
+        // it opens one: the rail decides which tile is open and in front from
+        // that record every time it refreshes, so without it the tile set by
+        // hand went back to idle on the first refresh and no capture showed a
+        // current workspace.
+        var runtimeSources = (System.Collections.IDictionary)typeof(MainWindowViewModel)
+            .GetField("_runtimeSources", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(viewModel)!;
+        runtimeSources[workspace.Id] = new RuntimeHistorySource(
+            QaRuntimeWorkspaceDefinition.Key,
+            QaRuntimeWorkspaceDefinition.Name);
         workspace.GetType()
             .GetProperty("IsCanvasShown")!
             .GetSetMethod(nonPublic: true)!
@@ -3331,15 +3364,40 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 viewer.SelectRow(viewer.ResultRows[0]);
                 var field = viewer.SelectedRowFields.Single(candidate =>
                     string.Equals(candidate.Name, "service", StringComparison.Ordinal));
-                field.BeginEdit();
-                field.Draft = "checkout-web-eu — renamed through the inspector "
-                    + "draft, applied with Cmd+Enter.";
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
-                if (!field.IsEditing)
+                // Through the field's own Edit button, as a person starts it:
+                // that is what hands the draft focus, and with it the ring
+                // this capture is here to show.
+                var edit = window.GetVisualDescendants()
+                    .OfType<Button>()
+                    .Single(candidate => string.Equals(
+                        AutomationProperties.GetName(candidate),
+                        "Edit service",
+                        StringComparison.Ordinal));
+                edit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                for (var attempt = 0; attempt < 50 && !field.IsEditing; attempt++)
+                {
+                    await Task.Delay(20);
+                    Dispatcher.UIThread.RunJobs();
+                }
+
+                field.Draft = "checkout-web-eu — renamed through the inspector "
+                    + "draft, applied with Cmd+Enter.";
+                await Task.Delay(40);
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+                var draft = window.GetVisualDescendants()
+                    .OfType<Panel>()
+                    .SingleOrDefault(candidate => candidate.Classes.Contains("InspectorDraft")
+                        && candidate.IsEffectivelyVisible);
+                if (!field.IsEditing
+                    || draft is null
+                    || TopLevel.GetTopLevel(window)?.FocusManager?.GetFocusedElement() is not Visual focused
+                    || !focused.GetVisualAncestors().Contains(draft))
                 {
                     throw new InvalidOperationException(
-                        "The inspector field did not enter its editing state.");
+                        "The inspector field did not enter its editing state with its draft focused.");
                 }
             });
 
@@ -3375,9 +3433,22 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 window.UpdateLayout();
             });
 
+    // The editor is as wide as the grid it edits, up to its designed width.
+    // At 920 points the grid beside the row inspector gives it the compact
+    // width a narrow panel really has, under the designed width, with Cancel
+    // and Apply on one line.
     private static Window CreateDatabaseCellEditorCompactProbe() =>
+        CreateDatabaseCellEditorProbe(width: 920, stacked: false);
+
+    // At 720 points, a window the product allows, the grid beside the row
+    // inspector is about 160 points wide. The editor follows it, and its
+    // actions stack at its full width, Apply first, as a narrow alert does.
+    private static Window CreateDatabaseCellEditorStackedProbe() =>
+        CreateDatabaseCellEditorProbe(width: 720, stacked: true);
+
+    private static Window CreateDatabaseCellEditorProbe(double width, bool stacked) =>
         CreatePreparedDatabaseProbe(
-            width: 720,
+            width: width,
             height: 560,
             async (window, viewer, _) =>
             {
@@ -3443,6 +3514,34 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 {
                     throw new InvalidOperationException(
                         "The compact cell editor escaped the grid viewport or hid an action.");
+                }
+
+                // Centres, not tops: the default button's outset ring makes it
+                // a point taller than Cancel beside it.
+                var applyOrigin = apply.TranslatePoint(new Point(0, apply.Bounds.Height / 2), dialog);
+                var cancelOrigin = cancel.TranslatePoint(new Point(0, cancel.Bounds.Height / 2), dialog);
+                if (dialog.Bounds.Width >= 620
+                    || applyOrigin is not { } applyAt
+                    || cancelOrigin is not { } cancelAt)
+                {
+                    throw new InvalidOperationException(
+                        "The compact cell editor is no longer compact "
+                        + $"(editor {dialog.Bounds.Width:0} wide in a {grid.Bounds.Width:0}-point grid).");
+                }
+
+                var laidOutAsDesigned = stacked
+                    ? applyAt.Y < cancelAt.Y - 1
+                        && Math.Abs(apply.Bounds.Width - cancel.Bounds.Width) <= 1
+                    : Math.Abs(applyAt.Y - cancelAt.Y) <= 1;
+                if (!laidOutAsDesigned)
+                {
+                    throw new InvalidOperationException(
+                        (stacked
+                            ? "The narrow cell editor's actions did not stack at one width, Apply first "
+                            : "The compact cell editor's actions left their one line ")
+                        + $"(editor {dialog.Bounds.Width:0} wide in a {grid.Bounds.Width:0}-point grid; "
+                        + $"Apply {apply.Bounds.Width:0} wide at {applyAt}, "
+                        + $"Cancel {cancel.Bounds.Width:0} wide at {cancelAt}).");
                 }
             });
 

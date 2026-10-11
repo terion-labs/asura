@@ -97,7 +97,7 @@ public sealed class AgentApprovalCardViewContractTests
     }
 
     [Fact]
-    public void Approval_identifiers_stay_available_in_details_only()
+    public void Approval_identifiers_stay_available_in_technical_details_only()
     {
         var document = LoadComponent();
         foreach (var identifier in new[]
@@ -109,9 +109,32 @@ public sealed class AgentApprovalCardViewContractTests
         {
             var element = Assert.Single(document.Descendants(), element =>
                 AttributeValue(element, "Text") == identifier);
-            Assert.Contains(element.Ancestors(), ancestor => ancestor.Name.LocalName == "Expander");
+            Assert.Contains(element.Ancestors(), IsTechnicalDetails);
         }
+
+        var routing = Assert.Single(document.Descendants(), element =>
+            AttributeValue(element, "ItemsSource") == "{Binding AgentChat.PendingApproval.RoutingArguments}");
+        Assert.Contains(routing.Ancestors(), IsTechnicalDetails);
+        // The full argument list, routing identifiers and all, is not repeated
+        // anywhere a person reads before opening Technical Details.
+        Assert.DoesNotContain(document.Descendants(), element =>
+            AttributeValue(element, "ItemsSource") == "{Binding AgentChat.PendingApproval.Arguments}");
     }
+
+    [Fact]
+    public void Approval_details_name_the_target_by_title_outside_technical_details()
+    {
+        var document = LoadComponent();
+        var place = Assert.Single(document.Descendants(), element =>
+            AttributeValue(element, "ItemsSource") == "{Binding AgentChat.PendingApproval.TargetFacts}");
+        Assert.Contains(place.Ancestors(), ancestor =>
+            ancestor.Name.LocalName == "Expander" && AttributeValue(ancestor, "Header") == "Details");
+        Assert.DoesNotContain(place.Ancestors(), IsTechnicalDetails);
+    }
+
+    private static bool IsTechnicalDetails(XElement element) =>
+        element.Name.LocalName == "Expander"
+        && AttributeValue(element, "Header") == "Technical Details";
 
     private static XElement FindButton(XDocument document, string content) =>
         Assert.Single(
