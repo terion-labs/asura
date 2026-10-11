@@ -31,15 +31,15 @@ public sealed partial class MainWindowViewModel
         SettingsPage.Appearance when CanRetryAppearanceSave => new(
             page,
             "Discard Appearance Changes?",
-            "Some appearance changes couldn't be saved. Discard them, or keep editing and choose Try Again."),
+            "Some appearance changes couldn't be saved. If you discard them, the appearance goes back to how it was last saved."),
         SettingsPage.Browser when BrowserProfileSettingsEditor.HasUnsavedAuthentication => new(
             page,
             "Discard HTTP Authentication Changes?",
-            "The HTTP authentication you entered for this browser profile hasn't been saved. Discard it, or keep editing and choose Save Authentication."),
+            "The HTTP authentication you entered for this browser profile hasn't been saved. If you discard it, the profile keeps the authentication it had."),
         SettingsPage.Keybindings when KeybindingEditorSession?.IsDirty == true => new(
             page,
             "Discard Keyboard Shortcut Changes?",
-            "The unsaved shortcuts, prefix, and conflict resolutions will be lost. Keep editing to save them."),
+            "The unsaved shortcuts, prefix, and conflict resolutions will be lost."),
         _ => null,
     };
 
