@@ -48,7 +48,9 @@ public sealed class SecretEditorViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(ReplacementValue))
         {
-            throw new ArgumentException("Enter a replacement credential value before rotating it.");
+            throw InvalidField.Exception(
+                nameof(ReplacementValue),
+                "Enter a replacement value before you rotate the credential.");
         }
 
         var bytes = Encoding.UTF8.GetBytes(ReplacementValue);
@@ -66,7 +68,7 @@ public sealed class SecretEditorViewModel : ObservableObject
         var label = Label.Trim();
         if (string.IsNullOrWhiteSpace(label))
         {
-            throw new ArgumentException("Credential label is required.");
+            throw InvalidField.Exception(nameof(Label), "Enter a label for the credential.");
         }
 
         return label;

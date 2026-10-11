@@ -165,7 +165,7 @@ public sealed class WorkspaceSettingsViewModel : ObservableObject, IDisposable
         }
         catch (InvalidOperationException exception)
         {
-            return Fail(exception.Message);
+            return Fail(ShellFailureText.WorkspaceSave(exception));
         }
 
         return await SaveAsync(request, cancellationToken);

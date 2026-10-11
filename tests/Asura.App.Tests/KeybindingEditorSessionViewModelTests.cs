@@ -104,7 +104,10 @@ public sealed class KeybindingEditorSessionViewModelTests
         Assert.Equal("Conflict", Row(session, BuiltInCommands.Copy).Status);
         Assert.Equal("Conflict", Row(session, BuiltInCommands.Paste).Status);
         Assert.Contains("Resolve 1", session.StateSummary, StringComparison.Ordinal);
-        Assert.Throws<InvalidOperationException>(() => session.CreateSaveRequest());
+        var refusal = Assert.Throws<InvalidOperationException>(() => session.CreateSaveRequest());
+        // The conflict refusal is written for people, so Settings shows it as written.
+        Assert.True(Asura.App.Controls.FailureReason.IsReadable(refusal));
+        Assert.StartsWith("Resolve 1 shortcut conflict", refusal.Message, StringComparison.Ordinal);
 
         session.Unbind(paste.Id);
         var request = session.CreateSaveRequest();

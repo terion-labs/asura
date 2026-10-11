@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -451,9 +452,15 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
 
     public NetworkConnectionProfileSaveRequest CreateSaveRequest()
     {
-        if (!TryBuild(out var profile, out var error))
+        if (!TryBuild(out var profile, out var error, out _, out var failure))
         {
-            throw new InvalidOperationException(error);
+            // The sentence is curated; the refusal behind it goes to diagnostics.
+            if (failure is not null && InvalidField.Of(failure) is null)
+            {
+                SecretSafeDiagnostics.WriteTrace("network.connection.profile.refused", failure);
+            }
+
+            throw FailureReason.Readable(new InvalidOperationException(error));
         }
 
         return new(profile!, ExpectedRevision);
@@ -543,14 +550,21 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
 
     private bool TryBuild(
         out NetworkConnectionProfile? profile,
-        out string error) => TryBuild(out profile, out error, out _);
+        out string error) => TryBuild(out profile, out error, out _, out _);
 
     private bool TryBuild(
         out NetworkConnectionProfile? profile,
         out string error,
-        out string? field)
+        out string? field) => TryBuild(out profile, out error, out field, out _);
+
+    private bool TryBuild(
+        out NetworkConnectionProfile? profile,
+        out string error,
+        out string? field,
+        out Exception? failure)
     {
         field = null;
+        failure = null;
         try
         {
             profile = new(
@@ -564,22 +578,64 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
         catch (Exception exception) when (exception is ArgumentException or UriFormatException)
         {
             profile = null;
-            error = FriendlyValidationMessage(exception);
-            field = InvalidField.Of(exception) ?? FieldFor((exception as ArgumentException)?.ParamName);
+            failure = exception;
+            (field, error) = DescribeRefusal(exception);
             return false;
         }
     }
 
-    /// <summary>The editor property a profile constructor's parameter comes from.</summary>
-    private static string? FieldFor(string? parameter) => parameter switch
+    /// <summary>
+    /// The field a refused profile is about and the sentence to show under it.
+    ///
+    /// The editor's own checks name their field and are written for people.
+    /// The profile constructors in Core write for developers ("A network
+    /// gateway must use an absolute HTTPS URL…", "(Parameter 'value')"), and
+    /// <see cref="Uri"/> parsing writes "Invalid URI: …", so those are mapped
+    /// by the parameter or field they are about.
+    /// </summary>
+    private (string? Field, string Message) DescribeRefusal(Exception exception)
     {
-        "name" => nameof(Name),
-        "port" => nameof(Port),
-        "gateway" => nameof(Gateway),
-        "exitNode" => nameof(ExitNode),
-        "controlServer" => nameof(ControlServer),
-        _ => null,
-    };
+        if (InvalidField.Of(exception) is { } invalidField)
+        {
+            return (invalidField, exception.Message);
+        }
+
+        if (exception is UriFormatException)
+        {
+            return SelectedKind.Kind == NetworkConnectionKind.Tailscale
+                ? (nameof(ControlServer), ControlServerMessage)
+                : (nameof(Gateway), GatewayMessage);
+        }
+
+        return (exception as ArgumentException)?.ParamName switch
+        {
+            "name" => (nameof(Name), "Enter a name for this connection."),
+            "port" => (nameof(Port), "Enter a proxy port between 1 and 65535."),
+            "gateway" => (nameof(Gateway), GatewayMessage),
+            "controlServer" => (nameof(ControlServer), ControlServerMessage),
+            "exitNode" => (nameof(ExitNode), "Enter the exit node’s name or address."),
+            "passwordSecret" => (nameof(Username), "A password needs a username. Enter the username, or remove the password."),
+            "value" when SelectedKind.Kind == NetworkConnectionKind.Proxy && !IsUsableHost(Host) =>
+                (nameof(Host), "Enter the proxy’s host name or IP address, without spaces, slashes, or a scheme such as http://."),
+            "value" => (null, "Remove line breaks and other control characters from the connection’s settings."),
+            _ => (null, "Asura can’t use these connection settings. Check each field, then try again."),
+        };
+    }
+
+    private const string GatewayMessage =
+        "Enter the gateway as a complete HTTPS address, such as https://vpn.example.com.";
+
+    private const string ControlServerMessage =
+        "Enter the control server as a complete HTTPS address, such as https://login.example.com, or leave it empty.";
+
+    /// <summary>Mirrors Core's proxy host check, so its refusal can name the field.</summary>
+    private static bool IsUsableHost(string host)
+    {
+        var trimmed = host.Trim();
+        return trimmed.Length is > 0 and <= 253
+            && !trimmed.Any(character => char.IsControl(character) || char.IsWhiteSpace(character))
+            && !trimmed.Contains('/', StringComparison.Ordinal);
+    }
 
     private NetworkConnectionConfiguration BuildConfiguration() => SelectedKind.Kind switch
     {
@@ -716,28 +772,11 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
 
     private static SecretRef RequiredSecret(string value, string label) =>
         new(string.IsNullOrWhiteSpace(value)
-            ? throw new ArgumentException($"Enter the {label} reference.")
+            ? throw InvalidField.Exception(nameof(ConfigurationSecretReference), $"Enter the {label} reference.")
             : value.Trim());
 
     private static Uri? OptionalUri(string value) =>
         Optional(value) is { } uri ? new Uri(uri, UriKind.RelativeOrAbsolute) : null;
-
-    private static string FriendlyValidationMessage(Exception exception)
-    {
-        var message = exception.Message;
-        var parameterSuffix = message.IndexOf("\nParameter", StringComparison.Ordinal);
-        if (parameterSuffix > 0)
-        {
-            message = message[..parameterSuffix];
-        }
-
-        if (!string.IsNullOrWhiteSpace(message))
-        {
-            return message.Trim();
-        }
-
-        return "Complete the required fields with a valid network configuration.";
-    }
 
     private void RebuildCredentialOptions()
     {

@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -30,7 +31,8 @@ public sealed class SavedScreenSettingsViewModel : IDisposable
         var snapshot = _catalog.Snapshot;
         var stored = snapshot.Screens
             .SingleOrDefault(item => item.Value.Id == screenId)
-            ?? throw new InvalidOperationException("That saved screen no longer exists.");
+            ?? throw FailureReason.Readable(new InvalidOperationException(
+                "That saved screen no longer exists."));
         return new SavedScreenEditorViewModel(
             stored.Value,
             stored.Revision,

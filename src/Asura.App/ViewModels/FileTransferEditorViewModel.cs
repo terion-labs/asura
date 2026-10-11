@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.Application;
 
 namespace Asura.App.ViewModels;
@@ -36,11 +37,15 @@ public sealed class FileTransferEditorViewModel : ObservableObject
 
     public IReadOnlyList<FileProviderProfileDescriptor> Profiles { get; }
 
-    public IReadOnlyList<FilePanelTransferOperation> Operations { get; } =
-        Enum.GetValues<FilePanelTransferOperation>();
+    /// <summary>The operation pop-up's items, named in words rather than enum values.</summary>
+    public IReadOnlyList<FileTransferOperationOption> OperationOptions { get; } =
+        [.. Enum.GetValues<FilePanelTransferOperation>()
+            .Select(value => new FileTransferOperationOption(value, FileTransferText.Operation(value)))];
 
-    public IReadOnlyList<FilePanelConflictPolicy> ConflictPolicies { get; } =
-        Enum.GetValues<FilePanelConflictPolicy>();
+    /// <summary>The "When destination exists" pop-up's items.</summary>
+    public IReadOnlyList<FileConflictPolicyOption> ConflictPolicyOptions { get; } =
+        [.. Enum.GetValues<FilePanelConflictPolicy>()
+            .Select(value => new FileConflictPolicyOption(value, FileTransferText.ConflictPolicy(value)))];
 
     public FileProviderProfileDescriptor SelectedDestinationProfile
     {
@@ -69,13 +74,45 @@ public sealed class FileTransferEditorViewModel : ObservableObject
     public FilePanelTransferOperation Operation
     {
         get => _operation;
-        set => SetProperty(ref _operation, value);
+        set
+        {
+            if (SetProperty(ref _operation, value))
+            {
+                OnPropertyChanged(nameof(SelectedOperationOption));
+            }
+        }
+    }
+
+    public FileTransferOperationOption SelectedOperationOption
+    {
+        get => OperationOptions.First(option => option.Value == Operation);
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            Operation = value.Value;
+        }
     }
 
     public FilePanelConflictPolicy ConflictPolicy
     {
         get => _conflictPolicy;
-        set => SetProperty(ref _conflictPolicy, value);
+        set
+        {
+            if (SetProperty(ref _conflictPolicy, value))
+            {
+                OnPropertyChanged(nameof(SelectedConflictPolicyOption));
+            }
+        }
+    }
+
+    public FileConflictPolicyOption SelectedConflictPolicyOption
+    {
+        get => ConflictPolicyOptions.First(option => option.Value == ConflictPolicy);
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            ConflictPolicy = value.Value;
+        }
     }
 
     public FilePanelTransferRequest CreateRequest()
@@ -85,7 +122,8 @@ public sealed class FileTransferEditorViewModel : ObservableObject
             Destination);
         if (destination == Source.Location.WithVersion(null))
         {
-            throw new ArgumentException("Choose a destination different from the source.");
+            throw FailureReason.Readable(new ArgumentException(
+                "The destination is the item itself. Choose a different destination."));
         }
 
         return new FilePanelTransferRequest(
@@ -94,4 +132,43 @@ public sealed class FileTransferEditorViewModel : ObservableObject
             Operation,
             ConflictPolicy);
     }
+}
+
+public sealed record FileTransferOperationOption(FilePanelTransferOperation Value, string Label);
+
+public sealed record FileConflictPolicyOption(FilePanelConflictPolicy Value, string Label);
+
+/// <summary>
+/// A transfer's operation, conflict rule, and state in words. The transfer
+/// dialog and the transfer list used to show the enum values themselves
+/// ("KeepBoth", "Fail").
+/// </summary>
+internal static class FileTransferText
+{
+    public static string Operation(FilePanelTransferOperation operation) => operation switch
+    {
+        FilePanelTransferOperation.Copy => "Copy",
+        FilePanelTransferOperation.Move => "Move",
+        _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null),
+    };
+
+    public static string ConflictPolicy(FilePanelConflictPolicy policy) => policy switch
+    {
+        FilePanelConflictPolicy.Fail => "Stop the Transfer",
+        FilePanelConflictPolicy.Skip => "Skip the Item",
+        FilePanelConflictPolicy.Replace => "Replace It",
+        FilePanelConflictPolicy.KeepBoth => "Keep Both",
+        _ => throw new ArgumentOutOfRangeException(nameof(policy), policy, null),
+    };
+
+    public static string State(FilePanelTransferState state) => state switch
+    {
+        FilePanelTransferState.Queued => "Queued",
+        FilePanelTransferState.Running => "In progress",
+        FilePanelTransferState.Completed => "Done",
+        FilePanelTransferState.Failed => "Failed",
+        FilePanelTransferState.Cancelled => "Canceled",
+        FilePanelTransferState.Skipped => "Skipped",
+        _ => throw new ArgumentOutOfRangeException(nameof(state), state, null),
+    };
 }

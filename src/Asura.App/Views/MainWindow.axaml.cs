@@ -1113,7 +1113,7 @@ public sealed partial class MainWindow : Window
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.ConnectionEditor(exception));
         }
     }
 
@@ -1139,7 +1139,7 @@ public sealed partial class MainWindow : Window
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.ConnectionEditor(exception));
             return null;
         }
     }
@@ -1355,7 +1355,7 @@ public sealed partial class MainWindow : Window
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.SavedScreenEditor(exception));
         }
     }
 
@@ -1472,7 +1472,7 @@ public sealed partial class MainWindow : Window
             }
             catch (InvalidOperationException exception)
             {
-                ViewModel.SetError(exception.Message);
+                ViewModel.SetError(ShellFailureText.SavedScreenEditor(exception));
             }
         }
     }
@@ -1490,7 +1490,7 @@ public sealed partial class MainWindow : Window
             }
             catch (InvalidOperationException exception)
             {
-                ViewModel.SetError(exception.Message);
+                ViewModel.SetError(ShellFailureText.WorkspaceSave(exception));
             }
 
             return;

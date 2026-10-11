@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Windows.Input;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Application.Previews;
 using Asura.Core;
@@ -1852,15 +1853,15 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
 
         if (IsLoading || CurrentLocation is null || SelectedProfile is null)
         {
-            throw new InvalidOperationException(
-                "Wait for the destination folder to finish loading.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "Wait for the destination folder to finish loading."));
         }
 
         if (source.Kind is not (
             FilePanelEntryKind.File or FilePanelEntryKind.Directory))
         {
-            throw new InvalidOperationException(
-                "Only regular files and folders can be transferred.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "Only regular files and folders can be transferred."));
         }
 
         var requiredCapabilities = source.Kind == FilePanelEntryKind.Directory
@@ -1868,8 +1869,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             : FilePanelCapability.StreamingWrite;
         if (!SelectedProfile.Capabilities.HasFlag(requiredCapabilities))
         {
-            throw new InvalidOperationException(
-                "That destination can't hold this kind of item. Choose another destination.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "That destination can't hold this kind of item. Choose another destination."));
         }
 
         var destinationParent = destinationFolder?.WithVersion(null)
@@ -1883,8 +1884,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
                 CurrentLocation.Authority,
                 StringComparison.Ordinal))
         {
-            throw new InvalidOperationException(
-                "The drop folder doesn't belong to the selected destination.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "The drop folder doesn't belong to the selected destination."));
         }
 
         var destination = FileLocationPresentation.Child(
@@ -1892,15 +1893,15 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             source.Name);
         if (source.Location.WithVersion(null) == destination.WithVersion(null))
         {
-            throw new InvalidOperationException(
-                "The item is already in this destination.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "The item is already in this destination."));
         }
 
         if (source.Kind == FilePanelEntryKind.Directory
             && source.Location.WithVersion(null) == destinationParent)
         {
-            throw new InvalidOperationException(
-                "A folder can't be copied or moved into itself. Choose another destination.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "A folder can't be copied or moved into itself. Choose another destination."));
         }
 
         return new FilePanelTransferRequest(
@@ -2081,8 +2082,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         ArgumentException.ThrowIfNullOrWhiteSpace(localPath);
         if (!CanUpload || CurrentLocation is null || SelectedProfile is null)
         {
-            throw new InvalidOperationException(
-                "You can't upload files here. Choose another location.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "You can't upload files here. Choose another location."));
         }
 
         var homeProfile = Profiles.Single(profile => string.Equals(profile.Id, "builtin.files.home", StringComparison.Ordinal));
@@ -2090,7 +2091,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         var file = new FileInfo(sourcePath);
         if (!file.Exists)
         {
-            throw new ArgumentException("The selected local file no longer exists.", nameof(localPath));
+            throw FailureReason.Readable(new ArgumentException("The selected file no longer exists. Choose it again."));
         }
 
         // The local provider is rooted at the filesystem root, so any file the

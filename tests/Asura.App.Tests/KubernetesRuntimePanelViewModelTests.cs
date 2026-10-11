@@ -22,11 +22,25 @@ public sealed class KubernetesRuntimePanelViewModelTests
                 : ValueTask.FromResult<IKubernetesClientSession>(session));
         await panel.Initialization;
         Assert.False(panel.IsBusy);
-        Assert.Contains("timed out", panel.Issue, StringComparison.Ordinal);
+        Assert.Contains("couldn’t reach the cluster", panel.Issue, StringComparison.Ordinal);
+        Assert.DoesNotContain("backend", panel.Issue, StringComparison.Ordinal);
         await panel.RefreshAsync();
         Assert.False(panel.HasIssue);
         Assert.Single(panel.Resources);
         Assert.Equal(2, attempts);
+    }
+
+    [Fact]
+    public async Task ConnectionSettingsThatCantBeUsedSayToEditTheConnection()
+    {
+        using var panel = new KubernetesRuntimePanelViewModel(PanelInstanceId.New(), "Kubernetes",
+            new(KubernetesConnectionProfileId.New(), 1, "Cluster", "/test/config", "production", "restricted"),
+            _ => ValueTask.FromException<IKubernetesClientSession>(new KubernetesRequestException(
+                KubernetesErrorCode.InvalidConfiguration, "The selected Kubernetes context is unavailable.")));
+        await panel.Initialization;
+
+        Assert.Contains("Edit the connection", panel.Issue, StringComparison.Ordinal);
+        Assert.Equal("Connection settings need attention", panel.Status);
     }
 
     [Fact]
@@ -414,9 +428,11 @@ internal sealed class KubernetesUiSession : IKubernetesClientSession
         ValueTask.FromResult(new KubernetesDrainReview("drain-token", request.Node, [], request.Options, DateTimeOffset.UtcNow.AddMinutes(5)));
     public ValueTask<KubernetesDrainResult> ExecuteNodeDrainAsync(string reviewToken, CancellationToken cancellationToken)
     { DrainExecutions++; return ValueTask.FromResult(new KubernetesDrainResult(KubernetesDrainOutcome.Completed, true, [])); }
+    internal KubernetesRequestException? HelmReviewFailure { get; init; }
     public ValueTask<KubernetesHelmChangeReview> ReviewHelmChangeAsync(KubernetesHelmChangeRequest request, CancellationToken cancellationToken)
     {
         HelmReviews.Add(request);
+        if (HelmReviewFailure is { } failure) { return ValueTask.FromException<KubernetesHelmChangeReview>(failure); }
         return ValueTask.FromResult(new KubernetesHelmChangeReview("helm-token", request.Kind, request.Namespace, request.Release, request.ExpectedRevision,
             request.PinnedChartReference, request.ChartVersion, "hash", request.RollbackRevision, request.AllowHooks, request.ReuseValues, request.TimeoutSeconds, DateTimeOffset.UtcNow.AddMinutes(5)));
     }

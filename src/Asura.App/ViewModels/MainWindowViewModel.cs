@@ -9,6 +9,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using Asura.App;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Application.ApplicationUpdates;
 using Asura.Application.Previews;
@@ -4468,8 +4469,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (databaseProfileId is { } databaseId)
             {
                 existing = FindDatabaseConnection(databaseId)
-                    ?? throw new InvalidOperationException(
-                        "That database connection no longer exists.");
+                    ?? throw FailureReason.Readable(new InvalidOperationException(
+                        "That database connection no longer exists."));
             }
 
             database = new DatabaseConnectionEditorViewModel(

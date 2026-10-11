@@ -107,7 +107,7 @@ internal sealed class ShellCommandExecutor(
         }
         catch (InvalidOperationException exception)
         {
-            viewModel.SetError(exception.Message);
+            viewModel.SetError(ShellFailureText.Command(exception));
         }
         catch (IOException exception)
         {

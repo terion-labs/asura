@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Text;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -378,7 +379,10 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
         }
         catch (InvalidOperationException exception)
         {
-            return Fail(exception.Message);
+            return Fail(FailureReason.Refusal(
+                "network.connection.save.refused",
+                exception,
+                "Asura can’t save the connection with these settings. Check each value, then save again."));
         }
 
         var original = _catalog.Snapshot.NetworkConnections
@@ -531,7 +535,12 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
         }
         catch (InvalidOperationException exception)
         {
-            SetProfileTestFailure("Validation failed", exception.Message);
+            SetProfileTestFailure(
+                "Settings need attention",
+                FailureReason.Refusal(
+                    "network.connection.test.refused",
+                    exception,
+                    "Asura can’t test the connection with these settings. Check each value, then test again."));
             return false;
         }
 
@@ -641,7 +650,10 @@ public sealed class NetworkSettingsViewModel : ObservableObject, IDisposable
         }
         catch (InvalidOperationException exception)
         {
-            return Fail(exception.Message);
+            return Fail(FailureReason.Refusal(
+                "network.policy.save.refused",
+                exception,
+                "Asura can’t save the network settings yet. Choose an available connection, then try again."));
         }
 
         var settings = new ApplicationNetworkSettings(

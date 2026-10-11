@@ -55,7 +55,7 @@ public sealed class AppearanceSettingsViewModelTests
 
         Assert.Same(theme, settings.ActiveTheme);
         Assert.Equal("Dark", settings.ThemeMode);
-        Assert.Equal("Gnome", settings.ThemeProfile);
+        Assert.Equal("GNOME", settings.ThemeProfile);
         Assert.Equal("125%", settings.ThemeTextScale);
         Assert.Equal("#5A8DEE", settings.ThemeAccent);
         Assert.True(settings.ShowTabBar);

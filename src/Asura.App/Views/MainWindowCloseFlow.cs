@@ -1,3 +1,4 @@
+using Asura.App.ViewModels;
 using Asura.Application;
 
 namespace Asura.App.Views;
@@ -21,7 +22,7 @@ internal static class MainWindowCloseFlow
             var initial = await close(CloseDecision.Request, cancellationToken);
             if (initial is HostResult<CloseScopeResult>.Failure initialFailure)
             {
-                await showError(initialFailure.Error.Message);
+                await showError(ShellFailureText.CloseFailed(initialFailure.Error));
                 return false;
             }
 
@@ -40,7 +41,7 @@ internal static class MainWindowCloseFlow
                 var confirmed = await close(CloseDecision.Confirm, cancellationToken);
                 if (confirmed is HostResult<CloseScopeResult>.Failure confirmationFailure)
                 {
-                    await showError(confirmationFailure.Error.Message);
+                    await showError(ShellFailureText.CloseFailed(confirmationFailure.Error));
                     return false;
                 }
 
@@ -58,7 +59,7 @@ internal static class MainWindowCloseFlow
                     or SessionCloseOutcome.ConfirmationRequired);
             if (failure is not null)
             {
-                await showError(failure.Detail);
+                await showError(ShellFailureText.SessionCloseFailed(failure.Outcome));
                 return false;
             }
 

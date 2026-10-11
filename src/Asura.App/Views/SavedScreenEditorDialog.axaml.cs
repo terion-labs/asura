@@ -115,7 +115,10 @@ public sealed partial class SavedScreenEditorDialog : DialogWindow
             // failure about the whole screen goes to the list at the top.
             if (!FieldValidation.Present(this, exception))
             {
-                ViewModel.ErrorNotices.Report(exception.Message);
+                ViewModel.ErrorNotices.Report(FailureReason.Refusal(
+                    "saved-screen.editor.save.refused",
+                    exception,
+                    "Asura couldn’t save the screen. Check its layout and panels, then save again."));
                 this.FindControl<Control>("FormErrors")?.BringIntoView();
             }
         }

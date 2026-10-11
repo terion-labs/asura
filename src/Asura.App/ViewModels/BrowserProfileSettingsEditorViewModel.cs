@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text;
 using System.Windows.Input;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -413,7 +414,10 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
         }
         catch (ArgumentException exception)
         {
-            OperationStatus = exception.Message;
+            OperationStatus = FailureReason.Refusal(
+                "browser-profile.create.refused",
+                exception,
+                $"Enter a profile name of up to {BrowserProfileDefinition.MaximumNameLength} characters without line breaks, then create it again.");
             return;
         }
 
@@ -558,7 +562,10 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
         }
         catch (ArgumentException exception)
         {
-            OperationStatus = exception.Message;
+            OperationStatus = FailureReason.Refusal(
+                "browser-profile.authentication.refused",
+                exception,
+                "Asura can’t save the sign-in with these values. Check the host, port, realm, and user name, then save again.");
             return;
         }
 

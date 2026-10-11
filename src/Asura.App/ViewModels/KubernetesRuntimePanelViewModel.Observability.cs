@@ -67,8 +67,8 @@ public sealed partial class KubernetesRuntimePanelViewModel
             var snapshot = new KubernetesMetricsSnapshot(KubernetesDataAvailability.Unavailable, []);
             string? apiFailure = null;
             try { snapshot = await _session.ReadMetricsAsync(new(kind, ns), cancellationToken); }
-            catch (KubernetesRequestException exception) { apiFailure = exception.Message; }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { apiFailure = "Metrics API timed out."; }
+            catch (KubernetesRequestException exception) { apiFailure = KubernetesErrorText.Describe(exception, KubernetesActivity.Metrics); }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { apiFailure = "The cluster didn’t report usage in time. Refresh to try again."; }
             if (_disposed || generation != _generation || version != _metricsVersion) { return; }
             await DiscoverMetricsProvidersAsync();
             if (_disposed || generation != _generation || version != _metricsVersion) { return; }
@@ -104,7 +104,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             PublishUsage();
         }
         catch (OperationCanceledException) { if (!_disposed && version == _metricsVersion) { MetricsStatus = "Metrics request canceled or timed out."; } }
-        catch (KubernetesRequestException exception) { if (!_disposed && generation == _generation && version == _metricsVersion) { MetricsStatus = exception.Message; } }
+        catch (KubernetesRequestException exception) { if (!_disposed && generation == _generation && version == _metricsVersion) { MetricsStatus = KubernetesErrorText.Describe(exception, KubernetesActivity.Metrics); } }
         finally { if (!_disposed && version == _metricsVersion) { IsMetricsLoading = false; } }
     }
     private void ClearResourceUsage() { Usage = []; PublishUsage(); }
@@ -141,7 +141,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             Status = CountText.OrNone(Releases.Count, "Helm release", "Helm releases");
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (KubernetesRequestException exception) { PresentError(exception); }
+        catch (KubernetesRequestException exception) { PresentError(exception, KubernetesActivity.Helm); }
         finally { if (!_disposed) { IsBusy = false; } }
     }
     private async Task LoadHelmHistoryAsync(KubernetesHelmRelease? release)
@@ -153,7 +153,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             if (!_disposed && SelectedRelease == release) { HelmHistory = [.. history.Revisions.Select(revision => new KubernetesHelmRevisionRow(revision))]; }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (KubernetesRequestException exception) { if (SelectedRelease == release) { PresentError(exception); } }
+        catch (KubernetesRequestException exception) { if (SelectedRelease == release) { PresentError(exception, KubernetesActivity.Helm); } }
     }
     private void ClearObservability()
     {

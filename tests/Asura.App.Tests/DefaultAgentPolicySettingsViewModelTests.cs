@@ -21,7 +21,7 @@ public sealed class DefaultAgentPolicySettingsViewModelTests
         viewModel.QueuePersistence(onlyWhenMissing: false);
         await viewModel.QuiesceAsync();
 
-        Assert.Contains("disabled until you review", Assert.Single(errors), StringComparison.Ordinal);
+        Assert.Contains("agent capabilities are off", Assert.Single(errors), StringComparison.Ordinal);
         Assert.Equal(0, store.WriteCount);
         Assert.All(coordinator.Policy!.Permissions.Values, permission => Assert.Equal(AgentPermission.Off, permission));
     }
