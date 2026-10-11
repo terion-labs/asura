@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Asura.App.Controls"
     Width="560"
-    Height="330"
+    Height="390"
     CanResize="False">
   <controls:DialogShell
       x:Name="Shell"
@@ -28,7 +28,7 @@
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
           <TextBlock Classes="Muted" Text="Click here, then press the shortcut" TextAlignment="Center" />
           <TextBlock x:Name="RecordedShortcutText" FontSize="{DynamicResource ShellFontSize17}" FontWeight="SemiBold" Text="No keys recorded" TextAlignment="Center" TextWrapping="Wrap" />
-          <TextBlock x:Name="StrokeCountText" Classes="Eyebrow" Text="0 of 8 strokes" />
+          <TextBlock x:Name="StrokeCountText" Classes="Eyebrow" HorizontalAlignment="Center" Text="0 of 8 strokes" />
         </StackPanel>
       </controls:SurfaceCard>
       <TextBlock x:Name="RecorderStatusText" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Tab moves to the controls; Escape cancels." TextAlignment="Center" />
