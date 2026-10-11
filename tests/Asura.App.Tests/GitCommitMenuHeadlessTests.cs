@@ -70,32 +70,34 @@ public sealed class GitCommitMenuHeadlessTests
         Assert.Equal(2, panel.SelectedCommits.Count);
         menu.Close();
 
-        // Keyboard focus in the list rests on a row, not the list itself; the
-        // menu opens with the platform's own context-menu key.
-        var gesture = Assert.IsType<KeyGesture>(
-            Avalonia.Application.Current!.PlatformSettings!.HotkeyConfiguration.OpenContextMenu.First(), exactMatch: false);
-        void OpenFromKeyboard()
+        // Keyboard focus in the list rests on the current commit's row.
+        // Shift+F10 opens the menu on every platform; the Menu key, which is
+        // also Avalonia's own gesture, does the same.
+        void OpenFromKeyboard(Key key, RawInputModifiers modifiers)
         {
-            Assert.True(Assert.IsType<ListBoxItem>(history.ContainerFromItem(panel.Commits[0])).Focus());
-            window.KeyPress(gesture.Key, (RawInputModifiers)gesture.KeyModifiers, PhysicalKey.None, null);
-            window.KeyRelease(gesture.Key, (RawInputModifiers)gesture.KeyModifiers, PhysicalKey.None, null);
+            Assert.True(Assert.IsType<ListBoxItem>(history.ContainerFromItem(panel.SelectedCommit)).Focus());
+            window.KeyPress(key, modifiers, PhysicalKey.None, null);
+            window.KeyRelease(key, modifiers, PhysicalKey.None, null);
         }
 
-        panel.SelectedCommit = panel.Commits[0];
-        OpenFromKeyboard();
-        Assert.True(menu.IsOpen);
-        Assert.Same(panel.Commits[0], menu.DataContext);
-        Assert.Equal(2, panel.SelectedCommits.Count);
-        menu.Close();
+        foreach (var (key, modifiers) in new[] { (Key.F10, RawInputModifiers.Shift), (Key.Apps, RawInputModifiers.None) })
+        {
+            panel.SelectedCommit = panel.Commits[0];
+            OpenFromKeyboard(key, modifiers);
+            Assert.True(menu.IsOpen, $"{key}");
+            Assert.Same(panel.Commits[0], menu.DataContext);
+            Assert.Equal(2, panel.SelectedCommits.Count);
+            menu.Close();
 
-        // The current commit moves within the selection without collapsing it.
-        panel.SelectedCommit = panel.Commits[1];
-        Assert.Equal(2, history.SelectedItems!.Count);
-        OpenFromKeyboard();
-        Assert.True(menu.IsOpen);
-        Assert.Same(panel.Commits[1], menu.DataContext);
-        Assert.Equal(2, panel.SelectedCommits.Count);
-        menu.Close();
+            // The current commit moves within the selection without collapsing it.
+            panel.SelectedCommit = panel.Commits[1];
+            Assert.Equal(2, history.SelectedItems!.Count);
+            OpenFromKeyboard(key, modifiers);
+            Assert.True(menu.IsOpen, $"{key}");
+            Assert.Same(panel.Commits[1], menu.DataContext);
+            Assert.Equal(2, panel.SelectedCommits.Count);
+            menu.Close();
+        }
         return Task.CompletedTask;
     });
 

@@ -2,7 +2,7 @@ using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 
-namespace Asura.App.Tests;
+namespace Asura.HeadlessDispatch.Tests;
 
 /// <summary>
 /// <c>HeadlessUnitTestSession.Dispatch</c> awaits a dispatched body only when
@@ -10,11 +10,13 @@ namespace Asura.App.Tests;
 /// nothing binds to <c>Dispatch&lt;Task&gt;</c>, which hands the body's task
 /// back unawaited: the test passes while nothing after the body's first
 /// await runs, and a failing assertion there is never seen.
+/// Every test project that uses Avalonia.Headless links this file and so
+/// checks its own assembly; an architecture test keeps that true.
 /// </summary>
 public sealed class HeadlessDispatchContractTests
 {
     [Fact]
-    public void No_dispatched_test_body_returns_an_unawaited_task()
+    public void NoDispatchedTestBodyReturnsAnUnawaitedTask()
     {
         using var stream = File.OpenRead(typeof(HeadlessDispatchContractTests).Assembly.Location);
         using var portableExecutable = new PEReader(stream);

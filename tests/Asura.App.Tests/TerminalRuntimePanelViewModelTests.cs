@@ -1173,6 +1173,8 @@ public sealed class TerminalRuntimePanelViewModelTests
                     button => Equals(button.Content, "Proceed Without Continuity"));
                 Assert.True(button.IsEffectivelyVisible);
 
+                // Only a request issued by the click counts.
+                issued = null;
                 button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await panel.Initialization;
                 Dispatcher.UIThread.RunJobs();
@@ -1181,6 +1183,11 @@ public sealed class TerminalRuntimePanelViewModelTests
                 Assert.Null(runtime.RequestedMultiplexers[1]);
                 Assert.False(button.IsEffectivelyVisible);
                 Assert.NotNull(issued);
+                if (!embedded)
+                {
+                    // Without a surface the request stays pending for one.
+                    Assert.Same(issued, panel.SessionRequest);
+                }
             }
             finally
             {

@@ -18,6 +18,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\HeadlessDispatchContractTests.cs"
+             Link="Shared\HeadlessDispatchContractTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Asura.App\Asura.App.csproj" />
     <ProjectReference Include="..\..\src\Asura.Databases\Asura.Databases.csproj" />
     <ProjectReference Include="..\..\src\Asura.Infrastructure\Asura.Infrastructure.csproj" />

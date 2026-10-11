@@ -24,6 +24,7 @@ public sealed partial class GitRuntimePanelView : UserControl
         // popup in the bubble phase, including keyboard context gestures.
         CommitHistory.AddHandler(ContextRequestedEvent, OnHistoryContextRequested,
             RoutingStrategies.Tunnel);
+        CommitHistory.KeyDown += OnHistoryKeyDown;
         DataContextChanged += OnDataContextChanged;
         GitSidebar.PropertyChanged += OnSidebarPropertyChanged;
         EnableRefTypeSelect();
