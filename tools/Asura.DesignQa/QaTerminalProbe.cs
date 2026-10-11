@@ -117,6 +117,13 @@ internal static class QaTerminalProbe
     /// <summary>
     /// Answers the surface's find requests with a fixed three matches and
     /// accepts everything else without effect; nothing reaches a shell.
+    ///
+    /// The capture shows the find bar and its count, not highlighted matches.
+    /// A find result carries a count and the selected index only — no ranges
+    /// — and the overlay draws no highlight of its own: in a live terminal
+    /// the session marks the selected match in the screen it sends. With no
+    /// session there is nothing to mark, so a probe that returned ranges
+    /// would have nothing to hand them to.
     /// </summary>
     private sealed class QaTerminalInputSink : IManagedTerminalInputSink
     {

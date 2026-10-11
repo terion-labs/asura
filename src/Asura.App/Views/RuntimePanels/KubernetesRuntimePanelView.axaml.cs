@@ -3,6 +3,7 @@ using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
@@ -278,12 +279,29 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
         ManifestModeSegments.SelectedIndex = ManifestReviewMode;
     }
 
-    private async void OnFollowLogsClick(object? sender, RoutedEventArgs e)
+    /// <summary>
+    /// Follow is one switch: pressed, new lines stream in; released, they
+    /// stop. The switch shows the panel's state afterwards, so a follow that
+    /// could not start does not stay pressed.
+    /// </summary>
+    private async void OnFollowLogsToggled(object? sender, RoutedEventArgs e)
     {
-        if (_observed is { } model) { await model.FollowLogsAsync(); }
-    }
+        if (_observed is not { } model) { return; }
+        // SetCurrentValue keeps the IsChecked binding to FollowingLogs; a
+        // plain assignment would replace it after the first click.
+        if (model.FollowingLogs) { model.StopFollowingLogs(); }
+        else
+        {
+            var follow = model.FollowLogsAsync();
+            FollowLogsToggle.SetCurrentValue(ToggleButton.IsCheckedProperty, model.FollowingLogs);
+            await follow;
+        }
 
-    private void OnPauseLogsClick(object? sender, RoutedEventArgs e) => _observed?.StopFollowingLogs();
+        if (ReferenceEquals(_observed, model))
+        {
+            FollowLogsToggle.SetCurrentValue(ToggleButton.IsCheckedProperty, model.FollowingLogs);
+        }
+    }
 
     private async void OnLoadMetricHistoryClick(object? sender, RoutedEventArgs e) { if (_observed is { } model) { await model.LoadMetricHistoryAsync(); } }
     private async void OnLoadMetricsClick(object? sender, RoutedEventArgs e) { if (_observed is { } model) { await model.LoadMetricsAsync(); } }

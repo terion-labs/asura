@@ -34,8 +34,34 @@ public sealed partial class BrowserRuntimePanelView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         _historyPanel?.HideHistory();
+        _historyPanel?.PropertyChanged -= OnPanelPropertyChanged;
+
         _historyPanel = DataContext as BrowserRuntimePanelViewModel;
+        _historyPanel?.PropertyChanged += OnPanelPropertyChanged;
+
+        ShowRouteState();
         base.OnDataContextChanged(e);
+    }
+
+    private void OnPanelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        _ = sender;
+        if (e.PropertyName is null or nameof(BrowserRuntimePanelViewModel.HasRouteError))
+        {
+            ShowRouteState();
+        }
+    }
+
+    /// <summary>
+    /// A browser that couldn't start is "Unavailable" in the footer and the
+    /// status mark, not "Waiting" for a start that won't come.
+    /// </summary>
+    private void ShowRouteState()
+    {
+        if (_historyPanel is { HasRouteError: true })
+        {
+            RuntimeBrowser.ShowUnavailable();
+        }
     }
 
     public event EventHandler<KeyEventArgs>? AddressKeyDown;
@@ -248,7 +274,22 @@ public sealed partial class BrowserRuntimePanelView : UserControl
     private void OnReloadClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
+        // A browser that couldn't start has no page to reload: Reload is
+        // how it tries again.
+        if (DataContext is BrowserRuntimePanelViewModel { HasRouteError: true })
+        {
+            OnRetryBrowserClick(sender, e);
+            return;
+        }
+
         ReloadRequested?.Invoke(RuntimeBrowser, e);
+    }
+
+    private void OnRetryBrowserClick(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        e.Handled = true;
+        (DataContext as BrowserRuntimePanelViewModel)?.TryAgain();
     }
 
     private void OnStopClick(object? sender, RoutedEventArgs e)

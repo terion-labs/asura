@@ -1,4 +1,4 @@
-using System.Globalization;
+using Asura.App.Controls;
 using Asura.Application;
 
 namespace Asura.App.ViewModels;
@@ -60,24 +60,26 @@ public sealed partial class KubernetesRuntimePanelViewModel
 }
 
 /// <summary>
-/// One container's series over the past hour. Memory is charted in megabytes
-/// and its scale is written by the application's one size formatter.
+/// One container's series over the past hour, in the unit its chart writes:
+/// cores for CPU and bytes for memory. The caption above the chart, the
+/// chart's own ceiling label and its hover readout come from one formatter, so
+/// they never disagree on unit or precision.
 /// </summary>
-public sealed record KubernetesHistoryRow(string Container, IReadOnlyList<double?> Values, double Maximum, string Unit)
+public sealed record KubernetesHistoryRow(string Container, IReadOnlyList<double?> Values, double Maximum, TimeSeriesUnit Unit)
 {
-    private const double BytesPerMegabyte = 1024 * 1024;
+    public string Scale => $"0–{TimeSeriesChart.Format(Maximum, Unit)}";
 
-    public string Scale => string.Equals(Unit, MemoryUnit, StringComparison.Ordinal)
-        ? $"0–{ByteSize.Format((long)Math.Min(Math.Round(Maximum * BytesPerMegabyte), long.MaxValue))}"
-        : $"0–{Maximum.ToString("0.###", CultureInfo.InvariantCulture)} {Unit}";
+    /// <summary>What assistive technology names the chart: the container and the metric.</summary>
+    public string AccessibleName => Unit == TimeSeriesUnit.Bytes
+        ? $"Memory history of container {Container} over the past hour"
+        : $"CPU history of container {Container} over the past hour";
 
-    internal const string MemoryUnit = "MB";
     public static KubernetesHistoryRow Create(KubernetesMetricSeries series, DateTimeOffset start, KubernetesHistoryMetric metric)
     {
         var byTime = series.Samples.GroupBy(item => item.Timestamp.ToUnixTimeSeconds()).ToDictionary(group => group.Key, group => group.Last().Value);
         var values = Enumerable.Range(0, 61).Select(index => byTime.GetValueOrDefault(start.AddMinutes(index).ToUnixTimeSeconds())).ToArray();
-        if (metric == KubernetesHistoryMetric.MemoryBytes) { values = [.. values.Select(value => value / BytesPerMegabyte)]; }
-        var maximum = Math.Max(0.001, values.OfType<double>().DefaultIfEmpty(1).Max() * 1.1);
-        return new(series.Container, values, maximum, metric == KubernetesHistoryMetric.MemoryBytes ? MemoryUnit : "cores");
+        var unit = metric == KubernetesHistoryMetric.MemoryBytes ? TimeSeriesUnit.Bytes : TimeSeriesUnit.Cores;
+        var peak = values.OfType<double>().DefaultIfEmpty(0).Max();
+        return new(series.Container, values, TimeSeriesChart.NiceCeiling(peak), unit);
     }
 }

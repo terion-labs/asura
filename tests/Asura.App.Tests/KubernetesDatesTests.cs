@@ -1,4 +1,5 @@
 using System.Globalization;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Application;
 
@@ -83,8 +84,12 @@ public sealed class KubernetesDatesTests
         var cpu = KubernetesHistoryRow.Create(
             new("app", [new(start, 0.5d)]), start, KubernetesHistoryMetric.CpuCores);
 
-        Assert.Equal("0–590.6 MB", memory.Scale);
-        Assert.Equal("0–0.55 cores", cpu.Scale);
+        // The caption and the chart's own ceiling label are one formatter's
+        // output, at the chart's round-number ceiling.
+        Assert.Equal("0–1 GB", memory.Scale);
+        Assert.Equal("0–1 core", cpu.Scale);
+        Assert.Equal($"0–{TimeSeriesChart.Format(cpu.Maximum, TimeSeriesUnit.Cores)}", cpu.Scale);
+        Assert.Equal("CPU history of container app over the past hour", cpu.AccessibleName);
     }
 
     [Fact]

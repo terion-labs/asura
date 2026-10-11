@@ -55,6 +55,11 @@
           SizeChanged="OnBrowserHeaderSizeChanged"
           ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto">
         <Grid.Styles>
+          <!-- While the address field isn't being edited, its text is drawn
+               by a label that ends in an ellipsis; a text box can only cut. -->
+          <Style Selector="TextBox.BrowserAddress:not(:focus-within) /template/ TextPresenter#PART_TextPresenter">
+            <Setter Property="Opacity" Value="0" />
+          </Style>
           <Style Selector="Grid#BrowserHeader">
             <Setter Property="ColumnSpacing" Value="{DynamicResource ShellSpaceXs}" />
           </Style>
@@ -82,8 +87,11 @@
           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize13}" Symbol="ArrowRight" />
         </Button>
         <Grid Grid.Column="2">
+          <!-- A long address ends in an ellipsis rather than being cut
+               through a character at the field's edge. -->
           <TextBox
               x:Name="AddressBox"
+              Classes="BrowserAddress"
               VerticalAlignment="Center"
               AutomationProperties.Name="Browser address"
               FontSize="{DynamicResource ShellFontSize10}"
@@ -94,6 +102,18 @@
               PlaceholderText="about:blank"
               TextChanged="OnAddressTextChanged"
               Text="{Binding AddressText, ElementName=RuntimeBrowser, Mode=TwoWay}" />
+          <Border
+              Margin="{Binding #AddressBox.BorderThickness}"
+              IsHitTestVisible="False"
+              IsVisible="{Binding !#AddressBox.IsKeyboardFocusWithin}">
+            <TextBlock
+                x:Name="AddressDisplay"
+                Margin="{Binding #AddressBox.Padding}"
+                VerticalAlignment="Center"
+                FontSize="{DynamicResource ShellFontSize10}"
+                Text="{Binding AddressText, ElementName=RuntimeBrowser}"
+                TextTrimming="CharacterEllipsis" />
+          </Border>
           <!-- Keep changing suggestions in the window compositor, avoiding native popup
                window resizing as the result count changes. -->
           <Popup
@@ -155,14 +175,21 @@
             </Border>
           </Popup>
         </Grid>
+        <!-- Reload is live with the page, and also when the browser couldn't
+             start: then reloading is the way to try again. -->
         <Button
             Grid.Column="3"
             AutomationProperties.Name="Reload page"
             Classes="IconButton"
             Click="OnReloadClick"
-            IsEnabled="{Binding IsLive, ElementName=RuntimeBrowser}"
             IsVisible="{Binding !IsLoading, ElementName=RuntimeBrowser}"
             ToolTip.Tip="Reload">
+          <Button.IsEnabled>
+            <MultiBinding Converter="{x:Static BoolConverters.Or}">
+              <Binding Path="IsLive" ElementName="RuntimeBrowser" />
+              <Binding Path="HasRouteError" />
+            </MultiBinding>
+          </Button.IsEnabled>
           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize13}" Symbol="ArrowClockwise" />
         </Button>
         <Button
@@ -216,6 +243,11 @@
          remain visible without taking width from the address editor. -->
     <controls:PanelChrome.Footer>
       <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <!-- One status at a time. The page's state and its message while the
+             page is up; while the start-up card is showing, the card carries
+             the message and the footer only the state, so "Waiting" isn't
+             said twice; and a browser that couldn't start is "Unavailable",
+             never "Waiting". -->
         <controls:LiveRegionTextBlock
             VerticalAlignment="Center"
             AutomationProperties.LiveSetting="Polite"
@@ -229,6 +261,7 @@
             VerticalAlignment="Center"
             Classes="Muted"
             FontSize="{DynamicResource ShellSecondaryFontSize}"
+            IsVisible="{Binding !ShowFallback, ElementName=RuntimeBrowser}"
             Text="{Binding StatusMessage, ElementName=RuntimeBrowser}"
             TextTrimming="CharacterEllipsis" />
         <TextBlock
@@ -263,11 +296,15 @@
           Margin="{DynamicResource ShellHairline}"
           Background="{DynamicResource ShellSurfaceBrush}"
           IsVisible="{Binding HasRouteError}">
+        <!-- The card's action is the suggested one; Reload in the header
+             does the same while the card is up. -->
         <controls:StateOverlay
             Kind="TerminalError"
             Glyph="ErrorCircle"
             Heading="Browser unavailable"
-            Body="Check the connection settings and reload to try again." />
+            Body="{Binding RouteErrorMessage}"
+            ActionLabel="Try Again"
+            ActionRequested="OnRetryBrowserClick" />
       </Border>
 
       <Border

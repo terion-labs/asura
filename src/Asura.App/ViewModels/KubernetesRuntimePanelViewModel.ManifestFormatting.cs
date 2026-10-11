@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace Asura.App.ViewModels;
@@ -39,7 +40,13 @@ public sealed partial class KubernetesRuntimePanelViewModel
         {
             using var document = JsonDocument.Parse(source);
             var output = new ManifestFormattingBuffer();
-            using (var writer = new Utf8JsonWriter(output, new JsonWriterOptions { Indented = true }))
+            using (var writer = new Utf8JsonWriter(output, new JsonWriterOptions
+            {
+                Indented = true,
+                // The manifest is shown, not embedded in HTML: "+", quotes and
+                // non-ASCII text stay as written instead of \u escapes.
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            }))
             {
                 document.RootElement.WriteTo(writer);
             }

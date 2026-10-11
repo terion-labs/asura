@@ -29,6 +29,10 @@ public sealed class MonitorPanelHigConformanceTests
     [InlineData(5.5d, TimeSeriesUnit.Percent, "5.5%")]
     [InlineData(2147483648d, TimeSeriesUnit.Bytes, "2.1 GB")]
     [InlineData(512d, TimeSeriesUnit.BytesPerSecond, "512 B/s")]
+    [InlineData(0.25d, TimeSeriesUnit.Cores, "0.25 cores")]
+    [InlineData(0.12345d, TimeSeriesUnit.Cores, "0.123 cores")]
+    [InlineData(1d, TimeSeriesUnit.Cores, "1 core")]
+    [InlineData(2d, TimeSeriesUnit.Cores, "2 cores")]
     public void Chart_values_are_written_with_their_unit(double value, TimeSeriesUnit unit, string expected)
     {
         Assert.Equal(expected, TimeSeriesChart.Format(value, unit));
@@ -40,6 +44,8 @@ public sealed class MonitorPanelHigConformanceTests
     [InlineData(300d, 500d)]
     [InlineData(37d, 50d)]
     [InlineData(0d, 1d)]
+    [InlineData(0.5d, 1d)]
+    [InlineData(0.15d, 0.2d)]
     public void An_automatic_scale_tops_out_at_a_round_number(double peak, double expected)
     {
         Assert.Equal(expected, TimeSeriesChart.NiceCeiling(peak));

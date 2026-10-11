@@ -39,6 +39,19 @@ public sealed class DockerLogDatesTests
         Assert.EndsWith(local.ToString("tt", english), shown, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void A_whole_second_shows_no_empty_fraction()
+    {
+        using var culture = new CultureScope("de-DE");
+        var german = CultureInfo.GetCultureInfo("de-DE");
+        var moment = new DateTimeOffset(2026, 10, 7, 12, 34, 56, TimeSpan.Zero);
+
+        var shown = Row("2026-10-07T12:34:56Z").DisplayTimestamp;
+
+        Assert.Equal(moment.ToLocalTime().ToString("T", german), shown);
+        Assert.DoesNotContain(",000", shown, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("2026-10-07T12:34:56Z", 0)]
     [InlineData("2026-10-07T14:34:56.5+02:00", 5_000_000)]

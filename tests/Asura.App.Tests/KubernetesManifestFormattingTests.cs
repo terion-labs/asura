@@ -92,15 +92,11 @@ public sealed class KubernetesManifestFormattingTests
         Assert.False(panel.HasUnsavedChanges);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task FormattingExpansionPreservesCompleteManifestPreviewAndApply(bool escaping)
+    [Fact]
+    public async Task FormattingExpansionPreservesCompleteManifestPreviewAndApply()
     {
-        string compact = escaping
-            ? "{\"kind\":\"Pod\",\"metadata\":{\"annotations\":{\"message\":\"" + new string('\u00e9', 1500000) + "\"}}}"
-            : "{\"kind\":\"Pod\",\"spec\":{\"payload\":" + new string('[', 61)
-                + string.Join(',', Enumerable.Repeat("0", 70000)) + new string(']', 61) + "}}";
+        string compact = "{\"kind\":\"Pod\",\"spec\":{\"payload\":" + new string('[', 61)
+            + string.Join(',', Enumerable.Repeat("0", 70000)) + new string(']', 61) + "}}";
         var session = new KubernetesUiSession { ListedResource = KubernetesUiSession.Pod with { Json = compact }, AllowPatching = true };
         using var panel = Create(session);
         await SelectFirstAsync(panel);
@@ -118,6 +114,23 @@ public sealed class KubernetesManifestFormattingTests
         Assert.Equal(draft, session.Mutations[^1].Json);
         Assert.Equal(draft, panel.ManifestDraft);
         Assert.False(panel.HasUnsavedChanges);
+    }
+
+    /// <summary>
+    /// Text outside ASCII is written as it is, not as \u escapes, so a large
+    /// non-ASCII annotation no longer grows past the display budget.
+    /// </summary>
+    [Fact]
+    public async Task NonAsciiTextIsWrittenAsIsWithoutEscapingExpansion()
+    {
+        string text = new('\u00e9', 1500000);
+        string compact = "{\"kind\":\"Pod\",\"metadata\":{\"annotations\":{\"message\":\"" + text + "\"}}}";
+        var session = new KubernetesUiSession { ListedResource = KubernetesUiSession.Pod with { Json = compact }, AllowPatching = true };
+        using var panel = Create(session);
+        await SelectFirstAsync(panel);
+
+        Assert.Contains(text, panel.FormattedManifest, StringComparison.Ordinal);
+        Assert.DoesNotContain("\\u00E9", panel.FormattedManifest, StringComparison.Ordinal);
     }
 
     private static async Task SelectFirstAsync(KubernetesRuntimePanelViewModel panel)

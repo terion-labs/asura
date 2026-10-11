@@ -170,6 +170,53 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
 
     public bool HasRouteError => RouteErrorMessage is not null;
 
+    /// <summary>
+    /// Starts the browser again after it couldn't start: the suggested action
+    /// on the unavailable card. Nothing happens while a start is under way or
+    /// once the browser is running.
+    /// </summary>
+    public Task RetryInitialization()
+    {
+        lock (_initializationGate)
+        {
+            if (_disposed || !HasRouteError || !_initialization.IsCompleted)
+            {
+                return _initialization;
+            }
+
+            _initializationStarted = false;
+        }
+
+        RouteErrorMessage = null;
+        return StartInitialization();
+    }
+
+    /// <summary>
+    /// The card's Try Again and the header's Reload while the browser
+    /// couldn't start. A second failure is already on the card and in
+    /// diagnostics, so nothing is left to observe here.
+    /// </summary>
+    public void TryAgain() => _ = ObserveRetryAsync(RetryInitialization());
+
+    private static async Task ObserveRetryAsync(Task retry)
+    {
+        try
+        {
+            await retry.ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            // Reported by InitializeAsync on the card and in diagnostics.
+        }
+    }
+
+    /// <summary>Why the browser couldn't start, with what to do next.</summary>
+    internal static string RouteFailureMessage(Exception exception) => exception switch
+    {
+        TimeoutException => "The browser didn’t start in time. Try again, or choose another connection from the connection menu.",
+        _ => "Asura couldn’t start the browser on this connection. Try again, or choose another connection from the connection menu.",
+    };
+
     internal bool HasInteractiveAttachment =>
         RendererView?.Attachment?.Matches(
             SessionClient,
@@ -503,7 +550,10 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (Exception exception)
         {
-            RouteErrorMessage = exception.Message;
+            // The renderer's own text goes to diagnostics; the panel says what
+            // happened and what to do about it.
+            SecretSafeDiagnostics.WriteTrace("browser.renderer-route.failed", exception);
+            RouteErrorMessage = RouteFailureMessage(exception);
             throw;
         }
     }

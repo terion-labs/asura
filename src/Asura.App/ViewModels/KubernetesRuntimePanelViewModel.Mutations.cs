@@ -79,7 +79,8 @@ public sealed partial class KubernetesRuntimePanelViewModel
 
     private void PublishMutationState()
     {
-        OnPropertyChanged(nameof(HasNodeMaintenance)); OnPropertyChanged(nameof(CanConfirmNode)); OnPropertyChanged(nameof(CanConfirmHelm));
+        OnPropertyChanged(nameof(HasNodeMaintenance)); OnPropertyChanged(nameof(CanConfirmHelm));
+        PublishNodeState();
         PublishOperationState();
         OnPropertyChanged(nameof(HasMutationPreview));
         OnPropertyChanged(nameof(FormattedManifest)); OnPropertyChanged(nameof(ManifestGrammarExtension));

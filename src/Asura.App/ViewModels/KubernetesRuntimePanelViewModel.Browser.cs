@@ -44,7 +44,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
         set { if (SetProperty(ref _navigationFilter, value ?? string.Empty)) { ApplyNavigationFilter(); } }
     }
     public bool IsHelmNavigationVisible => HasHelm && (NavigationFilter.Trim() is not { Length: > 0 } filter
-        || "Helm releases".Contains(filter, StringComparison.OrdinalIgnoreCase));
+        || "Helm Releases".Contains(filter, StringComparison.OrdinalIgnoreCase));
     public bool HasNavigationMatches => IsHelmNavigationVisible || NavigationGroups.Any(group => group.HasVisibleItems);
     public bool IsPodTable => SelectedKind is { Group: "", Resource: "pods" };
     public bool IsNodeTable => SelectedKind is { Group: "", Resource: "nodes" };
@@ -52,10 +52,10 @@ public sealed partial class KubernetesRuntimePanelViewModel
     public bool IsNamespaceScopeVisible => SelectedKind?.Namespaced == true;
     public string ResourceTitle => SelectedKind is { } kind ? KubernetesResourceNames.Title(kind) : "Resources";
     public string ResourceCountLabel => Filter.Length > 0
-        ? string.Create(CultureInfo.CurrentCulture, $"{Resources.Count:N0} of {CountText.Of(_allResources.Count, "item", "items")}")
+        ? string.Create(CultureInfo.CurrentCulture, $"{Resources.Count:N0} of {CountText.Of(_allResources.Count, "resource", "resources")}")
         : HasMore
-            ? string.Create(CultureInfo.CurrentCulture, $"{Resources.Count:N0}+ items")
-            : CountText.OrNone(Resources.Count, "item", "items");
+            ? string.Create(CultureInfo.CurrentCulture, $"{Resources.Count:N0}+ resources")
+            : CountText.OrNone(Resources.Count, "resource", "resources");
     public string LabelSelector { get => _labelSelector; set { if (SetProperty(ref _labelSelector, value)) { OnPropertyChanged(nameof(Target)); } } }
     public string NamespaceSelection
     {

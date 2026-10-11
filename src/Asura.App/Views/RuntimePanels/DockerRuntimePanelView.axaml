@@ -93,15 +93,24 @@
     <Style Selector="ListBox.DockerLogs ListBoxItem:selected">
       <Setter Property="Background" Value="Transparent" />
     </Style>
-    <!-- A match is the find highlight — the yellow wash the host's find bars
-         draw — not the accent, which belongs to what is selected or pressed. -->
+    <!-- A match is the find highlight — the system's yellow find wash with
+         black text — not the accent, which belongs to what is selected or
+         pressed. The pale warning tint it used was about 1.2:1 against the
+         log; the yellow and its outline stand at least 3:1 off the log in
+         either appearance, and black text on it reads above 10:1. -->
     <Style Selector="Border.DockerLogMessageSegment.match">
-      <Setter Property="Background" Value="{DynamicResource ShellWarningSoftBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ShellFindHighlightBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellFindHighlightBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="2" />
     </Style>
     <Style Selector="Border.DockerLogMessageSegment.match TextBlock">
-      <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
-      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellFindHighlightForegroundBrush}" />
+    </Style>
+    <!-- The lines a search shows around each match step back to secondary
+         text, so the matching lines lead. -->
+    <Style Selector="Grid.DockerLogLine.context TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
     </Style>
     <Style Selector="Button.DockerResourceRow">
       <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -113,14 +122,30 @@
       <Setter Property="Margin" Value="{controls:Inset Horizontal=Sm}" />
       <Setter Property="AutomationProperties.ItemStatus" Value="" />
     </Style>
+    <!-- Container rows are grouped under their stacks, so they are buttons
+         rather than one list box; they draw selection exactly as the list box
+         beside them does for images, volumes and networks: the hover wash,
+         the unemphasized gray while the list is not being worked in, and the
+         accent fill with accent-foreground text while it has focus. A soft
+         accent tint here made two selection styles in one panel. -->
     <Style Selector="Button.DockerResourceRow:pointerover">
-      <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ShellSidebarSelectionBrush}" />
     </Style>
     <!-- The same style that draws the selection says it, so a screen reader
          hears which container is selected as well as seeing it. -->
     <Style Selector="Button.DockerResourceRow.selected">
-      <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ShellUnemphasizedSelectionBrush}" />
       <Setter Property="AutomationProperties.ItemStatus" Value="Selected" />
+    </Style>
+    <Style Selector="ItemsControl#ContainerStackList:focus-within Button.DockerResourceRow.selected">
+      <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    </Style>
+    <Style Selector="ItemsControl#ContainerStackList:focus-within Button.DockerResourceRow.selected TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    </Style>
+    <Style Selector="ItemsControl#ContainerStackList:focus-within Button.DockerResourceRow.selected icons|SymbolIcon">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
     </Style>
     <Style Selector="controls|ListItem.DockerResourceListItem">
       <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -336,7 +361,7 @@
 
       <Grid Grid.Column="1" Classes="DockerResourceColumn" RowDefinitions="Auto,*">
         <Grid Margin="{controls:Inset Horizontal=Md, Vertical=Sm}" ColumnDefinitions="*,Auto">
-          <StackPanel Classes="DockerSectionHeading">
+          <StackPanel Classes="DockerSectionHeading" Spacing="{DynamicResource ShellSpaceXs}">
             <TextBlock Classes="Headline" Text="{Binding Section}" />
             <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" LineHeight="{DynamicResource ShellLineHeight11}" Text="{Binding ResourceSummary}" />
           </StackPanel>
@@ -382,7 +407,7 @@
                         <Button Grid.Column="0" Classes="IconButton DockerStackToggle" Click="OnToggleStackClick" ToolTip.Tip="{Binding ToggleLabel}" AutomationProperties.Name="{Binding ToggleLabel}">
                           <icons:SymbolIcon Symbol="{Binding ExpandIcon}" FontSize="{DynamicResource ShellIconSizeXs}" />
                         </Button>
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
                           <TextBlock Classes="Headline MiddleTruncated" Text="{Binding Name}" />
                           <TextBlock Classes="Muted DockerStackSummary" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Summary}" />
                         </StackPanel>
@@ -530,41 +555,43 @@
         <Grid Grid.Row="1">
           <ScrollViewer Margin="{controls:Inset Lg}" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsInfoDetail}">
             <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-              <StackPanel IsVisible="{Binding HasSelection}">
+              <StackPanel IsVisible="{Binding HasSelection}" Spacing="{DynamicResource ShellSpaceXs}">
                 <TextBlock Classes="Title2" Text="{Binding SelectedResource.Title}" TextWrapping="Wrap" />
                 <TextBlock Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding SelectedResource.Resource.Id}" />
               </StackPanel>
               <!-- A container's usage leads its info: four figures are not a
                    view of their own, and a sixth segment would be one more
-                   than a segmented control holds. -->
-              <controls:CardGridPanel MinItemWidth="160" MaxColumns="4" Spacing="{DynamicResource ShellSpaceMd}" IsVisible="{Binding SelectedResource.IsContainer}">
+                   than a segmented control holds. The four cards sit two by
+                   two (one column when narrow), so they never wrap three and
+                   one. -->
+              <controls:CardGridPanel MinItemWidth="160" MaxColumns="2" Spacing="{DynamicResource ShellSpaceMd}" IsVisible="{Binding SelectedResource.IsContainer}">
                 <controls:SurfaceCard Padding="{controls:Inset Md}">
                   <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                     <TextBlock Classes="Eyebrow" Text="CPU" />
-                    <TextBlock FontSize="{DynamicResource ShellFontSize16}" FontWeight="SemiBold" LineHeight="{DynamicResource ShellLineHeight16}" Text="{Binding SelectedResource.Container.Cpu}" TextWrapping="Wrap" />
+                    <TextBlock FontSize="{DynamicResource ShellFontSize16}" FontWeight="SemiBold" LineHeight="{DynamicResource ShellLineHeight16}" Text="{Binding SelectedResource.CpuText}" TextWrapping="Wrap" />
                   </StackPanel>
                 </controls:SurfaceCard>
                 <controls:SurfaceCard Padding="{controls:Inset Md}">
                   <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                     <TextBlock Classes="Eyebrow" Text="Memory" />
-                    <TextBlock FontSize="{DynamicResource ShellFontSize16}" FontWeight="SemiBold" LineHeight="{DynamicResource ShellLineHeight16}" Text="{Binding SelectedResource.Container.Memory}" TextWrapping="Wrap" />
+                    <TextBlock FontSize="{DynamicResource ShellFontSize16}" FontWeight="SemiBold" LineHeight="{DynamicResource ShellLineHeight16}" Text="{Binding SelectedResource.MemoryText}" TextWrapping="Wrap" />
                   </StackPanel>
                 </controls:SurfaceCard>
                 <controls:SurfaceCard Padding="{controls:Inset Md}">
                   <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                     <TextBlock Classes="Eyebrow" Text="Network I/O" />
-                    <TextBlock FontSize="{DynamicResource ShellFontSize16}" FontWeight="SemiBold" LineHeight="{DynamicResource ShellLineHeight16}" Text="{Binding SelectedResource.Container.NetworkIo}" TextWrapping="Wrap" />
+                    <TextBlock FontSize="{DynamicResource ShellFontSize16}" FontWeight="SemiBold" LineHeight="{DynamicResource ShellLineHeight16}" Text="{Binding SelectedResource.NetworkIoText}" TextWrapping="Wrap" />
                   </StackPanel>
                 </controls:SurfaceCard>
                 <controls:SurfaceCard Padding="{controls:Inset Md}">
                   <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                     <TextBlock Classes="Eyebrow" Text="Block I/O" />
-                    <TextBlock FontSize="{DynamicResource ShellFontSize16}" FontWeight="SemiBold" LineHeight="{DynamicResource ShellLineHeight16}" Text="{Binding SelectedResource.Container.BlockIo}" TextWrapping="Wrap" />
+                    <TextBlock FontSize="{DynamicResource ShellFontSize16}" FontWeight="SemiBold" LineHeight="{DynamicResource ShellLineHeight16}" Text="{Binding SelectedResource.BlockIoText}" TextWrapping="Wrap" />
                   </StackPanel>
                 </controls:SurfaceCard>
               </controls:CardGridPanel>
               <controls:SurfaceCard Padding="0" IsVisible="{Binding HasInspection}">
-                <ItemsControl Classes="StretchItems" ItemsSource="{Binding Inspection.Properties}">
+                <ItemsControl Classes="StretchItems" ItemsSource="{Binding InspectionRows}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
                       <Grid MinHeight="38" Margin="{controls:Inset Horizontal=Md}" ColumnDefinitions="120,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
@@ -588,9 +615,9 @@
                     MinWidth="180"
                     Text="{Binding LogSearchText, Mode=TwoWay}"
                     KeyDown="OnLogSearchKeyDown"
-                    PlaceholderText="Search all container logs"
-                    ToolTip.Tip="Press Return to search this container's logs on the Docker host"
-                    AutomationProperties.Name="Search all container logs" />
+                    PlaceholderText="Search this container’s logs"
+                    ToolTip.Tip="Search this container’s logs on the Docker host. Press Return to search."
+                    AutomationProperties.Name="Search this container’s logs" />
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}" VerticalAlignment="Center">
                   <TextBlock Classes="Muted" Text="Context" VerticalAlignment="Center" />
                   <NumericUpDown
@@ -632,6 +659,7 @@
               <ListBox
                   x:Name="LogList"
                   Classes="DockerLogs OwnSelection"
+                  Grid.IsSharedSizeScope="True"
                   ItemsSource="{Binding LogRows}"
                   SelectionMode="Single"
                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -645,7 +673,13 @@
                   <DataTemplate>
                     <Grid RowDefinitions="Auto,Auto">
                       <Border Height="1" Margin="{controls:Inset Vertical=Sm}" Background="{DynamicResource ShellBorderBrush}" IsVisible="{Binding StartsContextBlock}" />
-                      <Grid Grid.Row="1" MinHeight="22" Margin="{controls:Inset Horizontal=Md, Vertical=Xs}" ColumnDefinitions="150,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                      <!-- The time column is as wide as the widest time on
+                           screen, shared across rows so messages line up. -->
+                      <Grid Grid.Row="1" Classes="DockerLogLine" Classes.context="{Binding IsContextLine}" MinHeight="22" Margin="{controls:Inset Horizontal=Md, Vertical=Xs}" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="Auto" SharedSizeGroup="DockerLogTime" />
+                          <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
                         <TextBlock
                             Classes="Muted"
                             FontFamily="{DynamicResource ShellDataFontFamily}"
@@ -702,16 +736,30 @@
                 </DataTemplate>
               </ContentControl.ContentTemplate>
             </ContentControl>
+            <!-- One state at a time, centred: progress while the shell is
+                 found and opened, a failure with Retry only when it failed,
+                 and a plain note when the container isn't running. -->
             <controls:StateOverlay
-                Kind="Retry"
+                Kind="Loading"
                 Heading="{Binding ShellStateTitle}"
                 Body="{Binding ShellStateMessage}"
-                IsVisible="{Binding !HasInlineShell}">
-              <StackPanel HorizontalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
-                <ProgressBar Width="180" IsIndeterminate="True" IsVisible="{Binding IsResolvingShell}" />
-                <Button HorizontalAlignment="Center" Classes="SecondaryButton" Click="OnOpenInlineShellClick" Content="Retry" IsVisible="{Binding CanRetryShell}" />
-              </StackPanel>
-            </controls:StateOverlay>
+                IsVisible="{Binding ShowShellProgress}"
+                AutomationProperties.LiveSetting="Polite" />
+            <controls:StateOverlay
+                Kind="Retry"
+                Glyph="ErrorCircle"
+                Heading="{Binding ShellStateTitle}"
+                Body="{Binding ShellStateMessage}"
+                ActionLabel="Retry"
+                ActionRequested="OnOpenInlineShellClick"
+                IsVisible="{Binding ShowShellFailure}"
+                AutomationProperties.LiveSetting="Assertive" />
+            <controls:StateOverlay
+                Kind="Empty"
+                Glyph="WindowConsole"
+                Heading="{Binding ShellStateTitle}"
+                Body="{Binding ShellStateMessage}"
+                IsVisible="{Binding ShowShellIdle}" />
           </Grid>
 
           <ContentControl Content="{Binding FileBrowser}" IsVisible="{Binding IsFilesDetail}">

@@ -988,13 +988,20 @@ public sealed class BrowserPresentationHost : ContentControl
         UpdateAutomationStatus();
     }
 
-    private void SetFailureState(string message)
+    /// <summary>
+    /// The panel couldn't start its browser: no page will load until it
+    /// tries again, so the state is "Unavailable" rather than "Waiting".
+    /// </summary>
+    public void ShowUnavailable() =>
+        SetFailureState("The browser couldn’t start.", "Unavailable");
+
+    private void SetFailureState(string message, string status = "Error")
     {
         IsLive = false;
         IsLoading = false;
         CanGoBack = false;
         CanGoForward = false;
-        StatusText = "Error";
+        StatusText = status;
         StatusMessage = message;
         StatusTone = StatusTone.Danger;
         ShowFallback = true;

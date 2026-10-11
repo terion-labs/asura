@@ -67,7 +67,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
                 {
                     ApplySelectedWatchChange(change.Kind, resource);
                 }
-                Status = $"{CountText.OrNone(_allResources.Count, "resource", "resources")} · Live";
+                Status = TableStatus("Live");
             }
             if (!cancellation.IsCancellationRequested) { Status = "Live updates stopped. Refresh to reconnect."; }
         }

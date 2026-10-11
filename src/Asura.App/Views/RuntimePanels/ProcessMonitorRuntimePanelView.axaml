@@ -63,7 +63,7 @@
       </Grid>
     </controls:PanelChrome.Footer>
 
-    <Grid RowDefinitions="46,*">
+    <Grid RowDefinitions="46,Auto,*">
       <Border Grid.Row="0" Classes="PanelToolbar">
         <Grid Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
           <controls:SearchField
@@ -88,7 +88,24 @@
         </Grid>
       </Border>
 
-      <Grid Grid.Row="1">
+      <!-- A refresh that failed while older rows stay listed: the reason
+           sits in its own row between the toolbar and the table, so it never
+           covers rows the person is reading. -->
+      <controls:Callout
+          Grid.Row="1"
+          Margin="{controls:Inset Left=Sm, Right=Sm, Top=Sm, Bottom=Sm}"
+          Glyph="Warning"
+          Title="{Binding IssueTitle}"
+          Text="{Binding IssueMessage}"
+          IsVisible="{Binding ShowInlineIssue, FallbackValue=False}"
+          AutomationProperties.LiveSetting="Polite"
+          AutomationProperties.Name="Process refresh status">
+        <controls:Callout.Action>
+          <Button Classes="SecondaryButton" Command="{Binding RefreshCommand}" Content="Retry" AutomationProperties.Name="Retry process list" />
+        </controls:Callout.Action>
+      </controls:Callout>
+
+      <Grid Grid.Row="2">
         <!-- A Mac table: the shared data-grid theme's banded rows and
              platform selection, sortable column headers, several rows at once
              for copying, and a menu on the rows. The host sorts — it bounds
@@ -186,19 +203,24 @@
             AutomationProperties.LiveSetting="Assertive"
             AutomationProperties.Name="Processes unavailable" />
 
-        <controls:Callout
-            Margin="{controls:Inset Md}"
-            VerticalAlignment="Bottom"
-            Glyph="Warning"
-            Title="{Binding IssueTitle}"
-            Text="{Binding IssueMessage}"
-            IsVisible="{Binding ShowInlineIssue, FallbackValue=False}"
+        <controls:StateOverlay
+            Kind="Empty"
+            Glyph="Search"
+            Heading="Processes stopped"
+            Body="This panel stopped before its first sample. Open a new Processes panel to start again."
+            IsVisible="{Binding ShowUnavailable, FallbackValue=False}"
+            AutomationProperties.Name="Processes stopped" />
+
+        <!-- No rows left: the table keeps its column headers, and the reason
+             sits under them, clear of the header row. -->
+        <controls:StateOverlay
+            Margin="{controls:Inset Top=Xl}"
+            Kind="NoResults"
+            Heading="{Binding NoProcessesHeading}"
+            Body="{Binding NoProcessesBody}"
+            IsVisible="{Binding ShowNoProcesses, FallbackValue=False}"
             AutomationProperties.LiveSetting="Polite"
-            AutomationProperties.Name="Process refresh status">
-          <controls:Callout.Action>
-            <Button Classes="SecondaryButton" Command="{Binding RefreshCommand}" Content="Retry" AutomationProperties.Name="Retry process list" />
-          </controls:Callout.Action>
-        </controls:Callout>
+            AutomationProperties.Name="{Binding NoProcessesHeading}" />
       </Grid>
 
     </Grid>

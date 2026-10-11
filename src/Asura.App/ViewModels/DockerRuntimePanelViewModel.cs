@@ -76,8 +76,10 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     private CancellationTokenSource? _volumeUsageCancellation;
     private Task _volumeUsageLoading = Task.CompletedTask;
     private readonly string? _connectionDisplayName;
+    // Names the toolbar control by its own tooltip, so the person can find it.
     private const string InlineShellMessage =
-        "This shell stays in the Docker panel. Choose Open in New Tab to keep it beside other work.";
+        "This shell stays in the Docker panel. To keep it beside other work, use “Open shell in new tab” in the toolbar.";
+    private bool _hasShellFailure;
 
     public DockerRuntimePanelViewModel(
         PanelInstanceId id,
@@ -297,7 +299,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             if (SetProperty(ref _inlineShell, value))
             {
                 OnPropertyChanged(nameof(HasInlineShell));
-                OnPropertyChanged(nameof(CanRetryShell));
+                NotifyShellPresentation();
             }
         }
     }
@@ -334,9 +336,15 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             if (SetProperty(ref _inspection, value))
             {
                 OnPropertyChanged(nameof(HasInspection));
+                OnPropertyChanged(nameof(InspectionRows));
             }
         }
     }
+
+    /// <summary>The Info view's rows, dates and sizes written the application's way.</summary>
+    public IReadOnlyList<DockerInspectionRow> InspectionRows => Inspection is { } inspection
+        ? [.. inspection.Properties.Select(DockerInspectionRow.From)]
+        : [];
 
     public ObservableCollection<DockerLogRowViewModel> LogRows => _logRows;
 
@@ -510,9 +518,41 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (SetProperty(ref _isResolvingShell, value))
             {
-                OnPropertyChanged(nameof(CanRetryShell));
+                NotifyShellPresentation();
             }
         }
+    }
+
+    /// <summary>
+    /// Finding or starting the shell failed. Only then does the Shell view
+    /// offer Retry; while the shell is still being found it shows progress.
+    /// </summary>
+    public bool HasShellFailure
+    {
+        get => _hasShellFailure;
+        private set
+        {
+            if (SetProperty(ref _hasShellFailure, value))
+            {
+                NotifyShellPresentation();
+            }
+        }
+    }
+
+    /// <summary>The shell is being found or opened: a progress state, no Retry.</summary>
+    public bool ShowShellProgress => !HasInlineShell && !HasShellFailure && (IsResolvingShell || CanOpenShell);
+
+    public bool ShowShellFailure => !HasInlineShell && HasShellFailure;
+
+    /// <summary>Nothing to open: the selected container isn't running.</summary>
+    public bool ShowShellIdle => !HasInlineShell && !HasShellFailure && !ShowShellProgress;
+
+    private void NotifyShellPresentation()
+    {
+        OnPropertyChanged(nameof(CanRetryShell));
+        OnPropertyChanged(nameof(ShowShellProgress));
+        OnPropertyChanged(nameof(ShowShellFailure));
+        OnPropertyChanged(nameof(ShowShellIdle));
     }
 
     public bool IsCalculatingVolumeSizes
@@ -589,7 +629,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
 
     public bool HasFileBrowser => FileBrowser is not null;
 
-    public bool CanRetryShell => !IsResolvingShell && !HasInlineShell;
+    public bool CanRetryShell => HasShellFailure && !IsResolvingShell && !HasInlineShell;
 
     public bool ShowLoading => IsRefreshing && !HasSnapshot;
 
@@ -854,6 +894,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
 
         ShellStateTitle = "Finding a container shell…";
         ShellStateMessage = "Checking common interactive shell paths inside this container.";
+        HasShellFailure = false;
         IsResolvingShell = true;
     }
 
@@ -870,6 +911,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             ? "No interactive shell found"
             : "Container shell unavailable";
         ShellStateMessage = error.Message;
+        HasShellFailure = true;
         IsResolvingShell = false;
     }
 
@@ -1511,11 +1553,17 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
         OnPropertyChanged(nameof(LogResultSummary));
     }
 
-    private DockerLogRowViewModel ToLogRow(DockerContainerLogLine line) => new(
-        line.Timestamp,
-        line.Message,
-        line.StartsContextBlock,
-        BuildLogMessageSegments(line.Message, _activeLogSearchText));
+    private DockerLogRowViewModel ToLogRow(DockerContainerLogLine line)
+    {
+        var segments = BuildLogMessageSegments(line.Message, _activeLogSearchText);
+        return new(line.Timestamp, line.Message, line.StartsContextBlock, segments)
+        {
+            // A search shows lines around each match; those are context, and
+            // step back so the matches lead.
+            IsContextLine = !string.IsNullOrEmpty(_activeLogSearchText)
+                && !segments.Any(segment => segment.IsMatch),
+        };
+    }
 
     private static IReadOnlyList<DockerLogTextSegmentViewModel> BuildLogMessageSegments(
         string message,
@@ -1729,9 +1777,20 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
 
     private void ResetShellState()
     {
-        ShellStateTitle = "Opening container shell…";
-        ShellStateMessage = InlineShellMessage;
+        if (SelectedResource is { IsContainer: true, IsRunning: false })
+        {
+            ShellStateTitle = "Container isn’t running";
+            ShellStateMessage = "Start this container to open a shell in it.";
+        }
+        else
+        {
+            ShellStateTitle = "Opening container shell…";
+            ShellStateMessage = InlineShellMessage;
+        }
+
+        HasShellFailure = false;
         IsResolvingShell = false;
+        NotifyShellPresentation();
     }
 
     private FileRuntimePanelViewModel GetOrCreateFileBrowser(

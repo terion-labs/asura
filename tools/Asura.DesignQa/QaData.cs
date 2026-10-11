@@ -597,7 +597,10 @@ internal sealed class QaLockedProtection : Asura.Application.IStartupProtection
 
     public TimeSpan? LockTimeout => TimeSpan.FromMinutes(5);
 
-    public int RetryDelaySeconds => 0;
+    private int _retryDelaySeconds;
+
+    /// <summary>Zero until a PIN is refused; then the gate meters, as the real one does.</summary>
+    public int RetryDelaySeconds => _retryDelaySeconds;
 
     public event EventHandler? Changed
     {
@@ -611,8 +614,11 @@ internal sealed class QaLockedProtection : Asura.Application.IStartupProtection
     public ValueTask<string?> DisableAsync(string pin, CancellationToken cancellationToken) =>
         new((string?)null);
 
-    public ValueTask<bool> TryUnlockAsync(string pin, CancellationToken cancellationToken) =>
-        new(false);
+    public ValueTask<bool> TryUnlockAsync(string pin, CancellationToken cancellationToken)
+    {
+        _retryDelaySeconds = 30;
+        return new(false);
+    }
 
     public void Lock()
     {

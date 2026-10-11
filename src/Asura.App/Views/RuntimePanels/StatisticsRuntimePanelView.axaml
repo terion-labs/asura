@@ -61,13 +61,27 @@
       </Grid>
     </controls:PanelChrome.Footer>
 
-    <Grid>
-        <!-- One of three fills this area: the charts, the wait for the
-             first sample, or the failure that replaced them. A state never
-             floats over the charts; a later failure while charts are on
-             screen is reported under the header, where the panel's notices
-             live, and by the status mark. -->
-        <ScrollViewer Margin="{controls:Inset Lg}" IsVisible="{Binding ShowContent, FallbackValue=False}">
+    <Grid RowDefinitions="Auto,*">
+        <!-- A later failure while charts are on screen: its reason sits in a
+             notice row under the header, where the panel's notices live, and
+             the older charts stay readable below it. -->
+        <controls:Callout
+            Margin="{controls:Inset Left=Lg, Right=Lg, Top=Md}"
+            Glyph="Warning"
+            Title="{Binding IssueTitle}"
+            Text="{Binding IssueMessage}"
+            IsVisible="{Binding ShowStaleNotice, FallbackValue=False}"
+            AutomationProperties.LiveSetting="Polite"
+            AutomationProperties.Name="Statistics refresh status">
+          <controls:Callout.Action>
+            <Button Classes="SecondaryButton" Command="{Binding RefreshCommand}" Content="Retry" AutomationProperties.Name="Retry statistics" />
+          </controls:Callout.Action>
+        </controls:Callout>
+
+        <!-- One of four fills this area: the charts, the wait for the
+             first sample, the failure that replaced them, or a stopped panel
+             that never got a sample. A state never floats over the charts. -->
+        <ScrollViewer Grid.Row="1" Margin="{controls:Inset Lg}" IsVisible="{Binding ShowContent, FallbackValue=False}">
           <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
             <controls:CardGridPanel MinItemWidth="236" MaxColumns="2" Spacing="{DynamicResource ShellSpaceMd}">
               <controls:SurfaceCard Padding="{DynamicResource ShellRowPadding}">
@@ -190,6 +204,7 @@
         </ScrollViewer>
 
         <controls:StateOverlay
+            Grid.Row="1"
             Kind="Loading"
             Heading="Waiting for first sample…"
             Body="Collecting resource statistics…"
@@ -197,17 +212,29 @@
             AutomationProperties.LiveSetting="Polite"
             AutomationProperties.Name="Statistics loading" />
 
+        <!-- The failure's own reason, not a generic line: what went wrong
+             and what to do is the message the panel was given. -->
         <controls:StateOverlay
+            Grid.Row="1"
             Kind="TerminalError"
             Glyph="ErrorCircle"
-            Heading="Statistics unavailable"
-            Body="Use Retry to request the current state."
+            Heading="{Binding IssueTitle, TargetNullValue='Statistics unavailable', FallbackValue='Statistics unavailable'}"
+            Body="{Binding IssueMessage}"
             ActionLabel="Retry"
             ActionCommand="{Binding RefreshCommand}"
             Background="{DynamicResource ShellSurfaceBrush}"
             IsVisible="{Binding ShowTerminalError, FallbackValue=False}"
             AutomationProperties.LiveSetting="Assertive"
             AutomationProperties.Name="Statistics unavailable" />
+
+        <controls:StateOverlay
+            Grid.Row="1"
+            Kind="Empty"
+            Glyph="DataArea"
+            Heading="Statistics stopped"
+            Body="This panel stopped before its first sample. Open a new Statistics panel to start again."
+            IsVisible="{Binding ShowUnavailable, FallbackValue=False}"
+            AutomationProperties.Name="Statistics stopped" />
     </Grid>
   </controls:PanelChrome>
 </UserControl>

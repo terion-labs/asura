@@ -88,7 +88,7 @@ public sealed class RuntimePanelViewContractTests
         var search = Assert.Single(
             root.Descendants(),
             element => string.Equals(element.Name.LocalName, "SearchField"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "PlaceholderText"), "Search all container logs", StringComparison.Ordinal));
+, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "PlaceholderText"), "Search this container’s logs", StringComparison.Ordinal));
         Assert.Equal("OnLogSearchKeyDown", AttributeValue(search, "KeyDown"));
         Assert.DoesNotContain(
             root.Descendants(),
@@ -467,7 +467,7 @@ public sealed class RuntimePanelViewContractTests
             .Where(element => AttributeValue(element, "ItemsSource") is
                 "{Binding ContainerStacks}"
                 or "{Binding Containers}"
-                or "{Binding Inspection.Properties}")
+                or "{Binding InspectionRows}")
             .ToArray();
 
         Assert.Equal(3, verticalCollections.Length);
@@ -2326,6 +2326,84 @@ public sealed class RuntimePanelViewContractTests
                 AttributeValue(element, "AutomationProperties.Name"),
                 accessibleName,
                 StringComparison.Ordinal));
+
+    [Fact]
+    public void Kubernetes_inspector_forms_rank_a_section_above_its_field_labels()
+    {
+        var root = Assert.IsType<XElement>(LoadRuntimePanelView("KubernetesRuntimePanelView").Root);
+
+        // The shared heading is a small muted caption; inside a form it has to
+        // read above the field labels it heads, not under them.
+        var heading = Assert.Single(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "Style", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Selector"), "StackPanel.InspectorForm TextBlock.SectionHeading", StringComparison.Ordinal));
+        Assert.Contains(
+            heading.Elements(),
+            setter => string.Equals(AttributeValue(setter, "Property"), "Foreground", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(setter, "Value"), "{DynamicResource ShellTextBrush}", StringComparison.Ordinal));
+        Assert.Contains(
+            heading.Elements(),
+            setter => string.Equals(AttributeValue(setter, "Property"), "FontSize", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(setter, "Value"), "{DynamicResource ShellFontSize13}", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Kubernetes_stop_forward_sits_where_start_forward_does()
+    {
+        var root = Assert.IsType<XElement>(LoadRuntimePanelView("KubernetesRuntimePanelView").Root);
+        var start = Assert.Single(
+            root.Descendants(),
+            element => string.Equals(AttributeValue(element, "Click"), "OnStartForwardClick", StringComparison.Ordinal));
+        var stop = Assert.Single(
+            root.Descendants(),
+            element => string.Equals(AttributeValue(element, "Command"), "{Binding StopCommand}", StringComparison.Ordinal));
+
+        // Both at push-button height: Start Forward no longer stretches to the
+        // port field beside it, and Stop Forward is a push button too.
+        Assert.Equal("Center", AttributeValue(start, "VerticalAlignment"));
+        Assert.True(HasClass(stop, "SecondaryButton"));
+        var row = Assert.IsType<XElement>(stop.Parent);
+        Assert.True(HasClass(row, "ActionRow"));
+        Assert.Equal("Right", AttributeValue(row, "HorizontalAlignment"));
+    }
+
+    [Fact]
+    public void Redis_subscription_rows_line_up_with_the_fields_above_them()
+    {
+        var root = Assert.IsType<XElement>(LoadRuntimePanelView("RedisRuntimePanelView").Root);
+        var list = Assert.Single(
+            root.Descendants(),
+            element => string.Equals(AttributeValue(element, "ItemsSource"), "{Binding Subscriptions}", StringComparison.Ordinal));
+        Assert.True(HasClass(list, "RedisSubscriptions"));
+
+        var gutter = Assert.Single(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "Style", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Selector"), "ListBox.RedisSubscriptions ListBoxItem", StringComparison.Ordinal));
+        Assert.Contains(
+            gutter.Elements(),
+            setter => string.Equals(AttributeValue(setter, "Property"), "Margin", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(setter, "Value"), "0", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Redis_value_forms_take_their_row_from_styles_so_a_document_can_move_up()
+    {
+        var root = Assert.IsType<XElement>(LoadRuntimePanelView("RedisRuntimePanelView").Root);
+        var forms = Assert.Single(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "Grid", StringComparison.Ordinal)
+                && HasClass(element, "RedisValueForms"));
+
+        // A row set on the element outranks the JSON style that moves the
+        // document editor into the rows' place, leaving it under an empty area.
+        Assert.Null(AttributeValue(forms, "Grid.Row"));
+        Assert.Contains(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "Style", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Selector"), "Grid.RedisValueArea.document > Grid.RedisValueForms", StringComparison.Ordinal));
+    }
 
     private static XDocument DesignSystem() =>
         XDocument.Load(Path.Combine(

@@ -17,6 +17,9 @@ public enum TimeSeriesUnit
     Percent,
     Bytes,
     BytesPerSecond,
+
+    /// <summary>CPU time in cores, as Kubernetes reports it: "0.25 cores".</summary>
+    Cores,
 }
 
 /// <summary>
@@ -208,8 +211,19 @@ public sealed class TimeSeriesChart : Control
             $"{value.ToString(value >= 10 ? "0" : "0.#", CultureInfo.InvariantCulture)}%",
         TimeSeriesUnit.Bytes => MonitorPanelPresentation.FormatBytes((long)Math.Round(value)),
         TimeSeriesUnit.BytesPerSecond => MonitorPanelPresentation.FormatBytesPerSecond(value),
+        TimeSeriesUnit.Cores => FormatCores(value),
         _ => value.ToString("0.##", CultureInfo.InvariantCulture),
     };
+
+    /// <summary>
+    /// Cores to three decimals at most, so a scale, a caption and a hover
+    /// readout of one series never disagree on precision.
+    /// </summary>
+    private static string FormatCores(double value)
+    {
+        var text = value.ToString("0.###", CultureInfo.InvariantCulture);
+        return string.Equals(text, "1", StringComparison.Ordinal) ? "1 core" : $"{text} cores";
+    }
 
     /// <summary>
     /// The chart in a sentence: latest, lowest and highest, and which way it is

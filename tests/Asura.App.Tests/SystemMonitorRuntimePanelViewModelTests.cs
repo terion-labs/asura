@@ -277,6 +277,116 @@ public sealed class SystemMonitorRuntimePanelViewModelTests
     }
 
     [Fact]
+    public async Task StatisticsStaleFailureShowsItsReasonInANoticeUntilASampleArrives()
+    {
+        var (client, host) = CreateHost();
+        host.StatisticsResults.Enqueue(StatisticsSuccess(StatisticsSample()));
+        host.StatisticsResults.Enqueue(StatisticsCaptureFailure());
+        host.StatisticsResults.Enqueue(StatisticsSuccess(StatisticsSample(cpu: 12)));
+        using var panel = CreateStatisticsPanel(client);
+        await panel.Start();
+        Assert.False(panel.ShowStaleNotice);
+
+        await panel.RefreshAsync();
+
+        Assert.True(panel.ShowStaleNotice);
+        Assert.Equal("Statistics refresh failed", panel.IssueTitle);
+        Assert.False(string.IsNullOrWhiteSpace(panel.IssueMessage));
+        AssertOneStatisticsState(panel, nameof(panel.ShowContent));
+
+        await panel.RefreshAsync();
+
+        Assert.False(panel.ShowStaleNotice);
+        Assert.Null(panel.IssueTitle);
+        Assert.Null(panel.IssueMessage);
+    }
+
+    [Fact]
+    public async Task StatisticsAlwaysShowsExactlyOneStateEvenAfterStoppingWithoutASample()
+    {
+        var (client, _) = CreateHost();
+        using var waiting = CreateStatisticsPanel(client);
+        AssertOneStatisticsState(waiting, nameof(waiting.ShowLoading));
+
+        var (failingClient, failingHost) = CreateHost();
+        failingHost.StatisticsResults.Enqueue(StatisticsCaptureFailure());
+        using var failed = CreateStatisticsPanel(failingClient);
+        await failed.Start();
+        AssertOneStatisticsState(failed, nameof(failed.ShowTerminalError));
+        Assert.False(failed.ShowStaleNotice);
+
+        var stopped = CreateStatisticsPanel(client);
+        stopped.Dispose();
+
+        Assert.Equal(SystemMonitorPanelState.Disposed, stopped.State);
+        AssertOneStatisticsState(stopped, nameof(stopped.ShowUnavailable));
+    }
+
+    [Fact]
+    public async Task ProcessFilterThatExcludesEveryRowSaysNoProcessesMatchUnderTheHeaders()
+    {
+        var (client, host) = CreateHost();
+        host.ProcessResults.Enqueue(ProcessSuccess(ProcessSample()));
+        using var panel = CreateProcessPanel(client);
+        await panel.Start();
+        Assert.False(panel.ShowNoProcesses);
+
+        panel.Filter = "no-such-process";
+
+        Assert.Empty(panel.Processes);
+        Assert.True(panel.ShowContent);
+        Assert.True(panel.ShowNoProcesses);
+        Assert.Equal("No processes match", panel.NoProcessesHeading);
+        Assert.Contains("search by another name", panel.NoProcessesBody, StringComparison.Ordinal);
+
+        panel.Filter = string.Empty;
+
+        Assert.False(panel.ShowNoProcesses);
+        Assert.Equal(3, panel.Processes.Count);
+    }
+
+    [Fact]
+    public async Task ProcessListingWithNoRowsAndNoFilterSaysNoProcesses()
+    {
+        var (client, host) = CreateHost();
+        host.ProcessResults.Enqueue(ProcessSuccess(
+            new ProcessMonitorSnapshot(
+                new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero),
+                [],
+                0,
+                0,
+                false)));
+        using var panel = CreateProcessPanel(client);
+
+        await panel.Start();
+
+        Assert.True(panel.ShowNoProcesses);
+        Assert.Equal("No processes", panel.NoProcessesHeading);
+    }
+
+    [Fact]
+    public async Task ProcessesAlwaysShowExactlyOneStateEvenAfterStoppingWithoutASample()
+    {
+        var (client, _) = CreateHost();
+        using var waiting = CreateProcessPanel(client);
+        AssertOneProcessState(waiting, nameof(waiting.ShowLoading));
+
+        var (failingClient, failingHost) = CreateHost();
+        failingHost.ProcessResults.Enqueue(ProcessCaptureFailure());
+        using var failed = CreateProcessPanel(failingClient);
+        await failed.Start();
+        AssertOneProcessState(failed, nameof(failed.ShowTerminalError));
+        Assert.False(failed.ShowInlineIssue);
+
+        var stopped = CreateProcessPanel(client);
+        stopped.Dispose();
+
+        Assert.Equal(SystemMonitorPanelState.Disposed, stopped.State);
+        AssertOneProcessState(stopped, nameof(stopped.ShowUnavailable));
+        Assert.False(stopped.ShowNoProcesses);
+    }
+
+    [Fact]
     public async Task ProcessRecoverableFailurePreservesSnapshotAndFilteredRows()
     {
         var (client, host) = CreateHost();
@@ -471,6 +581,32 @@ public sealed class SystemMonitorRuntimePanelViewModelTests
         Assert.False(recovered.ShowHidden);
         Assert.Null(recovered.Filter);
     }
+
+    private static void AssertOneStatisticsState(
+        StatisticsRuntimePanelViewModel panel,
+        string expected) =>
+        AssertOneState(
+            expected,
+            (nameof(panel.ShowLoading), panel.ShowLoading),
+            (nameof(panel.ShowContent), panel.ShowContent),
+            (nameof(panel.ShowTerminalError), panel.ShowTerminalError),
+            (nameof(panel.ShowUnavailable), panel.ShowUnavailable));
+
+    private static void AssertOneProcessState(
+        ProcessMonitorRuntimePanelViewModel panel,
+        string expected) =>
+        AssertOneState(
+            expected,
+            (nameof(panel.ShowLoading), panel.ShowLoading),
+            (nameof(panel.ShowContent), panel.ShowContent),
+            (nameof(panel.ShowTerminalError), panel.ShowTerminalError),
+            (nameof(panel.ShowUnavailable), panel.ShowUnavailable));
+
+    private static void AssertOneState(string expected, params (string Name, bool Shown)[] states) =>
+        Assert.Equal(
+            [expected],
+            states.Where(state => state.Shown).Select(state => state.Name),
+            StringComparer.Ordinal);
 
     private static StatisticsRuntimePanelViewModel CreateStatisticsPanel(
         ISessionHostClient sessionClient,
