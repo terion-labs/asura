@@ -102,7 +102,7 @@ public sealed class FileProviderProfileEditorViewModelTests
         Assert.True(editor.HasHostKeyReview);
         Assert.True(editor.HasTrustedHostKey);
         Assert.Equal("SSH host key changed", editor.HostKeyReviewTitle);
-        Assert.Equal("Replace trusted key", editor.HostKeyActionText);
+        Assert.Equal("Replace Trusted Key…", editor.HostKeyActionText);
         Assert.Contains("SHA256:", editor.PresentedHostKey, StringComparison.Ordinal);
         Assert.Contains("SHA256:", editor.TrustedHostKey, StringComparison.Ordinal);
 
@@ -162,7 +162,7 @@ public sealed class FileProviderProfileEditorViewModelTests
         await editor.TestAsync(CancellationToken.None);
 
         Assert.Equal("Unknown SSH host key", editor.HostKeyReviewTitle);
-        Assert.Equal("Trust this key", editor.HostKeyActionText);
+        Assert.Equal("Trust This Key…", editor.HostKeyActionText);
         Assert.False(editor.HasTrustedHostKey);
 
         await editor.TrustHostKeyAsync(editor.HostKeyReview!.Id, CancellationToken.None);

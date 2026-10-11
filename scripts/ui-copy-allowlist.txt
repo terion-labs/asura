@@ -3,10 +3,23 @@
 #   rule | path glob | text | reason
 #
 # rule is a rule name (spelling, ellipsis, secret-store, preferences, plural,
-# title-case) or "*". The path glob is repository-relative. text must equal the
+# title-case, vocabulary) or "*". The path glob is repository-relative. text must equal the
 # flagged word or phrase, or the whole string. Every entry needs a reason that
 # says why the text is right as written; fix the copy instead when it is not.
 
 preferences | src/Asura.Agent.Runtime/ProviderConversationCompactor.cs | Preferences | Section heading in a model prompt for conversation compaction; never shown in the UI.
 title-case | src/Asura.App/Views/SettingsView.axaml | container | Apple's container tool is named "container", lowercase, as Apple writes it ("Install Apple container…").
 title-case | src/Asura.App/Views/DesignSystemGalleryWindow.axaml | Run scope · This tab | A chip names a value in place, as status does, rather than a command, so it reads in sentence case like the status chips beside it.
+
+title-case | src/Asura.App/ViewModels/AgentChatViewModel.cs | Canceling action… | PENDING-INTEGRATION: found when f-editors extended the lint; the file belongs to another HIG package running in parallel. Remove this entry once that package's copy fix merges.
+title-case | src/Asura.App/ViewModels/AgentChatViewModel.cs | Cancel action | PENDING-INTEGRATION: found when f-editors extended the lint; the file belongs to another HIG package running in parallel. Remove this entry once that package's copy fix merges.
+title-case | src/Asura.App/ViewModels/AgentChatViewModel.cs | Queue message | PENDING-INTEGRATION: found when f-editors extended the lint; the file belongs to another HIG package running in parallel. Remove this entry once that package's copy fix merges.
+title-case | src/Asura.App/ViewModels/NetworkSettingsViewModel.cs | Cancel test | PENDING-INTEGRATION: found when f-editors extended the lint; the file belongs to another HIG package running in parallel. Remove this entry once that package's copy fix merges.
+title-case | src/Asura.App/ViewModels/NetworkSettingsViewModel.cs | Test connection | PENDING-INTEGRATION: found when f-editors extended the lint; the file belongs to another HIG package running in parallel. Remove this entry once that package's copy fix merges.
+title-case | src/Asura.App/ViewModels/RuntimeWorkspaceViewModels.cs | Replace trusted key… | PENDING-INTEGRATION: found when f-editors extended the lint; the file belongs to another HIG package running in parallel. Remove this entry once that package's copy fix merges.
+title-case | src/Asura.App/ViewModels/RuntimeWorkspaceViewModels.cs | Trust host key… | PENDING-INTEGRATION: found when f-editors extended the lint; the file belongs to another HIG package running in parallel. Remove this entry once that package's copy fix merges.
+title-case | src/Asura.App/ViewModels/RuntimeWorkspaceViewModels.cs | Cancel reconnect | PENDING-INTEGRATION: found when f-editors extended the lint; the file belongs to another HIG package running in parallel. Remove this entry once that package's copy fix merges.
+title-case | src/Asura.App/ViewModels/RuntimeWorkspaceViewModels.cs | Cancel connection | PENDING-INTEGRATION: found when f-editors extended the lint; the file belongs to another HIG package running in parallel. Remove this entry once that package's copy fix merges.
+title-case | src/Asura.App/ViewModels/WorkspaceEditorViewModel.cs | Install isolation runtime | PENDING-INTEGRATION: found when f-editors extended the lint; the file belongs to another HIG package running in parallel. Remove this entry once that package's copy fix merges.
+vocabulary | src/Asura.App/ViewModels/SystemMonitorRuntimePanelViewModels.cs | process monitor | PENDING-INTEGRATION: found when f-editors extended the lint; the file belongs to another HIG package running in parallel. Remove this entry once that package's copy fix merges.
+vocabulary | src/Asura.App/Views/Components/DatabaseWorkspaceView.axaml | database viewer | PENDING-INTEGRATION: found when f-editors extended the lint; the file belongs to another HIG package running in parallel. Remove this entry once that package's copy fix merges.

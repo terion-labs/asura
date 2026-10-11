@@ -12,7 +12,7 @@ public sealed partial class McpServerTrustConfirmationDialog : DialogWindow
         : this(new McpServerTrustReview(
             "MCP server",
             "Not configured",
-            "Executable directory",
+            "Executable folder",
             ["Add a new local MCP server process"],
             [],
             [],

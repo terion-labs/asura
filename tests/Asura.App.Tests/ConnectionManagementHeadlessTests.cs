@@ -50,9 +50,9 @@ public sealed class ConnectionManagementHeadlessTests
                 await Idle();
                 var buttonName = kind switch
                 {
-                    SecretKind.Passphrase => "Add private key passphrase",
-                    SecretKind.Other => "Add file connection credential",
-                    _ => "Add connection credential",
+                    SecretKind.Passphrase => "New private key passphrase",
+                    SecretKind.Other => "New file connection credential",
+                    _ => "New connection credential",
                 };
                 var add = FindButton(dialog, buttonName);
                 Assert.True(add.IsEffectivelyVisible);
@@ -182,7 +182,7 @@ public sealed class ConnectionManagementHeadlessTests
             {
                 dialog.Show();
                 await Idle();
-                FindButton(dialog, "Add connection credential").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                FindButton(dialog, "New connection credential").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await Idle();
                 var draftView = Assert.Single(
                     dialog.GetVisualDescendants().OfType<ConnectionCredentialDraftView>(),
@@ -231,7 +231,7 @@ public sealed class ConnectionManagementHeadlessTests
                 dialog.Show();
                 await Idle();
                 dialog.GetVisualDescendants().OfType<Button>()
-                    .Single(button => button.Content is "Browse…")
+                    .Single(button => button.Content is "Choose…" && button.IsEffectivelyVisible)
                     .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await Idle();
 

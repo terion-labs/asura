@@ -7,6 +7,7 @@
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:views="using:Asura.App.Views"
+    xmlns:icons="using:FluentIcons.Avalonia"
     Width="900"
     Height="820"
     MinWidth="720"
@@ -15,7 +16,7 @@
   <controls:DialogShell
       Chrome="Editor"
       Title="{Binding EditorTitle}"
-      Subtitle="Choose a layout, then configure the panel assigned to each slot."
+      Subtitle="Choose a layout, then set up each of its panels."
       FooterHint="Changes apply the next time the screen opens. Tabs already open don’t change.">
     <controls:DialogShell.HeaderContent>
       <controls:StatusChip
@@ -113,9 +114,9 @@
       <TextBlock Classes="SectionHeading" Text="Agent policy" />
       <controls:SurfaceCard>
         <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-          <controls:ToggleField
-              x:Name="ScreenAgentPolicyOverrideSwitch"
-              Label="Override the agent policy for this saved screen"
+          <CheckBox
+              x:Name="ScreenAgentPolicyOverrideCheckBox"
+              Content="Override the agent policy for this saved screen"
               IsChecked="{Binding AgentPolicy.IsEnabled, Mode=TwoWay}"
               AutomationProperties.Name="Override the AI agent policy for this saved screen" />
           <TextBlock
@@ -194,7 +195,7 @@
           </Grid>
           <controls:LiveRegionTextBlock
               Foreground="{DynamicResource ShellDangerBrush}"
-              FontSize="{DynamicResource ShellFontSize10}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               IsVisible="{Binding !AgentPolicy.IsValid}"
               Text="Choose an AI provider that’s available and turned on, and enter a model name."
               TextWrapping="Wrap"
@@ -226,7 +227,7 @@
 
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock Classes="SectionHeading" Text="Panels &amp; connections" />
-        <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Panels.Count, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=slot}" />
+        <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Panels.Count, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=panel}" />
       </Grid>
 
       <ItemsControl ItemsSource="{Binding Panels}">
@@ -234,14 +235,13 @@
           <DataTemplate>
             <controls:SurfaceCard Margin="{controls:Inset Bottom=Sm}">
               <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
+                <!-- Each panel is headed by its type's own icon and where it
+                     sits in the layout: "Terminal · Top left". -->
                 <Grid ColumnDefinitions="Auto,*,220" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                  <Border Width="28" Height="28" Classes="IconTile">
-                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize10}" Text="#" />
+                  <Border Width="28" Height="28" VerticalAlignment="Center" Classes="IconTile">
+                    <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="{Binding Icon}" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Border>
-                  <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
-                    <TextBlock Classes="Eyebrow" Text="{Binding PanelLabel}" />
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Choose what opens in this slot of the layout." />
-                  </StackPanel>
+                  <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Headline" Text="{Binding PanelLabel}" TextWrapping="Wrap" />
                   <controls:LabeledField Grid.Column="2" Label="Panel type">
                     <ComboBox
                         ItemsSource="{Binding KindOptions}"
@@ -297,15 +297,18 @@
                         AutomationProperties.Name="{Binding PanelLabel, StringFormat=Startup location for {0}}" />
                     <controls:LiveRegionTextBlock
                         Foreground="{DynamicResource ShellDangerBrush}"
-                        FontSize="{DynamicResource ShellFontSize10}"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
                         IsVisible="{Binding HasInvalidBrowserAddress}"
                         Text="Enter a complete HTTP or HTTPS URL, or leave this empty for about:blank."
                         TextWrapping="Wrap"
                         AutomationProperties.LiveSetting="Assertive" />
                   </StackPanel>
                 </controls:LabeledField>
+                <!-- Two equal columns: the policy's hint wraps in its own half
+                     instead of being measured unwrapped and squeezing the
+                     commands box. -->
                 <Grid
-                    ColumnDefinitions="*,Auto"
+                    ColumnDefinitions="*,*"
                     ColumnSpacing="{DynamicResource ShellSpaceMd}"
                     IsVisible="{Binding IsTerminal}">
                   <controls:LabeledField Label="Startup commands">
@@ -319,11 +322,10 @@
                   </controls:LabeledField>
                   <controls:LabeledField
                       Grid.Column="1"
-                      MinWidth="260"
                       Label="On delivery failure"
                       Hint="What happens when a startup command can’t be delivered to the running terminal, or its delivery isn’t confirmed. A command’s own exit status doesn’t count.">
                     <ComboBox
-                        MinWidth="260"
+                        HorizontalAlignment="Stretch"
                         ItemsSource="{Binding DeliveryFailurePolicyOptions}"
                         SelectedItem="{Binding SelectedDeliveryFailurePolicy, Mode=TwoWay}"
                         AutomationProperties.Name="{Binding PanelLabel, StringFormat=On delivery failure for {0}}"
@@ -344,19 +346,24 @@
 
     </StackPanel>
 
+    <!-- Duplicate is an auxiliary action: on the leading edge, the same
+         width as Cancel and Save, and away from them. -->
+    <controls:DialogShell.FooterLeading>
+      <Button
+          x:Name="DuplicateButton"
+          MinWidth="88"
+          Classes="SecondaryButton"
+          Click="OnDuplicateClick"
+          Content="Duplicate"
+          IsEnabled="{Binding CanSave}"
+          IsVisible="{Binding CanDuplicate}"
+          AutomationProperties.Name="Duplicate saved screen" />
+    </controls:DialogShell.FooterLeading>
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+        <Button MinWidth="88" Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" IsEnabled="{Binding CanEdit}" AutomationProperties.Name="Cancel saved screen editing" />
         <Button
-            MinWidth="96"
-            Classes="SecondaryButton"
-            Click="OnDuplicateClick"
-            Content="Duplicate"
-            IsEnabled="{Binding CanSave}"
-            IsVisible="{Binding CanDuplicate}"
-            AutomationProperties.Name="Duplicate saved screen" />
-        <Button MinWidth="92" Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" IsEnabled="{Binding CanEdit}" AutomationProperties.Name="Cancel saved screen editing" />
-        <Button
-            MinWidth="120"
+            MinWidth="88"
             Classes="PrimaryButton"
             Click="OnSaveClick"
             Content="{Binding PrimaryActionLabel}"

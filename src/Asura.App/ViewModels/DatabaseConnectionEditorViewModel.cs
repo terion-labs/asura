@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -79,8 +80,8 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
     private string _tunnelPassword = string.Empty;
     private string _tunnelAuthentication = AgentAuthentication;
     private string _testStatus = "Not tested";
-    private string _testDetail =
-        "Save is allowed without a test; connecting validates the server again.";
+    private string _testDetail = "You can save without testing.";
+    private string _testFailureDetails = string.Empty;
     private bool _isTesting;
 
     public DatabaseConnectionEditorViewModel(
@@ -354,6 +355,25 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         private set => SetProperty(ref _testDetail, value);
     }
 
+    /// <summary>
+    /// What the driver said when the last test failed, behind the dialog's
+    /// Details disclosure. The status line says what happened in plain words;
+    /// the driver's own message is for whoever has to look closer.
+    /// </summary>
+    public string TestFailureDetails
+    {
+        get => _testFailureDetails;
+        private set
+        {
+            if (SetProperty(ref _testFailureDetails, value))
+            {
+                OnPropertyChanged(nameof(HasTestFailureDetails));
+            }
+        }
+    }
+
+    public bool HasTestFailureDetails => TestFailureDetails.Length > 0;
+
     public bool IsTesting
     {
         get => _isTesting;
@@ -399,6 +419,7 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         }
 
         IsTesting = true;
+        TestFailureDetails = string.Empty;
         TestStatus = "Testing connection";
         TestDetail = "Validating connection parameters…";
         try
@@ -498,10 +519,45 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         }
         catch (Exception exception)
         {
+            SecretSafeDiagnostics.WriteTrace("database.connection-editor.test.failed", exception);
             TestStatus = "Test failed";
-            TestDetail = exception.Message;
+            TestDetail = DescribeTestFailure(exception, SelectedDriver.IsFileBased);
+            TestFailureDetails = exception.Message;
             ReportError(TestDetail, TestStatus);
         }
+    }
+
+    /// <summary>
+    /// What a failed test means, in words a person can act on. The driver's
+    /// message names its own types and server codes and offers no next step,
+    /// so it goes behind Details and into diagnostics instead of the status.
+    /// </summary>
+    internal static string DescribeTestFailure(Exception exception, bool isFileBased)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            switch (current)
+            {
+                case ReadableFailureException:
+                    return current.Message;
+                case TimeoutException:
+                    return "The server didn’t answer in time. Check the host and port, then test again.";
+                case System.Net.Sockets.SocketException:
+                    return "Asura couldn’t reach the server. Check the host and port and that the server is running, then test again.";
+                case System.Security.Authentication.AuthenticationException:
+                    return "Asura couldn’t set up a secure connection. Check the server’s TLS settings, then test again.";
+            }
+        }
+
+        if (isFileBased)
+        {
+            return "Asura couldn’t open the database file. Check its path and permissions, then test again.";
+        }
+
+        return exception is System.Data.Common.DbException
+            ? "The server refused the connection. Check the username, password, and database, then test again."
+            : "Asura couldn’t connect to the database. Check the connection’s settings, then test again.";
     }
 
     /// <summary>

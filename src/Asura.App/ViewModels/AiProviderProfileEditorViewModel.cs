@@ -220,7 +220,13 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
         set => Kind = value.Kind;
     }
 
-    public string ProviderProtocol => AiProviderCatalog.Get(Kind).Protocol.ToString();
+    /// <summary>
+    /// The API this provider is reached through, by the name its vendor gives
+    /// it, as one sentence under the Provider choice. Several providers speak
+    /// the same API, which is what makes the line worth showing.
+    /// </summary>
+    public string ProviderProtocol =>
+        $"Uses the {ProtocolDisplayName(AiProviderCatalog.Get(Kind).Protocol)}.";
 
     public string ProviderCategory => AiProviderCatalog.Get(Kind).Category.ToString();
 
@@ -1005,6 +1011,17 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
                 AiProviderEditorAuthenticationMode.NoAuthentication,
             _ => AiProviderEditorAuthenticationMode.ApiKey,
         };
+
+    internal static string ProtocolDisplayName(AiProviderProtocol protocol) => protocol switch
+    {
+        AiProviderProtocol.AnthropicMessages => "Anthropic Messages API",
+        AiProviderProtocol.OpenAiResponses => "OpenAI Responses API",
+        AiProviderProtocol.OpenAiChatCompletions => "OpenAI Chat Completions API",
+        AiProviderProtocol.GitHubCopilot => "GitHub Copilot API",
+        AiProviderProtocol.GoogleGenerativeAi => "Gemini API",
+        AiProviderProtocol.AmazonBedrockConverse => "Amazon Bedrock Converse API",
+        _ => throw new ArgumentOutOfRangeException(nameof(protocol), protocol, null),
+    };
 
     private IReadOnlyList<AiProviderSecretOption> BuildSecretOptions(
         IReadOnlyList<SecretMetadataViewModel> secrets,

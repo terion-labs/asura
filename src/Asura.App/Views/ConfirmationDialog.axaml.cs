@@ -136,6 +136,7 @@ public sealed partial class ConfirmationDialog : DialogWindow
         }
 
         PresentIcon();
+        ArrangeButtons(confirm, cancel);
         AutomationProperties.SetName(confirm, options.ConfirmAutomationName ?? ConfirmLabel);
         AutomationProperties.SetName(cancel, options.CancelAutomationName ?? CancelLabel);
     }
@@ -228,6 +229,44 @@ public sealed partial class ConfirmationDialog : DialogWindow
             fallback.Symbol = caution;
             fallback.Foreground = this.FindResource("ShellWarningBrush") as Avalonia.Media.IBrush;
         }
+    }
+
+    /// <summary>
+    /// The buttons span the alert's width. Two short answers share one row
+    /// with the default on the trailing side; three, or any too long for half
+    /// the row, stack with the default on top and Cancel at the bottom; one —
+    /// an acknowledgement — takes the whole row.
+    /// </summary>
+    private void ArrangeButtons(Button confirm, Button cancel)
+    {
+        const int longestSideBySideLabel = 14;
+        var row = this.FindControl<Grid>("ButtonRow")!;
+        var alternate = this.FindControl<Button>("AlternateButton")!;
+        (Button Button, string Label)[] shown = [.. new[]
+            {
+                (confirm, ConfirmLabel),
+                (alternate, AlternateLabel ?? string.Empty),
+                (cancel, CancelLabel),
+            }
+            .Where(item => item.Item1 == confirm
+                || (item.Item1 == alternate && HasAlternate)
+                || (item.Item1 == cancel && ShowsCancel))];
+        if (shown.Length == 3
+            || (shown.Length == 2 && shown.Any(item => item.Label.Length > longestSideBySideLabel)))
+        {
+            row.RowDefinitions = new RowDefinitions(string.Join(',', shown.Select(_ => "Auto")));
+            for (var index = 0; index < shown.Length; index++)
+            {
+                Grid.SetRow(shown[index].Button, index);
+            }
+
+            return;
+        }
+
+        row.ColumnDefinitions = shown.Length == 2
+            ? new ColumnDefinitions("*,*")
+            : new ColumnDefinitions("*");
+        Grid.SetColumn(confirm, shown.Length - 1);
     }
 
     private void OnCancelClick(object? sender, RoutedEventArgs e)

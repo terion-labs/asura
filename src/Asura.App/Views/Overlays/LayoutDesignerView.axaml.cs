@@ -1,4 +1,7 @@
+using System.Globalization;
+using Asura.Core;
 using Avalonia.Controls;
+using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
@@ -10,6 +13,18 @@ public sealed partial class LayoutDesignerView : UserControl
     {
         InitializeComponent();
     }
+
+    /// <summary>
+    /// Whether a saved layout is the one open in the designer: its id, then
+    /// the designer's. A new layout has an id no saved one shares.
+    /// </summary>
+    public static IMultiValueConverter SameLayout { get; } = new SameLayoutConverter();
+
+    /// <summary>
+    /// A saved layout's accessible name: its name, then its id and the
+    /// designer's. The open one adds ", open", since its check is only drawn.
+    /// </summary>
+    public static IMultiValueConverter LayoutRowName { get; } = new LayoutRowNameConverter();
 
     public event EventHandler<RoutedEventArgs>? AddSlotRequested;
 
@@ -61,4 +76,31 @@ public sealed partial class LayoutDesignerView : UserControl
 
     private void OnLayoutSplitSlotRightClick(object? sender, RoutedEventArgs e) =>
         SplitSlotRightRequested?.Invoke(sender, e);
+
+    private sealed class SameLayoutConverter : IMultiValueConverter
+    {
+        public object? Convert(IList<object?> values, Type targetType, object? parameter, CultureInfo culture)
+        {
+            _ = targetType;
+            _ = parameter;
+            _ = culture;
+            return values is [LayoutId saved, LayoutId open] && saved == open;
+        }
+    }
+
+    private sealed class LayoutRowNameConverter : IMultiValueConverter
+    {
+        public object? Convert(IList<object?> values, Type targetType, object? parameter, CultureInfo culture)
+        {
+            _ = targetType;
+            _ = parameter;
+            _ = culture;
+            return values switch
+            {
+                [string name, LayoutId saved, LayoutId open] when saved == open => $"{name}, open",
+                [string name, ..] => name,
+                _ => null,
+            };
+        }
+    }
 }

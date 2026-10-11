@@ -81,8 +81,13 @@ public sealed class RuntimePanelContentControl : ContentControl
 
     private void PublishContext()
     {
-        var panel = DataContext as RuntimePanelViewModel
-            ?? (DataContext as IDocumentDock)?.ActiveDockable?.Context as RuntimePanelViewModel;
+        // A runtime panel hides while it is collapsed. Any other document
+        // context — a Layout Designer slot — is shown as it is: dropping
+        // everything that wasn't a runtime panel left the designer's canvas
+        // empty.
+        var context = DataContext as RuntimePanelViewModel
+            ?? (DataContext as IDocumentDock)?.ActiveDockable?.Context;
+        var panel = context as RuntimePanelViewModel;
         if (_observedPanel != panel)
         {
             _observedPanel?.PropertyChanged -= OnPanelPropertyChanged;
@@ -90,7 +95,7 @@ public sealed class RuntimePanelContentControl : ContentControl
             _observedPanel?.PropertyChanged += OnPanelPropertyChanged;
         }
 
-        Content = panel is { IsCollapsed: false } ? panel : null;
+        Content = panel is { IsCollapsed: true } ? null : context;
     }
 
     private void OnPanelPropertyChanged(object? sender, PropertyChangedEventArgs e)

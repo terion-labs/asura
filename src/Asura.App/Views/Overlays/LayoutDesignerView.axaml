@@ -10,6 +10,7 @@
     xmlns:dockDocuments="using:Dock.Model.Inpc.Controls"
     xmlns:icons="using:FluentIcons.Avalonia"
     xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:overlays="using:Asura.App.Views.Overlays"
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch">
   <UserControl.DataTemplates>
@@ -50,11 +51,13 @@
                   x:DataType="dockDocuments:Document"
                   Grid.Column="1"
                   DataContext="{Binding $parent[dock:DockableControl].DataContext}">
+                <!-- The handle takes the dockable's context for the drag, so
+                     the label reads the slot from the card it sits on. -->
                 <TextBlock
                     VerticalAlignment="Center"
                     FontSize="{DynamicResource ShellFontSize11}"
                     FontWeight="SemiBold"
-                          Text="{Binding ((vm:LayoutDesignerSlotViewModel)Context).OrderLabel}" />
+                    Text="{Binding $parent[controls:SurfaceCard].((vm:LayoutDesignerSlotViewModel)DataContext).OrderLabel}" />
               </controls:PanelDockHandle>
               <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}" VerticalAlignment="Center">
                 <Button
@@ -81,17 +84,13 @@
               </StackPanel>
             </Grid>
           </Border>
-          <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-            <TextBlock
-                HorizontalAlignment="Center"
-                Classes="Headline"
-                Text="{Binding SizeLabel}" />
-            <TextBlock
-                HorizontalAlignment="Center"
-                Classes="Muted"
-                FontSize="{DynamicResource ShellSecondaryFontSize}"
-                Text="{Binding OrderLabel}" />
-          </StackPanel>
+          <!-- The header already names the panel; the body says its size. -->
+          <TextBlock
+              Grid.Row="1"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Classes="Headline"
+              Text="{Binding SizeLabel}" />
         </Grid>
       </controls:SurfaceCard>
     </DataTemplate>
@@ -99,35 +98,22 @@
 
   <!-- It fills the Layout Designer window, which can be as small as half a
        laptop screen: the canvas and the panel list share what is left, and
-       Cancel and Save stay pinned along the bottom. The window's own title
-       says what it is, and its close button is the way out besides Cancel. -->
-  <Grid RowDefinitions="Auto,Auto,*,Auto">
+       the footer stays pinned along the bottom. The window's own title says
+       what it is, so the content doesn't say it again, and its close button
+       is the way out besides Cancel. -->
+  <Grid RowDefinitions="Auto,*,Auto">
     <Border BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="0,0,0,1">
-      <Grid Margin="{controls:Inset Horizontal=Lg, Vertical=Md}" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-        <Border Width="30" Height="30" VerticalAlignment="Center" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellControlCornerRadius}">
-          <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Grid" FontSize="{DynamicResource ShellIconSizeMd}" Foreground="{DynamicResource ShellTextBrush}" />
-        </Border>
-        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-          <TextBlock Classes="Title3" Text="Layout Designer" />
-          <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Split, drag, and resize panels. The canvas works like a workspace." TextWrapping="Wrap" />
-        </StackPanel>
+      <Grid Margin="{controls:Inset Horizontal=Lg, Vertical=Md}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+        <controls:LabeledField Label="Layout name">
+          <TextBox x:Name="NewLayoutName" Text="{Binding LayoutDesignerEditor.Name, Mode=TwoWay}" PlaceholderText="My layout" AutomationProperties.Name="Layout name" />
+        </controls:LabeledField>
         <!-- Only news is worth a badge: "saved" is the resting state, and
              a label saying so was furniture. -->
-        <Border Grid.Column="2" VerticalAlignment="Center" Classes="Keycap" IsVisible="{Binding LayoutDesignerEditor.IsDirty}"><TextBlock Text="{Binding LayoutDesignerEditor.DirtyStatus}" /></Border>
+        <Border Grid.Column="1" VerticalAlignment="Bottom" Margin="{controls:Inset Bottom=Xs}" Classes="Keycap" IsVisible="{Binding LayoutDesignerEditor.IsDirty}"><TextBlock Text="{Binding LayoutDesignerEditor.DirtyStatus}" /></Border>
       </Grid>
     </Border>
 
-    <Border Grid.Row="1" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="0,0,0,1">
-      <Grid Margin="{controls:Inset Horizontal=Lg, Vertical=Md}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-        <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-          <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" FontWeight="SemiBold" Text="Layout name" />
-          <TextBox x:Name="NewLayoutName" Text="{Binding LayoutDesignerEditor.Name, Mode=TwoWay}" PlaceholderText="My layout" AutomationProperties.Name="Layout name" />
-        </StackPanel>
-        <Button Grid.Column="1" VerticalAlignment="Bottom" Classes="SecondaryButton" Click="OnResetLayoutClick" Content="Reset" ToolTip.Tip="Restore the saved layout" />
-      </Grid>
-    </Border>
-
-    <Grid Grid.Row="2">
+    <Grid Grid.Row="1">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="2*" />
         <ColumnDefinition Width="*" MinWidth="200" MaxWidth="300" />
@@ -207,17 +193,36 @@
             </Button>
 
             <controls:SurfaceCard Tone="Notice" Padding="{DynamicResource ShellCardPaddingCompact}">
-              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Panels here are empty slots. Choose what each one opens when you use the layout in a screen." TextWrapping="Wrap" />
+              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="A layout's panels start empty. Choose what each one opens when you use the layout in a screen." TextWrapping="Wrap" />
             </controls:SurfaceCard>
 
             <components:ErrorNoticesView DataContext="{Binding LayoutDesignerEditor.ErrorNotices}" />
             <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding LayoutDesignerEditor.ValidationSummary}" TextWrapping="Wrap" />
 
-            <TextBlock Classes="SectionHeading" Text="Saved layouts" />
+            <!-- The saved layouts, as a list with the one being designed
+                 checked: choosing another opens it here. -->
+            <components:SectionHeader Heading="Saved layouts" />
             <ItemsControl ItemsSource="{Binding Layouts}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                  <Button Margin="{controls:Inset Bottom=Xs}" Padding="{controls:Inset Sm}" Classes="SecondaryButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Click="OnEditLayoutClick">
+                  <Button
+                      Margin="{controls:Inset Bottom=Xs}"
+                      Padding="{controls:Inset Xs}"
+                      HorizontalAlignment="Stretch"
+                      HorizontalContentAlignment="Stretch"
+                      Classes="ListRow"
+                      Classes.selected="{Binding #OpenMark.IsVisible}"
+                      Click="OnEditLayoutClick">
+                    <!-- The check is only drawn, so the open layout says so
+                         in its name; the selected row also reports itself
+                         as selected. -->
+                    <AutomationProperties.Name>
+                      <MultiBinding Converter="{x:Static overlays:LayoutDesignerView.LayoutRowName}">
+                        <Binding Path="Name" />
+                        <Binding Path="Id" />
+                        <Binding Path="$parent[overlays:LayoutDesignerView].((vm:MainWindowViewModel)DataContext).LayoutDesignerEditor.Id" />
+                      </MultiBinding>
+                    </AutomationProperties.Name>
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                       <Border Width="44" Height="28" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellInnerCornerRadius}" ClipToBounds="True">
                         <ItemsControl Margin="{DynamicResource ShellPreviewTileInset}" ItemsSource="{Binding PreviewPanels}">
@@ -230,7 +235,14 @@
                         </ItemsControl>
                       </Border>
                       <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="MiddleTruncated" Text="{Binding Name}" />
-                      <TextBlock Grid.Column="2" VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding SlotCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=slot}" TextAlignment="Right" />
+                      <icons:SymbolIcon x:Name="OpenMark" Grid.Column="2" VerticalAlignment="Center" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" AutomationProperties.AccessibilityView="Raw">
+                        <icons:SymbolIcon.IsVisible>
+                          <MultiBinding Converter="{x:Static overlays:LayoutDesignerView.SameLayout}">
+                            <Binding Path="Id" />
+                            <Binding Path="$parent[overlays:LayoutDesignerView].((vm:MainWindowViewModel)DataContext).LayoutDesignerEditor.Id" />
+                          </MultiBinding>
+                        </icons:SymbolIcon.IsVisible>
+                      </icons:SymbolIcon>
                     </Grid>
                   </Button>
                 </DataTemplate>
@@ -241,11 +253,13 @@
       </Border>
     </Grid>
 
-    <Border Grid.Row="3" Background="{DynamicResource ShellSurfaceRaisedBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="0,1,0,0">
-      <Grid Margin="{controls:Inset Horizontal=Lg, Vertical=Md}" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-        <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding LayoutDesignerEditor.GridSummary}" TextTrimming="CharacterEllipsis" />
-        <Button x:Name="CancelButton" Grid.Column="1" MinWidth="88" VerticalAlignment="Center" Classes="SecondaryButton" Click="OnLayoutDesignerCancelClick" Content="Cancel" IsCancel="True" />
-        <Button x:Name="SaveButton" Grid.Column="2" MinWidth="88" VerticalAlignment="Center" Classes="PrimaryButton" Click="OnSaveLayoutDesignerClick" Content="Save" IsEnabled="{Binding LayoutDesignerEditor.CanSave}" />
+    <!-- Reset Layout is an auxiliary action: on the leading edge, away
+         from Cancel and Save. The panel count is in the Panels heading. -->
+    <Border Grid.Row="2" Background="{DynamicResource ShellSurfaceRaisedBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="0,1,0,0">
+      <Grid Margin="{controls:Inset Horizontal=Lg, Vertical=Md}" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <Button x:Name="ResetButton" MinWidth="88" VerticalAlignment="Center" Classes="SecondaryButton" Click="OnResetLayoutClick" Content="Reset Layout" ToolTip.Tip="Restore the saved layout" />
+        <Button x:Name="CancelButton" Grid.Column="2" MinWidth="88" VerticalAlignment="Center" Classes="SecondaryButton" Click="OnLayoutDesignerCancelClick" Content="Cancel" IsCancel="True" />
+        <Button x:Name="SaveButton" Grid.Column="3" MinWidth="88" VerticalAlignment="Center" Classes="PrimaryButton" Click="OnSaveLayoutDesignerClick" Content="Save" IsDefault="True" IsEnabled="{Binding LayoutDesignerEditor.CanSave}" />
       </Grid>
     </Border>
   </Grid>

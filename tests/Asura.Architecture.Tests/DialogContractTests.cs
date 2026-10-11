@@ -61,7 +61,7 @@ public sealed partial class DialogContractTests
             "returns one row of the unsaved shortcut draft to its default; Save Shortcuts commits it",
         [("SettingsView.axaml", "Clear")] =
             "clears the prefix in the unsaved shortcut draft, like a row's Reset; Save Shortcuts commits it",
-        [("Overlays/LayoutDesignerView.axaml", "Reset")] =
+        [("Overlays/LayoutDesignerView.axaml", "Reset Layout")] =
             "restores the saved layout over the designer's unsaved edits",
         [("WorkspaceEditorView.axaml", "Reset")] =
             "returns the open editor to the saved workspace, enabled only while it holds edits",

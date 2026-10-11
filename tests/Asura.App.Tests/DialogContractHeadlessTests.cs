@@ -1,4 +1,5 @@
 using Asura.App.Controls;
+using Asura.App.ViewModels;
 using Asura.App.Views;
 using Asura.Application;
 using Asura.Core;
@@ -173,6 +174,60 @@ public sealed class DialogContractHeadlessTests
     }
 
     [Fact]
+    public async Task Saved_connections_are_edited_from_the_selection_not_a_button_per_row()
+    {
+        await RunAsync(async () =>
+        {
+            using var launcher = new LauncherViewModel(() => []);
+            launcher.Connections.Add(new LauncherConnectionViewModel(
+                new ConnectionId("one"), 1, "Build server", "SSH", "ops@build", "Ready", true, []));
+            launcher.Connections.Add(new LauncherConnectionViewModel(
+                new ConnectionId("two"), 1, "Staging", "SSH", "ops@staging", "Ready", true, []));
+            var inspector = new SavedConnectionsDialog { DataContext = launcher };
+            LauncherConnectionViewModel? edited = null;
+            inspector.EditRequested += (_, connection) => edited = connection;
+            inspector.Show();
+            await Idle();
+
+            var buttons = inspector.GetVisualDescendants().OfType<Button>()
+                .Where(button => button.Content is "Edit…")
+                .ToArray();
+            var edit = Assert.Single(buttons);
+            Assert.False(edit.IsEnabled);
+
+            var list = inspector.FindControl<ListBox>("ConnectionList")!;
+            list.SelectedIndex = 1;
+            await Idle();
+            Assert.True(edit.IsEnabled);
+
+            Assert.True(list.ContainerFromIndex(1)!.Focus());
+            await Idle();
+            inspector.KeyPress(Key.Return, RawInputModifiers.None, PhysicalKey.Enter, "\r");
+            await Idle();
+            Assert.Equal("Staging", edited?.Name);
+
+            edited = null;
+            edit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.Equal("Staging", edited?.Name);
+
+            // The count above the list is a real plural.
+            static bool ShowsText(Window window, string text) =>
+                window.GetVisualDescendants().OfType<TextBlock>().Any(block => block.Text == text);
+            Assert.True(ShowsText(inspector, "2 saved connections"));
+            inspector.Close();
+
+            using var single = new LauncherViewModel(() => []);
+            single.Connections.Add(new LauncherConnectionViewModel(
+                new ConnectionId("one"), 1, "Build server", "SSH", "ops@build", "Ready", true, []));
+            var singleInspector = new SavedConnectionsDialog { DataContext = single };
+            singleInspector.Show();
+            await Idle();
+            Assert.True(ShowsText(singleInspector, "1 saved connection"));
+            singleInspector.Close();
+        });
+    }
+
+    [Fact]
     public async Task Sheets_cannot_be_minimized_and_inspectors_can()
     {
         await RunAsync(() =>
@@ -215,6 +270,41 @@ public sealed class DialogContractHeadlessTests
             // The question is the window's title; it is not repeated above itself.
             Assert.Equal("Merge “feature” into “main”?", dialog.Title);
             Assert.True(dialog.FindControl<Button>("CancelButton")!.IsCancel);
+            return Task.CompletedTask;
+        });
+    }
+
+    [Fact]
+    public async Task Confirmation_buttons_span_the_alert_and_stack_when_there_are_three()
+    {
+        await RunAsync(() =>
+        {
+            var pair = new ConfirmationDialog(new ConfirmationDialogOptions
+            {
+                Heading = "Merge?",
+                Detail = "The merge commits into the current branch.",
+                ConfirmLabel = "Merge",
+                Intent = ConfirmationIntent.Confirm,
+            });
+            var pairConfirm = pair.FindControl<Button>("ConfirmButton")!;
+            var pairCancel = pair.FindControl<Button>("CancelButton")!;
+            // Side by side, the default on the trailing side.
+            Assert.Equal(1, Grid.GetColumn(pairConfirm));
+            Assert.Equal(0, Grid.GetColumn(pairCancel));
+            Assert.Equal(Grid.GetRow(pairConfirm), Grid.GetRow(pairCancel));
+
+            var save = new ConfirmationDialog(new ConfirmationDialogOptions
+            {
+                Heading = "Save changes?",
+                Detail = "Your changes are lost if you don't save them.",
+                ConfirmLabel = "Save",
+                AlternateLabel = "Don't Save",
+                Intent = ConfirmationIntent.Confirm,
+            });
+            // Stacked: the default on top, Cancel at the bottom.
+            Assert.Equal(0, Grid.GetRow(save.FindControl<Button>("ConfirmButton")!));
+            Assert.Equal(1, Grid.GetRow(save.FindControl<Button>("AlternateButton")!));
+            Assert.Equal(2, Grid.GetRow(save.FindControl<Button>("CancelButton")!));
             return Task.CompletedTask;
         });
     }
@@ -340,6 +430,43 @@ public sealed class DialogContractHeadlessTests
             var field = dialog.GetVisualDescendants().OfType<LabeledField>().Single();
             Assert.Equal("Enter a line number of 1 or more.", field.Error);
             Assert.Equal("abc", dialog.GetVisualDescendants().OfType<TextBox>().Single().Text);
+            dialog.Close();
+        });
+    }
+
+    [Fact]
+    public async Task A_long_access_list_scrolls_inside_a_window_that_fits_the_screen()
+    {
+        await RunAsync(async () =>
+        {
+            // An object store allows a hundred grants; the window sizes to its
+            // table but stops at its maximum, and the table scrolls instead.
+            var grants = Enumerable.Range(0, 100)
+                .Select(index => new FilePanelAccessGrant(
+                    new FilePanelGrantee(FilePanelGranteeKind.User, $"account-{index}"),
+                    FilePanelAccessRight.Read))
+                .ToArray();
+            var editor = new FileAccessControlEditorViewModel(
+                "report.csv",
+                "bucket",
+                new FilePanelAccessControl(
+                    new FilePanelLocation(
+                        "files.remote",
+                        "bucket",
+                        new FilePanelAddress.Hierarchical(
+                            FilePanelPath.Root.Append(new FilePanelPathSegment("report.csv")))),
+                    grants: grants),
+                canEdit: true);
+            var dialog = new FileAccessControlDialog(editor);
+            dialog.Show();
+            await Idle();
+            dialog.UpdateLayout();
+
+            Assert.True(dialog.Bounds.Height <= dialog.MaxHeight, $"The window is {dialog.Bounds.Height} high.");
+            var table = dialog.GetVisualDescendants()
+                .OfType<ScrollViewer>()
+                .Single(viewer => viewer.Content is ItemsControl);
+            Assert.True(table.Extent.Height > table.Viewport.Height);
             dialog.Close();
         });
     }

@@ -127,6 +127,22 @@ public sealed class AiProviderProfileEditorViewModelTests
     }
 
     [Fact]
+    public void The_provider_api_is_named_the_way_its_vendor_names_it()
+    {
+        using var runtime = new StubRuntime();
+        var editor = new AiProviderProfileEditorViewModel(runtime, []) { Kind = AiProviderKind.OpenAi };
+        Assert.Equal("Uses the OpenAI Responses API.", editor.ProviderProtocol);
+
+        // Every protocol has a name; none falls back to its enum spelling.
+        foreach (var protocol in Enum.GetValues<AiProviderProtocol>())
+        {
+            var name = AiProviderProfileEditorViewModel.ProtocolDisplayName(protocol);
+            Assert.NotEqual(protocol.ToString(), name, StringComparer.Ordinal);
+            Assert.EndsWith(" API", name, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public async Task Each_stored_key_has_a_fresh_reference_and_null_binding_updates_preserve_selection()
     {
         using var runtime = new StubRuntime();
@@ -472,7 +488,7 @@ public sealed class AiProviderProfileEditorViewModelTests
         editor.Kind = AiProviderKind.GitHubCopilot;
 
         Assert.Empty(editor.DefaultModel);
-        Assert.Equal(AiProviderProtocol.GitHubCopilot.ToString(), editor.ProviderProtocol);
+        Assert.Equal("Uses the GitHub Copilot API.", editor.ProviderProtocol);
         Assert.Equal(
             AiProviderEditorAuthenticationMode.OAuthDevice,
             editor.SelectedAuthentication!.Mode);

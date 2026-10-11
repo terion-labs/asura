@@ -6,7 +6,9 @@
     xmlns:controls="using:Asura.App.Controls"
     xmlns:vm="using:Asura.App.ViewModels"
     Width="520"
-    Height="400"
+    MinHeight="260"
+    MaxHeight="560"
+    SizeToContent="Height"
     CanResize="False">
   <controls:DialogShell
       x:Name="Shell"
@@ -18,7 +20,11 @@
       store's accounts are the same question asked of different systems, so they
       are read the same way: a name, and what that name is allowed.
     -->
-    <Grid RowDefinitions="Auto,*,Auto">
+    <!-- The mode line sits directly under the table it describes, and the
+         window takes the height of what it holds. An object store can carry
+         up to a hundred grants, so past about ten rows the table scrolls
+         inside its card and the heading and mode line stay in view. -->
+    <Grid RowDefinitions="Auto,Auto,Auto">
       <Grid ColumnDefinitions="*,150,Auto" Margin="{controls:Inset Horizontal=Md, Bottom=Xs}">
         <TextBlock Classes="Eyebrow" Text="Name" />
         <TextBlock Grid.Column="1" Classes="Eyebrow" Text="Privilege" />
@@ -35,52 +41,49 @@
             IsVisible="{Binding HasMode}" />
       </Grid>
 
-      <controls:SurfaceCard Grid.Row="1" Padding="{controls:Inset None}" VerticalAlignment="Top">
-        <ItemsControl ItemsSource="{Binding Rows}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate DataType="vm:FileAccessRowViewModel">
-              <Grid
-                  Margin="{controls:Inset Horizontal=Md, Vertical=Xs}"
-                  ColumnDefinitions="*,150,Auto"
-                  ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
+      <controls:SurfaceCard Grid.Row="1" Padding="{controls:Inset Vertical=Xs}" VerticalAlignment="Top">
+        <ScrollViewer MaxHeight="360" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+          <ItemsControl ItemsSource="{Binding Rows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="vm:FileAccessRowViewModel">
+                <!-- Every row one line at the control height, so the table keeps
+                     one rhythm whether or not a party has an account id. -->
+                <Grid
+                    MinHeight="{DynamicResource ShellControlMinHeight}"
+                    Margin="{controls:Inset Horizontal=Md, Vertical=Xs}"
+                    ColumnDefinitions="*,150,Auto"
+                    ColumnSpacing="{DynamicResource ShellSpaceSm}">
                   <TextBlock
+                      VerticalAlignment="Center"
                       Classes="MiddleTruncated"
-                      FontSize="{DynamicResource ShellFontSize12}"
                       Text="{Binding Name}"
-                      ToolTip.Tip="{Binding Name}" />
-                  <TextBlock
-                      Classes="Muted"
-                      FontSize="{DynamicResource ShellSecondaryFontSize}"
-                      Text="{Binding Detail}"
-                      IsVisible="{Binding HasDetail}"
-                      TextTrimming="CharacterEllipsis" />
-                </StackPanel>
-                <ComboBox
-                    Grid.Column="1"
-                    HorizontalAlignment="Stretch"
-                    ItemsSource="{Binding Choices}"
-                    SelectedItem="{Binding Privilege, Mode=TwoWay}"
-                    IsEnabled="{Binding $parent[Window].((vm:FileAccessControlEditorViewModel)DataContext).CanEdit}"
-                    AutomationProperties.Name="{Binding PrivilegeLabel}" />
-                <!-- A checkbox, as a permission in a table row is: a switch is
-                     for a prominent setting, not one cell among many. -->
-                <CheckBox
-                    Grid.Column="2"
-                    Width="38"
-                    HorizontalAlignment="Center"
-                    HorizontalContentAlignment="Center"
-                    IsChecked="{Binding CanRun, Mode=TwoWay}"
-                    IsVisible="{Binding ShowsExecute}"
-                    IsEnabled="{Binding $parent[Window].((vm:FileAccessControlEditorViewModel)DataContext).CanEdit}"
-                    AutomationProperties.Name="{Binding Name, StringFormat={}{0} can run this}" />
-              </Grid>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
+                      ToolTip.Tip="{Binding NameTip}" />
+                  <ComboBox
+                      Grid.Column="1"
+                      HorizontalAlignment="Stretch"
+                      ItemsSource="{Binding Choices}"
+                      SelectedItem="{Binding Privilege, Mode=TwoWay}"
+                      IsEnabled="{Binding $parent[Window].((vm:FileAccessControlEditorViewModel)DataContext).CanEdit}"
+                      AutomationProperties.Name="{Binding PrivilegeLabel}" />
+                  <!-- A checkbox, as a permission in a table row is: a switch is
+                       for a prominent setting, not one cell among many. -->
+                  <CheckBox
+                      Grid.Column="2"
+                      Width="38"
+                      HorizontalAlignment="Center"
+                      HorizontalContentAlignment="Center"
+                      IsChecked="{Binding CanRun, Mode=TwoWay}"
+                      IsVisible="{Binding ShowsExecute}"
+                      IsEnabled="{Binding $parent[Window].((vm:FileAccessControlEditorViewModel)DataContext).CanEdit}"
+                      AutomationProperties.Name="{Binding Name, StringFormat={}{0} can run this}" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
       </controls:SurfaceCard>
 
-      <StackPanel Grid.Row="2" Margin="{controls:Inset Top=Md}" Spacing="{DynamicResource ShellSpaceXs}">
+      <StackPanel Grid.Row="2" Margin="{controls:Inset Horizontal=Md, Top=Sm}" Spacing="{DynamicResource ShellSpaceXs}">
         <!-- The number, because it is what anybody working at a shell reads,
              and because the privileges above cannot express every mode. -->
         <controls:LiveRegionTextBlock
@@ -102,8 +105,9 @@
 
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
+        <Button MinWidth="88" Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
         <Button
+            MinWidth="88"
             Classes="PrimaryButton"
             Click="OnApplyClick"
             Content="Apply"

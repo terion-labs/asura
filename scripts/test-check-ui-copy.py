@@ -200,6 +200,102 @@ class Sample
         self.assertIn("{braces}", found[0].text if found[0].rule == "ellipsis" else found[1].text)
 
 
+class VocabularyTests(unittest.TestCase):
+    def test_glossary_terms(self):
+        source = axaml(
+            '<StackPanel>\n'
+            '<TextBlock Text="Choose a directory for exports." />\n'
+            '<TextBlock Text="The working directory and the home directory stay as they are." />\n'
+            '<TextBlock Text="Run git config --add safe.directory to trust it." />\n'
+            '<Button Content="New Definition" />\n'
+            '<TextBlock Text="Open Keybindings or set a hotkey." />\n'
+            '<MenuItem Header="Toggle Sidebar" />\n'
+            '<TextBlock Text="Open a File Viewer, a Process monitor, Stats, or a Database Viewer." />\n'
+            '<TextBlock Text="Run docker stats, then toggle nothing." />\n'
+            '</StackPanel>'
+        )
+        self.assertEqual(
+            [
+                ("vocabulary", "directory"),
+                ("vocabulary", "Definition"),
+                ("vocabulary", "Keybindings"),
+                ("vocabulary", "hotkey"),
+                ("vocabulary", "Toggle"),
+                ("vocabulary", "File Viewer"),
+                ("vocabulary", "Process monitor"),
+                ("vocabulary", "Stats"),
+                ("vocabulary", "Database Viewer"),
+            ],
+            [(rule, fragment) for rule, fragment in rules("View.axaml", source) if rule == "vocabulary"],
+        )
+
+    def test_vocabulary_reads_the_app_and_skips_exception_messages(self):
+        source = '''
+class Sample
+{
+    void Run()
+    {
+        Status = "Choose another directory.";
+        throw new InvalidOperationException("The definition directory is missing.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(value, "A directory is required.");
+    }
+}
+'''
+        self.assertEqual(
+            [("vocabulary", "directory")],
+            rules("src/Asura.App/ViewModels/Sample.cs", source),
+        )
+        self.assertEqual([], rules("src/Asura.Infrastructure/Sample.cs", source))
+
+
+class BoundLabelTests(unittest.TestCase):
+    def test_properties_bound_as_button_or_menu_labels_take_title_case(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "src" / "App").mkdir(parents=True)
+            (root / "src" / "App" / "View.axaml").write_bytes(axaml(
+                '<StackPanel>\n'
+                '  <Button Content="{Binding Editor.TestLabel}" />\n'
+                '  <MenuItem Header="{Binding HostKeyActionText}" />\n'
+                '  <TextBlock Text="{Binding StatusLabel}" />\n'
+                '</StackPanel>'
+            ))
+            (root / "src" / "App" / "Model.cs").write_text('''
+class Model
+{
+    public string TestLabel => IsTesting ? "Testing…" : "Run diagnostics";
+    public string HostKeyActionText
+    {
+        get => Changed ? "Replace trusted key…" : "Trust This Key…";
+    }
+    public string StatusLabel => "Not tested yet";
+}
+''')
+            allowlist = root / "allow.txt"
+            allowlist.write_text("")
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+                status = lint.main(["--root", str(root), "--allowlist", str(allowlist)])
+            self.assertEqual(1, status)
+            flagged = [line for line in output.getvalue().splitlines() if "[title-case]" in line]
+            self.assertEqual(3, len(flagged), output.getvalue())
+            self.assertTrue(all("Model.cs" in line for line in flagged))
+            self.assertTrue(any("“diagnostics”" in line for line in flagged))
+            self.assertTrue(any("“trusted”" in line for line in flagged))
+            self.assertFalse(any("Not tested yet" in line for line in flagged))
+
+    def test_binding_names_are_read_from_button_content_and_menu_headers(self):
+        source = axaml(
+            '<StackPanel>\n'
+            '  <Button Content="{Binding TrustHostKeyLabel}" />\n'
+            '  <ToggleButton Content="{CompiledBinding Path=Panel.ShowButtonText, Mode=OneWay}" />\n'
+            '  <MenuItem Header="{Binding Open}" />\n'
+            '  <CheckBox Content="{Binding EnableLabel}" />\n'
+            '</StackPanel>'
+        )
+        self.assertEqual({"TrustHostKeyLabel", "ShowButtonText"}, lint.axaml_title_bindings(source))
+
+
 class DriverTests(unittest.TestCase):
     def test_allowlist_paths_and_exit_status(self):
         with tempfile.TemporaryDirectory() as directory:
