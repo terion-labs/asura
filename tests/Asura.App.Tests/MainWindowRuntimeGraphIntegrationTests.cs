@@ -7519,6 +7519,90 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(request.Owner.PanelId, Assert.Single(graphTab.Panels).Id);
     }
 
+    /// <summary>
+    /// While Quick Terminal is the key window, its File › Delete
+    /// Conversation… acts on its own agent panel, as the conversation row's
+    /// menu there does: the window reports the fact and runs the command.
+    /// </summary>
+    [Fact]
+    public async Task Quick_terminal_menu_deletes_the_conversation_its_agent_panel_shows()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        try
+        {
+            var completed = await session.Dispatch(
+                async () =>
+                {
+                    var provider = CreateAgentProvider();
+                    using var agentRuntime = new RecordingGovernedAgentRuntime();
+                    using var aiProfiles = new FixedAiProfileRuntime([provider]);
+                    var snapshot = CreateCatalogSnapshot();
+                    var (client, _) = CreateSessionClient();
+                    using var mainWindow = CreateViewModel(client, snapshot);
+                    using var quickTerminal = new QuickTerminalViewModel(
+                        mainWindow,
+                        CreateFixedCatalog(snapshot),
+                        new SuccessfulConnectionRuntime(),
+                        agentRuntime: agentRuntime,
+                        aiProviderRuntime: aiProfiles);
+                    await quickTerminal.Initialization;
+                    var chat = Assert.IsType<AgentChatViewModel>(quickTerminal.AgentChat);
+                    var window = new QuickTerminalWindow
+                    {
+                        DataContext = quickTerminal,
+                    };
+                    var menu = new QuickTerminalMenuHost(
+                        window,
+                        controller: null!,
+                        new IdleApplicationCommandService(),
+                        CancellationToken.None);
+                    var none = new Dictionary<string, string>(StringComparer.Ordinal);
+
+                    bool IsEnabled() =>
+                        BuiltInCommands.Registry.TryGet(BuiltInCommands.DeleteAgentConversation, out var definition)
+                        && definition?.IsAvailable(menu.CaptureInvocation(none)) == true
+                        && menu.CanExecute(BuiltInCommands.DeleteAgentConversation, none);
+
+                    try
+                    {
+                        quickTerminal.IsAgentPanelVisible = true;
+                        Assert.False(IsEnabled());
+
+                        agentRuntime.SetSnapshot(WithSavedConversation(agentRuntime.Snapshot, provider.Id));
+                        await WaitForAsync(() => chat.ConversationDeletedByClear is not null);
+                        Assert.Equal(SavedConversationRunId, quickTerminal.CurrentAgentConversation?.RunId);
+                        Assert.True(IsEnabled());
+
+                        quickTerminal.IsAgentPanelVisible = false;
+                        Assert.Null(quickTerminal.CurrentAgentConversation);
+                        Assert.False(IsEnabled());
+
+                        quickTerminal.IsAgentPanelVisible = true;
+                        agentRuntime.SetSnapshot(agentRuntime.Snapshot with
+                        {
+                            State = GovernedAgentState.StreamingProvider,
+                        });
+                        await WaitForAsync(() => chat.IsBusy);
+                        Assert.Null(quickTerminal.CurrentAgentConversation);
+                        Assert.False(IsEnabled());
+                    }
+                    finally
+                    {
+                        window.ClosePermanently();
+                    }
+
+                    return true;
+                },
+                timeout.Token);
+            Assert.True(completed);
+        }
+        finally
+        {
+            await session.DisposeAsync();
+        }
+    }
+
     [Fact]
     public async Task Quick_terminal_render_preview_does_not_replace_its_session_request()
     {

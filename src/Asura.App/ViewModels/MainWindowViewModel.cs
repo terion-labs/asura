@@ -9933,6 +9933,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         return command.Category switch
         {
+            "Agent" => Symbol.Bot,
             "Application" => Symbol.Apps,
             "Edit" => Symbol.Edit,
             "Git" => PanelTypes.Icon(PanelKind.Git),

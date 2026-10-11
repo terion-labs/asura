@@ -46,6 +46,15 @@ internal interface IShellCommandPresentation
 
     Task SelectWorkspaceAsync(int position);
 
+    /// <summary>Opens the editor for the workspace in front.</summary>
+    Task EditFrontWorkspaceAsync();
+
+    /// <summary>Asks first, then ends the workspace in front.</summary>
+    Task TerminateFrontWorkspaceAsync();
+
+    /// <summary>Asks first, then deletes the conversation the agent panel shows.</summary>
+    Task DeleteCurrentAgentConversationAsync();
+
     Task SendLiteralPrefixAsync();
 
     void ShowCommandPalette();
@@ -229,6 +238,22 @@ internal sealed class ShellCommandExecutor(
             case ApplicationCommandActionKind.SelectWorkspace:
                 await presentation.SelectWorkspaceAsync(
                     action.WorkspacePosition!.Value);
+                return;
+            case ApplicationCommandActionKind.EditWorkspace:
+                await presentation.EditFrontWorkspaceAsync();
+                return;
+            case ApplicationCommandActionKind.SaveWorkspaceLayout:
+                if (viewModel.FrontWorkspace is { } workspace)
+                {
+                    await viewModel.SaveWorkspaceLayoutAsync(workspace.Id, lifetime);
+                }
+
+                return;
+            case ApplicationCommandActionKind.TerminateWorkspace:
+                await presentation.TerminateFrontWorkspaceAsync();
+                return;
+            case ApplicationCommandActionKind.DeleteAgentConversation:
+                await presentation.DeleteCurrentAgentConversationAsync();
                 return;
             case ApplicationCommandActionKind.EnterTerminalCopyMode:
                 _ = viewModel.EnterTerminalCopyMode();

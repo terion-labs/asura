@@ -310,17 +310,34 @@ public sealed partial class MainWindow
 
     private async void OnDeleteAgentConversationClick(object? sender, RoutedEventArgs e)
     {
+        _ = e;
+
         // From the row's context menu or Delete on the focused row.
-        if (sender is Control { Tag: AgentRunId runId }
-            && ViewModel.AgentChat is { } agent
-            && agent.Conversations.FirstOrDefault(item => item.RunId == runId) is { } item
-            && await Confirmations.AgentConversationDelete(item.Title).ShowDialog<bool>(this))
+        if (sender is Control { Tag: AgentRunId runId })
         {
-            await RunAgentConversationActionAsync(
-                sender,
-                e,
-                (agent, token) => agent.DeleteConversationAsync(runId, token),
-                hideHistoryFlyout: false);
+            await DeleteAgentConversationAsync(runId);
+        }
+    }
+
+    /// <summary>
+    /// Asks, then deletes one saved conversation: the row's, or from the File
+    /// menu the one the agent panel shows.
+    /// </summary>
+    private async Task DeleteAgentConversationAsync(AgentRunId runId)
+    {
+        if (ViewModel.AgentChat is not { } agent
+            || agent.Conversations.FirstOrDefault(item => item.RunId == runId) is not { } item
+            || !await Confirmations.AgentConversationDelete(item.Title).ShowDialog<bool>(this))
+        {
+            return;
+        }
+
+        try
+        {
+            await agent.DeleteConversationAsync(runId, _lifetime.Token);
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        {
         }
     }
 

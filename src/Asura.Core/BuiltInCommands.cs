@@ -23,6 +23,17 @@ public static class BuiltInCommands
     public static CommandId LastTab { get; } = new("tab.last");
     public static CommandId SelectTab { get; } = new("tab.select-position");
     public static CommandId SelectWorkspace { get; } = new("workspace.select-position");
+
+    // The rail tile's menu, for the workspace in front in the menu bar.
+    public static CommandId EditWorkspace { get; } = new("workspace.edit");
+    public static CommandId SaveWorkspaceLayout { get; } = new("workspace.save-layout");
+    public static CommandId TerminateWorkspace { get; } = new("workspace.terminate");
+
+    /// <summary>
+    /// A saved conversation's menu in the agent's history, for the
+    /// conversation the agent panel shows in the menu bar.
+    /// </summary>
+    public static CommandId DeleteAgentConversation { get; } = new("agent.delete-conversation");
     public static CommandId EnterTerminalCopyMode { get; } = new("terminal.copy-mode");
     public static CommandId SendPrefix { get; } = new("terminal.send-prefix");
     public static CommandId FocusNextArea { get; } = new("window.focus-next-area");
@@ -297,6 +308,10 @@ public static class BuiltInCommands
         BringAllToFront,
         ToggleQuickTerminal,
         EditDelete,
+        EditWorkspace,
+        SaveWorkspaceLayout,
+        TerminateWorkspace,
+        DeleteAgentConversation,
         GitRefresh,
         GitStageAll,
         GitUnstageAll,
@@ -531,6 +546,20 @@ public static class BuiltInCommands
                 CommandContext.Window,
                 positionSchema,
                 arguments => PositionTitle("Go to Workspace", arguments)),
+
+            // The workspace in front, as its rail tile's menu acts on that
+            // tile's workspace. The window reports which of them it can run.
+            DefineSelectionCommand(EditWorkspace, "Edit Workspace…", "Workspaces", CommandContext.Window),
+            DefineSelectionCommand(SaveWorkspaceLayout, "Save Workspace Layout", "Workspaces", CommandContext.Window),
+            DefineSelectionCommand(TerminateWorkspace, "Terminate Workspace…", "Workspaces", CommandContext.Window),
+
+            // The agent panel in front: the main window's, or Quick Terminal's
+            // while it is the key window.
+            DefineSelectionCommand(
+                DeleteAgentConversation,
+                "Delete Conversation…",
+                "Agent",
+                CommandContext.Window | CommandContext.QuickTerminal),
             Define(FocusNextArea, "Move Focus to Next Area", "Window", CommandContext.Window),
             Define(FocusPreviousArea, "Move Focus to Previous Area", "Window", CommandContext.Window),
             Define(EnterTerminalCopyMode, "Enter Copy Mode", "Terminal", CommandContext.Terminal),
@@ -837,6 +866,18 @@ public static class BuiltInCommands
             Define(ReportIssue, "Report an Issue…", "Help", CommandContext.Global),
         ]);
     }
+
+    /// <summary>
+    /// A command that acts on something the window has in front, such as
+    /// its workspace or the agent's conversation, and waits for the window to
+    /// say it can run.
+    /// </summary>
+    private static CommandDefinition DefineSelectionCommand(
+        CommandId id,
+        string title,
+        string category,
+        CommandContext contexts) =>
+        Define(id, title, category, contexts, state: CommandStates.CanExecute(id));
 
     private static CommandDefinition DefinePanelCommand(
         CommandId id,

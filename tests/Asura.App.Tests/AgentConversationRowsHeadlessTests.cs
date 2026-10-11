@@ -96,6 +96,13 @@ public sealed partial class AgentChatViewModelTests
                     Assert.Equal("Delete Conversation…", item.Header);
                 }
 
+                // The File menu's item shares the row item's title; it
+                // deletes the conversation the panel shows.
+                Assert.Contains(
+                    ApplicationMenuLayout.MenuBar.Single(menu => menu.Title == "File").Items.OfType<MenuCommandNode>(),
+                    node => node.Command == BuiltInCommands.DeleteAgentConversation
+                        && node.Title == AgentWorkspaceView.DeleteConversationTitle);
+
                 // Pressing a damaged row opens nothing; pressing an available one does.
                 damagedRow.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 availableRow.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

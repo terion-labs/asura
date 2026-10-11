@@ -333,7 +333,7 @@
                               AutomationProperties.HelpText="Press Delete to delete this conversation.">
                             <Button.ContextMenu>
                               <ContextMenu>
-                                <MenuItem Header="Delete Conversation…" Click="OnDeleteConversationClick" Tag="{Binding RunId}" />
+                                <MenuItem Header="{x:Static views:AgentWorkspaceView.DeleteConversationTitle}" Click="OnDeleteConversationClick" Tag="{Binding RunId}" />
                               </ContextMenu>
                             </Button.ContextMenu>
                             <StackPanel Classes="ConversationRowText" Spacing="{DynamicResource ShellSpaceXs}">

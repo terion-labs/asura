@@ -212,6 +212,14 @@ public sealed class QuickTerminalViewModel : ObservableObject, IDisposable, IAge
     public bool IsAgentPanelDockedVisible =>
         IsAgentPanelVisible && IsAgentPanelDocked;
 
+    /// <summary>
+    /// The saved conversation the agent panel shows, while the agent is free
+    /// to delete it: what the menu bar's Delete Conversation… deletes while
+    /// Quick Terminal is the key window.
+    /// </summary>
+    internal AgentConversationItemViewModel? CurrentAgentConversation =>
+        MainWindowViewModel.ShownAgentConversation(IsAgentPanelVisible, AgentChat);
+
     public string AgentPanelPinTip => IsAgentPanelDocked
         ? "Unpin — float over Quick Terminal"
         : "Pin to the Quick Terminal layout";

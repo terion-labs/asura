@@ -9,6 +9,7 @@
     xmlns:dock="using:Dock.Avalonia.Controls"
     xmlns:dockCore="using:Dock.Model.Core"
     xmlns:components="using:Asura.App.Views.Components"
+    xmlns:core="using:Asura.Core"
     xmlns:icons="using:FluentIcons.Avalonia"
     xmlns:views="using:Asura.App.Views"
     HorizontalContentAlignment="Stretch"
@@ -383,14 +384,16 @@
                   <!-- What the tile can do, in one place a right-click, Shift+F10
                        or the Menu key reaches: the tile's own hover actions are
                        there too, and ending the workspace sits last, behind a
-                       separator, worded as the Workspaces menu words it. -->
+                       separator. Each item is the Workspace menu's command and
+                       takes its title, acting on this tile's workspace rather
+                       than the one in front. -->
                   <controls:WorkspaceRailTile.ContextMenu>
                     <ContextMenu>
                       <MenuItem Header="Open" Click="OnOpenWorkspaceClick" />
-                      <MenuItem Header="Edit Workspace…" Click="OnEditWorkspaceClick" />
-                      <MenuItem Header="Save Layout" Click="OnSaveWorkspaceLayoutClick" IsEnabled="{Binding CanSaveLayout}" />
+                      <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.EditWorkspace}" Click="OnEditWorkspaceClick" />
+                      <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.SaveWorkspaceLayout}" Click="OnSaveWorkspaceLayoutClick" IsEnabled="{Binding CanSaveLayout}" />
                       <Separator />
-                      <MenuItem Header="Terminate Workspace…" Click="OnRailTerminateWorkspaceClick" IsEnabled="{Binding CanClose}" />
+                      <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.TerminateWorkspace}" Click="OnRailTerminateWorkspaceClick" IsEnabled="{Binding CanClose}" />
                     </ContextMenu>
                   </controls:WorkspaceRailTile.ContextMenu>
                 </controls:WorkspaceRailTile>

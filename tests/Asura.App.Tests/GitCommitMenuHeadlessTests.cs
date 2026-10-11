@@ -35,7 +35,9 @@ public sealed class GitCommitMenuHeadlessTests
         Assert.Same(clicked, menu.DataContext);
         Assert.Same(clicked, panel.SelectedCommit);
         Assert.Equal([clicked], panel.SelectedCommits);
-        Assert.Equal("Reset “dev” to Here", view.FindControl<MenuItem>("CommitResetMenu")!.Header);
+        Assert.Equal(
+            "Reset Branch to Commit, Keeping Staged Changes…",
+            menu.Items.OfType<MenuItem>().Single(item => Equals(item.Tag, BuiltInCommands.GitCommitResetSoft)).Header);
         foreach (var command in new[]
         {
             BuiltInCommands.GitCommitNewBranch, BuiltInCommands.GitCommitNewTag, BuiltInCommands.GitCommitInteractiveRebase,

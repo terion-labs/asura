@@ -46,9 +46,19 @@ public sealed class ShellWindowMenusHeadlessTests
             var menu = Assert.IsType<ContextMenu>(tile.ContextMenu);
             var items = menu.Items.OfType<Control>().ToArray();
             Assert.Equal(
-                ["Open", "Edit Workspace…", "Save Layout", "-", "Terminate Workspace…"],
+                ["Open", "Edit Workspace…", "Save Workspace Layout", "-", "Terminate Workspace…"],
                 items.Select(item => item is Separator ? "-" : (string)((MenuItem)item).Header!),
                 StringComparer.Ordinal);
+
+            // Each item but Open is the Workspace menu's command, with its
+            // title; the menu bar's acts on the workspace in front.
+            Assert.Equal(
+                [BuiltInCommands.EditWorkspace, BuiltInCommands.SaveWorkspaceLayout, BuiltInCommands.TerminateWorkspace],
+                items.OfType<MenuItem>().Skip(1).Select(item => Assert.IsType<CommandId>(item.Tag)));
+            var workspaceMenu = ApplicationMenuLayout.MenuBar.Single(menu => menu.Title == "Workspace");
+            Assert.All(items.OfType<MenuItem>().Skip(1), item => Assert.Contains(
+                workspaceMenu.Items.OfType<MenuCommandNode>(),
+                node => Equals(node.Command, item.Tag) && Equals(node.Title, item.Header)));
 
             // Shift+F10 and the Menu key open it from the keyboard.
             var open = tile.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "PART_Open");
@@ -59,7 +69,7 @@ public sealed class ShellWindowMenusHeadlessTests
             Assert.True(WorkspaceRailTile.IsContextMenuGesture(Key.Apps, Avalonia.Input.KeyModifiers.None));
             Assert.False(WorkspaceRailTile.IsContextMenuGesture(Key.F10, Avalonia.Input.KeyModifiers.None));
 
-            // Save Layout follows whether the layout can be saved, and
+            // Save Workspace Layout follows whether the layout can be saved, and
             // Terminate whether the workspace can be ended.
             var save = (MenuItem)items[2];
             var terminate = (MenuItem)items[4];

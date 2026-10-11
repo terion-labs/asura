@@ -1,3 +1,4 @@
+using System.Xml.Linq;
 using Asura.App.ViewModels;
 using Asura.App.Views;
 using Asura.Core;
@@ -13,8 +14,8 @@ namespace Asura.App.Tests;
 
 /// <summary>
 /// Settings lists follow the Mac list pattern the Workspaces list set: a
-/// selectable list, Edit… on the row, a context menu with Edit… and
-/// Delete…, and + and – below it, with – acting on the selection. No row
+/// selectable list, Edit… on the row, a context menu with Edit… and,
+/// behind a separator, Delete…, and + and – below it, with – acting on the selection. No row
 /// carries a red trash button of its own.
 /// </summary>
 [Collection(AvaloniaUiCollection.Name)]
@@ -33,6 +34,36 @@ public sealed class SettingsListPatternTests
 
         Assert.DoesNotContain("IconButton Danger", markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Symbol=\"Delete\"", markup, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A row's Delete comes last in its menu, behind a separator, as the
+    /// launcher's and the rail tile's destructive items do.
+    /// </summary>
+    [Theory]
+    [InlineData("SettingsView.axaml", 6)]
+    [InlineData("SettingsPages/NetworkingSettingsPageView.axaml", 1)]
+    public void Delete_comes_last_behind_a_separator_in_every_row_menu(string view, int menusWithEdit)
+    {
+        var path = Path.Combine(Views.RepositoryRoot, "src", "Asura.App", "Views", view.Replace('/', Path.DirectorySeparatorChar));
+        var menus = XDocument.Load(path).Descendants()
+            .Where(element => element.Name.LocalName == "ContextMenu")
+            .Select(menu => menu.Elements().ToArray())
+            .Where(items => items.Any(item => Header(item)?.StartsWith("Delete", StringComparison.Ordinal) == true))
+            .ToArray();
+
+        Assert.Equal(menusWithEdit, menus.Count(items => items.Length > 1));
+        foreach (var items in menus)
+        {
+            Assert.StartsWith("Delete", Header(items[^1]), StringComparison.Ordinal);
+            if (items.Length > 1)
+            {
+                Assert.Equal("Separator", items[^2].Name.LocalName);
+                Assert.Equal("Edit…", Header(items[0]));
+            }
+        }
+
+        static string? Header(XElement item) => item.Attribute("Header")?.Value;
     }
 
     [Fact]
@@ -140,8 +171,8 @@ public sealed class SettingsListPatternTests
             .Select(control => control.ContextMenu)
             .First(found => found is not null)!;
         Assert.Equal(
-            ["Edit…", deleteHeader],
-            menu.Items.OfType<MenuItem>().Select(entry => entry.Header as string ?? string.Empty),
+            ["Edit…", "-", deleteHeader],
+            menu.Items.OfType<Control>().Select(entry => entry is Separator ? "-" : (entry as MenuItem)?.Header as string ?? string.Empty),
             StringComparer.Ordinal);
         var rowButtons = container.GetVisualDescendants().OfType<Button>().ToArray();
         Assert.Contains(rowButtons, button => Equals(button.Content, "Edit…"));
