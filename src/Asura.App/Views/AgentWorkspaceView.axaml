@@ -220,6 +220,11 @@
     <Style Selector="ToggleButton.ReasoningTraceDisclosure:focus-visible /template/ Border">
       <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
     </Style>
+    <!-- A checkbox's explanation dims with its checkbox, as a disabled
+         control's own label does. -->
+    <Style Selector="TextBlock.dimmed">
+      <Setter Property="Opacity" Value="0.48" />
+    </Style>
   </UserControl.Styles>
   <!--
     Keep the agent surface free of AutomationProperties.LiveSetting. Its one
@@ -721,11 +726,10 @@
                   Header="Details"
                   HorizontalAlignment="Stretch"
                   HorizontalContentAlignment="Stretch"
-                  FontSize="{DynamicResource ShellFontSize10}"
                   AutomationProperties.Name="Show AI agent tool details">
                 <StackPanel Spacing="{DynamicResource ShellSpaceXs}" Margin="{controls:Inset Top=Xs}">
-                  <SelectableTextBlock Classes="Muted" Text="{Binding AgentChat.ActiveTool.ToolName, StringFormat={}Tool: {0}}" TextWrapping="Wrap" />
-                  <SelectableTextBlock Classes="Muted" Text="{Binding AgentChat.ActiveTool.TargetTitle, StringFormat={}Target: {0}}" TextWrapping="Wrap" />
+                  <SelectableTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding AgentChat.ActiveTool.ToolName, StringFormat={}Tool: {0}}" TextWrapping="Wrap" />
+                  <SelectableTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding AgentChat.ActiveTool.TargetTitle, StringFormat={}Target: {0}}" TextWrapping="Wrap" />
                 </StackPanel>
               </Expander>
               <Button
@@ -822,7 +826,7 @@
                             Text="{Binding Evidence}"
                             TextWrapping="Wrap" />
                         <TextBlock
-                            FontSize="{DynamicResource ShellFontSize10}"
+                            FontSize="{DynamicResource ShellSecondaryFontSize}"
                             Text="{Binding Timeline}"
                             TextWrapping="Wrap" />
                         <TextBlock
@@ -1141,7 +1145,7 @@
                   FontSize="{DynamicResource ShellFontSize11}"
                   Content="Send raw secrets"
                   IsChecked="{Binding AgentChat.SendRawSecrets, Mode=TwoWay}"
-                  IsEnabled="{Binding AgentChat.CanEnterPrompt}"
+                  IsEnabled="{Binding AgentChat.CanUseComposerOptions}"
                   IsVisible="{Binding !AgentChat.HasFailedTurn}"
                   AutomationProperties.Name="Send raw secrets"
                   AutomationProperties.HelpText="{Binding AgentChat.SendRawSecretsExplanation}" />
@@ -1153,7 +1157,7 @@
                   FontSize="{DynamicResource ShellSecondaryFontSize}"
                   Text="{Binding AgentChat.SendRawSecretsHelp}"
                   TextWrapping="Wrap"
-                  IsEnabled="{Binding AgentChat.CanEnterPrompt}"
+                  Classes.dimmed="{Binding !AgentChat.CanUseComposerOptions}"
                   IsVisible="{Binding !AgentChat.HasFailedTurn}" />
               <ComboBox Grid.Column="2" MinWidth="{controls:TextScaled 104}" Margin="4,0" MinHeight="{controls:TextScaled 26}"
                   VerticalAlignment="Center"
@@ -1207,7 +1211,7 @@
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
                 Classes="TextButton ComposerControl ComposerSelector"
-                IsEnabled="{Binding AgentChat.HasProvider, FallbackValue=False}"
+                IsEnabled="{Binding AgentChat.CanUseComposerOptions, FallbackValue=False}"
                 ToolTip.Tip="{Binding AgentChat.AccessModeLabel}"
                 AutomationProperties.Name="Choose how AI actions are approved">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
@@ -1248,7 +1252,7 @@
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
                 Classes="TextButton ComposerControl ComposerSelector"
-                IsEnabled="{Binding AgentChat.CanBrowseModels}"
+                IsEnabled="{Binding AgentChat.CanUseModelPicker}"
                 ToolTip.Tip="{Binding AgentChat.SelectedModelName}"
                 AutomationProperties.Name="Choose AI provider and model">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">

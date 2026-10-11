@@ -70,6 +70,25 @@
     <Style Selector="Grid.RuntimeTabDropTarget.active Button.RuntimeTabClose.closable, Grid.RuntimeTabDropTarget:pointerover Button.RuntimeTabClose.closable">
       <Setter Property="IsVisible" Value="True" />
     </Style>
+    <!-- A tab's title reads at body size, as Safari's and Terminal's do:
+         the title and its editor take the text style the window gives
+         them, and the strip grows with larger text instead of shrinking
+         the one label that says which tab is which. -->
+    <Style Selector="TextBlock.RuntimeTabTitle">
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
+    </Style>
+    <Style Selector="TextBox.RuntimeTabTitleEditor">
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
+    </Style>
+    <!-- The agent mark draws in the tab's own ink: on the active tab that is
+         the measured black or white for the accent fill, so it shows on
+         every accent rather than fading into it. -->
+    <Style Selector="icons|SymbolIcon.RuntimeTabAgentActivity">
+      <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+    </Style>
+    <Style Selector="Grid.RuntimeTabDropTarget.active icons|SymbolIcon.RuntimeTabAgentActivity">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    </Style>
   </UserControl.Styles>
   <!-- The add button lives outside the scroll: it is always reachable, no
        matter how many tabs overflowed. The scrollbar is hidden — overflow
@@ -251,7 +270,6 @@
                   <TextBlock
                       Classes="RuntimeTabTitle"
                       VerticalAlignment="Center"
-                      FontSize="{DynamicResource ShellFontSize10}"
                       Text="{Binding DisplayTitle}"
                       TextTrimming="CharacterEllipsis"
                       DoubleTapped="OnTitleDoubleTapped" />
@@ -260,7 +278,6 @@
                       MinHeight="{controls:TextScaled 20}"
                       Padding="2,0"
                       VerticalContentAlignment="Center"
-                      FontSize="{DynamicResource ShellFontSize10}"
                       IsVisible="False"
                       KeyDown="OnTitleEditorKeyDown"
                       LostFocus="OnTitleEditorLostFocus"
@@ -277,8 +294,8 @@
                     Spacing="{DynamicResource ShellSpaceXs}">
                   <icons:SymbolIcon
                       AutomationProperties.AccessibilityView="Raw"
-                      Classes="PanelAgentActivity"
-                      FontSize="{DynamicResource ShellFontSize10}"
+                      Classes="PanelAgentActivity RuntimeTabAgentActivity"
+                      FontSize="{DynamicResource ShellIconSizeXs}"
                       IsVisible="{Binding HasAgentActivity}"
                       Symbol="Bot"
                       ToolTip.Tip="{Binding AgentActivity}" />

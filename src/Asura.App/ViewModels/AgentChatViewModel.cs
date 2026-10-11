@@ -2038,6 +2038,20 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     public bool CanChangeModel => HasMultipleModels && CanBrowseModels;
 
+    /// <summary>
+    /// Whether the composer's options (the approval mode, the model, and
+    /// Send raw secrets with its explanation) can be used. They dim together
+    /// with the composer when a run failed or is being cleared, instead of
+    /// some going gray while the rest stay bright beside a dimmed prompt.
+    /// </summary>
+    public bool CanUseComposerOptions =>
+        SelectedProvider is not null
+        && !_clearInFlight
+        && State is not (GovernedAgentState.Failed or GovernedAgentState.Cancelling);
+
+    /// <summary>The model picker: a composer option that also waits for a run to end.</summary>
+    public bool CanUseModelPicker => CanBrowseModels && CanUseComposerOptions;
+
     public bool CanSelectReasoningEffort =>
         ReasoningEfforts.Count > 1
         && State == GovernedAgentState.Ready
@@ -3969,6 +3983,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CanAttachImages));
         OnPropertyChanged(nameof(CanAttachFiles));
         OnPropertyChanged(nameof(CanEnterPrompt));
+        OnPropertyChanged(nameof(CanUseComposerOptions));
+        OnPropertyChanged(nameof(CanUseModelPicker));
         OnPropertyChanged(nameof(CanStartConversation));
         OnPropertyChanged(nameof(ConnectionStatus));
         OnPropertyChanged(nameof(NeedsProviderAttention));

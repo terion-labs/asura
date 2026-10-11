@@ -2,6 +2,7 @@ using Asura.App.ViewModels;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 
 namespace Asura.App.Views.Components;
 
@@ -20,10 +21,28 @@ public partial class ShellLockView : UserControl
         {
             if (args.Property == IsVisibleProperty && IsVisible)
             {
-                PinInput.Focus();
+                FocusPinWhenShown();
             }
         };
+        // A window that starts locked shows the veil before it is attached,
+        // so no visibility change follows to put the caret in the PIN box.
+        Loaded += (_, _) => FocusPinWhenShown();
     }
+
+    /// <summary>
+    /// Puts the caret in the PIN box once the veil can take focus: after
+    /// layout, since a box that was hidden a moment ago refuses it.
+    /// </summary>
+    private void FocusPinWhenShown() =>
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                if (IsEffectivelyVisible && PinInput.IsEffectivelyEnabled)
+                {
+                    PinInput.Focus();
+                }
+            },
+            DispatcherPriority.Input);
 
     private void OnUnlockClick(object? sender, RoutedEventArgs e)
     {

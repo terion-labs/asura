@@ -9887,12 +9887,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             searchTerms);
 
     /// <summary>
-    /// A command as a palette row: its title (naming the invocation when the
-    /// command takes arguments), its menu category, and its shortcut. The
-    /// command identifier and raw arguments stay searchable but are never
-    /// shown: they are the program's words, not the person's.
-    /// </summary>
-    /// <summary>
     /// A palette row's glyph: what the command is about, so a list of
     /// commands is not a column of identical code brackets. A few commands
     /// carry their own; the rest take their category's.
@@ -9946,6 +9940,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         [BuiltInCommands.ShowCommandPalette] = Symbol.Search,
     };
 
+    /// <summary>
+    /// A command as a palette row: its title (naming the invocation when the
+    /// command takes arguments), its menu category, and its shortcut. The
+    /// command identifier and raw arguments stay searchable but are never
+    /// shown: they are the program's words, not the person's.
+    /// </summary>
     private LauncherSearchResultViewModel CreateCommandLauncherResult(
         CommandDefinition command,
         IReadOnlyDictionary<string, string> arguments,

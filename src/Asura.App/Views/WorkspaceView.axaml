@@ -186,7 +186,7 @@
                   AutomationProperties.AccessibilityView="Raw" />
               <TextBlock
                   VerticalAlignment="Center"
-                  FontSize="{DynamicResource ShellFontSize10}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
                   FontWeight="Medium"
                   Text="{Binding WorkspaceNetwork.RouteLabel}" />
             </StackPanel>
@@ -271,7 +271,7 @@
                   Foreground="{DynamicResource ShellInfoBrush}" />
               <controls:LiveRegionTextBlock
                   VerticalAlignment="Center"
-                  FontSize="{DynamicResource ShellFontSize10}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
                   FontWeight="Medium"
                   Text="{Binding FileTransferStatusText}"
                   AutomationProperties.LiveSetting="Polite" />
