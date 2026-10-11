@@ -156,10 +156,10 @@ public sealed class AgentWorkspaceViewContractTests
             Assert.Equal("AI Settings…", AttributeValue(button, "Content"));
             Assert.Equal("AI Settings…", AttributeValue(button, "AutomationProperties.Name"));
         });
-        // The empty states lead with it; after a failed turn the retry leads
-        // and settings is the quieter way out.
+        // The empty states lead with it; after a failed turn it sits beside
+        // the recovery buttons at their size, as a secondary button.
         Assert.Equal(
-            ["PrimaryButton", "PrimaryButton", "TextButton"],
+            ["PrimaryButton", "PrimaryButton", "SecondaryButton"],
             aiSettingsButtons.Select(button => AttributeValue(button, "Classes")),
             StringComparer.Ordinal);
         Assert.Contains(
@@ -215,14 +215,17 @@ public sealed class AgentWorkspaceViewContractTests
             composer.Descendants(),
             element => string.Equals(element.Name.LocalName, "Button"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "AutomationProperties.Name")
-, "{Binding AgentChat.ContextWindowUsageLabel}", StringComparison.Ordinal));
+, "{Binding AgentChat.ContextWindowAccessibleName}", StringComparison.Ordinal));
         Assert.Null(AttributeValue(contextUsage, "Content"));
-        // Sized for 13 pt text and grown with the text-size setting.
+        // Sized by the composer controls' text-scaled style, in the toolbar
+        // beside Send rather than in the raw-secrets row.
         Assert.Null(AttributeValue(contextUsage, "Width"));
-        Assert.Equal("{controls:TextScaled 26}", AttributeValue(contextUsage, "MinWidth"));
-        Assert.Equal("{controls:TextScaled 26}", AttributeValue(contextUsage, "MinHeight"));
+        Assert.Null(AttributeValue(contextUsage, "MinHeight"));
         Assert.Equal("3", AttributeValue(contextUsage, "Grid.Column"));
-        Assert.Equal("4", AttributeValue(contextUsage.Ancestors().First(element => string.Equals(element.Name.LocalName, "Border", StringComparison.Ordinal)), "Grid.Row"));
+        Assert.Equal("AgentComposerToolbar", AttributeValue(contextUsage.Parent!, "Name"));
+        Assert.Equal(
+            "{Binding AgentChat.ContextWindowAccessibleName}",
+            AttributeValue(contextUsage, "ToolTip.Tip"));
         Assert.Contains("ComposerControl", AttributeValue(contextUsage, "Classes"), StringComparison.Ordinal);
         var contextDonut = Assert.Single(
             contextUsage.Elements(),
@@ -232,7 +235,7 @@ public sealed class AgentWorkspaceViewContractTests
             AttributeValue(contextDonut, "Percentage"));
         var composerToolbar = FindNamedElement(root, "AgentComposerToolbar");
         Assert.Equal(
-            "Auto,*,*,Auto,Auto",
+            "Auto,*,*,Auto,Auto,Auto",
             AttributeValue(composerToolbar, "ColumnDefinitions"));
         Assert.Equal("0", AttributeValue(composerToolbar, "ColumnSpacing"));
         var accessMode = Assert.Single(
@@ -265,7 +268,7 @@ public sealed class AgentWorkspaceViewContractTests
             "{Binding AgentChat.ShowStopAction, FallbackValue=False}",
             AttributeValue(stop, "IsVisible"));
         Assert.Same(composerToolbar, stop.Parent);
-        Assert.Equal("4", AttributeValue(stop, "Grid.Column"));
+        Assert.Equal("5", AttributeValue(stop, "Grid.Column"));
 
         var committedReasoning = Assert.Single(
             root.Descendants(),
@@ -610,35 +613,33 @@ public sealed class AgentWorkspaceViewContractTests
                     "Components"),
                 "Agent*View.axaml",
                 SearchOption.TopDirectoryOnly));
-        var liveRegions = agentViews
-            .Select(XDocument.Load)
-            .SelectMany(document => document.Descendants())
-            .Where(element =>
-                AttributeValue(element, "AutomationProperties.LiveSetting") is not null);
 
         // Avalonia 12.0.5's macOS bridge terminates the process on a nil live
-        // announcement from streaming or detached controls. The one exception
-        // is the LiveRegionTextBlock, which never announces empty text, placed
-        // directly in the surface's root panel so it is never recycled with a
-        // transcript row, and fed discrete events rather than the stream.
-        var region = Assert.Single(liveRegions);
+        // announcement from streaming or detached controls, so the agent
+        // surface itself has no live region.
+        Assert.DoesNotContain(
+            agentViews.Select(XDocument.Load).SelectMany(document => document.Descendants()),
+            element => AttributeValue(element, "AutomationProperties.LiveSetting") is not null);
+
+        // Its one status region is the LiveRegionTextBlock, which never
+        // announces empty text, fed discrete events rather than the stream.
+        // It sits in the workspace's root grid, outside the agent overlay, so
+        // a hidden agent panel is still heard.
+        var workspace = XDocument.Load(Path.Combine(root, "src", "Asura.App", "Views", "WorkspaceView.axaml"));
+        var region = Assert.Single(
+            workspace.Descendants(),
+            element => string.Equals(AttributeValue(element, "Name"), "AgentAnnouncementRegion", StringComparison.Ordinal));
         Assert.Equal(
             XName.Get("LiveRegionTextBlock", "using:Asura.App.Controls"),
             region.Name);
-        Assert.Equal("AgentAnnouncementRegion", AttributeValue(region, "Name"));
         Assert.Equal(
             "{Binding AgentChat.Announcement, FallbackValue=''}",
             AttributeValue(region, "Text"));
-        var view = Assert.IsType<XElement>(LoadView().Root);
-        var rootPanel = Assert.Single(
-            view.Elements(),
-            element => string.Equals(element.Name.LocalName, "Panel", StringComparison.Ordinal));
-        Assert.Same(
-            rootPanel,
-            Assert.Single(
-                view.Descendants(),
-                element => string.Equals(AttributeValue(element, "Name"), "AgentAnnouncementRegion", StringComparison.Ordinal))
-                .Parent);
+        Assert.Equal("Polite", AttributeValue(region, "AutomationProperties.LiveSetting"));
+        var rootGrid = Assert.IsType<XElement>(workspace.Root)
+            .Elements()
+            .Single(element => string.Equals(element.Name.LocalName, "Grid", StringComparison.Ordinal));
+        Assert.Same(rootGrid, region.Parent);
     }
 
     [Fact]
@@ -670,12 +671,16 @@ public sealed class AgentWorkspaceViewContractTests
         var root = Assert.IsType<XElement>(LoadView().Root);
         var failedState = FindNamedElement(root, "AgentFailedTurnState");
         var clear = FindNamedElement(failedState, "AgentClearFailedRunButton");
+        var delete = FindNamedElement(failedState, "AgentDeleteFailedConversationButton");
 
-        Assert.Equal(
-            "{Binding AgentChat.ClearFailedRunLabel, FallbackValue='Clear Failed Run'}",
-            AttributeValue(clear, "Content"));
+        // Clearing a run is routine; deleting the saved conversation with it
+        // is a separate, destructive button rather than a relabeled one.
+        Assert.Equal("Clear Failed Run", AttributeValue(clear, "Content"));
         Assert.Equal("SecondaryButton", AttributeValue(clear, "Classes"));
         Assert.Equal("OnClearAgentChatClick", AttributeValue(clear, "Click"));
+        Assert.Equal("Delete Conversation…", AttributeValue(delete, "Content"));
+        Assert.Equal("DestructiveButton", AttributeValue(delete, "Classes"));
+        Assert.Equal("OnClearAgentChatClick", AttributeValue(delete, "Click"));
         Assert.DoesNotContain(
             failedState.Descendants(),
             element => HasClass(element, "PrimaryButton"));
@@ -714,7 +719,7 @@ public sealed class AgentWorkspaceViewContractTests
         Assert.Equal(
             "{Binding AgentChat.ContextWindowPercent}",
             AttributeValue(gauge, "Percentage"));
-        Assert.Equal("Context window used", AttributeValue(gauge, "AutomationProperties.Name"));
+        Assert.Equal("{Binding AgentChat.ContextWindowAccessibleName}", AttributeValue(gauge, "AutomationProperties.Name"));
         Assert.Contains(
             flyout.Descendants(),
             element => string.Equals(

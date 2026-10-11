@@ -471,6 +471,14 @@ public sealed class ManagedTerminalAccessibilityTests
             window.UpdateLayout();
 
             Assert.True(findBar.IsVisible);
+
+            // The bar keeps its own band above the rows, so it never covers
+            // the first line of output.
+            var band = findBar.Bounds.Height + findBar.Margin.Top + findBar.Margin.Bottom;
+            Assert.True(band > 0);
+            Assert.Equal(band, overlay.ReservedFindBandHeight);
+            Assert.Equal(band, host.Surface.Margin.Top);
+            Assert.True(host.Surface.Bounds.Top >= findBar.Bounds.Bottom);
             Assert.IsType<SearchField>(overlay.FindField);
             Assert.True(overlay.FindField.IsFocused);
             Assert.Equal("Find in terminal", AutomationProperties.GetName(overlay.FindField));
@@ -503,6 +511,9 @@ public sealed class ManagedTerminalAccessibilityTests
             Dispatcher.UIThread.RunJobs();
             Assert.True(escape.Handled);
             Assert.False(host.Surface.IsFindVisible);
+            window.UpdateLayout();
+            Assert.Equal(0, overlay.ReservedFindBandHeight);
+            Assert.Equal(0, host.Surface.Margin.Top);
 
             var announcer = overlay.GetVisualDescendants().OfType<LiveRegionTextBlock>()
                 .Single(block => AutomationProperties.GetName(block) == "Terminal output");
@@ -515,6 +526,32 @@ public sealed class ManagedTerminalAccessibilityTests
                 .Single(border => border.Name == "CopyModeHint").IsVisible);
             window.Close();
         });
+
+    [Fact]
+    public void Find_and_copy_mode_hints_name_their_keys_with_the_shortcut_formatter()
+    {
+        var mac = HostPlatform.Current == HostOperatingSystem.MacOS;
+        var escape = KeySequenceDisplay.Format(new KeyStroke("ESCAPE", Asura.Core.KeyModifiers.None));
+        var enter = KeySequenceDisplay.Format(new KeyStroke("ENTER", Asura.Core.KeyModifiers.None));
+        var up = KeySequenceDisplay.Format(new KeyStroke("ARROWUP", Asura.Core.KeyModifiers.None));
+        var down = KeySequenceDisplay.Format(new KeyStroke("ARROWDOWN", Asura.Core.KeyModifiers.None));
+
+        Assert.Equal(escape, ManagedTerminalOverlay.EscapeKeyText);
+        Assert.Equal(enter, ManagedTerminalOverlay.ReturnKeyText);
+        Assert.Contains(enter, ManagedTerminalOverlay.FindNextTip, StringComparison.Ordinal);
+        Assert.Contains(escape, ManagedTerminalOverlay.CloseFindTip, StringComparison.Ordinal);
+        Assert.StartsWith($"Copy mode: {up} {down} move", ManagedTerminalOverlay.CopyModeHintText, StringComparison.Ordinal);
+        Assert.EndsWith($"{escape} exits", ManagedTerminalOverlay.CopyModeHintText, StringComparison.Ordinal);
+        if (mac)
+        {
+            // Keycaps, not words, and Return in text presentation so it never
+            // draws as a color emoji.
+            Assert.Equal("⎋", escape);
+            Assert.Equal("↩\uFE0E", enter);
+            Assert.Contains("⌘G", ManagedTerminalOverlay.FindNextTip, StringComparison.Ordinal);
+            Assert.DoesNotContain("Esc", ManagedTerminalOverlay.CopyModeHintText, StringComparison.Ordinal);
+        }
+    }
 
     private static ManagedTerminalSurface CreateSurface(RecordingSink sink)
     {

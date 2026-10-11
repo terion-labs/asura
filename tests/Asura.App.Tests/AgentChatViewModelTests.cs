@@ -1490,9 +1490,9 @@ public sealed partial class AgentChatViewModelTests
         Assert.Equal(
             "{Binding AgentChat.CanEnterPrompt}",
             input.Attribute("IsEnabled")?.Value);
-        Assert.Equal(
-            "{Binding !AgentChat.HasFailedTurn}",
-            input.Attribute("IsVisible")?.Value);
+        // A failed turn leaves the field in place, dimmed, with a placeholder
+        // that says what unlocks it.
+        Assert.Null(input.Attribute("IsVisible"));
         var composer = Assert.Single(
             input.Ancestors(viewNamespace + "StackPanel"),
             panel => string.Equals(
@@ -2957,7 +2957,7 @@ public sealed partial class AgentChatViewModelTests
         Assert.True(viewModel.HasActiveTool);
         Assert.True(viewModel.HasAgentContent);
         Assert.True(viewModel.CanCancelActiveAction);
-        Assert.Equal("Cancel action", viewModel.ActiveActionCancellationLabel);
+        Assert.Equal("Cancel Action", viewModel.ActiveActionCancellationLabel);
 
         runtime.Snapshot = runtime.Snapshot with
         {
@@ -3041,7 +3041,7 @@ public sealed partial class AgentChatViewModelTests
             runtime.LastActionCancellationToken);
         Assert.False(viewModel.CanCancelActiveAction);
         Assert.Equal(
-            "Canceling action…",
+            "Canceling Action…",
             viewModel.ActiveActionCancellationLabel);
         Assert.True(viewModel.CanRequestStop);
         Assert.Equal(0, runtime.StopCount);
@@ -3083,7 +3083,7 @@ public sealed partial class AgentChatViewModelTests
         Assert.Equal(1, runtime.ActionCancellationCount);
         Assert.False(viewModel.CanCancelActiveAction);
         Assert.Equal(
-            "Canceling action…",
+            "Canceling Action…",
             viewModel.ActiveActionCancellationLabel);
         Assert.True(viewModel.CanRequestStop);
 

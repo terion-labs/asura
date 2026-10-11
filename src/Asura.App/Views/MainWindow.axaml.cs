@@ -90,6 +90,7 @@ public sealed partial class MainWindow : Window
         AddHandler(PointerMovedEvent, OnAnyActivity, RoutingStrategies.Tunnel);
         Activated += OnWindowActivated;
         ScalingChanged += OnWindowScalingChanged;
+        KeepErrorNoticesBesideAgentPanel();
         // Asked for before the window is created, not after it is on screen.
         // The platform decides whether a window can be seen through when it
         // makes one; a hint arriving later is a request to change something
@@ -116,6 +117,29 @@ public sealed partial class MainWindow : Window
             WindowTransparencyLevel.Blur,
             WindowTransparencyLevel.Transparent,
         ];
+    }
+
+    /// <summary>
+    /// Error notices and the agent panel's composer both sit in the
+    /// bottom-right corner. While the panel reaches the bottom, the notices
+    /// stand off to its left, keeping their own gap from it.
+    /// </summary>
+    private void KeepErrorNoticesBesideAgentPanel()
+    {
+        // Looked up by name: this window loads its XAML itself.
+        if (this.FindControl<WorkspaceView>("WorkspaceRouteView") is not { } workspace
+            || this.FindControl<Border>("ErrorNoticesHost") is not { } notices)
+        {
+            return;
+        }
+
+        workspace.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == WorkspaceView.AgentPanelReservedWidthProperty)
+            {
+                notices.Margin = new Thickness(0, 0, workspace.AgentPanelReservedWidth, 0);
+            }
+        };
     }
 
     private void OnAnyActivity(object? sender, RoutedEventArgs e)

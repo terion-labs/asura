@@ -387,7 +387,7 @@ public sealed partial class AgentChatViewModelTests
             target: Target(),
             provisional: "Looking at the logs");
         runtime.RaiseChanged();
-        Assert.Equal(string.Empty, viewModel.Announcement);
+        Assert.Equal(AgentChatViewModel.RunStartedAnnouncement, viewModel.Announcement);
 
         var approval = new GovernedAgentApproval(
             new AgentApprovalId("approval-announce"),
@@ -423,10 +423,10 @@ public sealed partial class AgentChatViewModelTests
         runtime.RaiseChanged();
         Assert.Equal("Response complete", viewModel.Announcement);
 
-        // A new run clears the region, so the same outcome is heard again.
+        // A new run is announced, so the same outcome is a change again.
         runtime.Snapshot = runtime.Snapshot with { State = GovernedAgentState.StreamingProvider };
         runtime.RaiseChanged();
-        Assert.Equal(string.Empty, viewModel.Announcement);
+        Assert.Equal(AgentChatViewModel.RunStartedAnnouncement, viewModel.Announcement);
 
         runtime.Snapshot = runtime.Snapshot with
         {
@@ -436,6 +436,49 @@ public sealed partial class AgentChatViewModelTests
         runtime.RaiseChanged();
         Assert.StartsWith(viewModel.FailureHeading, viewModel.Announcement, StringComparison.Ordinal);
         Assert.EndsWith("The provider rate-limited this request.", viewModel.Announcement, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Compacting_is_not_announced_as_an_agent_run()
+    {
+        var provider = Provider("provider", "Provider", order: 0);
+        using var runtime = new StubGovernedRuntime
+        {
+            Snapshot = Snapshot(providerId: provider.Id, target: Target()) with
+            {
+                CanCompact = true,
+                ContextTokensUsed = 40_000,
+            },
+            PendingCompaction = new(TaskCreationOptions.RunContinuationsAsynchronously),
+        };
+        using var profiles = new StubProfileRuntime { Profiles = [provider] };
+        using var viewModel = new AgentChatViewModel(
+            runtime,
+            profiles,
+            ImmediateUiThreadDispatcher.Instance);
+        var announced = new List<string>();
+        viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(AgentChatViewModel.Announcement))
+            {
+                announced.Add(viewModel.Announcement);
+            }
+        };
+
+        var compaction = viewModel.CompactAsync(CancellationToken.None);
+        runtime.Snapshot = runtime.Snapshot with { State = GovernedAgentState.StreamingProvider };
+        runtime.RaiseChanged();
+        runtime.Snapshot = runtime.Snapshot with
+        {
+            State = GovernedAgentState.Ready,
+            CanCompact = false,
+            ContextTokensUsed = 4_000,
+        };
+        runtime.PendingCompaction.SetResult(new(true, "completed", "Context compacted."));
+        await compaction;
+
+        Assert.Empty(announced);
+        Assert.Equal("Context compacted.", viewModel.CompactionStatus);
     }
 
     [Fact]
@@ -485,7 +528,7 @@ public sealed partial class AgentChatViewModelTests
         // anyone could reopen.
         Assert.True(viewModel.HasFailedTurn);
         Assert.Null(viewModel.ConversationDeletedByClear);
-        Assert.Equal("Clear Failed Run", viewModel.ClearFailedRunLabel);
+        Assert.False(viewModel.ClearDeletesConversation);
 
         runtime.Snapshot = runtime.Snapshot with
         {
@@ -503,7 +546,7 @@ public sealed partial class AgentChatViewModelTests
         runtime.RaiseChanged();
 
         Assert.Equal("Plan the release", viewModel.ConversationDeletedByClear?.Title);
-        Assert.Equal("Delete Conversation…", viewModel.ClearFailedRunLabel);
+        Assert.True(viewModel.ClearDeletesConversation);
         Assert.Contains("Plan the release", viewModel.ClearFailedRunAccessibleName, StringComparison.Ordinal);
     }
 
@@ -524,6 +567,26 @@ public sealed partial class AgentChatViewModelTests
         Assert.Equal(
             $"{viewModel.ContextWindowPercent.ToString("0", System.Globalization.CultureInfo.CurrentCulture)}%",
             viewModel.ContextWindowPercentLabel);
+    }
+
+    [Fact]
+    public void Context_ring_is_named_and_a_dimmed_compact_says_why()
+    {
+        var provider = Provider("provider", "Provider", order: 0);
+        using var runtime = new StubGovernedRuntime
+        {
+            Snapshot = Snapshot(providerId: provider.Id, target: Target()),
+        };
+        using var profiles = new StubProfileRuntime { Profiles = [provider] };
+        using var viewModel = new AgentChatViewModel(
+            runtime,
+            profiles,
+            ImmediateUiThreadDispatcher.Instance);
+
+        Assert.Equal($"Context: {viewModel.ContextWindowPercentLabel} used", viewModel.ContextWindowAccessibleName);
+        Assert.False(viewModel.CanCompact);
+        Assert.True(viewModel.HasCompactUnavailableReason);
+        Assert.Equal("There isn't enough conversation to compact yet.", viewModel.CompactUnavailableReason);
     }
 
     [Fact]

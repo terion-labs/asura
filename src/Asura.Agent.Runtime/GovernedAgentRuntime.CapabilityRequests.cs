@@ -216,7 +216,7 @@ public sealed partial class GovernedAgentRuntime
                 ProvisionalAssistantText = string.Empty,
                 ProvisionalReasoningSummary = string.Empty,
                 Status =
-                    "Waiting for your run-local Off-to-Ask capability decision…",
+                    $"Waiting for you to allow or keep off {awaiter.Request.DisplayTitle}…",
             };
         }
 
@@ -447,7 +447,7 @@ public sealed partial class GovernedAgentRuntime
                 true,
                 "capability_request_allowed",
                 "The capability now uses ordinary per-action approval for this run."),
-            "Capability set to Ask; returning the run-local receipt to the provider…");
+            "Allowed for this run. Each action still asks first. Continuing…");
         return new AgentToolResult(
             proposal,
             AgentToolResultStatus.Succeeded,

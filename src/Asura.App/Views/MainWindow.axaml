@@ -427,6 +427,7 @@
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
         <components:ErrorNoticesView DataContext="{CompiledBinding BrowserStartupRecovery.ErrorNotices}" />
         <Button Grid.Column="1"
+            Classes="SecondaryButton"
             IsVisible="{CompiledBinding BrowserStartupRecovery.CanRetry}"
             Content="{CompiledBinding BrowserStartupRecovery.RetryLabel}"
             Command="{CompiledBinding BrowserStartupRecovery.RetryCommand}" />
@@ -541,7 +542,7 @@
         IsVisible="{Binding HasApplicationKeySequenceHint}"
         AutomationProperties.LiveSetting="Polite"
         AutomationProperties.Name="Application key sequence status">
-      <TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding ApplicationKeySequenceHint}" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding ApplicationKeySequenceHint}" TextWrapping="Wrap" />
     </controls:SurfaceCard>
 
     <!-- A deleted connection or workspace leaves Undo behind instead of a
@@ -554,10 +555,15 @@
         MaxWidth="520"
         Finished="OnDefinitionDeleteUndoFinished" />
 
-    <Border IsVisible="{CompiledBinding !ApplicationSecurityEditor.IsLocked}"
-            Margin="{controls:Inset Right=Lg, Bottom=Lg}"
-            HorizontalAlignment="Right" VerticalAlignment="Bottom" MaxWidth="520">
-      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
+    <!-- Error notices open from the bottom-right corner, which the agent
+         panel's composer shares; the code-behind moves them to the panel's
+         left edge while the panel reaches the bottom. -->
+    <Border x:Name="ErrorNoticesHost"
+            IsVisible="{CompiledBinding !ApplicationSecurityEditor.IsLocked}"
+            HorizontalAlignment="Right" VerticalAlignment="Bottom">
+      <Border Margin="{controls:Inset Right=Lg, Bottom=Lg}" MaxWidth="520">
+        <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
+      </Border>
     </Border>
 
     <Canvas
@@ -579,19 +585,28 @@
           KeyboardNavigation.TabNavigation="Cycle"
           AutomationProperties.Name="Dragged item">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-          <icons:SymbolIcon
-              VerticalAlignment="Center"
-              FontSize="{DynamicResource ShellIconSizeMd}"
-              Foreground="{DynamicResource ShellAccentBrush}"
-              Symbol="{Binding Symbol}" />
+          <!-- What is dragged, not an accent mark: a file's own Finder icon,
+               or a muted glyph where the system has none. The accent stays
+               with selection and drop targets. -->
+          <Panel VerticalAlignment="Center">
+            <Image
+                Width="{DynamicResource ShellIconSizeLg}"
+                Height="{DynamicResource ShellIconSizeLg}"
+                Source="{Binding Icon}"
+                IsVisible="{Binding HasIcon}" />
+            <icons:SymbolIcon
+                FontSize="{DynamicResource ShellIconSizeMd}"
+                Foreground="{DynamicResource ShellMutedBrush}"
+                Symbol="{Binding Symbol}"
+                IsVisible="{Binding !HasIcon}" />
+          </Panel>
           <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
             <TextBlock
                 Classes="MiddleTruncated"
-                FontSize="{DynamicResource ShellFontSize11}"
                 FontWeight="SemiBold"
                 Text="{Binding Title}" />
             <TextBlock
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
                 Foreground="{DynamicResource ShellMutedBrush}"
                 Text="{Binding Detail}"
                 TextTrimming="CharacterEllipsis" />

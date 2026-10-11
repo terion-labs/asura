@@ -36,6 +36,12 @@ internal interface IShellCommandPresentation
 
     Task CloseActiveTabAsync();
 
+    /// <summary>Closes every tab of the active workspace except the active one.</summary>
+    Task CloseOtherTabsAsync();
+
+    /// <summary>Moves the active tab into a new window of its own.</summary>
+    Task MoveActiveTabToNewWindowAsync();
+
     void CloseWindow();
 
     Task SelectWorkspaceAsync(int position);
@@ -96,12 +102,23 @@ internal sealed class ShellCommandExecutor(
         catch (OperationCanceledException) when (lifetime.IsCancellationRequested)
         {
         }
-        catch (Exception exception) when (
-            exception is InvalidOperationException or IOException)
+        catch (InvalidOperationException exception)
         {
             viewModel.SetError(exception.Message);
         }
+        catch (IOException exception)
+        {
+            // A file or session the command needed couldn't be reached. The
+            // system's wording goes to diagnostics, not to the window.
+            SecretSafeDiagnostics.WriteTraceAndStandardError(
+                "shell-command.io-failed",
+                exception);
+            viewModel.SetError(CommandIoFailureMessage);
+        }
     }
+
+    internal const string CommandIoFailureMessage =
+        "Asura couldn't finish that command because a file or session it needed wasn't available. Try again.";
 
     private async Task ExecuteAsync(ApplicationCommandAction action)
     {
@@ -159,6 +176,12 @@ internal sealed class ShellCommandExecutor(
             case ApplicationCommandActionKind.CloseTab:
                 await presentation.CloseActiveTabAsync();
                 presentation.FocusActivePanel();
+                return;
+            case ApplicationCommandActionKind.CloseOtherTabs:
+                await presentation.CloseOtherTabsAsync();
+                return;
+            case ApplicationCommandActionKind.MoveTabToNewWindow:
+                await presentation.MoveActiveTabToNewWindowAsync();
                 return;
             case ApplicationCommandActionKind.CloseWindow:
                 presentation.CloseWindow();

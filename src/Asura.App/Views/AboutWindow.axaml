@@ -7,38 +7,17 @@
     xmlns:controls="using:Asura.App.Controls"
     xmlns:components="using:Asura.App.Views.Components"
     Title="About Asura"
-    Width="520"
-    Height="600"
+    Width="400"
+    SizeToContent="Height"
     CanResize="False"
     CanMinimize="False"
     CanMaximize="False"
     WindowStartupLocation="CenterScreen">
   <!--
-    The About window: the app's identity first, the rest scrolling below it
-    the way the standard About panel's credits do.
+    The About window: the shared About content at its own height, the way the
+    standard About panel is sized to what it says. Nothing scrolls.
   -->
-  <Grid RowDefinitions="Auto,*" Background="{DynamicResource ShellBackgroundBrush}">
-    <StackPanel
-        Margin="{controls:Inset Horizontal=Xl, Top=Xl, Bottom=Lg}"
-        HorizontalAlignment="Center"
-        Spacing="{DynamicResource ShellSpaceSm}">
-      <Image
-          x:Name="ApplicationIcon"
-          Width="96"
-          Height="96"
-          HorizontalAlignment="Center"
-          AutomationProperties.AccessibilityView="Raw" />
-      <TextBlock
-          HorizontalAlignment="Center"
-          Classes="Title1"
-          Text="{Binding ProductName}" />
-      <TextBlock
-          x:Name="VersionText"
-          HorizontalAlignment="Center"
-          Classes="Muted" />
-    </StackPanel>
-    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-      <components:AboutAsuraView Margin="{controls:Inset Horizontal=Xl, Bottom=Xl}" />
-    </ScrollViewer>
-  </Grid>
+  <Border Background="{DynamicResource ShellBackgroundBrush}">
+    <components:AboutAsuraView Margin="{controls:Inset Horizontal=Xl, Vertical=Xl}" />
+  </Border>
 </Window>

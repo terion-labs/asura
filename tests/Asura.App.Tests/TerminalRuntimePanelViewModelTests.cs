@@ -476,7 +476,7 @@ public sealed class TerminalRuntimePanelViewModelTests
         await runtime.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.True(panel.CanCancelConnection);
-        Assert.Equal("Cancel connection", panel.CancelConnectionLabel);
+        Assert.Equal("Cancel Connection", panel.CancelConnectionLabel);
 
         panel.CancelConnection();
 

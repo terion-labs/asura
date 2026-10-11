@@ -30,6 +30,7 @@ public sealed partial class WorkspaceView : UserControl
             if (e.Property == IsVisibleProperty || e.Property == BoundsProperty)
             {
                 KeepFileTransfersBesideAgentPanel();
+                UpdateAgentPanelReservedWidth();
             }
         };
         AgentWorkspaceSurface.PropertyChanged += (_, e) =>
@@ -37,6 +38,7 @@ public sealed partial class WorkspaceView : UserControl
             if (e.Property == BoundsProperty)
             {
                 KeepFileTransfersBesideAgentPanel();
+                UpdateAgentPanelReservedWidth();
             }
         };
         // The composer moves inside the panel as a prompt grows or a card
@@ -49,6 +51,43 @@ public sealed partial class WorkspaceView : UserControl
                 KeepFileTransfersBesideAgentPanel();
             }
         };
+    }
+
+    public static readonly DirectProperty<WorkspaceView, double> AgentPanelReservedWidthProperty =
+        AvaloniaProperty.RegisterDirect<WorkspaceView, double>(
+            nameof(AgentPanelReservedWidth),
+            view => view.AgentPanelReservedWidth);
+
+    private double _agentPanelReservedWidth;
+
+    /// <summary>
+    /// How much of the bottom-right corner the agent panel takes, measured
+    /// from this view's right edge, or zero when the panel is hidden or ends
+    /// above the bottom. The window's error notices open from that corner and
+    /// stand off by this much, so they never cover the composer's send button
+    /// or model picker.
+    /// </summary>
+    public double AgentPanelReservedWidth
+    {
+        get => _agentPanelReservedWidth;
+        private set => SetAndRaise(AgentPanelReservedWidthProperty, ref _agentPanelReservedWidth, value);
+    }
+
+    private void UpdateAgentPanelReservedWidth()
+    {
+        // A floating panel that stops this close to the bottom still shares
+        // the corner: a notice there would cover its composer.
+        const double bottomReach = 64;
+        var reserved = 0d;
+        if (AgentOverlay.IsVisible
+            && AgentWorkspaceSurface.IsVisible
+            && AgentWorkspaceSurface.TranslatePoint(default, this) is { } topLeft
+            && topLeft.Y + AgentWorkspaceSurface.Bounds.Height >= Bounds.Height - bottomReach)
+        {
+            reserved = Math.Max(0, Bounds.Width - topLeft.X);
+        }
+
+        AgentPanelReservedWidth = reserved;
     }
 
     /// <summary>
@@ -64,10 +103,12 @@ public sealed partial class WorkspaceView : UserControl
     {
         const double minimumTransferWidth = 280;
         const double designedMaxHeight = 400;
-        var gap = this.TryFindResource("ShellSpaceSm", ActualThemeVariant, out var space)
+        // Lg, not the canvas gutter: at the gutter's width the card's edge
+        // lay on the panel frame beneath it.
+        var gap = this.TryFindResource("ShellSpaceLg", ActualThemeVariant, out var space)
             && space is double spacing
                 ? spacing
-                : 8;
+                : 16;
         var right = gap;
         var bottom = gap;
         var maxWidth = double.PositiveInfinity;

@@ -303,6 +303,38 @@ public sealed partial class BrowserSurface :
         return _nativeView.StopFind();
     }
 
+    /// <summary>
+    /// The page's selected text for Use Selection for Find, or null when
+    /// nothing is selected or the page can't be read.
+    /// </summary>
+    public async Task<string?> ReadSelectedTextAsync()
+    {
+        if (_disposed)
+        {
+            return null;
+        }
+
+        var result = await _nativeView.ReadSelectedTextAsync().ConfigureAwait(true);
+        if (result.Status != NativeBrowserAutomationStatus.Acknowledged
+            || result.ResultJson is not { } json)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(json);
+            return document.RootElement.ValueKind == System.Text.Json.JsonValueKind.String
+                && document.RootElement.GetString() is { Length: > 0 } text
+                    ? text
+                    : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed)

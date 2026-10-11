@@ -6,6 +6,7 @@
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia"
+    xmlns:overlays="using:Asura.App.Views.Overlays"
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch">
   <UserControl.Styles>
@@ -47,7 +48,7 @@
             Text="{Binding LauncherSearchQuery}" />
         <Button Grid.Column="1" Padding="0" MinHeight="0" Background="Transparent" BorderThickness="0" VerticalAlignment="Center" Click="OnCloseClick" AutomationProperties.Name="Close command palette">
           <Border Classes="Keycap">
-            <TextBlock Text="esc" />
+            <TextBlock Text="{x:Static overlays:CommandPaletteView.CloseKeyText}" />
           </Border>
         </Button>
       </Grid>
@@ -109,7 +110,7 @@
       <Border Grid.Row="2" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="0,1,0,0">
         <Grid Margin="{controls:Inset Horizontal=Md}" ColumnDefinitions="*,Auto">
           <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Dimmed results can't be used right now." />
-          <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="↑↓ to choose · ↩ to open · esc to close" />
+          <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{x:Static overlays:CommandPaletteView.KeyHintText}" />
         </Grid>
       </Border>
     </Grid>

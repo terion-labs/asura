@@ -171,7 +171,7 @@ public sealed partial class GovernedAgentRuntimeProcessTests
         Assert.Equal(AgentActionRisk.Observation, approval.Risk);
         Assert.False(approval.TemporarilyYieldsTerminalInput);
         Assert.Equal(
-            "Local Process Monitor",
+            "Processes",
             approval.Presentation.TargetTitle);
         Assert.Equal("Local host", approval.Presentation.Host);
         Assert.Null(approval.Presentation.WorkingDirectory);

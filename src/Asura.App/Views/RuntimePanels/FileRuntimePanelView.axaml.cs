@@ -596,7 +596,7 @@ public sealed partial class FileRuntimePanelView : UserControl
         var activeDrag = new ActiveFileDrag(
             candidate.Pointer,
             payload,
-            CreateDragGhostPayload(entries, panel.ConnectionDisplayName),
+            CreateDragGhostPayload(candidate.Source, entries, panel.ConnectionDisplayName),
             candidate.PressEvent,
             LookUpSystemDragItems(panel, entries));
         // Changing capture can synchronously raise capture-lost for the list
@@ -867,9 +867,15 @@ public sealed partial class FileRuntimePanelView : UserControl
         ?? [];
 
     private static DragGhostPayload CreateDragGhostPayload(
+        ListBox list,
         IReadOnlyList<FilePanelEntry> entries,
         string source)
     {
+        // One file drags its own Finder icon; several share a glyph.
+        var icon = entries.Count == 1
+            ? list.Items.OfType<FileEntryViewModel>()
+                .FirstOrDefault(item => item.Entry == entries[0])?.Icon
+            : null;
         var title = entries.Count == 1
             ? entries[0].Name
             : $"{entries.Count} items";
@@ -877,7 +883,7 @@ public sealed partial class FileRuntimePanelView : UserControl
             && entries[0].Kind == FilePanelEntryKind.Directory
             ? Symbol.Folder
             : Symbol.DocumentMultiple;
-        return new DragGhostPayload(symbol, title, $"From {source}");
+        return new DragGhostPayload(symbol, title, $"From {source}", icon);
     }
 
     private sealed record FileDropTarget(

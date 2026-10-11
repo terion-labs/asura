@@ -44,6 +44,7 @@ public sealed partial class MainWindowViewModel
             List<KeyValuePair<string, bool>> state =
             [
                 new(CommandStates.CanReopenClosedTab, CanReopenClosedTab),
+                new(CommandStates.HasOtherTabs, RuntimeWorkspace?.Tabs.Count > 1),
                 new(CommandStates.IsSidebarVisible, ShowWorkspacesPanel),
                 new(CommandStates.IsAgentPanelVisible, IsAgentPanelVisible),
                 new(CommandStates.IsPanelZoomed, RuntimeWorkspace?.ActiveTab?.ZoomedPanelId is not null),

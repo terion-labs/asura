@@ -3,6 +3,8 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -222,6 +224,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         DefinitionEdit.PropertyChanged += OnDefinitionEditPropertyChanged;
         DefinitionSettings = new DefinitionSettingsViewModel(_catalog);
         DefinitionSettings.PropertyChanged += OnDefinitionSettingsPropertyChanged;
+        // The saved keymap is applied before this window listens for changes,
+        // so the toolbar tooltips read it once here.
+        UpdateShortcutTips();
         TerminalSettings = new TerminalSettingsViewModel(_catalog);
         TerminalSettings.PropertyChanged += OnTerminalSettingsPropertyChanged;
         FollowAutoAppliedEditors();
@@ -557,6 +562,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 OnPropertyChanged(nameof(HasAgentSavedScreenTemplates));
                 OnPropertyChanged(nameof(CanCreateAgentSavedScreenTarget));
                 OnPropertyChanged(nameof(CanAuthorizeAgentSavedScreenTarget));
+                OnPropertyChanged(nameof(IsAgentAwaitingDecision));
+                OnPropertyChanged(nameof(AgentToggleStatus));
             }
         }
     }
@@ -862,17 +869,34 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public string ExecutableName => ProductIdentity.ExecutableName;
 
-    public string ApplicationVersion =>
-        $"v{typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3) ?? "0.0.0"}";
+    /// <summary>"Version 1.0.0 (abc1234)", as the standard About panel writes it.</summary>
+    public string ApplicationVersion => FormatApplicationVersion(
+        typeof(MainWindowViewModel).Assembly.GetName().Version,
+        typeof(MainWindowViewModel).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
+
+    public string Copyright => ProductIdentity.Copyright;
+
+    /// <summary>
+    /// The marketing version, then the build in parentheses: the source
+    /// revision a release was built from, or the fourth version number.
+    /// </summary>
+    internal static string FormatApplicationVersion(Version? version, string? informationalVersion)
+    {
+        var marketing = version?.ToString(3) ?? "0.0.0";
+        var build = informationalVersion?.Split('+', 2) is [_, { Length: > 0 } revision]
+            ? revision[..Math.Min(7, revision.Length)]
+            : version is { Revision: > 0 } numbered
+                ? numbered.Revision.ToString(CultureInfo.InvariantCulture)
+                : null;
+        return build is null ? $"Version {marketing}" : $"Version {marketing} ({build})";
+    }
 
     public string RuntimeDescription => RuntimeInformation.FrameworkDescription;
 
     public string PlatformDescription =>
         $"{PlatformName()} · {RuntimeInformation.ProcessArchitecture}";
 
-    public string AgentRuntimeDescription => AgentChat is null
-        ? "Unavailable · provider runtime not composed"
-        : AgentChat.RendererModeDescription;
 
     public ApplicationUpdateViewModel ApplicationUpdates { get; }
 
@@ -1255,7 +1279,26 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             OnPropertyChanged(propertyName);
         }
+
+        if (eventArgs.PropertyName is nameof(DefinitionSettingsViewModel.ActiveApplicationKeymap)
+            or nameof(DefinitionSettingsViewModel.ActiveApplicationKeymapRevision))
+        {
+            // Toolbar tooltips name the keys the menu shows, so they follow
+            // a rebinding.
+            UpdateShortcutTips();
+        }
     }
+
+    /// <summary>
+    /// Points the toolbar tooltips at the active application keymap. They
+    /// name window commands (New Tab, Close Tab, the agent and Add Panel
+    /// buttons), which a terminal keymap never binds, so the menu finds their
+    /// keys in the application keymap or Apple's standard set whatever panel
+    /// is in front, and the tips need no refresh when the active panel changes.
+    /// </summary>
+    private void UpdateShortcutTips() =>
+        ShortcutTips.Current.Update(
+            new MenuShortcutResolver(ActiveApplicationKeymap.Bindings, []));
 
     private void OnTerminalSettingsPropertyChanged(
         object? sender,
@@ -1576,6 +1619,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                         _agentModelFavoriteStore),
                     () => NotifyAgentRunFinished(id),
                     NotifyAgentRunningStateChanged,
+                    isNewDecision => OnAgentDecisionChanged(id, isNewDecision),
                     activity => ApplyWorkspaceAgentActivity(id, activity));
                 _workspaceAgentChats.Add(id, owned);
             }
@@ -1697,8 +1741,36 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         MarkVisibleNotificationsSeen();
     }
 
-    private void NotifyAgentRunningStateChanged() =>
+    private void NotifyAgentRunningStateChanged()
+    {
         OnPropertyChanged(nameof(HasRunningAgent));
+        OnPropertyChanged(nameof(AgentToggleStatus));
+    }
+
+    /// <summary>
+    /// A decision appeared or was answered in a workspace's agent. In the
+    /// workspace in front, a new waiting decision brings the agent panel out,
+    /// so the run is never blocked on a card nobody can see. The same request
+    /// republished by a later refresh does not, so a panel hidden while it
+    /// waits stays hidden. Whether the card takes keyboard focus is the
+    /// panel's call (AgentWorkspaceView.DecisionFocus).
+    /// </summary>
+    private void OnAgentDecisionChanged(
+        WorkspaceInstanceId workspaceId,
+        bool isNewDecision)
+    {
+        if (RuntimeWorkspace?.Id != workspaceId)
+        {
+            return;
+        }
+
+        OnPropertyChanged(nameof(IsAgentAwaitingDecision));
+        OnPropertyChanged(nameof(AgentToggleStatus));
+        if (isNewDecision && IsAgentAwaitingDecision)
+        {
+            IsAgentPanelVisible = true;
+        }
+    }
 
     private void ApplyWorkspaceAgentActivity(
         WorkspaceInstanceId workspaceId,
@@ -8013,6 +8085,21 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         _workspaceAgentChats.Values.Any(owned => owned.ViewModel.IsBusy);
 
     /// <summary>
+    /// The agent in front waits on an approval, a question, or a permission.
+    /// The agent toggle wears a badge for it, not only the activity pulse.
+    /// </summary>
+    public bool IsAgentAwaitingDecision => AgentChat is { } chat
+        && (chat.HasPendingApproval || chat.HasPendingQuestion || chat.HasPendingCapabilityRequest);
+
+    /// <summary>The agent toggle's state, as assistive technology reads it.</summary>
+    public string AgentToggleStatus => AgentChat switch
+    {
+        { HasPendingApproval: true } or { HasPendingCapabilityRequest: true } => "Waiting for approval",
+        { HasPendingQuestion: true } => "Waiting for your answer",
+        _ => HasRunningAgent ? "Running" : string.Empty,
+    };
+
+    /// <summary>
     /// The running instance of a saved workspace, if it is running. The rail
     /// lists definitions and the host speaks in instances, so closing from the
     /// rail has to cross that boundary somewhere; here is the only place that
@@ -8952,7 +9039,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             screens,
             [.. snapshot.KubernetesConnections.Select(item => new LauncherConnectionViewModel(
                 new ConnectionId(item.Value.Id.Value), item.Revision, item.Value.Name, "Kubernetes", item.Value.ContextName,
-                "Validated on connect", item.Value.IsEnabled, [], SavedConnectionFamily.Kubernetes, item.Value.Id.Value))]);
+                item.Value.IsEnabled ? "Validated on connect" : "Turned off in Settings",
+                item.Value.IsEnabled, [], SavedConnectionFamily.Kubernetes, item.Value.Id.Value))]);
         ReconcileAgentSavedScreenTemplate();
         // A rail item that was replaced arrives with its runtime flags cleared,
         // and the flags are derived rather than stored, so nothing else would
@@ -9622,7 +9710,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         // takes a walk of the visual tree.
         var captured = CaptureCommandInvocation();
         var menuShortcuts = OperatingSystem.IsMacOS()
-            ? new MenuShortcutResolver(ActiveApplicationKeymap.Bindings, [])
+            ? CreateMenuShortcutResolver()
             : null;
         foreach (var command in BuiltInCommands.Registry.Commands)
         {
@@ -9648,14 +9736,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 .ToArray();
             if (invocations.Length == 0)
             {
-                // The menu bar's standard shortcut, so both surfaces agree.
-                var standard = menuShortcuts?.Resolve(
-                    command.Id,
-                    ImmutableDictionary<string, string>.Empty);
                 candidates.Add(CreateCommandLauncherResult(
                     command,
                     ImmutableDictionary<string, string>.Empty,
-                    standard is { } stroke ? KeySequenceDisplay.Format(stroke) : string.Empty,
+                    PaletteShortcut(menuShortcuts, command.Id, ImmutableDictionary<string, string>.Empty, null),
                     captured));
                 continue;
             }
@@ -9664,9 +9748,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 CreateCommandLauncherResult(
                     command,
                     invocation.Target.Arguments,
-                    isBoundHere
-                        ? KeySequenceDisplay.Format(invocation.Binding.Sequence)
-                        : string.Empty,
+                    PaletteShortcut(
+                        menuShortcuts,
+                        command.Id,
+                        invocation.Target.Arguments,
+                        isBoundHere ? invocation.Binding.Sequence : null),
                     captured)));
         }
 
@@ -9768,6 +9854,41 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     }
 
     /// <summary>
+    /// The shortcut a palette row shows. On macOS that is the one the menu bar
+    /// shows for the command, found the way the menu finds it: the active
+    /// application keymap, then the active terminal's keymap, then Apple's
+    /// standard key. A command only a key sequence reaches, such as a tmux
+    /// prefix, shows that sequence.
+    /// </summary>
+    private static string PaletteShortcut(
+        MenuShortcutResolver? menuShortcuts,
+        CommandId command,
+        IReadOnlyDictionary<string, string> arguments,
+        KeySequence? boundSequence)
+    {
+        if (menuShortcuts?.Resolve(command, arguments) is { } menuStroke)
+        {
+            return KeySequenceDisplay.Format(menuStroke);
+        }
+
+        return boundSequence is { } sequence
+            ? KeySequenceDisplay.Format(sequence)
+            : string.Empty;
+    }
+
+    /// <summary>
+    /// Resolves menu shortcuts against this window's keymaps: the active
+    /// application profile and the active terminal's keymap, as the menu bar does.
+    /// </summary>
+    internal MenuShortcutResolver CreateMenuShortcutResolver()
+    {
+        var terminalKeymap = ActivePanel is TerminalRuntimePanelViewModel { Keymap: { } snapshot }
+            ? snapshot.Bindings
+            : BuiltInKeymaps.TerminalFor(HostPlatform.Current).Bindings;
+        return new MenuShortcutResolver(ActiveApplicationKeymap.Bindings, terminalKeymap);
+    }
+
+    /// <summary>
     /// A palette row that opens a new tab of one panel type. It is named and
     /// described as the launcher and the Add Panel chooser name it.
     /// </summary>
@@ -9785,6 +9906,60 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             IsAvailable: unavailableReason is null,
             unavailableReason,
             searchTerms);
+
+    /// <summary>
+    /// A palette row's glyph: what the command is about, so a list of
+    /// commands is not a column of identical code brackets. A few commands
+    /// carry their own; the rest take their category's.
+    /// </summary>
+    internal static Symbol CommandIcon(CommandDefinition command)
+    {
+        if (CommandIcons.TryGetValue(command.Id, out var own))
+        {
+            return own;
+        }
+
+        return command.Category switch
+        {
+            "Application" => Symbol.Apps,
+            "Edit" => Symbol.Edit,
+            "Git" => Symbol.BranchFork,
+            "Help" => Symbol.QuestionCircle,
+            "Panels" => Symbol.LayoutColumnTwoSplitRight,
+            "Tabs" => Symbol.TabDesktop,
+            "Terminal" => Symbol.WindowConsole,
+            "View" => Symbol.PanelLeft,
+            "Window" => Symbol.WindowMultiple,
+            "Workspaces" => Symbol.Board,
+            _ => Symbol.Code,
+        };
+    }
+
+    private static readonly Dictionary<CommandId, Symbol> CommandIcons = new()
+    {
+        [BuiltInCommands.About] = Symbol.Info,
+        [BuiltInCommands.ShowSettings] = Symbol.Settings,
+        [BuiltInCommands.CheckForUpdates] = Symbol.ArrowSync,
+        [BuiltInCommands.EditFind] = Symbol.Search,
+        [BuiltInCommands.EditFindNext] = Symbol.Search,
+        [BuiltInCommands.EditFindPrevious] = Symbol.Search,
+        [BuiltInCommands.EditUseSelectionForFind] = Symbol.Search,
+        [BuiltInCommands.EditPanelSearch] = Symbol.Search,
+        [BuiltInCommands.Find] = Symbol.Search,
+        [BuiltInCommands.EditUndo] = Symbol.ArrowUndo,
+        [BuiltInCommands.EditRedo] = Symbol.ArrowRedo,
+        [BuiltInCommands.EditCopy] = Symbol.Copy,
+        [BuiltInCommands.Copy] = Symbol.Copy,
+        [BuiltInCommands.EditPaste] = Symbol.ClipboardPaste,
+        [BuiltInCommands.Paste] = Symbol.ClipboardPaste,
+        [BuiltInCommands.EditCut] = Symbol.Cut,
+        [BuiltInCommands.ShowKeyboardShortcuts] = Symbol.Keyboard,
+        [BuiltInCommands.ReportIssue] = Symbol.Bug,
+        [BuiltInCommands.NewWindow] = Symbol.WindowNew,
+        [BuiltInCommands.NewTab] = Symbol.TabAdd,
+        [BuiltInCommands.NewTerminalTab] = Symbol.TabAdd,
+        [BuiltInCommands.ShowCommandPalette] = Symbol.Search,
+    };
 
     /// <summary>
     /// A command as a palette row: its title (naming the invocation when the
@@ -9828,7 +10003,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         return new LauncherSearchResultViewModel(
             new LauncherSearchTarget.Command(command.Id, arguments),
-            Symbol.Code,
+            CommandIcon(command),
             command.Category,
             argumentSummary.Length == 0
                     || !string.Equals(command.TitleFor(arguments), command.Title, StringComparison.Ordinal)
@@ -12604,7 +12779,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             profile.Name,
             FileProviderKindLabel(profile.ProviderKind),
             FileProviderEndpoint(profile.Configuration),
-            "Validated on open",
+            _fileProviderRuntime is not null
+                ? "Validated on open"
+                : "File connections aren't available in this build",
             _fileProviderRuntime is not null,
             [],
             SavedConnectionFamily.Files,
@@ -13013,20 +13190,25 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         private readonly IGovernedAgentRuntime _runtime;
         private readonly Action _runFinished;
         private readonly Action _runningStateChanged;
+        private readonly Action<bool> _decisionChanged;
         private readonly Action<AgentToolActivityViewModel?> _activityChanged;
+        private object? _pendingDecision;
 
         public WorkspaceAgentChat(
             IGovernedAgentRuntime runtime,
             AgentChatViewModel viewModel,
             Action runFinished,
             Action runningStateChanged,
+            Action<bool> decisionChanged,
             Action<AgentToolActivityViewModel?> activityChanged)
         {
             _runtime = runtime;
             ViewModel = viewModel;
             _runFinished = runFinished;
             _runningStateChanged = runningStateChanged;
+            _decisionChanged = decisionChanged;
             _activityChanged = activityChanged;
+            _pendingDecision = viewModel.PendingDecisionId;
             ViewModel.RunFinished += OnRunFinished;
             ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         }
@@ -13066,6 +13248,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (string.Equals(eventArgs.PropertyName, nameof(AgentChatViewModel.IsBusy), StringComparison.Ordinal))
             {
                 _runningStateChanged();
+            }
+
+            if (eventArgs.PropertyName is nameof(AgentChatViewModel.HasPendingApproval)
+                or nameof(AgentChatViewModel.HasPendingQuestion)
+                or nameof(AgentChatViewModel.HasPendingCapabilityRequest))
+            {
+                // Snapshots rebuild the pending records on every refresh, so
+                // a decision is new only when its id is.
+                var decision = ViewModel.PendingDecisionId;
+                var isNew = decision is not null && !Equals(decision, _pendingDecision);
+                _pendingDecision = decision;
+                _decisionChanged(isNew);
             }
         }
     }

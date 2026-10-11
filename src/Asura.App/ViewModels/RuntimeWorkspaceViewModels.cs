@@ -2628,8 +2628,8 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
         ?? "No previously trusted key";
 
     public string TrustHostKeyLabel => HostKeyReview?.Disposition == SshHostKeyDisposition.Changed
-        ? "Replace trusted key…"
-        : "Trust host key…";
+        ? "Replace Trusted Key…"
+        : "Trust Host Key…";
 
     public bool CanTrustHostKey => HostKeyReview?.Disposition is
         SshHostKeyDisposition.Unknown or SshHostKeyDisposition.Changed;
@@ -2640,8 +2640,8 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
         && IsConnecting;
 
     public string CancelConnectionLabel => ReconnectAttempt > 0
-        ? "Cancel reconnect"
-        : "Cancel connection";
+        ? "Cancel Reconnect"
+        : "Cancel Connection";
 
     public string ReconnectStatus => ReconnectState switch
     {

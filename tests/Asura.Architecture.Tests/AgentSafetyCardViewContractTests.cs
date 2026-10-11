@@ -91,6 +91,13 @@ public sealed class AgentSafetyCardViewContractTests
             serialized,
             StringComparison.Ordinal);
 
+        // The card names its target by title; the raw IDs wait under Details.
+        var exactTarget = Assert.Single(card.Descendants(), element =>
+            AttributeValue(element, "Text") == "{Binding AgentChat.PendingCapabilityRequest.ExactTarget}");
+        Assert.Contains(exactTarget.Ancestors(), ancestor => ancestor.Name.LocalName == "Expander");
+        Assert.DoesNotContain(card.Descendants(), element =>
+            (AttributeValue(element, "Text") ?? string.Empty).Contains("StringFormat={}· ", StringComparison.Ordinal));
+
         Assert.Equal(
             "0",
             AttributeValue(FindButton(document, "Keep Off"), "TabIndex"));

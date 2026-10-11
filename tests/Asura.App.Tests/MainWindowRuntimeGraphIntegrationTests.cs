@@ -4179,6 +4179,89 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     }
 
     [Fact]
+    public async Task A_waiting_approval_brings_out_the_agent_panel_and_marks_its_toggle()
+    {
+        var provider = CreateAgentProvider();
+        using var profiles = new FixedAiProfileRuntime([provider]);
+        var factory = new RecordingAgentWorkspaceRuntimeFactory();
+        var (client, _) = CreateSessionClient();
+        using var viewModel = CreateViewModel(
+            client,
+            CreateCatalogSnapshot(),
+            aiProfiles: profiles,
+            agentRuntimeFactory: factory);
+
+        Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+        var chat = Assert.IsType<AgentChatViewModel>(viewModel.AgentChat);
+        var runtime = Assert.Single(factory.CreatedRuntimes);
+        viewModel.IsAgentPanelVisible = false;
+        Assert.Equal(string.Empty, viewModel.AgentToggleStatus);
+
+        runtime.SetSnapshot(runtime.Snapshot with
+        {
+            State = GovernedAgentState.StreamingProvider,
+            RunId = new AgentRunId("approval-run"),
+            ProviderId = provider.Id,
+        });
+        await WaitForAsync(() => viewModel.HasRunningAgent);
+        Assert.Equal("Running", viewModel.AgentToggleStatus);
+        Assert.False(viewModel.IsAgentPanelVisible);
+
+        var target = new AgentTarget.Panel(
+            new WindowInstanceId("window-1"),
+            new WorkspaceInstanceId("workspace-1"),
+            new TabInstanceId("tab-1"),
+            new PanelInstanceId("panel-1"));
+        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(5);
+        GovernedAgentApproval Approval(string id, string text) => new(
+            new AgentApprovalId(id),
+            "terminal.send_text",
+            "Send text to terminal",
+            AgentActionRisk.Mutation,
+            AgentPermission.Ask,
+            target,
+            new AgentApprovalPresentation(
+                "Production API shell",
+                "api.example.test",
+                "/srv/api",
+                [new AgentApprovalArgument("text", text)]),
+            expiresAt,
+            TemporarilyYieldsTerminalInput: false);
+
+        runtime.SetSnapshot(runtime.Snapshot with
+        {
+            State = GovernedAgentState.AwaitingApproval,
+            PendingApproval = Approval("approval-1", "uptime"),
+        });
+        await WaitForAsync(() => chat.HasPendingApproval);
+
+        Assert.True(viewModel.IsAgentAwaitingDecision);
+        Assert.True(viewModel.IsAgentPanelVisible);
+        Assert.Equal("Waiting for approval", viewModel.AgentToggleStatus);
+
+        // Hidden while the same approval waits, the panel stays hidden when
+        // a later refresh republishes that approval.
+        viewModel.IsAgentPanelVisible = false;
+        runtime.SetSnapshot(runtime.Snapshot with
+        {
+            PendingApproval = Approval("approval-1", "uptime -p"),
+        });
+        await WaitForAsync(() => chat.PendingApproval?.Arguments
+            .Any(argument => argument.DisplayValue == "uptime -p") == true);
+        Assert.True(viewModel.IsAgentAwaitingDecision);
+        Assert.False(viewModel.IsAgentPanelVisible);
+        Assert.Equal("Waiting for approval", viewModel.AgentToggleStatus);
+
+        // A new approval brings it out again.
+        runtime.SetSnapshot(runtime.Snapshot with
+        {
+            PendingApproval = Approval("approval-2", "whoami"),
+        });
+        await WaitForAsync(() => chat.PendingApproval?.Id == new AgentApprovalId("approval-2"));
+        Assert.True(viewModel.IsAgentPanelVisible);
+    }
+
+    [Fact]
     public async Task Background_workspace_agent_keeps_running_and_marks_completion()
     {
         var provider = CreateAgentProvider();

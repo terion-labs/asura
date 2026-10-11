@@ -190,7 +190,7 @@ public sealed partial class MainWindowViewModel
             || sourceBefore.Workspace.Tabs.SingleOrDefault(
                 tab => tab.Id == movedTab.Id) is not { } movedGraph)
         {
-            SetError("The runtime workspaces changed before the tab transfer could start.");
+            SetError("The workspaces changed while the tab was moving, so it stayed where it was. Try moving it again.");
             return false;
         }
 

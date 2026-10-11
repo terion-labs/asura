@@ -17,6 +17,10 @@ namespace Asura.App.Views;
 public sealed partial class MainWindow
 {
     private Flyout? _addPanelFlyout;
+    private Control? _addPanelFlyoutAnchor;
+
+    /// <summary>The class an anchor wears while its popover is open.</summary>
+    internal const string AnchorOpenClass = "anchorOpen";
 
     /// <summary>Whether the Add Panel popover is showing.</summary>
     internal bool IsAddPanelChooserOpen => _addPanelFlyout?.IsOpen == true;
@@ -65,6 +69,11 @@ public sealed partial class MainWindow
         flyout.Placement = ReferenceEquals(target, AddPanelButton())
             ? PlacementMode.BottomEdgeAlignedRight
             : PlacementMode.Bottom;
+        // The "+" stays pressed while its popover is open, as a toolbar
+        // button that shows a popover does on macOS.
+        _addPanelFlyoutAnchor?.Classes.Remove(AnchorOpenClass);
+        _addPanelFlyoutAnchor = target;
+        target.Classes.Add(AnchorOpenClass);
         flyout.ShowAt(target);
     }
 
@@ -136,6 +145,8 @@ public sealed partial class MainWindow
         flyout.Opened += (_, _) => chooser.FocusInitialAction();
         flyout.Closed += (_, _) =>
         {
+            _addPanelFlyoutAnchor?.Classes.Remove(AnchorOpenClass);
+            _addPanelFlyoutAnchor = null;
             if (IsActive && ViewModel.ActivePanel is not null)
             {
                 FocusActivePanel();

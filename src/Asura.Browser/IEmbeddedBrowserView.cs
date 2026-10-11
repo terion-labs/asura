@@ -126,6 +126,13 @@ internal interface IEmbeddedBrowserView : IDisposable
     Task<NativeBrowserAutomationResult> ExtractReadableArticleAsync();
 
     Task<NativeBrowserAutomationResult> ExtractRenderedDocumentAsync();
+
+    /// <summary>
+    /// The page's selected text as a JSON string, for Use Selection for Find.
+    /// Views that cannot read it reject the request.
+    /// </summary>
+    Task<NativeBrowserAutomationResult> ReadSelectedTextAsync() =>
+        Task.FromResult(NativeBrowserAutomationResult.Rejected("selection_unavailable"));
 }
 
 internal sealed class NativeBrowserAddressChangedEventArgs(

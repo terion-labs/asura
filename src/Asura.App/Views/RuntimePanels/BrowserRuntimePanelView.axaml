@@ -297,6 +297,7 @@
               Grid.Column="1"
               VerticalAlignment="Center"
               AutomationProperties.Name="Run browser recovery action"
+              Classes="SecondaryButton"
               Click="OnProductActionClick"
               Content="{Binding ProductActionLabel, ElementName=RuntimeBrowser}"
               IsVisible="{Binding HasProductAction, ElementName=RuntimeBrowser}" />

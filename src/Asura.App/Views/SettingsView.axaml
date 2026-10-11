@@ -1835,8 +1835,8 @@
             <StackPanel x:Name="AboutSettingsPage" Spacing="{DynamicResource ShellSpaceLg}" IsVisible="{Binding IsAboutSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="About"
-                  Description="Version, platform, updates, and the open-source components Asura bundles." />
-              <components:AboutAsuraView />
+                  Description="Version, updates, and the open-source components Asura bundles." />
+              <components:AboutAsuraView ShowsComponents="True" />
             </StackPanel>
 
             <StackPanel x:Name="NotificationsSettingsPage" Spacing="{DynamicResource ShellSpaceLg}" IsVisible="{Binding IsNotificationSettingsVisible}">

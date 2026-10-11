@@ -65,7 +65,7 @@
             Classes="TextButton"
             Click="OnCloseFindClick"
             Content="Done"
-            ToolTip.Tip="Close the find bar (Esc)" />
+            ToolTip.Tip="{x:Static controls:ManagedTerminalOverlay.CloseFindTip}" />
       </Grid>
     </Border>
 
@@ -100,13 +100,13 @@
               Classes="SecondaryButton"
               Click="OnCancelLinkClick"
               Content="Cancel"
-              ToolTip.Tip="Esc" />
+              ToolTip.Tip="{x:Static controls:ManagedTerminalOverlay.EscapeKeyText}" />
           <Button
               AutomationProperties.Name="Open link"
               Classes="PrimaryButton"
               Click="OnOpenLinkClick"
               Content="Open"
-              ToolTip.Tip="Return" />
+              ToolTip.Tip="{x:Static controls:ManagedTerminalOverlay.ReturnKeyText}" />
         </StackPanel>
       </Grid>
     </Border>

@@ -11,17 +11,43 @@ public sealed partial class AboutAsuraView : UserControl
 {
     private CancellationTokenSource? _lifetime;
 
+    /// <summary>
+    /// Whether the bundled components are listed under the About content.
+    /// Settings' About page lists them; the About window leaves them to
+    /// Acknowledgments….
+    /// </summary>
+    public static readonly StyledProperty<bool> ShowsComponentsProperty =
+        AvaloniaProperty.Register<AboutAsuraView, bool>(nameof(ShowsComponents));
+
     public AboutAsuraView()
     {
         InitializeComponent();
     }
 
+    public bool ShowsComponents
+    {
+        get => GetValue(ShowsComponentsProperty);
+        set => SetValue(ShowsComponentsProperty, value);
+    }
+
     private MainWindowViewModel? ViewModel => DataContext as MainWindowViewModel;
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == ShowsComponentsProperty || change.Property == DataContextProperty)
+        {
+            this.FindControl<StackPanel>("ProductComponentList")!.IsVisible =
+                ShowsComponents && ViewModel is { HasNoProductComponents: false };
+        }
+    }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         _lifetime = new CancellationTokenSource();
+        var icon = this.FindControl<Image>("ApplicationIcon")!;
+        icon.Source ??= MacOsApplicationIconImage.Read() ?? MacOsApplicationIconImage.Bundled();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)

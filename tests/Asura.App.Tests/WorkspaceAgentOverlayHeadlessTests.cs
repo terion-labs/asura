@@ -56,6 +56,79 @@ public sealed class WorkspaceAgentOverlayHeadlessTests
     }
 
     [Fact]
+    public async Task Error_notices_make_room_for_the_agent_panel_in_the_bottom_corner()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(() =>
+        {
+            var workspace = new WorkspaceView();
+            var window = new Window { Width = 1440, Height = 900, Content = workspace };
+            try
+            {
+                window.Show();
+                var overlay = workspace.FindControl<Panel>("AgentOverlay")!;
+                var agent = workspace.FindControl<AgentWorkspaceView>("AgentWorkspaceSurface")!;
+                overlay.IsVisible = true;
+                window.UpdateLayout();
+
+                // The notices stand off by the reserved width, which ends at
+                // the agent panel's left edge.
+                var agentLeft = agent.TranslatePoint(default, workspace)!.Value.X;
+                Assert.True(workspace.AgentPanelReservedWidth > 0);
+                Assert.True(
+                    workspace.Bounds.Width - workspace.AgentPanelReservedWidth <= agentLeft + 0.5,
+                    $"Reserved {workspace.AgentPanelReservedWidth}; the agent panel starts at {agentLeft}.");
+
+                overlay.IsVisible = false;
+                window.UpdateLayout();
+                Assert.Equal(0, workspace.AgentPanelReservedWidth);
+                return true;
+            }
+            finally
+            {
+                window.Close();
+            }
+        }, timeout.Token));
+    }
+
+    [Theory]
+    [InlineData("Queued", "Default")]
+    [InlineData("Running", "Default")]
+    [InlineData("Completed", "Success")]
+    [InlineData("Failed", "Danger")]
+    [InlineData("Canceled", "Default")]
+    public void Transfer_chips_take_the_tone_of_their_state(string state, string tone)
+    {
+        Assert.Equal(
+            Enum.Parse<SurfaceTone>(tone),
+            WorkspaceView.TransferStateTone.Convert(state, typeof(SurfaceTone), null, System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
+    public async Task An_unbound_error_notice_list_takes_no_space()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(() =>
+        {
+            var notices = new Asura.App.Views.Components.ErrorNoticesView();
+            var window = new Window { Width = 400, Height = 300, Content = notices };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                Assert.False(notices.IsVisible);
+                return true;
+            }
+            finally
+            {
+                window.Close();
+            }
+        }, timeout.Token));
+    }
+
+    [Fact]
     public async Task File_transfers_stack_above_the_composer_when_there_is_no_room_beside_the_agent_panel()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));

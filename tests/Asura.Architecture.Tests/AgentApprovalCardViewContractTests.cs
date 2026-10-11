@@ -104,7 +104,7 @@ public sealed class AgentApprovalCardViewContractTests
                  {
                      "{Binding AgentChat.PendingApproval.TargetTitle}",
                      "{Binding AgentChat.PendingApproval.ExactTarget}",
-                     "{Binding AgentChat.PendingApproval.ToolName, StringFormat={}Tool: {0}}",
+                     "{Binding AgentChat.PendingApproval.ToolName}",
                  })
         {
             var element = Assert.Single(document.Descendants(), element =>

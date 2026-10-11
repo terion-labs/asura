@@ -132,6 +132,11 @@ public sealed record AgentChatMessageViewModel(
 
     public bool CanFork => IsAssistant && HasMessageText && ForkPoint is not null;
 
+    // Every count on a message's usage line, total included, in the
+    // reader's own digit grouping: "1,204" or "1 204", never a mix.
+    private static string Tokens(long count) =>
+        count.ToString("N0", CultureInfo.CurrentCulture);
+
     public bool HasReasoningRequest =>
         IsAssistant
         && (RequestedReasoningEffort is not null and not AgentReasoningEffort.Automatic
@@ -146,13 +151,13 @@ public sealed record AgentChatMessageViewModel(
     public string UsageLabel => Usage is not { } usage
         ? string.Empty
         : $"{CountText.Of(usage.TotalTokens, "token", "tokens")} · "
-            + $"{usage.InputTokens.ToString(CultureInfo.InvariantCulture)} in / "
-            + $"{usage.OutputTokens.ToString(CultureInfo.InvariantCulture)} out"
+            + $"{Tokens(usage.InputTokens)} in / "
+            + $"{Tokens(usage.OutputTokens)} out"
             + (usage.CachedInputTokens > 0
-                ? $" · {usage.CachedInputTokens.ToString(CultureInfo.InvariantCulture)} cached"
+                ? $" · {Tokens(usage.CachedInputTokens)} cached"
                 : string.Empty)
             + (usage.ReasoningTokens > 0
-                ? $" · {usage.ReasoningTokens.ToString(CultureInfo.InvariantCulture)} reasoning"
+                ? $" · {Tokens(usage.ReasoningTokens)} reasoning"
                 : string.Empty);
 
     public string ReasoningRequestLabel
@@ -182,12 +187,12 @@ public sealed record AgentChatMessageViewModel(
             }
 
             return $"{label} reasoning requested · provider reported "
-                + $"{usage.ReasoningTokens.ToString(CultureInfo.InvariantCulture)} reasoning tokens";
+                + $"{Tokens(usage.ReasoningTokens)} reasoning tokens";
         }
     }
 
     public string ReasoningTitle => Usage?.ReasoningTokens > 0
-        ? $"Reasoned · {Usage.ReasoningTokens.ToString(CultureInfo.InvariantCulture)} tokens"
+        ? $"Reasoned · {Tokens(Usage.ReasoningTokens)} tokens"
         : RequestedReasoningEffort is { } effort
             && effort is not AgentReasoningEffort.Automatic
             ? $"Reasoned · {ReasoningEffortLabel(effort)}"
@@ -268,6 +273,14 @@ public sealed record AgentConversationItemViewModel(
             $"Temporarily unavailable · {UpdatedAt}",
         _ => $"Unavailable · {UpdatedAt}",
     };
+
+    /// <summary>
+    /// What the row does when pressed. A row that can't be opened is named
+    /// with its state; it is in the list only to be deleted.
+    /// </summary>
+    public string AccessibleName => IsAvailable
+        ? $"Open conversation {Title}"
+        : $"{Title}, {Details}";
 }
 
 public sealed record AgentHistoryRetentionOption(
@@ -287,6 +300,11 @@ public sealed record AgentApprovalArgumentViewModel(
     public string DisplayName => Name switch
     {
         "address" => "Destination",
+        "session_id" => "Session",
+        "window_id" => "Window",
+        "workspace_id" => "Workspace",
+        "tab_id" => "Tab",
+        "panel_id" => "Panel",
         "kind" => "Type",
         "operation_detail" => "Description",
         "orientation" => "Split",
@@ -320,6 +338,7 @@ public sealed record AgentApprovalArgumentViewModel(
             {
                 "url" => "URL",
                 "uid" => "UID",
+                "id" => "ID",
                 "json" => "JSON",
                 "http" => "HTTP",
                 "ms" => "(ms)",
@@ -1054,6 +1073,22 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public string ContextWindowPercentLabel =>
         $"{ContextWindowPercent.ToString("0", CultureInfo.CurrentCulture)}%";
 
+    /// <summary>The context ring's name: "Context: 12% used".</summary>
+    public string ContextWindowAccessibleName => $"Context: {ContextWindowPercentLabel} used";
+
+    /// <summary>
+    /// Why Compact Now is dimmed, when it is: a disabled button that does not
+    /// say why reads as broken.
+    /// </summary>
+    public string CompactUnavailableReason =>
+        CanCompact || IsCompacting
+            ? string.Empty
+            : IsBusy
+                ? "You can compact once the agent finishes this run."
+                : "There isn't enough conversation to compact yet.";
+
+    public bool HasCompactUnavailableReason => CompactUnavailableReason.Length > 0;
+
     public string ContextWindowUsageLabel => HasContextWindow
         ? $"{FormatTokenCount(ContextUsedTokens)} / {FormatTokenCount(ContextEffectiveLimit)} tokens used"
             + (SelectedModel?.ContextWindowTokens is null ? " · Local working budget; model limit unavailable" : string.Empty)
@@ -1690,9 +1725,6 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public string PolicyComparisonSummary =>
         $"Baseline → run → effective · generation {PolicyGeneration}";
 
-    public string RendererModeDescription =>
-        "AI agent for this workspace";
-
     public AgentApprovalCardViewModel? PendingApproval
     {
         get => _pendingApproval;
@@ -1770,6 +1802,16 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public bool HasPendingCapabilityRequest =>
         PendingCapabilityRequest is not null;
 
+    /// <summary>
+    /// The request the run is waiting on, in the order the panel shows them.
+    /// Identity is the request's own id, so the same request republished by a
+    /// later refresh is not treated as new.
+    /// </summary>
+    public object? PendingDecisionId =>
+        (object?)PendingApproval?.Id
+        ?? (object?)PendingQuestion?.Id
+        ?? PendingCapabilityRequest?.Id;
+
     public bool CanDecideCapabilityRequest =>
         PendingCapabilityRequest is not null
         && State == GovernedAgentState.AwaitingCapabilityDecision
@@ -1826,8 +1868,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public string ActiveActionCancellationLabel =>
         _actionCancellationInFlight
         || ActiveTool is { CancellationRequested: true }
-            ? "Canceling action…"
-            : "Cancel action";
+            ? "Canceling Action…"
+            : "Cancel Action";
 
     public AgentYoloAuthorityViewModel? YoloAuthority
     {
@@ -1954,7 +1996,13 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             ? "Queue a message for the AI agent"
             : "Send AI agent prompt";
 
-    public string PromptPlaceholder => "Ask Asura…";
+    /// <summary>
+    /// After a failed first turn the field stays in place, dimmed, and says
+    /// what unlocks it, rather than leaving an empty frame under the error.
+    /// </summary>
+    public string PromptPlaceholder => HasFailedTurn
+        ? "Clear the failed run to write a new message"
+        : "Ask Asura…";
 
     // Preserved as an alias for callers that still use the old chat naming.
     public bool CanCancel => CanStop;
@@ -1977,9 +2025,12 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     /// the failed run, or the whole saved conversation it belongs to. The
     /// ellipsis marks the confirmation that a deletion asks for first.
     /// </summary>
-    public string ClearFailedRunLabel => ConversationDeletedByClear is null
-        ? "Clear Failed Run"
-        : "Delete Conversation…";
+    /// <summary>
+    /// Whether clearing the failed run also deletes a saved conversation. The
+    /// failed-run state then offers a destructive Delete Conversation… in
+    /// place of the routine Clear Failed Run.
+    /// </summary>
+    public bool ClearDeletesConversation => ConversationDeletedByClear is not null;
 
     public string ClearFailedRunAccessibleName => ConversationDeletedByClear is { } saved
         ? $"Delete the conversation “{saved.Title}” with its failed run"
@@ -2004,6 +2055,20 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         && !_clearInFlight;
 
     public bool CanChangeModel => HasMultipleModels && CanBrowseModels;
+
+    /// <summary>
+    /// Whether the composer's options (the approval mode, the model, and
+    /// Send raw secrets with its explanation) can be used. They dim together
+    /// with the composer when a run failed or is being cleared, instead of
+    /// some going gray while the rest stay bright beside a dimmed prompt.
+    /// </summary>
+    public bool CanUseComposerOptions =>
+        SelectedProvider is not null
+        && !_clearInFlight
+        && State is not (GovernedAgentState.Failed or GovernedAgentState.Cancelling);
+
+    /// <summary>The model picker: a composer option that also waits for a run to end.</summary>
+    public bool CanUseModelPicker => CanBrowseModels && CanUseComposerOptions;
 
     public bool CanSelectReasoningEffort =>
         ReasoningEfforts.Count > 1
@@ -3124,7 +3189,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         RefreshFilteredConversations();
         OnPropertyChanged(nameof(HasConversationHistory));
         OnPropertyChanged(nameof(ConversationDeletedByClear));
-        OnPropertyChanged(nameof(ClearFailedRunLabel));
+        OnPropertyChanged(nameof(ClearDeletesConversation));
         OnPropertyChanged(nameof(ClearFailedRunAccessibleName));
         Replace(
             ContextItems,
@@ -3297,6 +3362,12 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         {
             AnnounceDecision($"Permission requested: {request.DisplayTitle}");
         }
+        else if (_compactInFlight)
+        {
+            // Compacting streams from the provider too, but it is not a run:
+            // its start and finish are not announced as one. The compaction
+            // status says how it went.
+        }
         else if (State != previousState
             && IsActiveRunState(previousState)
             && State is GovernedAgentState.Ready
@@ -3312,18 +3383,35 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 _ => "Run stopped",
             };
         }
-        else if ((State != previousState && IsActiveRunState(State) && !IsActiveRunState(previousState))
-            || (previousApprovalId is not null && PendingApproval is null)
+        else if (State != previousState
+            && IsActiveRunState(State)
+            && !IsActiveRunState(previousState)
+            && _hasAnnouncedState)
+        {
+            // A run that starts out of sight, from a queued follow-up or with
+            // the panel hidden, is heard; so is the next outcome, because the
+            // region's text changes in between.
+            AnnounceDecision(RunStartedAnnouncement);
+        }
+        else if ((previousApprovalId is not null && PendingApproval is null)
             || (previousQuestionId is not null && PendingQuestion is null)
             || (previousCapabilityRequestId is not null && PendingCapabilityRequest is null))
         {
-            // A new run starts with a clear region. An answered decision is
-            // no longer news either: clearing it means the next request, even
-            // a word-for-word repeat such as a second command in the same
-            // terminal, is a change the live region announces.
+            // An answered decision is no longer news: clearing it means the
+            // next request, even a word-for-word repeat such as a second
+            // command in the same terminal, is a change the live region
+            // announces.
             Announcement = string.Empty;
         }
+
+        // A run already under way when the panel first binds did not just
+        // start; only later starts are news.
+        _hasAnnouncedState = true;
     }
+
+    internal const string RunStartedAnnouncement = "Agent run started";
+
+    private bool _hasAnnouncedState;
 
     // A live region speaks only when its text changes, so a request that
     // repeats the previous one word for word is first cleared.
@@ -3869,14 +3957,14 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     {
         if (value < 1_000)
         {
-            return value.ToString(CultureInfo.InvariantCulture);
+            return value.ToString("N0", CultureInfo.CurrentCulture);
         }
 
         var divisor = value >= 1_000_000 ? 1_000_000d : 1_000d;
         var suffix = value >= 1_000_000 ? "m" : "k";
         var scaled = value / divisor;
         var format = scaled >= 100 ? "0" : "0.#";
-        return scaled.ToString(format, CultureInfo.InvariantCulture) + suffix;
+        return scaled.ToString(format, CultureInfo.CurrentCulture) + suffix;
     }
 
     private void NotifyContextWindowChanged()
@@ -3886,12 +3974,15 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ContextEffectiveLimit));
         OnPropertyChanged(nameof(ContextWindowPercent));
         OnPropertyChanged(nameof(ContextWindowPercentLabel));
+        OnPropertyChanged(nameof(ContextWindowAccessibleName));
         OnPropertyChanged(nameof(ContextWindowUsageLabel));
     }
 
     private void NotifyAvailabilityChanged()
     {
         OnPropertyChanged(nameof(CanCompact));
+        OnPropertyChanged(nameof(CompactUnavailableReason));
+        OnPropertyChanged(nameof(HasCompactUnavailableReason));
         CompactCommand.RaiseCanExecuteChanged();
         OnPropertyChanged(nameof(CanSend));
         OnPropertyChanged(nameof(CanOfferFollowUpQueue));
@@ -3916,6 +4007,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CanAttachImages));
         OnPropertyChanged(nameof(CanAttachFiles));
         OnPropertyChanged(nameof(CanEnterPrompt));
+        OnPropertyChanged(nameof(CanUseComposerOptions));
+        OnPropertyChanged(nameof(CanUseModelPicker));
         OnPropertyChanged(nameof(CanStartConversation));
         OnPropertyChanged(nameof(ConnectionStatus));
         OnPropertyChanged(nameof(NeedsProviderAttention));
@@ -4205,6 +4298,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HasNoConversation));
         OnPropertyChanged(nameof(CanStartConversation));
         OnPropertyChanged(nameof(HasFailedTurn));
+        OnPropertyChanged(nameof(PromptPlaceholder));
         OnPropertyChanged(nameof(ShowPrimaryAction));
         OnPropertyChanged(nameof(ShowFooterStatus));
         OnPropertyChanged(nameof(FailureHeading));

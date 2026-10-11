@@ -663,7 +663,7 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
             dragReleasedBy = null;
             var close = strip.GetVisualDescendants()
                 .OfType<Button>()
-                .Single(button => string.Equals(ToolTip.GetTip(button) as string, ShortcutTips.CloseTab, StringComparison.Ordinal));
+                .Single(button => string.Equals(ToolTip.GetTip(button) as string, ShortcutTips.Current.CloseTab, StringComparison.Ordinal));
             var closeCentre = close.TranslatePoint(
                 new Point(close.Bounds.Width / 2, close.Bounds.Height / 2),
                 window);

@@ -77,15 +77,13 @@ public sealed partial class AgentChatViewModelTests
                 window.UpdateLayout();
 
                 // The streaming transcript never becomes a live region; the
-                // one status region stays silent until the run ends.
-                var announcements = Assert.IsType<LiveRegionTextBlock>(
-                    view.FindControl<LiveRegionTextBlock>("AgentAnnouncementRegion"));
+                // workspace's status region, outside this view, stays silent
+                // until the run ends.
                 Assert.DoesNotContain(
                     view.GetVisualDescendants().OfType<Control>(),
-                    control => !ReferenceEquals(control, announcements)
-                        && AutomationProperties.GetLiveSetting(control)
-                            != AutomationLiveSetting.Off);
-                Assert.True(string.IsNullOrEmpty(announcements.Text));
+                    control => AutomationProperties.GetLiveSetting(control)
+                        != AutomationLiveSetting.Off);
+                Assert.True(string.IsNullOrEmpty(viewModel.Announcement));
 
                 runtime.Snapshot = runtime.Snapshot with
                 {
@@ -111,7 +109,7 @@ public sealed partial class AgentChatViewModelTests
                     "the committed assistant response");
 
                 Assert.False(viewModel.HasCurrentProgress);
-                Assert.Equal("Response complete", announcements.Text);
+                Assert.Equal("Response complete", viewModel.Announcement);
                 Assert.Equal(201, viewModel.Messages.Count);
                 Assert.Contains(
                     view.GetVisualDescendants().OfType<SelectableMarkdownDocument>(),
@@ -786,7 +784,11 @@ public sealed partial class AgentChatViewModelTests
                 var context = Assert.Single(
                     view.GetVisualDescendants().OfType<Button>(),
                     button => string.Equals(AutomationProperties.GetName(button)
-, "141k / 256k tokens used. Older context compacts automatically.", StringComparison.Ordinal));
+, viewModel.ContextWindowAccessibleName, StringComparison.Ordinal));
+                Assert.StartsWith("Context: ", viewModel.ContextWindowAccessibleName, StringComparison.Ordinal);
+                Assert.Equal(
+                    "141k / 256k tokens used. Older context compacts automatically.",
+                    AutomationProperties.GetHelpText(context));
                 Assert.True(context.IsEffectivelyVisible);
                 var donut = Assert.IsType<ContextWindowDonut>(context.Content);
                 Assert.Equal(viewModel.ContextWindowPercent, donut.Percentage);
@@ -799,7 +801,7 @@ public sealed partial class AgentChatViewModelTests
                     .Where(button => button.IsEffectivelyVisible)
                     .OrderBy(button => button.Bounds.Left)
                     .ToArray();
-                Assert.Equal(4, visibleButtons.Length);
+                Assert.Equal(5, visibleButtons.Length);
                 for (var index = 1; index < visibleButtons.Length; index++)
                 {
                     Assert.True(

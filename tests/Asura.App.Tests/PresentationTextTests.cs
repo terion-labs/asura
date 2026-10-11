@@ -103,15 +103,15 @@ public sealed class KeySequenceDisplayTests
     {
         if (HostPlatform.Current == HostOperatingSystem.MacOS)
         {
-            Assert.Equal("Close tab (⌘W)", ShortcutTips.CloseTab);
-            Assert.Equal("New tab (⌥⌘T)", ShortcutTips.NewTab);
-            Assert.Equal("Show or hide the agent panel (⌃⌘A)", ShortcutTips.ToggleAgentPanel);
-            Assert.Equal("Add panel (⇧⌘D)", ShortcutTips.AddPanel);
+            Assert.Equal("Close tab (⌘W)", ShortcutTips.Current.CloseTab);
+            Assert.Equal("New tab (⌥⌘T)", ShortcutTips.Current.NewTab);
+            Assert.Equal("Show or hide the agent panel (⌃⌘A)", ShortcutTips.Current.ToggleAgentPanel);
+            Assert.Equal("Add panel (⇧⌘D)", ShortcutTips.Current.AddPanel);
         }
         else
         {
-            Assert.Equal("Close tab", ShortcutTips.CloseTab);
-            Assert.Equal("New tab", ShortcutTips.NewTab);
+            Assert.Equal("Close tab", ShortcutTips.Current.CloseTab);
+            Assert.Equal("New tab", ShortcutTips.Current.NewTab);
         }
     }
 }
