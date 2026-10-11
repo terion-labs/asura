@@ -6,7 +6,10 @@
       <TextBlock x:Name="Summary" />
       <Canvas x:Name="Treemap" Grid.Row="1" SizeChanged="OnTreemapSize" AutomationProperties.Name="Repository size treemap" />
       <!-- Contributors as a two-column table: the commit count right-aligned
-           in a column of its own, then who made them. -->
+           in a column of its own, then who made them. The counts are set in
+           the window's face with tabular lining figures, so the digits line up
+           down the column and sit on the author's baseline; the data face's
+           taller line box dropped them below it. -->
       <Grid Grid.Row="2" ColumnDefinitions="64,*" ColumnSpacing="{DynamicResource ShellSpaceMd}" Margin="{controls:Inset Horizontal=Sm}">
         <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextAlignment="Right" Text="Commits" />
         <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Contributor" />
@@ -15,7 +18,7 @@
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="views:GitContributorRow">
             <Grid ColumnDefinitions="64,*" ColumnSpacing="{DynamicResource ShellSpaceMd}" AutomationProperties.Name="{Binding AccessibleName}">
-              <TextBlock TextAlignment="Right" FontFamily="{DynamicResource ShellDataFontFamily}" Text="{Binding CommitsText}" />
+              <TextBlock x:Name="CommitCount" TextAlignment="Right" FontFeatures="+tnum,+lnum" Text="{Binding CommitsText}" />
               <TextBlock Grid.Column="1" Text="{Binding Author}" TextTrimming="CharacterEllipsis" />
             </Grid>
           </DataTemplate>
