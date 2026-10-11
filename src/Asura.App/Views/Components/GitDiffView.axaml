@@ -4,6 +4,7 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:core="using:Asura.Core"
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia">
@@ -300,9 +301,9 @@
                 Classes.removed="{Binding IsRemoved}"
                 Classes.hunk="{Binding IsHunkHeader}">
               <Border.ContextMenu>
-                <ContextMenu>
-                  <MenuItem Header="Stage Hunk" Tag="Stage" Click="OnHunkAction" />
-                  <MenuItem Header="Unstage Hunk" Tag="Unstage" Click="OnHunkAction" />
+                <ContextMenu Opening="OnHunkMenuOpening">
+                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitHunkStage}" Click="OnHunkAction" />
+                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitHunkUnstage}" Click="OnHunkAction" />
                 </ContextMenu>
               </Border.ContextMenu>
               <Grid ColumnDefinitions="44,44,18,*">

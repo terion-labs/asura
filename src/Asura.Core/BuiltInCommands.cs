@@ -96,6 +96,58 @@ public static class BuiltInCommands
     public static CommandId GitRebase { get; } = new("git.rebase");
     public static CommandId GitStash { get; } = new("git.stash");
 
+    // The Git panel's context menus, repeated in the Git menu's submenus.
+    public static CommandId GitBranchCheckout { get; } = new("git.branch-checkout");
+    public static CommandId GitBranchCheckoutWorktree { get; } = new("git.branch-checkout-worktree");
+    public static CommandId GitBranchFastForward { get; } = new("git.branch-fast-forward");
+    public static CommandId GitBranchPush { get; } = new("git.branch-push");
+    public static CommandId GitBranchMerge { get; } = new("git.branch-merge");
+    public static CommandId GitBranchRebase { get; } = new("git.branch-rebase");
+    public static CommandId GitBranchNewTag { get; } = new("git.branch-new-tag");
+    public static CommandId GitBranchRename { get; } = new("git.branch-rename");
+    public static CommandId GitBranchCopyName { get; } = new("git.branch-copy-name");
+    public static CommandId GitBranchDelete { get; } = new("git.branch-delete");
+    public static CommandId GitTagCopyName { get; } = new("git.tag-copy-name");
+    public static CommandId GitTagDelete { get; } = new("git.tag-delete");
+    public static CommandId GitRemoteFetch { get; } = new("git.remote-fetch");
+    public static CommandId GitRemoteEdit { get; } = new("git.remote-edit");
+    public static CommandId GitRemoteRemove { get; } = new("git.remote-remove");
+    public static CommandId GitCommitNewBranch { get; } = new("git.commit-new-branch");
+    public static CommandId GitCommitNewTag { get; } = new("git.commit-new-tag");
+    public static CommandId GitCommitCheckout { get; } = new("git.commit-checkout");
+    public static CommandId GitCommitCherryPick { get; } = new("git.commit-cherry-pick");
+    public static CommandId GitCommitRevert { get; } = new("git.commit-revert");
+    public static CommandId GitCommitInteractiveRebase { get; } = new("git.commit-interactive-rebase");
+    public static CommandId GitCommitCompareLocal { get; } = new("git.commit-compare-local");
+    public static CommandId GitCommitCompare { get; } = new("git.commit-compare");
+    public static CommandId GitCommitOpenOnHost { get; } = new("git.commit-open-on-host");
+    public static CommandId GitCommitSavePatch { get; } = new("git.commit-save-patch");
+    public static CommandId GitCommitCopySha { get; } = new("git.commit-copy-sha");
+    public static CommandId GitCommitResetSoft { get; } = new("git.commit-reset-soft");
+    public static CommandId GitCommitResetMixed { get; } = new("git.commit-reset-mixed");
+    public static CommandId GitCommitResetHard { get; } = new("git.commit-reset-hard");
+    public static CommandId GitFileHistory { get; } = new("git.file-history");
+    public static CommandId GitFileExternalDiff { get; } = new("git.file-external-diff");
+    public static CommandId GitFileCopyPatch { get; } = new("git.file-copy-patch");
+    public static CommandId GitFileSavePatch { get; } = new("git.file-save-patch");
+    public static CommandId GitFileIgnore { get; } = new("git.file-ignore");
+    public static CommandId GitFileIgnoreExtension { get; } = new("git.file-ignore-extension");
+    public static CommandId GitHunkStage { get; } = new("git.hunk-stage");
+    public static CommandId GitHunkUnstage { get; } = new("git.hunk-unstage");
+    public static CommandId GitStashApply { get; } = new("git.stash-apply");
+    public static CommandId GitStashPop { get; } = new("git.stash-pop");
+    public static CommandId GitStashShowPatch { get; } = new("git.stash-show-patch");
+    public static CommandId GitStashDrop { get; } = new("git.stash-drop");
+    public static CommandId GitWorktreeOpen { get; } = new("git.worktree-open");
+    public static CommandId GitWorktreeLock { get; } = new("git.worktree-lock");
+    public static CommandId GitWorktreeUnlock { get; } = new("git.worktree-unlock");
+    public static CommandId GitWorktreeRemove { get; } = new("git.worktree-remove");
+    public static CommandId GitSubmoduleOpen { get; } = new("git.submodule-open");
+    public static CommandId GitSubmoduleDetails { get; } = new("git.submodule-details");
+    public static CommandId GitSubmoduleUpdate { get; } = new("git.submodule-update");
+    public static CommandId GitSubmoduleSync { get; } = new("git.submodule-sync");
+    public static CommandId GitSubmoduleRemove { get; } = new("git.submodule-remove");
+
     public static CommandId DockerShowLogs { get; } = new("docker.show-logs");
     public static CommandId DockerBrowseFiles { get; } = new("docker.browse-files");
     public static CommandId DockerOpenShell { get; } = new("docker.open-shell");
@@ -182,8 +234,10 @@ public static class BuiltInCommands
     /// <summary>
     /// The commands a focused panel carries out on what it shows: the items
     /// of the Docker, Kubernetes, Files, Database, Processes and Redis context menus,
-    /// which the menu bar repeats under Panel. The panel answers whether it
-    /// can run each one now. Git's menu runs its view model's commands instead.
+    /// which the menu bar repeats under Panel, and of the Git panel's, which
+    /// it repeats in the Git menu's submenus. The panel answers whether it
+    /// can run each one now. The Git menu's own commands above the submenus
+    /// run the panel view model's commands instead.
     /// </summary>
     public static IReadOnlySet<CommandId> PanelContextCommands { get; } = new HashSet<CommandId>
     {
@@ -212,6 +266,14 @@ public static class BuiltInCommands
         DatabaseDuplicateRow, DatabaseImportCsv, DatabaseDeleteRow,
         ProcessesCopyName, ProcessesCopyProcessId, ProcessesRefresh,
         RedisRemoveEntry,
+        GitBranchCheckout, GitBranchCheckoutWorktree, GitBranchFastForward, GitBranchPush, GitBranchMerge, GitBranchRebase, GitBranchNewTag, GitBranchRename, GitBranchCopyName, GitBranchDelete,
+        GitTagCopyName, GitTagDelete,
+        GitRemoteFetch, GitRemoteEdit, GitRemoteRemove,
+        GitCommitNewBranch, GitCommitNewTag, GitCommitCheckout, GitCommitCherryPick, GitCommitRevert, GitCommitInteractiveRebase, GitCommitCompareLocal, GitCommitCompare, GitCommitOpenOnHost, GitCommitSavePatch, GitCommitCopySha, GitCommitResetSoft, GitCommitResetMixed, GitCommitResetHard,
+        GitFileHistory, GitFileExternalDiff, GitFileCopyPatch, GitFileSavePatch, GitFileIgnore, GitFileIgnoreExtension, GitHunkStage, GitHunkUnstage,
+        GitStashApply, GitStashPop, GitStashShowPatch, GitStashDrop,
+        GitWorktreeOpen, GitWorktreeLock, GitWorktreeUnlock, GitWorktreeRemove,
+        GitSubmoduleOpen, GitSubmoduleDetails, GitSubmoduleUpdate, GitSubmoduleSync, GitSubmoduleRemove,
     };
 
     public static CommandId ShowHelp { get; } = new("help.asura");
@@ -321,6 +383,56 @@ public static class BuiltInCommands
         ProcessesCopyProcessId,
         ProcessesRefresh,
         RedisRemoveEntry,
+        GitBranchCheckout,
+        GitBranchCheckoutWorktree,
+        GitBranchFastForward,
+        GitBranchPush,
+        GitBranchMerge,
+        GitBranchRebase,
+        GitBranchNewTag,
+        GitBranchRename,
+        GitBranchCopyName,
+        GitBranchDelete,
+        GitTagCopyName,
+        GitTagDelete,
+        GitRemoteFetch,
+        GitRemoteEdit,
+        GitRemoteRemove,
+        GitCommitNewBranch,
+        GitCommitNewTag,
+        GitCommitCheckout,
+        GitCommitCherryPick,
+        GitCommitRevert,
+        GitCommitInteractiveRebase,
+        GitCommitCompareLocal,
+        GitCommitCompare,
+        GitCommitOpenOnHost,
+        GitCommitSavePatch,
+        GitCommitCopySha,
+        GitCommitResetSoft,
+        GitCommitResetMixed,
+        GitCommitResetHard,
+        GitFileHistory,
+        GitFileExternalDiff,
+        GitFileCopyPatch,
+        GitFileSavePatch,
+        GitFileIgnore,
+        GitFileIgnoreExtension,
+        GitHunkStage,
+        GitHunkUnstage,
+        GitStashApply,
+        GitStashPop,
+        GitStashShowPatch,
+        GitStashDrop,
+        GitWorktreeOpen,
+        GitWorktreeLock,
+        GitWorktreeUnlock,
+        GitWorktreeRemove,
+        GitSubmoduleOpen,
+        GitSubmoduleDetails,
+        GitSubmoduleUpdate,
+        GitSubmoduleSync,
+        GitSubmoduleRemove,
         ShowHelp,
         ShowKeyboardShortcuts,
         ShowReleaseNotes,
@@ -655,6 +767,69 @@ public static class BuiltInCommands
             // type (Remove Field, Remove Member); the menu bar's one item
             // covers every type.
             DefinePanelCommand(RedisRemoveEntry, "Remove Entry", "Redis"),
+
+            // The Git panel's context menus, by the list they act on: the
+            // menu bar's Git submenus act on the row selected in that list.
+            // The commit menu's Reset submenu becomes three items here, as
+            // the menu bar keeps to one submenu level.
+            DefinePanelCommand(GitBranchCheckout, "Check Out Branch", "Git"),
+            DefinePanelCommand(GitBranchCheckoutWorktree, "Check Out Branch as Worktree…", "Git"),
+            DefinePanelCommand(GitBranchFastForward, "Fast-Forward to Upstream", "Git"),
+            DefinePanelCommand(GitBranchPush, "Push Branch…", "Git"),
+            DefinePanelCommand(GitBranchMerge, "Merge into Current Branch…", "Git"),
+            DefinePanelCommand(GitBranchRebase, "Rebase Current Branch onto Branch…", "Git"),
+            DefinePanelCommand(GitBranchNewTag, "New Tag at Branch…", "Git"),
+            DefinePanelCommand(GitBranchRename, "Rename Branch…", "Git"),
+            DefinePanelCommand(GitBranchCopyName, "Copy Branch Name", "Git"),
+            DefinePanelCommand(GitBranchDelete, "Delete Branch…", "Git"),
+            DefinePanelCommand(GitTagCopyName, "Copy Tag Name", "Git"),
+            DefinePanelCommand(GitTagDelete, "Delete Tag…", "Git"),
+            DefinePanelCommand(GitRemoteFetch, "Fetch Remote", "Git"),
+            DefinePanelCommand(GitRemoteEdit, "Edit Remote…", "Git"),
+            DefinePanelCommand(GitRemoteRemove, "Remove Remote…", "Git"),
+            DefinePanelCommand(GitCommitNewBranch, "New Branch at Commit…", "Git"),
+            DefinePanelCommand(GitCommitNewTag, "New Tag at Commit…", "Git"),
+            DefinePanelCommand(GitCommitCheckout, "Check Out Commit…", "Git"),
+            DefinePanelCommand(
+                GitCommitCherryPick,
+                "Cherry-Pick Commit…",
+                "Git",
+                (CommandStates.HasMultipleSelection, "Cherry-Pick Commits…")),
+            DefinePanelCommand(
+                GitCommitRevert,
+                "Revert Commit…",
+                "Git",
+                (CommandStates.HasMultipleSelection, "Revert Commits…")),
+            DefinePanelCommand(GitCommitInteractiveRebase, "Interactive Rebase…", "Git"),
+            DefinePanelCommand(GitCommitCompareLocal, "Compare with Local Changes", "Git"),
+            DefinePanelCommand(GitCommitCompare, "Compare Revisions…", "Git"),
+            DefinePanelCommand(GitCommitOpenOnHost, "Open Commit on Host", "Git"),
+            DefinePanelCommand(GitCommitSavePatch, "Save Commit as Patch…", "Git"),
+            DefinePanelCommand(GitCommitCopySha, "Copy Commit SHA", "Git"),
+            DefinePanelCommand(GitCommitResetSoft, "Reset Branch to Commit, Keeping Staged Changes…", "Git"),
+            DefinePanelCommand(GitCommitResetMixed, "Reset Branch to Commit, Keeping Working Changes…", "Git"),
+            DefinePanelCommand(GitCommitResetHard, "Reset Branch to Commit, Discarding Tracked Changes…", "Git"),
+            DefinePanelCommand(GitFileHistory, "File History and Blame…", "Git"),
+            DefinePanelCommand(GitFileExternalDiff, "Compare in External Diff Tool…", "Git"),
+            DefinePanelCommand(GitFileCopyPatch, "Copy Patch", "Git"),
+            DefinePanelCommand(GitFileSavePatch, "Save Patch…", "Git"),
+            DefinePanelCommand(GitFileIgnore, "Ignore File…", "Git"),
+            DefinePanelCommand(GitFileIgnoreExtension, "Ignore Extension…", "Git"),
+            DefinePanelCommand(GitHunkStage, "Stage Hunk", "Git"),
+            DefinePanelCommand(GitHunkUnstage, "Unstage Hunk", "Git"),
+            DefinePanelCommand(GitStashApply, "Apply Stash", "Git"),
+            DefinePanelCommand(GitStashPop, "Pop Stash", "Git"),
+            DefinePanelCommand(GitStashShowPatch, "Show Stash Patch…", "Git"),
+            DefinePanelCommand(GitStashDrop, "Drop Stash…", "Git"),
+            DefinePanelCommand(GitWorktreeOpen, "Open Worktree", "Git"),
+            DefinePanelCommand(GitWorktreeLock, "Lock Worktree…", "Git"),
+            DefinePanelCommand(GitWorktreeUnlock, "Unlock Worktree…", "Git"),
+            DefinePanelCommand(GitWorktreeRemove, "Remove Worktree…", "Git"),
+            DefinePanelCommand(GitSubmoduleOpen, "Open Submodule", "Git"),
+            DefinePanelCommand(GitSubmoduleDetails, "Submodule Details…", "Git"),
+            DefinePanelCommand(GitSubmoduleUpdate, "Update Submodule…", "Git"),
+            DefinePanelCommand(GitSubmoduleSync, "Sync Submodule…", "Git"),
+            DefinePanelCommand(GitSubmoduleRemove, "Remove Submodule…", "Git"),
 
             Define(ShowHelp, "Asura Help", "Help", CommandContext.Global),
             Define(ShowKeyboardShortcuts, "Keyboard Shortcuts", "Help", CommandContext.Global),

@@ -5,6 +5,8 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:core="using:Asura.Core"
+    xmlns:git="using:Asura.Git"
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia"
@@ -105,6 +107,29 @@
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
       <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <!-- Stashes, worktrees and submodules are flat lists in the same
+         sidebar: their rows sit where the ref rows sit, and a row is
+         selected as a ref row is, so the Git menu can act on it. -->
+    <Style Selector="ListBox.GitSidebarList">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+      <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
+    </Style>
+    <Style Selector="ListBox.GitSidebarList ListBoxItem">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="ListBox.GitSidebarList ListBoxItem:selected Border.GitRefRow">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ListBox.GitSidebarList:focus-within ListBoxItem:selected icons|SymbolIcon">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
     </Style>
     <Style Selector="Grid.GitSidebarRowLayout">
       <Setter Property="Margin" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
@@ -813,44 +838,20 @@
                                    what you make from it, and deleting it,
                                    last and on its own. -->
                               <Border.ContextMenu>
-                                <ContextMenu>
-                                  <MenuItem
-                                      Header="{Binding CheckoutLabel}"
-                                      IsVisible="{Binding !IsCurrent}"
-                                      Click="OnCheckoutBranchClick" />
-                                  <MenuItem
-                                      Header="Check Out as Worktree…"
-                                      IsVisible="{Binding !IsCurrent}"
-                                      Click="OnCheckoutWorktreeClick" />
-                                  <MenuItem
-                                      Header="{Binding FastForwardLabel}"
-                                      IsVisible="{Binding HasUpstream}"
-                                      Click="OnFastForwardBranchClick" />
-                                  <MenuItem
-                                      Header="{Binding PushLabel}"
-                                      IsVisible="{Binding HasPushRemote}"
-                                      Click="OnPushBranchClick" />
-                                  <MenuItem
-                                      Header="{Binding MergeLabel}"
-                                      IsVisible="{Binding !IsCurrent}"
-                                      Click="OnMergeBranchClick" />
-                                  <MenuItem
-                                      Header="{Binding RebaseLabel}"
-                                      IsVisible="{Binding !IsCurrent}"
-                                      Click="OnRebaseBranchClick" />
+                                <ContextMenu Opening="OnGitMenuOpening">
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchCheckout}" IsVisible="{Binding !IsCurrent}" Click="OnGitMenuCommand" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchCheckoutWorktree}" IsVisible="{Binding !IsCurrent}" Click="OnGitMenuCommand" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchFastForward}" IsVisible="{Binding HasUpstream}" Click="OnGitMenuCommand" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchPush}" IsVisible="{Binding HasPushRemote}" Click="OnGitMenuCommand" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchMerge}" IsVisible="{Binding !IsCurrent}" Click="OnGitMenuCommand" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchRebase}" IsVisible="{Binding !IsCurrent}" Click="OnGitMenuCommand" />
                                   <Separator />
-                                  <MenuItem Header="New Branch…" Click="OnNewBranchClick" />
-                                  <MenuItem Header="New Tag…" Click="OnNewTagAtBranchClick" />
-                                  <MenuItem
-                                      Header="Rename…"
-                                      IsVisible="{Binding !IsCurrent}"
-                                      Click="OnRenameBranchClick" />
-                                  <MenuItem Header="Copy Branch Name" Click="OnCopyBranchNameClick" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitNewBranch}" Click="OnGitMenuCommand" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchNewTag}" Click="OnGitMenuCommand" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchRename}" IsVisible="{Binding !IsCurrent}" Click="OnGitMenuCommand" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchCopyName}" Click="OnGitMenuCommand" />
                                   <Separator IsVisible="{Binding !IsCurrent}" />
-                                  <MenuItem
-                                      Header="Delete…"
-                                      IsVisible="{Binding !IsCurrent}"
-                                      Click="OnDeleteBranchClick" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchDelete}" IsVisible="{Binding !IsCurrent}" Click="OnGitMenuCommand" />
                                 </ContextMenu>
                               </Border.ContextMenu>
                               <Grid ColumnDefinitions="16,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
@@ -921,11 +922,11 @@
                           <Border IsVisible="{Binding HasRef}">
                             <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" MinHeight="24" Classes="GitRefRow">
                               <Border.ContextMenu>
-                                <ContextMenu>
-                                  <MenuItem Header="{Binding FetchLabel}" Click="OnFetchRemoteClick" />
-                                  <MenuItem Header="Edit Remote…" Click="OnEditRemoteClick" />
+                                <ContextMenu Opening="OnGitMenuOpening">
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitRemoteFetch}" Click="OnGitMenuCommand" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitRemoteEdit}" Click="OnGitMenuCommand" />
                                   <Separator />
-                                  <MenuItem Header="Remove Remote…" Click="OnRemoveRemoteClick" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitRemoteRemove}" Click="OnGitMenuCommand" />
                                 </ContextMenu>
                               </Border.ContextMenu>
                               <Grid ColumnDefinitions="16,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
@@ -974,10 +975,10 @@
                           <Border IsVisible="{Binding HasRef}">
                             <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" MinHeight="24" Classes="GitRefRow">
                               <Border.ContextMenu>
-                                <ContextMenu>
-                                  <MenuItem Header="Copy Tag Name" Click="OnCopyBranchNameClick" />
+                                <ContextMenu Opening="OnGitMenuOpening">
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitTagCopyName}" Click="OnGitMenuCommand" />
                                   <Separator />
-                                  <MenuItem Header="Delete…" Click="OnDeleteTagClick" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitTagDelete}" Click="OnGitMenuCommand" />
                                 </ContextMenu>
                               </Border.ContextMenu>
                               <Grid ColumnDefinitions="16,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
@@ -1004,17 +1005,27 @@
                       AutomationProperties.Name="Stashes">
                     <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="Stashes" />
                   </ToggleButton>
-                  <ItemsControl ItemsSource="{Binding Stashes}" IsVisible="{Binding IsStashesSectionExpanded}">
-                    <ItemsControl.ItemTemplate>
+                  <ListBox
+                      x:Name="GitStashList"
+                      Classes="GitSidebarList"
+                      ItemsSource="{Binding Stashes}"
+                      IsVisible="{Binding IsStashesSectionExpanded}"
+                      AutomationProperties.Name="Stashes">
+                    <ListBox.ItemContainerTheme>
+                      <ControlTheme TargetType="ListBoxItem" x:DataType="git:GitStashItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                        <Setter Property="AutomationProperties.Name" Value="{Binding Subject}" />
+                      </ControlTheme>
+                    </ListBox.ItemContainerTheme>
+                    <ListBox.ItemTemplate>
                       <DataTemplate>
                         <Border Classes="GitRefRow">
                           <Border.ContextMenu>
-                            <ContextMenu>
-                              <MenuItem Header="Apply Stash" Click="OnStashApplyClick" />
-                              <MenuItem Header="Pop Stash" Click="OnStashPopClick" />
-                              <MenuItem Header="Show Patch…" Click="OnExportStashPatch" />
+                            <ContextMenu Opening="OnGitMenuOpening">
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitStashApply}" Click="OnGitMenuCommand" />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitStashPop}" Click="OnGitMenuCommand" />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitStashShowPatch}" Click="OnGitMenuCommand" />
                               <Separator />
-                              <MenuItem Header="Drop Stash…" Click="OnStashDropClick" />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitStashDrop}" Click="OnGitMenuCommand" />
                             </ContextMenu>
                           </Border.ContextMenu>
                           <Grid ColumnDefinitions="16,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
@@ -1027,8 +1038,8 @@
                           </Grid>
                         </Border>
                       </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
                 </StackPanel>
 
                 <StackPanel Spacing="0">
@@ -1038,17 +1049,27 @@
                       AutomationProperties.Name="Worktrees">
                     <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="Worktrees" />
                   </ToggleButton>
-                  <ItemsControl ItemsSource="{Binding Worktrees}" IsVisible="{Binding IsWorktreesSectionExpanded}">
-                    <ItemsControl.ItemTemplate>
+                  <ListBox
+                      x:Name="GitWorktreeList"
+                      Classes="GitSidebarList"
+                      ItemsSource="{Binding Worktrees}"
+                      IsVisible="{Binding IsWorktreesSectionExpanded}"
+                      AutomationProperties.Name="Worktrees">
+                    <ListBox.ItemContainerTheme>
+                      <ControlTheme TargetType="ListBoxItem" x:DataType="git:GitWorktreeItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                        <Setter Property="AutomationProperties.Name" Value="{Binding Path}" />
+                      </ControlTheme>
+                    </ListBox.ItemContainerTheme>
+                    <ListBox.ItemTemplate>
                       <DataTemplate>
                         <Border Classes="GitRefRow">
                           <Border.ContextMenu>
-                            <ContextMenu>
-                              <MenuItem Header="Open Worktree" Click="OnOpenNestedRepository" />
-                              <MenuItem Header="Lock Worktree…" Tag="Lock" Click="OnWorktreeTool" />
-                              <MenuItem Header="Unlock Worktree…" Tag="Unlock" Click="OnWorktreeTool" />
+                            <ContextMenu Opening="OnGitMenuOpening">
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitWorktreeOpen}" Click="OnGitMenuCommand" />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitWorktreeLock}" Click="OnGitMenuCommand" />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitWorktreeUnlock}" Click="OnGitMenuCommand" />
                               <Separator />
-                              <MenuItem Header="Remove Worktree…" Tag="Remove" Click="OnWorktreeTool" />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitWorktreeRemove}" Click="OnGitMenuCommand" />
                             </ContextMenu>
                           </Border.ContextMenu>
                           <Grid ColumnDefinitions="16,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
@@ -1061,8 +1082,8 @@
                           </Grid>
                         </Border>
                       </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
                 </StackPanel>
 
                 <StackPanel Spacing="0" IsVisible="{Binding HasSubmodules}">
@@ -1072,18 +1093,28 @@
                       AutomationProperties.Name="Submodules">
                     <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="Submodules" />
                   </ToggleButton>
-                  <ItemsControl ItemsSource="{Binding Submodules}" IsVisible="{Binding IsSubmodulesSectionExpanded}">
-                    <ItemsControl.ItemTemplate>
+                  <ListBox
+                      x:Name="GitSubmoduleList"
+                      Classes="GitSidebarList"
+                      ItemsSource="{Binding Submodules}"
+                      IsVisible="{Binding IsSubmodulesSectionExpanded}"
+                      AutomationProperties.Name="Submodules">
+                    <ListBox.ItemContainerTheme>
+                      <ControlTheme TargetType="ListBoxItem" x:DataType="git:GitSubmoduleItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                        <Setter Property="AutomationProperties.Name" Value="{Binding Path}" />
+                      </ControlTheme>
+                    </ListBox.ItemContainerTheme>
+                    <ListBox.ItemTemplate>
                       <DataTemplate>
                         <Border Classes="GitRefRow">
                           <Border.ContextMenu>
-                            <ContextMenu>
-                              <MenuItem Header="Open Submodule" Click="OnOpenSubmodule" />
-                              <MenuItem Header="Submodule Details…" Click="OnSubmoduleDetails" />
-                              <MenuItem Header="Update Submodule…" Tag="Update" Click="OnSubmoduleTool" />
-                              <MenuItem Header="Sync Submodule…" Tag="Sync" Click="OnSubmoduleTool" />
+                            <ContextMenu Opening="OnGitMenuOpening">
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitSubmoduleOpen}" Click="OnGitMenuCommand" />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitSubmoduleDetails}" Click="OnGitMenuCommand" />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitSubmoduleUpdate}" Click="OnGitMenuCommand" />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitSubmoduleSync}" Click="OnGitMenuCommand" />
                               <Separator />
-                              <MenuItem Header="Remove Submodule…" Tag="Remove" Click="OnSubmoduleTool" />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitSubmoduleRemove}" Click="OnGitMenuCommand" />
                             </ContextMenu>
                           </Border.ContextMenu>
                           <Grid ColumnDefinitions="16,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
@@ -1096,8 +1127,8 @@
                           </Grid>
                         </Border>
                       </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
                 </StackPanel>
               </StackPanel>
             </ScrollViewer>
@@ -1230,15 +1261,15 @@
                         Detail="{Binding Directory}"
                         AutomationProperties.Name="{Binding AccessibleSummary}">
                       <controls:ListItem.ContextMenu>
-<ContextMenu>
-                          <MenuItem Header="History and Blame…" Tag="History" Click="OnFileContextAction" />
-                          <MenuItem Header="Compare in External Diff Tool…" Tag="ExternalDiff" Click="OnFileContextAction" />
+<ContextMenu Opening="OnGitMenuOpening">
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileHistory}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileExternalDiff}" Click="OnGitMenuCommand" />
                           <Separator />
-                          <MenuItem Header="Copy Patch" Tag="CopyPatch" Click="OnFileContextAction" />
-                          <MenuItem Header="Save Patch…" Tag="SavePatch" Click="OnFileContextAction" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileCopyPatch}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileSavePatch}" Click="OnGitMenuCommand" />
                           <Separator />
-                          <MenuItem Header="Ignore File…" Tag="File" Click="OnIgnoreSelectedFile" />
-                          <MenuItem Header="Ignore Extension…" Tag="Extension" Click="OnIgnoreSelectedFile" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileIgnore}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileIgnoreExtension}" Click="OnGitMenuCommand" />
                         </ContextMenu>
                       </controls:ListItem.ContextMenu>
                       <controls:ListItem.Leading>
@@ -1276,15 +1307,15 @@
                         Spacing="{DynamicResource ShellSpaceXs}"
                         AutomationProperties.Name="{Binding AccessibleSummary}">
                       <StackPanel.ContextMenu>
-<ContextMenu>
-                          <MenuItem Header="History and Blame…" Tag="History" Click="OnFileContextAction" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="Compare in External Diff Tool…" Tag="ExternalDiff" Click="OnFileContextAction" />
+<ContextMenu Opening="OnGitMenuOpening">
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileHistory}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileExternalDiff}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
                           <Separator IsVisible="{Binding !IsDirectory}" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="Copy Patch" Tag="CopyPatch" Click="OnFileContextAction" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="Save Patch…" Tag="SavePatch" Click="OnFileContextAction" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileCopyPatch}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileSavePatch}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
                           <Separator IsVisible="{Binding !IsDirectory}" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="Ignore File…" Tag="File" Click="OnIgnoreSelectedFile" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="Ignore Extension…" Tag="Extension" Click="OnIgnoreSelectedFile" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileIgnore}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileIgnoreExtension}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
                         </ContextMenu>
                       </StackPanel.ContextMenu>
                       <icons:SymbolIcon
@@ -1368,15 +1399,15 @@
                         Detail="{Binding Directory}"
                         AutomationProperties.Name="{Binding AccessibleSummary}">
                       <controls:ListItem.ContextMenu>
-<ContextMenu>
-                          <MenuItem Header="History and Blame…" Tag="History" Click="OnFileContextAction" />
-                          <MenuItem Header="Compare in External Diff Tool…" Tag="ExternalDiff" Click="OnFileContextAction" />
+<ContextMenu Opening="OnGitMenuOpening">
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileHistory}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileExternalDiff}" Click="OnGitMenuCommand" />
                           <Separator />
-                          <MenuItem Header="Copy Patch" Tag="CopyPatch" Click="OnFileContextAction" />
-                          <MenuItem Header="Save Patch…" Tag="SavePatch" Click="OnFileContextAction" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileCopyPatch}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileSavePatch}" Click="OnGitMenuCommand" />
                           <Separator />
-                          <MenuItem Header="Ignore File…" Tag="File" Click="OnIgnoreSelectedFile" />
-                          <MenuItem Header="Ignore Extension…" Tag="Extension" Click="OnIgnoreSelectedFile" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileIgnore}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileIgnoreExtension}" Click="OnGitMenuCommand" />
                         </ContextMenu>
                       </controls:ListItem.ContextMenu>
                       <controls:ListItem.Leading>
@@ -1414,15 +1445,15 @@
                         Spacing="{DynamicResource ShellSpaceXs}"
                         AutomationProperties.Name="{Binding AccessibleSummary}">
                       <StackPanel.ContextMenu>
-<ContextMenu>
-                          <MenuItem Header="History and Blame…" Tag="History" Click="OnFileContextAction" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="Compare in External Diff Tool…" Tag="ExternalDiff" Click="OnFileContextAction" />
+<ContextMenu Opening="OnGitMenuOpening">
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileHistory}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileExternalDiff}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
                           <Separator IsVisible="{Binding !IsDirectory}" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="Copy Patch" Tag="CopyPatch" Click="OnFileContextAction" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="Save Patch…" Tag="SavePatch" Click="OnFileContextAction" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileCopyPatch}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileSavePatch}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
                           <Separator IsVisible="{Binding !IsDirectory}" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="Ignore File…" Tag="File" Click="OnIgnoreSelectedFile" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="Ignore Extension…" Tag="Extension" Click="OnIgnoreSelectedFile" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileIgnore}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileIgnoreExtension}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
                         </ContextMenu>
                       </StackPanel.ContextMenu>
                       <icons:SymbolIcon
@@ -1517,23 +1548,25 @@
                   AutomationProperties.Name="Commit history">
                 <ListBox.ContextMenu>
                   <ContextMenu x:Name="CommitContextMenu" Opening="OnHistoryContextMenuOpening">
-                    <MenuItem Header="New Branch…" Tag="NewBranch" Click="OnHistoryContextAction" />
-                    <MenuItem Header="New Tag…" Tag="NewTag" Click="OnHistoryContextAction" />
-                    <MenuItem Header="Check Out Commit…" Tag="Checkout" Click="OnHistoryContextAction" />
-                    <MenuItem Header="Cherry-Pick…" Tag="CherryPick" Click="OnHistoryContextAction" />
-                    <MenuItem Header="Revert Commit…" Tag="Revert" Click="OnHistoryContextAction" />
-                    <MenuItem Header="Interactive Rebase…" Tag="Rebase" Click="OnHistoryContextAction" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitNewBranch}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitNewTag}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitCheckout}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitCherryPick}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitRevert}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitInteractiveRebase}" Click="OnGitMenuCommand" />
                     <Separator />
-                    <MenuItem Header="Compare with Local Changes" Tag="CompareLocal" Click="OnHistoryContextAction" />
-                    <MenuItem Header="Compare Revisions…" Tag="Compare" Click="OnHistoryContextAction" />
-                    <MenuItem Header="Open on Host" Tag="Hosting" Click="OnHistoryContextAction" />
-                    <MenuItem Header="Save as Patch…" Tag="SavePatch" Click="OnHistoryContextAction" />
-                    <MenuItem Header="Copy SHA" Tag="CopySha" Click="OnHistoryContextAction" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitCompareLocal}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitCompare}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitOpenOnHost}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitSavePatch}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitCopySha}" Click="OnGitMenuCommand" />
                     <Separator />
+                    <!-- The menu bar spells these out as three Reset Branch to
+                         Commit items; here the submenu's title names the branch. -->
                     <MenuItem x:Name="CommitResetMenu" Header="Reset Current Branch to Here">
-                      <MenuItem Header="Keep Staged Changes…" Tag="Soft" Click="OnHistoryContextAction" />
-                      <MenuItem Header="Keep Working Changes…" Tag="Mixed" Click="OnHistoryContextAction" />
-                      <MenuItem Header="Discard Tracked Changes…" Tag="Hard" Click="OnHistoryContextAction" />
+                      <MenuItem Header="Keep Staged Changes…" Tag="{x:Static core:BuiltInCommands.GitCommitResetSoft}" Click="OnGitMenuCommand" />
+                      <MenuItem Header="Keep Working Changes…" Tag="{x:Static core:BuiltInCommands.GitCommitResetMixed}" Click="OnGitMenuCommand" />
+                      <MenuItem Header="Discard Tracked Changes…" Tag="{x:Static core:BuiltInCommands.GitCommitResetHard}" Click="OnGitMenuCommand" />
                     </MenuItem>
                   </ContextMenu>
                 </ListBox.ContextMenu>
@@ -1784,7 +1817,7 @@
                     <TreeDataTemplate ItemsSource="{Binding Children}">
                       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
                         <StackPanel.ContextMenu>
-                          <ContextMenu><MenuItem Header="History and Blame…" Tag="History" Click="OnFileContextAction" /></ContextMenu>
+                          <ContextMenu Opening="OnGitMenuOpening"><MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileHistory}" Click="OnGitMenuCommand" /></ContextMenu>
                         </StackPanel.ContextMenu>
                         <icons:SymbolIcon
                             VerticalAlignment="Center"
@@ -1824,12 +1857,12 @@
                           Detail="{Binding Directory}"
                           AutomationProperties.Name="{Binding AccessibleSummary}">
                         <controls:ListItem.ContextMenu>
-<ContextMenu>
-                          <MenuItem Header="History and Blame…" Tag="History" Click="OnFileContextAction" />
-                          <MenuItem Header="Compare in External Diff Tool…" Tag="ExternalDiff" Click="OnFileContextAction" />
+<ContextMenu Opening="OnGitMenuOpening">
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileHistory}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileExternalDiff}" Click="OnGitMenuCommand" />
                           <Separator />
-                          <MenuItem Header="Copy Patch" Tag="CopyPatch" Click="OnFileContextAction" />
-                          <MenuItem Header="Save Patch…" Tag="SavePatch" Click="OnFileContextAction" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileCopyPatch}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileSavePatch}" Click="OnGitMenuCommand" />
                         </ContextMenu>
                         </controls:ListItem.ContextMenu>
                         <controls:ListItem.Leading>

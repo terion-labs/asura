@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Asura.App.ViewModels;
 using Asura.App.Views;
 using Asura.Core;
@@ -13,7 +14,7 @@ namespace Asura.App.Views.Components;
 /// Git panel view model it inherits as DataContext; the panel decides which
 /// diff is shown and holds the comparison options.
 /// </summary>
-public sealed partial class GitDiffView : UserControl, IFindTarget
+public sealed partial class GitDiffView : UserControl, IFindTarget, IPanelCommandTarget
 {
     public GitDiffView()
     {
@@ -155,13 +156,63 @@ public sealed partial class GitDiffView : UserControl, IFindTarget
 
     private async void OnHunkAction(object? sender, RoutedEventArgs e)
     {
-        if (sender is not MenuItem { Tag: string tag, DataContext: GitDiffLineViewModel line } || Panel is not { } panel
-            || !Enum.TryParse<GitPatchAction>(tag, out var action) || !panel.DiffLines.Contains(line))
+        _ = e;
+        if (sender is MenuItem { Tag: CommandId command, DataContext: GitDiffLineViewModel line })
+        {
+            await ApplyHunksAsync(command, [line]);
+        }
+    }
+
+    /// <summary>Dims Stage Hunk in a staged file's diff and Unstage Hunk in an unstaged one's.</summary>
+    private void OnHunkMenuOpening(object? sender, CancelEventArgs e)
+    {
+        if (sender is not ContextMenu menu
+            || (menu.DataContext ?? menu.PlacementTarget?.DataContext) is not GitDiffLineViewModel line)
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        foreach (var item in menu.Items.OfType<MenuItem>())
+        {
+            item.IsEnabled = item.Tag is CommandId command && CanApplyHunks(command, [line]);
+        }
+    }
+
+    /// <summary>
+    /// The menu bar's Stage Hunk and Unstage Hunk act on the hunks that hold
+    /// the lines selected in the diff, as the context menu acts on the hunk of
+    /// the line it opened on.
+    /// </summary>
+    bool IPanelCommandTarget.CanExecute(CommandId command) => CanApplyHunks(command, SelectedLines());
+
+    Task IPanelCommandTarget.ExecuteAsync(CommandId command) => ApplyHunksAsync(command, SelectedLines());
+
+    private GitDiffLineViewModel[] SelectedLines() =>
+        UnifiedLines.IsEffectivelyVisible && UnifiedLines.SelectedItems is { } items
+            ? [.. items.OfType<GitDiffLineViewModel>()]
+            : [];
+
+    private bool CanApplyHunks(CommandId command, IReadOnlyCollection<GitDiffLineViewModel> lines) =>
+        HunkAction(command) is { } action
+        && Panel is { CanApplyPartialDiff: true, SelectedChange: { } change } panel
+        && change.IsStaged == (action == GitPatchAction.Unstage)
+        && lines.Count > 0
+        && lines.All(panel.DiffLines.Contains);
+
+    private async Task ApplyHunksAsync(CommandId command, IReadOnlyCollection<GitDiffLineViewModel> lines)
+    {
+        if (!CanApplyHunks(command, lines) || HunkAction(command) is not { } action || Panel is not { } panel)
         {
             return;
         }
 
-        panel.SelectDiffLines([GitDiffLineViewModel.Hunk("", line.HunkIndex)]);
+        panel.SelectDiffLines([.. lines.Select(line => line.HunkIndex).Distinct().Select(hunk => GitDiffLineViewModel.Hunk("", hunk))]);
         await panel.ApplySelectedDiffAsync(action);
     }
+
+    private static GitPatchAction? HunkAction(CommandId command) =>
+        command == BuiltInCommands.GitHunkStage ? GitPatchAction.Stage
+        : command == BuiltInCommands.GitHunkUnstage ? GitPatchAction.Unstage
+        : null;
 }

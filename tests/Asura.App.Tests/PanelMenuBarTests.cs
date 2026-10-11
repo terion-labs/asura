@@ -11,8 +11,9 @@ namespace Asura.App.Tests;
 
 /// <summary>
 /// Every item of the Docker, Kubernetes, Files, Database, Processes and Redis
-/// context menus has a menu-bar path under Panel, with the same title and
-/// key, which the focused panel runs and which is dimmed otherwise.
+/// context menus has a menu-bar path under Panel, and every item of Git's in
+/// the Git menu, with the same title and key, which the focused panel runs
+/// and which is dimmed otherwise.
 /// </summary>
 public sealed class PanelMenuBarTests
 {
@@ -34,18 +35,26 @@ public sealed class PanelMenuBarTests
         Assert.All(submenus, menu => Assert.DoesNotContain(menu.Items, item => item is MenuSubmenuNode));
     }
 
+    /// <summary>
+    /// Every panel context command is in the menu bar, with no panel left
+    /// out: the Docker, Kubernetes, Files, Database, Processes and Redis
+    /// commands under Panel, and Git's in the Git menu's submenus, which are
+    /// named for the lists the commands act on.
+    /// </summary>
     [Fact]
     public void Each_panel_submenu_holds_exactly_that_panels_context_commands()
     {
         var panel = ApplicationMenuLayout.MenuBar.Single(menu => menu.Title == "Panel");
+        var git = ApplicationMenuLayout.MenuBar.Single(menu => menu.Title == "Git");
         var inMenus = new HashSet<CommandId>();
-        foreach (var submenu in panel.Items.OfType<MenuSubmenuNode>())
+        foreach (var (submenu, category) in panel.Items.OfType<MenuSubmenuNode>().Select(menu => (menu, menu.Title))
+            .Concat(git.Items.OfType<MenuSubmenuNode>().Select(menu => (menu, "Git"))))
         {
             var commands = submenu.Items.OfType<MenuCommandNode>().Select(item => item.Command).ToArray();
             Assert.All(commands, command =>
             {
                 Assert.True(BuiltInCommands.Registry.TryGet(command, out var definition));
-                Assert.Equal(submenu.Title, definition!.Category);
+                Assert.Equal(category, definition!.Category);
                 Assert.Contains(command, BuiltInCommands.PanelContextCommands);
             });
             inMenus.UnionWith(commands);
@@ -57,6 +66,15 @@ public sealed class PanelMenuBarTests
         Assert.All(
             BuiltInCommands.Registry.Commands.Where(command => PanelMenus.Contains(command.Category)),
             command => Assert.Contains(command.Id, BuiltInCommands.PanelContextCommands));
+
+        // A Git command is the Git menu's own, above the submenus, or a
+        // context command in one of them.
+        var gitMenu = git.Items.OfType<MenuCommandNode>().Select(item => item.Command).ToHashSet();
+        Assert.All(
+            BuiltInCommands.Registry.Commands.Where(command => command.Category == "Git"),
+            command => Assert.True(
+                gitMenu.Contains(command.Id) ^ BuiltInCommands.PanelContextCommands.Contains(command.Id),
+                command.Id.Value));
     }
 
     [Fact]
