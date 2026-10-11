@@ -1050,13 +1050,19 @@ internal sealed class QaApplication : Avalonia.Application
             "Asura.App.Views.Components.DragGhostPayload",
             throwOnError: true)!;
         var constructor = AssertSingle(payloadType.GetConstructors());
-        var symbolType = constructor.GetParameters()[0].ParameterType;
-        var payload = constructor.Invoke(
+        var parameters = constructor.GetParameters();
+        var symbolType = parameters[0].ParameterType;
+        object?[] arguments =
         [
             Enum.Parse(symbolType, "Document"),
             "Archive.zip",
             "Copy from dev.terion.pro",
-        ]);
+        ];
+
+        // Reflection does not supply optional arguments, so trailing optional
+        // parameters (such as the system file icon) take their declared defaults.
+        var payload = constructor.Invoke(
+            [.. arguments, .. parameters.Skip(arguments.Length).Select(parameter => parameter.DefaultValue)]);
         var show = typeof(MainWindow).GetMethod(
             "ShowDragGhost",
             BindingFlags.Instance | BindingFlags.NonPublic)
@@ -3023,9 +3029,16 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             .GetSetMethod(nonPublic: true)!
             .Invoke(workspace, [tab]);
 
-        return tab.ActivePanel as DockerRuntimePanelViewModel
+        var docker = tab.ActivePanel as DockerRuntimePanelViewModel
             ?? throw new InvalidOperationException(
                 "The Docker route did not activate its Docker panel.");
+
+        // Routes share one panel, so each starts from the same place: the
+        // first container's Info, whatever section the previous route left.
+        docker.SelectSection(DockerPanelSection.Containers);
+        docker.SelectedResource = docker.Resources.FirstOrDefault();
+        docker.SelectDetail(DockerPanelDetail.Info);
+        return docker;
     }
 
     private static GitRuntimePanelViewModel AddSampleGitPanel(

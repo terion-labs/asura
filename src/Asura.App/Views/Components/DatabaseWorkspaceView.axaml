@@ -415,10 +415,14 @@
             BorderBrush="{DynamicResource ShellBorderBrush}"
             BorderThickness="0,0,0,1"
             IsVisible="{Binding ShowQueryEditor}">
-          <!-- The run affordance floats over the editor's corner rather than
-               claiming a column: the statement is the surface, the trigger is
-               an icon, and Cmd+Enter is the real interface. -->
-          <Grid Margin="{controls:Inset Horizontal=Sm, Vertical=Sm}">
+          <!-- The run affordance sits in the editor's top-right corner: the
+               statement is the surface, the trigger is an icon, and Cmd+Enter
+               is the real interface. It keeps a column of its own so a long
+               statement wraps before the icon instead of running under it in
+               a narrow panel. -->
+          <Grid
+              Margin="{controls:Inset Horizontal=Sm, Vertical=Sm}"
+              ColumnDefinitions="*,Auto">
             <local:CodeEditBox
                 x:Name="QueryEditorBox"
                 MinHeight="58"
@@ -433,6 +437,7 @@
                 EditorKeyDown="OnQueryEditorKeyDown"
                 AutomationProperties.Name="SQL statement" />
             <Button
+                Grid.Column="1"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"
                 Margin="{controls:Inset Xs}"
@@ -934,24 +939,35 @@
                 <!-- A popover's edge: hairline and shadow, the accent being
                      kept for the focus inside it. The margin leaves the
                      shadow room where popups are drawn in the window; the
-                     placement offsets it, so the edge meets the cell. -->
-                <Border
-                    x:Name="CellExpandSurface"
-                    Margin="{controls:Inset Sm}"
-                    Padding="{controls:Inset Xs}"
-                    Background="{DynamicResource ShellPopupSurfaceBrush}"
-                    BorderBrush="{DynamicResource ShellBorderBrush}"
-                    BorderThickness="1"
-                    BoxShadow="{DynamicResource ShellOverlayShadow}"
-                    CornerRadius="{DynamicResource ShellControlCornerRadius}">
-                  <local:CodeEditBox
-                      x:Name="CellExpandEditor"
-                      Width="320"
-                      MinHeight="104"
-                      MaxHeight="200"
-                      EditorKeyDown="OnCellExpandEditorKeyDown"
-                      AutomationProperties.Name="Expanded cell editor" />
-                </Border>
+                     placement offsets it, so the edge meets the cell. The
+                     shadow is a plate behind the surface rather than the
+                     surface's own: a box shadow on the editor's parent
+                     border stops the text layer drawing when the popup is
+                     rendered to a bitmap. -->
+                <Panel>
+                  <Border
+                      Margin="{controls:Inset Sm}"
+                      Background="{DynamicResource ShellPopupSurfaceBrush}"
+                      BoxShadow="{DynamicResource ShellOverlayShadow}"
+                      CornerRadius="{DynamicResource ShellControlCornerRadius}"
+                      IsHitTestVisible="False" />
+                  <Border
+                      x:Name="CellExpandSurface"
+                      Margin="{controls:Inset Sm}"
+                      Padding="{controls:Inset Xs}"
+                      Background="{DynamicResource ShellPopupSurfaceBrush}"
+                      BorderBrush="{DynamicResource ShellBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="{DynamicResource ShellControlCornerRadius}">
+                    <local:CodeEditBox
+                        x:Name="CellExpandEditor"
+                        Width="320"
+                        MinHeight="104"
+                        MaxHeight="200"
+                        EditorKeyDown="OnCellExpandEditorKeyDown"
+                        AutomationProperties.Name="Expanded cell editor" />
+                  </Border>
+                </Panel>
               </Popup>
 
               <StackPanel
