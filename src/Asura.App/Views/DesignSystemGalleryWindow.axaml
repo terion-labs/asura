@@ -341,13 +341,13 @@
 
       <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
         <TextBlock Classes="SectionHeading" Text="Actions" />
-        <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+        <WrapPanel ItemSpacing="{DynamicResource ShellSpaceSm}" LineSpacing="{DynamicResource ShellSpaceSm}">
           <Button Classes="PrimaryButton" Content="Save" />
           <Button Classes="SecondaryButton" Content="Test Connection" />
           <Button Classes="TextButton" Content="Clear" />
           <Button Classes="DestructiveButton" Content="Delete" />
           <Button Classes="SecondaryButton" Content="Disabled" IsEnabled="False" />
-        </StackPanel>
+        </WrapPanel>
       </StackPanel>
 
       <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
