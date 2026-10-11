@@ -1651,14 +1651,15 @@ public sealed class RuntimePanelViewContractTests
                     AttributeValue(element, "AutomationProperties.Name"),
                     "File provider profile",
                     StringComparison.Ordinal));
-        var sortHeaders = new Dictionary<string, (string Handler, string StateBinding)>(
+        var sortHeaders = new Dictionary<string, (string Handler, string StateBinding, string Status)>(
             StringComparer.Ordinal)
         {
-            ["Sort files by name"] = ("OnSortNameClick", "{Binding IsSortingByName}"),
-            ["Sort files by size"] = ("OnSortSizeClick", "{Binding IsSortingBySize}"),
+            ["Sort files by name"] = ("OnSortNameClick", "{Binding IsSortingByName}", "{Binding NameSortStatus}"),
+            ["Sort files by size"] = ("OnSortSizeClick", "{Binding IsSortingBySize}", "{Binding SizeSortStatus}"),
             ["Sort files by modified date"] = (
                 "OnSortModifiedClick",
-                "{Binding IsSortingByModified}"),
+                "{Binding IsSortingByModified}",
+                "{Binding ModifiedSortStatus}"),
         };
         foreach (var (accessibleName, sortHeader) in sortHeaders)
         {
@@ -1677,14 +1678,17 @@ public sealed class RuntimePanelViewContractTests
             Assert.Equal(
                 "{Binding IsSortDescending}",
                 AttributeValue(button, "Classes.descending"));
+            // The sort is said apart from the header's name, as a state, and
+            // drawn as a small trailing chevron rather than a full arrow.
+            Assert.Equal(sortHeader.Status, AttributeValue(button, "AutomationProperties.ItemStatus"));
             Assert.Contains(
                 button.Descendants(),
                 element => string.Equals(element.Name.LocalName, "SymbolIcon"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Symbol"), "ArrowUp", StringComparison.Ordinal));
+, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Symbol"), "ChevronUp", StringComparison.Ordinal));
             Assert.Contains(
                 button.Descendants(),
                 element => string.Equals(element.Name.LocalName, "SymbolIcon"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Symbol"), "ArrowDown", StringComparison.Ordinal));
+, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Symbol"), "ChevronDown", StringComparison.Ordinal));
         }
         var headerStyle = Assert.Single(
             root.Descendants(),

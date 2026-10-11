@@ -77,8 +77,9 @@ public sealed class FileActionViewModel
     public bool StartsGroup { get; }
 
     /// <summary>
-    /// A permanent delete is drawn in the danger colour wherever it appears.
-    /// Moving to the Trash is not: it can be undone.
+    /// Whether this deletes for good rather than moving to the Trash. Not a
+    /// colour: a toolbar glyph and a menu row stay monochrome, as Finder's do,
+    /// and the red belongs to the confirmation that asks before it happens.
     /// </summary>
     public bool IsDestructive { get; }
 

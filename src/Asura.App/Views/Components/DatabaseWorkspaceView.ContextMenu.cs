@@ -529,6 +529,13 @@ public sealed partial class DatabaseWorkspaceView
             IsReadOnly = !canEdit,
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,
         };
+        // A value is data: set in the data face, as the grid shows it, so
+        // columns of digits and code line up the same way here.
+        if (this.TryFindResource("ShellDataFontFamily", ActualThemeVariant, out var dataFont)
+            && dataFont is Avalonia.Media.FontFamily dataFamily)
+        {
+            editor.FontFamily = dataFamily;
+        }
         ScrollViewer.SetHorizontalScrollBarVisibility(
             editor,
             Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled);
@@ -551,15 +558,19 @@ public sealed partial class DatabaseWorkspaceView
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,
         });
 
-        var actions = new WrapPanel
+        // One trailing row, the default action rightmost, as in a sheet:
+        // the buttons never wrap onto a second line out of step.
+        var actions = new CellEditorActionRow { Spacing = smallSpace };
+        var close = new Button
         {
-            Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            ItemSpacing = smallSpace,
-            LineSpacing = smallSpace,
+            Content = canEdit ? "Cancel" : "Close",
+            IsCancel = true,
+            IsDefault = !canEdit,
         };
-        var close = new Button { Content = canEdit ? "Cancel" : "Close" };
         AutomationProperties.SetName(close, "Close the database cell editor");
+        // Stretched, so stacked on a narrow editor the buttons take its
+        // full width; side by side they keep their own.
+        close.HorizontalAlignment = HorizontalAlignment.Stretch;
         var flyout = new Flyout
         {
             Placement = PlacementMode.Center,
@@ -587,7 +598,12 @@ public sealed partial class DatabaseWorkspaceView
 
         if (canEdit)
         {
-            var apply = new Button { Content = "Apply" };
+            var apply = new Button
+            {
+                Content = "Apply",
+                IsDefault = true,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+            };
             apply.Classes.Add("PrimaryButton");
             AutomationProperties.SetName(apply, "Apply the database cell editor value");
             apply.Click += (_, _) => ApplyAndClose();
@@ -659,6 +675,8 @@ public sealed partial class DatabaseWorkspaceView
 
     private Size CellEditorContentSize(double viewportInset)
     {
+        // Inside the grid it edits. Its actions sit on one row that does not
+        // wrap, so even the narrowest grid keeps Cancel and Apply in line.
         var width = SmallestPositive(
             ResultDataGrid.Bounds.Width,
             Bounds.Width,
@@ -1344,4 +1362,67 @@ public sealed partial class DatabaseWorkspaceView
         DatabaseObjectId? ObjectId,
         IReadOnlyList<DatabaseResultColumnViewModel> Columns,
         IReadOnlyList<DatabaseResultRowViewModel> Rows);
+
+    /// <summary>
+    /// The cell editor's buttons on one trailing row, right-aligned at their
+    /// own widths with the default action rightmost. When the editor is too
+    /// narrow for both side by side they stack at its full width, the
+    /// default action first, as a narrow alert lays out its buttons — rather
+    /// than wrapping out of step or clipping their titles.
+    /// </summary>
+    private sealed class CellEditorActionRow : Panel
+    {
+        private bool _fits = true;
+
+        public double Spacing { get; init; }
+
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            if (Children.Count == 0)
+            {
+                return default;
+            }
+
+            var width = Spacing * (Children.Count - 1);
+            var rowHeight = 0.0;
+            var stackHeight = Spacing * (Children.Count - 1);
+            foreach (var child in Children)
+            {
+                child.Measure(Size.Infinity);
+                width += child.DesiredSize.Width;
+                rowHeight = Math.Max(rowHeight, child.DesiredSize.Height);
+                stackHeight += child.DesiredSize.Height;
+            }
+
+            _fits = width <= availableSize.Width;
+            return _fits
+                ? new Size(width, rowHeight)
+                : new Size(availableSize.Width, stackHeight);
+        }
+
+        protected override Size ArrangeOverride(Size finalSize)
+        {
+            if (_fits)
+            {
+                var x = finalSize.Width + Spacing
+                    - Children.Sum(child => child.DesiredSize.Width + Spacing);
+                foreach (var child in Children)
+                {
+                    child.Arrange(new Rect(Math.Max(0, x), 0, child.DesiredSize.Width, finalSize.Height));
+                    x += child.DesiredSize.Width + Spacing;
+                }
+
+                return finalSize;
+            }
+
+            var y = 0.0;
+            foreach (var child in Children.Reverse())
+            {
+                child.Arrange(new Rect(0, y, finalSize.Width, child.DesiredSize.Height));
+                y += child.DesiredSize.Height + Spacing;
+            }
+
+            return finalSize;
+        }
+    }
 }

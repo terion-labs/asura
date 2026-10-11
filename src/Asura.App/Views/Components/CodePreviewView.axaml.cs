@@ -51,6 +51,8 @@ public sealed partial class CodePreviewView : UserControl
             nameof(ShowLineNumbers),
             defaultValue: true);
 
+    private const double HorizontalScrollBarAllowance = 12;
+
     private RegistryOptions? _registryOptions;
     private TextMate.Installation? _textMate;
     private bool _highlightPending;
@@ -94,6 +96,7 @@ public sealed partial class CodePreviewView : UserControl
         // tree, and each height we set starts another pass: a document with a
         // few fenced blocks turned one toggle into dozens of measure rounds.
         Editor.TextArea.TextView.VisualLinesChanged += (_, _) => FitHeightToContent();
+        CodeEditorAppearance.KeepGutterInStep(Editor);
         SizeChanged += (_, _) => FitHeightToContent();
 
         // A fenced block far down a document is not worth a grammar until it
@@ -286,7 +289,9 @@ public sealed partial class CodePreviewView : UserControl
         // scrollbar track should not be drawn beside it either.
         Editor.VerticalScrollBarVisibility =
             Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
-        var target = Math.Ceiling(height) + 6;
+        // Unwrapped code may scroll sideways, and its scroll bar needs a
+        // line of its own below the last line of code rather than over it.
+        var target = Math.Ceiling(height) + 6 + (WordWrap ? 0 : HorizontalScrollBarAllowance);
         if (double.IsNaN(Editor.Height) || Math.Abs(Editor.Height - target) > 0.5)
         {
             Editor.Height = target;
@@ -343,10 +348,13 @@ public sealed partial class CodePreviewView : UserControl
             && size is double fontSize)
         {
             Editor.FontSize = fontSize;
-            return;
+        }
+        else
+        {
+            Editor.FontSize = 13;
         }
 
-        Editor.FontSize = 13;
+        CodeEditorAppearance.Apply(Editor, this);
     }
 
     private ThemeName CurrentThemeName() =>

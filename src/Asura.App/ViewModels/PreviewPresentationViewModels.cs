@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,12 +9,20 @@ using Asura.Application.Previews;
 namespace Asura.App.ViewModels;
 
 /// <summary>
-/// A switch the current format offers. Flipping it re-reads the bytes already
-/// in hand rather than asking the provider for them again.
+/// The choice the current format offers between its preview and its source,
+/// drawn as a two-segment control. Changing it re-reads the bytes already in
+/// hand rather than asking the provider for them again.
 /// </summary>
 public sealed class PreviewToggleViewModel : ObservableObject
 {
+    /// <summary>The segment that shows the format laid out.</summary>
+    public const int PreviewSegment = 0;
+
+    /// <summary>The segment that shows the file as it is written.</summary>
+    public const int SourceSegment = 1;
+
     private readonly Action<string, bool> _changed;
+    private readonly bool _onShowsSource;
     private bool _isOn;
 
     public PreviewToggleViewModel(FilePreviewToggle toggle, Action<string, bool> changed)
@@ -22,13 +31,21 @@ public sealed class PreviewToggleViewModel : ObservableObject
         _changed = changed ?? throw new ArgumentNullException(nameof(changed));
         Id = toggle.Id;
         Label = toggle.Label;
+        _onShowsSource = toggle.OnShowsSource;
         _isOn = toggle.IsOn;
     }
 
     public string Id { get; }
 
+    /// <summary>The source segment's name: "Source", or "Hex".</summary>
     public string Label { get; }
 
+    public static string PreviewLabel => "Preview";
+
+    /// <summary>The control's spoken name, naming both sides.</summary>
+    public string AccessibleName => $"Show preview or {Label.ToLowerInvariant()}";
+
+    /// <summary>The underlying switch, in the previewer's own polarity.</summary>
     public bool IsOn
     {
         get => _isOn;
@@ -36,7 +53,29 @@ public sealed class PreviewToggleViewModel : ObservableObject
         {
             if (SetProperty(ref _isOn, value))
             {
+                OnPropertyChanged(nameof(ShowsSource));
+                OnPropertyChanged(nameof(SelectedSegment));
                 _changed(Id, value);
+            }
+        }
+    }
+
+    /// <summary>Whether the source side is chosen, whatever the switch is called.</summary>
+    public bool ShowsSource
+    {
+        get => _isOn == _onShowsSource;
+        set => IsOn = value == _onShowsSource;
+    }
+
+    /// <summary>The chosen segment: <see cref="PreviewSegment"/> or <see cref="SourceSegment"/>.</summary>
+    public int SelectedSegment
+    {
+        get => ShowsSource ? SourceSegment : PreviewSegment;
+        set
+        {
+            if (value is PreviewSegment or SourceSegment)
+            {
+                ShowsSource = value == SourceSegment;
             }
         }
     }
@@ -130,10 +169,19 @@ public sealed class PreviewTableRowViewModel
 
 public sealed record PreviewTableCellViewModel(string Text, double Width);
 
-/// <summary>A file's bytes, arriving a handful of rows at a time.</summary>
-public sealed class PreviewHexViewModel
+/// <summary>
+/// A file's bytes, arriving a handful of rows at a time, sixteen to a row
+/// where there is room and eight where there is not, so a narrow preview
+/// still shows every byte of a row and its characters without scrolling.
+/// </summary>
+public sealed class PreviewHexViewModel : ObservableObject
 {
+    public const int WideRow = 16;
+    public const int NarrowRow = 8;
+
     private readonly IReadOnlyList<HexPreviewRow> _rows;
+    private ObservableCollection<HexPreviewRow> _shown = [];
+    private int _bytesPerRow = WideRow;
 
     public PreviewHexViewModel(HexPreviewRendering rendering)
     {
@@ -144,10 +192,70 @@ public sealed class PreviewHexViewModel
 
     public string Summary { get; }
 
-    public ObservableCollection<HexPreviewRow> Rows { get; } = [];
+    public ObservableCollection<HexPreviewRow> Rows
+    {
+        get => _shown;
+        private set => SetProperty(ref _shown, value);
+    }
+
+    /// <summary>
+    /// Sixteen or eight. Changing it re-lays the rows already shown at once;
+    /// the dump is bounded, so this costs one pass over it.
+    /// </summary>
+    public int BytesPerRow
+    {
+        get => _bytesPerRow;
+        set
+        {
+            var bytes = value <= NarrowRow ? NarrowRow : WideRow;
+            if (bytes == _bytesPerRow)
+            {
+                return;
+            }
+
+            _bytesPerRow = bytes;
+            OnPropertyChanged();
+            // Rows not yet attached are laid out by the fill that attaches
+            // them; rows already on screen are laid out again, all of them.
+            if (Rows.Count > 0)
+            {
+                Rows = new ObservableCollection<HexPreviewRow>(_rows.SelectMany(row => Lay(row, bytes)));
+            }
+        }
+    }
 
     public Task FillAsync(CancellationToken cancellationToken) =>
-        IncrementalFill.FillAsync(Rows, _rows, cancellationToken);
+        _bytesPerRow == WideRow
+            ? IncrementalFill.FillAsync(Rows, _rows, cancellationToken)
+            : IncrementalFill.FillAsync(Rows, [.. _rows.SelectMany(row => Lay(row, NarrowRow))], cancellationToken);
+
+    /// <summary>A sixteen-byte row as itself, or as the two eight-byte rows it holds.</summary>
+    internal static IEnumerable<HexPreviewRow> Lay(HexPreviewRow row, int bytesPerRow)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        if (bytesPerRow >= WideRow)
+        {
+            yield return row;
+            yield break;
+        }
+
+        // "XX XX XX XX XX XX XX XX  XX …": eight bytes are 23 characters,
+        // then the two-space gutter between the halves.
+        const int HalfWidth = (NarrowRow * 3) - 1;
+        yield return new HexPreviewRow(
+            row.Offset,
+            row.Bytes.Length > HalfWidth ? row.Bytes[..HalfWidth] : row.Bytes,
+            row.Characters.Length > NarrowRow ? row.Characters[..NarrowRow] : row.Characters);
+        if (row.Bytes.Length > HalfWidth + 2 && row.Characters.Length > NarrowRow)
+        {
+            var offset = long.Parse(row.Offset, NumberStyles.HexNumber, CultureInfo.InvariantCulture) + NarrowRow;
+            yield return new HexPreviewRow(
+                offset.ToString("X8", CultureInfo.InvariantCulture),
+                row.Bytes[(HalfWidth + 2)..],
+                row.Characters[NarrowRow..]);
+        }
+    }
+
 }
 
 /// <summary>An archive's contents, as the folders its entry paths describe.</summary>

@@ -42,7 +42,7 @@ internal sealed class SmbLibrarySessionFactory(
         {
             throw new RemoteFileSessionException(
                 RemoteFileSessionErrorCode.AuthenticationFailed,
-                "The SMB credential could not be resolved.");
+                "Asura couldn't get the sign-in details for this SMB connection.");
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -98,7 +98,7 @@ internal sealed class SmbLibrarySessionFactory(
         {
             throw new RemoteFileSessionException(
                 RemoteFileSessionErrorCode.Transient,
-                "The SMB server could not be reached.",
+                "Asura couldn't reach the SMB server.",
                 retryable: true);
         }
 
@@ -138,7 +138,7 @@ internal sealed class SmbLibrarySessionFactory(
                 ? new OperationCanceledException(cancellationToken)
                 : new RemoteFileSessionException(
                     RemoteFileSessionErrorCode.AuthenticationFailed,
-                    "The SMB credential could not be resolved.");
+                    "Asura couldn't get the sign-in details for this SMB connection.");
         }
 
         using var material = ((SecretVaultResult<SecretMaterial>.Success)result).Value;
@@ -273,7 +273,7 @@ internal sealed class SmbLibrarySession(
                     FileInformationClass.FileIdBothDirectoryInformation);
                 if (status is not (NTStatus.STATUS_SUCCESS or NTStatus.STATUS_NO_MORE_FILES))
                 {
-                    throw MapStatus(status, "list an SMB directory");
+                    throw MapStatus(status, "list the folder");
                 }
 
                 return [.. listed
@@ -309,7 +309,7 @@ internal sealed class SmbLibrarySession(
                 return null;
             }
 
-            ThrowForStatus(status, "inspect an SMB entry");
+            ThrowForStatus(status, "get information about the item");
             try
             {
                 status = fileStore.GetFileInformation(
@@ -328,7 +328,7 @@ internal sealed class SmbLibrarySession(
                     out information,
                     handle,
                     FileInformationClass.FileInternalInformation);
-                ThrowForStatus(status, "read the SMB entry identity");
+                ThrowForStatus(status, "identify the item");
                 if (information is not FileInternalInformation identity)
                 {
                     throw new RemoteFileSessionException(
@@ -392,7 +392,7 @@ internal sealed class SmbLibrarySession(
                     CreateDisposition.FILE_CREATE,
                     CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT
                     | CreateOptions.FILE_DIRECTORY_FILE);
-                CloseHandle(handle, "close a newly created SMB directory");
+                CloseHandle(handle, "close the new folder");
             },
             cancellationToken);
 
@@ -417,14 +417,14 @@ internal sealed class SmbLibrarySession(
                     FileName = ToSmbPath(destinationPath),
                 };
                 var status = fileStore.SetFileInformation(handle, rename);
-                ThrowForStatus(status, "rename an SMB entry");
+                ThrowForStatus(status, "rename the item");
                 renamed = true;
             }
             finally
             {
                 if (renamed)
                 {
-                    CloseHandle(handle, "close a renamed SMB entry");
+                    CloseHandle(handle, "finish renaming the item");
                 }
                 else
                 {
@@ -464,7 +464,7 @@ internal sealed class SmbLibrarySession(
                 return [];
             }
 
-            ThrowForStatus(status, "read an SMB file");
+            ThrowForStatus(status, "read the file");
             return bytes ?? [];
         },
         cancellationToken);
@@ -477,7 +477,7 @@ internal sealed class SmbLibrarySession(
         () =>
         {
             var status = fileStore.WriteFile(out var written, handle, offset, bytes);
-            ThrowForStatus(status, "write an SMB file");
+            ThrowForStatus(status, "write the file");
             return written;
         },
         cancellationToken);
@@ -486,7 +486,7 @@ internal sealed class SmbLibrarySession(
         () =>
         {
             var status = fileStore.FlushFileBuffers(handle);
-            ThrowForStatus(status, "flush an SMB file");
+            ThrowForStatus(status, "save the file");
         },
         cancellationToken);
 
@@ -498,7 +498,7 @@ internal sealed class SmbLibrarySession(
         }
 
         await ExecuteAsync(
-            () => CloseHandle(handle, "close an SMB file"),
+            () => CloseHandle(handle, "close the file"),
             CancellationToken.None).ConfigureAwait(false);
     }
 
@@ -540,11 +540,11 @@ internal sealed class SmbLibrarySession(
             or NTStatus.STATUS_NOT_FOUND
             or NTStatus.STATUS_BAD_NETWORK_NAME => Error(
                 RemoteFileSessionErrorCode.NotFound,
-                $"The SMB server could not {operation} because the entry was not found."),
+                $"The SMB server couldn't {operation} because the item wasn't found."),
         NTStatus.STATUS_OBJECT_NAME_EXISTS
             or NTStatus.STATUS_OBJECT_NAME_COLLISION => Error(
                 RemoteFileSessionErrorCode.AlreadyExists,
-                $"The SMB server could not {operation} because the destination exists."),
+                $"The SMB server couldn't {operation} because an item with that name already exists."),
         NTStatus.STATUS_ACCESS_DENIED
             or NTStatus.STATUS_PRIVILEGE_NOT_HELD
             or NTStatus.STATUS_MEDIA_WRITE_PROTECTED => Error(
@@ -553,30 +553,30 @@ internal sealed class SmbLibrarySession(
         NTStatus.STATUS_NOT_A_DIRECTORY
             or NTStatus.STATUS_OBJECT_PATH_INVALID => Error(
                 RemoteFileSessionErrorCode.NotDirectory,
-                $"The SMB server could not {operation} because part of the path isn't a folder."),
+                $"The SMB server couldn't {operation} because part of the path isn't a folder."),
         NTStatus.STATUS_FILE_IS_A_DIRECTORY => Error(
                 RemoteFileSessionErrorCode.IsDirectory,
-                $"The SMB server could not {operation} because the item is a folder."),
+                $"The SMB server couldn't {operation} because the item is a folder."),
         NTStatus.STATUS_DIRECTORY_NOT_EMPTY => Error(
                 RemoteFileSessionErrorCode.DirectoryNotEmpty,
-                $"The SMB server could not {operation} because the folder isn't empty."),
+                $"The SMB server couldn't {operation} because the folder isn't empty."),
         NTStatus.STATUS_NOT_SUPPORTED
             or NTStatus.STATUS_NOT_IMPLEMENTED
             or NTStatus.STATUS_INVALID_INFO_CLASS => Error(
                 RemoteFileSessionErrorCode.Unsupported,
-                $"The SMB server does not support the operation required to {operation}."),
+                $"The SMB server doesn't support what's needed to {operation}."),
         NTStatus.STATUS_OBJECT_NAME_INVALID
             or NTStatus.STATUS_OBJECT_PATH_SYNTAX_BAD
             or NTStatus.STATUS_INVALID_PARAMETER => Error(
                 RemoteFileSessionErrorCode.InvalidName,
-                $"The SMB server rejected the name used to {operation}."),
+                $"The SMB server didn't accept the name used to {operation}."),
         NTStatus.STATUS_IO_TIMEOUT
             or NTStatus.STATUS_NETWORK_NAME_DELETED
             or NTStatus.STATUS_USER_SESSION_DELETED
             or NTStatus.STATUS_INVALID_SMB
             or NTStatus.STATUS_CANCELLED => Error(
                 RemoteFileSessionErrorCode.Transient,
-                $"The SMB connection failed while attempting to {operation}.",
+                $"The SMB connection was interrupted while trying to {operation}.",
                 retryable: true),
         NTStatus.STATUS_SHARING_VIOLATION
             or NTStatus.STATUS_FILE_LOCK_CONFLICT
@@ -584,11 +584,11 @@ internal sealed class SmbLibrarySession(
             or NTStatus.STATUS_DELETE_PENDING
             or NTStatus.STATUS_CANNOT_DELETE => Error(
                 RemoteFileSessionErrorCode.IoFailure,
-                $"The SMB entry is busy and could not {operation}.",
+                $"The item is in use, so the SMB server couldn't {operation}.",
                 retryable: true),
         _ => Error(
                 RemoteFileSessionErrorCode.IoFailure,
-                $"The SMB server failed to {operation}."),
+                $"The SMB server couldn't {operation}."),
     };
 
     internal static RemoteFileSessionException MapStatus(uint status, string operation) =>
@@ -703,7 +703,7 @@ internal sealed class SmbLibrarySession(
             {
                 var disposition = new FileDispositionInformation { DeletePending = true };
                 var status = fileStore.SetFileInformation(handle, disposition);
-                ThrowForStatus(status, "delete an SMB entry");
+                ThrowForStatus(status, "delete the item");
                 deletePending = true;
             }
             finally
@@ -711,7 +711,7 @@ internal sealed class SmbLibrarySession(
                 if (deletePending)
                 {
                     // SMB completes delete-on-close only after the handle closes successfully.
-                    CloseHandle(handle, "commit an SMB delete");
+                    CloseHandle(handle, "finish deleting the item");
                 }
                 else
                 {
@@ -738,7 +738,7 @@ internal sealed class SmbLibrarySession(
             disposition,
             createOptions,
             securityContext: null!);
-        ThrowForStatus(status, "open an SMB entry");
+        ThrowForStatus(status, "open the item");
         return handle;
     }
 

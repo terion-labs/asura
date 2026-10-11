@@ -9,6 +9,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Headless;
 using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 
@@ -149,7 +150,7 @@ public sealed class DatabaseWorkspaceHigHeadlessTests
         });
 
     [Fact]
-    public Task TheResultMenuHasThreeGroupsWithDeleteLast() =>
+    public Task TheResultMenuGroupsRefreshAloneWithDeleteLast() =>
         RunAsync(async (panel, window) =>
         {
             var view = new DatabaseWorkspaceView { DataContext = panel };
@@ -159,10 +160,25 @@ public sealed class DatabaseWorkspaceHigHeadlessTests
             var grid = Named<DataGrid>(view, "Database rows");
             var menu = Assert.IsType<ContextMenu>(grid.ContextMenu);
             var items = menu.Items.Cast<Control>().ToArray();
-            Assert.Equal(2, items.Count(item => item is Separator));
+            Assert.Equal(3, items.Count(item => item is Separator));
             var delete = Assert.IsType<MenuItem>(items[^1]);
             Assert.Equal("Delete Row", delete.Header);
             Assert.IsType<Separator>(items[^2]);
+            // Delete is an ordinary item: the danger is in the confirmation,
+            // not a red row in the menu.
+            Assert.False(delete.IsSet(MenuItem.ForegroundProperty));
+
+            // Refresh has a group of its own, between reading and changing.
+            var refresh = Array.FindIndex(items, item => item is MenuItem { Header: "Refresh" });
+            Assert.IsType<Separator>(items[refresh - 1]);
+            Assert.IsType<Separator>(items[refresh + 1]);
+
+            // Icons on every item or on none: none.
+            Assert.All(Flatten(menu), item => Assert.Null(item.Icon));
+            Assert.Contains(Flatten(menu), item => Equals(item.Header, "Copy Row"));
+            Assert.DoesNotContain(Flatten(menu), item => Equals(item.Header, "Copy"));
+            Assert.True(menu.PlacementConstraintAdjustment.HasFlag(
+                Avalonia.Controls.Primitives.PopupPositioning.PopupPositionerConstraintAdjustment.FlipY));
 
             var headers = Flatten(menu).Select(item => item.Header as string).ToArray();
             Assert.Contains("Open Cell Editor…", headers, StringComparer.Ordinal);
@@ -252,6 +268,116 @@ public sealed class DatabaseWorkspaceHigHeadlessTests
             Assert.True(panel.HasPendingChanges);
             Assert.Empty(panel.SelectedRows);
         });
+
+    [Fact]
+    public Task TheFilterRowFitsANarrowDataColumnAndClearSharesApplysLine() =>
+        RunAsync(async (panel, window) =>
+        {
+            var view = new DatabaseWorkspaceView { DataContext = panel };
+            window.Content = view;
+            window.UpdateLayout();
+            Assert.True(panel.CanFilterTable);
+            var data = view.GetVisualDescendants().OfType<Grid>()
+                .First(grid => string.Equals(Avalonia.Styling.Container.GetName(grid), "databaseData", StringComparison.Ordinal));
+            string[] filterControls =
+            [
+                "Include this filter condition",
+                "Filter column",
+                "Filter operator",
+                "Filter value",
+                "Apply the table filter",
+                "Remove this filter condition",
+                "Add a filter condition",
+                "Clear the table filter",
+            ];
+
+            // On a roomy panel Clear sits on the same line as Apply.
+            var apply = Named<Button>(view, "Apply the table filter");
+            var clear = Named<Button>(view, "Clear the table filter");
+            // Clear's band takes its height from the condition rows' first
+            // line, which settles on the layout pass after the first.
+            window.UpdateLayout();
+            Assert.Equal(CenterY(apply, view), CenterY(clear, view), 0.5);
+
+            // A table open in a 340 pt data column: every filter control is
+            // inside the column, and none overlaps another.
+            var host = new Border { HorizontalAlignment = HorizontalAlignment.Left, Width = view.Bounds.Width };
+            window.Content = null;
+            host.Child = view;
+            window.Content = host;
+            for (var attempt = 0; attempt < 6 && Math.Abs(data.Bounds.Width - 340) > 0.5; attempt++)
+            {
+                host.Width -= data.Bounds.Width - 340;
+                window.UpdateLayout();
+                window.UpdateLayout();
+            }
+
+            Assert.Equal(340, data.Bounds.Width, 0.5);
+            Assert.Null(Named<CheckBox>(view, "Include this filter condition").Content);
+            var rects = filterControls
+                .Select(name => Named<Control>(view, name))
+                .Select(control => new Rect(control.TranslatePoint(default, data)!.Value, control.Bounds.Size))
+                .ToArray();
+            foreach (var rect in rects)
+            {
+                Assert.InRange(rect.Left, 0, data.Bounds.Width);
+                Assert.InRange(rect.Right, 0, data.Bounds.Width + 0.5);
+            }
+
+            for (var first = 0; first < rects.Length; first++)
+            {
+                for (var second = first + 1; second < rects.Length; second++)
+                {
+                    Assert.False(
+                        rects[first].Intersects(rects[second]),
+                        $"{filterControls[first]} overlaps {filterControls[second]}");
+                }
+            }
+
+            await Task.CompletedTask;
+        });
+
+    [Fact]
+    public Task TheExpandedCellEditorMeetsItsCellAndStaysOverTheGrid() =>
+        RunAsync(async (panel, window) =>
+        {
+            var view = new DatabaseWorkspaceView { DataContext = panel };
+            window.Content = view;
+            window.UpdateLayout();
+            var grid = view.FindControl<DataGrid>("ResultDataGrid")!;
+            var text = grid.Columns.LastOrDefault(column =>
+                column.Tag is DatabaseResultColumnViewModel descriptor
+                && panel.ResultRows[0].Cells[grid.Columns.IndexOf(column)].UsesLargeTextEditor);
+            Assert.NotNull(text);
+            grid.SelectedItem = panel.ResultRows[0];
+            grid.CurrentColumn = text;
+            window.UpdateLayout();
+            grid.BeginEdit();
+            window.UpdateLayout();
+            await Task.Delay(20);
+            window.UpdateLayout();
+
+            var popup = view.FindControl<Avalonia.Controls.Primitives.Popup>("CellExpandPopup")!;
+            Assert.True(popup.IsOpen);
+            var surface = view.FindControl<Border>("CellExpandSurface")!;
+            var cell = Assert.IsType<DataGridCell>(popup.PlacementTarget);
+            Assert.Same(panel.ResultRows[0], cell.DataContext);
+            var cellOrigin = cell.TranslatePoint(default, window)!.Value;
+            var gridOrigin = grid.TranslatePoint(default, window)!.Value;
+            var surfaceOrigin = surface.TranslatePoint(default, window)!.Value;
+
+            // The visible edge, not the shadow margin, meets the cell...
+            Assert.Equal(cellOrigin.Y + cell.Bounds.Height, surfaceOrigin.Y, 1.0);
+            // ...and the editor stays within the grid's width.
+            Assert.InRange(surfaceOrigin.X, gridOrigin.X - 0.5, gridOrigin.X + grid.Bounds.Width);
+            Assert.InRange(
+                surfaceOrigin.X + surface.Bounds.Width,
+                gridOrigin.X,
+                gridOrigin.X + grid.Bounds.Width + 0.5);
+        });
+
+    private static double CenterY(Control control, Visual relativeTo) =>
+        control.TranslatePoint(new Point(0, control.Bounds.Height / 2), relativeTo)!.Value.Y;
 
     private static SegmentedControl Segmented(Control root, string name) =>
         root.GetVisualDescendants().OfType<SegmentedControl>().First(control =>

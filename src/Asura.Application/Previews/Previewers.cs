@@ -27,9 +27,9 @@ public sealed class MarkdownPreviewer : IFilePreviewer
         var text = PreviewText.Utf8(source.Content.Span, source.IsTruncated);
         return new FilePreviewOutcome(
             raw
-                ? new SourcePreviewRendering(text, source.FileName)
+                ? new SourcePreviewRendering(text, source.FileName, PreviewText.WrapsAsProse(source.FileName))
                 : new MarkdownPreviewRendering(text),
-            [new FilePreviewToggle(RawToggle, "Show raw", raw)]);
+            [new FilePreviewToggle(RawToggle, "Source", raw)]);
     }
 }
 
@@ -58,9 +58,10 @@ public sealed class WebPagePreviewer : IFilePreviewer
             raw
                 ? new SourcePreviewRendering(
                     PreviewText.Utf8(source.Content.Span, source.IsTruncated),
-                    source.FileName)
+                    source.FileName,
+                    PreviewText.WrapsAsProse(source.FileName))
                 : new WebPagePreviewRendering(),
-            [new FilePreviewToggle(RawToggle, "Show source", raw)]);
+            [new FilePreviewToggle(RawToggle, "Source", raw)]);
     }
 }
 
@@ -99,8 +100,8 @@ public sealed class StructuredDataPreviewer : IFilePreviewer
                 : PreviewText.Json(source.Content.Span, source.IsTruncated)
             : PreviewText.Utf8(source.Content.Span, source.IsTruncated);
         return new FilePreviewOutcome(
-            new SourcePreviewRendering(text, source.FileName),
-            [new FilePreviewToggle(PrettifyToggle, "Prettify", prettify)]);
+            new SourcePreviewRendering(text, source.FileName, PreviewText.WrapsAsProse(source.FileName)),
+            [new FilePreviewToggle(PrettifyToggle, "Source", prettify, OnShowsSource: false)]);
     }
 }
 
@@ -132,11 +133,11 @@ public sealed class DelimitedTextPreviewer : IFilePreviewer
         ArgumentNullException.ThrowIfNull(source);
         var asTable = PreviewText.IsOn(toggles, TableToggle, byDefault: true);
         var text = PreviewText.Utf8(source.Content.Span, source.IsTruncated);
-        var toggle = new FilePreviewToggle(TableToggle, "As table", asTable);
+        var toggle = new FilePreviewToggle(TableToggle, "Source", asTable, OnShowsSource: false);
         if (!asTable)
         {
             return new FilePreviewOutcome(
-                new SourcePreviewRendering(text, source.FileName),
+                new SourcePreviewRendering(text, source.FileName, PreviewText.WrapsAsProse(source.FileName)),
                 [toggle]);
         }
 
@@ -148,7 +149,7 @@ public sealed class DelimitedTextPreviewer : IFilePreviewer
         if (rows.Count == 0)
         {
             return new FilePreviewOutcome(
-                new SourcePreviewRendering(text, source.FileName),
+                new SourcePreviewRendering(text, source.FileName, PreviewText.WrapsAsProse(source.FileName)),
                 [toggle]);
         }
 
@@ -227,14 +228,16 @@ public sealed class ClassifiedFilePreviewer : IFilePreviewer
             FilePanelPreviewKind.Html => new WebPagePreviewRendering(),
             FilePanelPreviewKind.StructuredText => new SourcePreviewRendering(
                 PreviewText.Json(source.Content.Span, source.IsTruncated),
-                source.FileName),
+                source.FileName,
+                Wrap: false),
             FilePanelPreviewKind.Hex => new SourcePreviewRendering(
                 PreviewText.Hex(source.Content.Span, source.IsTruncated),
                 source.FileName,
                 Wrap: false),
             _ => new SourcePreviewRendering(
                 PreviewText.Utf8(source.Content.Span, source.IsTruncated),
-                source.FileName),
+                source.FileName,
+                PreviewText.WrapsAsProse(source.FileName)),
         });
     }
 }

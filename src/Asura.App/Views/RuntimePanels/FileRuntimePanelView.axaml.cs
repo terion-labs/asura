@@ -30,7 +30,12 @@ public sealed partial class FileRuntimePanelView : UserControl
     public FileRuntimePanelView()
     {
         InitializeComponent();
-        DataContextChanged += (_, _) => ObservePanel();
+        DataContextChanged += (_, _) =>
+        {
+            ObservePanel();
+            ReportDetailsRoom();
+        };
+        FileDetailsHeaderGrid.SizeChanged += (_, _) => ReportDetailsRoom();
         AddHandler(
             KeyDownEvent,
             OnPanelKeyDownTunnel,
@@ -53,6 +58,19 @@ public sealed partial class FileRuntimePanelView : UserControl
         AddHandler(DragDrop.DragOverEvent, OnFileDragOver);
         AddHandler(DragDrop.DragLeaveEvent, OnFileDragLeave);
         AddHandler(DragDrop.DropEvent, OnFileDrop);
+    }
+
+    /// <summary>
+    /// The details header is as wide as the rows below it, so its width is
+    /// the room the panel shares out between the name, size and date.
+    /// </summary>
+    private void ReportDetailsRoom()
+    {
+        if (DataContext is FileRuntimePanelViewModel panel
+            && FileDetailsHeaderGrid.Bounds.Width > 0)
+        {
+            panel.FileDetailsAvailableWidth = FileDetailsHeaderGrid.Bounds.Width;
+        }
     }
 
     /// <summary>

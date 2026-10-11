@@ -85,7 +85,7 @@ public sealed class SystemMonitorRuntimePanelViewModelTests
         Assert.Equal("37.5%", panel.CpuText);
         Assert.Equal("2 KB", panel.MemoryText);
         Assert.Equal("1.5 KB/s", panel.NetworkReceivedText);
-        Assert.Equal("3 KB/s", panel.NetworkSentText);
+        Assert.Equal("3.1 KB/s", panel.NetworkSentText);
         Assert.Equal("9", panel.ProcessCountText);
         Assert.Equal("Resource details available for 7 of 9", panel.ProcessDetailText);
         Assert.Equal("1d 2h 3m", panel.UptimeText);

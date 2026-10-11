@@ -27,7 +27,7 @@ public sealed class MonitorPanelHigConformanceTests
     [Theory]
     [InlineData(100d, TimeSeriesUnit.Percent, "100%")]
     [InlineData(5.5d, TimeSeriesUnit.Percent, "5.5%")]
-    [InlineData(2147483648d, TimeSeriesUnit.Bytes, "2 GB")]
+    [InlineData(2147483648d, TimeSeriesUnit.Bytes, "2.1 GB")]
     [InlineData(512d, TimeSeriesUnit.BytesPerSecond, "512 B/s")]
     public void Chart_values_are_written_with_their_unit(double value, TimeSeriesUnit unit, string expected)
     {
@@ -35,14 +35,14 @@ public sealed class MonitorPanelHigConformanceTests
     }
 
     [Theory]
-    [InlineData(1_965_000_000d, TimeSeriesUnit.Bytes, 2d * 1024 * 1024 * 1024)]
-    [InlineData(700d, TimeSeriesUnit.BytesPerSecond, 1024d)]
-    [InlineData(300d, TimeSeriesUnit.BytesPerSecond, 500d)]
-    [InlineData(37d, TimeSeriesUnit.Number, 50d)]
-    [InlineData(0d, TimeSeriesUnit.Bytes, 1d)]
-    public void An_automatic_scale_tops_out_at_a_round_number(double peak, TimeSeriesUnit unit, double expected)
+    [InlineData(1_850_000_000d, 2_000_000_000d)]
+    [InlineData(700d, 1000d)]
+    [InlineData(300d, 500d)]
+    [InlineData(37d, 50d)]
+    [InlineData(0d, 1d)]
+    public void An_automatic_scale_tops_out_at_a_round_number(double peak, double expected)
     {
-        Assert.Equal(expected, TimeSeriesChart.NiceCeiling(peak, unit));
+        Assert.Equal(expected, TimeSeriesChart.NiceCeiling(peak));
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public sealed class MonitorPanelHigConformanceTests
         };
 
         Assert.Equal(
-            "Latest 900 MB, lowest 512 MB, highest 900 MB, rising",
+            "Latest 943.7 MB, lowest 536.9 MB, highest 943.7 MB, rising",
             AutomationProperties.GetItemStatus(chart));
         Assert.Equal("Scale from 0 to 1 GB", AutomationProperties.GetHelpText(chart));
         Assert.Equal("1 GB", chart.CeilingLabel);

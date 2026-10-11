@@ -261,10 +261,11 @@ public sealed class TimeSeriesChart : Control
     }
 
     /// <summary>
-    /// The automatic ceiling: the next 1, 2 or 5 step above the peak, in the
-    /// unit's own base, so the scale reads "2 GiB" rather than "1.83 GiB".
+    /// The automatic ceiling: the next 1, 2 or 5 step above the peak, so the
+    /// scale reads "2 GB" rather than "1.83 GB". Sizes are decimal like every
+    /// size in the app, so the same steps serve every unit.
     /// </summary>
-    internal static double NiceCeiling(double peak, TimeSeriesUnit unit)
+    internal static double NiceCeiling(double peak)
     {
         if (!double.IsFinite(peak) || peak <= 0)
         {
@@ -272,29 +273,17 @@ public sealed class TimeSeriesChart : Control
         }
 
         var target = peak * 1.05;
-        var binary = unit is TimeSeriesUnit.Bytes or TimeSeriesUnit.BytesPerSecond;
-        var scale = 1d;
-        if (binary)
+        var magnitude = Math.Pow(10, Math.Floor(Math.Log10(target)));
+        foreach (var step in new[] { 1d, 2d, 5d })
         {
-            while (target >= 1024 * scale)
-            {
-                scale *= 1024;
-            }
-        }
-
-        var magnitude = Math.Pow(10, Math.Floor(Math.Log10(target / scale)));
-        foreach (var step in new[] { 1d, 2d, 5d, 10d })
-        {
-            var candidate = step * magnitude * scale;
+            var candidate = step * magnitude;
             if (candidate >= target)
             {
-                // A binary scale rolls over at 1024, not 1000: "1 GiB" reads
-                // better than "1000 MiB".
-                return binary && candidate >= 1000 * scale ? 1024 * scale : candidate;
+                return candidate;
             }
         }
 
-        return binary && 10 * magnitude >= 1000 ? 1024 * scale : 10 * magnitude * scale;
+        return 10 * magnitude;
     }
 
     protected override AutomationPeer OnCreateAutomationPeer() =>
@@ -487,7 +476,7 @@ public sealed class TimeSeriesChart : Control
             .Select(value => value!.Value)
             .DefaultIfEmpty(0)
             .Max();
-        return NiceCeiling(peak, Unit);
+        return NiceCeiling(peak);
     }
 
     private Point PointFor(int index, double value, int count, double ceiling)

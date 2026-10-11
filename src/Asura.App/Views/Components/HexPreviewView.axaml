@@ -11,28 +11,32 @@
   <Grid RowDefinitions="*,Auto">
     <!-- A list, not a text view: a dump is thousands of identical rows, and a
          text view has to measure every one before it can show the first. -->
+    <!-- Rows are fixed width, so a narrow preview scrolls sideways rather
+         than cutting a row mid-byte and losing the character column. The
+         trailing inset keeps an overlay scroll bar off the last column. -->
     <ListBox
         x:Name="Rows"
         Classes="Dense"
         ItemsSource="{Binding Rows}"
         SelectionMode="Single"
+        ScrollViewer.HorizontalScrollBarVisibility="Auto"
         AutomationProperties.Name="File bytes">
       <ListBox.ItemTemplate>
         <DataTemplate x:DataType="previews:HexPreviewRow">
-          <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceMd}">
+          <StackPanel Margin="{controls:Inset Right=Lg}" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceMd}">
             <TextBlock
                 Classes="Muted"
                 FontFamily="{DynamicResource ShellDataFontFamily}"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
                 Text="{Binding Offset}" />
             <TextBlock
                 FontFamily="{DynamicResource ShellDataFontFamily}"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
                 Text="{Binding Bytes}" />
             <TextBlock
                 Classes="Muted"
                 FontFamily="{DynamicResource ShellDataFontFamily}"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
                 Text="{Binding Characters}" />
           </StackPanel>
         </DataTemplate>

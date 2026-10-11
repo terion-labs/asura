@@ -38,6 +38,21 @@ internal static class FileTypeIcons
             : null;
     }
 
+    /// <summary>
+    /// The kind a listing names a file by, in Finder's words: the system's own
+    /// description of the content type on macOS, so it matches Finder's Kind
+    /// column, and a table of common kinds elsewhere or for a type the system
+    /// has never seen.
+    /// </summary>
+    public static string KindDescription(string fileName)
+    {
+        ArgumentNullException.ThrowIfNull(fileName);
+        var native = OperatingSystem.IsMacOS()
+            ? Views.MacOsFileTypeIcons.KindDescription(PreviewText.Extension(fileName))
+            : null;
+        return native ?? FileKinds.Describe(fileName);
+    }
+
     /// <summary>The glyph standing in for a system icon.</summary>
     public static Symbol FallbackSymbol(FilePanelEntry entry)
     {

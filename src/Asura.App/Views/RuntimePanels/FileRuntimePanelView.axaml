@@ -164,8 +164,6 @@
               ColumnDefinitions="*,Auto"
               ColumnSpacing="{DynamicResource ShellSpaceXs}">
             <TextBox
-                FontSize="{DynamicResource ShellFontSize10}"
-                FontWeight="SemiBold"
                 Background="Transparent"
                 BorderThickness="0"
                 Text="{Binding LocationText}"
@@ -236,7 +234,6 @@
                           IsVisible="{Binding StartsGroup}" />
                       <Button
                           Classes="IconButton FileToolbarAction"
-                          Classes.Danger="{Binding IsDestructive}"
                           Command="{Binding Command}"
                           IsEnabled="{Binding IsEnabled}"
                           ToolTip.Tip="{Binding Description}"
@@ -321,41 +318,45 @@
               </ContextMenu>
             </Grid.ContextMenu>
             <Border
-                Height="29"
+                MinHeight="{controls:TextScaled 29}"
                 Background="{DynamicResource ShellSurfaceBrush}"
                 IsVisible="{Binding IsDetailsView}">
-              <Grid Margin="{controls:Inset Horizontal=Md}">
+              <!-- Its width is the room the rows have: the panel narrows the
+                   size and date columns to fit it rather than letting the
+                   date run off the edge. -->
+              <Grid x:Name="FileDetailsHeaderGrid" Margin="{controls:Inset Horizontal=Md}">
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="{Binding FileNameColumnWidth, Mode=TwoWay}" MinWidth="140" />
+                  <ColumnDefinition Width="{Binding FileNameColumnWidth, Mode=TwoWay}" MinWidth="{x:Static vm:FileRuntimePanelViewModel.FileNameColumnMinWidth}" />
                   <ColumnDefinition Width="5" />
-                  <ColumnDefinition Width="{Binding FileSizeColumnWidth, Mode=TwoWay}" MinWidth="72" />
+                  <ColumnDefinition Width="{Binding FileSizeColumnWidth, Mode=TwoWay}" MinWidth="{x:Static vm:FileRuntimePanelViewModel.FileSizeColumnMinWidth}" MaxWidth="{Binding FileSizeColumnMaxWidth}" />
                   <ColumnDefinition Width="5" />
-                  <ColumnDefinition Width="{Binding FileModifiedColumnWidth, Mode=TwoWay}" MinWidth="112" />
+                  <ColumnDefinition Width="{Binding FileModifiedColumnWidth, Mode=TwoWay}" MinWidth="{x:Static vm:FileRuntimePanelViewModel.FileModifiedColumnMinWidth}" MaxWidth="{Binding FileModifiedColumnMaxWidth}" />
                 </Grid.ColumnDefinitions>
                 <Button
                     Classes="FileColumnHeader"
                     Classes.sorted="{Binding IsSortingByName}"
                     Classes.descending="{Binding IsSortDescending}"
-                    HorizontalContentAlignment="Left"
+                    HorizontalContentAlignment="Stretch"
                     VerticalContentAlignment="Center"
                     Padding="0"
                     Click="OnSortNameClick"
-                    AutomationProperties.Name="Sort files by name">
-                  <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                    <TextBlock Classes="Eyebrow" Text="Name" />
-                    <icons:SymbolIcon
-                        Classes="FileSortIndicator FileSortAscending"
-                        FontSize="{DynamicResource ShellIconSizeXs}"
-                        IsHitTestVisible="False"
-                        Symbol="ArrowUp"
-                        AutomationProperties.Name="Sorted ascending" />
-                    <icons:SymbolIcon
-                        Classes="FileSortIndicator FileSortDescending"
-                        FontSize="{DynamicResource ShellIconSizeXs}"
-                        IsHitTestVisible="False"
-                        Symbol="ArrowDown"
-                        AutomationProperties.Name="Sorted descending" />
-                  </StackPanel>
+                    AutomationProperties.Name="Sort files by name"
+                    AutomationProperties.ItemStatus="{Binding NameSortStatus}">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                    <TextBlock Classes="Eyebrow" Text="Name" TextTrimming="CharacterEllipsis" />
+                    <Panel Grid.Column="1" VerticalAlignment="Center" AutomationProperties.AccessibilityView="Raw">
+                      <icons:SymbolIcon
+                          Classes="FileSortIndicator FileSortAscending"
+                          FontSize="{DynamicResource ShellIconSizeXs}"
+                          IsHitTestVisible="False"
+                          Symbol="ChevronUp" />
+                      <icons:SymbolIcon
+                          Classes="FileSortIndicator FileSortDescending"
+                          FontSize="{DynamicResource ShellIconSizeXs}"
+                          IsHitTestVisible="False"
+                          Symbol="ChevronDown" />
+                    </Panel>
+                  </Grid>
                 </Button>
                 <Border Grid.Column="1" Width="1" HorizontalAlignment="Center" Background="{DynamicResource ShellBorderBrush}" IsHitTestVisible="False" />
                 <GridSplitter
@@ -371,26 +372,27 @@
                     Classes="FileColumnHeader"
                     Classes.sorted="{Binding IsSortingBySize}"
                     Classes.descending="{Binding IsSortDescending}"
-                    HorizontalContentAlignment="Left"
+                    HorizontalContentAlignment="Stretch"
                     VerticalContentAlignment="Center"
                     Padding="{controls:Inset Horizontal=Sm}"
                     Click="OnSortSizeClick"
-                    AutomationProperties.Name="Sort files by size">
-                  <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                    <TextBlock Classes="Eyebrow" Text="Size" />
-                    <icons:SymbolIcon
-                        Classes="FileSortIndicator FileSortAscending"
-                        FontSize="{DynamicResource ShellIconSizeXs}"
-                        IsHitTestVisible="False"
-                        Symbol="ArrowUp"
-                        AutomationProperties.Name="Sorted ascending" />
-                    <icons:SymbolIcon
-                        Classes="FileSortIndicator FileSortDescending"
-                        FontSize="{DynamicResource ShellIconSizeXs}"
-                        IsHitTestVisible="False"
-                        Symbol="ArrowDown"
-                        AutomationProperties.Name="Sorted descending" />
-                  </StackPanel>
+                    AutomationProperties.Name="Sort files by size"
+                    AutomationProperties.ItemStatus="{Binding SizeSortStatus}">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                    <TextBlock Classes="Eyebrow" Text="Size" TextTrimming="CharacterEllipsis" />
+                    <Panel Grid.Column="1" VerticalAlignment="Center" AutomationProperties.AccessibilityView="Raw">
+                      <icons:SymbolIcon
+                          Classes="FileSortIndicator FileSortAscending"
+                          FontSize="{DynamicResource ShellIconSizeXs}"
+                          IsHitTestVisible="False"
+                          Symbol="ChevronUp" />
+                      <icons:SymbolIcon
+                          Classes="FileSortIndicator FileSortDescending"
+                          FontSize="{DynamicResource ShellIconSizeXs}"
+                          IsHitTestVisible="False"
+                          Symbol="ChevronDown" />
+                    </Panel>
+                  </Grid>
                 </Button>
                 <Border Grid.Column="3" Width="1" HorizontalAlignment="Center" Background="{DynamicResource ShellBorderBrush}" IsHitTestVisible="False" />
                 <GridSplitter
@@ -402,30 +404,32 @@
                     ResizeBehavior="PreviousAndNext"
                     AutomationProperties.Name="Resize file size and modified columns" />
                 <Button
+                    x:Name="ModifiedColumnHeader"
                     Grid.Column="4"
                     Classes="FileColumnHeader"
                     Classes.sorted="{Binding IsSortingByModified}"
                     Classes.descending="{Binding IsSortDescending}"
-                    HorizontalContentAlignment="Left"
+                    HorizontalContentAlignment="Stretch"
                     VerticalContentAlignment="Center"
                     Padding="{controls:Inset Horizontal=Sm}"
                     Click="OnSortModifiedClick"
-                    AutomationProperties.Name="Sort files by modified date">
-                  <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                    <TextBlock Classes="Eyebrow" Text="Modified" />
-                    <icons:SymbolIcon
-                        Classes="FileSortIndicator FileSortAscending"
-                        FontSize="{DynamicResource ShellIconSizeXs}"
-                        IsHitTestVisible="False"
-                        Symbol="ArrowUp"
-                        AutomationProperties.Name="Sorted ascending" />
-                    <icons:SymbolIcon
-                        Classes="FileSortIndicator FileSortDescending"
-                        FontSize="{DynamicResource ShellIconSizeXs}"
-                        IsHitTestVisible="False"
-                        Symbol="ArrowDown"
-                        AutomationProperties.Name="Sorted descending" />
-                  </StackPanel>
+                    AutomationProperties.Name="Sort files by modified date"
+                    AutomationProperties.ItemStatus="{Binding ModifiedSortStatus}">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                    <TextBlock Classes="Eyebrow" Text="Modified" TextTrimming="CharacterEllipsis" />
+                    <Panel Grid.Column="1" VerticalAlignment="Center" AutomationProperties.AccessibilityView="Raw">
+                      <icons:SymbolIcon
+                          Classes="FileSortIndicator FileSortAscending"
+                          FontSize="{DynamicResource ShellIconSizeXs}"
+                          IsHitTestVisible="False"
+                          Symbol="ChevronUp" />
+                      <icons:SymbolIcon
+                          Classes="FileSortIndicator FileSortDescending"
+                          FontSize="{DynamicResource ShellIconSizeXs}"
+                          IsHitTestVisible="False"
+                          Symbol="ChevronDown" />
+                    </Panel>
+                  </Grid>
                 </Button>
               </Grid>
             </Border>
@@ -452,11 +456,11 @@
                          header stop shrinking while the rows keep collapsing,
                          and the columns visibly part ways. -->
                     <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileNameColumnWidth}" MinWidth="140" />
+                      <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileNameColumnWidth}" MinWidth="{x:Static vm:FileRuntimePanelViewModel.FileNameColumnMinWidth}" />
                       <ColumnDefinition Width="5" />
-                      <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileSizeColumnWidth}" MinWidth="72" />
+                      <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileSizeColumnWidth}" MinWidth="{x:Static vm:FileRuntimePanelViewModel.FileSizeColumnMinWidth}" MaxWidth="{Binding $parent[UserControl].DataContext.FileSizeColumnMaxWidth}" />
                       <ColumnDefinition Width="5" />
-                      <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileModifiedColumnWidth}" MinWidth="112" />
+                      <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileModifiedColumnWidth}" MinWidth="{x:Static vm:FileRuntimePanelViewModel.FileModifiedColumnMinWidth}" MaxWidth="{Binding $parent[UserControl].DataContext.FileModifiedColumnMaxWidth}" />
                     </Grid.ColumnDefinitions>
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                       <Panel Classes="FileEntryIcon" VerticalAlignment="Center">
@@ -466,8 +470,8 @@
                       </Panel>
                       <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize12}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
                     </Grid>
-                    <TextBlock Grid.Column="2" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Size}" />
-                    <TextBlock Grid.Column="4" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Modified}" />
+                    <TextBlock Grid.Column="2" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Size}" TextTrimming="CharacterEllipsis" />
+                    <components:FittingTextBlock Grid.Column="4" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" FullText="{Binding Modified}" CompactText="{Binding ModifiedCompact}" />
                   </Grid>
                 </DataTemplate>
               </ListBox.ItemTemplate>
@@ -523,7 +527,7 @@
               </ListBox.ItemsPanel>
               <ListBox.ItemTemplate>
                 <DataTemplate>
-                  <controls:SurfaceCard Padding="0" Width="142" Height="88" Margin="{controls:Inset Xs}">
+                  <controls:SurfaceCard Padding="0" Width="{controls:TextScaled 142}" MinHeight="{controls:TextScaled 88}" Margin="{controls:Inset Xs}">
                     <StackPanel Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceXs}">
                       <Panel Classes="FileEntryIcon large" HorizontalAlignment="Left">
                         <Image Source="{Binding Icon}" IsVisible="{Binding HasIcon}" />
@@ -604,40 +608,49 @@
         <Border
             Grid.Column="2"
             IsVisible="{Binding IsPreviewVisible}">
-          <Grid RowDefinitions="29,Auto,*">
-            <Border Background="{DynamicResource ShellSurfaceBrush}">
-              <Grid Margin="{controls:Inset Horizontal=Md}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                <TextBlock VerticalAlignment="Center" Classes="Headline MiddleTruncated" Text="{Binding PreviewTitle}" ToolTip.Tip="{Binding PreviewTitle}" />
-                <!-- Only providers that transfer preview bytes onto the host
-                     need this choice. -->
-                <StackPanel
-                    Grid.Column="1"
-                    Orientation="Horizontal"
-                    VerticalAlignment="Center"
-                    Spacing="{DynamicResource ShellSpaceSm}"
-                    IsVisible="{Binding RequiresHostTransferForPreview}">
-                  <CheckBox
-                      VerticalAlignment="Center"
-                      FontSize="{DynamicResource ShellFontSize10}"
-                      Content="{Binding AutoDownloadPreviewLabel}"
-                      IsChecked="{Binding AutoDownloadPreviews, Mode=TwoWay}"
-                      AutomationProperties.Name="Automatically preview files under the size threshold" />
-                </StackPanel>
-              </Grid>
+          <Grid RowDefinitions="Auto,Auto,Auto,*">
+            <!-- The name has the header to itself, so a long one keeps both
+                 its ends rather than giving way to an option beside it. -->
+            <Border Background="{DynamicResource ShellSurfaceBrush}" MinHeight="{controls:TextScaled 29}">
+              <TextBlock
+                  Margin="{controls:Inset Horizontal=Md}"
+                  VerticalAlignment="Center"
+                  Classes="Headline MiddleTruncated"
+                  Text="{Binding PreviewTitle}"
+                  ToolTip.Tip="{Binding PreviewTitle}" />
             </Border>
-            <controls:SurfaceCard Padding="0" Grid.Row="1" Margin="{controls:Inset Sm}" IsVisible="{Binding HasSelectedMetadata}">
+            <!-- Only providers that transfer preview bytes onto the host
+                 need this choice, so it sits under the name, not beside it. -->
+            <CheckBox
+                Grid.Row="1"
+                Margin="{controls:Inset Horizontal=Md, Vertical=Xs}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
+                Content="{Binding AutoDownloadPreviewLabel}"
+                IsChecked="{Binding AutoDownloadPreviews, Mode=TwoWay}"
+                IsVisible="{Binding RequiresHostTransferForPreview}"
+                AutomationProperties.Name="Automatically preview files under the size threshold" />
+            <controls:SurfaceCard Padding="0" Grid.Row="2" Margin="{controls:Inset Sm}" IsVisible="{Binding HasSelectedMetadata}">
               <StackPanel>
-                <Grid Margin="{controls:Inset Horizontal=Md, Vertical=Sm}" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="{DynamicResource ShellSpaceXs}" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                <StackPanel Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Kind" /><TextBlock FontSize="{DynamicResource ShellFontSize12}" Text="{Binding SelectedMetadata.Kind}" /></StackPanel>
-                <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Size" /><TextBlock FontSize="{DynamicResource ShellFontSize12}" Text="{Binding SelectedMetadata.Size}" /></StackPanel>
-                <StackPanel Grid.Row="1" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Modified" /><TextBlock FontSize="{DynamicResource ShellFontSize12}" Text="{Binding SelectedMetadata.Modified}" /></StackPanel>
-                <StackPanel Grid.Row="1" Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Version" /><TextBlock FontSize="{DynamicResource ShellFontSize12}" Text="{Binding SelectedMetadata.Version}" TextTrimming="CharacterEllipsis" /></StackPanel>
-                <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding SelectedMetadata.Source}" />
+                <Grid Margin="{controls:Inset Horizontal=Md, Vertical=Sm}" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource ShellSpaceSm}" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                <StackPanel Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Kind" /><TextBlock FontSize="{DynamicResource ShellFontSize12}" Text="{Binding SelectedMetadata.Kind}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SelectedMetadata.Kind}" /></StackPanel>
+                <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Size" /><TextBlock FontSize="{DynamicResource ShellFontSize12}" Text="{Binding SelectedMetadata.Size}" TextTrimming="CharacterEllipsis" /></StackPanel>
+                <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Modified" /><TextBlock FontSize="{DynamicResource ShellFontSize12}" Text="{Binding SelectedMetadata.Modified}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SelectedMetadata.Modified}" /></StackPanel>
                 </Grid>
-                <!-- What this format can be shown as, along the bottom of its
-                     details: the same reading as the workspace status bar,
-                     which is where the shell puts the controls that say how
-                     something is being shown. -->
+                <!-- A provider's version tag is a hash to most people: kept
+                     behind a disclosure, and absent when there is none. -->
+                <Expander
+                    Margin="{controls:Inset Horizontal=Sm}"
+                    Header="Version"
+                    IsVisible="{Binding SelectedMetadata.HasVersion, FallbackValue=False}">
+                  <SelectableTextBlock
+                      FontFamily="{DynamicResource ShellDataFontFamily}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                      Text="{Binding SelectedMetadata.Version}"
+                      TextWrapping="Wrap" />
+                </Expander>
+                <!-- Preview or source, along the bottom of the details: the
+                     same two segments for every format, so the side that
+                     shows the file as written is always the same side. -->
                 <Border
                     Background="{DynamicResource ShellSurfaceBrush}"
                     BorderBrush="{DynamicResource ShellBorderBrush}"
@@ -649,23 +662,21 @@
                       <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceMd}" /></ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
-                      <DataTemplate>
-                        <!-- Independent options for how one preview is shown:
-                             checkboxes, which is what minor options are, not
-                             switches. -->
-                        <CheckBox
-                            VerticalAlignment="Center"
-                            FontSize="{DynamicResource ShellFontSize10}"
-                            Content="{Binding Label}"
-                            IsChecked="{Binding IsOn, Mode=TwoWay}"
-                            AutomationProperties.Name="{Binding Label}" />
+                      <DataTemplate x:DataType="vm:PreviewToggleViewModel">
+                        <controls:SegmentedControl
+                            Classes="FilePreviewMode"
+                            SelectedIndex="{Binding SelectedSegment, Mode=TwoWay}"
+                            AutomationProperties.Name="{Binding AccessibleName}">
+                          <RadioButton Content="{x:Static vm:PreviewToggleViewModel.PreviewLabel}" />
+                          <RadioButton Content="{Binding Label}" />
+                        </controls:SegmentedControl>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
                 </Border>
               </StackPanel>
             </controls:SurfaceCard>
-            <Grid Grid.Row="2">
+            <Grid Grid.Row="3">
               <components:CodePreviewView
                   Margin="{controls:Inset Md}"
                   IsVisible="{Binding HasSourcePreview}"
@@ -703,11 +714,6 @@
                     Classes="Muted"
                     FontSize="{DynamicResource ShellSecondaryFontSize}"
                     Text="{Binding PreviewBinary.Detail}" />
-                <TextBlock
-                    HorizontalAlignment="Center"
-                    Classes="Muted"
-                    FontSize="{DynamicResource ShellSecondaryFontSize}"
-                    Text="{Binding SelectedMetadata.Size}" />
               </StackPanel>
               <!-- An archive is listed, never unpacked. -->
               <Grid RowDefinitions="Auto,*" IsVisible="{Binding HasTreePreview}">

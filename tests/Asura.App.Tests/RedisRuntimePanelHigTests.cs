@@ -75,13 +75,13 @@ public sealed class RedisRuntimePanelHigTests
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
             Assert.Equal(Asura.Application.ByteSize.Format(1_536), RedisKeyItemViewModel.FormatBytes(1_536));
             Assert.Equal("1.5 KB", RedisKeyItemViewModel.FormatBytes(1_536));
-            Assert.Equal("1000 B", RedisKeyItemViewModel.FormatBytes(1_000));
+            Assert.Equal("1 KB", RedisKeyItemViewModel.FormatBytes(1_000));
             Assert.Equal("1.234 keys", RedisCounts.Count(1_234, "key", "keys"));
             Assert.Equal("1 key", RedisCounts.Count(1, "key", "keys"));
 
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
             Assert.Equal("1.5 KB", RedisKeyItemViewModel.FormatBytes(1_536));
-            Assert.Equal("2 MB", RedisKeyItemViewModel.FormatBytes(2 * 1024 * 1024));
+            Assert.Equal("2 MB", RedisKeyItemViewModel.FormatBytes(2_000_000));
         }
         finally
         {

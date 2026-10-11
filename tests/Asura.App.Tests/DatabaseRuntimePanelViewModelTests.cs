@@ -1675,15 +1675,27 @@ public sealed class DatabaseRuntimePanelViewModelTests
         panel.ShowDatabaseOverview();
 
         Assert.Null(panel.SelectedObject);
+        // SQLite has no schemas: no column of NULLs for them.
         Assert.Equal(
-            ["Schema", "Name", "Kind"],
+            ["Name", "Kind"],
             [.. panel.ResultColumns.Select(column => column.Name)]);
         Assert.Equal(panel.Tables.Count, panel.ResultRows.Count);
         Assert.Contains("objects", panel.ResultSummary, StringComparison.Ordinal);
+        // The pager counts the rows the catalog shows.
+        Assert.Equal(panel.Tables.Count, panel.TotalRows);
+        Assert.Equal("Page 1 of 1", panel.PagePositionText);
         // A catalog is a fact sheet: no editing, no paging, no filtering.
         Assert.False(panel.CanMutateRows);
         Assert.False(panel.CanFilterTable);
     }
+
+    [Theory]
+    [InlineData(0, 200, 0, "Page 1")]
+    [InlineData(0, 200, 6, "Page 1 of 1")]
+    [InlineData(200, 200, 401, "Page 2 of 3")]
+    [InlineData(400, 200, 401, "Page 3 of 3")]
+    public void The_pager_says_which_page_of_how_many(int offset, int limit, long total, string expected) =>
+        Assert.Equal(expected, DatabaseRuntimePanelViewModel.PagePosition(offset, limit, total));
 
     [Fact]
     public async Task Successful_initial_connection_selects_the_database_overview()
@@ -1702,7 +1714,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         Assert.True(panel.IsDatabaseObjectsOverview);
         Assert.Null(panel.SelectedObject);
         Assert.Equal(panel.Tables.Count, panel.ResultRows.Count);
-        Assert.Equal(["Schema", "Name", "Kind"], panel.ResultColumns.Select(column => column.Name), StringComparer.Ordinal);
+        Assert.Equal(["Name", "Kind"], panel.ResultColumns.Select(column => column.Name), StringComparer.Ordinal);
     }
 
     [Fact]

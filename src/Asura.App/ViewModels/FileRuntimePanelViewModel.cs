@@ -37,6 +37,13 @@ public sealed class FileEntryViewModel
 
     public string Modified => DisplayDates.Format(Entry.LastModifiedAt);
 
+    /// <summary>
+    /// The modified date for a narrow column, as Finder shortens it: the time
+    /// alone for today, the short date otherwise, both in the reader's
+    /// culture.
+    /// </summary>
+    public string ModifiedCompact => FormatCompactDate(Entry.LastModifiedAt, DateTimeOffset.Now);
+
     public bool IsDirectory => Entry.Kind == FilePanelEntryKind.Directory;
 
     public bool IsLink => Entry.Kind == FilePanelEntryKind.Link;
@@ -72,6 +79,19 @@ public sealed class FileEntryViewModel
 
     /// <summary>Type-to-select reads an item's text, which for a file is its name.</summary>
     public override string ToString() => Name;
+
+    internal static string FormatCompactDate(DateTimeOffset? value, DateTimeOffset now)
+    {
+        if (value is not { } moment)
+        {
+            return "Unknown";
+        }
+
+        var local = moment.ToLocalTime();
+        return local.Date == now.ToLocalTime().Date
+            ? local.ToString("t", CultureInfo.CurrentCulture)
+            : local.ToString("d", CultureInfo.CurrentCulture);
+    }
 
     internal static string FormatSize(long? size)
     {
@@ -162,6 +182,7 @@ public sealed partial class FileRuntimePanelViewModel : RuntimePanelViewModel, I
     private GridLength _fileNameColumnWidth = new(1, GridUnitType.Star);
     private GridLength _fileSizeColumnWidth = new(90);
     private GridLength _fileModifiedColumnWidth = new(140);
+    private double _fileDetailsAvailableWidth = double.PositiveInfinity;
     private GridLength _fileListColumnWidth = new(3, GridUnitType.Star);
     private GridLength _previewColumnWidth = new(2, GridUnitType.Star);
     private GridLength _hiddenPreviewColumnWidth = new(2, GridUnitType.Star);
@@ -537,6 +558,7 @@ public sealed partial class FileRuntimePanelViewModel : RuntimePanelViewModel, I
             if (SetProperty(ref _sortDirection, value))
             {
                 OnPropertyChanged(nameof(IsSortDescending));
+                NotifySortStatusChanged();
                 ApplyFilter();
             }
         }
@@ -552,6 +574,29 @@ public sealed partial class FileRuntimePanelViewModel : RuntimePanelViewModel, I
     public bool IsSortingByModified => SortField == FileEntrySortField.Modified;
 
     public bool IsSortDescending => SortDirection == FileEntrySortDirection.Descending;
+
+    /// <summary>
+    /// What a screen reader hears after a column header's name: the header
+    /// keeps its name ("Name") and its state is said apart from it, the way
+    /// a table header in a Mac list reports its sort. Empty for the columns
+    /// the list is not sorted by.
+    /// </summary>
+    public string NameSortStatus => SortStatus(FileEntrySortField.Name);
+
+    public string SizeSortStatus => SortStatus(FileEntrySortField.Size);
+
+    public string ModifiedSortStatus => SortStatus(FileEntrySortField.Modified);
+
+    private string SortStatus(FileEntrySortField field) => SortField != field
+        ? string.Empty
+        : IsSortDescending ? "Sorted descending" : "Sorted ascending";
+
+    private void NotifySortStatusChanged()
+    {
+        OnPropertyChanged(nameof(NameSortStatus));
+        OnPropertyChanged(nameof(SizeSortStatus));
+        OnPropertyChanged(nameof(ModifiedSortStatus));
+    }
 
     public FileBrowserViewMode ViewMode
     {
@@ -590,13 +635,81 @@ public sealed partial class FileRuntimePanelViewModel : RuntimePanelViewModel, I
     public GridLength FileSizeColumnWidth
     {
         get => _fileSizeColumnWidth;
-        set => SetProperty(ref _fileSizeColumnWidth, value);
+        set
+        {
+            if (SetProperty(ref _fileSizeColumnWidth, value))
+            {
+                OnDetailsColumnRoomChanged();
+            }
+        }
     }
 
     public GridLength FileModifiedColumnWidth
     {
         get => _fileModifiedColumnWidth;
-        set => SetProperty(ref _fileModifiedColumnWidth, value);
+        set
+        {
+            if (SetProperty(ref _fileModifiedColumnWidth, value))
+            {
+                OnDetailsColumnRoomChanged();
+            }
+        }
+    }
+
+    /// <summary>The narrowest the name column goes before the others give way.</summary>
+    public const double FileNameColumnMinWidth = 140;
+
+    /// <summary>Room for "999.9 KB".</summary>
+    public const double FileSizeColumnMinWidth = 68;
+
+    /// <summary>Room for a time or a short date, which the column falls back to.</summary>
+    public const double FileModifiedColumnMinWidth = 72;
+
+    /// <summary>
+    /// The width the details rows have, set by the view. The columns are as
+    /// wide as the person made them, but a narrow panel cannot hold three
+    /// columns at those widths, and a grid of fixed columns overflows rather
+    /// than shrinks: the date was cut off by the panel's edge, mid-number and
+    /// with no ellipsis. Measured here, the size and then the date give way
+    /// first, so each still fits its own cell and shortens itself.
+    /// </summary>
+    public double FileDetailsAvailableWidth
+    {
+        get => _fileDetailsAvailableWidth;
+        set
+        {
+            if (SetProperty(ref _fileDetailsAvailableWidth, value))
+            {
+                OnDetailsColumnRoomChanged();
+            }
+        }
+    }
+
+    public double FileSizeColumnMaxWidth => DetailsColumnLimits().Size;
+
+    public double FileModifiedColumnMaxWidth => DetailsColumnLimits().Modified;
+
+    private (double Size, double Modified) DetailsColumnLimits()
+    {
+        if (!double.IsFinite(_fileDetailsAvailableWidth) || _fileDetailsAvailableWidth <= 0)
+        {
+            return (double.PositiveInfinity, double.PositiveInfinity);
+        }
+
+        // Two five-point grips sit between the three columns.
+        var room = _fileDetailsAvailableWidth - FileNameColumnMinWidth - 10;
+        var modified = _fileModifiedColumnWidth.IsAbsolute ? _fileModifiedColumnWidth.Value : 0;
+        var size = Math.Max(FileSizeColumnMinWidth, room - modified);
+        var sizeShown = _fileSizeColumnWidth.IsAbsolute
+            ? Math.Min(_fileSizeColumnWidth.Value, size)
+            : size;
+        return (size, Math.Max(FileModifiedColumnMinWidth, room - sizeShown));
+    }
+
+    private void OnDetailsColumnRoomChanged()
+    {
+        OnPropertyChanged(nameof(FileSizeColumnMaxWidth));
+        OnPropertyChanged(nameof(FileModifiedColumnMaxWidth));
     }
 
     /// <summary>
@@ -651,6 +764,7 @@ public sealed partial class FileRuntimePanelViewModel : RuntimePanelViewModel, I
         if (directionChanged)
         {
             OnPropertyChanged(nameof(IsSortDescending));
+            NotifySortStatusChanged();
         }
 
         if (fieldChanged)
@@ -666,6 +780,7 @@ public sealed partial class FileRuntimePanelViewModel : RuntimePanelViewModel, I
         OnPropertyChanged(nameof(IsSortingByName));
         OnPropertyChanged(nameof(IsSortingBySize));
         OnPropertyChanged(nameof(IsSortingByModified));
+        NotifySortStatusChanged();
     }
 
     public bool ShowHidden
@@ -891,7 +1006,7 @@ public sealed partial class FileRuntimePanelViewModel : RuntimePanelViewModel, I
     /// without asking, for hosts composed without live settings. The setting
     /// of the same meaning overrides this.
     /// </summary>
-    public const long AutoDownloadPreviewBytes = 2 * 1024 * 1024;
+    public const long AutoDownloadPreviewBytes = 2_000_000;
 
     /// <summary>
     /// The size at or below which a remote file is fetched for preview without
@@ -1204,14 +1319,22 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
 
     private void RebuildActions()
     {
-        // In the catalog's order within each band, and the bands in menu
-        // order: what removes data comes last, under its own rule.
+        // What acts on the selection first, then what acts on the folder, each
+        // in band order: within the selection's commands what removes data
+        // comes last, under its own rule. The overflow menu is the two right-
+        // click menus one after the other, in the same order, so a command
+        // sits in the same place whichever menu it is chosen from.
         var states = FilePanelActionCatalog.Resolve(ActionContext)
             .Where(state => state.IsAvailable)
-            .OrderBy(state => FilePanelActionPresentation.Band(state.Action))
+            .OrderBy(state => state.Scope == FilePanelActionScope.Selection ? 0 : 1)
+            .ThenBy(state => FilePanelActionPresentation.Band(state.Action))
             .ToArray();
         _menuActions = Dress(states);
-        _toolbarActions = Dress([.. states.Where(state => ToolbarPrimaryActions.Contains(state.Action))]);
+        // The toolbar keeps band order alone, so its delete button stays at
+        // the end of the strip rather than between two transfers.
+        _toolbarActions = Dress([.. states
+            .Where(state => ToolbarPrimaryActions.Contains(state.Action))
+            .OrderBy(state => FilePanelActionPresentation.Band(state.Action))]);
         // Each menu re-groups from its own survivors, so neither opens with a
         // rule across the top or draws one where nothing changed.
         _entryMenuActions = Dress([.. states.Where(state => state.Scope == FilePanelActionScope.Selection)]);
@@ -1240,8 +1363,9 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
                 FilePanelActionPresentation.Glyph(state.Action),
                 FilePanelActionPresentation.Gesture(state.Action),
                 startsGroup: index > 0
-                    && FilePanelActionPresentation.Band(states[index - 1].Action)
-                        != FilePanelActionPresentation.Band(state.Action),
+                    && (FilePanelActionPresentation.Band(states[index - 1].Action)
+                            != FilePanelActionPresentation.Band(state.Action)
+                        || states[index - 1].Scope != state.Scope),
                 RequestAction,
                 isDestructive: state.Action == FilePanelAction.Delete && !movesToTrash);
         }
@@ -2453,7 +2577,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
                 OnPropertyChanged(nameof(HasListingSummary));
                 ApplyFilter();
                 Status = $"{CountOf(_allEntries.Count, "item")} loaded…";
-                ShortStatus = $"{_allEntries.Count.ToString(CultureInfo.InvariantCulture)}+";
+                ShortStatus = $"{_allEntries.Count.ToString("N0", CultureInfo.CurrentCulture)}+ items";
                 OnPropertyChanged(nameof(HasMore));
 
             }
@@ -2529,7 +2653,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             SelectedMetadata = new FileEntryMetadataViewModel(
                 entry.Entry,
-                isStatBacked: false);
+                isStatBacked: false,
+                ProviderKeepsVersions);
             return;
         }
 
@@ -2549,7 +2674,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             {
                 SelectedMetadata = new FileEntryMetadataViewModel(
                     entry.Entry,
-                    isStatBacked: false);
+                    isStatBacked: false,
+                    ProviderKeepsVersions);
                 MetadataIssue = FileOperationIssue.Unexpected(
                     "The provider failed unexpectedly while reading item metadata.");
             }
@@ -2573,15 +2699,20 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             SelectedMetadata = new FileEntryMetadataViewModel(
                 entry.Entry,
-                isStatBacked: false);
+                isStatBacked: false,
+                ProviderKeepsVersions);
             MetadataIssue = FileOperationIssue.FromProvider(result.Error!);
             return;
         }
 
         SelectedMetadata = new FileEntryMetadataViewModel(
             result.Value!,
-            isStatBacked: true);
+            isStatBacked: true,
+            ProviderKeepsVersions);
     }
+
+    private bool ProviderKeepsVersions =>
+        SelectedProfile?.Capabilities.HasFlag(FilePanelCapability.Versioning) == true;
 
     private async Task LoadPreviewAsync(
         FileEntryViewModel? entry,
@@ -3141,7 +3272,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         if (_allEntries.Count == 0)
         {
             Status = "This location is empty";
-            ShortStatus = "0";
+            ShortStatus = "No items";
             return;
         }
 
@@ -3149,11 +3280,12 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             && SelectedProfile?.Capabilities.HasFlag(FilePanelCapability.Search) == true;
         if (usesProviderSearch)
         {
-            var resultCount = Entries.Count.ToString("N0", CultureInfo.CurrentCulture);
             Status = IsSearchLoading
                 ? $"{CountOf(Entries.Count, "search result")} found…"
                 : CountOf(Entries.Count, "search result");
-            ShortStatus = resultCount + (IsSearchLoading ? "+" : string.Empty);
+            ShortStatus = IsSearchLoading
+                ? $"{Entries.Count.ToString("N0", CultureInfo.CurrentCulture)}+ results"
+                : CountOf(Entries.Count, "result");
             return;
         }
 
@@ -3166,10 +3298,13 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         Status = unfiltered
             ? loadedLabel
             : $"{shownCount} of {loadedLabel}";
-        // A trailing mark for a listing that has not been read to the end, so
-        // the short form does not claim the folder holds exactly this many.
-        ShortStatus = (unfiltered ? loadedCount : $"{shownCount}/{loadedCount}")
-            + (HasMore ? "+" : string.Empty);
+        // The noun stays, so the pill reads as a count of something rather
+        // than a bare number beside a path. A "+" marks a listing that has not
+        // been read to the end, so it does not claim exactly this many.
+        var loadedItems = HasMore ? $"{loadedCount}+ items" : CountOf(_allEntries.Count, "item");
+        ShortStatus = unfiltered
+            ? loadedItems
+            : $"{shownCount} of {loadedItems}";
     }
 
     /// <summary>
@@ -3389,9 +3524,14 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             _archiveOffset = offset;
             _archiveHasMore = entries.Count > ArchivePageSize;
             var page = entries.Take(ArchivePageSize).ToArray();
+            // A page number only means something when there is more than one
+            // page; an archive that fits on one is just its summary.
+            var summary = offset == 0 && !_archiveHasMore
+                ? SummarizeArchive(page)
+                : $"Page {((offset / ArchivePageSize) + 1).ToString(CultureInfo.CurrentCulture)} · {SummarizeArchive(page)}";
             var listing = new PreviewTreeViewModel(
                 PreviewTreeBuilder.FromPaths(page),
-                $"Page {(offset / ArchivePageSize) + 1}: {SummarizeArchive(page)}");
+                summary);
             PreviewTree = listing;
             // Attached in steps like every other reading; without this the
             // listing exists and nothing of it is on screen.
