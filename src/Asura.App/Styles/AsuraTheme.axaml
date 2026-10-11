@@ -149,7 +149,7 @@
        shape, inside the track or row that holds them, and a rail tile's
        actions draw theirs in the tile's ink: none of them takes the adorner
        as well. -->
-  <Style Selector="ToggleButton.Segment, ToggleButton.SectionDisclosure, Expander /template/ ToggleButton, Button.WorkspaceRailTileAction">
+  <Style Selector="ToggleButton.SectionDisclosure, Expander /template/ ToggleButton, Button.WorkspaceRailTileAction">
     <Setter Property="FocusAdorner" Value="{x:Null}" />
   </Style>
 
@@ -1683,28 +1683,14 @@
   </Style>
 
   <!--
-    Segmented picker: one visible group of mutually exclusive options, used where
-    the reference shows a inline choice rather than a drop-down.
+    A segment of the segmented control. An explicit template rather than the
+    theme's RadioButton visuals: the segments have to tile the track exactly,
+    and a themed button brings its own padding, border, and corner geometry
+    that overflows a 3px inset track. Segments are radio buttons only: a choice
+    of values always has exactly one answer, and a screen reader announces a
+    radio group rather than a row of toggle buttons.
   -->
-  <Style Selector="Border.Segmented">
-    <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
-    <Setter Property="Padding" Value="{DynamicResource ShellPreviewTileInset}" />
-    <!-- The track owns the shape, so a segment can never paint outside it. -->
-    <Setter Property="ClipToBounds" Value="True" />
-  </Style>
-
-  <!--
-    An explicit template rather than the theme's ToggleButton visuals: the
-    segments have to tile the track exactly, and a themed button brings its own
-    padding, border, and corner geometry that overflows a 3px inset track.
-
-    A radio segment is the same segment for a choice that must always have
-    exactly one answer: a toggle segment can be clicked off, a radio cannot.
-  -->
-  <Style Selector="ToggleButton.Segment, RadioButton.Segment">
+  <Style Selector="RadioButton.Segment">
     <Setter Property="MinHeight" Value="0" />
     <Setter Property="Margin" Value="0" />
     <Setter Property="Padding" Value="{controls:Inset Horizontal=Md, Vertical=Xs}" />
@@ -1738,7 +1724,7 @@
     </Setter>
   </Style>
 
-  <Style Selector="ToggleButton.Segment:pointerover /template/ Border#SegmentRoot, RadioButton.Segment:pointerover /template/ Border#SegmentRoot">
+  <Style Selector="RadioButton.Segment:pointerover /template/ Border#SegmentRoot">
     <Setter Property="Background" Value="{DynamicResource ShellSidebarSelectionBrush}" />
   </Style>
 
@@ -1749,109 +1735,23 @@
     segment in every panel toolbar was one more accent competing with the
     selection and the default button, with a label that did not read on it.
   -->
-  <Style Selector="ToggleButton.Segment:checked, RadioButton.Segment:checked">
+  <Style Selector="RadioButton.Segment:checked">
     <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
     <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
 
-  <Style Selector="ToggleButton.Segment:checked /template/ Border#SegmentRoot, RadioButton.Segment:checked /template/ Border#SegmentRoot">
+  <Style Selector="RadioButton.Segment:checked /template/ Border#SegmentRoot">
     <Setter Property="Background" Value="{DynamicResource ShellControlSurfaceBrush}" />
     <Setter Property="BoxShadow" Value="{DynamicResource ShellSegmentShadow}" />
   </Style>
 
   <!-- A segment that does not apply stays where it is, dimmed: segments that
        came and went moved every other segment under the pointer. -->
-  <Style Selector="ToggleButton.Segment:disabled, RadioButton.Segment:disabled">
+  <Style Selector="RadioButton.Segment:disabled">
     <Setter Property="Opacity" Value="0.48" />
   </Style>
 
-  <!--
-    Tabs that read as the segmented picker. A panel's perspectives are the same
-    choice whether a view drives them by hand or a TabControl owns the content,
-    so the strip is the segmented track inside a toolbar band rather than the
-    Fluent underline, which nothing else in the shell draws. Template children
-    are out of reach of class selectors, so the band and track are spelled out.
-  -->
-  <Style Selector="TabControl.Segmented">
-    <Setter Property="Padding" Value="0" />
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="Template">
-      <ControlTemplate>
-        <DockPanel>
-          <Border
-              DockPanel.Dock="Top"
-              BorderBrush="{DynamicResource ShellBorderBrush}"
-              BorderThickness="0,0,0,1">
-            <ScrollViewer
-                HorizontalScrollBarVisibility="Hidden"
-                VerticalScrollBarVisibility="Disabled">
-              <Border
-                  Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}"
-                  HorizontalAlignment="Left"
-                  Background="{DynamicResource ShellSurfaceHoverBrush}"
-                  BorderBrush="{DynamicResource ShellBorderBrush}"
-                  BorderThickness="1"
-                  ClipToBounds="True"
-                  CornerRadius="{DynamicResource ShellControlCornerRadius}"
-                  Padding="{DynamicResource ShellPreviewTileInset}">
-                <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
-              </Border>
-            </ScrollViewer>
-          </Border>
-          <ContentPresenter
-              Name="PART_SelectedContentHost"
-              Margin="{TemplateBinding Padding}"
-              Content="{TemplateBinding SelectedContent}"
-              ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
-        </DockPanel>
-      </ControlTemplate>
-    </Setter>
-  </Style>
-
-  <Style Selector="TabControl.Segmented > TabItem">
-    <Setter Property="MinHeight" Value="0" />
-    <Setter Property="Margin" Value="0" />
-    <Setter Property="Padding" Value="{controls:Inset Horizontal=Md, Vertical=Xs}" />
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
-    <Setter Property="FontWeight" Value="Normal" />
-    <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
-    <Setter Property="CornerRadius" Value="0" />
-    <Setter Property="Template">
-      <ControlTemplate>
-        <!-- Concentric with the track, as the segmented picker's segments are. -->
-        <Border
-            Name="SegmentRoot"
-            Background="Transparent"
-            CornerRadius="{DynamicResource ShellInnerCornerRadius}"
-            controls:Concentric.IsEnabled="True"
-            Padding="{TemplateBinding Padding}">
-          <ContentPresenter
-              Content="{TemplateBinding Header}"
-              ContentTemplate="{TemplateBinding HeaderTemplate}"
-              HorizontalAlignment="Center"
-              VerticalAlignment="Center" />
-        </Border>
-      </ControlTemplate>
-    </Setter>
-  </Style>
-
-  <Style Selector="TabControl.Segmented > TabItem:pointerover /template/ Border#SegmentRoot">
-    <Setter Property="Background" Value="{DynamicResource ShellSidebarSelectionBrush}" />
-  </Style>
-
-  <!-- The chosen tab is the chosen segment: the raised plate and the body
-       colour. -->
-  <Style Selector="TabControl.Segmented > TabItem:selected">
-    <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
-    <Setter Property="FontWeight" Value="SemiBold" />
-  </Style>
-
-  <Style Selector="TabControl.Segmented > TabItem:selected /template/ Border#SegmentRoot">
-    <Setter Property="Background" Value="{DynamicResource ShellControlSurfaceBrush}" />
-    <Setter Property="BoxShadow" Value="{DynamicResource ShellSegmentShadow}" />
-  </Style>
-
-  <!-- Tabs whose picker lives elsewhere — a segmented toggle in the panel's
+  <!-- Tabs whose picker lives elsewhere — a segmented control in the panel's
        toolbar — keep only the content host. The strip stays in the template,
        unseen, because TabControl requires the part. -->
   <Style Selector="TabControl.Headless">
@@ -2183,7 +2083,7 @@
   <!-- The shell's own templates name their shape part differently; the ring is
        the same. A segment's ring fits the track's inset, which is never less
        than the ring is wide, so the clipping track does not cut it. -->
-  <Style Selector="ToggleButton.Segment:focus-visible /template/ Border#SegmentRoot, RadioButton.Segment:focus-visible /template/ Border#SegmentRoot, TabControl.Segmented > TabItem:focus-visible /template/ Border#SegmentRoot, ToggleButton.SectionDisclosure:focus-visible /template/ Border#DisclosureRoot, RadioButton.PresetCard:focus-visible /template/ Border#PresetRoot, ToggleSwitch:focus-visible /template/ Border#SwitchTrack">
+  <Style Selector="RadioButton.Segment:focus-visible /template/ Border#SegmentRoot, ToggleButton.SectionDisclosure:focus-visible /template/ Border#DisclosureRoot, RadioButton.PresetCard:focus-visible /template/ Border#PresetRoot, ToggleSwitch:focus-visible /template/ Border#SwitchTrack">
     <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
   </Style>
 </Styles>

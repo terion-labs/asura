@@ -477,13 +477,15 @@
         <controls:SettingRow
             Label="Density"
             Description="Padding, spacing, and corner rounding across the interface.">
-          <Border Classes="Segmented">
-            <UniformGrid Columns="3">
-              <ToggleButton x:Name="DensityCompact" Classes="Segment" Click="OnDensityClick" Content="Compact" AutomationProperties.Name="Compact density" />
-              <ToggleButton x:Name="DensityCozy" Classes="Segment" Click="OnDensityClick" Content="Normal" AutomationProperties.Name="Normal density" />
-              <ToggleButton x:Name="DensityComfortable" Classes="Segment" Click="OnDensityClick" Content="Spacious" AutomationProperties.Name="Spacious density" />
-            </UniformGrid>
-          </Border>
+          <!-- Compact, Normal, Spacious: the segment order is the
+               InterfaceDensity order, Compact first. -->
+          <controls:SegmentedControl
+              x:Name="DensityPicker"
+              AutomationProperties.Name="Density">
+            <RadioButton Content="Compact" AutomationProperties.Name="Compact density" />
+            <RadioButton Content="Normal" AutomationProperties.Name="Normal density" />
+            <RadioButton Content="Spacious" AutomationProperties.Name="Spacious density" />
+          </controls:SegmentedControl>
         </controls:SettingRow>
         <controls:SettingRow
             IsLeading="True"

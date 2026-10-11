@@ -211,13 +211,15 @@
                     <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" TextWrapping="Wrap" />
                     <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Description}" TextWrapping="Wrap" />
                   </StackPanel>
-                  <Border Grid.Column="1" VerticalAlignment="Center" Classes="Segmented">
-                    <Grid ColumnDefinitions="60,60,60">
-                      <ToggleButton Classes="Segment" IsChecked="{Binding IsOff, Mode=TwoWay}" Content="Off" />
-                      <ToggleButton Grid.Column="1" Classes="Segment" IsChecked="{Binding IsAsk, Mode=TwoWay}" Content="Ask" />
-                      <ToggleButton Grid.Column="2" Classes="Segment" IsChecked="{Binding IsAuto, Mode=TwoWay}" Content="Auto" />
-                    </Grid>
-                  </Border>
+                  <controls:SegmentedControl
+                      Grid.Column="1"
+                      MinWidth="{controls:TextScaled 180}"
+                      SelectedIndex="{Binding SelectedOptionIndex, Mode=TwoWay}"
+                      AutomationProperties.Name="{Binding DisplayName, StringFormat={}{0} permission}">
+                    <RadioButton Content="Off" />
+                    <RadioButton Content="Ask" />
+                    <RadioButton Content="Auto" />
+                  </controls:SegmentedControl>
                 </Grid>
               </DataTemplate>
             </ItemsControl.ItemTemplate>

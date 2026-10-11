@@ -331,6 +331,59 @@ public sealed class DesignSystemComponentsHeadlessTests
             Assert.Equal(track.CornerRadius.TopLeft - inset, segment.CornerRadius.TopLeft, 3);
         });
 
+    /// <summary>
+    /// A value picker's segments are declared before its data arrives, and the
+    /// control chooses its first segment on its own meanwhile. Bound by index,
+    /// the stored value still wins, and a chosen segment writes it back.
+    /// </summary>
+    [Fact]
+    public Task A_bound_permission_picker_shows_the_stored_value_and_writes_the_chosen_one() =>
+        RunHeadlessAsync(window =>
+        {
+            var capability = new Asura.App.ViewModels.SavedScreenAgentPolicyEditorViewModel.CapabilityEditorViewModel(
+                Asura.Core.AgentCapability.TerminalRead,
+                Asura.Core.AgentPermission.Auto,
+                [
+                    new(Asura.Core.AgentPermission.Off),
+                    new(Asura.Core.AgentPermission.Ask),
+                    new(Asura.Core.AgentPermission.Auto),
+                ]);
+            var off = new RadioButton { Content = "Off" };
+            var segmented = new SegmentedControl
+            {
+                Items = { off, new RadioButton { Content = "Ask" }, new RadioButton { Content = "Auto" } },
+                [!SelectingItemsControl.SelectedIndexProperty] = new Avalonia.Data.Binding(nameof(capability.SelectedOptionIndex))
+                {
+                    Mode = Avalonia.Data.BindingMode.TwoWay,
+                },
+            };
+            Show(window, segmented);
+            segmented.DataContext = capability;
+
+            Assert.Equal(2, segmented.SelectedIndex);
+            Assert.Equal(Asura.Core.AgentPermission.Auto, capability.SelectedPermission);
+
+            off.IsChecked = true;
+            Assert.Equal(Asura.Core.AgentPermission.Off, capability.SelectedPermission);
+        });
+
+    /// <summary>
+    /// A two-segment choice bound to a flag: the second segment is true, and
+    /// a selection that is neither segment leaves the flag alone.
+    /// </summary>
+    [Fact]
+    public void A_flag_maps_to_the_second_segment()
+    {
+        var converter = SegmentedControl.SecondWhenTrue;
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+
+        Assert.Equal(1, converter.Convert(true, typeof(int), null, culture));
+        Assert.Equal(0, converter.Convert(false, typeof(int), null, culture));
+        Assert.Equal(true, converter.ConvertBack(1, typeof(bool), null, culture));
+        Assert.Equal(false, converter.ConvertBack(0, typeof(bool), null, culture));
+        Assert.Same(Avalonia.Data.BindingOperations.DoNothing, converter.ConvertBack(-1, typeof(bool), null, culture));
+    }
+
     [Fact]
     public Task A_segmented_control_is_one_choice_of_radio_segments() =>
         RunHeadlessAsync(window =>

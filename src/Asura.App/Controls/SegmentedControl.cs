@@ -2,6 +2,8 @@ using Avalonia;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Data;
+using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
@@ -28,6 +30,15 @@ internal sealed class SegmentedControl : SelectingItemsControl
 {
     /// <summary>The most segments that still read as one control.</summary>
     public const int MaximumSegments = 5;
+
+    /// <summary>
+    /// Binds a two-segment choice to a flag: the first segment when it is
+    /// false, the second when it is true ("Read-Only" or "Read &amp; Write").
+    /// Bound to the selected index rather than to each segment's checked
+    /// state, so the choice the control makes on its own before the data
+    /// arrives never writes over the stored one.
+    /// </summary>
+    public static readonly IValueConverter SecondWhenTrue = new FlagSegmentConverter();
 
     private readonly string _groupName = $"SegmentedControl{Guid.NewGuid():N}";
     private bool _synchronizing;
@@ -150,6 +161,24 @@ internal sealed class SegmentedControl : SelectingItemsControl
         {
             _synchronizing = false;
         }
+    }
+
+    /// <summary>
+    /// A selection that is neither segment — none while the segments are
+    /// being replaced — leaves the flag as it is.
+    /// </summary>
+    private sealed class FlagSegmentConverter : IValueConverter
+    {
+        public object? Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) =>
+            value is true ? 1 : 0;
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) =>
+            value switch
+            {
+                0 => false,
+                1 => true,
+                _ => BindingOperations.DoNothing,
+            };
     }
 
     /// <summary>

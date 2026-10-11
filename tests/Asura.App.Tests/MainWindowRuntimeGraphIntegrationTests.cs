@@ -7319,9 +7319,11 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
                 window.NavigateToSettings(SettingsPage.Appearance);
                 var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
                 settings.UpdateLayout();
-                var compact = settings.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>()
-                    .Single(button => button.Name == "DensityCompact");
-                compact.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+                var density = settings.GetVisualDescendants().OfType<SegmentedControl>()
+                    .Single(picker => picker.Name == "DensityPicker");
+                var compact = density.GetVisualDescendants().OfType<RadioButton>()
+                    .Single(segment => Equals(segment.Content, "Compact"));
+                compact.IsChecked = true;
                 Assert.Equal(InterfaceDensity.Compact, coordinator.Current.Theme?.Density);
                 Assert.Equal(1, recording.SaveCount);
                 Assert.False(viewModel.CanRetryAppearanceSave);
