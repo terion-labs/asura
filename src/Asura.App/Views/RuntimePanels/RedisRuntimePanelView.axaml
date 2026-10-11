@@ -24,6 +24,12 @@
       <Setter Property="MaxLines" Value="1" />
     </Style>
 
+    <!-- The forms' row is set here rather than on the element: a value set
+         on the element outranks every style, and the document variant below
+         could never move the editor up. -->
+    <Style Selector="Grid.RedisValueArea > Grid.RedisValueForms">
+      <Setter Property="Grid.Row" Value="2" />
+    </Style>
     <!-- A JSON key is one document: its editor takes the value area the
          rows would have used. -->
     <Style Selector="Grid.RedisValueArea.document > Grid.RedisValueForms">
@@ -448,7 +454,7 @@
                    spaces its columns whether or not one of them has anything
                    in it, so a string — which has nothing to add to — was left
                    holding a column's worth of air at its right. -->
-              <Grid Grid.Row="2" Classes="RedisValueForms" ColumnDefinitions="*,Auto">
+              <Grid Classes="RedisValueForms" ColumnDefinitions="*,Auto">
                 <controls:SurfaceCard
                     Tone="Raised"
                     Padding="{DynamicResource ShellCardPaddingCompact}"

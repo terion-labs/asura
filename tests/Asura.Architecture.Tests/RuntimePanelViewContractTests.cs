@@ -2383,6 +2383,24 @@ public sealed class RuntimePanelViewContractTests
                 && string.Equals(AttributeValue(setter, "Value"), "0", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void Redis_value_forms_take_their_row_from_styles_so_a_document_can_move_up()
+    {
+        var root = Assert.IsType<XElement>(LoadRuntimePanelView("RedisRuntimePanelView").Root);
+        var forms = Assert.Single(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "Grid", StringComparison.Ordinal)
+                && HasClass(element, "RedisValueForms"));
+
+        // A row set on the element outranks the JSON style that moves the
+        // document editor into the rows' place, leaving it under an empty area.
+        Assert.Null(AttributeValue(forms, "Grid.Row"));
+        Assert.Contains(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "Style", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Selector"), "Grid.RedisValueArea.document > Grid.RedisValueForms", StringComparison.Ordinal));
+    }
+
     private static XDocument DesignSystem() =>
         XDocument.Load(Path.Combine(
             ApplicationViews.RepositoryRoot,
