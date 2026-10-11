@@ -126,6 +126,7 @@ internal class AuxiliaryWindowMenuHost(
         MainWindowViewModel.AddGitState(state, git);
         var panels = PanelTargets(focused);
         PanelCommandTargets.AddState(state, panels, focused);
+        AddWindowState(state);
         var contexts = Contexts;
         if (FocusedTerminal(focused) is not null)
         {
@@ -215,6 +216,11 @@ internal class AuxiliaryWindowMenuHost(
 
     protected virtual CommandContext Contexts => CommandContext.Global;
 
+    /// <summary>Adds the facts only this kind of window knows.</summary>
+    protected virtual void AddWindowState(ICollection<KeyValuePair<string, bool>> state)
+    {
+    }
+
     protected virtual void CloseWindow() => Window.Close();
 
     /// <summary>
@@ -250,8 +256,8 @@ internal class AuxiliaryWindowMenuHost(
 }
 
 /// <summary>
-/// Quick Terminal's menus act on its own tabs and terminal. Closing its
-/// window hides it, as its hotkey does.
+/// Quick Terminal's menus act on its own tabs, terminal and agent panel.
+/// Closing its window hides it, as its hotkey does.
 /// </summary>
 internal sealed class QuickTerminalMenuHost(
     QuickTerminalWindow window,
@@ -259,8 +265,12 @@ internal sealed class QuickTerminalMenuHost(
     IApplicationCommandService application,
     CancellationToken lifetime) : AuxiliaryWindowMenuHost(window, application, lifetime)
 {
+    private readonly QuickTerminalWindow _quickTerminal = window;
+
     public override bool CanExecute(CommandId command, IReadOnlyDictionary<string, string> arguments) =>
-        command == BuiltInCommands.CloseTab || base.CanExecute(command, arguments);
+        command == BuiltInCommands.CloseTab
+        || command == BuiltInCommands.DeleteAgentConversation
+        || base.CanExecute(command, arguments);
 
     public override async Task ExecuteAsync(CommandId command, IReadOnlyDictionary<string, string> arguments)
     {
@@ -272,6 +282,10 @@ internal sealed class QuickTerminalMenuHost(
         {
             _ = await controller.TryCloseTabInActiveQuickTerminalAsync();
         }
+        else if (command == BuiltInCommands.DeleteAgentConversation)
+        {
+            await _quickTerminal.DeleteCurrentAgentConversationAsync();
+        }
         else
         {
             await base.ExecuteAsync(command, arguments);
@@ -280,6 +294,15 @@ internal sealed class QuickTerminalMenuHost(
 
     protected override CommandContext Contexts =>
         CommandContext.Global | CommandContext.QuickTerminal | CommandContext.Tab;
+
+    /// <summary>
+    /// Whether File › Delete Conversation… has a conversation to delete: the
+    /// one Quick Terminal's agent panel shows, as in the main window.
+    /// </summary>
+    protected override void AddWindowState(ICollection<KeyValuePair<string, bool>> state) =>
+        state.Add(new(
+            CommandStates.CanExecute(BuiltInCommands.DeleteAgentConversation),
+            _quickTerminal.DataContext is QuickTerminalViewModel { CurrentAgentConversation: not null }));
 
     protected override void CloseWindow() => controller.Hide();
 }

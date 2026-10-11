@@ -75,9 +75,21 @@ public sealed partial class MainWindowViewModel
     /// to delete it: what the menu bar's Delete Conversation… deletes.
     /// </summary>
     internal AgentConversationItemViewModel? CurrentAgentConversation =>
-        AgentChat is { IsBusy: false, ConversationDeletedByClear: { } conversation }
-            ? conversation
-            : null;
+        ShownAgentConversation(IsAgentPanelVisible, AgentChat);
+
+    /// <summary>
+    /// The saved conversation an agent panel shows, or null when the panel is
+    /// hidden, the agent is busy, or the panel shows no saved conversation.
+    /// A destructive menu-bar command acts only on what the window has in
+    /// front, so a hidden panel's conversation is not its target.
+    /// </summary>
+    internal static AgentConversationItemViewModel? ShownAgentConversation(
+        bool isAgentPanelVisible,
+        AgentChatViewModel? agentChat) =>
+        isAgentPanelVisible
+            && agentChat is { IsBusy: false, ConversationDeletedByClear: { } conversation }
+                ? conversation
+                : null;
 
     /// <summary>
     /// Whether each Workspace menu item can run against the workspace in

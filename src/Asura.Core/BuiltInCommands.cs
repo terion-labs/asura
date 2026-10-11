@@ -552,7 +552,14 @@ public static class BuiltInCommands
             DefineSelectionCommand(EditWorkspace, "Edit Workspace…", "Workspaces", CommandContext.Window),
             DefineSelectionCommand(SaveWorkspaceLayout, "Save Workspace Layout", "Workspaces", CommandContext.Window),
             DefineSelectionCommand(TerminateWorkspace, "Terminate Workspace…", "Workspaces", CommandContext.Window),
-            DefineSelectionCommand(DeleteAgentConversation, "Delete Conversation…", "Agent", CommandContext.Window),
+
+            // The agent panel in front: the main window's, or Quick Terminal's
+            // while it is the key window.
+            DefineSelectionCommand(
+                DeleteAgentConversation,
+                "Delete Conversation…",
+                "Agent",
+                CommandContext.Window | CommandContext.QuickTerminal),
             Define(FocusNextArea, "Move Focus to Next Area", "Window", CommandContext.Window),
             Define(FocusPreviousArea, "Move Focus to Previous Area", "Window", CommandContext.Window),
             Define(EnterTerminalCopyMode, "Enter Copy Mode", "Terminal", CommandContext.Terminal),
