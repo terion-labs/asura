@@ -824,18 +824,14 @@
                         <TextBlock
                             Classes="Muted"
                             FontSize="{DynamicResource ShellSecondaryFontSize}"
-                            Text="{Binding ToolName}"
+                            Text="{Binding Summary}"
                             TextWrapping="Wrap"
-                            IsVisible="{Binding HasToolName}" />
-                        <TextBlock
-                            Classes="Muted"
-                            FontSize="{DynamicResource ShellSecondaryFontSize}"
-                            Text="{Binding Evidence}"
-                            TextWrapping="Wrap" />
+                            IsVisible="{Binding HasSummary}" />
                         <TextBlock
                             FontSize="{DynamicResource ShellSecondaryFontSize}"
                             Text="{Binding Timeline}"
-                            TextWrapping="Wrap" />
+                            TextWrapping="Wrap"
+                            IsVisible="{Binding HasTimeline}" />
                         <TextBlock
                             Classes="Muted"
                             FontSize="{DynamicResource ShellSecondaryFontSize}"
@@ -845,12 +841,38 @@
                         <TextBlock
                             Classes="Muted"
                             FontSize="{DynamicResource ShellSecondaryFontSize}"
-                            Text="{Binding TargetBinding}"
-                            TextWrapping="Wrap" />
-                        <TextBlock
-                            Classes="Muted"
-                            FontSize="{DynamicResource ShellSecondaryFontSize}"
                             Text="{Binding OccurredAt}" />
+                        <!-- The tool ID, policy generation, target digest, and
+                             result or error code bind the record to one exact
+                             action. They are for checking it against a log, so
+                             they wait behind a disclosure, a label over each
+                             value, as the approval card's Details do. -->
+                        <Expander
+                            Header="Details"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            IsVisible="{Binding HasDetails}"
+                            AutomationProperties.Name="{Binding Title, StringFormat={}Details for {0}}">
+                          <ItemsControl Margin="{controls:Inset Top=Xs}" ItemsSource="{Binding Details}">
+                            <ItemsControl.ItemsPanel>
+                              <ItemsPanelTemplate><StackPanel Spacing="{DynamicResource ShellSpaceSm}" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="vm:AgentApprovalFactViewModel">
+                                <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+                                  <TextBlock
+                                      Classes="Muted"
+                                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                                      Text="{Binding Label}" />
+                                  <SelectableTextBlock
+                                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                                      Text="{Binding Value}"
+                                      TextWrapping="Wrap" />
+                                </StackPanel>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                        </Expander>
                       </StackPanel>
                     </Border>
                   </DataTemplate>
@@ -890,7 +912,7 @@
           IsVisible="{Binding AgentChat, Converter={x:Static ObjectConverters.IsNull}}"
           Kind="PermissionRequired"
           Heading="AI setup required"
-          Body="Choose the primary, compaction, and title models in AI settings.">
+          Body="Choose the models the agent uses in AI Settings.">
         <Button
             Classes="PrimaryButton"
             Click="OnShowAgentSettingsClick"

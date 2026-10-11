@@ -267,6 +267,26 @@
         </Grid>
       </Grid>
     </Border>
+    <!--
+      The Quick Terminal agent's one live region, as the main window has its
+      own: discrete events (a run started, a decision is waiting, a run
+      ended), never the response stream. It sits outside the agent panel so a
+      hidden panel is still heard, and it is the crash-safe
+      LiveRegionTextBlock, which never announces empty text. Off-screen in
+      every way but to assistive technology.
+    -->
+    <controls:LiveRegionTextBlock
+        x:Name="QuickTerminalAgentAnnouncementRegion"
+        Width="1"
+        Height="1"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Top"
+        ClipToBounds="True"
+        IsHitTestVisible="False"
+        Opacity="0"
+        Text="{Binding AgentChat.Announcement, FallbackValue=''}"
+        AutomationProperties.LiveSetting="Polite"
+        AutomationProperties.Name="AI agent announcements" />
     <Border
         x:Name="ResizeGrip"
         Height="6"

@@ -2049,7 +2049,7 @@ public sealed partial class AgentChatViewModelTests
         Assert.Null(runtime.LastRequest);
         Assert.Equal("Keep this trusted prompt.", viewModel.Prompt);
         Assert.Contains(
-            "unavailable AI-provider profile",
+            "isn't set up anymore. Choose another provider in AI Settings",
             viewModel.Status,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -2514,9 +2514,9 @@ public sealed partial class AgentChatViewModelTests
             ImmediateUiThreadDispatcher.Instance);
 
         Assert.True(viewModel.HasContextItems);
-        Assert.Equal("2 terminals", viewModel.ContextInspectorSummary);
+        Assert.Equal("2 Terminal panels", viewModel.ContextInspectorSummary);
         Assert.Contains(
-            "2 terminals",
+            "2 Terminal panels",
             viewModel.ContextInspectorAccessibleName,
             StringComparison.Ordinal);
         Assert.Collection(
@@ -2528,7 +2528,7 @@ public sealed partial class AgentChatViewModelTests
                 Assert.Contains("panel/panel-1", first.ExactIdentity);
                 Assert.Contains("session/session-1", first.ExactIdentity);
                 Assert.Equal("SSH · api.example.test · /srv/api", first.Context);
-                Assert.Contains("Focused · Active · Healthy", first.State);
+                Assert.Contains("Focused · Running · Healthy", first.State);
                 Assert.Contains("active work", first.State);
                 Assert.Contains(
                     BuiltInAgentTools.TerminalSendKeys,
@@ -2541,7 +2541,7 @@ public sealed partial class AgentChatViewModelTests
             },
             second =>
             {
-                Assert.Equal("Unnamed terminal", second.Title);
+                Assert.Equal("Untitled Terminal Panel", second.Title);
                 Assert.Equal("Untitled Tab", second.TabTitle);
                 Assert.Contains("Background", second.State);
             });
@@ -2614,7 +2614,7 @@ public sealed partial class AgentChatViewModelTests
                 Assert.Equal(PanelKind.Browser, browser.Kind);
                 Assert.Equal("Runbook", browser.Title);
                 Assert.Equal("Documentation", browser.TabTitle);
-                Assert.StartsWith("browser · ", browser.ExactIdentity);
+                Assert.StartsWith("Browser · ", browser.ExactIdentity);
                 Assert.Equal(
                     "Browser tools are available",
                     browser.Context);
@@ -3728,12 +3728,17 @@ public sealed partial class AgentChatViewModelTests
         Assert.Null(auditReader.Queries[0].Before);
         var newest = Assert.Single(viewModel.AuditEntries);
         Assert.Equal("Action", newest.Kind);
-        Assert.Equal(BuiltInAgentTools.TerminalReadScreen, newest.ToolName);
+        Assert.Equal(
+            BuiltInAgentTools.TerminalReadScreen,
+            Assert.Single(newest.Details, fact => fact.Label == "Tool ID").Value);
         Assert.Contains(
             "Requested → Approved → Started → Succeeded",
             newest.Timeline,
             StringComparison.Ordinal);
-        Assert.Contains(
+        Assert.Equal(
+            "terminal_read_succeeded",
+            Assert.Single(newest.Details, fact => fact.Label == "Result code").Value);
+        Assert.DoesNotContain(
             "terminal_read_succeeded",
             newest.Result,
             StringComparison.Ordinal);
@@ -3866,14 +3871,9 @@ public sealed partial class AgentChatViewModelTests
         Assert.Equal(firstRun, auditReader.Queries[0].RunId);
         Assert.Equal(secondRun, auditReader.Queries[1].RunId);
         var current = Assert.Single(viewModel.AuditEntries);
-        Assert.Contains(
+        Assert.Equal(
             "second_run_succeeded",
-            current.Result,
-            StringComparison.Ordinal);
-        Assert.DoesNotContain(
-            "first_run_succeeded",
-            current.Result,
-            StringComparison.Ordinal);
+            Assert.Single(current.Details, fact => fact.Label == "Result code").Value);
     }
 
     private static AiProviderProfileDescriptor Provider(

@@ -1183,7 +1183,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Null(recorder.CurrentWorkspace);
         Assert.Empty(provider.PrepareRequests);
         Assert.Contains(
-            "stale runtime was discarded",
+            "changed while the workspace was opening. Open it again",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -1240,7 +1240,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Null(recorder.CurrentWorkspace);
         Assert.Single(provider.StopBindings);
         Assert.Contains(
-            "stale runtime was discarded",
+            "changed while the workspace was being restored. Restore it again",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -8364,7 +8364,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(0, agentRuntime.SendCount);
         Assert.Null(agentRuntime.LastRequest);
         Assert.Contains(
-            "different saved agent policy providers or models",
+            "agent policies use different AI providers or models",
             viewModel.AgentChat.Status,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -8396,7 +8396,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(0, agentRuntime.SendCount);
         Assert.Null(agentRuntime.LastRequest);
         Assert.Contains(
-            "saved policy overrides with inherited provider settings",
+            "follow a saved screen's own agent policy and others follow AI Settings",
             viewModel.AgentChat.Status,
             StringComparison.OrdinalIgnoreCase);
     }
