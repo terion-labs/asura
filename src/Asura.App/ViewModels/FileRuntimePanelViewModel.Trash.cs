@@ -145,7 +145,8 @@ public sealed partial class FileRuntimePanelViewModel
                         catch (Exception exception) when (exception is IOException
                             or UnauthorizedAccessException)
                         {
-                            return exception.Message;
+                            SecretSafeDiagnostics.WriteTrace("files.trash.put-back.failed", exception);
+                            return DescribePutBackFailure(items[index], exception);
                         }
                     }
 
@@ -175,5 +176,34 @@ public sealed partial class FileRuntimePanelViewModel
         }
 
         return failure is null;
+    }
+
+    /// <summary>
+    /// Why an item couldn't come back from the Trash, read from where things
+    /// are now rather than from the exception's message, which is the file
+    /// system's own wording and names full paths.
+    /// </summary>
+    internal static string DescribePutBackFailure(TrashedItem item, Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        ArgumentNullException.ThrowIfNull(exception);
+        var name = Path.GetFileName(item.OriginalPath);
+        if (exception is UnauthorizedAccessException)
+        {
+            return $"“{name}” couldn't be put back because you don't have permission to change the folder it came from.";
+        }
+
+        if (File.Exists(item.OriginalPath) || Directory.Exists(item.OriginalPath))
+        {
+            return $"“{name}” couldn't be put back because an item with that name is already in the folder it came from.";
+        }
+
+        if (item.TrashedPath is not { } trashed
+            || !(File.Exists(trashed) || Directory.Exists(trashed)))
+        {
+            return $"“{name}” couldn't be put back because it's no longer in the Trash.";
+        }
+
+        return $"“{name}” couldn't be put back from the Trash.";
     }
 }

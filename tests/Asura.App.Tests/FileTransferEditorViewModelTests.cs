@@ -57,6 +57,63 @@ public sealed class FileTransferEditorViewModelTests
         Assert.Contains("different", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void PopUpItemsAreWordsAndFollowTheSelectedValues()
+    {
+        var profile = HierarchicalProfile("local", "Home");
+        var source = new FilePanelEntry(
+            profile.Root.Child(new FilePanelPathSegment("report.pdf")),
+            "report.pdf",
+            FilePanelEntryKind.File,
+            1,
+            null,
+            false);
+        var editor = new FileTransferEditorViewModel(source, [profile]);
+
+        Assert.Equal(
+            ["Copy", "Move"],
+            editor.OperationOptions.Select(option => option.Label),
+            StringComparer.Ordinal);
+        Assert.Equal(
+            ["Stop the Transfer", "Skip the Item", "Replace It", "Keep Both"],
+            editor.ConflictPolicyOptions.Select(option => option.Label),
+            StringComparer.Ordinal);
+
+        editor.SelectedConflictPolicyOption = editor.ConflictPolicyOptions.Single(
+            option => option.Value == FilePanelConflictPolicy.KeepBoth);
+        editor.Operation = FilePanelTransferOperation.Move;
+
+        Assert.Equal(FilePanelConflictPolicy.KeepBoth, editor.ConflictPolicy);
+        Assert.Equal("Move", editor.SelectedOperationOption.Label);
+    }
+
+    [Fact]
+    public void TheSameDestinationRefusalIsShownAsWritten()
+    {
+        var profile = HierarchicalProfile("local", "Home");
+        var source = new FilePanelEntry(
+            profile.Root.Child(new FilePanelPathSegment("same.txt")),
+            "same.txt",
+            FilePanelEntryKind.File,
+            1,
+            null,
+            false);
+        var editor = new FileTransferEditorViewModel(source, [profile]) { Destination = "/same.txt" };
+
+        var error = Assert.Throws<ArgumentException>(() => editor.CreateRequest());
+
+        Assert.Equal(
+            "The destination is the item itself. Choose a different destination.",
+            FileLocationPresentation.DescribeLocationRefusal(error));
+    }
+
+    [Theory]
+    [InlineData(FilePanelTransferState.Running, "In progress")]
+    [InlineData(FilePanelTransferState.Completed, "Done")]
+    [InlineData(FilePanelTransferState.Cancelled, "Canceled")]
+    public void TransferStatesAreWords(FilePanelTransferState state, string expected) =>
+        Assert.Equal(expected, FileTransferText.State(state));
+
     private static FileProviderProfileDescriptor HierarchicalProfile(string id, string name)
     {
         var root = new FilePanelLocation(

@@ -57,9 +57,30 @@ public sealed class AppearanceSettingsViewModel : ObservableObject, IDisposable
 
     public ThemePreference ActiveTheme => _activeTheme;
 
-    public string ThemeMode => ActiveTheme.Appearance.ToString();
+    public string ThemeMode => ModeLabel(ActiveTheme.Appearance);
 
-    public string ThemeProfile => ActiveTheme.PlatformProfile.ToString();
+    public string ThemeProfile => ProfileLabel(ActiveTheme.PlatformProfile);
+
+    /// <summary>The saved appearance mode in words, not the enum value.</summary>
+    internal static string ModeLabel(AppearanceMode mode) => mode switch
+    {
+        AppearanceMode.Light => "Light",
+        AppearanceMode.Dark => "Dark",
+        _ => "Match system",
+    };
+
+    /// <summary>The saved platform style in words ("macOS Liquid Glass", not "MacOsLiquidGlass").</summary>
+    internal static string ProfileLabel(PlatformProfile profile) => profile switch
+    {
+        PlatformProfile.MacOsClassic => "macOS Classic",
+        PlatformProfile.MacOsLiquidGlass => "macOS Liquid Glass",
+        PlatformProfile.Windows11 => "Windows 11",
+        PlatformProfile.Gnome => "GNOME",
+        PlatformProfile.Kde => "KDE",
+        PlatformProfile.Asura => "Asura",
+        PlatformProfile.Custom => "Custom",
+        _ => "Automatic",
+    };
 
     public string ThemeTextScale => ActiveTheme.TextScaleOverride is { } textScale
         ? textScale.ToString("0.##%", System.Globalization.CultureInfo.InvariantCulture)

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -453,7 +454,7 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
     {
         if (!TryBuild(out var profile, out var error))
         {
-            throw new InvalidOperationException(error);
+            throw FailureReason.Readable(new InvalidOperationException(error));
         }
 
         return new(profile!, ExpectedRevision);

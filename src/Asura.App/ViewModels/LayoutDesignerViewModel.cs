@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.Core;
 using Asura.Docking;
 using Dock.Model;
@@ -350,8 +351,8 @@ public sealed class LayoutDesignerViewModel : ObservableObject
         var validation = LayoutValidator.Validate(definition);
         if (!validation.IsValid)
         {
-            throw new InvalidOperationException(
-                $"Asura can't save the layout yet. {FormatIssues(validation.Issues)}");
+            throw FailureReason.Readable(new InvalidOperationException(
+                $"Asura can't save the layout yet. {FormatIssues(validation.Issues)}"));
         }
 
         return new(definition, ExpectedRevision);

@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 using Asura.Git;
@@ -50,7 +51,8 @@ public sealed class TerminalConnectionSettingsViewModel : IDisposable
 
         var stored = _catalog.Snapshot.Connections
             .SingleOrDefault(item => item.Value.Id == connectionId.Value)
-            ?? throw new InvalidOperationException("That connection no longer exists.");
+            ?? throw FailureReason.Readable(new InvalidOperationException(
+                "That connection no longer exists."));
         return new ConnectionEditorViewModel(
             _connectionRuntime,
             stored.Value,

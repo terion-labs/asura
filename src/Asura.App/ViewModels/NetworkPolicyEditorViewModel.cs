@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Asura.App.Controls;
 using Asura.Core;
 using FluentIcons.Common;
 
@@ -199,8 +200,8 @@ public sealed class NetworkPolicyEditorViewModel : ObservableObject, IDisposable
     {
         if (!IsValid)
         {
-            throw new InvalidOperationException(
-                "Remove missing connections and choose an available route before saving.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "Remove missing connections and choose an available route before saving."));
         }
 
         return new(

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -230,7 +231,15 @@ public sealed class KeybindingEditorSessionViewModel : ObservableObject, IDispos
     public KeybindingSettingsSaveRequest CreateSaveRequest()
     {
         EnsureWritable();
-        return _editor.CreateSaveRequest();
+        try
+        {
+            return _editor.CreateSaveRequest();
+        }
+        catch (InvalidOperationException exception)
+        {
+            // The editor's refusal names the conflicts to resolve, in words.
+            throw FailureReason.Readable(exception);
+        }
     }
 
     public void Dispose()
@@ -285,7 +294,8 @@ public sealed class KeybindingEditorSessionViewModel : ObservableObject, IDispos
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (IsReadOnly)
         {
-            throw new InvalidOperationException("Clone the built-in preset before editing it.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "Choose Clone Preset to edit a copy of the built-in shortcuts."));
         }
     }
 

@@ -344,12 +344,12 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
         PublishMutationState();
     }
 
-    private void PresentError(KubernetesRequestException exception)
+    private void PresentError(
+        KubernetesRequestException exception,
+        KubernetesActivity activity = KubernetesActivity.Request)
     {
         Status = ErrorStatus(exception.Code);
-        Issue = exception.Code == KubernetesErrorCode.Forbidden
-            ? "Access denied for this scope. Enter an allowed namespace and refresh, or review your Kubernetes permissions."
-            : exception.Message;
+        Issue = KubernetesErrorText.Describe(exception, activity);
     }
 
     /// <summary>

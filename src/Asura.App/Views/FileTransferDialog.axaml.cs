@@ -39,7 +39,7 @@ public sealed partial class FileTransferDialog : DialogWindow
         }
         catch (ArgumentException exception)
         {
-            ViewModel.ErrorNotices.Report(exception.Message);
+            ViewModel.ErrorNotices.Report(FileLocationPresentation.DescribeLocationRefusal(exception));
         }
     }
 }

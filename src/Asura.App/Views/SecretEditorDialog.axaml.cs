@@ -60,7 +60,14 @@ public sealed partial class SecretEditorDialog : DialogWindow
         }
         catch (ArgumentException exception)
         {
-            ViewModel.ErrorNotices.Report(exception.Message);
+            // Under the field it is about; anything else in the list at the top.
+            if (!FieldValidation.Present(this, exception))
+            {
+                ViewModel.ErrorNotices.Report(FailureReason.Refusal(
+                    "secret.editor.refused",
+                    exception,
+                    "Asura couldn’t update the credential. Check the label and value, then try again."));
+            }
         }
     }
 }

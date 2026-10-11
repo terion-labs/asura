@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -133,7 +134,10 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
         }
         catch (InvalidOperationException exception)
         {
-            return Fail<StoredDefinition<LayoutDefinition>>(exception.Message);
+            return Fail<StoredDefinition<LayoutDefinition>>(FailureReason.Refusal(
+                "layout.save.refused",
+                exception,
+                "Asura can’t save the layout yet. Check that every slot has a place in the grid, then save again."));
         }
 
         return await _catalog.SaveLayoutAsync(
@@ -276,7 +280,10 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
         }
         catch (InvalidOperationException exception)
         {
-            return Fail<StoredDefinition<KeymapProfile>>(exception.Message);
+            return Fail<StoredDefinition<KeymapProfile>>(FailureReason.Refusal(
+                "keyboard-shortcuts.save.refused",
+                exception,
+                "Asura can’t save the shortcuts yet. Resolve any conflicts, then save again."));
         }
 
         var result = await _catalog.SaveKeymapAsync(

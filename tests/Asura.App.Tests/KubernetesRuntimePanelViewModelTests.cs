@@ -22,7 +22,8 @@ public sealed class KubernetesRuntimePanelViewModelTests
                 : ValueTask.FromResult<IKubernetesClientSession>(session));
         await panel.Initialization;
         Assert.False(panel.IsBusy);
-        Assert.Contains("timed out", panel.Issue, StringComparison.Ordinal);
+        Assert.Contains("couldn’t reach the cluster", panel.Issue, StringComparison.Ordinal);
+        Assert.DoesNotContain("backend", panel.Issue, StringComparison.Ordinal);
         await panel.RefreshAsync();
         Assert.False(panel.HasIssue);
         Assert.Single(panel.Resources);

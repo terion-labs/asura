@@ -885,7 +885,7 @@ public sealed partial class MainWindow
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.PanelConnection(exception));
         }
     }
 
@@ -1005,7 +1005,7 @@ public sealed partial class MainWindow
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.PanelConnection(exception));
         }
     }
 
@@ -1061,7 +1061,7 @@ public sealed partial class MainWindow
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.ConnectionEditor(exception));
         }
     }
 
@@ -1157,7 +1157,7 @@ public sealed partial class MainWindow
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.ConnectionEditor(exception));
         }
     }
 
@@ -1195,7 +1195,7 @@ public sealed partial class MainWindow
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.ConnectionEditor(exception));
         }
     }
 
@@ -1410,7 +1410,7 @@ public sealed partial class MainWindow
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.BrowserNavigation(exception));
         }
     }
 
@@ -1690,12 +1690,12 @@ public sealed partial class MainWindow
             }
             catch (ArgumentException exception)
             {
-                destination.ReportValidationError(exception.Message);
+                destination.ReportValidationError(ShellFailureText.FileTransfer(exception));
                 queuedAll = false;
             }
             catch (InvalidOperationException exception)
             {
-                destination.ReportValidationError(exception.Message);
+                destination.ReportValidationError(ShellFailureText.FileTransfer(exception));
                 queuedAll = false;
             }
         }
@@ -1794,11 +1794,11 @@ public sealed partial class MainWindow
         }
         catch (ArgumentException exception)
         {
-            panel.ReportValidationError(exception.Message);
+            panel.ReportValidationError(ShellFailureText.FileTransfer(exception));
         }
         catch (InvalidOperationException exception)
         {
-            panel.ReportValidationError(exception.Message);
+            panel.ReportValidationError(ShellFailureText.FileTransfer(exception));
         }
     }
 

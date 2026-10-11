@@ -30,10 +30,22 @@
       </controls:SurfaceCard>
       <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
         <controls:LabeledField Label="Operation">
-          <ComboBox ItemsSource="{Binding Operations}" SelectedItem="{Binding Operation}" />
+          <ComboBox ItemsSource="{Binding OperationOptions}" SelectedItem="{Binding SelectedOperationOption}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:FileTransferOperationOption">
+                <TextBlock Text="{Binding Label}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
         </controls:LabeledField>
         <controls:LabeledField Grid.Column="1" Label="When destination exists">
-          <ComboBox ItemsSource="{Binding ConflictPolicies}" SelectedItem="{Binding ConflictPolicy}" />
+          <ComboBox ItemsSource="{Binding ConflictPolicyOptions}" SelectedItem="{Binding SelectedConflictPolicyOption}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:FileConflictPolicyOption">
+                <TextBlock Text="{Binding Label}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
         </controls:LabeledField>
       </Grid>
       <controls:LabeledField Label="Destination provider">

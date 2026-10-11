@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -209,7 +210,10 @@ public sealed partial class MainWindowViewModel
                 catch (Exception exception) when (exception is
                     ArgumentException or FormatException or InvalidOperationException or OperationCanceledException)
                 {
-                    SetError(exception.Message);
+                    SetError(FailureReason.Refusal(
+                        "terminal.appearance.save.refused",
+                        exception,
+                        "Asura couldn’t save the terminal’s appearance. Check the font, sizes, and colors, then try again."));
                     _terminalAppearanceSaveFailed = true;
                     break;
                 }

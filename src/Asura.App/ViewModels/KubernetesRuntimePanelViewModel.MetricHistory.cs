@@ -53,7 +53,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             };
         }
         catch (OperationCanceledException) { if (!_disposed && version == _historyVersion && generation == _generation && SameResourceIdentity(SelectedResource?.Reference, pod.Reference)) { HistoryStatus = "History request canceled or timed out."; } }
-        catch (KubernetesRequestException exception) { if (!_disposed && version == _historyVersion && generation == _generation && SameResourceIdentity(SelectedResource?.Reference, pod.Reference)) { HistoryStatus = exception.Message; } }
+        catch (KubernetesRequestException exception) { if (!_disposed && version == _historyVersion && generation == _generation && SameResourceIdentity(SelectedResource?.Reference, pod.Reference)) { HistoryStatus = KubernetesErrorText.Describe(exception, KubernetesActivity.MetricHistory); } }
         finally { if (!_disposed && version == _historyVersion) { IsHistoryLoading = false; } }
     }
 

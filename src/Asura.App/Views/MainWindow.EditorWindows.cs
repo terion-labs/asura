@@ -192,7 +192,7 @@ public sealed partial class MainWindow
                 }
                 catch (InvalidOperationException exception)
                 {
-                    ViewModel.SetError(exception.Message);
+                    ViewModel.SetError(ShellFailureText.WorkspaceSave(exception));
                     return false;
                 }
 

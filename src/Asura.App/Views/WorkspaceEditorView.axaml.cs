@@ -544,7 +544,7 @@ public sealed partial class WorkspaceEditorView : UserControl
         }
         catch (InvalidOperationException exception)
         {
-            ShowInteractionError(exception.Message);
+            ShowInteractionError(ShellFailureText.WorkspaceSave(exception));
         }
     }
 

@@ -945,7 +945,7 @@ public sealed partial class MainWindow
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.ConnectionEditor(exception));
         }
     }
 
@@ -1002,7 +1002,7 @@ public sealed partial class MainWindow
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.AiProviderEditor(exception));
         }
     }
 
@@ -1082,7 +1082,7 @@ public sealed partial class MainWindow
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.McpServerEditor(exception));
         }
     }
 

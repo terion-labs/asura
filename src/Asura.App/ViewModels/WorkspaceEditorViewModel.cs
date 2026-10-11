@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -942,7 +943,7 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
     {
         if (!IsValid)
         {
-            throw new InvalidOperationException($"Asura can't save the workspace yet. {ValidationSummary}");
+            throw FailureReason.Readable(new InvalidOperationException($"Asura can't save the workspace yet. {ValidationSummary}"));
         }
 
         return new(BuildDefinition(), ExpectedRevision);

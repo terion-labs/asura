@@ -1,3 +1,4 @@
+using Asura.App.ViewModels;
 using Asura.App.Views;
 using Asura.Application;
 using Asura.Core;
@@ -23,7 +24,7 @@ public sealed class MainWindowCloseFlowTests
     }
 
     [Fact]
-    public async Task Initial_host_failure_is_reported_without_confirmation()
+    public async Task Initial_host_failure_is_reported_in_words_without_confirmation()
     {
         var confirmations = 0;
         var errors = new List<string>();
@@ -43,7 +44,9 @@ public sealed class MainWindowCloseFlowTests
 
         Assert.False(approved);
         Assert.Equal(0, confirmations);
-        Assert.Equal(["The host is unavailable."], errors);
+        Assert.Equal(
+            ["Asura couldn’t close the sessions, so they’re still open. Try closing them again."],
+            errors);
     }
 
     [Fact]
@@ -128,7 +131,9 @@ public sealed class MainWindowCloseFlowTests
             });
 
         Assert.False(approved);
-        Assert.Equal(["Confirmation failed."], errors);
+        Assert.Equal(
+            ["Asura couldn’t close the sessions, so they’re still open. Try closing them again."],
+            errors);
     }
 
     [Fact]
@@ -157,7 +162,7 @@ public sealed class MainWindowCloseFlowTests
     [Theory]
     [InlineData(SessionCloseOutcome.EngineFailed)]
     [InlineData(SessionCloseOutcome.ConfirmationRequired)]
-    public async Task Failed_session_outcome_is_reported(
+    public async Task Failed_session_outcome_is_reported_without_the_hosts_detail(
         SessionCloseOutcome outcome)
     {
         var errors = new List<string>();
@@ -171,7 +176,8 @@ public sealed class MainWindowCloseFlowTests
             });
 
         Assert.False(approved);
-        Assert.Equal(["Close detail."], errors);
+        Assert.Equal([ShellFailureText.SessionCloseFailed(outcome)], errors);
+        Assert.DoesNotContain("Close detail.", errors, StringComparer.Ordinal);
     }
 
     [Fact]

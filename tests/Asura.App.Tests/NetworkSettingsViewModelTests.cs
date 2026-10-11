@@ -605,7 +605,7 @@ public sealed class NetworkSettingsViewModelTests
         Assert.False(await viewModel.TestProfileAsync(CancellationToken.None));
 
         Assert.Empty(runtime.Requests);
-        Assert.Equal("Validation failed", viewModel.ProfileTestStatus);
+        Assert.Equal("Settings need attention", viewModel.ProfileTestStatus);
         Assert.True(viewModel.ProfileTestHasError);
     }
 

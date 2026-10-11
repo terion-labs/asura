@@ -153,7 +153,7 @@ public sealed class FileTransferViewModel : ObservableObject, IDisposable
                 snapshot.Id,
                 FileLocationPresentation.Display(snapshot.Request.Source),
                 FileLocationPresentation.Display(snapshot.EffectiveDestination),
-                snapshot.Request.Operation.ToString(),
+                FileTransferText.Operation(snapshot.Request.Operation),
                 StateText(snapshot.State),
                 snapshot.Stage,
                 FormatProgress(snapshot),
@@ -212,11 +212,8 @@ public sealed class FileTransferViewModel : ObservableObject, IDisposable
         }
     }
 
-    private static string StateText(FilePanelTransferState state) => state switch
-    {
-        FilePanelTransferState.Cancelled => "Canceled",
-        _ => state.ToString(),
-    };
+    private static string StateText(FilePanelTransferState state) =>
+        FileTransferText.State(state);
 
     private static string FormatProgress(FilePanelTransferSnapshot snapshot)
     {

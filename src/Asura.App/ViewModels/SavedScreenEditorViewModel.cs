@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 using FluentIcons.Common;
@@ -140,8 +141,8 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
             .OrderBy(candidate => candidate.Name, StringComparer.OrdinalIgnoreCase)
             .ThenBy(candidate => candidate.Id.Value, StringComparer.Ordinal)
             .FirstOrDefault()
-            ?? throw new InvalidOperationException(
-                "Create a layout before creating a saved screen.");
+            ?? throw FailureReason.Readable(new InvalidOperationException(
+                "Create a layout before creating a saved screen."));
         var connectionId = connections
             .OrderBy(candidate => candidate.Name, StringComparer.OrdinalIgnoreCase)
             .Select(candidate => (ConnectionId?)candidate.Id)
@@ -435,7 +436,7 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw InvalidField.Exception(nameof(Name), "Saved-screen name is required.");
+            throw InvalidField.Exception(nameof(Name), "Enter a name for the screen.");
         }
 
         if (SelectedLayout.Definition is not { } layout)
@@ -445,14 +446,27 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
 
         if (HasInvalidBrowserAddresses)
         {
-            throw new ArgumentException(
-                "Enter a complete HTTP or HTTPS startup address for each browser panel, or leave the address empty.");
+            throw FailureReason.Readable(new ArgumentException(
+                "Enter a complete HTTP or HTTPS startup address for each browser panel, or leave the address empty."));
         }
 
         var missing = _panels.Where(panel => panel.HasMissingDefinition).ToArray();
         if (missing.Length > 0)
         {
-            throw new ArgumentException(MissingSetupMessage(missing));
+            throw FailureReason.Readable(new ArgumentException(MissingSetupMessage(missing)));
+        }
+
+        Asura.Core.AgentPolicy? agentPolicy;
+        try
+        {
+            agentPolicy = AgentPolicy.Build();
+        }
+        catch (ArgumentException exception)
+        {
+            // The policy editor's own refusal names its storage rules.
+            throw FailureReason.Readable(new ArgumentException(
+                "Choose an available AI provider and enter a model for the screen’s agent, or turn the agent off.",
+                exception));
         }
 
         var definition = new ScreenDefinition(
@@ -463,13 +477,13 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
             layout.Id,
             [.. _panels.Select(panel => panel.Build())],
             _original.Tags,
-            AgentPolicy.Build());
+            agentPolicy);
         var validation = ScreenValidator.Validate(definition, layout);
         if (!validation.IsValid)
         {
-            throw new ArgumentException(string.Join(
+            throw FailureReason.Readable(new ArgumentException(string.Join(
                 " ",
-                validation.Issues.Select(issue => issue.Message).Distinct(StringComparer.Ordinal)));
+                validation.Issues.Select(issue => issue.Message).Distinct(StringComparer.Ordinal))));
         }
 
         return new SavedScreenEditorSaveRequest(definition, expectedRevision);

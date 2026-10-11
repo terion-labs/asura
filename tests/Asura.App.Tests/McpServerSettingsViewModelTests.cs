@@ -25,6 +25,19 @@ public sealed class McpServerSettingsViewModelTests
     }
 
     [Fact]
+    public void A_deleted_server_is_refused_in_words_the_window_shows_as_written()
+    {
+        var (catalog, proxy) = Catalog();
+        proxy.Snapshot = DefinitionCatalogSnapshot.Empty;
+        using var viewModel = new McpServerSettingsViewModel(catalog, () => []);
+
+        var refusal = Assert.Throws<InvalidOperationException>(
+            () => viewModel.CreateEditor(new McpServerProfileId("mcp.deleted")));
+
+        Assert.Equal("That MCP server no longer exists.", ShellFailureText.McpServerEditor(refusal));
+    }
+
+    [Fact]
     public async Task Authorized_save_forwards_the_exact_profile_and_revision()
     {
         var profile = Profile();
