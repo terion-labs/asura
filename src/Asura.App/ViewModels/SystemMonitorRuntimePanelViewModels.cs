@@ -1061,7 +1061,7 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
                 IssueTitle = null;
                 IssueMessage = null;
                 State = SystemMonitorPanelState.Waiting;
-                StatusText = $"Starting process monitor · {ConnectionDisplayName}…";
+                StatusText = $"Starting processes · {ConnectionDisplayName}…";
             },
             CancellationToken.None);
         Initialization = InitializeAsync();

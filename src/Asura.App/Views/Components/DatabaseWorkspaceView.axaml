@@ -306,7 +306,7 @@
                 Classes="TextButton Dense"
                 Click="OnOpenInViewerClick"
                 ToolTip.Tip="Open this database in a full viewer tab"
-                AutomationProperties.Name="Open this database in the database viewer">
+                AutomationProperties.Name="Open this database in a Database tab">
               <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
                 <icons:SymbolIcon Symbol="Open" FontSize="{DynamicResource ShellIconSizeXs}" />
                 <TextBlock Text="Open in Viewer" />

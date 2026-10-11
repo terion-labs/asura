@@ -1299,7 +1299,7 @@ public sealed partial class AgentChatViewModelTests
         Assert.False(viewModel.CanSubmitPrompt);
         Assert.True(viewModel.CanShowPrimaryAction);
         Assert.True(viewModel.ShowStopAction);
-        Assert.Equal("Queue message", viewModel.PrimaryActionLabel);
+        Assert.Equal("Queue Message", viewModel.PrimaryActionLabel);
         Assert.Equal(
             "Queue a message for the AI agent",
             viewModel.PrimaryActionAccessibleName);
@@ -1413,7 +1413,7 @@ public sealed partial class AgentChatViewModelTests
 
         Assert.True(viewModel.CanSubmitPrompt);
         Assert.True(viewModel.CanEnterPrompt);
-        Assert.Equal("Queue message", viewModel.PrimaryActionLabel);
+        Assert.Equal("Queue Message", viewModel.PrimaryActionLabel);
     }
 
     [Fact]

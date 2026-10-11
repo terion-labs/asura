@@ -1988,7 +1988,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public bool ShowStopAction => CanStop;
 
     public string PrimaryActionLabel => CanOfferFollowUpQueue
-        ? "Queue message"
+        ? "Queue Message"
         : "Send";
 
     public string PrimaryActionAccessibleName =>
