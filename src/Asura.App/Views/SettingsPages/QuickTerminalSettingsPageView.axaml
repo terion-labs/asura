@@ -149,7 +149,7 @@
         </Grid>
       </controls:SettingRow>
       <controls:SettingRow
-          Classes="Option"
+          IsLeading="True"
           Label="Translucency"
           Description="Whether the terminal sits on the platform's own material, so the desktop shows through it. The amount of blur is the platform's to decide.">
         <CheckBox
@@ -170,7 +170,7 @@
         Description="Control how the panel enters, leaves, and retains its terminal session."
         ControlWidth="280">
       <controls:SettingRow
-          Classes="Option"
+          IsLeading="True"
           Label="Animate the drop-down"
           Description="Slide the panel in and out instead of snapping.">
         <CheckBox
@@ -178,7 +178,7 @@
             AutomationProperties.Name="Animate Quick Terminal" />
       </controls:SettingRow>
       <controls:SettingRow
-          Classes="Option"
+          IsLeading="True"
           Label="Reduce motion"
           Description="Disable slide animation even when animation is enabled.">
         <CheckBox
@@ -203,7 +203,7 @@
         </Grid>
       </controls:SettingRow>
       <controls:SettingRow
-          Classes="Option"
+          IsLeading="True"
           Label="Hide on focus loss"
           Description="Dismiss the panel when focus moves to another application.">
         <CheckBox
@@ -211,7 +211,7 @@
             AutomationProperties.Name="Hide Quick Terminal on focus loss" />
       </controls:SettingRow>
       <controls:SettingRow
-          Classes="Option"
+          IsLeading="True"
           Label="Escape hides Quick Terminal"
           Description="Dismiss the panel with Escape. When off, Escape reaches the program in the terminal, such as vim or less.">
         <CheckBox
@@ -219,7 +219,7 @@
             AutomationProperties.Name="Escape hides Quick Terminal" />
       </controls:SettingRow>
       <controls:SettingRow
-          Classes="Option"
+          IsLeading="True"
           Label="Keep terminal session"
           Description="Retain the terminal and scrollback between openings. Turning this off starts a fresh shell next time.">
         <CheckBox
@@ -227,7 +227,7 @@
             AutomationProperties.Name="Keep Quick Terminal session" />
       </controls:SettingRow>
       <controls:SettingRow
-          Classes="Option"
+          IsLeading="True"
           Label="Restore on start"
           Description="Reopen Quick Terminal tabs and their connections when Asura starts, like main-window session restore.">
         <CheckBox

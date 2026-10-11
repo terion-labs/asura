@@ -14,14 +14,12 @@
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch">
   <UserControl.Styles>
-    <!-- A minor option is a checkbox; at a row's trailing edge it lines up
-         with every other row's control, as a switch did. -->
-    <Style Selector="controls|SettingRow > CheckBox">
+    <!-- A checkbox at a row's trailing edge lines up with every other row's
+         control, as a switch did. An option row (SettingRow IsLeading) leads
+         with its checkbox instead and names it in the box's own label. -->
+    <Style Selector="controls|SettingRow:not(:leading) > CheckBox">
       <Setter Property="HorizontalAlignment" Value="Right" />
     </Style>
-    <!-- One boolean shape for every page: an option row leads with its
-         checkbox and names it in the box's own label. -->
-    <settingsPages:SettingOptionStyles />
 
     <!-- The page on show is the sidebar's selected row, drawn as every other
          selected sidebar row: the accent fill with its measured ink while the
@@ -239,7 +237,7 @@
                   Description="Manage saved workspaces, the screens they open, and launch layouts." />
               <controls:SettingsGroup>
                 <controls:SettingRow
-                    Classes="Option"
+                    IsLeading="True"
                     Label="Restore sessions on start"
                     Description="Reopen the tabs, panels, connections, and locations from the previous session.">
                   <CheckBox
@@ -752,7 +750,7 @@
                     </StackPanel>
                   </controls:SettingRow>
                   <controls:SettingRow
-                      Classes="Option"
+                      IsLeading="True"
                       Label="Keep downloaded previews between runs"
                       Description="When on, downloaded files stay on disk so opening one again is instant, even after a restart. When off, previews are kept only while Asura runs, in memory or in an encrypted file, and are deleted when you quit. A copy left behind if Asura quits unexpectedly can't be read.">
                     <CheckBox
@@ -1057,7 +1055,7 @@
                    settings group with its heading, and each setting a row. -->
               <controls:SettingsGroup Heading="Continuity">
                 <controls:SettingRow
-                    Classes="Option"
+                    IsLeading="True"
                     Label="Multiplex SSH terminals"
                     Description="New SSH terminals use an app-managed tmux session, with GNU Screen as a fallback. Disconnecting or closing Asura preserves it; explicitly closing the panel, tab, or workspace ends it."
                     IsLast="True">
@@ -1121,7 +1119,7 @@
                 <controls:SettingRow Label="Cursor shape">
                   <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding TerminalSettingsEditor.CursorStyles}" SelectedItem="{Binding TerminalSettingsEditor.CursorStyle}" AutomationProperties.Name="Cursor shape" />
                 </controls:SettingRow>
-                <controls:SettingRow Classes="Option" Label="Blink cursor">
+                <controls:SettingRow IsLeading="True" Label="Blink cursor">
                   <CheckBox
                       IsChecked="{Binding TerminalSettingsEditor.CursorBlink}"
                       AutomationProperties.Name="Blink cursor" />
@@ -1144,13 +1142,13 @@
                 <controls:SettingRow Label="Open terminal links">
                   <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding TerminalSettingsEditor.LinkPolicies}" SelectedItem="{Binding TerminalSettingsEditor.LinkPolicy}" />
                 </controls:SettingRow>
-                <controls:SettingRow Classes="Option" Label="Enable IME input">
+                <controls:SettingRow IsLeading="True" Label="Enable IME input">
                   <CheckBox
                       IsChecked="{Binding TerminalSettingsEditor.ImeEnabled}" />
                 </controls:SettingRow>
                 <!-- Turns back on what "Don't ask again" in a close or quit
                      alert turned off. -->
-                <controls:SettingRow Classes="Option" Label="Ask before closing running sessions" IsLast="True">
+                <controls:SettingRow IsLeading="True" Label="Ask before closing running sessions" IsLast="True">
                   <CheckBox
                       IsChecked="{Binding TerminalSettingsEditor.AskBeforeClosing}" />
                 </controls:SettingRow>
@@ -2008,7 +2006,7 @@
                   Description="Each source posts on its own. Turning one off stops its banners; its attention marks inside Asura stay."
                   IsEnabled="{Binding NotificationSettings.IsAvailable}">
                 <controls:SettingRow
-                    Classes="Option"
+                    IsLeading="True"
                     Label="Terminal"
                     Description="Notifications that programs send from the terminal, the bell when the terminal profile sends it to the system, and work that finishes in a workspace behind the one on show.">
                   <CheckBox
@@ -2016,7 +2014,7 @@
                       AutomationProperties.Name="Terminal notifications" />
                 </controls:SettingRow>
                 <controls:SettingRow
-                    Classes="Option"
+                    IsLeading="True"
                     Label="Agent runs"
                     Description="An agent run that finishes or fails while its panel is out of sight.">
                   <CheckBox
@@ -2024,7 +2022,7 @@
                       AutomationProperties.Name="Agent run notifications" />
                 </controls:SettingRow>
                 <controls:SettingRow
-                    Classes="Option"
+                    IsLeading="True"
                     Label="File transfers"
                     Description="A file transfer that finishes or fails.">
                   <CheckBox

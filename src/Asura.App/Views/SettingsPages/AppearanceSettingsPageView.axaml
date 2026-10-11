@@ -486,7 +486,7 @@
           </Border>
         </controls:SettingRow>
         <controls:SettingRow
-            Classes="Option"
+            IsLeading="True"
             Label="Translucency"
             Description="Show the desktop through the window’s sidebars and title bar.">
           <CheckBox
@@ -495,7 +495,7 @@
               AutomationProperties.Name="Translucency" />
         </controls:SettingRow>
         <controls:SettingRow
-            Classes="Option"
+            IsLeading="True"
             Label="Glass panels"
             Description="Let the desktop show through the panels too, not only the sidebars and title bar.">
           <CheckBox
@@ -505,7 +505,7 @@
               AutomationProperties.Name="Glass panels" />
         </controls:SettingRow>
         <controls:SettingRow
-            Classes="Option"
+            IsLeading="True"
             Label="Set background opacity"
             Description="Off leaves the material’s own translucency alone. On paints the window’s color over it: lower values let more of the desktop through; at full, it reads as a frame around the panels rather than as glass.">
           <CheckBox
@@ -537,7 +537,7 @@
              has no material to show: translucency off, Reduce Transparency,
              Increase Contrast, or a host without it. -->
         <controls:SettingRow
-            Classes="Option"
+            IsLeading="True"
             Label="Translucent terminal background"
             Description="{DynamicResource ShellTerminalTranslucencyStatus}">
           <CheckBox
@@ -546,7 +546,7 @@
               IsCheckedChanged="OnAppearanceChanged"
               AutomationProperties.Name="Translucent terminal background" />
         </controls:SettingRow>
-        <controls:SettingRow Classes="Option" Label="Show tab bar" IsLast="True">
+        <controls:SettingRow IsLeading="True" Label="Show tab bar" IsLast="True">
           <CheckBox x:Name="ShowTabBarSwitch" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Show tab bar" />
         </controls:SettingRow>
       </controls:SettingsGroup>
@@ -558,7 +558,7 @@
           Heading="Tabs &amp; Workspaces"
           Description="Where the tab strip sits, plus how the workspaces panel is arranged." />
       <controls:SettingsGroup>
-        <controls:SettingRow Classes="Option" Label="Show workspaces panel" IsLast="True">
+        <controls:SettingRow IsLeading="True" Label="Show workspaces panel" IsLast="True">
           <CheckBox x:Name="ShowWorkspacesPanelSwitch" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Show workspaces panel" />
         </controls:SettingRow>
       </controls:SettingsGroup>

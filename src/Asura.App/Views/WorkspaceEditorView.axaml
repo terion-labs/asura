@@ -9,12 +9,8 @@
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:application="using:Asura.Application"
     xmlns:views="using:Asura.App.Views"
-    xmlns:settingsPages="using:Asura.App.Views.SettingsPages"
     x:DataType="vm:WorkspaceEditorViewModel">
   <UserControl.Styles>
-    <!-- The same boolean shape as Settings: an option is a checkbox that
-         names itself, its description under the words. -->
-    <settingsPages:SettingOptionStyles />
     <!-- A host folder is shown with its middle elided while the field isn't
          being edited, so both the volume and the folder name stay in view.
          The field's own text is hidden under the elided copy until it takes
@@ -353,7 +349,7 @@
                 </ComboBox>
               </controls:SettingRow>
               <controls:SettingRow
-                  Classes="Option"
+                  IsLeading="True"
                   Label="Kill switch"
                   Description="Block routed traffic if the connection fails instead of falling back to a direct route. An isolated workspace holds every program to it; other programs can ignore proxy settings."
                   IsVisible="{Binding OverridesNetworkSettings}">
@@ -723,7 +719,7 @@
                 <!-- An option, not the section's master: a checkbox whose
                      label is its content, as everywhere else in the editor. -->
                 <controls:SettingRow
-                    Classes="Option"
+                    IsLeading="True"
                     Label="Run the AI agent in the workspace environment"
                     Padding="0"
                     Description="When this is on, the provider is reached through this workspace’s route, and providers available only on this computer can’t be chosen. When it’s off, the provider is reached over this computer’s network."
@@ -864,7 +860,7 @@
                     AutomationProperties.Name="Workspace description" />
               </controls:SettingRow>
               <controls:SettingRow
-                  Classes="Option"
+                  IsLeading="True"
                   Label="Autosave"
                   Description="Save tab and panel changes back to this workspace while you work.">
                 <CheckBox
