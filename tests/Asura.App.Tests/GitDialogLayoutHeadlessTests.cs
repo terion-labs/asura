@@ -80,6 +80,13 @@ public sealed class GitDialogLayoutHeadlessTests
                 var authorBaseline = author.TranslatePoint(new Point(0, author.TextLayout.TextLines[0].Baseline), dialog)!.Value.Y;
                 Assert.Equal(authorBaseline, countBaseline, precision: 1);
             }
+
+            // Rows are spaced: a step of air between one contributor's line
+            // and the next, not two lines set solid.
+            var firstTop = counts[0].TranslatePoint(default, dialog)!.Value.Y;
+            var secondTop = counts[1].TranslatePoint(default, dialog)!.Value.Y;
+            var gap = secondTop - (firstTop + counts[0].Bounds.Height);
+            Assert.True(gap >= Space(dialog, "ShellSpaceSm") - 0.5, $"Contributor rows are {gap} apart.");
         }
         finally
         {
