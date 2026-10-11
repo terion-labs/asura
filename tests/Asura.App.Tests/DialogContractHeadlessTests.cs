@@ -434,6 +434,43 @@ public sealed class DialogContractHeadlessTests
         });
     }
 
+    [Fact]
+    public async Task A_long_access_list_scrolls_inside_a_window_that_fits_the_screen()
+    {
+        await RunAsync(async () =>
+        {
+            // An object store allows a hundred grants; the window sizes to its
+            // table but stops at its maximum, and the table scrolls instead.
+            var grants = Enumerable.Range(0, 100)
+                .Select(index => new FilePanelAccessGrant(
+                    new FilePanelGrantee(FilePanelGranteeKind.User, $"account-{index}"),
+                    FilePanelAccessRight.Read))
+                .ToArray();
+            var editor = new FileAccessControlEditorViewModel(
+                "report.csv",
+                "bucket",
+                new FilePanelAccessControl(
+                    new FilePanelLocation(
+                        "files.remote",
+                        "bucket",
+                        new FilePanelAddress.Hierarchical(
+                            FilePanelPath.Root.Append(new FilePanelPathSegment("report.csv")))),
+                    grants: grants),
+                canEdit: true);
+            var dialog = new FileAccessControlDialog(editor);
+            dialog.Show();
+            await Idle();
+            dialog.UpdateLayout();
+
+            Assert.True(dialog.Bounds.Height <= dialog.MaxHeight, $"The window is {dialog.Bounds.Height} high.");
+            var table = dialog.GetVisualDescendants()
+                .OfType<ScrollViewer>()
+                .Single(viewer => viewer.Content is ItemsControl);
+            Assert.True(table.Extent.Height > table.Viewport.Height);
+            dialog.Close();
+        });
+    }
+
     private static async Task RunAsync(Func<Task> test)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));

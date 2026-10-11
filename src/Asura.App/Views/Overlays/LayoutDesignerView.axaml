@@ -211,8 +211,18 @@
                       HorizontalAlignment="Stretch"
                       HorizontalContentAlignment="Stretch"
                       Classes="ListRow"
-                      Click="OnEditLayoutClick"
-                      AutomationProperties.Name="{Binding Name}">
+                      Classes.selected="{Binding #OpenMark.IsVisible}"
+                      Click="OnEditLayoutClick">
+                    <!-- The check is only drawn, so the open layout says so
+                         in its name; the selected row also reports itself
+                         as selected. -->
+                    <AutomationProperties.Name>
+                      <MultiBinding Converter="{x:Static overlays:LayoutDesignerView.LayoutRowName}">
+                        <Binding Path="Name" />
+                        <Binding Path="Id" />
+                        <Binding Path="$parent[overlays:LayoutDesignerView].((vm:MainWindowViewModel)DataContext).LayoutDesignerEditor.Id" />
+                      </MultiBinding>
+                    </AutomationProperties.Name>
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                       <Border Width="44" Height="28" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellInnerCornerRadius}" ClipToBounds="True">
                         <ItemsControl Margin="{DynamicResource ShellPreviewTileInset}" ItemsSource="{Binding PreviewPanels}">
@@ -225,7 +235,7 @@
                         </ItemsControl>
                       </Border>
                       <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="MiddleTruncated" Text="{Binding Name}" />
-                      <icons:SymbolIcon Grid.Column="2" VerticalAlignment="Center" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" AutomationProperties.Name="Open in the designer">
+                      <icons:SymbolIcon x:Name="OpenMark" Grid.Column="2" VerticalAlignment="Center" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" AutomationProperties.AccessibilityView="Raw">
                         <icons:SymbolIcon.IsVisible>
                           <MultiBinding Converter="{x:Static overlays:LayoutDesignerView.SameLayout}">
                             <Binding Path="Id" />
@@ -249,7 +259,7 @@
       <Grid Margin="{controls:Inset Horizontal=Lg, Vertical=Md}" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
         <Button x:Name="ResetButton" MinWidth="88" VerticalAlignment="Center" Classes="SecondaryButton" Click="OnResetLayoutClick" Content="Reset Layout" ToolTip.Tip="Restore the saved layout" />
         <Button x:Name="CancelButton" Grid.Column="2" MinWidth="88" VerticalAlignment="Center" Classes="SecondaryButton" Click="OnLayoutDesignerCancelClick" Content="Cancel" IsCancel="True" />
-        <Button x:Name="SaveButton" Grid.Column="3" MinWidth="88" VerticalAlignment="Center" Classes="PrimaryButton" Click="OnSaveLayoutDesignerClick" Content="Save" IsEnabled="{Binding LayoutDesignerEditor.CanSave}" />
+        <Button x:Name="SaveButton" Grid.Column="3" MinWidth="88" VerticalAlignment="Center" Classes="PrimaryButton" Click="OnSaveLayoutDesignerClick" Content="Save" IsDefault="True" IsEnabled="{Binding LayoutDesignerEditor.CanSave}" />
       </Grid>
     </Border>
   </Grid>

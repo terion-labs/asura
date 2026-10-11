@@ -556,7 +556,7 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         }
 
         return exception is System.Data.Common.DbException
-            ? "The server refused the connection. Check the user name, password, and database, then test again."
+            ? "The server refused the connection. Check the username, password, and database, then test again."
             : "Asura couldn’t connect to the database. Check the connection’s settings, then test again.";
     }
 
