@@ -905,6 +905,50 @@ public sealed class UnifiedConnectionEditorViewModelTests
     }
 
     [Fact]
+    public async Task A_URL_parameter_the_driver_can_t_use_is_named_under_the_field()
+    {
+        var editor = new DatabaseConnectionEditorViewModel(new StructuralDatabaseClient(), [])
+        {
+            Name = "Probe",
+            UseConnectionString = true,
+            ConnectionStringInput = "postgresql://alice@db.example/app?gssencmode=require",
+        };
+
+        await editor.TestAsync(CancellationToken.None);
+
+        Assert.Equal("Validation failed", editor.TestStatus);
+        Assert.Equal(
+            "PostgreSQL can’t use the connection URL’s gssencmode parameter. Remove it from the URL, "
+            + "or write the connection as keyword=value pairs instead.",
+            editor.TestDetail);
+        var refusal = Assert.ThrowsAny<ArgumentException>(() => editor.CreateSaveRequest());
+        Assert.Equal(nameof(DatabaseConnectionEditorViewModel.ConnectionStringInput), InvalidField.Of(refusal));
+    }
+
+    [Fact]
+    public void Database_test_failures_name_the_kill_switch_and_the_worker_s_transport_failures()
+    {
+        Assert.Contains(
+            "kill switch",
+            DatabaseConnectionEditorViewModel.DescribeTestFailure(
+                new IOException("outer", new WorkspaceNetworkBlockedException()),
+                isFileBased: false),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Check the host and port and that the server is running",
+            DatabaseConnectionEditorViewModel.DescribeTestFailure(
+                new DatabaseProviderFailureException("x", "Failed to connect", DatabaseProviderFailureKind.Unreachable, null, null),
+                isFileBased: false),
+            StringComparison.Ordinal);
+        Assert.StartsWith(
+            "The server refused the connection.",
+            DatabaseConnectionEditorViewModel.DescribeTestFailure(
+                new DatabaseProviderFailureException("x", "password authentication failed", DatabaseProviderFailureKind.Server, null, null),
+                isFileBased: false),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Database_test_failures_map_to_messages_with_a_next_step()
     {
         Assert.Contains(
@@ -1124,6 +1168,11 @@ public sealed class UnifiedConnectionEditorViewModelTests
             string driverId,
             string connectionString)
         {
+            if (connectionString.Contains("gssencmode", StringComparison.Ordinal))
+            {
+                throw new UnsupportedConnectionParameterException("PostgreSQL", ["gssencmode"]);
+            }
+
             var values = connectionString
                 .Split(';', StringSplitOptions.RemoveEmptyEntries)
                 .Select(pair => pair.Split('=', 2))

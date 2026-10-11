@@ -48,6 +48,41 @@ public sealed class FileProviderProfileEditorViewModelTests
     }
 
     [Fact]
+    public async Task A_missing_SFTP_connection_or_SMB_credential_is_named_under_its_field()
+    {
+        var editor = new FileProviderProfileEditorViewModel(
+            new StubProviderRuntime(),
+            [SshConnection()],
+            [])
+        {
+            Name = "Files",
+            Kind = FileProviderKind.Sftp,
+            RemoteRoot = "/",
+        };
+
+        await editor.TestAsync(CancellationToken.None);
+
+        Assert.Equal("Validation failed", editor.TestStatus);
+        Assert.Equal("Choose the SSH connection for SFTP to use.", editor.TestDetail);
+        Assert.Equal(
+            nameof(FileProviderProfileEditorViewModel.SelectedSshConnection),
+            InvalidField.Of(Assert.ThrowsAny<ArgumentException>(() => editor.CreateSaveRequest())));
+
+        editor.Kind = FileProviderKind.Smb;
+        editor.Server = "smb.example.test";
+        editor.Share = "files";
+        editor.SmbCredentialMode = SmbCredentialMode.UsernamePassword;
+        editor.Username = "operator";
+
+        await editor.TestAsync(CancellationToken.None);
+
+        Assert.Equal("Choose the saved credential that holds the SMB password.", editor.TestDetail);
+        Assert.Equal(
+            nameof(FileProviderProfileEditorViewModel.SelectedCredential),
+            InvalidField.Of(Assert.ThrowsAny<ArgumentException>(() => editor.CreateSaveRequest())));
+    }
+
+    [Fact]
     public void CredentialSelectorContainsOnlyOpaqueReferencesOwnedByTheProfile()
     {
         var existing = new FileProviderProfile(

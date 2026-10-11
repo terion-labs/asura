@@ -1,4 +1,4 @@
-using System.Data.Common;
+using System.Globalization;
 using System.Net.Sockets;
 using System.Security.Authentication;
 using Asura.App.Controls;
@@ -27,16 +27,19 @@ internal enum DatabaseOperation
 /// must be decoded…", "Value cannot be null. (Parameter 'sql')") and offers no
 /// next step. The reason a database server gives — a syntax error, a missing
 /// table, a constraint — is kept after the curated sentence, because only the
-/// server can say it and the person needs it to fix the statement; its codes
-/// and the client's own text go to diagnostics.
+/// server can say it and the person needs it to fix the statement, with the
+/// line and position the server named; its codes and the client's own text go
+/// to diagnostics. A cause Asura can name — the workspace kill switch, a URL
+/// parameter the driver can't use — is named before any generic sentence.
 /// </summary>
 internal static class DatabaseErrorText
 {
     private const int MaximumReasonCharacters = 300;
 
-    // The operation worker reports a provider failure as an IOException whose
-    // message starts with this, followed by the server's own text.
-    private const string WorkerReasonPrefix = "Database reported: ";
+    // A script can fail part way through: the statements before the failing
+    // one may already have committed, so "run it again" could repeat them.
+    private const string StatementsMayHaveRun =
+        "Statements before it may already have run. Check the database before you run it again.";
 
     public static string Describe(DatabaseOperation operation, Exception exception)
     {
@@ -53,32 +56,81 @@ internal static class DatabaseErrorText
                 + "have been made. Reload the data and check it before you try again.";
         }
 
+        if (Find<WorkspaceNetworkBlockedException>(exception) is not null)
+        {
+            return $"{WhatHappened(operation)} {KillSwitchBlocking}";
+        }
+
+        if (Find<UnsupportedConnectionParameterException>(exception) is { } unsupported)
+        {
+            return $"{WhatHappened(operation)} {DescribeUnsupportedParameters(unsupported)}";
+        }
+
+        // The provider failed after the worker dispatched the operation, so a
+        // script may have run part way.
+        var provider = Find<DatabaseProviderFailureException>(exception);
+        var partlyRun = provider is not null && operation == DatabaseOperation.RunStatement;
+
         // A client library reports an unreachable server as its own database
         // exception around the socket or timeout failure; that isn't the
         // server's reason, so the transport failures are named first.
-        if (Find<TimeoutException>(exception) is not null)
+        if (Find<TimeoutException>(exception) is not null || provider?.Kind == DatabaseProviderFailureKind.TimedOut)
         {
-            return $"{WhatHappened(operation)} The database didn’t answer in time. Check the connection, then try again.";
+            return $"{WhatHappened(operation)} The database didn’t answer in time. "
+                + (partlyRun ? StatementsMayHaveRun : "Check the connection, then try again.");
         }
 
-        if (Find<AuthenticationException>(exception) is not null)
+        if (Find<AuthenticationException>(exception) is not null
+            || provider?.Kind == DatabaseProviderFailureKind.SecureConnection)
         {
             return $"{WhatHappened(operation)} Asura couldn’t set up a secure connection. Check the connection’s TLS settings, then try again.";
         }
 
-        if (Find<SocketException>(exception) is not null)
+        if (Find<SocketException>(exception) is not null || provider?.Kind == DatabaseProviderFailureKind.Unreachable)
         {
             return operation == DatabaseOperation.Connect
                 ? "Asura couldn’t reach the database server. Check the host and port and that the server is running, then connect again."
-                : $"{WhatHappened(operation)} The connection to the database was lost. Reconnect, then try again.";
+                : $"{WhatHappened(operation)} The connection to the database was lost. "
+                    + (partlyRun ? StatementsMayHaveRun : "Reconnect, then try again.");
         }
 
-        if (ServerReason(exception) is { } reason)
+        if (provider is not null && ServerReason(provider) is { } reason)
         {
-            return $"{WhatHappened(operation)} The database said: {reason} {NextStepForServerReason(operation)}";
+            return $"{WhatHappened(operation)} The database said: {reason} "
+                + (partlyRun ? StatementsMayHaveRun : NextStepForServerReason(operation));
         }
 
-        return $"{WhatHappened(operation)} {NextStep(operation)}";
+        return $"{WhatHappened(operation)} {(partlyRun ? StatementsMayHaveRun : NextStep(operation))}";
+    }
+
+    /// <summary>Why the workspace's network refused the connection, and how to lift it.</summary>
+    internal const string KillSwitchBlocking =
+        "The workspace’s network connection is down, and its kill switch is blocking traffic until it’s back. "
+        + "Reconnect the workspace’s network, or turn off its kill switch in Edit Workspace, then try again.";
+
+    /// <summary>Names the URL parameters the driver can't use, and what to do instead.</summary>
+    internal static string DescribeUnsupportedParameters(UnsupportedConnectionParameterException refusal)
+    {
+        ArgumentNullException.ThrowIfNull(refusal);
+        var names = refusal.Parameters
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Length > 40 ? string.Concat(name.AsSpan(0, 39), "…") : name)
+            .Take(5)
+            .ToList();
+        if (names.Count == 0)
+        {
+            return $"{refusal.Engine} can’t use one of the connection URL’s parameters. "
+                + "Write the connection as keyword=value pairs instead.";
+        }
+
+        var list = names.Count == refusal.Parameters.Count
+            ? string.Join(", ", names)
+            : string.Join(", ", names) + ", and others";
+        return names.Count == 1 && refusal.Parameters.Count == 1
+            ? $"{refusal.Engine} can’t use the connection URL’s {list} parameter. Remove it from the URL, "
+                + "or write the connection as keyword=value pairs instead."
+            : $"{refusal.Engine} can’t use the connection URL’s {list} parameters. Remove them from the URL, "
+                + "or write the connection as keyword=value pairs instead.";
     }
 
     private static string WhatHappened(DatabaseOperation operation) => operation switch
@@ -96,7 +148,6 @@ internal static class DatabaseErrorText
     private static string NextStepForServerReason(DatabaseOperation operation) => operation switch
     {
         DatabaseOperation.Connect => "Check the connection’s settings, then connect again.",
-        DatabaseOperation.RunStatement => "Fix the statement, then run it again.",
         DatabaseOperation.LoadRows => "Check the filters and sorting, then try again.",
         DatabaseOperation.SaveChanges => "Your edits are kept. Correct the values, then save again.",
         _ => NextStep(operation),
@@ -123,26 +174,13 @@ internal static class DatabaseErrorText
     };
 
     /// <summary>
-    /// The server's own reason, on one line and bounded, or null when the
-    /// failure didn't come from the database server.
+    /// The server's own reason, on one line and bounded, with the line and
+    /// position the server named; null when the failure didn't come from the
+    /// database server or the worker withheld its text.
     /// </summary>
-    private static string? ServerReason(Exception exception)
+    private static string? ServerReason(DatabaseProviderFailureException failure)
     {
-        string? text = null;
-        for (var current = exception; current is not null && text is null; current = current.InnerException)
-        {
-            if (current is DbException)
-            {
-                text = current.Message;
-            }
-            else if (current is IOException
-                && current.Message.StartsWith(WorkerReasonPrefix, StringComparison.Ordinal))
-            {
-                text = current.Message[WorkerReasonPrefix.Length..];
-            }
-        }
-
-        var reason = text?.Split('\n', 2)[0].Trim();
+        var reason = failure.ServerReason?.Split('\n', 2)[0].Trim();
         if (string.IsNullOrEmpty(reason))
         {
             return null;
@@ -151,6 +189,22 @@ internal static class DatabaseErrorText
         if (reason.Length > MaximumReasonCharacters)
         {
             reason = string.Concat(reason.AsSpan(0, MaximumReasonCharacters - 1), "…");
+        }
+
+        var location = new List<string>(2);
+        if (failure.Line is { } line && line > 0)
+        {
+            location.Add("line " + line.ToString(CultureInfo.InvariantCulture));
+        }
+
+        if (failure.Position is { } position && position > 0)
+        {
+            location.Add("position " + position.ToString(CultureInfo.InvariantCulture));
+        }
+
+        if (location.Count > 0)
+        {
+            return $"{reason.TrimEnd('.')} ({string.Join(", ", location)}).";
         }
 
         return reason[^1] is '.' or '!' or '?' or '…' ? reason : reason + ".";

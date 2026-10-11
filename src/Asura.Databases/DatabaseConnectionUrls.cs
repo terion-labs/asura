@@ -1,4 +1,5 @@
 using System.Data.Common;
+using Asura.Application;
 
 namespace Asura.Databases;
 
@@ -97,12 +98,7 @@ internal sealed record ConnectionUrl(
 
         if (unsupported.Count > 0)
         {
-            throw new ArgumentException(
-                $"This build's {engine} driver does not understand "
-                + $"{string.Join(", ", unsupported)}. Remove "
-                + (unsupported.Count == 1 ? "it" : "them")
-                + " from the URL, or write the connection out as keyword=value "
-                + "pairs instead.");
+            throw new UnsupportedConnectionParameterException(engine, unsupported);
         }
     }
 

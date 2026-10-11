@@ -6,7 +6,8 @@ using Asura.Application;
 
 namespace Asura.ConnectionBackend;
 
-internal sealed record DatabaseProviderDiagnostic(string Message, string? SqlState, int? Number, int? Line, int? Position)
+internal sealed record DatabaseProviderDiagnostic(string Message, string? SqlState, int? Number, int? Line, int? Position,
+    DatabaseProviderFailureKind Kind = DatabaseProviderFailureKind.Client)
 {
     internal static DatabaseProviderDiagnostic Create(Exception exception, DatabaseWorkerConnection target,
         IDatabaseConnectionCatalog catalog)
@@ -24,7 +25,46 @@ internal sealed record DatabaseProviderDiagnostic(string Message, string? SqlSta
         var line = exception is Microsoft.Data.SqlClient.SqlException server && server.LineNumber > 0 ? server.LineNumber : (int?)null;
         var position = exception is Npgsql.PostgresException postgres && postgres.Position > 0 ? postgres.Position : (int?)null;
         var message = exception is Npgsql.PostgresException reported ? reported.MessageText : exception.Message;
-        return new(Sanitize(message, target, catalog), state, number, line, position);
+        return new(Sanitize(message, target, catalog), state, number, line, position, Classify(exception));
+    }
+
+    /// <summary>
+    /// Whether the text is the server's own reason, a transport failure, or
+    /// the client library talking. Only a server's reason is shown to people;
+    /// a client library's text ("Exception while reading from stream") is not
+    /// something the database said.
+    /// </summary>
+    internal static DatabaseProviderFailureKind Classify(Exception exception)
+    {
+        for (var current = exception.InnerException; current is not null; current = current.InnerException)
+        {
+            switch (current)
+            {
+                case TimeoutException:
+                    return DatabaseProviderFailureKind.TimedOut;
+                case System.Security.Authentication.AuthenticationException:
+                    return DatabaseProviderFailureKind.SecureConnection;
+                case System.Net.Sockets.SocketException or IOException:
+                    return DatabaseProviderFailureKind.Unreachable;
+            }
+        }
+
+        return exception switch
+        {
+            Npgsql.PostgresException => DatabaseProviderFailureKind.Server,
+            Npgsql.NpgsqlException => DatabaseProviderFailureKind.Client,
+            // Severity 20 and above are fatal connection-level failures, not a
+            // reason about the statement or the login.
+            Microsoft.Data.SqlClient.SqlException sql => sql.Class is > 0 and < 20
+                ? DatabaseProviderFailureKind.Server
+                : DatabaseProviderFailureKind.Client,
+            // MySqlConnector sets SQLSTATE only from a server error packet.
+            MySqlConnector.MySqlException mysql => mysql.SqlState is null
+                ? DatabaseProviderFailureKind.Client
+                : DatabaseProviderFailureKind.Server,
+            DbException => DatabaseProviderFailureKind.Server,
+            _ => DatabaseProviderFailureKind.Client,
+        };
     }
 
     private static string Sanitize(string message, DatabaseWorkerConnection target, IDatabaseConnectionCatalog catalog)
@@ -33,11 +73,11 @@ internal sealed record DatabaseProviderDiagnostic(string Message, string? SqlSta
         // record. Unknown connection syntax has no raw-message fallback.
         if (!TryGetSecrets(target, catalog, out var secrets))
         {
-            return "Diagnostic text omitted because connection-secret extraction is unavailable for this target.";
+            return DatabaseProviderFailureException.ReasonOmittedWithoutSecretExtraction;
         }
         if (message.Length > 8192 || Encoding.UTF8.GetByteCount(message) > 8192)
         {
-            return "Diagnostic text omitted because the database message exceeds 8 KiB.";
+            return DatabaseProviderFailureException.ReasonOmittedForSize;
         }
         foreach (var secret in secrets.OrderByDescending(value => value.Length))
         {
@@ -115,7 +155,9 @@ internal sealed record DatabaseProviderDiagnostic(string Message, string? SqlSta
     }
 }
 
-internal sealed class DatabaseProviderOperationException(DatabaseProviderDiagnostic diagnostic) : IOException(diagnostic.DisplayMessage())
+internal sealed class DatabaseProviderOperationException(DatabaseProviderDiagnostic diagnostic)
+    : DatabaseProviderFailureException(diagnostic.DisplayMessage(), diagnostic.Message, diagnostic.Kind,
+        diagnostic.Line, diagnostic.Position)
 {
     internal DatabaseProviderDiagnostic Diagnostic { get; } = diagnostic;
 }

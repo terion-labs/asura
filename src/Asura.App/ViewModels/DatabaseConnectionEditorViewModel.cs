@@ -547,11 +547,18 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
             {
                 case ReadableFailureException:
                     return current.Message;
+                case WorkspaceNetworkBlockedException:
+                    return DatabaseErrorText.KillSwitchBlocking;
+                case UnsupportedConnectionParameterException unsupported:
+                    return DatabaseErrorText.DescribeUnsupportedParameters(unsupported);
                 case TimeoutException:
+                case DatabaseProviderFailureException { Kind: DatabaseProviderFailureKind.TimedOut }:
                     return "The server didn’t answer in time. Check the host and port, then test again.";
                 case System.Net.Sockets.SocketException:
+                case DatabaseProviderFailureException { Kind: DatabaseProviderFailureKind.Unreachable }:
                     return "Asura couldn’t reach the server. Check the host and port and that the server is running, then test again.";
                 case System.Security.Authentication.AuthenticationException:
+                case DatabaseProviderFailureException { Kind: DatabaseProviderFailureKind.SecureConnection }:
                     return "Asura couldn’t set up a secure connection. Check the server’s TLS settings, then test again.";
             }
         }
@@ -562,6 +569,7 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         }
 
         return exception is System.Data.Common.DbException
+            or DatabaseProviderFailureException { Kind: DatabaseProviderFailureKind.Server }
             ? "The server refused the connection. Check the username, password, and database, then test again."
             : "Asura couldn’t connect to the database. Check the connection’s settings, then test again.";
     }
@@ -624,6 +632,15 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
                 return _client.ParseConnectionDetails(
                     SelectedDriver.Id,
                     ConnectionStringInput.Trim());
+            }
+            catch (UnsupportedConnectionParameterException exception)
+            {
+                // The format is fine; the driver can't use a parameter the URL
+                // names, so the field says which one to remove.
+                SecretSafeDiagnostics.WriteTrace("database.connection-editor.parse.unsupported", exception);
+                throw InvalidField.Exception(
+                    nameof(ConnectionStringInput),
+                    DatabaseErrorText.DescribeUnsupportedParameters(exception));
             }
             catch (Exception exception) when (exception is ArgumentException or FormatException)
             {
