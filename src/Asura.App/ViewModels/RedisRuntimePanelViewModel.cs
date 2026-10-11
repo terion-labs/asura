@@ -1395,7 +1395,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
                 await _session!.AddTimeSeriesSampleAsync(key, sample, token).ConfigureAwait(true);
                 break;
             default:
-                throw RedisErrorText.Curated(new ArgumentException($"Unsupported Redis key type: {NewKeyType}"));
+                throw RedisErrorText.Curated(new ArgumentException("Asura can’t create a key of that type. Choose another type."));
         }
 
         if (ParseExpiry(NewKeyExpirySeconds) is { } expiry)
@@ -1590,7 +1590,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
                 break;
             default:
                 throw RedisErrorText.Curated(new NotSupportedException(
-                    $"A {SelectedKeyType} entry can't be changed in place. Delete it and add it again."));
+                    "This entry can’t be changed in place. Delete it and add it again."));
         }
 
         await ReadSelectedKeyCoreAsync(key, token).ConfigureAwait(true);

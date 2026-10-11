@@ -106,6 +106,21 @@ public sealed class GitWorkflowTests
     }
 
     [Fact]
+    public async Task PartialPatchRefusalReadsAsWrittenWithoutAParameterSuffix()
+    {
+        await using var repo = await Repository.CreateAsync();
+        await repo.WriteAsync("file.txt", "first change\n");
+        var request = new GitDiffRequest(GitDiffArea.Worktree, "file.txt");
+        var diff = Success(await repo.Client.ReadDiffAsync(repo.Handle, request, CancellationToken.None));
+
+        var failure = Assert.IsType<GitResult<GitUnit>.Failure>(await repo.Client.ApplyPartialPatchAsync(repo.Handle,
+            new(request, diff.RawPatch, [], GitPatchAction.Stage), CancellationToken.None));
+
+        Assert.Equal(GitErrorCode.Unsupported, failure.Error.Code);
+        Assert.Equal("Choose changed lines from a text diff.", failure.Error.Message);
+    }
+
+    [Fact]
     public async Task InteractiveRebaseReordersFixesUpAndRewordsCommits()
     {
         await using var repo = await Repository.CreateAsync();

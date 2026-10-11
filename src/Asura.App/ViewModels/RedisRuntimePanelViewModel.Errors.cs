@@ -100,6 +100,22 @@ internal static partial class RedisErrorText
         return null;
     }
 
+    private static string? ServerReply(Exception exception)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            var message = current.Message;
+            if (current.GetType().Name.Contains("RedisServerException", StringComparison.Ordinal)
+                || message.StartsWith("NOPERM", StringComparison.Ordinal)
+                || message.Contains("no permissions", StringComparison.OrdinalIgnoreCase))
+            {
+                return message;
+            }
+        }
+
+        return null;
+    }
+
     [GeneratedRegex(@"^This Redis server exposes logical databases 0 through (?<last>\d+)\.", RegexOptions.CultureInvariant, 1000)]
     private static partial Regex DatabaseRange();
 
@@ -150,12 +166,14 @@ internal static partial class RedisErrorText
 
     /// <summary>
     /// The server's reason after the curated sentence, on one line and
-    /// bounded: the reply is the server's own words, not the client's.
+    /// bounded: the reply is the server's own words, not the client's. The
+    /// reply is taken from the exception that carries it, so a wrapper's text
+    /// ("Redis command failed.") is never quoted as what Redis said.
     /// </summary>
     private static string WithServerReason(string curated, Exception exception)
     {
-        var reason = exception.Message.Split('\n', 2)[0].Trim();
-        if (reason.Length == 0) { return curated; }
+        var reason = ServerReply(exception)?.Split('\n', 2)[0].Trim();
+        if (string.IsNullOrEmpty(reason)) { return curated; }
         if (reason.Length > 200) { reason = string.Concat(reason.AsSpan(0, 199), "…"); }
         return $"{curated} Redis said: {reason}";
     }

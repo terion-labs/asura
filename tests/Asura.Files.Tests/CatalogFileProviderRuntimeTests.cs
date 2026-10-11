@@ -34,6 +34,31 @@ public sealed class CatalogFileProviderRuntimeTests
     }
 
     [Fact]
+    public async Task TestOfSettingsAValueTypeRefusesSaysWhatToCheckNotTheArgumentText()
+    {
+        var catalog = CreateCatalog();
+        var initialized = await catalog.InitializeAsync(CancellationToken.None);
+        Assert.True(initialized.IsSuccess, initialized.Error?.Message);
+        using var runtime = new CatalogFileProviderRuntime(
+            catalog,
+            (_, _, _) => throw new ArgumentException("The value cannot be an empty string.", "host"));
+        var profile = new FileProviderProfile(
+            new RuntimeProfileId("files.test-invalid"),
+            FileProviderProfile.CurrentSchemaVersion,
+            "Invalid",
+            new FileProviderConfiguration.Local(Path.GetTempPath()));
+
+        var result = await runtime.TestAsync(profile, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("file_provider_configuration_invalid", result.Code);
+        Assert.Equal(
+            "Some of this file location's settings aren't complete or aren't valid. Check them, then try again.",
+            result.Message);
+        Assert.DoesNotContain("Parameter", result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CatalogChangesAtomicallyRefreshProfilesAndPreserveBuiltInHome()
     {
         var root = Directory.CreateTempSubdirectory("asura-runtime-profile-");

@@ -85,7 +85,9 @@ public sealed partial class FilePanelClient : IFilePanelClient, IFileTransferQue
         }
         catch (ArgumentException exception)
         {
-            return Invalid<FilePanelPage>(exception.Message);
+            SecretSafeDiagnosticProjection.WriteTrace("files.page-token.invalid", exception);
+            return Invalid<FilePanelPage>(
+                "Asura lost its place in the folder's list of items. Refresh, then try again.");
         }
 
         var result = await registration.Provider.ListAsync(
@@ -365,11 +367,14 @@ public sealed partial class FilePanelClient : IFilePanelClient, IFileTransferQue
         }
         catch (ArgumentException exception)
         {
+            // The location types' own checks are worded for developers
+            // ("Object and container locations require an authority.").
+            SecretSafeDiagnosticProjection.WriteTrace("files.location.invalid", exception);
             location = null;
             error = new FilePanelError(
                 FilePanelErrorCode.InvalidLocation,
                 "file_location_invalid",
-                exception.Message,
+                "Asura can't open that location on this connection.",
                 false);
             return false;
         }
@@ -531,10 +536,11 @@ public sealed partial class FilePanelClient : IFilePanelClient, IFileTransferQue
         }
         catch (ArgumentException exception)
         {
+            SecretSafeDiagnosticProjection.WriteTrace("files.precondition.invalid", exception);
             error = new FilePanelError(
                 FilePanelErrorCode.InvalidLocation,
                 "file_precondition_invalid",
-                exception.Message,
+                "Asura couldn't tell which version of the item to change.",
                 false);
             return null;
         }

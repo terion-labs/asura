@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -875,7 +876,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     {
         if (!CanAttachFiles || _runtime is not IAgentAttachmentRuntime { SupportsFileAttachments: true } attachments)
         {
-            throw new InvalidOperationException("File attachments are unavailable in this workspace.");
+            throw FailureReason.Readable(new InvalidOperationException("File attachments are unavailable in this workspace."));
         }
         return attachments.ImportAttachmentAsync(name, bytes, token);
     }
@@ -885,7 +886,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         var batch = AgentFileAttachment.CopyBatch(PendingFiles.Concat(files));
         if (batch.Length + PendingImages.Count > AgentFileAttachment.MaximumPerMessage)
         {
-            throw new InvalidOperationException("At most eight attachments can be added to one prompt.");
+            throw FailureReason.Readable(new InvalidOperationException("At most eight attachments can be added to one prompt."));
         }
         PendingFiles.Clear();
         foreach (var file in batch)
@@ -1254,21 +1255,19 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         ArgumentNullException.ThrowIfNull(images);
         if (PendingImages.Count + images.Count > AgentImageAttachment.MaximumPerMessage)
         {
-            throw new InvalidOperationException(
-                "At most four images can be attached to one prompt.");
+            throw FailureReason.Readable(new InvalidOperationException("At most four images can be attached to one prompt."));
         }
 
         if (PendingFiles.Count + PendingImages.Count + images.Count > AgentFileAttachment.MaximumPerMessage)
         {
-            throw new InvalidOperationException("At most eight attachments can be added to one prompt.");
+            throw FailureReason.Readable(new InvalidOperationException("At most eight attachments can be added to one prompt."));
         }
 
         var totalBytes = PendingImages.Sum(item => (long)item.Content.Length)
             + images.Sum(image => (long)image.Content.Length);
         if (totalBytes > AgentImageAttachment.MaximumTotalBytesPerMessage)
         {
-            throw new InvalidOperationException(
-                "The images attached to one prompt exceed the 8 MiB limit.");
+            throw FailureReason.Readable(new InvalidOperationException("The images attached to one prompt exceed the 8 MiB limit."));
         }
 
         foreach (var image in images)

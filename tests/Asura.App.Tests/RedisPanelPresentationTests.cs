@@ -81,6 +81,17 @@ public sealed class RedisPanelPresentationTests
     }
 
     [Fact]
+    public void A_wrapped_server_refusal_quotes_the_server_not_the_wrapper()
+    {
+        var message = RedisErrorText.ForCommand(new InvalidOperationException(
+            "The Redis panel session failed while running the command.",
+            new InvalidOperationException("NOPERM this user has no permissions to run the 'flushdb' command")));
+
+        Assert.DoesNotContain("panel session", message, StringComparison.Ordinal);
+        Assert.EndsWith("Redis said: NOPERM this user has no permissions to run the 'flushdb' command", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void An_unexpected_failure_has_a_next_step()
     {
         var message = RedisErrorText.ForCommand(new FormatException("Input string was not in a correct format."));

@@ -293,7 +293,7 @@ public sealed class CatalogFileProviderRuntime :
         }
         catch (ArgumentException exception)
         {
-            return InvalidTest(exception.Message);
+            return InvalidTest(SafeConfigurationMessage(exception));
         }
         catch (IOException)
         {
@@ -838,14 +838,27 @@ public sealed class CatalogFileProviderRuntime :
         }
     }
 
+    /// <summary>
+    /// What a file location that can't be set up says in Settings and in a
+    /// test. Asura's own configuration refusals are written for people. An
+    /// <see cref="ArgumentException"/> comes from a value type's checks
+    /// ("The value cannot be an empty string. (Parameter 'host')"), so it goes
+    /// to diagnostics and a sentence that says what to check is shown.
+    /// </summary>
     private static string SafeConfigurationMessage(Exception exception) => exception switch
     {
         FileProviderAdapterConfigurationException => exception.Message,
-        ArgumentException => exception.Message,
+        ArgumentException => InvalidSettingsMessage(exception),
         DirectoryNotFoundException => "The location's root folder doesn't exist. Choose another folder in Settings.",
         UnauthorizedAccessException => "Asura doesn't have permission to open the location's root folder. Check its permissions, or choose another folder.",
         _ => "Asura couldn't open this file location. Check its settings, then try again.",
     };
+
+    private static string InvalidSettingsMessage(Exception exception)
+    {
+        SecretSafeDiagnosticProjection.WriteTrace("files.provider.configuration.invalid", exception);
+        return "Some of this file location's settings aren't complete or aren't valid. Check them, then try again.";
+    }
 
     private static FileProviderTestResult InvalidTest(string message) => new(
         false,

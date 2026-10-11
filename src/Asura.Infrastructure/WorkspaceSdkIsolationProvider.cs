@@ -244,8 +244,9 @@ public sealed partial class WorkspaceSdkIsolationProvider : IWorkspaceConnection
                 return WorkspaceIsolationResult<WorkspaceIsolationBinding>.Fail(WorkspaceIsolationErrorCode.Cancelled);
             }
 
+            // The file system's or the runtime's own text stays in diagnostics.
             SecretSafeDiagnosticProjection.WriteTrace("workspace.sdk.prepare.failed", exception);
-            return Failure(exception.Message);
+            return Failure("Asura couldn't start the workspace's private environment. Try again; if it keeps failing, restart Asura.");
         }
         finally
         {

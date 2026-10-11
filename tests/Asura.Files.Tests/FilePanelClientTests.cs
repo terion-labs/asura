@@ -444,6 +444,42 @@ public sealed class FilePanelClientTests
         Assert.Equal("file_provider_profile_unknown", result.Error.StableCode);
     }
 
+    [Fact]
+    public async Task UnreadableContinuationTokenSaysWhatToDoInsteadOfTheTokenCheck()
+    {
+        using var root = TemporaryDirectory.Create();
+        var (client, _) = CreateClient(root.Path);
+        var profile = Assert.Single(client.Profiles);
+
+        var result = await client.ListAsync(
+            new FilePanelListRequest(profile.Root, 10, new string('x', 300), ShowHidden: false),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("file_request_invalid", result.Error!.StableCode);
+        Assert.Equal("Asura lost its place in the folder's list of items. Refresh, then try again.", result.Error.Message);
+        Assert.DoesNotContain("token", result.Error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task LocationTheConnectionCantAddressKeepsItsCodeAndReadsAsASentence()
+    {
+        using var root = TemporaryDirectory.Create();
+        var (client, provider) = CreateClient(root.Path);
+        var location = new FilePanelLocation(
+            provider.ProfileId.Value,
+            null,
+            new FilePanelAddress.ContainerRoot());
+
+        var result = await client.StatAsync(location, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(FilePanelErrorCode.InvalidLocation, result.Error!.Code);
+        Assert.Equal("file_location_invalid", result.Error.StableCode);
+        Assert.Equal("Asura can't open that location on this connection.", result.Error.Message);
+        Assert.DoesNotContain("authority", result.Error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static (FilePanelClient Client, LocalFileProvider Provider) CreateClient(string rootPath)
     {
         var options = new LocalFileProviderOptions(

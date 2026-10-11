@@ -353,7 +353,7 @@ public sealed partial class GitRepositoryClient(
         }
         catch (FormatException exception)
         {
-            return Failure<GitRepositorySnapshot>(GitErrorCode.InvalidResponse, exception.Message);
+            return Unreadable<GitRepositorySnapshot>(exception);
         }
     }
 
@@ -386,7 +386,7 @@ public sealed partial class GitRepositoryClient(
         }
         catch (FormatException exception)
         {
-            return Failure<GitWorkingSet>(GitErrorCode.InvalidResponse, exception.Message);
+            return Unreadable<GitWorkingSet>(exception);
         }
     }
 
@@ -431,7 +431,7 @@ public sealed partial class GitRepositoryClient(
         }
         catch (FormatException exception)
         {
-            return Failure<GitCommitPage>(GitErrorCode.InvalidResponse, exception.Message);
+            return Unreadable<GitCommitPage>(exception);
         }
     }
 
@@ -461,7 +461,7 @@ public sealed partial class GitRepositoryClient(
         }
         catch (FormatException exception)
         {
-            return Failure<GitCommitDetail>(GitErrorCode.InvalidResponse, exception.Message);
+            return Unreadable<GitCommitDetail>(exception);
         }
 
         // Diffing against the first parent covers merges as well; only a root
@@ -486,7 +486,7 @@ public sealed partial class GitRepositoryClient(
         }
         catch (FormatException exception)
         {
-            return Failure<GitCommitDetail>(GitErrorCode.InvalidResponse, exception.Message);
+            return Unreadable<GitCommitDetail>(exception);
         }
     }
 
@@ -525,7 +525,7 @@ public sealed partial class GitRepositoryClient(
         }
         catch (FormatException exception)
         {
-            return Failure<GitDiffDocument>(GitErrorCode.InvalidResponse, exception.Message);
+            return Unreadable<GitDiffDocument>(exception);
         }
     }
 
@@ -560,7 +560,7 @@ public sealed partial class GitRepositoryClient(
         }
         catch (FormatException exception)
         {
-            return Failure<GitTreeListing>(GitErrorCode.InvalidResponse, exception.Message);
+            return Unreadable<GitTreeListing>(exception);
         }
     }
 
@@ -1247,6 +1247,19 @@ public sealed partial class GitRepositoryClient(
         string message,
         bool retryable = false) =>
         new(new GitError(code, message, retryable));
+
+    /// <summary>
+    /// Git answered with output the parser couldn't read. The parser's reason
+    /// ("Malformed hunk header.") is for diagnostics; the panel says what
+    /// happened and what to do next.
+    /// </summary>
+    private static GitResult<T>.Failure Unreadable<T>(FormatException exception)
+    {
+        SecretSafeDiagnosticProjection.WriteTrace("git.output.unreadable", exception);
+        return Failure<T>(
+            GitErrorCode.InvalidResponse,
+            "Git answered with output Asura couldn't read. Refresh, then try again.");
+    }
 
     private static bool Supports(ConnectionProfile connection) =>
         connection.Endpoint is ConnectionEndpoint.Local or ConnectionEndpoint.Ssh;
