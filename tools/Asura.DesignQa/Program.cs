@@ -479,7 +479,7 @@ internal sealed class QaApplication : Avalonia.Application
         }, PrepareCapture: window =>
         {
             var approval = window.GetVisualDescendants().OfType<AgentApprovalCardView>().Single();
-            approval.GetVisualDescendants().OfType<Expander>().Single().IsExpanded = true;
+            ApprovalDetails(approval).IsExpanded = true;
         }),
         new("workspace-agent-approval-light", vm =>
         {
@@ -496,7 +496,7 @@ internal sealed class QaApplication : Avalonia.Application
             PlatformProfile.Automatic, AccentPreference.FollowHost), PrepareCapture: window =>
         {
             var approval = window.GetVisualDescendants().OfType<AgentApprovalCardView>().Single();
-            approval.GetVisualDescendants().OfType<Expander>().Single().IsExpanded = false;
+            ApprovalDetails(approval).IsExpanded = false;
         }),
         new("workspace-agent-capability", vm =>
         {
@@ -1259,6 +1259,16 @@ internal sealed class QaApplication : Avalonia.Application
             item.IsInFront = item.Id == QaRuntimeWorkspaceDefinition.Id;
         }
     }
+
+    /// <summary>
+    /// The approval card's Details disclosure. Technical Details is a second
+    /// disclosure inside it, so the card holds more than one once Details has
+    /// been opened.
+    /// </summary>
+    private static Expander ApprovalDetails(AgentApprovalCardView approval) =>
+        approval.GetVisualDescendants()
+            .OfType<Expander>()
+            .Single(expander => Equals(expander.Header, "Details"));
 
     /// <summary>
     /// Opens the close action on the first rail tile that offers one.
