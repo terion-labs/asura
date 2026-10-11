@@ -82,7 +82,11 @@ public sealed partial class GitRuntimePanelView
     }
 
     // The view model's current commit inside the list's selection leaves the
-    // selection alone; outside it, the commit becomes the selection.
+    // selection alone; outside it, the commit becomes the selection. A view
+    // model that already holds its history reaches the view before the list
+    // has its rows: rows added to SelectedItems then are dropped when the rows
+    // arrive, while SelectedItem is kept, so until then the commit is always
+    // handed over as the SelectedItem.
     private void PresentHistoryCurrent()
     {
         if (_isSyncingHistorySelection || ViewModel is not { } viewModel)
@@ -91,7 +95,9 @@ public sealed partial class GitRuntimePanelView
         }
 
         var current = viewModel.SelectedCommit;
-        if (current is null ? CommitHistory.SelectedItems?.Count > 0 : CommitHistory.SelectedItems?.Contains(current) != true)
+        var selection = CommitHistory.SelectedItems;
+        var hasRows = CommitHistory.Selection.Source is not null;
+        if (!hasRows || (current is null ? selection?.Count > 0 : selection?.Contains(current) != true))
         {
             CommitHistory.SelectedItem = current;
         }

@@ -101,6 +101,22 @@ public sealed class GitCommitMenuHeadlessTests
         return Task.CompletedTask;
     });
 
+    /// <summary>
+    /// A panel that loaded its history before its view existed hands the view
+    /// a current commit while the list has no rows yet; the row being read
+    /// must still show as selected once the rows arrive.
+    /// </summary>
+    [Fact]
+    public Task HistoryLoadedBeforeTheViewShowsTheCurrentCommitSelected() => RunAsync((view, panel, window) =>
+    {
+        var history = view.FindControl<ListBox>("CommitHistory")!;
+        var current = Assert.IsType<GitCommitItemViewModel>(panel.SelectedCommit);
+        Assert.Same(current, history.SelectedItem);
+        Assert.True(Assert.IsType<ListBoxItem>(history.ContainerFromItem(current)).IsSelected);
+        Assert.Equal([current], panel.SelectedCommits);
+        return Task.CompletedTask;
+    });
+
     [Fact]
     public Task RightClickingBelowTheRowsDoesNotReuseTheSelectedCommit() => RunAsync((view, panel, window) =>
     {
