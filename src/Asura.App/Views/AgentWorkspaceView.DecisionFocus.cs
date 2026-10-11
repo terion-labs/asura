@@ -101,13 +101,6 @@ public partial class AgentWorkspaceView
         return ReferenceEquals(visual, this) || this.IsVisualAncestorOf(visual);
     }
 
-    /// <summary>
-    /// The request the run is waiting on, in the order the panel shows them.
-    /// Identity is the request's own id, so the same request republished by a
-    /// later refresh is not treated as new.
-    /// </summary>
     private static object? PendingAgentDecision(AgentChatViewModel? agentChat) =>
-        (object?)agentChat?.PendingApproval?.Id
-        ?? (object?)agentChat?.PendingQuestion?.Id
-        ?? agentChat?.PendingCapabilityRequest?.Id;
+        agentChat?.PendingDecisionId;
 }

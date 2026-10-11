@@ -40,6 +40,11 @@
     <Style Selector="TextBlock#AgentSendRawSecretsHelp:disabled">
       <Setter Property="Opacity" Value="0.48" />
     </Style>
+    <!-- A conversation that can't be opened reads as disabled, but its row
+         stays enabled so its context menu and Delete still reach it. -->
+    <Style Selector="Button.ConversationRow.unavailable StackPanel.ConversationRowText">
+      <Setter Property="Opacity" Value="0.48" />
+    </Style>
     <Style Selector="Border#AgentComposer.dropTarget">
       <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
       <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
@@ -310,26 +315,28 @@
                           <!-- A saved conversation is deleted the macOS list way: from
                                its context menu, or with Delete on the focused row. A red
                                trash on every row made the destructive action the loudest
-                               thing in the list. -->
+                               thing in the list. A damaged or unavailable row can't be
+                               opened, but stays enabled and dimmed so it can still be
+                               deleted. -->
                           <Button
                               MinHeight="48"
                               Padding="{controls:Inset Horizontal=Sm, Vertical=Xs}"
                               HorizontalAlignment="Stretch"
                               HorizontalContentAlignment="Stretch"
-                              Classes="FlyoutMenuItem"
+                              Classes="FlyoutMenuItem ConversationRow"
                               Classes.current="{Binding IsCurrent}"
+                              Classes.unavailable="{Binding !IsAvailable}"
                               Click="OnOpenConversationClick"
                               KeyDown="OnConversationRowKeyDown"
                               Tag="{Binding RunId}"
-                              IsEnabled="{Binding IsAvailable}"
-                              AutomationProperties.Name="{Binding Title, StringFormat={}Open conversation {0}}"
+                              AutomationProperties.Name="{Binding AccessibleName}"
                               AutomationProperties.HelpText="Press Delete to delete this conversation.">
                             <Button.ContextMenu>
                               <ContextMenu>
                                 <MenuItem Header="Delete Conversation…" Click="OnDeleteConversationClick" Tag="{Binding RunId}" />
                               </ContextMenu>
                             </Button.ContextMenu>
-                            <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+                            <StackPanel Classes="ConversationRowText" Spacing="{DynamicResource ShellSpaceXs}">
                               <TextBlock FontWeight="SemiBold" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
                               <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Details}" TextTrimming="CharacterEllipsis" />
                             </StackPanel>

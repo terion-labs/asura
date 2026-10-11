@@ -303,6 +303,10 @@ public sealed partial class RepositoryConventionTests
         Assert.Equal(ProductIdentity.BundleIdentifier, root.GetProperty("bundleIdentifier").GetString());
         Assert.Equal("approved", root.GetProperty("approval").GetProperty("status").GetString());
         Assert.Equal("MIT", root.GetProperty("artwork").GetProperty("license").GetString());
+        Assert.Equal(
+            ProductIdentity.Copyright,
+            root.GetProperty("artwork").GetProperty("copyright").GetString()?
+                .Replace("(c)", "©", StringComparison.Ordinal));
         Assert.Contains(
             "transform=\"translate(143.5 185) scale(1.416)\"",
             File.ReadAllText(Path.Combine(

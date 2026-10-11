@@ -12,4 +12,10 @@ public static class ProductIdentity
     public const string ExecutableName = "Asura";
 
     public const string BundleIdentifier = "sh.asura";
+
+    /// <summary>
+    /// The copyright line the About window shows: the reviewed manifest's
+    /// line, with "(c)" written as the © sign.
+    /// </summary>
+    public const string Copyright = "Copyright © 2026 Terion Labs";
 }

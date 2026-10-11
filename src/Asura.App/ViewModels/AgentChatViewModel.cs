@@ -273,6 +273,14 @@ public sealed record AgentConversationItemViewModel(
             $"Temporarily unavailable · {UpdatedAt}",
         _ => $"Unavailable · {UpdatedAt}",
     };
+
+    /// <summary>
+    /// What the row does when pressed. A row that can't be opened is named
+    /// with its state; it is in the list only to be deleted.
+    /// </summary>
+    public string AccessibleName => IsAvailable
+        ? $"Open conversation {Title}"
+        : $"{Title}, {Details}";
 }
 
 public sealed record AgentHistoryRetentionOption(
@@ -1793,6 +1801,16 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     public bool HasPendingCapabilityRequest =>
         PendingCapabilityRequest is not null;
+
+    /// <summary>
+    /// The request the run is waiting on, in the order the panel shows them.
+    /// Identity is the request's own id, so the same request republished by a
+    /// later refresh is not treated as new.
+    /// </summary>
+    public object? PendingDecisionId =>
+        (object?)PendingApproval?.Id
+        ?? (object?)PendingQuestion?.Id
+        ?? PendingCapabilityRequest?.Id;
 
     public bool CanDecideCapabilityRequest =>
         PendingCapabilityRequest is not null
@@ -3343,6 +3361,12 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             && request.Id != previousCapabilityRequestId)
         {
             AnnounceDecision($"Permission requested: {request.DisplayTitle}");
+        }
+        else if (_compactInFlight)
+        {
+            // Compacting streams from the provider too, but it is not a run:
+            // its start and finish are not announced as one. The compaction
+            // status says how it went.
         }
         else if (State != previousState
             && IsActiveRunState(previousState)

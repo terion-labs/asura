@@ -6,8 +6,104 @@ using FluentIcons.Common;
 
 namespace Asura.App.Tests;
 
+// These tests change the keymap the toolbar tooltips (ShortcutTips.Current)
+// read, which every window on a thread shares, so they run on their own
+// rather than beside tests that read the built-in tips.
+[Collection(AvaloniaUiCollection.Name)]
 public sealed class MainWindowKeybindingEditorTests
 {
+    [Fact]
+    public void Toolbar_tooltips_name_the_saved_keymap_from_the_first_window()
+    {
+        var hostDefault = BuiltInKeymaps.ApplicationFor(HostPlatform.Current);
+        var rebound = new KeyStroke("T", KeyModifiers.Control | KeyModifiers.Shift);
+        var custom = new KeymapProfile(
+            new KeymapProfileId("user.keymap.tooltips"),
+            "Tooltips",
+            KeymapLayer.Application,
+            [
+                .. hostDefault.Bindings.Where(binding => binding.CommandId != BuiltInCommands.NewTab),
+                new CommandBinding(
+                    BuiltInCommands.NewTab,
+                    KeySequence.Of(rebound),
+                    hostDefault.Bindings.First(binding => binding.CommandId == BuiltInCommands.NewTab).Contexts),
+            ],
+            hostDefault.Prefix,
+            hostDefault.Id);
+        var catalog = new RecordingDefinitionCatalog(KeymapSnapshot() with
+        {
+            Keymaps = [.. KeymapSnapshot().Keymaps, Store(custom, 1)],
+        });
+
+        using (var viewModel = CreateViewModel(catalog))
+        {
+            Assert.Equal(custom.Id, viewModel.ActiveApplicationKeymap.Id);
+            if (HostPlatform.Current == HostOperatingSystem.MacOS)
+            {
+                Assert.Equal(
+                    $"New tab ({ShortcutText.Format(rebound, HostOperatingSystem.MacOS)})",
+                    ShortcutTips.Current.NewTab);
+                Assert.Equal("Close tab (⌘W)", ShortcutTips.Current.CloseTab);
+            }
+            else
+            {
+                Assert.Equal("New tab", ShortcutTips.Current.NewTab);
+            }
+        }
+
+        // A window on the built-in keymap puts the built-in keys back.
+        using var restored = CreateViewModel(new RecordingDefinitionCatalog(KeymapSnapshot()));
+        Assert.Equal(hostDefault.Id, restored.ActiveApplicationKeymap.Id);
+        Assert.Equal(
+            HostPlatform.Current == HostOperatingSystem.MacOS ? "New tab (⌥⌘T)" : "New tab",
+            ShortcutTips.Current.NewTab);
+    }
+
+    [Fact]
+    public void Palette_rows_show_the_key_the_menu_shows_for_commands_the_keymap_leaves_alone()
+    {
+        if (HostPlatform.Current != HostOperatingSystem.MacOS)
+        {
+            return;
+        }
+
+        using var viewModel = CreateViewModel(new RecordingDefinitionCatalog(KeymapSnapshot()));
+        var application = viewModel.ActiveApplicationKeymap;
+        string Shortcut(CommandId command) => Assert.Single(
+                viewModel.LauncherSearchResults,
+                item => item.Target is LauncherSearchTarget.Command { Arguments.Count: 0 } target
+                    && target.Id == command)
+            .TrailingText;
+
+        // Not in the application keymap: the menu, and so the palette, shows
+        // Apple's standard key.
+        Assert.DoesNotContain(
+            application.Bindings,
+            binding => binding.CommandId == BuiltInCommands.EditUseSelectionForFind);
+        Assert.Equal("⌘E", Shortcut(BuiltInCommands.EditUseSelectionForFind));
+
+        // A command only the terminal keymap binds shows the terminal's key,
+        // ahead of any standard key.
+        var terminalOnly = BuiltInKeymaps.TerminalFor(HostOperatingSystem.MacOS).Bindings
+            .Where(binding => binding.Sequence.Count == 1 && binding.Arguments.Count == 0)
+            .Where(binding => application.Bindings.All(other => other.CommandId != binding.CommandId))
+            .Where(binding => BuiltInCommands.Registry.Commands.Any(command => command.Id == binding.CommandId))
+            .First();
+        Assert.Equal(
+            KeySequenceDisplay.Format(terminalOnly.Sequence[0]),
+            Shortcut(terminalOnly.CommandId));
+
+        // A command the application keymap binds shows that key, even where
+        // Apple's standard key differs.
+        var applicationBound = application.Bindings
+            .Where(binding => binding.Sequence.Count == 1 && binding.Arguments.Count == 0)
+            .First(binding => MacOsMenuShortcuts.For(binding.CommandId, binding.Arguments) is { } standard
+                && standard != binding.Sequence[0]);
+        Assert.Equal(
+            KeySequenceDisplay.Format(applicationBound.Sequence[0]),
+            Shortcut(applicationBound.CommandId));
+    }
+
     [Fact]
     public void Opening_keybinding_settings_selects_the_host_default_preset_and_clone_is_editable()
     {

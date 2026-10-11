@@ -439,6 +439,49 @@ public sealed partial class AgentChatViewModelTests
     }
 
     [Fact]
+    public async Task Compacting_is_not_announced_as_an_agent_run()
+    {
+        var provider = Provider("provider", "Provider", order: 0);
+        using var runtime = new StubGovernedRuntime
+        {
+            Snapshot = Snapshot(providerId: provider.Id, target: Target()) with
+            {
+                CanCompact = true,
+                ContextTokensUsed = 40_000,
+            },
+            PendingCompaction = new(TaskCreationOptions.RunContinuationsAsynchronously),
+        };
+        using var profiles = new StubProfileRuntime { Profiles = [provider] };
+        using var viewModel = new AgentChatViewModel(
+            runtime,
+            profiles,
+            ImmediateUiThreadDispatcher.Instance);
+        var announced = new List<string>();
+        viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(AgentChatViewModel.Announcement))
+            {
+                announced.Add(viewModel.Announcement);
+            }
+        };
+
+        var compaction = viewModel.CompactAsync(CancellationToken.None);
+        runtime.Snapshot = runtime.Snapshot with { State = GovernedAgentState.StreamingProvider };
+        runtime.RaiseChanged();
+        runtime.Snapshot = runtime.Snapshot with
+        {
+            State = GovernedAgentState.Ready,
+            CanCompact = false,
+            ContextTokensUsed = 4_000,
+        };
+        runtime.PendingCompaction.SetResult(new(true, "completed", "Context compacted."));
+        await compaction;
+
+        Assert.Empty(announced);
+        Assert.Equal("Context compacted.", viewModel.CompactionStatus);
+    }
+
+    [Fact]
     public void Send_raw_secrets_help_says_what_happens_to_the_next_message()
     {
         var provider = Provider("provider", "Provider", order: 0);

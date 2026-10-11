@@ -20,8 +20,15 @@ public sealed class ShortcutTips : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    // One set of tips per UI thread. Bindings update only on the thread that
+    // owns their controls, so a change is raised to the toolbars of the
+    // thread that made it. The app has one UI thread and so one set; each
+    // headless test session has its own.
+    [ThreadStatic]
+    private static ShortcutTips? t_current;
+
     /// <summary>The tips for the active keymaps; bound by every toolbar.</summary>
-    public static ShortcutTips Current { get; } = new();
+    public static ShortcutTips Current => t_current ??= new();
 
     public string NewTab => Tip("New tab", BuiltInCommands.NewTab);
 
@@ -38,8 +45,10 @@ public sealed class ShortcutTips : INotifyPropertyChanged
             HostPlatform.Current == HostOperatingSystem.MacOS ? KeyModifiers.Meta : KeyModifiers.Control));
 
     /// <summary>
-    /// Reads shortcuts from the keymaps now in use. The window calls this when
-    /// the application keymap changes, so the tooltips follow a rebinding.
+    /// Reads shortcuts from the keymaps now in use. A window calls this when it
+    /// opens and when the application keymap changes, so the tooltips name the
+    /// saved keymap's keys and follow a rebinding. Only tips whose text changed
+    /// are announced.
     /// </summary>
     internal void Update(MenuShortcutResolver resolver)
     {
@@ -49,12 +58,25 @@ public sealed class ShortcutTips : INotifyPropertyChanged
             return;
         }
 
+        var before = Tips();
         _resolve = command => resolver.Resolve(command, ImmutableDictionary<string, string>.Empty);
-        foreach (var name in new[] { nameof(NewTab), nameof(CloseTab), nameof(ToggleAgentPanel), nameof(AddPanel) })
+        var after = Tips();
+        for (var index = 0; index < after.Length; index++)
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+            if (!string.Equals(before[index].Text, after[index].Text, StringComparison.Ordinal))
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(after[index].Name));
+            }
         }
     }
+
+    private (string Name, string Text)[] Tips() =>
+    [
+        (nameof(NewTab), NewTab),
+        (nameof(CloseTab), CloseTab),
+        (nameof(ToggleAgentPanel), ToggleAgentPanel),
+        (nameof(AddPanel), AddPanel),
+    ];
 
     private string Tip(string label, CommandId command) =>
         KeySequenceDisplay.WithShortcut(label, _resolve(command));

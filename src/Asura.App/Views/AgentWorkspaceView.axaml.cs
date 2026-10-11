@@ -571,8 +571,16 @@ public sealed partial class AgentWorkspaceView : UserControl
     private void OnStartNewConversationClick(object? sender, RoutedEventArgs e) =>
         StartNewAgentConversationRequested?.Invoke(sender, e);
 
-    private void OnOpenConversationClick(object? sender, RoutedEventArgs e) =>
+    private void OnOpenConversationClick(object? sender, RoutedEventArgs e)
+    {
+        // A damaged or unavailable row is enabled only so it can be deleted.
+        if (sender is Control { DataContext: AgentConversationItemViewModel { IsAvailable: false } })
+        {
+            return;
+        }
+
         OpenAgentConversationRequested?.Invoke(sender, e);
+    }
 
     private void OnDeleteConversationClick(object? sender, RoutedEventArgs e) =>
         DeleteAgentConversationRequested?.Invoke(sender, e);
@@ -582,7 +590,7 @@ public sealed partial class AgentWorkspaceView : UserControl
     {
         if (e.Key is Key.Delete or Key.Back
             && (e.KeyModifiers == KeyModifiers.None || e.KeyModifiers == KeyModifiers.Meta)
-            && sender is Button { IsEnabled: true })
+            && sender is Button)
         {
             e.Handled = true;
             DeleteAgentConversationRequested?.Invoke(sender, e);

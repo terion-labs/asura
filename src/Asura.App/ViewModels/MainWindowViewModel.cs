@@ -224,6 +224,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         DefinitionEdit.PropertyChanged += OnDefinitionEditPropertyChanged;
         DefinitionSettings = new DefinitionSettingsViewModel(_catalog);
         DefinitionSettings.PropertyChanged += OnDefinitionSettingsPropertyChanged;
+        // The saved keymap is applied before this window listens for changes,
+        // so the toolbar tooltips read it once here.
+        UpdateShortcutTips();
         TerminalSettings = new TerminalSettingsViewModel(_catalog);
         TerminalSettings.PropertyChanged += OnTerminalSettingsPropertyChanged;
         FollowAutoAppliedEditors();
@@ -872,7 +875,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         typeof(MainWindowViewModel).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
 
-    public string Copyright => "Copyright © 2026 Terion Labs";
+    public string Copyright => ProductIdentity.Copyright;
 
     /// <summary>
     /// The marketing version, then the build in parentheses: the source
@@ -1282,9 +1285,20 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             // Toolbar tooltips name the keys the menu shows, so they follow
             // a rebinding.
-            ShortcutTips.Current.Update(CreateMenuShortcutResolver());
+            UpdateShortcutTips();
         }
     }
+
+    /// <summary>
+    /// Points the toolbar tooltips at the active application keymap. They
+    /// name window commands (New Tab, Close Tab, the agent and Add Panel
+    /// buttons), which a terminal keymap never binds, so the menu finds their
+    /// keys in the application keymap or Apple's standard set whatever panel
+    /// is in front, and the tips need no refresh when the active panel changes.
+    /// </summary>
+    private void UpdateShortcutTips() =>
+        ShortcutTips.Current.Update(
+            new MenuShortcutResolver(ActiveApplicationKeymap.Bindings, []));
 
     private void OnTerminalSettingsPropertyChanged(
         object? sender,
@@ -1605,7 +1619,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                         _agentModelFavoriteStore),
                     () => NotifyAgentRunFinished(id),
                     NotifyAgentRunningStateChanged,
-                    () => OnAgentDecisionChanged(id),
+                    isNewDecision => OnAgentDecisionChanged(id, isNewDecision),
                     activity => ApplyWorkspaceAgentActivity(id, activity));
                 _workspaceAgentChats.Add(id, owned);
             }
@@ -1735,11 +1749,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     /// <summary>
     /// A decision appeared or was answered in a workspace's agent. In the
-    /// workspace in front, a waiting decision brings the agent panel out, so
-    /// the run is never blocked on a card nobody can see. Whether the card
-    /// takes keyboard focus is the panel's call (AgentWorkspaceView.DecisionFocus).
+    /// workspace in front, a new waiting decision brings the agent panel out,
+    /// so the run is never blocked on a card nobody can see. The same request
+    /// republished by a later refresh does not, so a panel hidden while it
+    /// waits stays hidden. Whether the card takes keyboard focus is the
+    /// panel's call (AgentWorkspaceView.DecisionFocus).
     /// </summary>
-    private void OnAgentDecisionChanged(WorkspaceInstanceId workspaceId)
+    private void OnAgentDecisionChanged(
+        WorkspaceInstanceId workspaceId,
+        bool isNewDecision)
     {
         if (RuntimeWorkspace?.Id != workspaceId)
         {
@@ -1748,7 +1766,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         OnPropertyChanged(nameof(IsAgentAwaitingDecision));
         OnPropertyChanged(nameof(AgentToggleStatus));
-        if (IsAgentAwaitingDecision)
+        if (isNewDecision && IsAgentAwaitingDecision)
         {
             IsAgentPanelVisible = true;
         }
@@ -8074,9 +8092,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         && (chat.HasPendingApproval || chat.HasPendingQuestion || chat.HasPendingCapabilityRequest);
 
     /// <summary>The agent toggle's state, as assistive technology reads it.</summary>
-    public string AgentToggleStatus => IsAgentAwaitingDecision
-        ? "Waiting for approval"
-        : HasRunningAgent ? "Running" : string.Empty;
+    public string AgentToggleStatus => AgentChat switch
+    {
+        { HasPendingApproval: true } or { HasPendingCapabilityRequest: true } => "Waiting for approval",
+        { HasPendingQuestion: true } => "Waiting for your answer",
+        _ => HasRunningAgent ? "Running" : string.Empty,
+    };
 
     /// <summary>
     /// The running instance of a saved workspace, if it is running. The rail
@@ -13169,15 +13190,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         private readonly IGovernedAgentRuntime _runtime;
         private readonly Action _runFinished;
         private readonly Action _runningStateChanged;
-        private readonly Action _decisionChanged;
+        private readonly Action<bool> _decisionChanged;
         private readonly Action<AgentToolActivityViewModel?> _activityChanged;
+        private object? _pendingDecision;
 
         public WorkspaceAgentChat(
             IGovernedAgentRuntime runtime,
             AgentChatViewModel viewModel,
             Action runFinished,
             Action runningStateChanged,
-            Action decisionChanged,
+            Action<bool> decisionChanged,
             Action<AgentToolActivityViewModel?> activityChanged)
         {
             _runtime = runtime;
@@ -13186,6 +13208,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             _runningStateChanged = runningStateChanged;
             _decisionChanged = decisionChanged;
             _activityChanged = activityChanged;
+            _pendingDecision = viewModel.PendingDecisionId;
             ViewModel.RunFinished += OnRunFinished;
             ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         }
@@ -13231,7 +13254,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 or nameof(AgentChatViewModel.HasPendingQuestion)
                 or nameof(AgentChatViewModel.HasPendingCapabilityRequest))
             {
-                _decisionChanged();
+                // Snapshots rebuild the pending records on every refresh, so
+                // a decision is new only when its id is.
+                var decision = ViewModel.PendingDecisionId;
+                var isNew = decision is not null && !Equals(decision, _pendingDecision);
+                _pendingDecision = decision;
+                _decisionChanged(isNew);
             }
         }
     }
