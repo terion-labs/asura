@@ -413,6 +413,43 @@ public sealed class DesignSystemComponentsHeadlessTests
             Assert.Equal(AutomationControlType.RadioButton, ControlAutomationPeer.CreatePeerForElement(segments[1]).GetAutomationControlType());
         });
 
+    /// <summary>
+    /// A page that holds a segmented control opens at its top: choosing a
+    /// segment does not bring the strip into view in the page's scroller.
+    /// </summary>
+    [Fact]
+    public Task A_selection_does_not_scroll_the_page_that_holds_the_strip() =>
+        RunHeadlessAsync(window =>
+        {
+            var segmented = new SegmentedControl
+            {
+                Items = { new RadioButton { Content = "Compact" }, new RadioButton { Content = "Normal" } },
+                SelectedIndex = 1,
+            };
+            var page = new ScrollViewer
+            {
+                Height = 200,
+                Content = new StackPanel { Children = { new Border { Height = 1000 }, segmented } },
+            };
+            Show(window, page);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.Equal(0, page.Offset.Y);
+        });
+
+    /// <summary>
+    /// Equal shares while the widest segment fits in one; short of that, each
+    /// segment keeps its own label and only the rest is shared.
+    /// </summary>
+    [Fact]
+    public void Segments_share_the_width_evenly_only_when_every_label_fits()
+    {
+        Assert.Equal([150d, 150d], SegmentStripPanel.SegmentWidths([100, 140], 300));
+        Assert.Equal([110d, 170d], SegmentStripPanel.SegmentWidths([100, 170], 280));
+        Assert.Equal([50d, 100d], SegmentStripPanel.SegmentWidths([100, 200], 150));
+    }
+
     [Fact]
     public Task Arrow_keys_move_the_segment_and_skip_disabled_ones() =>
         RunHeadlessAsync(window =>

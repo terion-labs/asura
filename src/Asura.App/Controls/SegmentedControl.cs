@@ -47,6 +47,10 @@ internal sealed class SegmentedControl : SelectingItemsControl
     {
         SelectionModeProperty.OverrideDefaultValue<SegmentedControl>(
             SelectionMode.Single | SelectionMode.AlwaysSelected);
+        // The strip never scrolls on its own, so a selection must not ask an
+        // ancestor to: the inherited behaviour brought the chosen segment into
+        // view and opened a settings page scrolled away from its top.
+        AutoScrollToSelectedItemProperty.OverrideDefaultValue<SegmentedControl>(false);
         // Tab lands on the chosen segment, once, and the arrows take it from
         // there; the strip itself is not a stop of its own.
         FocusableProperty.OverrideDefaultValue<SegmentedControl>(false);

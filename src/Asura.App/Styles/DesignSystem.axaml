@@ -1181,15 +1181,16 @@
     <!--
       The segmented control: the track the segmented picker always drew, around
       radio-button segments the control makes for each item. The segments share
-      the width equally, so the strip is as stable as the views it switches
-      between; the segment look itself is the shell's RadioButton.Segment.
+      the width equally whenever there is room (SegmentStripPanel), so the strip
+      is as stable as the views it switches between; the segment look itself is
+      the shell's RadioButton.Segment.
     -->
     <ControlTheme x:Key="{x:Type controls:SegmentedControl}" TargetType="controls:SegmentedControl">
       <Setter Property="HorizontalAlignment" Value="Left" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="ItemsPanel">
         <ItemsPanelTemplate>
-          <UniformGrid Rows="1" />
+          <controls:SegmentStripPanel />
         </ItemsPanelTemplate>
       </Setter>
       <Setter Property="Template">

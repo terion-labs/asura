@@ -196,7 +196,7 @@
                   IsVisible="{Binding IsIsolated}">
                 <controls:SurfaceCard Tone="Sunken" Padding="{DynamicResource ShellCardPaddingCompact}">
                   <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                    <ItemsControl ItemsSource="{Binding IsolationMounts}">
+                    <ItemsControl ItemsSource="{Binding IsolationMounts}" Grid.IsSharedSizeScope="True">
                       <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                           <StackPanel Spacing="{DynamicResource ShellSpaceSm}" />
@@ -205,9 +205,24 @@
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:WorkspaceIsolationMountEditorViewModel">
                           <!-- The folder on this computer is usually the long path,
-                               so it gets the wider field. -->
-                          <Grid ColumnDefinitions="2*,Auto,Auto,*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                            <Panel MinWidth="200">
+                               so it gets the wider field. The access control is
+                               one width down the list: each row's chosen segment
+                               is set in a different weight, and a column sized
+                               row by row left the fields of one row out of line
+                               with the next. The host field's floor is the
+                               column's, not the field's: a field wider than its
+                               column was centred over it and lost its leading
+                               edge, path and border both. -->
+                          <Grid ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="2*" MinWidth="160" />
+                              <ColumnDefinition Width="Auto" />
+                              <ColumnDefinition Width="Auto" />
+                              <ColumnDefinition Width="*" />
+                              <ColumnDefinition Width="Auto" SharedSizeGroup="MountAccess" />
+                              <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Panel>
                               <TextBox
                                   x:Name="HostPathField"
                                   Classes="ElidedPath"
@@ -245,6 +260,7 @@
                                 AutomationProperties.Name="Path inside the environment" />
                             <controls:SegmentedControl
                                 Grid.Column="4"
+                                HorizontalAlignment="Stretch"
                                 SelectedIndex="{Binding IsReadWrite, Mode=TwoWay, Converter={x:Static controls:SegmentedControl.SecondWhenTrue}}"
                                 AutomationProperties.Name="Access to the host folder">
                               <RadioButton Content="Read-Only" AutomationProperties.Name="Mount host path read only" />
