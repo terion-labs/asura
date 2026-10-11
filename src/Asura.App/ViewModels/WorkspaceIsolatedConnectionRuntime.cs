@@ -184,12 +184,7 @@ internal sealed class WorkspaceIsolatedConnectionRuntime :
                         connectionId: connection.Id)),
             WorkspaceIsolationResult<WorkspaceProcessLaunch>.Failure isolationFailure =>
                 ConnectionRuntimeResult<TerminalLaunchRequest>.Fail(
-                    new ConnectionRuntimeError(
-                        MapErrorCode(isolationFailure.Error.Code),
-                        isolationFailure.Error.StableCode,
-                        WorkspaceIsolationText.Message(isolationFailure.Error),
-                        isolationFailure.Error.Retryable,
-                        MapRecoveryAction(isolationFailure.Error.RecoveryAction))),
+                    ConnectionError(isolationFailure.Error)),
             _ => throw new InvalidOperationException(
                 "The workspace isolation provider returned an unknown result."),
         };
@@ -311,12 +306,35 @@ internal sealed class WorkspaceIsolatedConnectionRuntime :
 
     private static ConnectionRuntimeResult<ConnectionOpenPlan> Fail(
         WorkspaceIsolationError error) =>
-        ConnectionRuntimeResult<ConnectionOpenPlan>.Fail(new ConnectionRuntimeError(
+        ConnectionRuntimeResult<ConnectionOpenPlan>.Fail(ConnectionError(error));
+
+    /// <summary>
+    /// The connection test and the terminal overlay follow the message with a
+    /// sentence for the recovery action ("Try again.", "Edit the connection,
+    /// then try again."). Every isolation message already ends with its own
+    /// step, so the action is kept only where its sentence is that step: a
+    /// failure whose step is "Try again." keeps Retry, which also lets automatic
+    /// reconnect continue, and drops the sentence from the message. Any other
+    /// failure says its step in the message and has no recovery action; one the
+    /// person can fix and retry from the overlay stays retryable.
+    /// </summary>
+    internal static ConnectionRuntimeError ConnectionError(WorkspaceIsolationError error)
+    {
+        var recovery = MapRecoveryAction(error.RecoveryAction);
+        if (recovery == ConnectionRecoveryAction.Retry
+            && WorkspaceIsolationText.ReasonBeforeRetry(error) is { } reason)
+        {
+            return new ConnectionRuntimeError(
+                MapErrorCode(error.Code), error.StableCode, reason, error.Retryable, recovery);
+        }
+
+        return new ConnectionRuntimeError(
             MapErrorCode(error.Code),
             error.StableCode,
             WorkspaceIsolationText.Message(error),
-            error.Retryable,
-            MapRecoveryAction(error.RecoveryAction)));
+            error.Retryable || recovery == ConnectionRecoveryAction.InstallRuntime,
+            ConnectionRecoveryAction.None);
+    }
 
     private static ConnectionRuntimeErrorCode MapErrorCode(
         WorkspaceIsolationErrorCode code) => code switch

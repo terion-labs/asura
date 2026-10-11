@@ -62,7 +62,9 @@ public sealed class WorkspaceBootAssetsTests : IDisposable
         var badBytes = _archive.ToArray();
         badBytes[^1] ^= 1;
         using var bad = new Download(truncate ? badBytes[..^1] : badBytes);
-        await Assert.ThrowsAsync<IOException>(() => Assets().EnsureAsync(null, CancellationToken.None, bad));
+        // A refusal is shown as written, so it says to try again for a fresh copy.
+        var error = await Assert.ThrowsAsync<WorkspaceEnvironmentRefusalException>(() => Assets().EnsureAsync(null, CancellationToken.None, bad));
+        Assert.Contains("Try again to download a fresh copy.", error.Message, StringComparison.Ordinal);
         Assert.Empty(Directory.GetFiles(_directory, "kernel.bin", SearchOption.AllDirectories));
         Assert.Empty(Directory.GetFiles(_directory, "*.partial", SearchOption.AllDirectories));
         using var good = new Download(_archive);
@@ -77,8 +79,8 @@ public sealed class WorkspaceBootAssetsTests : IDisposable
         var path = await Assets().EnsureAsync(null, CancellationToken.None, download);
         await File.WriteAllBytesAsync(Path.Combine(path, "kernel.bin"), new byte[_kernel.Length], CancellationToken.None);
         using var offline = new Download(null);
-        var error = await Assert.ThrowsAsync<IOException>(() => Assets().EnsureAsync(null, CancellationToken.None, offline));
-        Assert.Contains("Connect to the internet and retry", error.Message, StringComparison.Ordinal);
+        var error = await Assert.ThrowsAsync<WorkspaceEnvironmentRefusalException>(() => Assets().EnsureAsync(null, CancellationToken.None, offline));
+        Assert.Contains("Connect to the internet, then try again.", error.Message, StringComparison.Ordinal);
         _ = await Assets().EnsureAsync(null, CancellationToken.None, download);
         Assert.Equal(2, download.Calls);
         Assert.Equal(_kernel, await File.ReadAllBytesAsync(Path.Combine(path, "kernel.bin"), CancellationToken.None));

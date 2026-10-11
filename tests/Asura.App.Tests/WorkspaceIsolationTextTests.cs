@@ -67,4 +67,30 @@ public sealed class WorkspaceIsolationTextTests
 
         Assert.Contains("Recreate Environment", text, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void AFolderThatIsNotSharedIsNamedAsTheSettingsNameIt()
+    {
+        var text = WorkspaceIsolationText.Message(
+            WorkspaceIsolationError.Create(WorkspaceIsolationErrorCode.WorkingDirectoryNotMounted));
+
+        Assert.Contains("Shared folders", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("directory", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void OnlyAFailureWhoseStepIsTryAgainHasAReasonBeforeRetry()
+    {
+        Assert.Equal(
+            "Asura couldn’t prepare the workspace environment.",
+            WorkspaceIsolationText.ReasonBeforeRetry(WorkspaceIsolationError.Create(WorkspaceIsolationErrorCode.PrepareFailed)));
+        Assert.Null(WorkspaceIsolationText.ReasonBeforeRetry(
+            WorkspaceIsolationError.Create(WorkspaceIsolationErrorCode.RuntimeUnavailable)));
+        Assert.Null(WorkspaceIsolationText.ReasonBeforeRetry(new WorkspaceIsolationError(
+            WorkspaceIsolationErrorCode.PrepareFailed,
+            "workspace_sdk_prepare_failed",
+            "The connection service couldn't start, and Asura couldn't remove its private files. Restart Asura, then try again.",
+            true,
+            WorkspaceIsolationRecoveryAction.Retry)));
+    }
 }

@@ -178,6 +178,39 @@ public sealed class ConnectionEditorViewModelTests
         Assert.False(editor.IsTesting);
     }
 
+    [Theory]
+    [InlineData(WorkspaceIsolationErrorCode.PrepareFailed)]
+    [InlineData(WorkspaceIsolationErrorCode.Timeout)]
+    [InlineData(WorkspaceIsolationErrorCode.RuntimeUnavailable)]
+    [InlineData(WorkspaceIsolationErrorCode.RuntimeMissing)]
+    [InlineData(WorkspaceIsolationErrorCode.WorkingDirectoryNotMounted)]
+    [InlineData(WorkspaceIsolationErrorCode.PersistentEnvironmentResetRequired)]
+    public async Task AWorkspaceEnvironmentFailureStatesItsNextStepOnce(WorkspaceIsolationErrorCode code)
+    {
+        var runtime = new StubConnectionRuntime
+        {
+            TestResult = ConnectionRuntimeResult<ConnectionTestReport>.Fail(
+                WorkspaceIsolatedConnectionRuntime.ConnectionError(WorkspaceIsolationError.Create(code))),
+        };
+        var editor = new ConnectionEditorViewModel(runtime)
+        {
+            Name = "Password SSH",
+            Kind = ConnectionKind.Ssh,
+            Host = "host.example",
+            Authentication = ConnectionAuthenticationChoice.Password,
+            SecretReference = "secret-password",
+            HostKeyPolicy = SshHostKeyPolicy.Strict,
+        };
+
+        await editor.TestAsync(CancellationToken.None);
+
+        // The detail reads exactly as the window says it: one next step, never
+        // "Try again. Try again." or a step that points at the connection.
+        Assert.Equal("Test failed", editor.TestStatus);
+        Assert.Equal(WorkspaceIsolationText.Curated(code), editor.TestDetail);
+        Assert.DoesNotContain("Edit the connection", editor.TestDetail, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void MissingRequiredEndpointValueFailsBeforePersistence()
     {

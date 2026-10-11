@@ -17,6 +17,10 @@ internal sealed class WorkspaceBootAssets(string descriptorPath, string cacheRoo
     internal const string ArchiveName = "Asura-workspace-boot-arm64.zip";
     private static readonly string[] Names = ["kernel.bin", "initfs.ext4"];
 
+    // The descriptor ships inside the app bundle; only a fresh install restores it.
+    private const string DamagedDescriptor =
+        "Asura's workspace boot settings are damaged. Reinstall Asura, then try again.";
+
     internal async Task<string> EnsureAsync(
         IProgress<WorkspaceIsolationProgress>? progress,
         CancellationToken cancellationToken,
@@ -63,7 +67,7 @@ internal sealed class WorkspaceBootAssets(string descriptorPath, string cacheRoo
 
                 if (!await ValidAsync(pending, archivePin, cancellationToken).ConfigureAwait(false))
                 {
-                    throw new IOException("Workspace boot download failed its integrity check. Retry to download a fresh copy.");
+                    throw new WorkspaceEnvironmentRefusalException("The workspace's boot images failed their integrity check after downloading. Try again to download a fresh copy.");
                 }
 
                 progress?.Report(new WorkspaceIsolationProgress("Installing verified workspace boot images…"));
@@ -102,11 +106,12 @@ internal sealed class WorkspaceBootAssets(string descriptorPath, string cacheRoo
         catch (Exception exception) when (exception is HttpRequestException
             || exception is OperationCanceledException && !cancellationToken.IsCancellationRequested)
         {
-            throw new IOException("Workspace boot images could not be downloaded. Connect to the internet and retry; completed cached images work offline.", exception);
+            throw new WorkspaceEnvironmentRefusalException("Asura couldn't download the workspace's boot images. Connect to the internet, then try again. "
+                + "Once downloaded, they work offline.", exception);
         }
         catch (Exception exception) when (exception is JsonException or KeyNotFoundException or InvalidOperationException or FormatException)
         {
-            throw new IOException("The app's workspace boot descriptor is invalid. Reinstall the app.", exception);
+            throw new WorkspaceEnvironmentRefusalException(DamagedDescriptor, exception);
         }
     }
 
@@ -116,7 +121,7 @@ internal sealed class WorkspaceBootAssets(string descriptorPath, string cacheRoo
         var size = element.GetProperty("size").GetInt64();
         if (hash is not { Length: 64 } || hash.AsSpan().IndexOfAnyExcept("0123456789abcdef") >= 0 || size <= 0 || size > maximum)
         {
-            throw new IOException("The app's workspace boot descriptor has an invalid checksum or size.");
+            throw new WorkspaceEnvironmentRefusalException(DamagedDescriptor);
         }
         return (hash, size);
     }
@@ -177,7 +182,7 @@ internal sealed class WorkspaceBootAssets(string descriptorPath, string cacheRoo
         }
         if (total != size)
         {
-            throw new IOException("The workspace boot download was interrupted. Retry to download a fresh copy.");
+            throw new WorkspaceEnvironmentRefusalException("The download of the workspace's boot images was interrupted. Try again to download a fresh copy.");
         }
         await target.FlushAsync(cancellationToken).ConfigureAwait(false);
     }

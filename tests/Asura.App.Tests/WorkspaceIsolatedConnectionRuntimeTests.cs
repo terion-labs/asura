@@ -306,8 +306,48 @@ public sealed class WorkspaceIsolatedConnectionRuntimeTests
             result).Error;
         Assert.Equal("workspace_isolation_directory_not_mounted", error.StableCode);
         Assert.Equal(ConnectionRuntimeErrorCode.InvalidProfile, error.Code);
-        Assert.Equal(ConnectionRecoveryAction.EditProfile, error.RecoveryAction);
+        Assert.Equal(ConnectionRecoveryAction.None, error.RecoveryAction);
         Assert.NotNull(provider.Request);
+    }
+
+    [Theory]
+    [InlineData(WorkspaceIsolationErrorCode.PrepareFailed)]
+    [InlineData(WorkspaceIsolationErrorCode.StopFailed)]
+    [InlineData(WorkspaceIsolationErrorCode.Timeout)]
+    public void AFailureWhoseStepIsTryAgainKeepsRetryAndLeavesTheStepToTheRetryLabel(
+        WorkspaceIsolationErrorCode code)
+    {
+        var error = WorkspaceIsolatedConnectionRuntime.ConnectionError(WorkspaceIsolationError.Create(code));
+
+        Assert.Equal(ConnectionRecoveryAction.Retry, error.RecoveryAction);
+        Assert.True(error.Retryable);
+        Assert.DoesNotContain("Try again", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AMissingRuntimeSaysWhereToInstallItAndCanStillBeRetried()
+    {
+        var error = WorkspaceIsolatedConnectionRuntime.ConnectionError(
+            WorkspaceIsolationError.Create(WorkspaceIsolationErrorCode.RuntimeMissing));
+
+        Assert.Equal(ConnectionRecoveryAction.None, error.RecoveryAction);
+        Assert.True(error.Retryable);
+        Assert.Equal(WorkspaceIsolationText.Curated(WorkspaceIsolationErrorCode.RuntimeMissing), error.Message);
+    }
+
+    [Fact]
+    public void AProviderRefusalKeepsItsOwnStepWithoutARecoveryLabel()
+    {
+        var error = WorkspaceIsolatedConnectionRuntime.ConnectionError(new WorkspaceIsolationError(
+            WorkspaceIsolationErrorCode.PrepareFailed,
+            "workspace_sdk_prepare_failed",
+            "The persistent workspace disk is missing. Restore it from a backup, or choose Recreate Environment in the workspace's settings.",
+            true,
+            WorkspaceIsolationRecoveryAction.Retry));
+
+        Assert.Equal(ConnectionRecoveryAction.None, error.RecoveryAction);
+        Assert.True(error.Retryable);
+        Assert.EndsWith("in the workspace's settings.", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

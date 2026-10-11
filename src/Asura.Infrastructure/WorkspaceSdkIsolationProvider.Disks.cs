@@ -74,7 +74,8 @@ public sealed partial class WorkspaceSdkIsolationProvider
                 .ConfigureAwait(false);
             if (prepared.ExitCode != 0 || !File.Exists(pending))
             {
-                throw new IOException("The SDK could not unpack the selected workspace image. The existing workspace disk was not changed.");
+                throw new WorkspaceEnvironmentRefusalException("Asura couldn't unpack the workspace's image, and the existing workspace disk wasn't changed. "
+                    + "Check the image in the workspace's settings, then try again.");
             }
         }
 
@@ -166,18 +167,22 @@ public sealed partial class WorkspaceSdkIsolationProvider
                     .ConfigureAwait(false);
                 if (installed.ExitCode != 0)
                 {
-                    // Bootstrap has neither user mounts nor credentials. Its package
-                    // diagnostics are safe to surface and distinguish disk/setup errors
-                    // from route loss instead of hiding every failure behind one label.
-                    throw new IOException($"The base workspace tools could not be installed (exit {installed.ExitCode}). "
-                        + $"Retry creation to resume the staged disk. {installed.Diagnostic}");
+                    // The package manager's output stays with the inner exception for
+                    // debugging; the person sees which step failed and that retrying resumes.
+                    throw new WorkspaceEnvironmentRefusalException(
+                        "Asura couldn't install the workspace's base tools. Check your internet connection, then try again. "
+                        + "Asura continues from the disk it already prepared.",
+                        new IOException($"Base tools install exited with {installed.ExitCode}. {installed.Diagnostic}"));
                 }
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && routeLifetime.IsCancellationRequested)
             {
-                throw new IOException("The bootstrap host route stopped during package installation. "
-                    + $"NIC exit: {ethernetLease.ExitCode}; gateway exit: {hostLease.ExitCode}. "
-                    + $"{ethernetLease.Diagnostic} {hostLease.Diagnostic} {runtime.Diagnostic}");
+                throw new WorkspaceEnvironmentRefusalException(
+                    "The network connection Asura uses to install the workspace's base tools stopped. Try again. "
+                    + "Asura continues from the disk it already prepared.",
+                    new IOException("The bootstrap host route stopped during package installation. "
+                        + $"NIC exit: {ethernetLease.ExitCode}; gateway exit: {hostLease.ExitCode}. "
+                        + $"{ethernetLease.Diagnostic} {hostLease.Diagnostic} {runtime.Diagnostic}"));
             }
             finally
             {
