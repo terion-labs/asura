@@ -21,6 +21,13 @@ internal static class DisplayDates
     public static string Format(DateTimeOffset? value, string missing = "Unknown") =>
         value is { } moment ? Format(moment) : missing;
 
+    /// <summary>
+    /// A date and a time with seconds, for a record whose entries can fall
+    /// within one minute, such as the agent's recorded actions.
+    /// </summary>
+    public static string FormatWithSeconds(DateTimeOffset value) =>
+        value.ToLocalTime().ToString("G", CultureInfo.CurrentCulture);
+
     /// <summary>A time of day with seconds, for "captured at" readings.</summary>
     public static string FormatTime(DateTimeOffset value) =>
         value.ToLocalTime().ToString("T", CultureInfo.CurrentCulture);

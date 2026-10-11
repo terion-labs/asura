@@ -643,6 +643,87 @@ public sealed class AgentWorkspaceViewContractTests
     }
 
     [Fact]
+    public void Quick_Terminal_agent_has_its_own_status_region_outside_its_agent_panel()
+    {
+        // The Quick Terminal hosts its own AgentChat. Without a region of its
+        // own, "Approval required" and a run's outcome are silent there while
+        // focus is in the terminal or the agent panel is hidden.
+        var window = XDocument.Load(Path.Combine(
+            ApplicationViews.RepositoryRoot,
+            "src",
+            "Asura.App",
+            "Views",
+            "QuickTerminalWindow.axaml"));
+        var region = Assert.Single(
+            window.Descendants(),
+            element => string.Equals(
+                AttributeValue(element, "Name"),
+                "QuickTerminalAgentAnnouncementRegion",
+                StringComparison.Ordinal));
+        Assert.Equal(
+            XName.Get("LiveRegionTextBlock", "using:Asura.App.Controls"),
+            region.Name);
+        Assert.Equal(
+            "{Binding AgentChat.Announcement, FallbackValue=''}",
+            AttributeValue(region, "Text"));
+        Assert.Equal("Polite", AttributeValue(region, "AutomationProperties.LiveSetting"));
+        Assert.Equal("0", AttributeValue(region, "Opacity"));
+        Assert.Equal("False", AttributeValue(region, "IsHitTestVisible"));
+
+        // A direct child of the window's root grid, never inside the agent
+        // viewport, which is hidden with the agent panel.
+        var rootGrid = Assert.IsType<XElement>(window.Root)
+            .Elements()
+            .Single(element => string.Equals(element.Name.LocalName, "Grid", StringComparison.Ordinal));
+        Assert.Same(rootGrid, region.Parent);
+        Assert.Single(
+            window.Descendants(),
+            element => AttributeValue(element, "AutomationProperties.LiveSetting") is not null);
+    }
+
+    [Fact]
+    public void Recorded_actions_show_words_and_keep_identifiers_in_Details()
+    {
+        var root = Assert.IsType<XElement>(LoadView().Root);
+        var audit = FindNamedElement(root, "AgentRunAudit");
+        var template = Assert.Single(
+            audit.Descendants(),
+            element => string.Equals(element.Name.LocalName, "DataTemplate", StringComparison.Ordinal)
+                && string.Equals(
+                    AttributeValue(element, "DataType"),
+                    "vm:AgentAuditEntryViewModel",
+                    StringComparison.Ordinal));
+        var bindings = template.Descendants()
+            .Select(element => AttributeValue(element, "Text"))
+            .OfType<string>()
+            .ToArray();
+        foreach (var binding in new[]
+                 {
+                     "{Binding Title}",
+                     "{Binding Summary}",
+                     "{Binding Timeline}",
+                     "{Binding Result}",
+                     "{Binding OccurredAt}",
+                 })
+        {
+            Assert.Contains(binding, bindings, StringComparer.Ordinal);
+        }
+
+        // The identifiers are not on the card itself: only Details lists them.
+        Assert.DoesNotContain("{Binding ToolName}", bindings, StringComparer.Ordinal);
+        Assert.DoesNotContain("{Binding Evidence}", bindings, StringComparer.Ordinal);
+        Assert.DoesNotContain("{Binding TargetBinding}", bindings, StringComparer.Ordinal);
+        var details = Assert.Single(
+            template.Descendants(),
+            element => string.Equals(element.Name.LocalName, "Expander", StringComparison.Ordinal));
+        Assert.Equal("Details", AttributeValue(details, "Header"));
+        Assert.Equal("{Binding Details}", Assert.Single(
+            details.Descendants(),
+            element => string.Equals(element.Name.LocalName, "ItemsControl", StringComparison.Ordinal))
+            .Attribute("ItemsSource")?.Value);
+    }
+
+    [Fact]
     public void Send_raw_secrets_is_a_checkbox_that_explains_itself_in_view()
     {
         var root = Assert.IsType<XElement>(LoadView().Root);

@@ -2178,7 +2178,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         if (tabs.Length == 0)
         {
             policy = null;
-            error = "The selected agent scope no longer has trusted runtime policy provenance.";
+            error = "The tabs the agent was set to work in have closed. Open a tab, then send again.";
             return false;
         }
 
@@ -2201,8 +2201,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             policy = null;
             error =
-                "The selected scope combines saved policy overrides with inherited provider settings. "
-                + "Choose a narrower scope.";
+                "Some tabs here follow a saved screen's own agent policy and others follow AI Settings, "
+                + "so the agent can't work across them at once. Close the tabs you don't need it for, "
+                + "or give their saved screens the same agent policy.";
             return false;
         }
 
@@ -2218,8 +2219,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             policy = null;
             error =
-                "The selected scope combines different saved agent policy providers or models. "
-                + "Choose a narrower scope.";
+                "Tabs here come from saved screens whose agent policies use different AI providers or models. "
+                + "Close the tabs you don't need the agent for, or choose the same provider and model for those saved screens.";
             return false;
         }
 
@@ -2233,8 +2234,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             policy = null;
             error =
-                "The selected workspace doesn't have valid agent settings. "
-                + "Choose a narrower scope.";
+                "The agent policies of the saved screens open here can't be combined. "
+                + "Close the tabs you don't need the agent for, or edit their saved screens' agent policy.";
             return false;
         }
     }
@@ -3213,7 +3214,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             {
                 SetError(
                     "Workspace isolation or host mounts changed while the workspace was opening. "
-                    + "The stale runtime was discarded; open it again to use the saved configuration.");
+                    + "Open it again to use the saved configuration.");
                 return false;
             }
 
@@ -4065,8 +4066,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (!RecoveredWorkspaceIsolationConfigurationMatches(payload.Workspace))
             {
                 SetError(
-                    "Workspace isolation or host mounts changed while recovery was registering. "
-                    + "The stale runtime was discarded; restore it again with the saved configuration.");
+                    "Workspace isolation or host mounts changed while the workspace was being restored. "
+                    + "Restore it again to use the saved configuration.");
                 return false;
             }
 

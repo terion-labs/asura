@@ -480,7 +480,7 @@ public sealed record AgentQuestionCardViewModel
         ArgumentNullException.ThrowIfNull(question);
         Id = question.Id;
         Question = string.Concat(question.Question);
-        ExpiresAt = AgentPresentationTime.Friendly(question.ExpiresAtUtc);
+        ExpiresAt = DisplayDates.Format(question.ExpiresAtUtc);
         ContentOrigin = question.ContentOrigin;
     }
 
@@ -519,21 +519,33 @@ public sealed record AgentCapabilityRequestCardViewModel(
         + $"target {TargetTitle} · expires {ExpiresAt}";
 }
 
+/// <summary>
+/// One recorded action or permission change. Every visible value is in words;
+/// <see cref="Details"/> holds the identifiers that bind the record to one
+/// exact action, shown only when asked for.
+/// </summary>
 public sealed record AgentAuditEntryViewModel(
     string Kind,
     string Title,
-    string ToolName,
     string Outcome,
-    string Evidence,
+    string Summary,
     string Timeline,
     string Result,
-    string TargetBinding,
     string OccurredAt,
-    string AccessibleName)
+    IReadOnlyList<AgentApprovalFactViewModel> Details)
 {
-    public bool HasToolName => ToolName.Length > 0;
+    public bool HasSummary => Summary.Length > 0;
+
+    public bool HasTimeline => Timeline.Length > 0;
 
     public bool HasResult => Result.Length > 0;
+
+    public bool HasDetails => Details.Count > 0;
+
+    public string AccessibleName => string.Join(
+        "; ",
+        new[] { Title, Outcome, Summary, Timeline, Result, OccurredAt }
+            .Where(part => part.Length > 0));
 }
 
 public sealed record AgentContextItemViewModel(
@@ -1536,58 +1548,12 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     public bool HasContextItems => ContextItems.Count > 0;
 
-    public string ContextInspectorSummary
-    {
-        get
-        {
-            var terminalCount =
-                ContextItems.Count(item => item.Kind == PanelKind.Terminal);
-            var browserCount =
-                ContextItems.Count(item => item.Kind == PanelKind.Browser);
-            var fileCount =
-                ContextItems.Count(item => item.Kind == PanelKind.FileViewer);
-            var statisticsCount =
-                ContextItems.Count(item => item.Kind == PanelKind.Statistics);
-            var processMonitorCount =
-                ContextItems.Count(item => item.Kind == PanelKind.ProcessMonitor);
-            if (terminalCount == ContextItems.Count)
-            {
-                return terminalCount == 1
-                    ? "1 terminal"
-                    : $"{terminalCount.ToString(CultureInfo.InvariantCulture)} terminals";
-            }
-
-            if (browserCount == ContextItems.Count)
-            {
-                return browserCount == 1
-                    ? "1 browser"
-                    : $"{browserCount.ToString(CultureInfo.InvariantCulture)} browsers";
-            }
-
-            if (fileCount == ContextItems.Count)
-            {
-                return fileCount == 1
-                    ? "1 Files panel"
-                    : $"{fileCount.ToString(CultureInfo.InvariantCulture)} Files panels";
-            }
-
-            if (statisticsCount == ContextItems.Count)
-            {
-                return statisticsCount == 1
-                    ? "1 Statistics panel"
-                    : $"{statisticsCount.ToString(CultureInfo.InvariantCulture)} Statistics panels";
-            }
-
-            if (processMonitorCount == ContextItems.Count)
-            {
-                return processMonitorCount == 1
-                    ? "1 Processes panel"
-                    : $"{processMonitorCount.ToString(CultureInfo.InvariantCulture)} Processes panels";
-            }
-
-            return CountText.Of(ContextItems.Count, "panel", "panels");
-        }
-    }
+    /// <summary>
+    /// The run's panels counted by the noun every screen uses for their type:
+    /// "2 Terminal panels" when they are all one type, "3 panels" otherwise.
+    /// </summary>
+    public string ContextInspectorSummary =>
+        PanelTypeNames.Count([.. ContextItems.Select(item => item.Kind)]);
 
     public string ContextInspectorAccessibleName =>
         $"Inspect agent context · {ContextInspectorSummary}";
@@ -1923,7 +1889,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     public string PolicyModeLabel => _fullAccessSelected
         ? "Full access"
-        : FormatEnum(_terminalMutationPermission);
+        : AgentPolicyPresentation.PermissionName(_terminalMutationPermission);
 
     /// <summary>
     /// The approval pop-up's title, which is always the title of the mode
@@ -2276,7 +2242,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         if (provider is null)
         {
             ReportTargetUnavailable(
-                "The agent policy references an unavailable AI-provider profile.");
+                "The AI provider in the agent's policy isn't set up anymore. Choose another provider in AI Settings, then send again.");
             return Task.CompletedTask;
         }
 
@@ -3203,7 +3169,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                     item.RunId,
                     item.Title,
                     item.Model ?? "Model unavailable",
-                    AgentPresentationTime.Friendly(item.UpdatedAt),
+                    DisplayDates.Format(item.UpdatedAt),
                     item.RunId == (snapshot.SelectedConversationRunId
                         ?? snapshot.RunId)
                         || item.RunId == _runId && snapshot.HasMessages,
@@ -3579,7 +3545,14 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 "The agent audit entry kind is unsupported."),
         };
 
-    private static AgentAuditEntryViewModel CreateActionAuditEntry(
+    /// <summary>
+    /// A recorded action as a person reads it: what ran, how it ended, and
+    /// who let it run, in words. The identifiers that bind the record to one
+    /// exact action (the tool ID, the policy generation, the target digest,
+    /// and the result or error code) are for checking, not reading, so they
+    /// sit in Details.
+    /// </summary>
+    internal static AgentAuditEntryViewModel CreateActionAuditEntry(
         AgentRunAuditActionEntry action)
     {
         var title = BuiltInAgentTools.Catalog.TryGet(
@@ -3587,101 +3560,103 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 out var descriptor)
             ? descriptor!.Title
             : action.ToolName;
-        var outcome = FormatEnum(action.LatestOutcome);
-        var authorization = action.AuthorizationSource is { } source
-            ? $" · {FormatEnum(source)}"
-            : string.Empty;
-        var evidence =
-            $"{FormatEnum(action.Capability)} · {FormatEnum(action.Permission)}"
-            + $" · {FormatEnum(action.Risk)}{authorization}";
-        var timeline = string.Join(
-            " → ",
-            action.Phases.Select(phase => FormatEnum(phase.Outcome)));
-        var result = AuditActionResult(action);
-        var target = $"Verified target · {ShortDigest(action.TargetIdentity)}";
-        var occurred = LocalAuditTime(action.OccurredAtUtc);
+        var summary = new List<string>(3)
+        {
+            AgentPolicyPresentation.CapabilityName(action.Capability),
+            AgentPolicyPresentation.RiskName(action.Risk),
+        };
+        if (action.AuthorizationSource is { } source)
+        {
+            summary.Add(AgentPolicyPresentation.AuthorizationSourceName(source));
+        }
+
+        var details = new List<AgentApprovalFactViewModel>(6)
+        {
+            new("Tool ID", action.ToolName),
+            new("Permission", AgentPolicyPresentation.PermissionName(action.Permission)),
+        };
+        if (action.PolicyGeneration is { } generation)
+        {
+            details.Add(new(
+                "Policy generation",
+                generation.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        details.Add(new("Verified target", ShortDigest(action.TargetIdentity)));
+        if (action.ResultCode is { } resultCode)
+        {
+            details.Add(new("Result code", resultCode));
+        }
+
+        if (action.ErrorCode is { } errorCode)
+        {
+            details.Add(new("Error code", errorCode.ToString()));
+        }
+
         return new AgentAuditEntryViewModel(
             "Action",
             title,
-            action.ToolName,
-            outcome,
-            evidence,
-            timeline,
-            result,
-            target,
-            occurred,
-            $"{title}; {outcome}; {evidence}; phases {timeline}; "
-            + $"{result}; {target}; {occurred}");
+            AgentPolicyPresentation.OutcomeName(action.LatestOutcome),
+            string.Join(" · ", summary),
+            string.Join(
+                " → ",
+                action.Phases.Select(phase => AgentPolicyPresentation.OutcomeName(phase.Outcome))),
+            AuditActionResult(action),
+            DisplayDates.FormatWithSeconds(action.OccurredAtUtc),
+            details);
     }
 
-    private static AgentAuditEntryViewModel CreatePolicyAuditEntry(
+    internal static AgentAuditEntryViewModel CreatePolicyAuditEntry(
         AgentRunAuditPolicyEntry policy)
     {
-        var transition = policy.Transition switch
-        {
-            AgentRunPolicyTransition.YoloEnabled => "Full access enabled",
-            AgentRunPolicyTransition.YoloDisabled => "Full access disabled",
-            AgentRunPolicyTransition.YoloExpired => "Full access expired",
-            AgentRunPolicyTransition.Updated => "Run policy updated",
-            _ => throw new ArgumentOutOfRangeException(
-                nameof(policy),
-                policy.Transition,
-                "The policy transition is unsupported."),
-        };
-        var evidence =
-            $"Policy generation {policy.PolicyGeneration.ToString(CultureInfo.InvariantCulture)}";
         var result = policy.YoloExpiresAtUtc is { } expiry
-            ? $"Access ends {LocalAuditTime(expiry)}"
+            ? $"Access ends {DisplayDates.Format(expiry)}"
             : string.Empty;
-        var target = $"Verified target · {ShortDigest(policy.TargetIdentity)}";
-        var occurred = LocalAuditTime(policy.OccurredAtUtc);
         return new AgentAuditEntryViewModel(
-            "Policy",
-            transition,
+            "Permissions",
+            AgentPolicyPresentation.PolicyTransitionName(policy.Transition),
+            AgentPolicyPresentation.OutcomeName(AuditOutcome.Succeeded),
             string.Empty,
-            "Succeeded",
-            evidence,
-            "Succeeded",
+            string.Empty,
             result,
-            target,
-            occurred,
-            $"{transition}; {evidence}; {result}; {target}; {occurred}");
+            DisplayDates.FormatWithSeconds(policy.OccurredAtUtc),
+            [
+                new(
+                    "Policy generation",
+                    policy.PolicyGeneration.ToString(CultureInfo.InvariantCulture)),
+                new("Verified target", ShortDigest(policy.TargetIdentity)),
+            ]);
     }
 
+    // "Took 25 ms · 1 result", or why it didn't run: "Not run · You denied it".
     private static string AuditActionResult(AgentRunAuditActionEntry action)
     {
         var values = new List<string>(3);
-        if (action.ResultCode is { } resultCode)
+        if (action.ResultCode is null && action.ErrorCode is { } errorCode)
         {
-            values.Add($"Result · {resultCode}");
-        }
-        else if (action.ErrorCode is { } errorCode)
-        {
-            values.Add($"Error · {FormatEnum(errorCode)}");
+            values.Add($"Not run · {AgentPolicyPresentation.ErrorName(errorCode)}");
         }
 
         if (action.ExecutionDurationMilliseconds is { } duration)
         {
-            values.Add(
-                $"Duration · {duration.ToString(CultureInfo.InvariantCulture)} ms");
+            values.Add($"Took {FormatDuration(duration)}");
         }
 
         if (action.ResultCount is { } count)
         {
-            values.Add(
-                $"Count · {count.ToString(CultureInfo.InvariantCulture)}");
+            values.Add(CountText.Of(count, "result", "results"));
         }
 
         return string.Join(" · ", values);
     }
 
+    private static string FormatDuration(long milliseconds) =>
+        milliseconds < 1_000
+            ? $"{milliseconds.ToString("N0", CultureInfo.CurrentCulture)} ms"
+            : $"{(milliseconds / 1_000d).ToString("0.#", CultureInfo.CurrentCulture)} s";
+
     private static string ShortDigest(AgentActionDigest digest) =>
         $"{digest.Value[..12]}…";
-
-    private static string LocalAuditTime(DateTimeOffset value) =>
-        value.ToLocalTime().ToString(
-            "yyyy-MM-dd HH:mm:ss zzz",
-            CultureInfo.InvariantCulture);
 
     private static string AuditFailureStatus(AuditStoreErrorCode code) =>
         code switch
@@ -3740,16 +3715,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         GovernedAgentContextItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
-        var panelKind = item.Kind switch
-        {
-            PanelKind.Terminal => "terminal",
-            PanelKind.Browser => "browser",
-            PanelKind.FileViewer => "Files",
-            PanelKind.Statistics => "Statistics",
-            PanelKind.ProcessMonitor => "Processes",
-            _ => "panel",
-        };
-        var title = item.PanelTitle ?? $"Unnamed {panelKind}";
+        var panelKind = PanelTypeNames.Name(item.Kind);
+        var title = item.PanelTitle ?? $"Untitled {panelKind} Panel";
         var tabTitle = item.TabTitle ?? "Untitled Tab";
         var exactIdentity =
             $"{panelKind} · window/{item.WindowId.Value} · "
@@ -3786,10 +3753,10 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 : "Background";
         var activeWork = item.HasActiveWork ? " · active work" : string.Empty;
         var state =
-            $"{presence} · {FormatEnum(item.Lifecycle)} · "
-            + $"{FormatEnum(item.Health)}{activeWork}";
+            $"{presence} · {SessionLifecycleName(item.Lifecycle)} · "
+            + $"{SessionHealthName(item.Health)}{activeWork}";
         var operations = item.SupportedOperations.Length == 0
-            ? $"No {panelKind} operations"
+            ? $"No {panelKind} panel operations"
             : string.Join(" · ", item.SupportedOperations);
 
         return new AgentContextItemViewModel(
@@ -3896,7 +3863,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                     argument.Name,
                     argument.DisplayValue,
                     argument.IsSensitive))],
-            AgentPresentationTime.Friendly(approval.ExpiresAtUtc),
+            DisplayDates.Format(approval.ExpiresAtUtc),
             approval.TemporarilyYieldsTerminalInput)
         {
             TargetDisplayTitle = displayTitle,
@@ -3919,7 +3886,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             request.TargetTitle,
             FormatTarget(request.Target),
             [.. request.AffectedToolTitles],
-            AgentPresentationTime.Friendly(request.ExpiresAtUtc));
+            DisplayDates.Format(request.ExpiresAtUtc));
     }
 
     private static AgentYoloAuthorityViewModel? CreateYoloAuthority(
@@ -3942,7 +3909,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         return new AgentYoloAuthorityViewModel(
             FormatTarget(authority.Target),
             $"{duration.TotalMinutes:0} min window",
-            AgentPresentationTime.Friendly(authority.ExpiresAtUtc));
+            DisplayDates.Format(authority.ExpiresAtUtc));
     }
 
     private static string FormatTarget(AgentTarget? target) =>
@@ -3973,9 +3940,28 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 "The agent target kind isn't supported."),
         };
 
-    private static string FormatEnum<T>(T value)
-        where T : struct, Enum =>
-        value.ToString();
+    private static string SessionLifecycleName(SessionLifecycle lifecycle) =>
+        lifecycle switch
+        {
+            SessionLifecycle.Starting => "Starting",
+            SessionLifecycle.Active => "Running",
+            SessionLifecycle.Closing => "Closing",
+            SessionLifecycle.Closed => "Closed",
+            SessionLifecycle.Failed => "Failed",
+            _ => throw new ArgumentOutOfRangeException(nameof(lifecycle)),
+        };
+
+    private static string SessionHealthName(SessionHealth health) =>
+        health switch
+        {
+            SessionHealth.Starting => "Connecting",
+            SessionHealth.Healthy => "Healthy",
+            SessionHealth.Degraded => "Degraded",
+            SessionHealth.Unavailable => "Unavailable",
+            SessionHealth.Failed => "Not responding",
+            SessionHealth.Ended => "Ended",
+            _ => throw new ArgumentOutOfRangeException(nameof(health)),
+        };
 
     private static string FormatTokenCount(long value)
     {
@@ -4518,17 +4504,4 @@ public sealed class AgentQueuedFollowUpViewModel : ObservableObject
         IsEditing = false;
         return Task.CompletedTask;
     }
-}
-
-/// <summary>
-/// User-facing time formatting for run-local authority: a person deciding a
-/// permission reads "2 Jan 2026, 14:34", not a zoned ISO timestamp. Audit
-/// evidence keeps its precise form — that surface is a record, not a prompt.
-/// </summary>
-internal static class AgentPresentationTime
-{
-    public static string Friendly(DateTimeOffset value) =>
-        value.ToLocalTime().ToString(
-            "d MMM yyyy, HH:mm",
-            CultureInfo.InvariantCulture);
 }
