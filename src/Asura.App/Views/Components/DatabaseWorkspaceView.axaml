@@ -38,11 +38,14 @@
 
     <!-- Placed by style rather than in the markup, so the narrow layout
          below can move them: a value set on the element would win over it. -->
+    <Style Selector="ComboBox.filterColumn">
+      <Setter Property="Grid.Column" Value="1" />
+    </Style>
+    <Style Selector="ComboBox.filterOperator">
+      <Setter Property="Grid.Column" Value="2" />
+    </Style>
     <Style Selector="Grid.filterValueLine">
       <Setter Property="Grid.Column" Value="3" />
-    </Style>
-    <Style Selector="CheckBox.filterInclude">
-      <Setter Property="Content" Value="Filter" />
     </Style>
     <Style Selector="StackPanel.resultPager">
       <Setter Property="Grid.Column" Value="1" />
@@ -63,10 +66,7 @@
         <Setter Property="Grid.Row" Value="1" />
         <Setter Property="Grid.Column" Value="1" />
         <Setter Property="Grid.ColumnSpan" Value="3" />
-      </Style>
-      <!-- The box keeps its accessible name; the caption is what goes. -->
-      <Style Selector="CheckBox.filterInclude">
-        <Setter Property="Content" Value="{x:Null}" />
+        <Setter Property="Margin" Value="{controls:Inset Top=Xs}" />
       </Style>
       <!-- The pager takes a line of its own under the row actions. -->
       <Style Selector="StackPanel.resultPager">
@@ -74,6 +74,33 @@
         <Setter Property="Grid.Column" Value="0" />
         <Setter Property="Grid.ColumnSpan" Value="2" />
         <Setter Property="HorizontalAlignment" Value="Right" />
+      </Style>
+    </ContainerQuery>
+    <ContainerQuery Name="databaseData" Query="max-width:440">
+      <!-- Narrower still, the condition takes three lines so the switch keeps
+           its "Filter" caption: the switch on the first, beside Clear; what
+           to compare on the second; the value and its actions on the third.
+           The caption is what says the box switches the condition, so it is
+           the pickers that move, never the words. -->
+      <Style Selector="CheckBox.filterInclude">
+        <Setter Property="Grid.ColumnSpan" Value="4" />
+      </Style>
+      <Style Selector="ComboBox.filterColumn">
+        <Setter Property="Grid.Row" Value="1" />
+        <Setter Property="Grid.Column" Value="0" />
+        <Setter Property="Grid.ColumnSpan" Value="2" />
+        <Setter Property="Margin" Value="{controls:Inset Top=Xs}" />
+      </Style>
+      <Style Selector="ComboBox.filterOperator">
+        <Setter Property="Grid.Row" Value="1" />
+        <Setter Property="Grid.Column" Value="2" />
+        <Setter Property="Grid.ColumnSpan" Value="2" />
+        <Setter Property="Margin" Value="{controls:Inset Top=Xs}" />
+      </Style>
+      <Style Selector="Grid.filterValueLine">
+        <Setter Property="Grid.Row" Value="2" />
+        <Setter Property="Grid.Column" Value="0" />
+        <Setter Property="Grid.ColumnSpan" Value="4" />
       </Style>
     </ContainerQuery>
     <ContainerQuery Name="databaseData" Query="max-width:400">
@@ -99,9 +126,19 @@
     </Style>
 
     <!-- A draft value shows the focus ring while it is being written, as a
-         text field does. -->
-    <Style Selector="Border.InspectorDraft:focus-within">
+         text field does: the accent edge and the shared halo. The resting
+         edge is set here, not on the element, because a value written on the
+         element outranks every style and kept the focused draft in its thin
+         gray border. The halo is a plate behind the edge rather than the
+         edge's own shadow: a box shadow on the code editor's parent border
+         stops its text layer drawing, and the draft went blank. -->
+    <Style Selector="Border.InspectorDraftEdge">
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+    </Style>
+    <Style Selector="Panel.InspectorDraft:focus-within > Border.InspectorDraftEdge">
       <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
+    </Style>
+    <Style Selector="Panel.InspectorDraft:focus-within > Border.InspectorDraftRing">
       <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
     </Style>
 
@@ -502,16 +539,19 @@
                              same width. A narrow panel moves the value and
                              the actions to a second line (the container
                              query above) instead of squeezing the pickers. -->
+                        <!-- No row spacing: a line that is empty at this width
+                             would still be spaced. A folded line brings its
+                             own top inset instead. -->
                         <Grid
                             Classes="filterRow"
-                            ColumnSpacing="{DynamicResource ShellSpaceXs}"
-                            RowSpacing="{DynamicResource ShellSpaceXs}">
+                            ColumnSpacing="{DynamicResource ShellSpaceXs}">
                           <!-- The minimums keep a picker readable at a narrow
                                width; past them its choice trims with an
                                ellipsis. Held by the columns, so a picker
                                never spills over the checkbox beside it. -->
                           <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" SharedSizeGroup="filterLine" />
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                           </Grid.RowDefinitions>
                           <Grid.ColumnDefinitions>
@@ -522,17 +562,17 @@
                           </Grid.ColumnDefinitions>
                           <!-- Says what it switches: an unlabelled box at the
                                start of the row read as a row selector. The
-                               caption comes from the styles above, so a narrow
-                               panel can drop it. -->
+                               caption stays at every width; a narrow panel
+                               folds the value onto a second line instead. -->
                           <CheckBox
                               Classes="filterInclude"
+                              Content="Filter"
                               VerticalAlignment="Center"
                               IsChecked="{Binding IsIncluded, Mode=TwoWay}"
                               ToolTip.Tip="Include this condition when the filter is applied"
                               AutomationProperties.Name="Include this filter condition" />
                           <ComboBox
-                              Grid.Column="1"
-                              Classes="Dense"
+                              Classes="Dense filterColumn"
                               VerticalAlignment="Center"
                               HorizontalAlignment="Stretch"
                               ItemsSource="{Binding Columns}"
@@ -544,7 +584,6 @@
                             </ComboBox.ItemTemplate>
                           </ComboBox>
                           <ComboBox
-                              Grid.Column="2"
                               Classes="Dense filterOperator"
                               VerticalAlignment="Center"
                               HorizontalAlignment="Stretch"
@@ -1137,21 +1176,27 @@
                                       Text="{Binding Text}"
                                       FileName="{Binding GrammarFileName}" />
                                 </Panel>
-                                <Border
+                                <Panel
                                     Classes="InspectorDraft"
-                                    BorderBrush="{DynamicResource ShellBorderBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="{DynamicResource ShellControlCornerRadius}"
-                                    Padding="{controls:Inset Xs}"
                                     IsVisible="{Binding ShowsTextEditor}">
-                                  <local:CodeEditBox
-                                      MinHeight="24"
-                                      MaxHeight="200"
-                                      GrammarExtension="{Binding GrammarExtension}"
-                                      Text="{Binding Draft, Mode=TwoWay}"
-                                      EditorKeyDown="OnFieldDraftKeyDown"
-                                      AutomationProperties.Name="{Binding Name, StringFormat=Draft value for {0}}" />
-                                </Border>
+                                  <Border
+                                      Classes="InspectorDraftRing"
+                                      CornerRadius="{DynamicResource ShellControlCornerRadius}"
+                                      IsHitTestVisible="False" />
+                                  <Border
+                                      Classes="InspectorDraftEdge"
+                                      BorderThickness="1"
+                                      CornerRadius="{DynamicResource ShellControlCornerRadius}"
+                                      Padding="{controls:Inset Xs}">
+                                    <local:CodeEditBox
+                                        MinHeight="24"
+                                        MaxHeight="200"
+                                        GrammarExtension="{Binding GrammarExtension}"
+                                        Text="{Binding Draft, Mode=TwoWay}"
+                                        EditorKeyDown="OnFieldDraftKeyDown"
+                                        AutomationProperties.Name="{Binding Name, StringFormat=Draft value for {0}}" />
+                                  </Border>
+                                </Panel>
                                 <ComboBox
                                     IsVisible="{Binding ShowsBooleanEditor}"
                                     ItemsSource="{Binding BooleanValues}"
