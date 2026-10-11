@@ -117,6 +117,15 @@ public sealed class PanelHeaderOverflowHeadlessTests
                     && at.Y >= 0 && at.Y + button.Bounds.Height <= strip.Bounds.Height + 0.5,
                     $"{button.Name} is cut by the strip at width {width}.");
             });
+            // It wraps, but it stays a strip: at most two rows of actions even
+            // at the narrowest width, so it never grows into a panel of its own.
+            var tops = visible
+                .Select(button => button.TranslatePoint(default, strip)!.Value.Y)
+                .Order()
+                .ToArray();
+            var rows = 1 + tops.Zip(tops.Skip(1)).Count(pair => pair.Second - pair.First > 4);
+            Assert.True(rows <= 2, $"The strip wraps to {rows} rows at width {width}.");
+            Assert.InRange(strip.Bounds.Height, 24, 2 * 37);
             Assert.True(originals[0].IsFocused);
             window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
             Assert.True(originals[1].IsFocused);

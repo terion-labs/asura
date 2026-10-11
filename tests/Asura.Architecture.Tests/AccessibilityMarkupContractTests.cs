@@ -133,8 +133,18 @@ public sealed class AccessibilityMarkupContractTests
         {
             var setter = Assert.Single(style.Elements(), element => element.Name.LocalName == "Setter");
             Assert.Equal("BoxShadow", Attribute(setter, "Property"));
-            Assert.Equal("{DynamicResource ShellFocusRingShadow}", Attribute(setter, "Value"));
             Assert.Contains(":focus", Attribute(style, "Selector"), StringComparison.Ordinal);
+
+            // The one variant is the same band on an accent-selected row,
+            // parted from the accent fill by a point of the page colour.
+            var value = Attribute(setter, "Value");
+            if (string.Equals(value, "{DynamicResource ShellFocusRingOnAccentShadow}", StringComparison.Ordinal))
+            {
+                Assert.Contains("ListBoxItem:selected:focus-visible", Attribute(style, "Selector"), StringComparison.Ordinal);
+                continue;
+            }
+
+            Assert.Equal("{DynamicResource ShellFocusRingShadow}", value);
         }
 
         var covered = string.Join(",", styles.Skip(first).Select(style => Attribute(style, "Selector")));

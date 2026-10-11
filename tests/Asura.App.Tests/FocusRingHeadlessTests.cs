@@ -89,7 +89,9 @@ public sealed class FocusRingHeadlessTests
 
     /// <summary>
     /// The ring on a primary button is the band outside its accent fill: the
-    /// button has no border to recolour, which is how its focus was lost.
+    /// button has no border to recolour, which is how its focus was lost. The
+    /// band is the accent too, so it stands a clear gap off the fill; flush,
+    /// it read as the button growing.
     /// </summary>
     [Fact]
     public Task A_primary_button_wears_the_shared_focus_ring() =>
@@ -107,7 +109,51 @@ public sealed class FocusRingHeadlessTests
                 Assert.Equal(
                     Assert.IsAssignableFrom<ISolidColorBrush>(window.FindResource("ShellFocusRingBrush")).Color,
                     Assert.IsAssignableFrom<ISolidColorBrush>(ring.Brush).Color);
-                Assert.Equal(button.Bounds.Width + (2 * ring.BandWidth), ring.Bounds.Width, precision: 3);
+                Assert.True(ring.GapWidth >= 1, $"The ring stands {ring.GapWidth} off the fill.");
+                Assert.Equal(
+                    button.Bounds.Width + (2 * (ring.GapWidth + ring.BandWidth)),
+                    ring.Bounds.Width,
+                    precision: 3);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+    /// <summary>
+    /// A focused list's selected row is the accent, and so is the ring, so on
+    /// that row the ring is parted from the fill by an inset line of the page
+    /// colour.
+    /// </summary>
+    [Fact]
+    public Task A_focused_accent_selected_row_parts_its_ring_from_the_fill() =>
+        RunHeadlessAsync(() =>
+        {
+            var list = new ListBox { ItemsSource = new[] { "One", "Two" }, SelectedIndex = 0 };
+            var window = new Window { Width = 300, Height = 200, Content = list };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                var row = Assert.IsType<ListBoxItem>(list.ContainerFromIndex(0));
+                Assert.True(row.Focus(NavigationMethod.Tab));
+                window.UpdateLayout();
+
+                var presenter = row.GetVisualDescendants()
+                    .OfType<ContentPresenter>()
+                    .Single(part => part.Name == "PART_ContentPresenter");
+                Assert.True(window.TryFindResource("ShellAccentBrush", window.ActualThemeVariant, out var accent));
+                Assert.Equal(
+                    Assert.IsAssignableFrom<ISolidColorBrush>(accent).Color,
+                    Assert.IsAssignableFrom<ISolidColorBrush>(presenter.Background).Color);
+                Assert.True(window.TryFindResource("ShellFocusRingOnAccentShadow", window.ActualThemeVariant, out var onAccent));
+                Assert.Equal(Assert.IsType<BoxShadows>(onAccent), presenter.BoxShadow);
+                var shadows = Enumerable.Range(0, presenter.BoxShadow.Count)
+                    .Select(index => presenter.BoxShadow[index])
+                    .ToList();
+                Assert.Contains(shadows, shadow => shadow.IsInset && shadow.Spread > 0);
+                Assert.Contains(shadows, shadow => !shadow.IsInset && shadow.Spread > 0);
             }
             finally
             {

@@ -499,13 +499,19 @@ public sealed partial class App : Avalonia.Application
     /// </summary>
     private SolidColorBrush Content(Color color) => WithAlpha(color, ContentAlpha);
 
+    /// <summary>How far the focus ring stands out from a control's edge.</summary>
+    internal const double FocusRingWidth = 2.5;
+
+    /// <summary>
+    /// The clear gap between an accent-filled control and its focus ring. The
+    /// ring is the accent too, so without the gap it read as the fill growing.
+    /// </summary>
+    internal const double FocusRingGap = 1;
+
     /// <summary>
     /// The same, as a number, for the surfaces that are drawn rather than
     /// filled — a terminal paints its own background from its palette.
     /// </summary>
-    /// <summary>How far the focus ring stands out from a control's edge.</summary>
-    internal const double FocusRingWidth = 2.5;
-
     private double SurfaceOpacity => ContentAlpha / (double)byte.MaxValue;
 
     /// <summary>
@@ -926,6 +932,7 @@ public sealed partial class App : Avalonia.Application
             Spread = FocusRingWidth,
             Color = resources.FocusRing,
         }));
+        Publish("ShellFocusRingOnAccentShadow", FocusRingOnAccentShadow(resources));
         Publish(
             "ShellAgentPanelGlowBrush",
             new SolidColorBrush(Color.FromArgb(
@@ -1179,6 +1186,19 @@ public sealed partial class App : Avalonia.Application
             new BoxShadow { Spread = 2, Color = resources.Background },
             rest);
     }
+
+    /// <summary>
+    /// The focus ring on a control filled with the accent — a focused list's
+    /// selected row: the same band, parted from the fill by a point of the
+    /// page colour drawn just inside the edge. The ring is the accent, so
+    /// flush against an accent fill it read as the row growing. Both parts are
+    /// spread shadows, one outside and one inset, so they never overlap and
+    /// their order does not matter.
+    /// </summary>
+    internal static BoxShadows FocusRingOnAccentShadow(EffectiveAppearanceResources resources) =>
+        new(
+            new BoxShadow { Spread = FocusRingWidth, Color = resources.FocusRing },
+            [new BoxShadow { Spread = FocusRingGap, Color = resources.Background, IsInset = true }]);
 
     /// <summary>
     /// One step of the accent shade ramp: the accent blended toward black or

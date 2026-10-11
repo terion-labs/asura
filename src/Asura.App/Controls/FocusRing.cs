@@ -7,7 +7,14 @@ namespace Asura.App.Controls;
 
 /// <summary>
 /// The keyboard focus ring of a push button: a solid band in the focus colour
-/// hugging the outside of the control and following its corners.
+/// just outside the control, following its corners.
+///
+/// The band stands a point off the control's edge, and the surface behind
+/// shows through that gap. The focus colour is the accent, so on an
+/// accent-filled button — the default button, the active sidebar tab — a band
+/// flush with the edge read as the fill growing rather than as a ring. The
+/// surface is held to 3:1 against the ring, so the gap parts the two on any
+/// fill.
 ///
 /// It is drawn as the control's focus adorner rather than as a shadow on the
 /// control. A shadow is part of the control's own drawing, so every parent
@@ -25,15 +32,19 @@ internal sealed class FocusRing : Control
     public static readonly StyledProperty<double> BandWidthProperty =
         AvaloniaProperty.Register<FocusRing, double>(nameof(BandWidth), App.FocusRingWidth);
 
+    public static readonly StyledProperty<double> GapWidthProperty =
+        AvaloniaProperty.Register<FocusRing, double>(nameof(GapWidth), App.FocusRingGap);
+
     static FocusRing()
     {
-        AffectsRender<FocusRing>(BrushProperty, BandWidthProperty);
+        AffectsRender<FocusRing>(BrushProperty, BandWidthProperty, GapWidthProperty);
         IsHitTestVisibleProperty.OverrideDefaultValue<FocusRing>(false);
         // Placed exactly, so the band is as wide on every side: rounded to
         // whole pixels, a two-and-a-half point band came out two on one edge
         // and three on the other.
         UseLayoutRoundingProperty.OverrideDefaultValue<FocusRing>(false);
         BandWidthProperty.Changed.AddClassHandler<FocusRing>((ring, _) => ring.UpdateOutset());
+        GapWidthProperty.Changed.AddClassHandler<FocusRing>((ring, _) => ring.UpdateOutset());
     }
 
     public FocusRing()
@@ -55,6 +66,16 @@ internal sealed class FocusRing : Control
         set => SetValue(BandWidthProperty, value);
     }
 
+    /// <summary>
+    /// How far the band stands off the control's edge: the clear gap between
+    /// the control and its ring.
+    /// </summary>
+    public double GapWidth
+    {
+        get => GetValue(GapWidthProperty);
+        set => SetValue(GapWidthProperty, value);
+    }
+
     public override void Render(DrawingContext context)
     {
         if (Brush is not { } brush || BandWidth <= 0)
@@ -70,11 +91,12 @@ internal sealed class FocusRing : Control
         }
 
         var inner = CornerRadiusOf(AdornerLayer.GetAdornedElement(this));
+        var offset = Math.Max(0, GapWidth) + half;
         var radius = new CornerRadius(
-            Outer(inner.TopLeft, half),
-            Outer(inner.TopRight, half),
-            Outer(inner.BottomRight, half),
-            Outer(inner.BottomLeft, half));
+            Outer(inner.TopLeft, offset),
+            Outer(inner.TopRight, offset),
+            Outer(inner.BottomRight, offset),
+            Outer(inner.BottomLeft, offset));
         context.DrawRectangle(null, new Pen(brush, BandWidth), new RoundedRect(bounds, radius));
     }
 
@@ -90,12 +112,12 @@ internal sealed class FocusRing : Control
     };
 
     /// <summary>
-    /// Concentric with the control: the middle of the band is half its width
-    /// outside the edge, so its radius is the edge's plus that much. A square
-    /// corner stays square.
+    /// Concentric with the control: the middle of the band is the gap plus half
+    /// its width outside the edge, so its radius is the edge's plus that much.
+    /// A square corner stays square.
     /// </summary>
     private static double Outer(double radius, double offset) =>
         radius > 0 ? radius + offset : 0;
 
-    private void UpdateOutset() => Margin = new Thickness(-BandWidth);
+    private void UpdateOutset() => Margin = new Thickness(-(Math.Max(0, GapWidth) + BandWidth));
 }

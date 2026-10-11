@@ -554,9 +554,12 @@ internal static class EffectiveAppearanceResourceMapper
             text);
 
         // The keyboard focus ring: the accent, solid, and held to the 3:1 a
-        // boundary needs against every surface a focusable control stands on,
-        // its own push-button fill included. It was the accent at a third of
-        // its strength, which on a raised dark control was about 1.6:1.
+        // boundary needs against every surface a focusable control stands on
+        // and against a push button's neutral fill. It is not measured against
+        // an accent fill, which it matches: on an accent-filled control the
+        // ring stands a point off the edge, and the surface in that gap — held
+        // to 3:1 here — parts the two. It was the accent at a third of its
+        // strength, which on a raised dark control was about 1.6:1.
         var focusRing = EnsureContrast(
             accent,
             [.. readingSurfaces, controlSurface, hover],

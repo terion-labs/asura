@@ -153,7 +153,9 @@ public sealed class ThemeToneContrastTests
 
     /// <summary>
     /// The focus ring is a boundary, so it clears 3:1 against every surface a
-    /// focusable control stands on, its own push-button fill included.
+    /// focusable control stands on and against a push button's neutral fill.
+    /// An accent fill is the ring's own colour; that case is parted by a gap,
+    /// below.
     /// </summary>
     [Theory]
     [MemberData(nameof(Themes))]
@@ -202,6 +204,41 @@ public sealed class ThemeToneContrastTests
             MotionEnabled: true,
             AdvancedMaterialsEnabled: true,
             TextScale: 1));
+
+    /// <summary>
+    /// On an accent fill the ring is the fill's own colour, so a point of the
+    /// page colour, inset at the edge, parts the two — and that gap clears
+    /// 3:1 against the ring, as the surface behind a push button's ring does.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public void The_ring_on_an_accent_fill_is_parted_from_it_by_a_measured_gap(
+        PlatformProfile profile,
+        EffectiveAppearanceMode appearance,
+        bool highContrast)
+    {
+        foreach (var accent in new[] { "#FF8400", "#007AFF", "#FFD60A", "#8E8E93" })
+        {
+            var resources = Map(profile, appearance, highContrast, accent);
+
+            var shadows = App.FocusRingOnAccentShadow(resources);
+
+            Assert.Equal(2, shadows.Count);
+            var ring = shadows[0];
+            var gap = shadows[1];
+            Assert.False(ring.IsInset);
+            Assert.True(gap.IsInset);
+            Assert.Equal(resources.FocusRing, ring.Color);
+            Assert.Equal(App.FocusRingWidth, ring.Spread);
+            Assert.Equal(0, ring.Blur);
+            Assert.Equal(resources.Background, gap.Color);
+            Assert.Equal(App.FocusRingGap, gap.Spread);
+            Assert.Equal(0, gap.Blur);
+            Assert.True(
+                Ratio(resources.FocusRing, gap.Color) >= 3,
+                $"{profile} {appearance} HC={highContrast} {accent}: the ring {resources.FocusRing} on its gap {gap.Color} is {Ratio(resources.FocusRing, gap.Color):0.00}:1.");
+        }
+    }
 
     /// <summary>
     /// An open rail tile is ringed in the page colour before its shadow, so it

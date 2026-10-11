@@ -2120,6 +2120,13 @@
     <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
   </Style>
 
+  <!-- A focused list's selected row is the accent, and so is the ring: flush
+       against the fill the band read as the row growing. On that row the ring
+       is parted from the fill by a point of the page colour inside the edge. -->
+  <Style Selector="ListBox:not(.NeutralSelection):not(.OwnSelection):focus-within ListBoxItem:selected:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingOnAccentShadow}" />
+  </Style>
+
   <Style Selector="CheckBox:focus-visible /template/ Border#NormalRectangle, RadioButton:focus-visible /template/ Border#RootBorder, TabItem:focus-visible /template/ Border#PART_LayoutRoot, ComboBox:focus-visible /template/ Border#Background, Expander /template/ ToggleButton:focus-visible /template/ Border#ToggleButtonBackground, Slider:focus-visible /template/ Thumb /template/ Border">
     <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
   </Style>

@@ -374,7 +374,7 @@
             <ToggleSwitch HorizontalAlignment="Right" IsChecked="True" />
           </controls:SettingRow>
           <controls:SettingRow
-              Label="Restore the last directory"
+              Label="Restore the last folder"
               Description="A checkbox leads its row, and the setting's name is its title."
               IsLeading="True">
             <CheckBox IsChecked="True" />
