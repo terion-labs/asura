@@ -43,6 +43,12 @@ internal sealed class FakeGitRepositoryClient : IGitRepositoryClient
 
     public IReadOnlyList<GitRefItem>? RefsOverride { get; init; }
 
+    public IReadOnlyList<GitStashItem> Stashes { get; init; } = [];
+
+    public IReadOnlyList<GitWorktreeItem>? WorktreesOverride { get; init; }
+
+    public IReadOnlyList<GitSubmoduleItem> Submodules { get; init; } = [];
+
     /// <summary>When set, the next working-set read answers with this.</summary>
     public GitWorkingSet? NextWorkingSet { get; set; }
 
@@ -198,9 +204,9 @@ internal sealed class FakeGitRepositoryClient : IGitRepositoryClient
             StagedChanges(),
             RefsOverride ?? [new GitRefItem("refs/heads/dev", "dev", GitRefKind.LocalBranch, HeadCommit.Sha, IsCurrent: true)],
             [new GitRemoteItem("origin", "git@github.com:t/x.git")],
-            [],
-            [new GitWorktreeItem("/repo", "dev", HeadCommit.Sha, IsMain: true)],
-            [],
+            Stashes,
+            WorktreesOverride ?? [new GitWorktreeItem("/repo", "dev", HeadCommit.Sha, IsMain: true)],
+            Submodules,
             DateTimeOffset.FromUnixTimeSeconds(1_755_500_600));
         return ValueTask.FromResult<GitResult<GitRepositorySnapshot>>(
             new GitResult<GitRepositorySnapshot>.Success(snapshot));
@@ -426,6 +432,17 @@ internal sealed class FakeGitRepositoryClient : IGitRepositoryClient
         GitRepositoryHandle repository,
         string reference,
         CancellationToken cancellationToken) => Record($"stash-drop {reference}");
+
+    public List<GitPatchRequest> PatchRequests { get; } = [];
+
+    public ValueTask<GitResult<GitUnit>> ApplyPartialPatchAsync(
+        GitRepositoryHandle repository,
+        GitPatchRequest request,
+        CancellationToken cancellationToken)
+    {
+        PatchRequests.Add(request);
+        return Success();
+    }
 
     private ValueTask<GitResult<GitUnit>> Record(string operation)
     {

@@ -42,11 +42,11 @@ public sealed partial class GitRuntimePanelViewModel
         var defaultRemote = snapshot.Remotes.FirstOrDefault()?.Name;
         var refs = snapshot.Refs.Where(item => item.ShortName.Contains(RefFilter, StringComparison.OrdinalIgnoreCase));
         LocalBranches = [.. refs.Where(item => item.Kind == GitRefKind.LocalBranch)
-            .Select(item => new GitRefItemViewModel(item, snapshot.Head.BranchName, defaultRemote))];
+            .Select(item => new GitRefItemViewModel(item, defaultRemote))];
         RemoteBranches = [.. refs.Where(item => item.Kind == GitRefKind.RemoteBranch)
-            .Select(item => new GitRefItemViewModel(item, snapshot.Head.BranchName, defaultRemote))];
+            .Select(item => new GitRefItemViewModel(item, defaultRemote))];
         Tags = [.. refs.Where(item => item.Kind == GitRefKind.Tag)
-            .Select(item => new GitRefItemViewModel(item, snapshot.Head.BranchName, defaultRemote))];
+            .Select(item => new GitRefItemViewModel(item, defaultRemote))];
         LocalBranchTree = BuildRefFolders(LocalBranches, "branches");
         RemoteBranchTree = BuildRefFolders(RemoteBranches, "remotes");
         TagTree = BuildRefFolders(Tags, "tags");

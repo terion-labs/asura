@@ -205,27 +205,10 @@ public sealed class GitPanelPresentationTests
     }
 
     [Fact]
-    public void Ref_menu_labels_are_title_case_verbs()
+    public void Menu_text_keeps_underscores_out_of_access_key_parsing()
     {
-        var branch = new GitRefItemViewModel(
-            new GitRefItem("refs/heads/topic", "topic", GitRefKind.LocalBranch, "aaaa", IsCurrent: false),
-            currentBranchName: "main");
-
-        Assert.Equal("Check Out “topic”", branch.CheckoutLabel);
-        Assert.Equal("Rebase “main” onto “topic”…", branch.RebaseLabel);
-        Assert.Equal("Merge “topic” into “main”…", branch.MergeLabel);
-    }
-
-    [Fact]
-    public void Ref_menu_labels_keep_underscores_out_of_access_key_parsing()
-    {
-        var branch = new GitRefItemViewModel(
-            new GitRefItem("refs/heads/fix_login", "fix_login", GitRefKind.LocalBranch, "aaaa", IsCurrent: false),
-            currentBranchName: "release_2");
-
         // Doubled in the header so the menu draws and announces one underscore.
-        Assert.Equal("Check Out “fix__login”", branch.CheckoutLabel);
-        Assert.Equal("Merge “fix__login” into “release__2”…", branch.MergeLabel);
+        Assert.Equal("fix__login", GitMenuText.Literal("fix_login"));
         Assert.Equal(string.Empty, GitMenuText.Literal(null));
     }
 

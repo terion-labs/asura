@@ -277,7 +277,7 @@ public sealed class GitPanelConformanceHeadlessTests
             .First(border => border.Classes.Contains("GitRefRow") && border.DataContext is GitRefItemViewModel { IsCurrent: false });
         var menu = row.ContextMenu!;
         var items = menu.Items.Cast<Control>().ToArray();
-        Assert.Equal("Delete…", Assert.IsType<MenuItem>(items[^1]).Header);
+        Assert.Equal("Delete Branch…", Assert.IsType<MenuItem>(items[^1]).Header);
         Assert.IsType<Separator>(items[^2]);
         Assert.Equal(3, Groups(menu.Items).Count);
         foreach (var item in items.OfType<MenuItem>())

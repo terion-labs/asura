@@ -35,11 +35,20 @@ public sealed class GitCommitMenuHeadlessTests
         Assert.Same(clicked, panel.SelectedCommit);
         Assert.Equal([clicked], panel.SelectedCommits);
         Assert.Equal("Reset “dev” to Here", view.FindControl<MenuItem>("CommitResetMenu")!.Header);
-        foreach (var tag in new[] { "NewBranch", "NewTag", "Rebase", "Checkout", "CherryPick", "Revert", "SavePatch", "CompareLocal", "CopySha" })
+        foreach (var command in new[]
         {
-            Assert.Contains(menu.Items.OfType<MenuItem>(), item => Equals(item.Tag, tag));
+            BuiltInCommands.GitCommitNewBranch, BuiltInCommands.GitCommitNewTag, BuiltInCommands.GitCommitInteractiveRebase,
+            BuiltInCommands.GitCommitCheckout, BuiltInCommands.GitCommitCherryPick, BuiltInCommands.GitCommitRevert,
+            BuiltInCommands.GitCommitSavePatch, BuiltInCommands.GitCommitCompareLocal, BuiltInCommands.GitCommitCopySha,
+        })
+        {
+            Assert.Contains(menu.Items.OfType<MenuItem>(), item => Equals(item.Tag, command));
         }
-        var copy = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Tag, "CopySha"));
+        var copy = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Tag, BuiltInCommands.GitCommitCopySha));
+        Assert.Equal("Copy Commit SHA", copy.Header);
+        Assert.Equal(
+            "Cherry-Pick Commit…",
+            menu.Items.OfType<MenuItem>().Single(item => Equals(item.Tag, BuiltInCommands.GitCommitCherryPick)).Header);
         copy.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
         Assert.Equal(clicked.Commit.Sha, await window.Clipboard!.TryGetTextAsync());
         menu.Close();

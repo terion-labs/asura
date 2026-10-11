@@ -12,7 +12,7 @@ namespace Asura.App;
 /// <summary>
 /// A panel view that carries out its own context-menu commands for the menu
 /// bar, the command palette and keymaps: the Docker, Kubernetes, Files,
-/// Database, Processes and Redis commands in <see cref="BuiltInCommands.PanelContextCommands"/>.
+/// Database, Processes, Redis and Git commands in <see cref="BuiltInCommands.PanelContextCommands"/>.
 /// The menu bar dims each one unless the focused panel can run it now, as the
 /// context menu dims its own copy.
 /// </summary>
