@@ -1256,7 +1256,7 @@ internal sealed class QaApplication : Avalonia.Application
         {
             item.HasAttention = true;
             item.IsOpen = true;
-            item.IsInFront = item == viewModel.Workspaces[0];
+            item.IsInFront = item.Id == QaRuntimeWorkspaceDefinition.Id;
         }
     }
 
@@ -1347,12 +1347,12 @@ internal sealed class QaApplication : Avalonia.Application
             workspace.HasAttention = false;
         }
 
-        for (var index = 0; index < viewModel.Workspaces.Count; index++)
+        foreach (var item in viewModel.Workspaces)
         {
-            var item = viewModel.Workspaces[index];
+            var isRuntimeWorkspace = item.Id == QaRuntimeWorkspaceDefinition.Id;
             item.HasAttention = false;
-            item.IsOpen = index == 0;
-            item.IsInFront = index == 0;
+            item.IsOpen = isRuntimeWorkspace;
+            item.IsInFront = isRuntimeWorkspace;
         }
     }
 
@@ -2017,7 +2017,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 var preview = panel.PreviewSelectedAsync();
                 while (!preview.IsCompleted && watch.ElapsedMilliseconds < 10_000)
                 {
-                    Dispatcher.UIThread.RunJobs(DispatcherPriority.Input);
+                    Dispatcher.UIThread.RunJobs();
                     Thread.Sleep(1);
                 }
 
@@ -2029,7 +2029,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 {
                     watch.Restart();
                     panel.PreviewToggles.Single().IsOn = true;
-                    Dispatcher.UIThread.RunJobs(DispatcherPriority.Input);
+                    Dispatcher.UIThread.RunJobs();
                     window.UpdateLayout();
                     var blockingOn = watch.ElapsedMilliseconds;
                     watch.Restart();
@@ -2053,7 +2053,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
 
                     watch.Restart();
                     panel.PreviewToggles.Single().IsOn = false;
-                    Dispatcher.UIThread.RunJobs(DispatcherPriority.Input);
+                    Dispatcher.UIThread.RunJobs();
                     window.UpdateLayout();
                     Console.WriteLine($"TIMING toggle-from-hex blocking={watch.ElapsedMilliseconds}ms");
                     Dispatcher.UIThread.RunJobs();
@@ -2137,11 +2137,11 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 var preview = panel.PreviewSelectedAsync();
                 while (!preview.IsCompleted && watch.ElapsedMilliseconds < 10_000)
                 {
-                    Dispatcher.UIThread.RunJobs(DispatcherPriority.Input);
+                    Dispatcher.UIThread.RunJobs();
                     Thread.Sleep(1);
                 }
 
-                Dispatcher.UIThread.RunJobs(DispatcherPriority.Input);
+                Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
                 var blocking = watch.ElapsedMilliseconds;
 
@@ -2572,6 +2572,15 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         base.OnFrameworkInitializationCompleted();
     }
 
+    /// <summary>
+    /// The saved workspace the harness's one runtime workspace was opened
+    /// from: Operations, whose title and colour it carries.
+    /// </summary>
+    private static WorkspaceDefinition QaRuntimeWorkspaceDefinition =>
+        QaData.Workspaces
+            .Select(stored => stored.Value)
+            .Single(workspace => string.Equals(workspace.Id.Value, "operations", StringComparison.Ordinal));
+
     private static MainWindowViewModel CreateViewModel()
     {
         var catalog = Program.IsWebsiteExport
@@ -2703,6 +2712,17 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 .GetField("_openWorkspaces", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .GetValue(viewModel)!;
         openWorkspaces.Add(workspace);
+        // And the definition it was opened from, as the product records when
+        // it opens one: the rail decides which tile is open and in front from
+        // that record every time it refreshes, so without it the tile set by
+        // hand went back to idle on the first refresh and no capture showed a
+        // current workspace.
+        var runtimeSources = (System.Collections.IDictionary)typeof(MainWindowViewModel)
+            .GetField("_runtimeSources", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(viewModel)!;
+        runtimeSources[workspace.Id] = new RuntimeHistorySource(
+            QaRuntimeWorkspaceDefinition.Key,
+            QaRuntimeWorkspaceDefinition.Name);
         workspace.GetType()
             .GetProperty("IsCanvasShown")!
             .GetSetMethod(nonPublic: true)!
@@ -3331,15 +3351,40 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 viewer.SelectRow(viewer.ResultRows[0]);
                 var field = viewer.SelectedRowFields.Single(candidate =>
                     string.Equals(candidate.Name, "service", StringComparison.Ordinal));
-                field.BeginEdit();
-                field.Draft = "checkout-web-eu — renamed through the inspector "
-                    + "draft, applied with Cmd+Enter.";
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
-                if (!field.IsEditing)
+                // Through the field's own Edit button, as a person starts it:
+                // that is what hands the draft focus, and with it the ring
+                // this capture is here to show.
+                var edit = window.GetVisualDescendants()
+                    .OfType<Button>()
+                    .Single(candidate => string.Equals(
+                        AutomationProperties.GetName(candidate),
+                        "Edit service",
+                        StringComparison.Ordinal));
+                edit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                for (var attempt = 0; attempt < 50 && !field.IsEditing; attempt++)
+                {
+                    await Task.Delay(20);
+                    Dispatcher.UIThread.RunJobs();
+                }
+
+                field.Draft = "checkout-web-eu — renamed through the inspector "
+                    + "draft, applied with Cmd+Enter.";
+                await Task.Delay(40);
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+                var draft = window.GetVisualDescendants()
+                    .OfType<Panel>()
+                    .SingleOrDefault(candidate => candidate.Classes.Contains("InspectorDraft")
+                        && candidate.IsEffectivelyVisible);
+                if (!field.IsEditing
+                    || draft is null
+                    || TopLevel.GetTopLevel(window)?.FocusManager?.GetFocusedElement() is not Visual focused
+                    || !focused.GetVisualAncestors().Contains(draft))
                 {
                     throw new InvalidOperationException(
-                        "The inspector field did not enter its editing state.");
+                        "The inspector field did not enter its editing state with its draft focused.");
                 }
             });
 
@@ -3375,9 +3420,14 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 window.UpdateLayout();
             });
 
+    // The editor is as wide as the grid it edits, up to its designed width.
+    // Beside the row inspector a 720-point panel left the grid 160 points and
+    // the editor a column of two-word lines over stacked buttons; at 920 the
+    // grid gives it the compact width a narrow panel really has, under the
+    // designed width, with Cancel and Apply on one line.
     private static Window CreateDatabaseCellEditorCompactProbe() =>
         CreatePreparedDatabaseProbe(
-            width: 720,
+            width: 920,
             height: 560,
             async (window, viewer, _) =>
             {
@@ -3443,6 +3493,21 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 {
                     throw new InvalidOperationException(
                         "The compact cell editor escaped the grid viewport or hid an action.");
+                }
+
+                // Centres, not tops: the default button's outset ring makes it
+                // a point taller than Cancel beside it.
+                var applyOrigin = apply.TranslatePoint(new Point(0, apply.Bounds.Height / 2), dialog);
+                var cancelOrigin = cancel.TranslatePoint(new Point(0, cancel.Bounds.Height / 2), dialog);
+                if (dialog.Bounds.Width >= 620
+                    || applyOrigin is not { } applyAt
+                    || cancelOrigin is not { } cancelAt
+                    || Math.Abs(applyAt.Y - cancelAt.Y) > 1)
+                {
+                    throw new InvalidOperationException(
+                        "The compact cell editor is no longer compact, or its actions left their one line "
+                        + $"(editor {dialog.Bounds.Width:0} wide in a {grid.Bounds.Width:0}-point grid; "
+                        + $"Apply at {applyOrigin}, Cancel at {cancelOrigin}).");
                 }
             });
 
