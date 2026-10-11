@@ -1386,6 +1386,41 @@ public sealed class GhosttyVtTerminalSessionTests
     }
 
     [Fact]
+    public async Task A_failed_output_read_shows_a_sentence_instead_of_the_device_error()
+    {
+        _ = GhosttyVtTestRuntime.RequireStagedRuntime();
+        var ptyFactory = new FakePortablePtyFactory();
+        ptyFactory.Connection.ReaderOverride = new FailingReadStream(
+            new IOException("read /dev/ttys004: input/output error"));
+        var factory = new GhosttyVtTerminalSessionFactory(ptyFactory);
+        await using var session = await factory.CreateAsync(
+            SessionId.New(),
+            new TerminalLaunchRequest(Environment.CurrentDirectory),
+            default);
+
+        PanelSessionSnapshot snapshot = null!;
+        await WaitUntilAsync(async () =>
+        {
+            snapshot = await session.SnapshotAsync(default);
+            return snapshot.Lifecycle == SessionLifecycle.Failed;
+        });
+
+        Assert.Equal(GhosttyVtTerminalSession.FailureDetail("ghostty_vt_terminal_read_failed"), snapshot.StatusDetail);
+        Assert.DoesNotContain("/dev/", snapshot.StatusDetail, StringComparison.Ordinal);
+        Assert.Equal("ghostty_vt_terminal_read_failed", snapshot.Failure?.StableCode, StringComparer.Ordinal);
+        Assert.Equal(snapshot.StatusDetail, snapshot.Failure?.Message, StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public void A_failed_input_write_says_input_could_not_be_sent()
+    {
+        var text = GhosttyVtTerminalSession.FailureDetail("ghostty_vt_terminal_write_failed");
+
+        Assert.StartsWith("Asura couldn’t send input to this terminal.", text, StringComparison.Ordinal);
+        Assert.NotEqual(GhosttyVtTerminalSession.FailureDetail("ghostty_vt_terminal_read_failed"), text, StringComparer.Ordinal);
+    }
+
+    [Fact]
     public async Task Output_eof_before_process_exit_keeps_session_active_until_exit_code_is_known()
     {
         _ = GhosttyVtTestRuntime.RequireStagedRuntime();
@@ -1705,6 +1740,34 @@ public sealed class GhosttyVtTerminalSessionTests
 
             await Task.Delay(10);
         }
+    }
+
+    private sealed class FailingReadStream(IOException failure) : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw failure;
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            ValueTask.FromException<int>(failure);
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     private sealed record GhosttyVtHarness(

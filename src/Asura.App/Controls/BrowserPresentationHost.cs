@@ -804,9 +804,30 @@ public sealed class BrowserPresentationHost : ContentControl
                     ?? "The browser couldn’t finish that action.");
                 break;
             case HostResult<BrowserResult<BrowserSessionState>>.Failure failure:
-                SetOperationMessage(failure.Error.Message);
+                SetOperationMessage(HostFailureMessage(failure.Error));
                 break;
         }
+    }
+
+    /// <summary>
+    /// A browser action the session host refused. The host's message is
+    /// written for its log and can carry the engine's own exception text, so
+    /// the code chooses the sentence.
+    /// </summary>
+    internal static string HostFailureMessage(HostError error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        SecretSafeDiagnosticProjection.WriteTrace(
+            $"browser.host.{error.Code.ToString().ToLowerInvariant()}",
+            SecretSafeDiagnosticKind.Unexpected);
+        return error.Code switch
+        {
+            HostErrorCode.Cancelled => "The browser action was canceled.",
+            HostErrorCode.DeadlineExceeded => "The browser didn’t finish that action in time. Try again.",
+            HostErrorCode.NotFound or HostErrorCode.SessionClosed =>
+                "This browser panel closed. Open a new browser panel, then try again.",
+            _ => "The browser couldn’t finish that action. Try again.",
+        };
     }
 
     private void SubscribeRenderer(IBrowserRenderer renderer)

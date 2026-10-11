@@ -1148,6 +1148,35 @@ public sealed class FileRuntimePanelViewModelTests
     }
 
     [Fact]
+    public void AnUnsupportedActionIsNamedOnceAndFollowedOnlyByWhatToTry()
+    {
+        var issue = FileOperationIssue.FromProvider(new FilePanelError(
+            FilePanelErrorCode.UnsupportedCapability,
+            "file_copy_unsupported",
+            "This location doesn't support copying.",
+            Retryable: false));
+
+        Assert.Equal("Try another action or location.", issue.SuggestedAction);
+        Assert.DoesNotContain("support", issue.SuggestedAction, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ARemovedFileLocationSaysToChooseAnotherInTheSettingsWords()
+    {
+        var issue = FileOperationIssue.FromProvider(new FilePanelError(
+            FilePanelErrorCode.UnknownProfile,
+            "file_provider_profile_unknown",
+            "That file location no longer exists.",
+            Retryable: false));
+        var configuration = FileOperationIssue.Configuration("No file location is selected.");
+
+        Assert.Equal(FileOperationIssueKind.Configuration, issue.Kind);
+        Assert.Equal("Choose another file location, or set one up in Settings.", issue.SuggestedAction);
+        Assert.Equal("File location unavailable", configuration.Title);
+        Assert.DoesNotContain("provider", configuration.SuggestedAction, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task EntriesCanBeSortedWithoutMovingFoldersBelowFiles()
     {
         var client = new StubFilePanelClient();

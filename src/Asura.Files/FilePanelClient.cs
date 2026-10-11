@@ -87,7 +87,7 @@ public sealed partial class FilePanelClient : IFilePanelClient, IFileTransferQue
         {
             SecretSafeDiagnosticProjection.WriteTrace("files.page-token.invalid", exception);
             return Invalid<FilePanelPage>(
-                "Asura lost its place in the folder's list of items. Refresh, then try again.");
+                "Asura lost its place in the folder's list of items.");
         }
 
         var result = await registration.Provider.ListAsync(
@@ -189,7 +189,7 @@ public sealed partial class FilePanelClient : IFilePanelClient, IFileTransferQue
             return Failure<FilePanelPreview>(
                 FilePanelErrorCode.IoFailure,
                 "file_provider_receipt_invalid",
-                "The location returned a preview Asura couldn't confirm. Try again.");
+                "The location returned a preview Asura couldn't confirm.");
         }
 
         var source = FromProviderLocation(receipt.Source!);
@@ -354,7 +354,7 @@ public sealed partial class FilePanelClient : IFilePanelClient, IFileTransferQue
             error = new FilePanelError(
                 FilePanelErrorCode.UnknownProfile,
                 "file_provider_profile_unknown",
-                "That file location no longer exists. Choose another one.",
+                "That file location no longer exists.",
                 false);
             return false;
         }

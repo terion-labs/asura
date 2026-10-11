@@ -813,11 +813,26 @@ internal sealed partial class GhosttyVtTerminalSession : ITerminalPanelSession
                 return;
             }
 
-            _failure = new SessionFailure(stableCode, exception.Message, true);
+            // The pseudoterminal's own text is written for developers and can name
+            // device paths; the terminal and its overlay show a sentence instead.
+            var writing = IsWriteFailure(stableCode);
+            SecretSafeDiagnosticProjection.WriteTrace(
+                writing ? "terminal.ghostty.write.failed" : "terminal.ghostty.read.failed",
+                exception);
+            var detail = FailureDetail(stableCode);
+            _failure = new SessionFailure(stableCode, detail, true);
             _writes.Writer.TryComplete(exception);
-            PublishUnsafe(SessionLifecycle.Failed, SessionHealth.Failed, exception.Message);
+            PublishUnsafe(SessionLifecycle.Failed, SessionHealth.Failed, detail);
         }
     }
+
+    private static bool IsWriteFailure(string stableCode) =>
+        string.Equals(stableCode, "ghostty_vt_terminal_write_failed", StringComparison.Ordinal);
+
+    internal static string FailureDetail(string stableCode) =>
+        IsWriteFailure(stableCode)
+            ? "Asura couldn’t send input to this terminal. If it doesn’t reconnect, close the tab and open a new terminal."
+            : "Asura stopped receiving output from this terminal. If it doesn’t reconnect, close the tab and open a new terminal.";
 
     private void PublishUnsafe(SessionLifecycle lifecycle, SessionHealth health, string detail)
     {

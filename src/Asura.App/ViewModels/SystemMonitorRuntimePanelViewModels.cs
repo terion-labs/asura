@@ -370,9 +370,13 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
 
         if (result is HostResult<SessionSnapshot>.Failure failure)
         {
+            // The session host's message is written for its log ("Expected revision 3,
+            // but the current revision is 4."), so the panel says what to check instead.
+            SecretSafeDiagnosticProjection.WriteTrace(
+                $"monitor.host.{failure.Error.Code.ToString().ToLowerInvariant()}", SecretSafeDiagnosticKind.Unexpected);
             await ApplyHostFailureAsync(
                 "Statistics unavailable",
-                failure.Error.Message);
+                $"Asura couldn't start Statistics for “{ConnectionDisplayName}”. Check the connection, then try again.");
             return;
         }
 
@@ -477,9 +481,13 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
 
             if (result is HostResult<MonitorPanelResult<SystemStatisticsSnapshot>>.Failure failure)
             {
+                // The session host's message is written for its log ("Expected revision 3,
+                // but the current revision is 4."), so the panel says what to check instead.
+                SecretSafeDiagnosticProjection.WriteTrace(
+                    $"monitor.host.{failure.Error.Code.ToString().ToLowerInvariant()}", SecretSafeDiagnosticKind.Unexpected);
                 await ApplyCaptureFailureAsync(
                     "Statistics refresh failed",
-                    failure.Error.Message,
+                    $"Asura couldn't read statistics from “{ConnectionDisplayName}”. Check the connection, then try again.",
                     linked.Token);
                 return;
             }
@@ -1028,9 +1036,13 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
 
         if (result is HostResult<SessionSnapshot>.Failure failure)
         {
+            // The session host's message is written for its log ("Expected revision 3,
+            // but the current revision is 4."), so the panel says what to check instead.
+            SecretSafeDiagnosticProjection.WriteTrace(
+                $"monitor.host.{failure.Error.Code.ToString().ToLowerInvariant()}", SecretSafeDiagnosticKind.Unexpected);
             await ApplyFailureAsync(
                 "Processes unavailable",
-                failure.Error.Message,
+                $"Asura couldn't start Processes for “{ConnectionDisplayName}”. Check the connection, then try again.",
                 CancellationToken.None);
             return;
         }
@@ -1140,9 +1152,13 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
 
             if (result is HostResult<MonitorPanelResult<ProcessMonitorSnapshot>>.Failure failure)
             {
+                // The session host's message is written for its log ("Expected revision 3,
+                // but the current revision is 4."), so the panel says what to check instead.
+                SecretSafeDiagnosticProjection.WriteTrace(
+                    $"monitor.host.{failure.Error.Code.ToString().ToLowerInvariant()}", SecretSafeDiagnosticKind.Unexpected);
                 await ApplyFailureAsync(
                     "Process refresh failed",
-                    failure.Error.Message,
+                    $"Asura couldn't load the processes on “{ConnectionDisplayName}”. Check the connection, then try again.",
                     linked.Token);
                 return;
             }

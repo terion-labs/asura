@@ -213,5 +213,5 @@ public sealed partial class FilePanelClient
     private static FilePanelResult<T> InvalidProviderReceipt<T>() => Failure<T>(
         FilePanelErrorCode.IoFailure,
         "file_provider_receipt_invalid",
-        "The location reported a result Asura couldn't confirm. Refresh to check the change.");
+        "The location reported a result Asura couldn't confirm, so the change may have been made.");
 }

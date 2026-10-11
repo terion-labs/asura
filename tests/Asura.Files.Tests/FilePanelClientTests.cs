@@ -457,7 +457,7 @@ public sealed class FilePanelClientTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal("file_request_invalid", result.Error!.StableCode);
-        Assert.Equal("Asura lost its place in the folder's list of items. Refresh, then try again.", result.Error.Message);
+        Assert.Equal("Asura lost its place in the folder's list of items.", result.Error.Message);
         Assert.DoesNotContain("token", result.Error.Message, StringComparison.OrdinalIgnoreCase);
     }
 

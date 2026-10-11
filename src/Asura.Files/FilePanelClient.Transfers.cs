@@ -272,7 +272,7 @@ public sealed partial class FilePanelClient
             result = Failure<long>(
                 FilePanelErrorCode.IoFailure,
                 "file_transfer_unexpected_failure",
-                "The transfer stopped because of an unexpected problem. Try again.",
+                "The transfer stopped because of an unexpected problem.",
                 retryable: true);
         }
 

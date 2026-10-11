@@ -277,6 +277,34 @@ public sealed class SystemMonitorRuntimePanelViewModelTests
     }
 
     [Fact]
+    public async Task ASessionHostRefusalSaysWhatToCheckInsteadOfTheHostsLogText()
+    {
+        var (client, host) = CreateHost();
+        host.StatisticsResults.Enqueue(StatisticsSuccess(StatisticsSample()));
+        host.StatisticsResults.Enqueue(HostResult<MonitorPanelResult<SystemStatisticsSnapshot>>.Fail(
+            HostError.Create(HostErrorCode.RevisionConflict, "Expected revision 3, but the current revision is 4."),
+            HostRevision));
+        host.ProcessResults.Enqueue(ProcessSuccess(ProcessSample()));
+        host.ProcessResults.Enqueue(HostResult<MonitorPanelResult<ProcessMonitorSnapshot>>.Fail(
+            HostError.Create(HostErrorCode.EngineFailed, "Object reference not set to an instance of an object."),
+            HostRevision));
+        using var statistics = CreateStatisticsPanel(client);
+        using var processes = CreateProcessPanel(client);
+        await statistics.Start();
+        await processes.Start();
+
+        await statistics.RefreshAsync();
+        await processes.RefreshAsync();
+
+        Assert.Equal("Statistics refresh failed", statistics.IssueTitle);
+        Assert.StartsWith("Asura couldn't read statistics from", statistics.IssueMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("revision", statistics.IssueMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Process refresh failed", processes.IssueTitle);
+        Assert.StartsWith("Asura couldn't load the processes on", processes.IssueMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("Object reference", processes.IssueMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task StatisticsStaleFailureShowsItsReasonInANoticeUntilASampleArrives()
     {
         var (client, host) = CreateHost();

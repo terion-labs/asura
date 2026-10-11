@@ -274,7 +274,8 @@ public sealed record FileOperationIssue(
                     FileOperationIssueKind.Unsupported,
                     "Not supported here",
                     error,
-                    "This location doesn't support that action. Try another action or location."),
+                    // The message already says what the location doesn't support.
+                    "Try another action or location."),
             FilePanelErrorCode.PartialTransfer
                 or FilePanelErrorCode.UnexpectedEndOfStream => Create(
                     FileOperationIssueKind.Partial,
@@ -311,6 +312,11 @@ public sealed record FileOperationIssue(
                 "Too large",
                 error,
                 "Choose fewer or smaller items, then try again."),
+            FilePanelErrorCode.UnknownProfile => Create(
+                FileOperationIssueKind.Configuration,
+                "File location not found",
+                error,
+                "Choose another file location, or set one up in Settings."),
             FilePanelErrorCode.Cancelled => Create(
                 FileOperationIssueKind.Cancelled,
                 "Canceled",
@@ -336,9 +342,9 @@ public sealed record FileOperationIssue(
 
     public static FileOperationIssue Configuration(string message) => new(
         FileOperationIssueKind.Configuration,
-        "File provider unavailable",
+        "File location unavailable",
         message,
-        "Choose a file provider, or set one up in Settings.",
+        "Choose a file location, or set one up in Settings.",
         CanRetry: false);
 
     public static FileOperationIssue Unexpected(string message) => new(
