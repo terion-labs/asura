@@ -184,15 +184,6 @@ public sealed partial class WorkspaceEditorView : UserControl
     /// </summary>
     public void ApplySampledColor(Color color) => _samplingPicker?.ApplySampled(color);
 
-    private void OnRenameWorkspaceClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        var input = this.FindControl<TextBox>("WorkspaceNameInput")!;
-        input.Focus();
-        input.SelectAll();
-    }
-
     private void OnCreateWorkspaceClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;

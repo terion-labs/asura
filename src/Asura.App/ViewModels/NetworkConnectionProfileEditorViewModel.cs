@@ -59,13 +59,25 @@ public sealed record NetworkCredentialOption(
             $"{KindLabel} · {PersistenceLabel} · Updated {UpdatedLabel}",
         NetworkCredentialOptionState.Pending =>
             $"{KindLabel} · Stored when the connection is saved",
-        NetworkCredentialOptionState.Unavailable =>
-            $"The saved credential is no longer in {PlatformTerms.SecretStore}. Choose another credential or add a new one.",
-        NetworkCredentialOptionState.MetadataUnavailable =>
-            $"{PlatformTerms.SecretStore} couldn't provide details for this credential.",
+        NetworkCredentialOptionState.Unavailable => "Missing",
+        NetworkCredentialOptionState.MetadataUnavailable => "Details unavailable",
         NetworkCredentialOptionState.Loading =>
             $"Reading this connection's credentials from {PlatformTerms.SecretStore}…",
         _ => throw new ArgumentOutOfRangeException(nameof(State), State, null),
+    };
+
+    /// <summary>
+    /// What is wrong with this credential when it is the one chosen, said
+    /// under the field rather than squeezed into a pop-up item; null when
+    /// nothing is.
+    /// </summary>
+    public string? Problem => State switch
+    {
+        NetworkCredentialOptionState.Unavailable =>
+            $"This credential is no longer in {PlatformTerms.SecretStore}. Choose another one or add a new one.",
+        NetworkCredentialOptionState.MetadataUnavailable =>
+            $"{PlatformTerms.SecretStore} couldn't provide details for this credential.",
+        _ => null,
     };
 
     public bool IsAvailable => State is NetworkCredentialOptionState.None
@@ -428,9 +440,13 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
     /// </summary>
     public string? InvalidFieldName => TryBuild(out _, out _, out var invalidField) ? null : invalidField;
 
-    /// <summary>The footer's one sentence: what is still missing, or what saving does.</summary>
-    public string FooterHint => TryBuild(out _, out var error)
-        ? $"Saving stores any new credential in {PlatformTerms.SecretStore}."
+    /// <summary>
+    /// The footer's one sentence: what is still missing, or nothing. Where the
+    /// credentials go is the dialog's subtitle; saying it again here was the
+    /// same sentence twice.
+    /// </summary>
+    public string? FooterHint => TryBuild(out _, out var error)
+        ? null
         : error;
 
     public NetworkConnectionProfileSaveRequest CreateSaveRequest()

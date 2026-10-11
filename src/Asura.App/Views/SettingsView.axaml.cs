@@ -34,6 +34,22 @@ internal sealed record AiProviderSecretFormInput(
     string Label,
     string Value);
 
+/// <summary>The four forms on the Settings pages that store a credential.</summary>
+internal enum CredentialForm
+{
+    Connection,
+    FileProvider,
+    AiProvider,
+    McpServer,
+}
+
+/// <summary>Which control of a credential form a message is about.</summary>
+internal enum CredentialFormField
+{
+    Owner,
+    Kind,
+}
+
 internal sealed record McpServerSecretFormInput(
     McpServerSecretTargetViewModel? Target,
     SecretKind? Kind,
@@ -58,6 +74,11 @@ public sealed partial class SettingsView : UserControl
         FollowListSelection(SecretList, DeleteSecretButton);
         FollowListSelection(AiProviderList, DeleteAiProviderButton);
         FollowListSelection(McpServerList, DeleteMcpServerButton);
+        foreach (var (field, picker) in CredentialFormFields())
+        {
+            // A message about a choice goes once the choice is made again.
+            picker.SelectionChanged += (_, _) => field.Error = null;
+        }
     }
 
     /// <summary>
@@ -211,11 +232,7 @@ public sealed partial class SettingsView : UserControl
 
     public event EventHandler<RoutedEventArgs>? AppearanceApplyRequested;
 
-    public event EventHandler<RoutedEventArgs>? AppearanceApplyTerminalRequested;
-
     public event EventHandler<RoutedEventArgs>? AppearanceCancelRequested;
-
-    public event EventHandler<RoutedEventArgs>? AppearanceCancelTerminalRequested;
 
     public event EventHandler<RoutedEventArgs>? AppearanceResetRequested;
 
@@ -223,7 +240,7 @@ public sealed partial class SettingsView : UserControl
 
     public event EventHandler<RoutedEventArgs>? AppearanceExportRequested;
 
-    public event EventHandler<RoutedEventArgs>? AppearanceResetTerminalPaletteRequested;
+    public event EventHandler<RoutedEventArgs>? AppearanceRevertTerminalRequested;
 
     public event EventHandler<RoutedEventArgs>? PickColorRequested;
 
@@ -354,6 +371,37 @@ public sealed partial class SettingsView : UserControl
     internal void ClearMcpServerSecretLabel() =>
         McpServerSecretLabelInput.Text = string.Empty;
 
+    /// <summary>
+    /// Says what a credential form is missing under the picker it is about,
+    /// and puts focus there. The message used to go to the window's error
+    /// notices, a corner away from the form, while focus stayed on Store
+    /// Credential.
+    /// </summary>
+    internal void ShowCredentialFormError(CredentialForm form, CredentialFormField which, string message)
+    {
+        var (field, picker) = CredentialFormControls(form, which);
+        field.Error = message;
+        _ = picker.Focus(NavigationMethod.Tab);
+    }
+
+    private (LabeledField Field, ComboBox Picker) CredentialFormControls(CredentialForm form, CredentialFormField which) =>
+        (form, which) switch
+        {
+            (CredentialForm.Connection, CredentialFormField.Owner) => (SecretConnectionField, SecretConnectionPicker),
+            (CredentialForm.Connection, _) => (SecretKindField, SecretKindPicker),
+            (CredentialForm.FileProvider, CredentialFormField.Owner) => (SecretFileProviderField, SecretFileProviderPicker),
+            (CredentialForm.FileProvider, _) => (FileProviderSecretKindField, FileProviderSecretKindPicker),
+            (CredentialForm.AiProvider, _) => (AiProviderSecretProfileField, AiProviderSecretProfilePicker),
+            (CredentialForm.McpServer, CredentialFormField.Owner) => (McpServerSecretTargetField, McpServerSecretTargetPicker),
+            (CredentialForm.McpServer, _) => (McpServerSecretKindField, McpServerSecretKindPicker),
+            _ => throw new ArgumentOutOfRangeException(nameof(form), form, null),
+        };
+
+    private IEnumerable<(LabeledField Field, ComboBox Picker)> CredentialFormFields() =>
+        (from form in Enum.GetValues<CredentialForm>()
+         from which in Enum.GetValues<CredentialFormField>()
+         select CredentialFormControls(form, which)).Distinct();
+
     internal void BindOperationalViewModels(
         RecoveryDataControlViewModel recoveryData,
         LocalArtifactControlViewModel localArtifact,
@@ -365,6 +413,9 @@ public sealed partial class SettingsView : UserControl
             ?? throw new ArgumentNullException(nameof(localArtifact));
         DiagnosticsExportView.DataContext = diagnosticsExport
             ?? throw new ArgumentNullException(nameof(diagnosticsExport));
+        RecoveryDataControlView.IsVisible = true;
+        LocalArtifactControlView.IsVisible = true;
+        DiagnosticsExportView.IsVisible = true;
     }
 
     internal void FocusSavedScreenUndo() =>
@@ -386,14 +437,8 @@ public sealed partial class SettingsView : UserControl
     private void OnAppearanceApplyRequested(object? sender, RoutedEventArgs e) =>
         AppearanceApplyRequested?.Invoke(sender, e);
 
-    private void OnAppearanceApplyTerminalRequested(object? sender, RoutedEventArgs e) =>
-        AppearanceApplyTerminalRequested?.Invoke(sender, e);
-
     private void OnAppearanceCancelRequested(object? sender, RoutedEventArgs e) =>
         AppearanceCancelRequested?.Invoke(sender, e);
-
-    private void OnAppearanceCancelTerminalRequested(object? sender, RoutedEventArgs e) =>
-        AppearanceCancelTerminalRequested?.Invoke(sender, e);
 
     private void OnAppearanceResetRequested(object? sender, RoutedEventArgs e) =>
         AppearanceResetRequested?.Invoke(sender, e);
@@ -404,10 +449,10 @@ public sealed partial class SettingsView : UserControl
     private void OnAppearanceExportRequested(object? sender, RoutedEventArgs e) =>
         AppearanceExportRequested?.Invoke(sender, e);
 
-    private void OnAppearanceResetTerminalPaletteRequested(
+    private void OnAppearanceRevertTerminalRequested(
         object? sender,
         RoutedEventArgs e) =>
-        AppearanceResetTerminalPaletteRequested?.Invoke(sender, e);
+        AppearanceRevertTerminalRequested?.Invoke(sender, e);
 
     private void OnPickColorRequested(object? sender, RoutedEventArgs e) =>
         PickColorRequested?.Invoke(sender, e);
@@ -874,7 +919,7 @@ public sealed partial class SettingsView : UserControl
 
                 foreach (var row in group.Items.OfType<SettingRow>())
                 {
-                    if (!SettingsSearchIndex.Matches($"{row.Label} {row.Description}", query))
+                    if (!SearchableText(row).Any(text => SettingsSearchIndex.Matches(text, query)))
                     {
                         Hide(row);
                     }

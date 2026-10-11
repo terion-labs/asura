@@ -1,0 +1,67 @@
+<Styles
+    x:Class="Asura.App.Views.SettingsPages.SettingOptionStyles"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Asura.App.Controls">
+  <!--
+    One rule for booleans in Settings and the editors it opens. An option is a
+    checkbox whose label is its content, with the box leading and the
+    description under the label, as in System Settings and every Mac
+    preferences window. A switch is kept for the one setting that turns a
+    whole section on or off.
+
+    The pages had four shapes for the same thing: a switch at the row's
+    trailing edge, a bare checkbox there instead, a checkbox under a field
+    label, and a toggle field with its own on and off sentences. A row classed
+    Option is the one shape: the checkbox carries the name, clicking the words
+    toggles it, and the description lines up under the words rather than
+    under the box.
+
+    The shared theme is adding the same shape as SettingRow IsLeading. When
+    it lands, each Option row becomes IsLeading="True" as it stands (the name
+    is already the row's Label) and this file goes.
+  -->
+  <Style Selector="controls|SettingRow.Option">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel>
+          <StackPanel Margin="{TemplateBinding Padding}" Spacing="{DynamicResource ShellSpaceXs}">
+            <ContentPresenter
+                Margin="{controls:Inset Horizontal=Xs}"
+                HorizontalAlignment="Left"
+                Content="{TemplateBinding Content}"
+                ContentTemplate="{TemplateBinding ContentTemplate}" />
+            <!-- Under the checkbox's words, not its box: the box is 20 wide
+                 and its words start 8 after it, inside the row's own inset. -->
+            <TextBlock
+                Margin="{controls:Inset Left=Xxl, Right=Xs}"
+                Foreground="{DynamicResource ShellMutedBrush}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
+                LineHeight="{DynamicResource ShellLineHeight11}"
+                Text="{TemplateBinding Description}"
+                TextWrapping="Wrap"
+                IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
+          <Border
+              Name="PART_Separator"
+              Height="1"
+              Background="{DynamicResource ShellBorderBrush}" />
+        </StackPanel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <Style Selector="controls|SettingRow.Option:last /template/ Border#PART_Separator">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+
+  <!-- The row's label is the checkbox's title, so the setting is named once,
+       on the row, where search and the shared leading row read it. The
+       description is the checkbox's help text, as a row's description is its
+       control's. -->
+  <Style Selector="controls|SettingRow.Option > CheckBox">
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Content" Value="{Binding $parent[controls:SettingRow].Label}" />
+    <Setter Property="AutomationProperties.HelpText" Value="{Binding $parent[controls:SettingRow].Description}" />
+  </Style>
+</Styles>

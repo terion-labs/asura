@@ -12,7 +12,7 @@ internal sealed record TabSourceRow(
     string Title,
     string Detail,
     Symbol Symbol,
-    string Kind,
+    string? Badge,
     WorkspaceTabSource? Source)
 {
     public bool IsNewScreen => Source is null;
@@ -21,7 +21,20 @@ internal sealed record TabSourceRow(
         IsNewScreen
         || Title.Contains(term, StringComparison.OrdinalIgnoreCase)
         || Detail.Contains(term, StringComparison.OrdinalIgnoreCase)
-        || Kind.Contains(term, StringComparison.OrdinalIgnoreCase);
+        || (Badge?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false);
+
+    /// <summary>
+    /// A connection's glyph says what it reaches, as its detail line does:
+    /// one server glyph for every row made SSH, WSL, Docker, and this Mac look
+    /// alike at a glance.
+    /// </summary>
+    public static Symbol ConnectionSymbol(ConnectionKind? kind) => kind switch
+    {
+        ConnectionKind.Local => Symbol.Laptop,
+        ConnectionKind.Docker => Symbol.Box,
+        ConnectionKind.Wsl => Symbol.WindowConsole,
+        _ => Symbol.Server,
+    };
 }
 
 /// <summary>
@@ -65,8 +78,8 @@ public sealed partial class AddWorkspaceTabDialog : DialogWindow
                 .Select(connection => new TabSourceRow(
                     connection.Name,
                     connection.Kind,
-                    Symbol.Server,
-                    "Connection",
+                    TabSourceRow.ConnectionSymbol(connection.ConnectionKind),
+                    null,
                     new WorkspaceTabSource.Connection(connection.Id))),
             .. screens
                 .Where(screen => screen.IsAvailable)
@@ -107,7 +120,7 @@ public sealed partial class AddWorkspaceTabDialog : DialogWindow
         var row = SourceList.SelectedItem as TabSourceRow;
         NewScreenOptions.IsVisible = row is { IsNewScreen: true };
         SavedScreenOptions.IsVisible = row?.Source is WorkspaceTabSource.LinkedScreen;
-        EmptySelectionHint.IsVisible = row is null;
+        SelectionOptions.IsVisible = NewScreenOptions.IsVisible || SavedScreenOptions.IsVisible;
         ConfirmButton.IsEnabled = row is not null;
     }
 

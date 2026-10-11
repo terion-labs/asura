@@ -173,6 +173,21 @@ Tests call `PlatformTerms.SecretStoreFor(HostOperatingSystem.Windows)` and the o
 
 - Format counts with grouping (`N0`): "1,204 items".
 
+## Settings
+
+Settings follow the Mac settings window: there is no Save, Apply, or OK.
+
+- A setting applies the moment it changes. A change that is previewed, such as the terminal palette, is applied as it is previewed; the page offers Revert, which puts back what the page opened with.
+- A value that can't apply yet says why under itself, as a field message, and applies once it can. It doesn't wait behind a button.
+- Two edits are drafts, because they only make sense whole:
+  - Keyboard Shortcuts. A set of shortcuts has to be free of conflicts before any of it is saved, so the pane keeps Save Shortcuts, and resolving a conflict happens in the draft.
+  - A browser profile's HTTP authentication. A password is stored whole or not at all, so the group keeps Save Authentication.
+- Leaving a page that holds one of these drafts, or closing the window, asks first. Nothing else asks, because nothing else is unsaved.
+- A change that applies as it is made can still fail to save. It stays on show with Try Again and Discard Changes beside it, and until one of them is chosen it counts as a draft: leaving the page asks first.
+- An on/off option is a checkbox whose label is its own text, with the box leading and the description under the words. A switch is used only for the setting that turns a whole section on or off, such as Use a network connection.
+- Pop-up menu items are menu items, so they are title case ("Confirm Before Open", "Use App Setting").
+- A delete that leaves Undo (workspaces, saved screens, file providers) happens at once, so its Delete has no "…". Where a question follows, as for a stored credential, the item keeps "Delete…".
+
 ## Error messages
 
 An error message says what happened, why when that is known, and what the person can do next. Write it in sentence style with a closing period.

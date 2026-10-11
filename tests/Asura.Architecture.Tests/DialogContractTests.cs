@@ -59,10 +59,10 @@ public sealed partial class DialogContractTests
             "drops unapplied edits in the manifest editor; the cluster is untouched",
         [("SettingsView.axaml", "Reset")] =
             "returns one row of the unsaved shortcut draft to its default; Save Shortcuts commits it",
+        [("SettingsView.axaml", "Clear")] =
+            "clears the prefix in the unsaved shortcut draft, like a row's Reset; Save Shortcuts commits it",
         [("Overlays/LayoutDesignerView.axaml", "Reset")] =
             "restores the saved layout over the designer's unsaved edits",
-        [("SettingsPages/AppearanceSettingsPageView.axaml", "Reset Palette")] =
-            "resets the previewed palette draft; Apply Terminal commits it",
         [("WorkspaceEditorView.axaml", "Reset")] =
             "returns the open editor to the saved workspace, enabled only while it holds edits",
         [("AgentWorkspaceView.axaml", "Clear Failed Run")] =

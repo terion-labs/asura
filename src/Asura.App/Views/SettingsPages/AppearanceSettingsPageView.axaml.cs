@@ -31,14 +31,6 @@ public sealed partial class AppearanceSettingsPageView : UserControl
     public AppearanceSettingsPageView()
     {
         InitializeComponent();
-        // A toggle field reports its state as a property, not an event.
-        TranslucentTerminalToggle.PropertyChanged += (sender, e) =>
-        {
-            if (e.Property == ToggleField.IsCheckedProperty)
-            {
-                OnAppearanceChanged(sender, new RoutedEventArgs());
-            }
-        };
     }
 
     /// <summary>
@@ -67,11 +59,11 @@ public sealed partial class AppearanceSettingsPageView : UserControl
 
     public event EventHandler<RoutedEventArgs>? ExportRequested;
 
-    public event EventHandler<RoutedEventArgs>? ResetTerminalPaletteRequested;
-
-    public event EventHandler<RoutedEventArgs>? ApplyTerminalRequested;
-
-    public event EventHandler<RoutedEventArgs>? CancelTerminalRequested;
+    /// <summary>
+    /// Revert: the terminal palette and font go back to what they were when
+    /// the page opened. Every other change here is applied as it is made.
+    /// </summary>
+    public event EventHandler<RoutedEventArgs>? RevertTerminalRequested;
 
     internal void SetValidationStatus(string message, bool isWarning)
     {
@@ -89,14 +81,8 @@ public sealed partial class AppearanceSettingsPageView : UserControl
     private void OnResetClick(object? sender, RoutedEventArgs e) =>
         ResetRequested?.Invoke(sender, e);
 
-    private void OnResetTerminalPaletteClick(object? sender, RoutedEventArgs e)
-        => ResetTerminalPaletteRequested?.Invoke(sender, e);
-
-    private void OnApplyTerminalClick(object? sender, RoutedEventArgs e) =>
-        ApplyTerminalRequested?.Invoke(sender, e);
-
-    private void OnCancelTerminalClick(object? sender, RoutedEventArgs e) =>
-        CancelTerminalRequested?.Invoke(sender, e);
+    private void OnRevertTerminalClick(object? sender, RoutedEventArgs e) =>
+        RevertTerminalRequested?.Invoke(sender, e);
 
     private void OnImportClick(object? sender, RoutedEventArgs e) =>
         ImportRequested?.Invoke(sender, e);
@@ -236,7 +222,7 @@ public sealed partial class AppearanceSettingsPageView : UserControl
             (int)Math.Round(BackdropOpacitySlider.Value),
             GlassPanelsToggle.IsChecked == true,
             OverrideOpacityToggle.IsChecked == true,
-            TranslucentTerminalToggle.IsChecked);
+            TranslucentTerminalToggle.IsChecked == true);
     }
 
     private TabStripPlacement SelectedTabStripPlacement() =>

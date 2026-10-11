@@ -46,11 +46,11 @@
         </StackPanel>
       </controls:SettingRow>
       <controls:SettingRow
+          Classes="Option"
           Label="Fetch in the background"
           Description="Fetches from every remote every five minutes while a repository is open."
           IsLast="True">
         <CheckBox
-            VerticalAlignment="Center"
             IsChecked="{Binding BackgroundFetch}"
             AutomationProperties.Name="Fetch in the background" />
       </controls:SettingRow>
@@ -110,19 +110,19 @@
     <controls:SettingsGroup
         Heading="Diffs"
         Description="How Git panels show changes. A panel's View menu changes the same choices.">
-      <controls:SettingRow Label="Show side by side">
+      <controls:SettingRow Classes="Option" Label="Show side by side">
         <CheckBox IsChecked="{Binding DiffIsSplit}" AutomationProperties.Name="Show diffs side by side" />
       </controls:SettingRow>
-      <controls:SettingRow Label="Wrap long lines">
+      <controls:SettingRow Classes="Option" Label="Wrap long lines">
         <CheckBox IsChecked="{Binding DiffWrap}" AutomationProperties.Name="Wrap long lines in diffs" />
       </controls:SettingRow>
-      <controls:SettingRow Label="Ignore whitespace changes">
+      <controls:SettingRow Classes="Option" Label="Ignore whitespace changes">
         <CheckBox IsChecked="{Binding DiffIgnoresWhitespace}" AutomationProperties.Name="Ignore whitespace changes in diffs" />
       </controls:SettingRow>
-      <controls:SettingRow Label="Show whitespace characters">
+      <controls:SettingRow Classes="Option" Label="Show whitespace characters">
         <CheckBox IsChecked="{Binding DiffShowsInvisibles}" AutomationProperties.Name="Show whitespace characters in diffs" />
       </controls:SettingRow>
-      <controls:SettingRow Label="Highlight changed words" IsLast="True">
+      <controls:SettingRow Classes="Option" Label="Highlight changed words" IsLast="True">
         <CheckBox IsChecked="{Binding DiffHighlightsWords}" AutomationProperties.Name="Highlight changed words in diffs" />
       </controls:SettingRow>
     </controls:SettingsGroup>

@@ -80,11 +80,11 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
         [
             new(
                 BrowserProfileSharing.Shared,
-                "Shared across workspaces",
+                "Shared Across Workspaces",
                 "Legacy default panels share one encrypted browser session."),
             new(
                 BrowserProfileSharing.PerWorkspace,
-                "Separate by workspace",
+                "Separate by Workspace",
                 "Legacy default panels keep a separate encrypted browser session for each workspace."),
         ];
         CreateDurableCommand = new AsyncActionCommand(
@@ -216,8 +216,21 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
     public string AuthenticationOriginScheme
     {
         get => _authenticationOriginScheme;
-        set => SetProperty(ref _authenticationOriginScheme, value);
+        set
+        {
+            if (SetProperty(ref _authenticationOriginScheme, value))
+            {
+                OnPropertyChanged(nameof(AuthenticationDefaultPort));
+            }
+        }
     }
+
+    /// <summary>
+    /// The port an empty Port field means: the protocol's own, shown as the
+    /// field's placeholder.
+    /// </summary>
+    public string AuthenticationDefaultPort =>
+        string.Equals(_authenticationOriginScheme, "http", StringComparison.OrdinalIgnoreCase) ? "80" : "443";
 
     public BrowserAuthenticationRouteOption? AuthenticationRoute
     {
@@ -861,7 +874,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
     {
         if (_dataControl is null)
         {
-            StateText = "Browser profile data control is unavailable in this build.";
+            StateText = "Clearing browser data isn’t available in this version of Asura.";
             return;
         }
 

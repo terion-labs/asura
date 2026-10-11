@@ -75,9 +75,9 @@ public sealed class ApplicationSecurityEditorViewModel : ObservableObject
 
     public string EncryptionAvailability => _encryption switch
     {
-        null => "This build has no application-encryption support.",
+        null => "Application encryption isn’t available in this version of Asura.",
         { IsSupported: false } unsupported => unsupported.UnsupportedReason
-            ?? "Application encryption is unavailable.",
+            ?? "Application encryption isn’t available in this version of Asura.",
         _ => $"The encryption keys are kept in {PlatformTerms.SecretStore}, never beside the data.",
     };
 

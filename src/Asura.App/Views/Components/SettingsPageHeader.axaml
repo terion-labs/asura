@@ -5,11 +5,17 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Focusable="False"
     HorizontalContentAlignment="Stretch">
-  <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-    <!-- A Settings page's title is the host's Title 1 role. -->
+  <!--
+    The Settings window's title names the page on show, so the page no longer
+    repeats it as a large heading above its first section: two titles a few
+    points apart said the same word twice. What the page is for stays as its
+    opening line. The heading is kept, unseen, for the page's own name.
+  -->
+  <StackPanel>
     <TextBlock
         x:Name="HeadingText"
         Classes="Title1"
+        IsVisible="False"
         Text="{Binding Heading, ElementName=Root}" />
     <TextBlock
         Classes="Muted"

@@ -4809,8 +4809,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         OwnsAppearancePreview && _appearancePreview.Current.HasThemeDraft;
 
     private bool _appearanceThemeSaveFailed;
+    private bool _terminalAppearanceSaveFailed;
 
-    public bool CanRetryAppearanceSave => _appearanceThemeSaveFailed && HasThemeAppearanceDraft;
+    /// <summary>
+    /// Whether an application or terminal appearance change is on show but
+    /// couldn't be saved, so Try Again and Discard Changes are offered.
+    /// </summary>
+    public bool CanRetryAppearanceSave =>
+        (_appearanceThemeSaveFailed && HasThemeAppearanceDraft)
+        || CanRetryTerminalAppearanceSave;
+
+    public bool CanRetryTerminalAppearanceSave =>
+        _terminalAppearanceSaveFailed && HasTerminalAppearanceDraft;
 
     public bool HasTerminalAppearanceDraft =>
         OwnsAppearancePreview && _appearancePreview.Current.HasTerminalDraft;
@@ -4848,7 +4858,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 ?.Revision);
         _appearancePreviewLease = acquisition.Lease;
         AppearancePreviewStatus = acquisition.Conflict
-            ?? "Application appearance saves automatically. Terminal previews use Apply terminal or Cancel.";
+            ?? "Appearance saves automatically.";
         PublishAppearanceDraftState();
         return acquisition.IsSuccess;
     }
@@ -4890,8 +4900,27 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         PublishAppearanceDraftState();
     }
 
+    /// <summary>
+    /// Discards the appearance changes on show that couldn't be saved,
+    /// putting back what is saved.
+    /// </summary>
+    public void DiscardUnsavedAppearance()
+    {
+        if (_appearanceThemeSaveFailed && HasThemeAppearanceDraft)
+        {
+            _appearanceThemeSaveFailed = false;
+            CancelAppearanceThemeDraft();
+        }
+
+        if (CanRetryTerminalAppearanceSave)
+        {
+            CancelTerminalAppearanceDraft();
+        }
+    }
+
     public void CancelTerminalAppearanceDraft()
     {
+        _terminalAppearanceSaveFailed = false;
         _ = _appearancePreviewLease?.ClearTerminal();
         TerminalSettings.DiscardTerminalDraft();
         OnPropertyChanged(nameof(TerminalSettingsEditor));
@@ -4954,35 +4983,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         return result;
     }
 
-    public async ValueTask<DefinitionStoreResult<StoredDefinition<TerminalProfile>>>
-        ApplyTerminalAppearanceAsync(CancellationToken cancellationToken)
-    {
-        if (!BeginAppearanceEditing() || _appearancePreviewLease is null)
-        {
-            return DefinitionStoreResult<StoredDefinition<TerminalProfile>>.Failure(new(
-                DefinitionStoreErrorCode.RevisionConflict,
-                AppearancePreviewStatus));
-        }
-
-        ClearError();
-        var result = await TerminalSettings.SaveTerminalProfileAsync(
-            cancellationToken,
-            _appearancePreviewLease.BaselineTerminalRevision);
-        ApplyError(result.Error);
-        if (result.IsSuccess)
-        {
-            _ = _appearancePreviewLease.AdvanceTerminalBaseline(result.Value!.Revision);
-            _ = _appearancePreviewLease.ClearTerminal();
-            TerminalSettings.DiscardTerminalDraft();
-            OnPropertyChanged(nameof(TerminalSettingsEditor));
-            ReleaseInactiveAppearanceLease();
-            AppearancePreviewStatus = "Terminal appearance saved.";
-            PublishAppearanceDraftState();
-        }
-
-        return result;
-    }
-
     public void ReleaseAppearanceEditing()
     {
         if (_appearancePreviewLease is null)
@@ -4996,6 +4996,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         // queried or rebuilt.
         var mayRefreshEditor = !_disposed;
         var hadTerminalDraft = mayRefreshEditor && HasTerminalAppearanceDraft;
+        _terminalAppearanceSaveFailed = false;
         _appearancePreviewLease.Dispose();
         _appearancePreviewLease = null;
         if (!mayRefreshEditor)
@@ -5010,7 +5011,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
 
         AppearancePreviewStatus =
-            "Application appearance saves automatically. Terminal previews use Apply terminal or Cancel.";
+            "Appearance saves automatically.";
         PublishAppearanceDraftState();
     }
 
@@ -5026,6 +5027,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     {
         OnPropertyChanged(nameof(HasThemeAppearanceDraft));
         OnPropertyChanged(nameof(CanRetryAppearanceSave));
+        OnPropertyChanged(nameof(CanRetryTerminalAppearanceSave));
         OnPropertyChanged(nameof(HasTerminalAppearanceDraft));
         OnPropertyChanged(nameof(HasUnresolvedAppearanceDrafts));
     }

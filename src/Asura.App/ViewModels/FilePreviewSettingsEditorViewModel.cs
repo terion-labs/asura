@@ -80,7 +80,7 @@ public sealed class FilePreviewSettingsEditorViewModel : ObservableObject
     public void RefreshCacheUsage()
     {
         CacheUsageText = _cache is null
-            ? "No preview cache is available in this build."
+            ? "Previews aren’t cached."
             : $"{ByteSize.Format(_cache.CachedBytes)} on disk right now.";
         OnPropertyChanged(nameof(CacheUsageText));
     }

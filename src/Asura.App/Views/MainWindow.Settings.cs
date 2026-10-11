@@ -212,6 +212,7 @@ public sealed partial class MainWindow
         if (target == SettingsPage.Appearance)
         {
             RefreshAppearanceControlsFromStoredProfile();
+            ViewModel.BeginTerminalAppearanceSession();
         }
 
         PresentSettingsWindow();
@@ -361,8 +362,8 @@ public sealed partial class MainWindow
         && viewModel.PendingSettingsDraft(viewModel.SettingsPage) is not null;
 
     /// <summary>
-    /// Asks before leaving a Settings page that holds a draft — a previewed
-    /// terminal palette, unsaved shortcuts, an unsaved network route — and
+    /// Asks before leaving a Settings page that holds a draft — unsaved
+    /// shortcuts, or HTTP authentication typed for a browser profile — and
     /// discards it only on a yes. Everything else on a page has already been
     /// applied, so leaving it needs no question.
     /// </summary>
@@ -381,11 +382,6 @@ public sealed partial class MainWindow
         }
 
         viewModel.DiscardSettingsDraft(draft.Page);
-        if (draft.Page == SettingsPage.Appearance)
-        {
-            RefreshAppearanceControlsFromStoredProfile();
-        }
-
         return true;
     }
 
@@ -623,10 +619,19 @@ public sealed partial class MainWindow
         SettingsPage page,
         AgentChatViewModel? agentHistoryOwner = null)
     {
+        var opensAppearance = page == SettingsPage.Appearance
+            && !(ViewModel.IsSettingsVisible && ViewModel.SettingsPage == SettingsPage.Appearance);
         ViewModel.ShowSettings(page, agentHistoryOwner);
         if (page == SettingsPage.Appearance)
         {
             RefreshAppearanceControlsFromStoredProfile();
+        }
+
+        // Revert goes back to the terminal appearance as this visit to the
+        // page found it.
+        if (opensAppearance)
+        {
+            ViewModel.BeginTerminalAppearanceSession();
         }
     }
 
@@ -1302,7 +1307,30 @@ public sealed partial class MainWindow
                     exception,
                     "Can’t preview these settings. Check the values and try again."),
                 isWarning: true);
+            return;
         }
+
+        // Shown at once on every terminal, then saved: there is no Apply.
+        _ = SaveTerminalAppearanceChangeAsync();
+    }
+
+    /// <summary>
+    /// Saves the terminal appearance on show and, when that fails, says so
+    /// where the page reports appearance status; Try Again is then offered.
+    /// It reports rather than throws, so it is safe to start unawaited.
+    /// </summary>
+    private async Task<bool> SaveTerminalAppearanceChangeAsync()
+    {
+        await ViewModel.ApplyTerminalAppearanceChangeAsync(_lifetime.Token);
+        if (!ViewModel.CanRetryTerminalAppearanceSave)
+        {
+            return true;
+        }
+
+        SettingsRoute.SetAppearanceValidationStatus(
+            ViewModel.OperationError ?? "The terminal appearance couldn’t be saved.",
+            isWarning: true);
+        return false;
     }
 
     /// <summary>
@@ -1417,7 +1445,7 @@ public sealed partial class MainWindow
         return warnings.Count == 0
             ? theme is not null
                 ? "Application appearance saves automatically."
-                : "Previewing the terminal. Apply Terminal saves it; Cancel restores the saved terminal appearance."
+                : "Terminal appearance saves automatically. Revert puts back the palette and font this page opened with."
             : "Contrast warning: " + string.Join("; ", warnings) + ".";
     }
 
@@ -1427,17 +1455,27 @@ public sealed partial class MainWindow
         _ = e;
         try
         {
-            var result = await ViewModel.SaveAppearanceThemeChangeAsync(
-                ThemeFrom(SettingsRoute.CaptureAppearance()),
-                _lifetime.Token);
-            if (!result.IsSuccess)
+            var retryTerminal = ViewModel.CanRetryTerminalAppearanceSave;
+            if (!retryTerminal || ViewModel.HasThemeAppearanceDraft)
+            {
+                var result = await ViewModel.SaveAppearanceThemeChangeAsync(
+                    ThemeFrom(SettingsRoute.CaptureAppearance()),
+                    _lifetime.Token);
+                if (!result.IsSuccess)
+                {
+                    return;
+                }
+
+                _appearanceControlsSource = ViewModel.ActiveTheme;
+            }
+
+            if (retryTerminal && !await SaveTerminalAppearanceChangeAsync())
             {
                 return;
             }
 
-            _appearanceControlsSource = ViewModel.ActiveTheme;
             SettingsRoute.SetAppearanceValidationStatus(
-                "Application appearance saved.",
+                "Appearance saved.",
                 isWarning: false);
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
@@ -1456,47 +1494,11 @@ public sealed partial class MainWindow
     {
         _ = sender;
         _ = e;
-        ViewModel.CancelAppearanceThemeDraft();
+        ViewModel.DiscardUnsavedAppearance();
         _appearanceControlsSource = null;
         RefreshAppearanceControlsFromStoredProfile();
         SettingsRoute.SetAppearanceValidationStatus(
-            "Saved application appearance restored.",
-            isWarning: false);
-    }
-
-    private async void OnAppearanceApplyTerminalClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        try
-        {
-            var result = await ViewModel.ApplyTerminalAppearanceAsync(_lifetime.Token);
-            if (result.IsSuccess)
-            {
-                SettingsRoute.SetAppearanceValidationStatus(
-                    "Terminal appearance saved.",
-                    isWarning: false);
-            }
-        }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
-        {
-        }
-        catch (Exception exception) when (exception is
-            ArgumentException or FormatException or InvalidOperationException)
-        {
-            ViewModel.SetError(AppearanceValueFailure(
-                exception,
-                "Can’t apply the terminal appearance. Check the values and try again."));
-        }
-    }
-
-    private void OnAppearanceCancelTerminalClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        ViewModel.CancelTerminalAppearanceDraft();
-        SettingsRoute.SetAppearanceValidationStatus(
-            "Saved terminal appearance restored.",
+            "Saved appearance restored.",
             isWarning: false);
     }
 
@@ -1513,13 +1515,18 @@ public sealed partial class MainWindow
             ThemePreference.DefaultFor(operatingSystem));
     }
 
-    private void OnAppearanceResetTerminalPaletteClick(
+    /// <summary>
+    /// Revert: the palette, colours and font go back to what they were when
+    /// the Appearance page opened, and are saved like any other change.
+    /// </summary>
+    private void OnAppearanceRevertTerminalClick(
         object? sender,
         RoutedEventArgs e)
     {
-        ViewModel.TerminalSettingsEditor?.ApplyPalettePreset(
-            TerminalPalette.AsuraDark);
-        OnTerminalAppearanceChanged(sender, e);
+        if (ViewModel.RevertTerminalAppearance())
+        {
+            OnTerminalAppearanceChanged(sender, e);
+        }
     }
 
     private static FilePickerFileType AppearanceThemeFileType { get; } = new(
@@ -1539,7 +1546,7 @@ public sealed partial class MainWindow
             if (ViewModel.HasUnresolvedAppearanceDrafts)
             {
                 SettingsRoute.SetAppearanceValidationStatus(
-                    "Apply or cancel appearance previews before exporting saved values.",
+                    "Wait for the appearance to finish saving, then export it.",
                     isWarning: true);
                 return;
             }
@@ -1636,9 +1643,11 @@ public sealed partial class MainWindow
                 SettingsRoute.SetAppearanceValidationStatus(savedTheme.Error!.Message, isWarning: true);
                 return;
             }
-            if (terminal is not null)
+            if (terminal is not null
+                && ViewModel.PreviewTerminalAppearance(terminal)
+                && !await SaveTerminalAppearanceChangeAsync())
             {
-                _ = ViewModel.PreviewTerminalAppearance(terminal);
+                return;
             }
 
             var status = AppearanceContrastStatus(theme, terminal);
@@ -1675,8 +1684,8 @@ public sealed partial class MainWindow
     };
 
     /// <summary>
-    /// Applying a preset only rewrites the open editor; it reaches the store when
-    /// the user chooses Save profile, like every other field on the page.
+    /// Choosing a preset rewrites the open editor's colours, which are then
+    /// previewed and saved like every other change on the page.
     /// </summary>
     private void OnSelectTerminalPaletteClick(object? sender, RoutedEventArgs e)
     {
@@ -1720,9 +1729,21 @@ public sealed partial class MainWindow
         _ = sender;
         _ = e;
         var input = SettingsRoute.CaptureConnectionSecretForm();
-        if (input.Connection is null || input.Kind is not { } secretKind)
+        if (input.Connection is null)
         {
-            ViewModel.SetError("Choose a connection and credential kind.");
+            SettingsRoute.ShowCredentialFormError(
+                CredentialForm.Connection,
+                CredentialFormField.Owner,
+                "Choose the connection this credential is for.");
+            return;
+        }
+
+        if (input.Kind is not { } secretKind)
+        {
+            SettingsRoute.ShowCredentialFormError(
+                CredentialForm.Connection,
+                CredentialFormField.Kind,
+                "Choose what kind of credential this is.");
             return;
         }
 
@@ -1744,9 +1765,21 @@ public sealed partial class MainWindow
         _ = sender;
         _ = e;
         var input = SettingsRoute.CaptureFileProviderSecretForm();
-        if (input.Profile is null || input.Kind is not { } secretKind)
+        if (input.Profile is null)
         {
-            ViewModel.SetError("Choose a file provider and credential kind.");
+            SettingsRoute.ShowCredentialFormError(
+                CredentialForm.FileProvider,
+                CredentialFormField.Owner,
+                "Choose the file provider this credential is for.");
+            return;
+        }
+
+        if (input.Kind is not { } secretKind)
+        {
+            SettingsRoute.ShowCredentialFormError(
+                CredentialForm.FileProvider,
+                CredentialFormField.Kind,
+                "Choose what kind of credential this is.");
             return;
         }
 
@@ -1770,7 +1803,10 @@ public sealed partial class MainWindow
         var input = SettingsRoute.CaptureAiProviderSecretForm();
         if (input.Profile is null)
         {
-            ViewModel.SetError("Choose an AI provider.");
+            SettingsRoute.ShowCredentialFormError(
+                CredentialForm.AiProvider,
+                CredentialFormField.Owner,
+                "Choose the provider this API key is for.");
             return;
         }
 
@@ -1791,9 +1827,21 @@ public sealed partial class MainWindow
         _ = sender;
         _ = e;
         var input = SettingsRoute.CaptureMcpServerSecretForm();
-        if (input.Target is null || input.Kind is not { } secretKind)
+        if (input.Target is null)
         {
-            ViewModel.SetError("Choose an MCP credential binding and credential kind.");
+            SettingsRoute.ShowCredentialFormError(
+                CredentialForm.McpServer,
+                CredentialFormField.Owner,
+                "Choose the server setting this credential fills.");
+            return;
+        }
+
+        if (input.Kind is not { } secretKind)
+        {
+            SettingsRoute.ShowCredentialFormError(
+                CredentialForm.McpServer,
+                CredentialFormField.Kind,
+                "Choose what kind of credential this is.");
             return;
         }
 

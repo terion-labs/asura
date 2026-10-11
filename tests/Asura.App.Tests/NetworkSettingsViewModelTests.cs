@@ -173,8 +173,9 @@ public sealed class NetworkSettingsViewModelTests
         Assert.Equal(11, fixture.Proxy.LastProfileRevision);
         Assert.Equal("Office proxy updated", fixture.Proxy.LastProfile?.Name);
 
+        // The route is saved as it changes, against the stored revision.
         viewModel.Policy.IsEnabled = true;
-        Assert.True(await viewModel.SavePolicyAsync(CancellationToken.None));
+        await WaitUntilAsync(() => fixture.Proxy.LastSettings?.Policy.IsEnabled == true);
         Assert.Equal(12, fixture.Proxy.LastSettingsRevision);
         Assert.True(fixture.Proxy.LastSettings?.Policy.IsEnabled);
         Assert.True(fixture.Proxy.LastSettings?.Policy.KillSwitchEnabled);
@@ -183,6 +184,54 @@ public sealed class NetworkSettingsViewModelTests
         Assert.True(reloaded.Policy.IsEnabled);
         Assert.True(reloaded.Policy.KillSwitchEnabled);
         Assert.Equal(ProxyId, reloaded.Policy.SelectedConnection?.Id);
+    }
+
+    /// <summary>
+    /// The application route applies as it changes, like every other
+    /// setting: the switch and the kill switch are saved without Save Route,
+    /// and nothing is left as a draft.
+    /// </summary>
+    [Fact]
+    public async Task Application_route_is_saved_as_it_changes()
+    {
+        var storedProfile = Store(Profile(new NetworkConnectionConfiguration.Proxy(
+            NetworkProxyProtocol.Socks5,
+            "proxy.example.test",
+            1080)), 11);
+        var storedSettings = Store(new ApplicationNetworkSettings(
+            ApplicationNetworkSettings.DefaultId,
+            ApplicationNetworkSettings.CurrentSchemaVersion,
+            "Application networking",
+            new NetworkPolicy([ProxyId], ProxyId, false, false)), 12);
+        var fixture = Catalog(DefinitionCatalogSnapshot.Empty with
+        {
+            NetworkConnections = [storedProfile],
+            ApplicationNetworkSettings = [storedSettings],
+        });
+        var vault = Vault();
+        using var viewModel = new NetworkSettingsViewModel(fixture.Catalog, vault.Vault);
+        Assert.False(viewModel.HasPolicyValidationMessage);
+
+        viewModel.Policy.IsEnabled = true;
+        await WaitUntilAsync(() => fixture.Proxy.LastSettings?.Policy.IsEnabled == true);
+
+        viewModel.Policy.KillSwitchEnabled = true;
+        await WaitUntilAsync(() => fixture.Proxy.LastSettings?.Policy.KillSwitchEnabled == true);
+        await WaitUntilAsync(() => !viewModel.Policy.IsDirty);
+
+        using var reloaded = new NetworkSettingsViewModel(fixture.Catalog, vault.Vault);
+        Assert.True(reloaded.Policy.IsEnabled);
+        Assert.True(reloaded.Policy.KillSwitchEnabled);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!condition())
+        {
+            Assert.True(DateTime.UtcNow < deadline, "The route was not saved in time.");
+            await Task.Delay(10);
+        }
     }
 
     [Fact]
@@ -431,7 +480,10 @@ public sealed class NetworkSettingsViewModelTests
             viewModel.ProfileEditor?.SelectedConfigurationCredential);
         Assert.Equal(NetworkCredentialOptionState.Unavailable, selected.State);
         Assert.Equal("Credential unavailable", selected.DisplayName);
-        Assert.Contains("no longer in", selected.Detail, StringComparison.Ordinal);
+        // The pop-up item stays one short line; what to do about it is said
+        // under the field.
+        Assert.Equal("Missing", selected.Detail);
+        Assert.Contains("no longer in", selected.Problem, StringComparison.Ordinal);
     }
 
     [Theory]

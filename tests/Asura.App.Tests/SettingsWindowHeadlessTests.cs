@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -219,7 +220,8 @@ public sealed class SettingsWindowHeadlessTests
                     .Select(control => control.ContextMenu)
                     .First(found => found is not null)!;
                 var headers = menu.Items.OfType<MenuItem>().Select(item => item.Header as string ?? string.Empty).ToArray();
-                Assert.Equal(["Edit…", "Delete…"], headers);
+                // Deleted at once with Undo, so no "…": no question follows.
+                Assert.Equal(["Edit…", "Delete"], headers);
 
                 list.SelectedItem = null;
                 Dispatcher.UIThread.RunJobs();
@@ -271,6 +273,53 @@ public sealed class SettingsWindowHeadlessTests
                 Dispatcher.UIThread.RunJobs();
                 Assert.False(view.FindControl<TextBlock>("SettingsPageNoResults")!.IsVisible);
                 Assert.True(list.IsEffectivelyVisible);
+                return true;
+            }
+            finally
+            {
+                host.Close();
+            }
+        }, CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData(SettingsPage.Terminal, "blink", "Blink cursor", "Scrollback lines")]
+    [InlineData(SettingsPage.Git, "wrap", "Wrap long lines", "Show side by side")]
+    [InlineData(SettingsPage.QuickTerminal, "reduce motion", "Reduce motion", "Animate the drop-down")]
+    public async Task Settings_search_keeps_the_option_it_found_and_hides_the_rest(
+        SettingsPage page,
+        string query,
+        string found,
+        string other)
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            using var viewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();
+            viewModel.ShowSettings(page);
+            var view = new SettingsView { DataContext = viewModel };
+            var host = new Window { Content = view, Width = 1000, Height = 800 };
+            host.Show();
+            try
+            {
+                host.UpdateLayout();
+                Asura.App.Controls.SettingRow Row(string label) =>
+                    view.GetLogicalDescendants()
+                        .OfType<Asura.App.Controls.SettingRow>()
+                        .Single(row => string.Equals(row.Label, label, StringComparison.Ordinal));
+
+                // An option's name is its checkbox's title; the row it names
+                // is the one search keeps.
+                Assert.Equal(found, Assert.IsType<CheckBox>(Row(found).Content).Content);
+                view.SearchQuery = query;
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(Row(found).IsEffectivelyVisible);
+                Assert.False(Row(other).IsVisible);
+                Assert.False(view.FindControl<TextBlock>("SettingsPageNoResults")!.IsVisible);
+
+                view.SearchQuery = string.Empty;
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(Row(other).IsVisible);
                 return true;
             }
             finally

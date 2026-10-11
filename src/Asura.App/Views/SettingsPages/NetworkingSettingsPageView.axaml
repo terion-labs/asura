@@ -52,33 +52,43 @@
         </ComboBox>
       </controls:SettingRow>
       <controls:SettingRow
+          Classes="Option"
           Label="Kill switch"
-          Description="Block Asura-routed traffic when the connection fails instead of falling back to a direct route. Host programs can ignore proxy settings; isolate a workspace when every process must be held.">
+          Description="Block Asura-routed traffic when the connection fails instead of falling back to a direct route. Programs that ignore proxy settings aren’t held back; isolate a workspace when every process must be.">
         <CheckBox
             IsChecked="{Binding Policy.KillSwitchEnabled, Mode=TwoWay}"
             AutomationProperties.Name="Application network kill switch" />
       </controls:SettingRow>
+      <!-- Every choice here applies as it is made. A route that can't apply
+           yet says why under it rather than waiting behind a Save button. -->
       <controls:SettingsGroup.Footer>
-        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-          <TextBlock
-              VerticalAlignment="Center"
+        <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+          <controls:LiveRegionTextBlock
               Classes="Muted"
               FontSize="{DynamicResource ShellSecondaryFontSize}"
               Text="{Binding Policy.Summary}"
-              TextWrapping="Wrap" />
-          <controls:StatusChip
-              Grid.Column="1"
-              Tone="Warning"
-              Content="Unsaved changes"
-              IsVisible="{Binding Policy.IsDirty}" />
-          <Button
-              Grid.Column="2"
-              Classes="PrimaryButton"
-              Click="OnSavePolicyClick"
-              Content="Save Route"
-              IsEnabled="{Binding Policy.CanSave}"
-              AutomationProperties.Name="Save application networking" />
-        </Grid>
+              TextWrapping="Wrap"
+              AutomationProperties.LiveSetting="Polite"
+              AutomationProperties.Name="Application network route" />
+          <Grid
+              ColumnDefinitions="Auto,*"
+              ColumnSpacing="{DynamicResource ShellSpaceXs}"
+              IsVisible="{Binding HasPolicyValidationMessage}">
+            <icons:SymbolIcon
+                VerticalAlignment="Top"
+                Symbol="ErrorCircle"
+                FontSize="{DynamicResource ShellFontSize11}"
+                Foreground="{DynamicResource ShellDangerBrush}" />
+            <controls:LiveRegionTextBlock
+                Grid.Column="1"
+                Foreground="{DynamicResource ShellDangerBrush}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
+                Text="{Binding PolicyValidationMessage}"
+                TextWrapping="Wrap"
+                AutomationProperties.LiveSetting="Polite"
+                AutomationProperties.Name="Application network route problem" />
+          </Grid>
+        </StackPanel>
       </controls:SettingsGroup.Footer>
     </controls:SettingsGroup>
 

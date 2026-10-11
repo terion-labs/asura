@@ -60,16 +60,6 @@ public sealed partial class NetworkingSettingsPageView : UserControl
         await viewModel.DeleteProfileAsync(item, CancellationToken.None);
     }
 
-    private async void OnSavePolicyClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (ViewModel is { } viewModel)
-        {
-            await viewModel.SavePolicyAsync(CancellationToken.None);
-        }
-    }
-
     private async Task ShowEditorAsync(NetworkSettingsViewModel viewModel)
     {
         if (!viewModel.HasProfileEditor || TopLevel.GetTopLevel(this) is not Window owner)

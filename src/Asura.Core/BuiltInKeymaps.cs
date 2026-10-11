@@ -118,7 +118,7 @@ public static class BuiltInKeymaps
 
         return new KeymapProfile(
             TmuxApplicationId,
-            "tmux-like application",
+            "tmux-Style Application",
             KeymapLayer.Application,
             bindings,
             prefix);
@@ -202,7 +202,7 @@ public static class BuiltInKeymaps
 
         return new KeymapProfile(
             MacOsApplicationId,
-            "macOS application",
+            "macOS Application",
             KeymapLayer.Application,
             bindings);
     }

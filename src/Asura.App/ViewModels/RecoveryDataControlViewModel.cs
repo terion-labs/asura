@@ -120,6 +120,8 @@ public sealed class RecoveryDataControlViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _hasError, value))
             {
                 OnPropertyChanged(nameof(HasNoRuns));
+                OnPropertyChanged(nameof(CanClearAll));
+                OnPropertyChanged(nameof(CanClearRuns));
             }
         }
     }
