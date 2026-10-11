@@ -3631,12 +3631,26 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     // "Took 25 ms · 1 result", or why it didn't run: "Not run · You denied it".
     private static string AuditActionResult(AgentRunAuditActionEntry action)
     {
-        var values = new List<string>(3);
-        if (action.ResultCode is null && action.ErrorCode is { } errorCode)
+        // The broker records an error code only for an action that never
+        // dispatched: denied, expired, or revoked after its start was
+        // recorded but before the tool ran (that case also carries a result
+        // code and a zero duration, which would read as "Took 0 ms").
+        if (action.ErrorCode is { } errorCode)
         {
-            values.Add($"Not run · {AgentPolicyPresentation.ErrorName(errorCode)}");
+            return $"Not run · {AgentPolicyPresentation.ErrorName(errorCode)}";
         }
 
+        // Recovery closes an action left open when Asura stopped; its
+        // duration spans the restart, so it says nothing about the action.
+        if (string.Equals(
+                action.ResultCode,
+                AgentAuditRecovery.RecoveryResultCode,
+                StringComparison.Ordinal))
+        {
+            return "Result unknown · Asura quit before the action finished";
+        }
+
+        var values = new List<string>(2);
         if (action.ExecutionDurationMilliseconds is { } duration)
         {
             values.Add($"Took {FormatDuration(duration)}");

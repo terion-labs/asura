@@ -107,10 +107,62 @@ public sealed class AgentHigCopyTests
 
         Assert.Equal("Denied", entry.Outcome);
         Assert.Equal("Requested → Denied", entry.Timeline);
-        Assert.StartsWith("Not run · You denied it", entry.Result, StringComparison.Ordinal);
+        Assert.Equal("Not run · You denied it", entry.Result);
         Assert.DoesNotContain("ApprovalDenied", entry.Result, StringComparison.Ordinal);
         var code = Assert.Single(entry.Details, fact => fact.Label == "Error code");
         Assert.Equal("ApprovalDenied", code.Value);
+    }
+
+    [Fact]
+    public void Recorded_action_revoked_before_dispatch_says_why_and_not_how_long_it_took()
+    {
+        using var culture = new CultureScope("en-US");
+        var entry = AgentChatViewModel.CreateActionAuditEntry(Action(
+            AgentAuthorizationSource.AutoPolicy,
+            AgentAuthorizationErrorCode.PolicyChanged,
+            resultCode: "authority_revoked_before_dispatch",
+            [AuditOutcome.Requested, AuditOutcome.Approved, AuditOutcome.Started, AuditOutcome.Cancelled]));
+
+        Assert.Equal("Canceled", entry.Outcome);
+        Assert.Equal(
+            $"Not run · {AgentPolicyPresentation.ErrorName(AgentAuthorizationErrorCode.PolicyChanged)}",
+            entry.Result);
+        Assert.DoesNotContain("Took", entry.Result, StringComparison.Ordinal);
+        Assert.DoesNotContain("authority_revoked_before_dispatch", entry.Result, StringComparison.Ordinal);
+        Assert.Equal(
+            "authority_revoked_before_dispatch",
+            Assert.Single(entry.Details, fact => fact.Label == "Result code").Value);
+        Assert.Equal(
+            "PolicyChanged",
+            Assert.Single(entry.Details, fact => fact.Label == "Error code").Value);
+    }
+
+    [Fact]
+    public void Recorded_action_closed_after_a_restart_says_its_result_is_unknown()
+    {
+        using var culture = new CultureScope("en-US");
+        var entry = AgentChatViewModel.CreateActionAuditEntry(Action(
+            AgentAuthorizationSource.AutoPolicy,
+            errorCode: null,
+            AgentAuditRecovery.RecoveryResultCode,
+            [AuditOutcome.Requested, AuditOutcome.Approved, AuditOutcome.Started, AuditOutcome.Failed]));
+
+        Assert.Equal("Failed", entry.Outcome);
+        Assert.Equal("Result unknown · Asura quit before the action finished", entry.Result);
+        Assert.Equal(
+            AgentAuditRecovery.RecoveryResultCode,
+            Assert.Single(entry.Details, fact => fact.Label == "Result code").Value);
+    }
+
+    [Fact]
+    public void Every_reason_an_action_did_not_run_reads_after_Not_run()
+    {
+        foreach (var code in Enum.GetValues<AgentAuthorizationErrorCode>())
+        {
+            var words = AgentPolicyPresentation.ErrorName(code);
+            Assert.DoesNotContain("didn't run", words, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("not run", words, StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     [Fact]

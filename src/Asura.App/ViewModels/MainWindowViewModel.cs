@@ -2178,7 +2178,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         if (tabs.Length == 0)
         {
             policy = null;
-            error = "The tabs the agent was set to work in have closed. Open a tab, then send again.";
+            error = target switch
+            {
+                AgentTarget.SelectedPanels =>
+                    "Some panels the agent was set to work in have closed. Choose where it should work, then send again.",
+                AgentTarget.Workspace =>
+                    "No tabs are open for the agent to work in. Open a tab, then send again.",
+                _ =>
+                    "The tab the agent was set to work in has closed. Choose where it should work, then send again.",
+            };
             return false;
         }
 
@@ -2188,7 +2196,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (DefaultAgentPolicySettings.Policy is not { } configuredPolicy)
             {
                 policy = null;
-                error = "Configure the primary, compaction, and title models in AI settings.";
+                error = "Choose the models the agent uses in AI Settings, then send again.";
                 return false;
             }
 

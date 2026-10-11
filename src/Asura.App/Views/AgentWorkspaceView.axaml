@@ -912,7 +912,7 @@
           IsVisible="{Binding AgentChat, Converter={x:Static ObjectConverters.IsNull}}"
           Kind="PermissionRequired"
           Heading="AI setup required"
-          Body="Choose the primary, compaction, and title models in AI settings.">
+          Body="Choose the models the agent uses in AI Settings.">
         <Button
             Classes="PrimaryButton"
             Click="OnShowAgentSettingsClick"
