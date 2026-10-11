@@ -418,9 +418,11 @@
             LineHeight="{DynamicResource ShellLineHeight11}"
             Text="A filled header inside a rounded card, shown as the active panel. If the card does not clip, the header squares off the two corners the border draws round; if the active class does not reach it, the accent outline is missing."
             TextWrapping="Wrap" />
-        <controls:SurfaceCard Tone="Sunken" ClipsContent="True" Padding="0" Height="90" Classes="active">
-          <Grid RowDefinitions="36,*">
-            <Border Grid.Row="0" Classes="PanelHeader">
+        <!-- Lengths follow the text size, so the sample still shows a header
+             band at 250% rather than a title pressed against the outline. -->
+        <controls:SurfaceCard Tone="Sunken" ClipsContent="True" Padding="0" Height="{controls:TextScaled 90}" Classes="active">
+          <Grid RowDefinitions="Auto,*">
+            <Border Grid.Row="0" Classes="PanelHeader" MinHeight="{controls:TextScaled 36}">
               <TextBlock
                   Margin="{controls:Inset Horizontal=Md}"
                   VerticalAlignment="Center"
@@ -499,7 +501,9 @@
 
       <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
         <TextBlock Classes="SectionHeading" Text="Empty states" />
-        <controls:SurfaceCard Height="260" Padding="0">
+        <!-- Scaled with the text: a fixed 260 cut the body and the button
+             off the empty state at 250%. -->
+        <controls:SurfaceCard Height="{controls:TextScaled 260}" Padding="0">
           <controls:EmptyStatePanel
               Glyph="Bot"
               Heading="Connect an AI provider"
