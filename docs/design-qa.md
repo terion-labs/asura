@@ -42,6 +42,7 @@ the visual references.
 | About window | `about-window` |
 | Terminal find bar and copy mode (real overlay over a sample screen, no session) | `terminal-find-bar`, `terminal-copy-mode` |
 | Workspace isolation and networking | `settings-workspace-editor-isolated` (isolation, runtime image, and host mounts), `settings-workspace-editor-networking` (the same editor at its end: the workspace's own network policy and offered connections), `settings-networking-editor` (the connection editor dialog) |
+| Shortcut recorder, SSH host-key review, and credential editor dialogs | `dialog-shortcut-recorder` (as it opens, nothing recorded), `dialog-shortcut-recorder-reserved` (⌘Space sent through the real key handler; on macOS the recorder warns that Spotlight takes it), `dialog-ssh-host-key-first-seen` (Trust Host Key is the default button), `dialog-ssh-host-key-changed` (Replace Trusted Key is destructive and no button is the default), `dialog-secret-editor-new` (a credential nothing uses yet; the editor has no create mode, so this is the state right after one is stored), `dialog-secret-editor-existing` (a credential two connections use, with a replacement value typed) |
 | Command palette, Add Panel popover, and Layout Designer window | `overlay-command-palette`, `overlay-new-panel`, `overlay-layout-designer` |
 | Shared components and semantic states | `design-system` appearance matrix |
 
