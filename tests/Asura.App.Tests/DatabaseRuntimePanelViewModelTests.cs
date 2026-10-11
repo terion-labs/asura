@@ -575,7 +575,11 @@ public sealed class DatabaseRuntimePanelViewModelTests
 
         Assert.False(panel.IsConnected);
         Assert.True(panel.HasError);
-        Assert.Equal("no such table: missing", panel.ErrorMessage);
+        // The client's own text goes to diagnostics; the panel says what
+        // didn't happen and what to do next.
+        Assert.Equal(
+            "Asura couldn’t connect to the database. Check the connection’s settings, then connect again.",
+            panel.ErrorMessage);
 
         client.FailWith = null;
         await panel.ConnectAsync();
@@ -1273,10 +1277,14 @@ public sealed class DatabaseRuntimePanelViewModelTests
         Assert.True(destination.Length > 0);
     }
 
+    private const string RowsNotLoaded =
+        "Asura couldn’t load the rows. Try again; if it keeps failing, reconnect.";
+
     private static void AssertClipboardLimit(Func<string> build)
     {
         var exception = Assert.Throws<InvalidDataException>(() => build());
-        Assert.Contains("16 MiB UTF-8", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("larger than the clipboard can hold", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(exception.Message, Asura.App.Controls.FailureReason.Describe(exception));
     }
 
     [Fact]
@@ -1939,7 +1947,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         client.ReadTableFailure = "page failed";
         await panel.ApplyPageLimitAsync();
         Assert.Equal("75", panel.PageLimitText);
-        Assert.Equal("page failed", panel.ErrorMessage);
+        Assert.Equal(RowsNotLoaded, panel.ErrorMessage);
     }
 
     [Fact]
@@ -1962,7 +1970,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
 
         await panel.ToggleTableSortAsync("id");
 
-        Assert.Equal("sort failed", panel.ErrorMessage);
+        Assert.Equal(RowsNotLoaded, panel.ErrorMessage);
         Assert.Equal(successfulQuery, client.LastTableQuery);
         Assert.Same(successfulRows, panel.ResultRows);
         Assert.Same(successfulColumns, panel.ResultColumns);
@@ -2639,7 +2647,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         client.ReadTableFailure = "page load failed";
         await panel.NextPageAsync();
 
-        Assert.Equal("page load failed", panel.ErrorMessage);
+        Assert.Equal(RowsNotLoaded, panel.ErrorMessage);
         Assert.Equal(0, client.LastTableQuery?.Offset);
         Assert.True(panel.HasNextPage);
 
@@ -2793,7 +2801,9 @@ public sealed class DatabaseRuntimePanelViewModelTests
         await panel.SaveChangesAsync();
 
         Assert.Equal(1, client.ApplyChangesCallCount);
-        Assert.Equal("saved, but refresh failed", panel.ErrorMessage);
+        Assert.Equal(
+            "The changes were saved, but Asura couldn’t reload the rows. Reload the table to see them.",
+            panel.ErrorMessage);
         Assert.False(panel.HasPendingChanges);
         Assert.False(panel.CanSaveChanges);
         Assert.True(panel.CanChangeSelectedObject);
@@ -2852,7 +2862,9 @@ public sealed class DatabaseRuntimePanelViewModelTests
         await panel.SaveChangesAsync();
         await panel.PreviewTableAsync(panel.Tables[1]);
 
-        Assert.Equal("update failed", panel.ErrorMessage);
+        Assert.Equal(
+            "Asura couldn’t save the changes. Your edits are kept. Save again; if it keeps failing, reconnect.",
+            panel.ErrorMessage);
         Assert.Equal(selectedObject, panel.SelectedObject);
         Assert.True(panel.HasPendingChanges);
         Assert.True(panel.CanSaveChanges);

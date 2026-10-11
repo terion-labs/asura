@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Application.Previews;
 using Asura.Core;
@@ -538,7 +539,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
 
         if (format != DatabaseDiagramExport.MermaidMarkdown)
         {
-            throw new InvalidOperationException("The diagram must render before SVG can be exported. Choose Mermaid Markdown to export the complete schema without rendering.");
+            throw FailureReason.Readable(new InvalidOperationException("The diagram must render before SVG can be exported. Choose Mermaid Markdown to export the complete schema without rendering."));
         }
 
         await _client.ExportDatabaseSchemaSourceAsync(SelectedDriver.Id,
@@ -1682,7 +1683,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             return;
         }
 
-        await RunGuardedAsync(async cancellationToken =>
+        await RunGuardedAsync(DatabaseOperation.OpenDiagram, async cancellationToken =>
         {
             _diagramCancellation?.Cancel();
             _diagramCancellation?.Dispose();
@@ -1793,7 +1794,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
 
         // A new attempt is in flight, not the last one's failure.
         _connectionFailed = false;
-        await RunGuardedAsync(async cancellationToken =>
+        await RunGuardedAsync(DatabaseOperation.Connect, async cancellationToken =>
         {
             _latestResolvedRecoveryBinding = null;
             var input = CaptureRecoveryInput();
@@ -2205,7 +2206,10 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (Exception exception) when (exception is InvalidDataException or ArgumentException)
         {
-            ErrorMessage = exception.Message;
+            ErrorMessage = FailureReason.Refusal(
+                "database.csv.parse.refused",
+                exception,
+                "Asura couldn't read the CSV file. Check that it's comma-separated text with the column names in the first row, then import again.");
             return false;
         }
 
@@ -2223,7 +2227,10 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (InvalidDataException exception)
         {
-            ErrorMessage = exception.Message;
+            ErrorMessage = FailureReason.Refusal(
+                "database.csv.size.refused",
+                exception,
+                "The import is too large to stage at once. Import fewer rows at a time.");
             return false;
         }
 
@@ -2432,7 +2439,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             return;
         }
 
-        await RunGuardedAsync(async cancellationToken =>
+        await RunGuardedAsync(DatabaseOperation.SaveChanges, async cancellationToken =>
         {
             var selectedObject = SelectedObject;
             if (selectedObject is null)
@@ -2464,7 +2471,15 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             ResultSummary = result.TotalAffected == 1
                 ? "Saved 1 change"
                 : $"Saved {result.TotalAffected.ToString("N0", CultureInfo.CurrentCulture)} changes";
-            await ReloadResultsWithinOperationAsync(cancellationToken);
+            try
+            {
+                await ReloadResultsWithinOperationAsync(cancellationToken);
+            }
+            catch (Exception exception) when (IsRecoverableDatabaseException(exception))
+            {
+                // The commit stands; only the refresh after it failed.
+                ErrorMessage = DatabaseErrorText.Describe(DatabaseOperation.ReloadAfterSave, exception);
+            }
         });
     }
 
@@ -2762,7 +2777,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     }
 
     private async Task ExecuteQueryAsync(string sql) =>
-        await RunGuardedAsync(async cancellationToken =>
+        await RunGuardedAsync(DatabaseOperation.RunStatement, async cancellationToken =>
         {
             var connectionString = await ResolveEffectiveConnectionStringAsync(cancellationToken);
             var canBrowse = IsBrowsableResultQuery(sql);
@@ -2870,7 +2885,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (generation == _tableLoadGeneration)
             {
-                ErrorMessage = exception.Message;
+                ErrorMessage = DatabaseErrorText.Describe(DatabaseOperation.LoadRows, exception);
             }
         }
         finally
@@ -2940,7 +2955,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (generation == _tableLoadGeneration)
             {
-                ErrorMessage = exception.Message;
+                ErrorMessage = DatabaseErrorText.Describe(DatabaseOperation.LoadRows, exception);
             }
         }
         finally
@@ -3490,7 +3505,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         }
 
         var loaded = false;
-        await RunGuardedAsync(async cancellationToken =>
+        await RunGuardedAsync(DatabaseOperation.OpenValue, async cancellationToken =>
         {
             var memory = GC.GetGCMemoryInfo();
             using var process = Process.GetCurrentProcess();
@@ -3702,7 +3717,13 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         or TimeoutException
         or IOException;
 
-    private async Task RunGuardedAsync(Func<CancellationToken, Task> operation)
+    /// <summary>
+    /// Runs one database operation with the panel busy. A failure shows as a
+    /// sentence about <paramref name="kind"/> with a next step; the
+    /// exception's own text goes to diagnostics, except a reason the database
+    /// server gave (see <see cref="DatabaseErrorText"/>).
+    /// </summary>
+    private async Task RunGuardedAsync(DatabaseOperation kind, Func<CancellationToken, Task> operation)
     {
         if (IsBusy || _lifetime.IsCancellationRequested)
         {
@@ -3721,7 +3742,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (Exception exception) when (IsRecoverableDatabaseException(exception))
         {
-            ErrorMessage = exception.Message;
+            ErrorMessage = DatabaseErrorText.Describe(kind, exception);
         }
         finally
         {
@@ -3835,7 +3856,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                     };
                     if (size > remaining)
                     {
-                        throw new InvalidDataException("Clipboard output exceeds the 16 MiB UTF-8 limit. Export the current page to a file instead.");
+                        throw FailureReason.Readable(new InvalidDataException("The copy is larger than the clipboard can hold. Export the current page to a file instead."));
                     }
                     remaining -= size;
                     values.Add(edit);
@@ -3843,7 +3864,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                 }
                 if (content.Kind is not (DatabaseValueKind.Text or DatabaseValueKind.Json or DatabaseValueKind.Binary))
                 {
-                    throw new InvalidOperationException($"The value in “{edit.ColumnName}” can't be written safely into an INSERT script. Copy the rows another way, such as CSV.");
+                    throw FailureReason.Readable(new InvalidOperationException($"The value in “{edit.ColumnName}” can't be written safely into an INSERT script. Copy the rows another way, such as CSV."));
                 }
                 using var source = content.OpenRead();
                 using var complete = new MemoryStream();
@@ -3854,7 +3875,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                     token.ThrowIfCancellationRequested();
                     if (count > remaining)
                     {
-                        throw new InvalidDataException("Clipboard output exceeds the 16 MiB UTF-8 limit. Export the current page to a file instead.");
+                        throw FailureReason.Readable(new InvalidDataException("The copy is larger than the clipboard can hold. Export the current page to a file instead."));
                     }
                     remaining -= count;
                     complete.Write(buffer, 0, count);
@@ -3947,7 +3968,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             cancellationToken.ThrowIfCancellationRequested();
             if (Length + buffer.Length > MaximumClipboardUtf8Bytes)
             {
-                throw new InvalidOperationException("This diagram is too large for the clipboard. Save it to a file to retain the complete diagram.");
+                throw FailureReason.Readable(new InvalidOperationException("This diagram is too large for the clipboard. Save it to a file to keep the complete diagram."));
             }
             return base.WriteAsync(buffer, cancellationToken);
         }

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using Asura.App.Controls;
+using Asura.App.ViewModels;
 
 namespace Asura.App.Tests;
 
@@ -80,5 +81,57 @@ public sealed class FailureReasonTests
         Assert.Equal(
             "Asura doesn’t have permission to use that file. Choose another location, or check the file’s permissions.",
             FailureReason.Describe(new UnauthorizedAccessException("denied")));
+    }
+
+    [Fact]
+    public void A_marked_refusal_keeps_its_type_and_its_message()
+    {
+        var refusal = FailureReason.Readable(new FormatException("Use at least one modifier with the key."));
+
+        Assert.IsType<FormatException>(refusal);
+        Assert.True(FailureReason.IsReadable(refusal));
+        Assert.Equal("Use at least one modifier with the key.", FailureReason.Describe(refusal));
+    }
+
+    [Fact]
+    public void A_field_message_is_written_for_people()
+    {
+        var refusal = InvalidField.Exception("Port", "The port must be a number from 1 to 65535.");
+
+        Assert.True(FailureReason.IsReadable(refusal));
+        Assert.Equal(refusal.Message, FailureReason.Refusal("test.refused", refusal, "Check each value."));
+    }
+
+    [Fact]
+    public void Argument_checks_from_lower_layers_become_the_fallback_and_a_trace()
+    {
+        using var traceOutput = new StringWriter();
+        using var listener = new TextWriterTraceListener(traceOutput);
+        Exception[] refusals =
+        [
+            new ArgumentException("The value cannot be an empty string or composed entirely of whitespace.", "host"),
+            new ArgumentOutOfRangeException("port", 0, "An SSH port must be between 1 and 65535."),
+            new UriFormatException("Invalid URI: The hostname could not be parsed."),
+            new InvalidOperationException("A governed branch target is invalid."),
+        ];
+        var reasons = new List<string>();
+        Trace.Listeners.Add(listener);
+        try
+        {
+            foreach (var refusal in refusals)
+            {
+                reasons.Add(FailureReason.Refusal("connection.editor.refused", refusal, "Check each value, then test again."));
+            }
+
+            Trace.Flush();
+        }
+        finally
+        {
+            Trace.Listeners.Remove(listener);
+        }
+
+        Assert.All(reasons, reason => Assert.Equal("Check each value, then test again.", reason));
+        Assert.Contains("code=connection.editor.refused", traceOutput.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("Parameter", traceOutput.ToString(), StringComparison.Ordinal);
     }
 }

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Numerics;
 using System.Text;
 using System.Text.Json;
+using Asura.App.Controls;
 using Asura.Application;
 
 namespace Asura.App.ViewModels;
@@ -1288,6 +1289,6 @@ internal static partial class DatabaseGridExport
         }
     }
 
-    private static InvalidDataException ClipboardLimitExceeded() => new(
-        "Clipboard output exceeds the 16 MiB UTF-8 limit. Export the current page to a file instead.");
+    private static InvalidDataException ClipboardLimitExceeded() => FailureReason.Readable(new InvalidDataException(
+        "The copy is larger than the clipboard can hold. Export the current page to a file instead."));
 }
