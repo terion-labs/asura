@@ -203,6 +203,32 @@ public sealed class ThemeToneContrastTests
             AdvancedMaterialsEnabled: true,
             TextScale: 1));
 
+    /// <summary>
+    /// An open rail tile is ringed in the page colour before its shadow, so it
+    /// stays apart from the sidebar row it opens over.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public void An_open_rail_tile_is_ringed_in_the_page_colour_before_its_shadow(
+        PlatformProfile profile,
+        EffectiveAppearanceMode appearance,
+        bool highContrast)
+    {
+        var resources = Map(profile, appearance, highContrast, "#FF8400");
+
+        var shadows = App.RailTileFloatShadow(resources);
+
+        Assert.Equal(resources.OverlayShadow.Count + 1, shadows.Count);
+        Assert.Equal(resources.Background, shadows[0].Color);
+        Assert.Equal(0, shadows[0].Blur);
+        Assert.True(shadows[0].Spread > 0);
+        Assert.False(shadows[0].IsInset);
+        for (var index = 0; index < resources.OverlayShadow.Count; index++)
+        {
+            Assert.Equal(resources.OverlayShadow[index], shadows[index + 1]);
+        }
+    }
+
     private static Color Over(Color foreground, Color background)
     {
         var amount = foreground.A / 255d;

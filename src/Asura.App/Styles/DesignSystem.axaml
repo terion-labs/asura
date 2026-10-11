@@ -785,14 +785,18 @@
       <Style Selector="^:closable:pointerover /template/ Border#PART_Surface, ^:closable:keyboard-focus-within /template/ Border#PART_Surface">
         <Setter Property="Width" Value="{DynamicResource ShellWorkspaceRailTileExpandedWidth}" />
         <!-- It is standing off the rail and over the canvas, so it casts the
-             same shadow anything else that floats above the page does. -->
-        <Setter Property="BoxShadow" Value="{DynamicResource ShellOverlayShadow}" />
+             same shadow anything else that floats above the page does, inside
+             a ring of the page colour that keeps it apart from the sidebar
+             row it opens over: its fill used to run into the selected tab's
+             corner and the two read as one shape. -->
+        <Setter Property="BoxShadow" Value="{DynamicResource ShellRailTileFloatShadow}" />
       </Style>
       <Style Selector="^:closable:pointerover /template/ Border#PART_Ring, ^:closable:keyboard-focus-within /template/ Border#PART_Ring">
         <Setter Property="Width" Value="{DynamicResource ShellWorkspaceRailTileExpandedWidth}" />
       </Style>
       <Style Selector="^:saveable:pointerover /template/ Border#PART_Surface, ^:saveable:keyboard-focus-within /template/ Border#PART_Surface">
         <Setter Property="Width" Value="{DynamicResource ShellWorkspaceRailTileExpandedWidth}" />
+        <Setter Property="BoxShadow" Value="{DynamicResource ShellRailTileFloatShadow}" />
       </Style>
       <Style Selector="^:saveable:pointerover /template/ Border#PART_Ring, ^:saveable:keyboard-focus-within /template/ Border#PART_Ring">
         <Setter Property="Width" Value="{DynamicResource ShellWorkspaceRailTileExpandedWidth}" />

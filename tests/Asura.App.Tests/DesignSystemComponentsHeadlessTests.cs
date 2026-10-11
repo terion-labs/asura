@@ -9,6 +9,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 namespace Asura.App.Tests;
@@ -151,6 +152,9 @@ public sealed class DesignSystemComponentsHeadlessTests
         {
             var tile = new WorkspaceRailTile { Accent = "#2B62C4" };
             Show(window, tile);
+            // The state a tile opens in arrives without a transition; its
+            // movements start once it has settled after loading.
+            Dispatcher.UIThread.RunJobs();
             Assert.NotNull(Part<Border>(tile, "PART_Surface").Transitions);
 
             window.Classes.Add("motion-disabled");

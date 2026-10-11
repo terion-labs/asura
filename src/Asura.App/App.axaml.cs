@@ -812,6 +812,11 @@ public sealed partial class App : Avalonia.Application
         // out and a dark shadow read as a smudge.
         Publish("ShellScrimBrush", Brush(resources.Scrim));
         Publish("ShellOverlayShadow", resources.OverlayShadow);
+        // An open rail tile stands over the sidebar beside the rail, so it is
+        // ringed in the page colour before its shadow: without the gap its
+        // fill ran straight into the selected tab's corner and the two read
+        // as one shape.
+        Publish("ShellRailTileFloatShadow", RailTileFloatShadow(resources));
         Publish("ShellSurfaceHoverBrush", Brush(resources.HoverSurface));
         Publish("ShellBorderBrush", Brush(resources.Border));
         Publish("ShellControlSurfaceBrush", Brush(resources.ControlSurface));
@@ -1155,6 +1160,25 @@ public sealed partial class App : Avalonia.Application
     }
 
     private static SolidColorBrush Brush(Color color) => new(color);
+
+    /// <summary>
+    /// A two-point ring in the page colour, then the floating shadow. A spread
+    /// shadow draws outside the shape without moving its content, and follows
+    /// the tile's corners and its width as it opens.
+    /// </summary>
+    internal static BoxShadows RailTileFloatShadow(EffectiveAppearanceResources resources)
+    {
+        var overlay = resources.OverlayShadow;
+        var rest = new BoxShadow[overlay.Count];
+        for (var index = 0; index < overlay.Count; index++)
+        {
+            rest[index] = overlay[index];
+        }
+
+        return new BoxShadows(
+            new BoxShadow { Spread = 2, Color = resources.Background },
+            rest);
+    }
 
     /// <summary>
     /// One step of the accent shade ramp: the accent blended toward black or

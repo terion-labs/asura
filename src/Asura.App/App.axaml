@@ -63,6 +63,7 @@
                than blacking it out. -->
           <SolidColorBrush x:Key="ShellScrimBrush" Color="#73000000" />
           <BoxShadows x:Key="ShellOverlayShadow">0 18 54 0 #A0000000</BoxShadows>
+          <BoxShadows x:Key="ShellRailTileFloatShadow">0 0 0 2 #111111, 0 18 54 0 #A0000000</BoxShadows>
           <!-- Fluent's own interaction states for text inputs and popups jump
                to its stock light-on-dark values on hover, which read as a
                harsh flash against the shell's quiet fields. The states stay
@@ -129,6 +130,7 @@
           <SolidColorBrush x:Key="ShellChartSeries4FillBrush" Color="#33C23D84" />
           <SolidColorBrush x:Key="ShellScrimBrush" Color="#40000000" />
           <BoxShadows x:Key="ShellOverlayShadow">0 12 36 0 #2E000000, 0 1 3 0 #1F000000</BoxShadows>
+          <BoxShadows x:Key="ShellRailTileFloatShadow">0 0 0 2 #F2F3F0, 0 12 36 0 #2E000000, 0 1 3 0 #1F000000</BoxShadows>
           <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#F2F3F0" />
           <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#F2F3F0" />
           <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="#F2F3F0" />
