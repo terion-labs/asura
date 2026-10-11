@@ -123,6 +123,37 @@ public sealed partial class AgentChatViewModelTests
         });
 
     [Fact]
+    public Task Composer_refuses_files_that_together_exceed_the_prompt_total() =>
+        RunAgentComposerHeadlessAsync(async () =>
+        {
+            var provider = Provider("provider", "Provider", 0, supportsImageInput: false);
+            using var runtime = new StubGovernedRuntime { Snapshot = Snapshot(providerId: provider.Id), SupportsFileAttachments = true };
+            using var profiles = new StubProfileRuntime { Profiles = [provider] };
+            using var model = new AgentChatViewModel(runtime, profiles, ImmediateUiThreadDispatcher.Instance);
+            model.AddPendingFiles(Enumerable.Range(0, 4).Select(index =>
+                new AgentFileAttachment(Guid.NewGuid().ToString("N"), $"large-{index}.bin", AgentFileAttachment.MaximumBytes)));
+            var window = new Window { Width = 420, Height = 700 };
+            var directory = Directory.CreateTempSubdirectory("asura-composer-total-");
+            try
+            {
+                window.Show();
+                var path = System.IO.Path.Combine(directory.FullName, "notes.txt");
+                await File.WriteAllBytesAsync(path, [1, 2, 3]);
+                using var file = await window.StorageProvider.TryGetFileFromPathAsync(path);
+                Assert.NotNull(file);
+
+                var refusal = await Assert.ThrowsAsync<InvalidOperationException>(
+                    () => AgentAttachmentImport.AddFilesAsync(model, [file], CancellationToken.None));
+
+                Assert.Equal(
+                    "Attachments together can’t be larger than 200 MiB. Remove some, then try again.",
+                    AgentAttachmentImport.FailureText(refusal));
+                Assert.Equal(4, model.PendingFiles.Count);
+            }
+            finally { window.Close(); directory.Delete(recursive: true); }
+        });
+
+    [Fact]
     public Task Composer_pastes_a_bitmap_as_a_png_attachment() =>
         RunAgentComposerHeadlessAsync(async () =>
         {

@@ -43,6 +43,64 @@ public sealed class DialogContractHeadlessTests
     }
 
     [Fact]
+    public async Task Remove_last_returns_focus_to_the_shortcut_capture_area()
+    {
+        await RunAsync(async () =>
+        {
+            Assert.True(ShortcutText.TryParseStroke("Ctrl+B", out var first));
+            Assert.True(ShortcutText.TryParseStroke("X", out var second));
+            var dialog = new ShortcutRecorderDialog(new KeySequence([first, second]));
+            dialog.Show();
+            await Idle();
+            var remove = dialog.FindControl<Button>("RemoveLastButton")!;
+            remove.Focus();
+
+            remove.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await Idle();
+
+            // The status line asks for another key press, so the capture area must take it.
+            Assert.True(dialog.FindControl<SurfaceCard>("CaptureArea")!.IsKeyboardFocusWithin);
+            Assert.Equal("1 of 8 strokes", dialog.FindControl<TextBlock>("StrokeCountText")!.Text);
+            dialog.Close();
+        });
+    }
+
+    [Fact]
+    public async Task Return_saves_the_label_until_a_replacement_value_is_typed()
+    {
+        await RunAsync(async () =>
+        {
+            var editor = new SecretEditorViewModel(new SecretMetadataViewModel(
+                new SecretRef("secret-test"),
+                "Password",
+                SecretKind.Password.ToString(),
+                "Connection · connection-test",
+                "Today",
+                "Never",
+                new SecretScope(SecretScopeKind.Connection, "connection-test"),
+                "Used by: Production",
+                1));
+            var dialog = new SecretEditorDialog(editor);
+            dialog.Show();
+            await Idle();
+            var saveLabel = dialog.FindControl<Button>("SaveLabelButton")!;
+            var rotate = dialog.FindControl<Button>("RotateValueButton")!;
+
+            Assert.True(saveLabel.IsDefault);
+            Assert.False(rotate.IsDefault);
+            Assert.False(rotate.IsEnabled);
+
+            editor.ReplacementValue = "new value";
+            await Idle();
+
+            Assert.False(saveLabel.IsDefault);
+            Assert.True(rotate.IsDefault);
+            Assert.True(rotate.IsEnabled);
+            dialog.Close();
+        });
+    }
+
+    [Fact]
     public async Task Command_period_cancels_on_macos()
     {
         if (!OperatingSystem.IsMacOS())

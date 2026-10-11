@@ -227,7 +227,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         if (result is HostResult<WorkspaceGraphSnapshot>.Failure failure)
         {
             _setError(
-                $"Asura couldn't open the workspace. {failure.Error.Message}");
+                $"Asura couldn't open the workspace. {ShellFailureText.HostReason(failure.Error)}");
             return false;
         }
 
@@ -487,7 +487,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         if (result is HostResult<WorkspaceGraphTransferReceipt>.Failure failure)
         {
             _setError(
-                $"Asura couldn't finish the {operation}. {failure.Error.Message}");
+                $"Asura couldn't finish the {operation}. {ShellFailureText.HostReason(failure.Error)}");
             return false;
         }
 
@@ -850,7 +850,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         if (result is HostResult<WorkspaceGraphSnapshot>.Failure failure)
         {
             _setError(
-                $"Asura couldn't finish the {operation}. {failure.Error.Message}");
+                $"Asura couldn't finish the {operation}. {ShellFailureText.HostReason(failure.Error)}");
             return false;
         }
 
@@ -975,7 +975,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         if (result is HostResult<Unit>.Failure failure)
         {
             _setError(
-                $"Asura couldn't finish the {operation}. {failure.Error.Message}");
+                $"Asura couldn't finish the {operation}. {ShellFailureText.HostReason(failure.Error)}");
             return false;
         }
 
@@ -1103,7 +1103,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         if (result is HostResult<WorkspaceGraphSnapshot>.Failure failure)
         {
             _setError(
-                $"Asura couldn't finish the {operation}. {failure.Error.Message}");
+                $"Asura couldn't finish the {operation}. {ShellFailureText.HostReason(failure.Error)}");
             return false;
         }
 
@@ -1258,7 +1258,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         if (result is HostResult<WorkspaceGraphSnapshot>.Failure failure)
         {
             _setError(
-                $"Asura couldn't refresh the workspace. {failure.Error.Message}");
+                $"Asura couldn't refresh the workspace. {ShellFailureText.HostReason(failure.Error)}");
             return false;
         }
 

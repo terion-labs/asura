@@ -3288,7 +3288,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                         CancellationToken.None);
                     if (releaseError is not null)
                     {
-                        SetError(releaseError.Message);
+                        SetError(WorkspaceIsolationText.Message(releaseError));
                     }
                 }
             }
@@ -4167,7 +4167,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                         CancellationToken.None);
                     if (releaseError is not null)
                     {
-                        SetError(releaseError.Message);
+                        SetError(WorkspaceIsolationText.Message(releaseError));
                     }
                 }
             }
@@ -4326,7 +4326,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     await RestoreWorkspaceAfterFailedRecreateAsync(
                         workspaceId,
                         openInstance is not null);
-                    SetError(failure.Error.Message);
+                    SetError(WorkspaceIsolationText.Message(failure.Error));
                     return false;
                 }
             }
@@ -4393,7 +4393,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             cancellationToken);
         if (close is HostResult<CloseScopeResult>.Failure failure)
         {
-            SetError(failure.Error.Message);
+            SetError(ShellFailureText.CloseFailed(failure.Error));
             return false;
         }
 
@@ -5341,7 +5341,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 && await ScheduleWorkspaceIsolationCleanup(runtimeWorkspace)
                     is { } releaseError)
             {
-                SetError(releaseError.Message);
+                SetError(WorkspaceIsolationText.Message(releaseError));
             }
         }
         return result;

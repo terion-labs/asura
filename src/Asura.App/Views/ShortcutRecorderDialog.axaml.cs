@@ -87,6 +87,9 @@ public sealed partial class ShortcutRecorderDialog : DialogWindow
             _strokes.RemoveAt(_strokes.Count - 1);
             Refresh();
         }
+
+        // The status line asks for the next key press, which the capture area records.
+        this.FindControl<SurfaceCard>("CaptureArea")?.Focus();
     }
 
     private void OnClearClick(object? sender, RoutedEventArgs e)
@@ -129,16 +132,33 @@ public sealed partial class ShortcutRecorderDialog : DialogWindow
         this.FindControl<DialogShell>("Shell")!.Subtitle = _maximumStrokes == 1
             ? "Record one terminal stroke. Conflicts are checked before the profile can be saved."
             : $"Record up to {_maximumStrokes} strokes. Conflicts are checked before the profile can be saved.";
-        this.FindControl<TextBlock>("RecorderStatusText")!.Text =
-            _strokes.Count > _maximumStrokes
-                ? $"This imported shortcut has too many strokes. Remove {_strokes.Count - _maximumStrokes} to repair it."
-                : _strokes.Count == _maximumStrokes
-                    ? "The shortcut is ready to use."
-                    : "Focus the capture area to add another stroke.";
+        this.FindControl<TextBlock>("RecorderStatusText")!.Text = StatusText(_strokes.Count, _maximumStrokes);
         this.FindControl<Button>("RemoveLastButton")!.IsEnabled = hasStrokes;
         this.FindControl<Button>("ClearButton")!.IsEnabled = hasStrokes;
         this.FindControl<Button>("UseShortcutButton")!.IsEnabled =
             hasStrokes && _strokes.Count <= _maximumStrokes;
+    }
+
+    /// <summary>
+    /// The line under the capture area. Before anything is recorded it says how
+    /// to start; once a stroke is in, how to add the next one or finish.
+    /// </summary>
+    internal static string StatusText(int strokeCount, int maximumStrokes)
+    {
+        if (strokeCount > maximumStrokes)
+        {
+            var extra = strokeCount - maximumStrokes;
+            return $"This imported shortcut has too many strokes. Remove {extra} {(extra == 1 ? "stroke" : "strokes")} to repair it.";
+        }
+
+        if (strokeCount == 0)
+        {
+            return "Press the keys for the shortcut. Escape cancels.";
+        }
+
+        return strokeCount == maximumStrokes
+            ? "The shortcut is ready to use."
+            : "Press another key combination to add a stroke, or choose Use Shortcut.";
     }
 
     /// <summary>

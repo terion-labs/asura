@@ -6,6 +6,16 @@ namespace Asura.Infrastructure;
 
 public sealed partial class WorkspaceSdkIsolationProvider
 {
+    // These refusals are shown as written, so each ends with the step that gets past it.
+    private const string MissingDisk = "The persistent workspace disk is missing. "
+        + "Restore it from a backup, or choose Recreate Environment in the workspace's settings.";
+
+    private const string IncompleteBootSettings = "This workspace's saved boot settings are incomplete. "
+        + "Restore them from a backup, or choose Recreate Environment in the workspace's settings.";
+
+    private const string InvalidBootIdentity = "This workspace's saved boot image identity is invalid. "
+        + "Restore it from a backup, or choose Recreate Environment in the workspace's settings.";
+
     // Boot files belong to the environment, just like its writable root disk.
     // Only initial creation can consult the app's current descriptor or download.
     private async Task<string> SelectWorkspaceBootImagesAsync(string directory,
@@ -18,7 +28,8 @@ public sealed partial class WorkspaceSdkIsolationProvider
             {
                 var pinned = JsonSerializer.Deserialize(await File.ReadAllTextAsync(pinPath, cancellationToken).ConfigureAwait(false),
                     WorkspaceSdkJsonContext.Default.WorkspaceSdkBootImages)
-                    ?? throw new IOException("The workspace boot image identity is missing.");
+                    ?? throw new WorkspaceEnvironmentRefusalException("This workspace's saved boot image identity is missing. "
+                        + "Restore it from a backup, or choose Recreate Environment in the workspace's settings.");
                 progress?.Report(new WorkspaceIsolationProgress("Verifying this workspace's saved boot images…"));
                 await VerifyWorkspaceBootImagesAsync(pinned, cancellationToken).ConfigureAwait(false);
                 return pinned.Directory;
@@ -36,30 +47,32 @@ public sealed partial class WorkspaceSdkIsolationProvider
                 var config = runtime.RootElement;
                 if (config.GetProperty("initialArguments").GetArrayLength() == 0)
                 {
-                    throw new IOException("The saved workspace boot configuration is incomplete.");
+                    throw new WorkspaceEnvironmentRefusalException(IncompleteBootSettings);
                 }
                 var kernel = config.GetProperty("kernelPath").GetString();
                 var initfs = config.GetProperty("initfsPath").GetString();
-                bootDirectory = Path.GetDirectoryName(kernel) ?? throw new IOException("The saved workspace boot path is missing.");
+                bootDirectory = Path.GetDirectoryName(kernel) ?? throw new WorkspaceEnvironmentRefusalException(IncompleteBootSettings);
                 if (!Path.IsPathFullyQualified(bootDirectory)
                     || !string.Equals(kernel, Path.Combine(bootDirectory, "kernel.bin"), StringComparison.Ordinal)
                     || !string.Equals(initfs, Path.Combine(bootDirectory, "initfs.ext4"), StringComparison.Ordinal)
                     || !(string.Equals(config.GetProperty("rootfsPath").GetString(), Path.Combine(directory, "rootfs.ext4"), StringComparison.Ordinal)
                         || string.Equals(config.GetProperty("rootfsPath").GetString(), Path.Combine(directory, "preparing.ext4"), StringComparison.Ordinal)))
                 {
-                    throw new IOException("The saved workspace boot paths do not match this environment.");
+                    throw new WorkspaceEnvironmentRefusalException("This workspace's saved boot settings don't match its environment. "
+                        + "Restore them from a backup, or choose Recreate Environment in the workspace's settings.");
                 }
                 if (string.Equals(config.GetProperty("initialArguments")[0].GetString(), "/sbin/init", StringComparison.Ordinal)
                     && !File.Exists(Path.Combine(directory, "rootfs.ext4")))
                 {
-                    throw new IOException("The persistent workspace disk is missing. Restore it from backup or explicitly recreate the environment.");
+                    throw new WorkspaceEnvironmentRefusalException(MissingDisk);
                 }
             }
             else if (File.Exists(Path.Combine(directory, "rootfs.ext4"))
                 || File.Exists(Path.Combine(directory, "preparing.ext4"))
                 || File.Exists(Path.Combine(directory, "disk.ready")))
             {
-                throw new IOException("The existing workspace's boot image identity is missing. Restore its saved boot files or explicitly recreate the environment.");
+                throw new WorkspaceEnvironmentRefusalException("The existing workspace's boot image identity is missing. "
+                    + "Restore its saved boot files from a backup, or choose Recreate Environment in the workspace's settings.");
             }
             else
             {
@@ -84,7 +97,7 @@ public sealed partial class WorkspaceSdkIsolationProvider
         }
         catch (Exception exception) when (exception is JsonException or KeyNotFoundException or InvalidOperationException or ArgumentException)
         {
-            throw new IOException("The workspace's saved boot image identity is invalid. Restore it from backup or explicitly recreate the environment.", exception);
+            throw new WorkspaceEnvironmentRefusalException(InvalidBootIdentity, exception);
         }
     }
 
@@ -93,13 +106,14 @@ public sealed partial class WorkspaceSdkIsolationProvider
         if (string.IsNullOrEmpty(images.Directory) || !Path.IsPathFullyQualified(images.Directory)
             || images.Kernel is null || images.Initfs is null)
         {
-            throw new IOException("The workspace's saved boot image identity is invalid.");
+            throw new WorkspaceEnvironmentRefusalException(InvalidBootIdentity);
         }
         var kernel = await ReadBootImagePinAsync(Path.Combine(images.Directory, "kernel.bin"), cancellationToken).ConfigureAwait(false);
         var initfs = await ReadBootImagePinAsync(Path.Combine(images.Directory, "initfs.ext4"), cancellationToken).ConfigureAwait(false);
         if (images.Kernel != kernel || images.Initfs != initfs)
         {
-            throw new IOException("This workspace's saved boot images have changed. Restore them from backup or explicitly recreate the environment.");
+            throw new WorkspaceEnvironmentRefusalException("This workspace's saved boot images have changed. "
+                + "Restore them from a backup, or choose Recreate Environment in the workspace's settings.");
         }
     }
 
@@ -108,7 +122,8 @@ public sealed partial class WorkspaceSdkIsolationProvider
         var file = new FileInfo(path);
         if (!file.Exists || file.LinkTarget is not null || file.Length is <= 0 or > 1024L * 1024 * 1024)
         {
-            throw new IOException("This workspace's saved boot images are missing or invalid. Restore them from backup or explicitly recreate the environment.");
+            throw new WorkspaceEnvironmentRefusalException("This workspace's saved boot images are missing or invalid. "
+                + "Restore them from a backup, or choose Recreate Environment in the workspace's settings.");
         }
         await using var stream = File.OpenRead(path);
         return new(Convert.ToHexStringLower(await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false)), file.Length);

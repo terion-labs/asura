@@ -721,8 +721,30 @@ public sealed class SessionHostedFilePanelClient :
         FilePanelResult<T>.Failure(new FilePanelError(
             MapHostErrorCode(error.Code),
             $"host_{error.StableCode}",
-            error.Message,
+            HostFailureMessage(error.Code),
             error.Retryable));
+
+    /// <summary>
+    /// What the Files panel says when the session host, not the file
+    /// location, refused a request. The host's message is written for its own
+    /// log ("The file-panel session is closed."), so the code chooses the
+    /// sentence; the panel adds the next step from the mapped file error code.
+    /// </summary>
+    internal static string HostFailureMessage(HostErrorCode code) => code switch
+    {
+        HostErrorCode.Cancelled => "The file operation was canceled.",
+        HostErrorCode.RevisionConflict or HostErrorCode.IdempotencyKeyReused =>
+            "The files changed while Asura was working with them.",
+        HostErrorCode.CapabilityNotSupported => "This location doesn’t support that action.",
+        HostErrorCode.LeaseDenied or HostErrorCode.ConfirmationRequired =>
+            "Asura isn’t allowed to change these files right now.",
+        HostErrorCode.NotFound
+            or HostErrorCode.SessionClosed
+            or HostErrorCode.ResynchronizationRequired => "The connection to these files closed.",
+        HostErrorCode.InvalidRequest => "Asura can’t open that location on this connection.",
+        HostErrorCode.DeadlineExceeded => "The file operation didn’t finish in time.",
+        _ => "Asura couldn’t finish working with the files.",
+    };
 
     private static FilePanelErrorCode MapHostErrorCode(HostErrorCode code) => code switch
     {

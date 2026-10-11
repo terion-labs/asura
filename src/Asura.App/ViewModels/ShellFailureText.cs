@@ -99,6 +99,39 @@ internal static class ShellFailureText
     }
 
     /// <summary>
+    /// Why the session host refused a change to the workspace: opening,
+    /// refreshing, moving or reordering tabs and panels. The host's message is
+    /// written for its own log ("The workspace graph was not found."), so the
+    /// code chooses the sentence, which ends in what to do next. The message
+    /// goes to diagnostics by its code only.
+    /// </summary>
+    public static string HostReason(HostError error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        SecretSafeDiagnosticProjection.WriteTrace(
+            $"shell.host.{error.Code.ToString().ToLowerInvariant()}",
+            SecretSafeDiagnosticKind.Unexpected);
+        return error.Code switch
+        {
+            HostErrorCode.RevisionConflict
+                or HostErrorCode.IdempotencyKeyReused
+                or HostErrorCode.ResynchronizationRequired =>
+                "The workspace changed while Asura was working on it. Try again.",
+            HostErrorCode.NotFound or HostErrorCode.SessionClosed =>
+                "Part of the workspace is no longer open. Check what’s open, then try again.",
+            HostErrorCode.DeadlineExceeded => "It didn’t finish in time. Try again.",
+            HostErrorCode.Cancelled => "It was canceled.",
+            HostErrorCode.LeaseDenied or HostErrorCode.ConfirmationRequired =>
+                "Something else is using that part of the workspace. Try again in a moment.",
+            HostErrorCode.InvalidRequest
+                or HostErrorCode.CapabilityNotSupported
+                or HostErrorCode.UnsupportedProtocol =>
+                "The workspace can’t make that change.",
+            _ => "Try again.",
+        };
+    }
+
+    /// <summary>
     /// A session that answered a close with something other than closing. The
     /// host's detail ("The terminal engine failed while closing.") is for its
     /// log; the outcome chooses the sentence.

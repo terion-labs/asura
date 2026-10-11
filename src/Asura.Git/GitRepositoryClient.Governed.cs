@@ -279,9 +279,7 @@ public sealed partial class GitRepositoryClient
         }
         catch (FormatException exception)
         {
-            return Failure<GitDiffDocument>(
-                GitErrorCode.InvalidResponse,
-                exception.Message);
+            return Unreadable<GitDiffDocument>(exception);
         }
     }
 
@@ -984,9 +982,7 @@ public sealed partial class GitRepositoryClient
         }
         catch (FormatException exception)
         {
-            return Failure<GitRepositorySnapshot>(
-                GitErrorCode.InvalidResponse,
-                exception.Message);
+            return Unreadable<GitRepositorySnapshot>(exception);
         }
     }
 
@@ -1493,7 +1489,7 @@ public sealed partial class GitRepositoryClient
         }
         catch (FormatException exception)
         {
-            return Failure<GitRepositoryGuard>(GitErrorCode.InvalidResponse, exception.Message);
+            return Unreadable<GitRepositoryGuard>(exception);
         }
 
         // Porcelain records describe change kinds, not the bytes an agent saw.

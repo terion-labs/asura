@@ -142,7 +142,8 @@ public sealed class SessionHostedFilePanelClientTests
         Assert.False(result.IsSuccess);
         Assert.Equal(FilePanelErrorCode.Conflict, result.Error!.Code);
         Assert.Equal("host_revision_conflict", result.Error.StableCode);
-        Assert.Equal("The session changed before this request arrived.", result.Error.Message);
+        // The host's log text stays out of the panel; the code chooses the sentence.
+        Assert.Equal("The files changed while Asura was working with them.", result.Error.Message);
         Assert.Equal(12, client.Revision);
     }
 

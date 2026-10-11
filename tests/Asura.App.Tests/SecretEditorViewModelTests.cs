@@ -41,6 +41,29 @@ public sealed class SecretEditorViewModelTests
     }
 
     [Fact]
+    public void RotateIsAvailableOnlyWhileAReplacementValueIsEntered()
+    {
+        var editor = new SecretEditorViewModel(Secret());
+        var changed = new List<string?>();
+        editor.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        Assert.False(editor.CanRotate);
+        editor.ReplacementValue = "new-value";
+        Assert.True(editor.CanRotate);
+        Assert.Contains(nameof(SecretEditorViewModel.CanRotate), changed, StringComparer.Ordinal);
+
+        using (editor.CreateRotateRequest().Replacement)
+        {
+        }
+
+        Assert.False(editor.CanRotate);
+
+        editor.ReplacementValue = "again";
+        editor.ClearReplacement();
+        Assert.False(editor.CanRotate);
+    }
+
+    [Fact]
     public void EmptyReplacementFailsBeforeVaultMutation()
     {
         var editor = new SecretEditorViewModel(Secret());

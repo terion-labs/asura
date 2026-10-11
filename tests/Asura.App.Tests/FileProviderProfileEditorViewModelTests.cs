@@ -145,7 +145,7 @@ public sealed class FileProviderProfileEditorViewModelTests
 
         Assert.Equal(SshHostKeyTrustAction.ReplaceChanged, runtime.TrustAction);
         Assert.False(editor.HasHostKeyReview);
-        Assert.Equal("Provider connected", editor.TestStatus);
+        Assert.Equal("File location connected", editor.TestStatus);
         Assert.Equal(2, runtime.TestCount);
     }
 
@@ -203,7 +203,7 @@ public sealed class FileProviderProfileEditorViewModelTests
         await editor.TrustHostKeyAsync(editor.HostKeyReview!.Id, CancellationToken.None);
 
         Assert.Equal(SshHostKeyTrustAction.TrustNew, runtime.TrustAction);
-        Assert.Equal("Provider connected", editor.TestStatus);
+        Assert.Equal("File location connected", editor.TestStatus);
     }
 
     private static SecretMetadataViewModel Secret(string id, SecretScope scope) => new(

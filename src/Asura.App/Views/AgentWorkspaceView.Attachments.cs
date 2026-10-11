@@ -89,9 +89,9 @@ public partial class AgentWorkspaceView
                 agent.AddPendingImage(AgentAttachmentImport.EncodePastedImage(bitmap));
             }
         }
-        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
+        catch (Exception exception) when (AgentAttachmentImport.IsAttachmentFailure(exception))
         {
-            agent.AttachmentError = exception.Message;
+            agent.AttachmentError = AgentAttachmentImport.FailureText(exception);
         }
     }
 
@@ -147,9 +147,9 @@ public partial class AgentWorkspaceView
                 AgentChatPromptInput.SelectedText = text;
             }
         }
-        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException or TimeoutException)
+        catch (Exception exception) when (AgentAttachmentImport.IsAttachmentFailure(exception))
         {
-            agent.AttachmentError = exception.Message;
+            agent.AttachmentError = AgentAttachmentImport.FailureText(exception);
         }
         finally
         {

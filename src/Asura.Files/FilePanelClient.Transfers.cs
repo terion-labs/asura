@@ -272,7 +272,7 @@ public sealed partial class FilePanelClient
             result = Failure<long>(
                 FilePanelErrorCode.IoFailure,
                 "file_transfer_unexpected_failure",
-                "The transfer failed unexpectedly inside the provider boundary.",
+                "The transfer stopped because of an unexpected problem.",
                 retryable: true);
         }
 
@@ -405,7 +405,7 @@ public sealed partial class FilePanelClient
             return Failure<long>(
                 FilePanelErrorCode.UnsupportedCapability,
                 "file_transfer_operation_unsupported",
-                "This provider does not support the requested transfer operation.");
+                "This location doesn't support that transfer.");
         }
 
         var progress = new InlineProgress<FileTransferProgress>(value =>
@@ -442,7 +442,7 @@ public sealed partial class FilePanelClient
             return Failure<long>(
                 FilePanelErrorCode.UnsupportedCapability,
                 "file_cross_provider_streaming_unsupported",
-                "Cross-provider transfer requires bounded reads and streaming writes.");
+                "Asura can't transfer files between these two locations.");
         }
 
         if (sourceEntry.Kind != FileEntryKind.File || sourceEntry.Size is not { } contentLength)
@@ -450,7 +450,7 @@ public sealed partial class FilePanelClient
             return Failure<long>(
                 FilePanelErrorCode.UnsupportedCapability,
                 "file_cross_provider_directory_unsupported",
-                "Cross-provider queue transfers currently require a regular file with known size.");
+                "Between these locations, Asura can transfer only files whose size is known.");
         }
 
         return await StreamFileAsync(
@@ -485,7 +485,7 @@ public sealed partial class FilePanelClient
             return Failure<long>(
                 FilePanelErrorCode.UnsupportedCapability,
                 "file_cross_provider_size_unknown",
-                "The source provider did not report a bounded file size.");
+                "The source location didn't report the file's size, so Asura can't transfer it.");
         }
 
         using var operation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

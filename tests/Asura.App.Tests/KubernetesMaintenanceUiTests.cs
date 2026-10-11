@@ -86,6 +86,25 @@ public sealed class KubernetesMaintenanceUiTests
         Assert.Equal("The Helm change was applied. Reload releases to inspect the result.", panel.HelmChangeStatus);
     }
 
+    [Fact]
+    public async Task HelmChangePopUpListsTitleCaseWordsAndFollowsTheSelectedKind()
+    {
+        var session = new KubernetesUiSession { ExtraFeatures = KubernetesSessionFeatures.HelmChanges };
+        using var panel = Create(session);
+        await panel.Initialization;
+
+        Assert.Equal(["Upgrade", "Roll Back", "Uninstall"], panel.HelmChangeKindOptions.Select(option => option.Label), StringComparer.Ordinal);
+        Assert.Equal(KubernetesHelmChangeKind.Upgrade, panel.SelectedHelmChangeKindOption.Value);
+
+        var changed = new List<string?>();
+        panel.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        panel.SelectedHelmChangeKindOption = panel.HelmChangeKindOptions[1];
+
+        Assert.Equal(KubernetesHelmChangeKind.Rollback, panel.HelmChangeKind);
+        Assert.True(panel.IsHelmRollback);
+        Assert.Contains(nameof(KubernetesRuntimePanelViewModel.SelectedHelmChangeKindOption), changed, StringComparer.Ordinal);
+    }
+
     [Theory]
     [InlineData(KubernetesMutationOutcome.Applied, "was applied")]
     [InlineData(KubernetesMutationOutcome.NotDispatched, "wasn’t sent to the cluster")]

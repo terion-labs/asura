@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Asura.Application;
 using Asura.Core;
 
 namespace Asura.Infrastructure;
@@ -22,7 +23,7 @@ public sealed class SqliteAgentAttachmentStore(AsuraDatabase database)
         var used = (long)(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false))!;
         if (used + content.Length > MaximumScopeBytes)
         {
-            throw new InvalidOperationException("This workspace has reached its 1 GiB attachment storage limit.");
+            throw new AgentAttachmentStorageLimitException();
         }
         command.CommandText = """
             INSERT INTO agent_file_attachments(id, scope_id, file_name, byte_count, sha256, content)

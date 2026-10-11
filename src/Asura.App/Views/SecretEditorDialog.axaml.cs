@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia.Controls;
@@ -7,6 +8,8 @@ namespace Asura.App.Views;
 
 public sealed partial class SecretEditorDialog : DialogWindow
 {
+    private SecretEditorViewModel? _observed;
+
     public SecretEditorDialog()
     {
         InitializeComponent();
@@ -18,14 +21,54 @@ public sealed partial class SecretEditorDialog : DialogWindow
         DataContext = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
     }
 
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        Observe(DataContext as SecretEditorViewModel);
+        base.OnDataContextChanged(e);
+    }
+
     protected override void OnClosed(EventArgs e)
     {
+        Observe(null);
         if (DataContext is SecretEditorViewModel viewModel)
         {
             viewModel.ClearReplacement();
         }
 
         base.OnClosed(e);
+    }
+
+    private void Observe(SecretEditorViewModel? viewModel)
+    {
+        _observed?.PropertyChanged -= OnViewModelPropertyChanged;
+        _observed = viewModel;
+        _observed?.PropertyChanged += OnViewModelPropertyChanged;
+
+        UpdateDefaultButton();
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        _ = sender;
+        if (string.Equals(e.PropertyName, nameof(SecretEditorViewModel.CanRotate), StringComparison.Ordinal))
+        {
+            UpdateDefaultButton();
+        }
+    }
+
+    /// <summary>
+    /// Rotate Value is unavailable until a replacement value is typed, so
+    /// until then Return saves the label instead of doing nothing.
+    /// </summary>
+    private void UpdateDefaultButton()
+    {
+        var canRotate = _observed?.CanRotate == true;
+        if (this.FindControl<Button>("RotateValueButton") is { } rotate
+            && this.FindControl<Button>("SaveLabelButton") is { } saveLabel)
+        {
+            rotate.IsDefault = canRotate;
+            saveLabel.IsDefault = !canRotate;
+        }
     }
 
     private SecretEditorViewModel ViewModel => DataContext as SecretEditorViewModel
