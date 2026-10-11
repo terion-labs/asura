@@ -4605,7 +4605,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                             revision,
                             McpServerTestPresentationState.Failed,
                             "Test failed",
-                            failure.Error.Message));
+                            McpDiagnosticText.DescribeTestFailure(
+                                failure.Error.StableCode)));
                     break;
                 default:
                     throw new InvalidOperationException(
@@ -9480,11 +9481,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             return null;
         }
 
-        var session = summary.SessionId[..Math.Min(8, summary.SessionId.Length)];
-        var kind = summary.SessionKind == McpServerSessionKind.Test
-            ? "Test"
-            : "Live session";
-        var detail = $"{kind} {session} · {summary.Events[^1].Message}";
+        // The stable code, said in the reader's words; the session ID and
+        // the host's own sentence are for the diagnostic history, not the row.
+        var detail = McpDiagnosticText.Describe(summary);
         return summary.State switch
         {
             McpServerLifecycleState.Testing => ("Testing", detail),

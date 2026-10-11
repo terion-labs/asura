@@ -3677,9 +3677,9 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             AuditStoreErrorCode.Cancelled =>
                 "Loading recorded actions was canceled.",
             AuditStoreErrorCode.InvalidQuery =>
-                "The audit position changed. Refresh the selected run.",
+                "Recorded actions changed. Refresh to see the latest.",
             AuditStoreErrorCode.StorageFailure =>
-                "The recorded audit chain is incomplete or corrupt and was hidden.",
+                "Asura couldn't read this run's recorded actions, so they're hidden.",
             _ => "Recorded actions are temporarily unavailable.",
         };
 

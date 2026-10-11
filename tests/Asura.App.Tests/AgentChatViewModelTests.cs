@@ -3752,8 +3752,12 @@ public sealed partial class AgentChatViewModelTests
         Assert.False(viewModel.CanLoadOlderAudit);
     }
 
-    [Fact]
-    public async Task Audit_failure_is_isolated_and_does_not_surface_storage_detail()
+    [Theory]
+    [InlineData(AuditStoreErrorCode.StorageFailure, "Asura couldn't read this run's recorded actions, so they're hidden.")]
+    [InlineData(AuditStoreErrorCode.InvalidQuery, "Recorded actions changed. Refresh to see the latest.")]
+    public async Task Audit_failure_is_isolated_and_does_not_surface_storage_detail(
+        AuditStoreErrorCode code,
+        string expectedStatus)
     {
         var provider = Provider("provider", "Provider", order: 0);
         using var runtime = new StubGovernedRuntime
@@ -3776,7 +3780,7 @@ public sealed partial class AgentChatViewModelTests
         var auditReader = new StubAgentRunAuditReader(
             AuditStoreResult<AgentRunAuditPage>.Failure(
                 new AuditStoreError(
-                    AuditStoreErrorCode.StorageFailure,
+                    code,
                     "must-not-surface-secret")));
         using var viewModel = new AgentChatViewModel(
             runtime,
@@ -3797,9 +3801,8 @@ public sealed partial class AgentChatViewModelTests
         await WaitUntilAsync(() => auditReader.ReadCount == 1);
 
         Assert.Empty(viewModel.AuditEntries);
-        Assert.Equal(
-            "The recorded audit chain is incomplete or corrupt and was hidden.",
-            viewModel.AuditStatus);
+        Assert.Equal(expectedStatus, viewModel.AuditStatus);
+        Assert.DoesNotContain("audit", viewModel.AuditStatus, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(
             "must-not-surface-secret",
             viewModel.AuditStatus,
