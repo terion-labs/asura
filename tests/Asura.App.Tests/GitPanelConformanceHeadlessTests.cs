@@ -300,10 +300,12 @@ public sealed class GitPanelConformanceHeadlessTests
     {
         var menu = view.FindControl<ContextMenu>("CommitContextMenu")!;
         var items = menu.Items.Cast<Control>().ToArray();
-        Assert.Same(view.FindControl<MenuItem>("CommitResetMenu"), items[^1]);
-        Assert.IsType<Separator>(items[^2]);
+        Assert.Equal(
+            [BuiltInCommands.GitCommitResetSoft, BuiltInCommands.GitCommitResetMixed, BuiltInCommands.GitCommitResetHard],
+            items[^3..].Select(item => Assert.IsType<CommandId>(Assert.IsType<MenuItem>(item).Tag)));
+        Assert.IsType<Separator>(items[^4]);
         Assert.Equal(3, Groups(menu.Items).Count);
-        foreach (var item in items.OfType<MenuItem>().Where(item => item.Name != "CommitResetMenu"))
+        foreach (var item in items.OfType<MenuItem>())
         {
             AssertTitleCase(item.Header as string);
         }

@@ -1564,13 +1564,11 @@
                     <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitSavePatch}" Click="OnGitMenuCommand" />
                     <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitCopySha}" Click="OnGitMenuCommand" />
                     <Separator />
-                    <!-- The menu bar spells these out as three Reset Branch to
-                         Commit items; here the submenu's title names the branch. -->
-                    <MenuItem x:Name="CommitResetMenu" Header="Reset Current Branch to Here">
-                      <MenuItem Header="Keep Staged Changes…" Tag="{x:Static core:BuiltInCommands.GitCommitResetSoft}" Click="OnGitMenuCommand" />
-                      <MenuItem Header="Keep Working Changes…" Tag="{x:Static core:BuiltInCommands.GitCommitResetMixed}" Click="OnGitMenuCommand" />
-                      <MenuItem Header="Discard Tracked Changes…" Tag="{x:Static core:BuiltInCommands.GitCommitResetHard}" Click="OnGitMenuCommand" />
-                    </MenuItem>
+                    <!-- The Git menu's three Reset Branch to Commit items, with
+                         their titles: one title per command, here as there. -->
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitResetSoft}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitResetMixed}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitResetHard}" Click="OnGitMenuCommand" />
                   </ContextMenu>
                 </ListBox.ContextMenu>
                 <ListBox.ItemContainerTheme>

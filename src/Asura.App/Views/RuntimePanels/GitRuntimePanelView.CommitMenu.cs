@@ -73,13 +73,11 @@ public sealed partial class GitRuntimePanelView
         }
 
         menu.DataContext = commit;
-        CommitResetMenu.Header = $"Reset “{GitMenuText.Literal(viewModel.BranchName)}” to Here";
 
         // Commands that only look at a commit or copy it out stay available
         // while another operation runs; those that move a branch or the
         // checkout wait.
         PresentMenu(menu.Items, viewModel, commit);
-        CommitResetMenu.IsEnabled = viewModel.CanMutateRepository;
     }
 
     private async void OnHistoryContextAction(object? sender, RoutedEventArgs e)

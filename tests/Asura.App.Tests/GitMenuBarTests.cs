@@ -95,7 +95,8 @@ public sealed class GitMenuBarTests
     /// <summary>
     /// No Git context-menu item is left out: every item written in the
     /// panel's and the diff's markup names a registry command that the menu
-    /// bar offers, and the only submenu is Reset, whose items are named too.
+    /// bar offers. None is a submenu: the commit menu's three Reset items
+    /// are the Git menu's, with its titles.
     /// </summary>
     [Fact]
     public void Every_git_context_menu_item_names_a_menu_bar_command()
@@ -114,12 +115,7 @@ public sealed class GitMenuBarTests
                 .SelectMany(menu => menu.Descendants())
                 .Where(element => element.Name.LocalName == "MenuItem"))
             {
-                if (item.Elements().Any(child => child.Name.LocalName == "MenuItem"))
-                {
-                    Assert.Equal("CommitResetMenu", Attribute(item, "Name"));
-                    continue;
-                }
-
+                Assert.DoesNotContain(item.Elements(), child => child.Name.LocalName == "MenuItem");
                 const string prefix = "{x:Static core:BuiltInCommands.";
                 var reference = Attribute(item, "PanelMenuCommand.Command") ?? Attribute(item, "Tag") ?? "";
                 Assert.True(
@@ -310,6 +306,9 @@ public sealed class GitPanelMenuBarHeadlessTests
                 "New Branch at Commit…", "New Tag at Commit…", "Check Out Commit…", "Cherry-Pick Commit…",
                 "Revert Commit…", "Interactive Rebase…", "Compare with Local Changes", "Compare Revisions…",
                 "Open Commit on Host", "Save Commit as Patch…", "Copy Commit SHA",
+                "Reset Branch to Commit, Keeping Staged Changes…",
+                "Reset Branch to Commit, Keeping Working Changes…",
+                "Reset Branch to Commit, Discarding Tracked Changes…",
             ],
             items.Select(item => item.Header as string),
             StringComparer.Ordinal);
@@ -376,13 +375,19 @@ public sealed class GitPanelMenuBarHeadlessTests
         }
 
         var commits = view.FindControl<ContextMenu>("CommitContextMenu")!;
-        var reset = view.FindControl<MenuItem>("CommitResetMenu")!;
-        PanelContextMenuAssert.ItemsAreInTheMenuBar(commits.Items.OfType<MenuItem>().Where(item => item != reset));
-        PanelContextMenuAssert.ItemsAreInTheMenuBar(
-            reset.Items.OfType<MenuItem>(),
-            "Keep Staged Changes…",
-            "Keep Working Changes…",
-            "Discard Tracked Changes…");
+        PanelContextMenuAssert.ItemsAreInTheMenuBar(commits.Items.OfType<MenuItem>());
+
+        // The Reset items have the Git menu's titles, not shorter ones under
+        // a submenu: one title per command.
+        Assert.Equal(
+            [
+                "Reset Branch to Commit, Keeping Staged Changes…",
+                "Reset Branch to Commit, Keeping Working Changes…",
+                "Reset Branch to Commit, Discarding Tracked Changes…",
+            ],
+            commits.Items.OfType<MenuItem>().TakeLast(3).Select(item => item.Header as string),
+            StringComparer.Ordinal);
+        Assert.All(commits.Items.OfType<MenuItem>(), item => Assert.Empty(item.Items));
 
         // Choosing an item runs it on the row the menu opened on.
         var stash = view.GetVisualDescendants().OfType<Border>()
