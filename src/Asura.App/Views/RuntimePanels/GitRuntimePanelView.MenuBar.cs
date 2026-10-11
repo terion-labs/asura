@@ -156,14 +156,32 @@ public sealed partial class GitRuntimePanelView : IPanelCommandTarget
         MenuSubject.Remote => SelectedRef(GitRemoteBranchTree),
         MenuSubject.Commit => viewModel is { IsAllCommitsSection: true, SelectedCommit: { } commit }
             && viewModel.Commits.Contains(commit) ? commit : null,
-        MenuSubject.File => viewModel.IsLocalChangesSection ? viewModel.SelectedChange
-            : viewModel.DetailTab == GitCommitDetailTab.FileTree ? viewModel.SelectedTreeNode
-            : viewModel.SelectedCommitChange,
+        MenuSubject.File => SelectedFile(viewModel),
         MenuSubject.Stash => SelectedItem(GitStashList),
         MenuSubject.Worktree => SelectedItem(GitWorktreeList),
         MenuSubject.Submodule => SelectedItem(GitSubmoduleList),
         _ => null,
     };
+
+    /// <summary>
+    /// The file in the list on screen: the local change, or in All Commits the
+    /// commit's change or tree node on the tab that lists it. The Commit tab
+    /// lists no files, so a file chosen on another tab doesn't count there.
+    /// </summary>
+    private static object? SelectedFile(GitRuntimePanelViewModel viewModel)
+    {
+        if (viewModel.IsLocalChangesSection)
+        {
+            return viewModel.SelectedChange;
+        }
+
+        return viewModel.DetailTab switch
+        {
+            GitCommitDetailTab.Changes => viewModel.SelectedCommitChange,
+            GitCommitDetailTab.FileTree => viewModel.SelectedTreeNode,
+            _ => null,
+        };
+    }
 
     /// <summary>
     /// The sidebar is one source list in several sections: choosing a row in

@@ -559,7 +559,6 @@ public sealed class GitDiffSplitRowViewModel
 /// <summary>One ref row in the repository sidebar.</summary>
 public sealed class GitRefItemViewModel(
     GitRefItem item,
-    string? currentBranchName = null,
     string? defaultRemoteName = null)
 {
     public GitRefItem Item { get; } = item ?? throw new ArgumentNullException(nameof(item));
@@ -582,22 +581,9 @@ public sealed class GitRefItemViewModel(
         }
     }
 
-    // Menu labels live here so the markup can bind them: a DataTemplate has
-    // no place to compose "merge X into Y" from two sources. Names go through
-    // GitMenuText so an underscore in a ref name is not taken as an access key.
-    public string CheckoutLabel => $"Check Out “{GitMenuText.Literal(Name)}”";
-
-    public string MergeLabel => $"Merge “{GitMenuText.Literal(Name)}” into “{GitMenuText.Literal(currentBranchName)}”…";
-
-    public string RebaseLabel => $"Rebase “{GitMenuText.Literal(currentBranchName)}” onto “{GitMenuText.Literal(Name)}”…";
-
-    public string FetchLabel => $"Fetch “{GitMenuText.Literal(RemoteName)}”";
-
     public string? Upstream => Item.Upstream;
 
     public bool HasUpstream => Item.Upstream is not null;
-
-    public string FastForwardLabel => $"Fast-Forward to “{GitMenuText.Literal(Item.Upstream)}”";
 
     /// <summary>
     /// Where a push of this branch goes: its upstream's remote when it has
@@ -613,8 +599,6 @@ public sealed class GitRefItemViewModel(
     }
 
     public bool HasPushRemote => PushRemoteName is not null;
-
-    public string PushLabel => $"Push to “{GitMenuText.Literal(PushRemoteName)}”…";
 
     // One text run renders the whole "↑1 ↓3" cluster: arrows and digits
     // share a font and a baseline by construction, where icon-and-text

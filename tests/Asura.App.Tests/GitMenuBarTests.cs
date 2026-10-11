@@ -322,7 +322,7 @@ public sealed class GitPanelMenuBarHeadlessTests
     });
 
     [Fact]
-    public Task File_commands_follow_the_selected_change() => RunAsync((view, panel, window, client) =>
+    public Task File_commands_follow_the_selected_change() => RunAsync(async (view, panel, window, client) =>
     {
         IPanelCommandTarget target = view;
         panel.SelectedChange = panel.UnstagedItems.First();
@@ -333,8 +333,19 @@ public sealed class GitPanelMenuBarHeadlessTests
         // A commit's changed file has a history and a patch, but nothing to
         // ignore.
         panel.Section = GitPanelSection.AllCommits;
+        panel.SelectedCommit = panel.Commits[0];
+        await panel.DetailLoading;
+        panel.DetailTab = GitCommitDetailTab.Changes;
+        Assert.NotNull(panel.SelectedCommitChange);
+        Assert.True(target.CanExecute(BuiltInCommands.GitFileCopyPatch));
         Assert.False(target.CanExecute(BuiltInCommands.GitFileIgnore));
-        return Task.CompletedTask;
+
+        // The Commit tab lists no files, so the change chosen on the Changes
+        // tab is out of sight and the File commands dim.
+        panel.DetailTab = GitCommitDetailTab.Commit;
+        Assert.NotNull(panel.SelectedCommitChange);
+        Assert.False(target.CanExecute(BuiltInCommands.GitFileCopyPatch));
+        Assert.False(target.CanExecute(BuiltInCommands.GitFileHistory));
     });
 
     /// <summary>
