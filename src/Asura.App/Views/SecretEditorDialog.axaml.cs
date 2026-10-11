@@ -58,7 +58,9 @@ public sealed partial class SecretEditorDialog : DialogWindow
 
     /// <summary>
     /// Rotate Value is unavailable until a replacement value is typed, so
-    /// until then Return saves the label instead of doing nothing.
+    /// until then Return saves the label instead of doing nothing. The button
+    /// Return presses is the one drawn as the primary action, so the filled
+    /// button moves with it.
     /// </summary>
     private void UpdateDefaultButton()
     {
@@ -66,9 +68,16 @@ public sealed partial class SecretEditorDialog : DialogWindow
         if (this.FindControl<Button>("RotateValueButton") is { } rotate
             && this.FindControl<Button>("SaveLabelButton") is { } saveLabel)
         {
-            rotate.IsDefault = canRotate;
-            saveLabel.IsDefault = !canRotate;
+            MarkDefault(rotate, canRotate);
+            MarkDefault(saveLabel, !canRotate);
         }
+    }
+
+    private static void MarkDefault(Button button, bool isDefault)
+    {
+        button.IsDefault = isDefault;
+        button.Classes.Set("PrimaryButton", isDefault);
+        button.Classes.Set("SecondaryButton", !isDefault);
     }
 
     private SecretEditorViewModel ViewModel => DataContext as SecretEditorViewModel

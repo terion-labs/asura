@@ -89,6 +89,9 @@ public sealed class DialogContractHeadlessTests
             Assert.True(saveLabel.IsDefault);
             Assert.False(rotate.IsDefault);
             Assert.False(rotate.IsEnabled);
+            // The button Return presses is the one drawn as the primary action.
+            Assert.Equal("PrimaryButton", ButtonRole(saveLabel));
+            Assert.Equal("SecondaryButton", ButtonRole(rotate));
 
             editor.ReplacementValue = "new value";
             await Idle();
@@ -96,6 +99,8 @@ public sealed class DialogContractHeadlessTests
             Assert.False(saveLabel.IsDefault);
             Assert.True(rotate.IsDefault);
             Assert.True(rotate.IsEnabled);
+            Assert.Equal("PrimaryButton", ButtonRole(rotate));
+            Assert.Equal("SecondaryButton", ButtonRole(saveLabel));
             dialog.Close();
         });
     }
@@ -778,4 +783,7 @@ public sealed class DialogContractHeadlessTests
 
     private static Task Idle() =>
         Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background).GetTask();
+
+    private static string ButtonRole(Button button) =>
+        string.Join(' ', button.Classes.Where(name => name is "PrimaryButton" or "SecondaryButton"));
 }
