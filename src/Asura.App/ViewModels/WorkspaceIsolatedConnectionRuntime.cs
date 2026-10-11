@@ -187,7 +187,7 @@ internal sealed class WorkspaceIsolatedConnectionRuntime :
                     new ConnectionRuntimeError(
                         MapErrorCode(isolationFailure.Error.Code),
                         isolationFailure.Error.StableCode,
-                        isolationFailure.Error.Message,
+                        WorkspaceIsolationText.Message(isolationFailure.Error),
                         isolationFailure.Error.Retryable,
                         MapRecoveryAction(isolationFailure.Error.RecoveryAction))),
             _ => throw new InvalidOperationException(
@@ -314,7 +314,7 @@ internal sealed class WorkspaceIsolatedConnectionRuntime :
         ConnectionRuntimeResult<ConnectionOpenPlan>.Fail(new ConnectionRuntimeError(
             MapErrorCode(error.Code),
             error.StableCode,
-            error.Message,
+            WorkspaceIsolationText.Message(error),
             error.Retryable,
             MapRecoveryAction(error.RecoveryAction)));
 

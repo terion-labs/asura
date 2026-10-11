@@ -362,12 +362,12 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
 
         IsTesting = true;
         ClearHostKeyReview();
-        TestStatus = "Testing provider";
+        TestStatus = "Testing file location";
         TestDetail = "Connecting and listing the starting folder…";
         try
         {
             var result = await _runtime.TestAsync(profile, cancellationToken);
-            TestStatus = result.IsSuccess ? "Provider connected" : "Test failed";
+            TestStatus = result.IsSuccess ? "File location connected" : "Test failed";
             TestDetail = result.Message;
             if (!result.IsSuccess)
             {
@@ -449,11 +449,11 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
 
             ClearHostKeyReview();
             TestStatus = "Host key trusted";
-            TestDetail = "The shared SSH host-key store was updated. Testing the provider again…";
+            TestDetail = "The server’s host key is trusted. Testing the file location again…";
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            _hostKeyReviewStatus = "Host-key trust was canceled.";
+            _hostKeyReviewStatus = "The host key wasn’t trusted because the review was canceled.";
             OnPropertyChanged(nameof(HostKeyReviewStatus));
             return;
         }
@@ -479,7 +479,7 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         var result = await _hostKeyRepair.InspectSshHostKeyAsync(profile, cancellationToken);
         if (result is ConnectionRuntimeResult<SshHostKeyReview>.Failure failure)
         {
-            TestDetail = $"{TestDetail} Host-key inspection failed: {failure.Error.Message}";
+            TestDetail = $"{TestDetail} Asura couldn’t check the server’s host key. {failure.Error.Message}";
             return;
         }
 

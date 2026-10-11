@@ -122,7 +122,7 @@ public sealed partial class FilePanelClient
             return Failure<FilePanelCopyReceipt>(
                 FilePanelErrorCode.UnsupportedCapability,
                 "file_cross_provider_governed_copy_unsupported",
-                "Governed copy currently requires one provider profile.");
+                "This copy has to stay within one file location.");
         }
 
         var provider = registration!.Provider;
@@ -131,7 +131,7 @@ public sealed partial class FilePanelClient
             return Failure<FilePanelCopyReceipt>(
                 FilePanelErrorCode.UnsupportedCapability,
                 "file_copy_unsupported",
-                "This provider does not support copy.");
+                "This location doesn't support copying.");
         }
 
         var stat = await provider.StatAsync(new FileStatRequest(source!), cancellationToken)
@@ -213,5 +213,5 @@ public sealed partial class FilePanelClient
     private static FilePanelResult<T> InvalidProviderReceipt<T>() => Failure<T>(
         FilePanelErrorCode.IoFailure,
         "file_provider_receipt_invalid",
-        "The file provider returned an invalid mutation receipt.");
+        "The location reported a result Asura couldn't confirm. Refresh to check the change.");
 }

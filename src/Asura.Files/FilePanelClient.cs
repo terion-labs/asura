@@ -143,7 +143,7 @@ public sealed partial class FilePanelClient : IFilePanelClient, IFileTransferQue
             return Failure<FilePanelPreview>(
                 FilePanelErrorCode.LimitExceeded,
                 "file_preview_limit_exceeded",
-                "The requested preview exceeds this provider's bounded-read limit.");
+                "The preview is larger than this location allows.");
         }
 
         var capacity = checked((int)request.MaximumBytes);
@@ -189,7 +189,7 @@ public sealed partial class FilePanelClient : IFilePanelClient, IFileTransferQue
             return Failure<FilePanelPreview>(
                 FilePanelErrorCode.IoFailure,
                 "file_provider_receipt_invalid",
-                "The file provider returned an invalid bounded-read receipt.");
+                "The location returned a preview Asura couldn't confirm. Try again.");
         }
 
         var source = FromProviderLocation(receipt.Source!);
@@ -248,7 +248,7 @@ public sealed partial class FilePanelClient : IFilePanelClient, IFileTransferQue
             return Failure<FilePanelEntry>(
                 FilePanelErrorCode.UnsupportedCapability,
                 "file_cross_provider_rename_unsupported",
-                "Rename requires source and destination to use the same provider profile.");
+                "An item can be renamed only within its own location.");
         }
 
         var precondition = MapPrecondition(request.DestinationPrecondition, out error);
@@ -354,7 +354,7 @@ public sealed partial class FilePanelClient : IFilePanelClient, IFileTransferQue
             error = new FilePanelError(
                 FilePanelErrorCode.UnknownProfile,
                 "file_provider_profile_unknown",
-                "The selected file-provider profile no longer exists.",
+                "That file location no longer exists. Choose another one.",
                 false);
             return false;
         }

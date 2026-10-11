@@ -451,7 +451,7 @@ public sealed partial class MainWindowViewModel
                 }
             }
 
-            SetError(failure.Error.Message);
+            SetError(WorkspaceIsolationText.Message(failure.Error));
             return WorkspaceIsolationPreparation.Failed;
         }
 
@@ -685,7 +685,7 @@ public sealed partial class MainWindowViewModel
         if (error is not null && !_shutdownStarted)
         {
             await _uiThreadDispatcher.InvokeAsync(
-                    () => SetError(error.Message),
+                    () => SetError(WorkspaceIsolationText.Message(error)),
                     CancellationToken.None)
                 .ConfigureAwait(false);
         }

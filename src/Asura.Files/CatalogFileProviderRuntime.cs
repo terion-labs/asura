@@ -632,7 +632,7 @@ public sealed class CatalogFileProviderRuntime :
                         null,
                         FileProviderRuntimeDiagnosticSeverity.Error,
                         "file_provider_refresh_failed",
-                        "The saved file-provider catalog could not be refreshed; the previous adapter set remains active."),
+                        "Asura couldn't reload the saved file locations, so it's still using the ones it loaded before."),
                 ];
             }
 
@@ -868,7 +868,7 @@ public sealed class CatalogFileProviderRuntime :
     private static FileProviderTestResult UnavailableTest() => new(
         false,
         "file_provider_unavailable",
-        "The provider could not be reached or initialized. Review its endpoint and credentials.");
+        "Asura couldn't reach this file location. Check its address and sign-in details, then test again.");
 
     private static FilePanelResult<T> MissingTransfer<T>() => FilePanelResult<T>.Failure(
         new FilePanelError(
