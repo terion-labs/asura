@@ -24,11 +24,13 @@ public sealed class PanelShortcutCollisionTests
             var stroke = ApplicationKeyStrokeMapper.Map(gesture.Key, gesture.KeyModifiers);
 
             // The grid may answer an Edit menu key only by doing that
-            // command itself: ⌘C copies, ⌘V pastes.
+            // command itself: ⌘C copies, ⌘V pastes. Its own copy in the
+            // menu bar (Panel ▸ Database ▸ Add Row) shows the grid's key.
             foreach (var menu in MacOsMenuShortcuts.All.Where(binding => binding.Sequence[0] == stroke))
             {
                 Assert.True(
-                    entry.MenuCommand == menu.CommandId,
+                    entry.MenuCommand == menu.CommandId
+                        || DatabaseGridShortcuts.MenuBarCommand(entry.Command) == menu.CommandId,
                     $"{entry.Command} takes {stroke}, the menu's {menu.CommandId.Value}.");
             }
 

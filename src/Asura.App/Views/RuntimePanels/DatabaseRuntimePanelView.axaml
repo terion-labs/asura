@@ -107,6 +107,7 @@
                       Header="Reconnect"
                       Command="{Binding ReconnectCommand}" />
                   <MenuItem
+                      x:Name="ConnectionMenuItem"
                       Header="{Binding ConnectionActionLabel}"
                       Command="{Binding ToggleConnectionCommand}" />
                 </ContextMenu>

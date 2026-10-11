@@ -95,6 +95,18 @@ public static class MacOsMenuShortcuts
             Add(BuiltInCommands.MovePanelToWorkspace, key, Command | KeyModifiers.Alt, argument);
         }
 
+        // The keys the panels' own context menus show, so the menu bar's copy
+        // of an item shows the same one: the Finder's keys for files, and the
+        // database grid's (DatabaseGridShortcuts). The menu dims these while a
+        // text field has focus, which leaves the keys to the field.
+        Add(BuiltInCommands.FilesOpen, "ARROWDOWN", Command);
+        Add(BuiltInCommands.FilesNewFolder, "N", Command | KeyModifiers.Shift);
+        Add(BuiltInCommands.FilesDelete, "BACKSPACE", Command);
+        Add(BuiltInCommands.DatabaseOpenCellEditor, "ENTER", Command);
+        Add(BuiltInCommands.DatabaseCopyCell, "C", Command | KeyModifiers.Shift);
+        Add(BuiltInCommands.DatabaseRefresh, "R", Command | KeyModifiers.Alt);
+        Add(BuiltInCommands.DatabaseAddRow, "N", Command | KeyModifiers.Alt);
+
         Add(BuiltInCommands.MinimizeWindow, "M", Command);
         Add(BuiltInCommands.PreviousTab, "[", Command | KeyModifiers.Shift);
         Add(BuiltInCommands.NextTab, "]", Command | KeyModifiers.Shift);

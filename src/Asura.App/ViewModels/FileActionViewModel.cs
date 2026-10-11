@@ -147,7 +147,7 @@ internal static class FilePanelActionPresentation
     public static string Label(FilePanelAction action, bool movesToTrash = false) => action switch
     {
         FilePanelAction.Open => "Open",
-        FilePanelAction.OpenExternally => "Open With Default App",
+        FilePanelAction.OpenExternally => "Open with Default App",
         FilePanelAction.Download => "Download…",
         FilePanelAction.Upload => "Upload…",
         FilePanelAction.Transfer => "Transfer…",

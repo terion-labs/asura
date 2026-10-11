@@ -207,6 +207,169 @@ public sealed class DatabaseWorkspaceHigHeadlessTests
             await Task.CompletedTask;
         });
 
+    /// <summary>
+    /// Panel ▸ Database repeats the result menu for the current cell: every
+    /// item is a menu-bar command, available exactly when the context menu
+    /// shows it enabled, and the menu bar's copy runs the same handler.
+    /// </summary>
+    [Fact]
+    public Task TheMenuBarRunsTheResultMenuOnTheCurrentCell() =>
+        RunAsync(async (panel, window) =>
+        {
+            var view = new DatabaseWorkspaceView { DataContext = panel };
+            window.Content = view;
+            window.UpdateLayout();
+            var target = (IPanelCommandTarget)view;
+            var grid = Named<DataGrid>(view, "Database rows");
+            grid.SelectedItem = panel.ResultRows[0];
+            grid.CurrentColumn = grid.Columns[0];
+            grid.RaiseEvent(new ContextRequestedEventArgs { RoutedEvent = InputElement.ContextRequestedEvent });
+            window.UpdateLayout();
+            var menu = Assert.IsType<ContextMenu>(grid.ContextMenu);
+            Assert.True(menu.IsOpen);
+
+            var quickFilter = Flatten(menu)
+                .Where(item => item.Parent is MenuItem { Name: "QuickFilterMenuItem" })
+                .ToArray();
+            var commands = Flatten(menu).Where(item => item.Tag is CommandId).Except(quickFilter).ToArray();
+            PanelContextMenuAssert.ItemsAreInTheMenuBar(
+                commands,
+                "JSON", "CSV", "SQL INSERT", "Empty", "NULL", "DEFAULT", "Choose File…");
+            foreach (var item in commands.Concat(quickFilter))
+            {
+                var shown = item.IsVisible && item.IsEnabled
+                    && (item.Parent is not MenuItem parent || (parent.IsVisible && parent.IsEnabled));
+                Assert.True(
+                    shown == target.CanExecute((CommandId)item.Tag!),
+                    $"{item.Header}: the context menu says {shown}.");
+            }
+
+            // Quick Filter names this cell's value; its menu-bar copies name
+            // the comparison, and exactly the comparisons it offers are
+            // available.
+            Assert.NotEmpty(quickFilter);
+            var inMenus = ApplicationMenuLayout.AllCommands().Select(item => item.Command).ToHashSet();
+            var offered = quickFilter.Select(item => Assert.IsType<CommandId>(item.Tag)).ToHashSet();
+            Assert.Subset(inMenus, offered);
+            var operators = panel.GetQuickFilterOperators(0)
+                .Select(option => DatabaseWorkspaceView.QuickFilterCommand(option.Operator))
+                .ToHashSet();
+            Assert.Equal(operators, offered);
+            HashSet<CommandId> available =
+            [
+                .. Enum.GetValues<Asura.Application.DatabaseFilterOperator>()
+                    .Select(DatabaseWorkspaceView.QuickFilterCommand)
+                    .Where(target.CanExecute),
+            ];
+            Assert.Equal(offered, available);
+
+            // Every item but the three submenu headings has a menu-bar copy.
+            Assert.All(
+                Flatten(menu).Where(item => item.Tag is null),
+                item => Assert.Contains(item.Name, ["QuickFilterMenuItem", "CopyRowAsMenuItem", "SetValueMenuItem"], StringComparer.Ordinal));
+            menu.Close();
+            window.UpdateLayout();
+
+            var before = panel.ResultRows.Count;
+            Assert.True(target.CanExecute(BuiltInCommands.DatabaseAddRow));
+            await target.ExecuteAsync(BuiltInCommands.DatabaseAddRow);
+            Assert.Equal(before + 1, panel.ResultRows.Count);
+            Assert.Contains(target.States, fact => fact.Key == CommandStates.HasMultipleSelection && !fact.Value);
+        });
+
+    /// <summary>
+    /// Panel ▸ Database's Filter items run Quick Filter's comparison on the
+    /// current cell, as the submenu does.
+    /// </summary>
+    [Fact]
+    public Task TheMenuBarQuickFiltersOnTheCurrentCell() =>
+        RunAsync(async (panel, window) =>
+        {
+            var view = new DatabaseWorkspaceView { DataContext = panel };
+            window.Content = view;
+            window.UpdateLayout();
+            var target = (IPanelCommandTarget)view;
+            var grid = Named<DataGrid>(view, "Database rows");
+            grid.SelectedItem = panel.ResultRows[0];
+            grid.CurrentColumn = grid.Columns[0];
+            window.UpdateLayout();
+
+            Assert.True(target.CanExecute(BuiltInCommands.DatabaseFilterEqual));
+            await target.ExecuteAsync(BuiltInCommands.DatabaseFilterEqual);
+            var filter = Assert.Single(panel.FilterRows);
+            Assert.Equal(Asura.Application.DatabaseFilterOperator.Equal, filter.Operator?.Operator);
+        });
+
+    /// <summary>
+    /// Panel ▸ Database repeats the object list's menu for the object the
+    /// workspace shows, with the same titles, and runs the same actions.
+    /// </summary>
+    [Fact]
+    public Task TheMenuBarRunsTheObjectMenuOnTheShownObject() =>
+        RunAsync(async (panel, window) =>
+        {
+            var view = new DatabaseWorkspaceView { DataContext = panel };
+            window.Content = view;
+            window.UpdateLayout();
+            var target = (IPanelCommandTarget)view;
+            var shown = Assert.IsType<DatabaseTableItemViewModel>(panel.SelectedObject);
+            var row = view.GetVisualDescendants().OfType<Button>().First(button => ReferenceEquals(button.DataContext, shown));
+            var menu = Assert.IsType<ContextMenu>(row.ContextMenu);
+            menu.Open(row);
+            window.UpdateLayout();
+            var items = menu.Items.OfType<MenuItem>().ToArray();
+            Assert.Equal(4, items.Length);
+            PanelContextMenuAssert.ItemsAreInTheMenuBar(items);
+            Assert.All(items, item => Assert.True(target.CanExecute((CommandId)item.Tag!), (string?)item.Header));
+            menu.Close();
+
+            Asura.Application.DatabaseTableDescriptor? inTab = null;
+            Asura.Application.DatabaseTableDescriptor? inPanel = null;
+            view.OpenObjectInTabRequested += (_, descriptor) => inTab = descriptor;
+            view.OpenObjectInPanelRequested += (_, descriptor) => inPanel = descriptor;
+            await target.ExecuteAsync(BuiltInCommands.DatabaseOpenObjectInTab);
+            await target.ExecuteAsync(BuiltInCommands.DatabaseOpenObjectInPanel);
+            Assert.Same(shown.Descriptor, inTab);
+            Assert.Same(shown.Descriptor, inPanel);
+            await target.ExecuteAsync(BuiltInCommands.DatabaseOpenStructure);
+            Assert.Equal(DatabaseWorkspaceMode.Structure, panel.SelectedMode);
+
+            // The overview shows no object, so there is nothing to act on.
+            panel.ShowDatabaseOverview();
+            Assert.False(target.CanExecute(BuiltInCommands.DatabaseOpenObjectInTab));
+            Assert.False(target.CanExecute(BuiltInCommands.DatabaseCopyObjectName));
+        });
+
+    /// <summary>
+    /// The connection button's menu, Reconnect and Disconnect, is in the
+    /// menu bar too, titled as the button is.
+    /// </summary>
+    [Fact]
+    public Task TheMenuBarRunsTheConnectionMenu() =>
+        RunAsync(async (panel, window) =>
+        {
+            var view = new DatabaseRuntimePanelView { DataContext = panel };
+            window.Content = view;
+            window.UpdateLayout();
+            var target = (IPanelCommandTarget)view;
+            var button = view.FindControl<Button>("ConnectionButton")!;
+            var menu = Assert.IsType<ContextMenu>(button.ContextMenu);
+            menu.Open(button);
+            window.UpdateLayout();
+            var items = menu.Items.OfType<MenuItem>().ToArray();
+            PanelContextMenuAssert.ItemsAreInTheMenuBar(items);
+            Assert.All(items, item => Assert.Equal(item.IsEnabled, target.CanExecute((CommandId)item.Tag!)));
+            menu.Close();
+
+            Assert.Contains(target.States, fact => fact.Key == CommandStates.IsDatabaseConnected && fact.Value);
+            Assert.True(target.CanExecute(BuiltInCommands.DatabaseReconnect));
+            await target.ExecuteAsync(BuiltInCommands.DatabaseToggleConnection);
+            Assert.False(panel.IsConnected);
+            Assert.Contains(target.States, fact => fact.Key == CommandStates.IsDatabaseConnected && !fact.Value);
+            Assert.False(target.CanExecute(BuiltInCommands.DatabaseReconnect));
+            Assert.True(target.CanExecute(BuiltInCommands.DatabaseToggleConnection));
+        });
+
     [Fact]
     public Task TheResultTableSelectsSeveralRowsAndShowsTheSelection() =>
         RunAsync(async (panel, window) =>

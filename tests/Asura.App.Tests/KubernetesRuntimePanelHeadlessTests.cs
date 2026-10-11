@@ -394,6 +394,14 @@ public sealed class KubernetesRuntimePanelHeadlessTests
                 StringComparer.Ordinal);
             Assert.All(menu.Items.OfType<MenuItem>().Where(item => !Equals(item.Header, "Port Forward…")), item => Assert.True(item.IsEnabled));
 
+            // Panel ▸ Kubernetes repeats the menu, available item for item.
+            var target = (IPanelCommandTarget)view;
+            PanelContextMenuAssert.ItemsAreInTheMenuBar(menu.Items.OfType<MenuItem>());
+            Assert.All(
+                menu.Items.OfType<MenuItem>(),
+                item => Assert.Equal(item.IsEnabled, target.CanExecute((CommandId)item.Tag!)));
+            Assert.Contains(target.States, fact => fact.Key == CommandStates.HasMultipleSelection && !fact.Value);
+
             grid.SelectedItems.Add(model.Rows[1]);
             await model.SelectionLoading;
             Dispatcher.UIThread.RunJobs();
@@ -403,6 +411,10 @@ public sealed class KubernetesRuntimePanelHeadlessTests
             Assert.True(items["Copy Names"].IsEnabled);
             Assert.False(items["Show Logs"].IsEnabled);
             Assert.False(items["Delete…"].IsEnabled);
+            PanelContextMenuAssert.ItemsAreInTheMenuBar(items.Values);
+            Assert.True(target.CanExecute(BuiltInCommands.KubernetesCopyName));
+            Assert.False(target.CanExecute(BuiltInCommands.KubernetesDelete));
+            Assert.Contains(target.States, fact => fact.Key == CommandStates.HasMultipleSelection && fact.Value);
 
             grid.SelectedItem = model.Rows[2];
             await model.SelectionLoading;

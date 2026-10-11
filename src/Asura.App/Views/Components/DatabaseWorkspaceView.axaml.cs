@@ -790,45 +790,6 @@ public sealed partial class DatabaseWorkspaceView : UserControl
     public event EventHandler<Asura.Application.DatabaseTableDescriptor>?
         OpenObjectInPanelRequested;
 
-    private void OnObjectOpenInTabClick(object? sender, RoutedEventArgs e)
-    {
-        _ = e;
-        if (sender is Control { DataContext: DatabaseTableItemViewModel item })
-        {
-            OpenObjectInTabRequested?.Invoke(this, item.Descriptor);
-        }
-    }
-
-    private void OnObjectOpenInPanelClick(object? sender, RoutedEventArgs e)
-    {
-        _ = e;
-        if (sender is Control { DataContext: DatabaseTableItemViewModel item })
-        {
-            OpenObjectInPanelRequested?.Invoke(this, item.Descriptor);
-        }
-    }
-
-    private async void OnObjectOpenStructureClick(object? sender, RoutedEventArgs e)
-    {
-        _ = e;
-        if (Panel is { } panel
-            && sender is Control { DataContext: DatabaseTableItemViewModel item })
-        {
-            await panel.PreviewTableAsync(item);
-            panel.SetMode(DatabaseWorkspaceMode.Structure);
-        }
-    }
-
-    private async void OnObjectCopyNameClick(object? sender, RoutedEventArgs e)
-    {
-        _ = e;
-        if (Panel is { } panel
-            && sender is Control { DataContext: DatabaseTableItemViewModel item })
-        {
-            _ = await CopyTextAsync(item.Name, panel);
-        }
-    }
-
     private void OnDatabaseHeaderClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;

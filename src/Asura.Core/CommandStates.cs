@@ -32,6 +32,21 @@ public static class CommandStates
     public const string IsPanelZoomed = "panel.zoomed";
 
     /// <summary>
+    /// The focused panel has more than one item selected, so its menu items
+    /// name the plural: Copy Names, Delete Rows.
+    /// </summary>
+    public const string HasMultipleSelection = "panel.selection-multiple";
+
+    /// <summary>The focused Files panel's delete moves to the Trash.</summary>
+    public const string MovesToTrash = "files.moves-to-trash";
+
+    /// <summary>The stack of the focused Docker panel's selection is collapsed.</summary>
+    public const string IsDockerStackCollapsed = "docker.stack-collapsed";
+
+    /// <summary>The focused Database panel has a session open.</summary>
+    public const string IsDatabaseConnected = "database.connected";
+
+    /// <summary>
     /// The fact a host reports when a panel-owned command, such as a Git
     /// operation, can run against the focused panel.
     /// </summary>

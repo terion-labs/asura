@@ -796,6 +796,124 @@ public sealed class DockerRuntimePanelViewHeadlessTests
         });
 
     /// <summary>
+    /// Panel ▸ Docker repeats the resource menu: each item there is a
+    /// menu-bar command with the same title, available exactly when the
+    /// context menu's copy is, and run by the panel itself.
+    /// </summary>
+    [Fact]
+    public Task TheMenuBarRunsTheResourceMenuOnTheSelection() =>
+        RunHeadlessAsync(async () =>
+        {
+            using var panel = new DockerRuntimePanelViewModel(
+                PanelInstanceId.New(),
+                "Docker",
+                new PagedLogDockerClient(),
+                BuiltInConnections.Local);
+            await panel.Initialization;
+
+            var view = new DockerRuntimePanelView { DataContext = panel };
+            var window = new Window { Width = 1_400, Height = 700, Content = view };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                var target = (IPanelCommandTarget)view;
+                var container = Assert.Single(panel.Resources);
+                panel.SelectResource(container);
+                var menu = view.CreateResourceContextMenu(panel, container);
+                var items = menu.Items.OfType<MenuItem>().ToArray();
+                PanelContextMenuAssert.ItemsAreInTheMenuBar(items);
+                Assert.All(items, item => Assert.Equal(item.IsEnabled, target.CanExecute((CommandId)item.Tag!)));
+
+                // Start and Stop sit side by side in the menu bar; only the
+                // one the context menu shows is available.
+                Assert.True(target.CanExecute(BuiltInCommands.DockerStop));
+                Assert.False(target.CanExecute(BuiltInCommands.DockerStart));
+                Assert.False(target.CanExecute(BuiltInCommands.DockerResume));
+                Assert.False(target.CanExecute(BuiltInCommands.KubernetesShowLogs));
+
+                await target.ExecuteAsync(BuiltInCommands.DockerShowLogs);
+                Assert.True(panel.IsLogsDetail);
+                await target.ExecuteAsync(BuiltInCommands.DockerShowJson);
+                Assert.True(panel.IsJsonDetail);
+                var shellRequested = false;
+                view.ShellRequested += (_, _) => shellRequested = true;
+                await target.ExecuteAsync(BuiltInCommands.DockerOpenShell);
+                Assert.True(shellRequested);
+
+                panel.SelectSection(DockerPanelSection.Volumes);
+                var volume = Assert.Single(panel.Resources);
+                PanelContextMenuAssert.ItemsAreInTheMenuBar(
+                    view.CreateResourceContextMenu(panel, volume).Items.OfType<MenuItem>());
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+    /// <summary>
+    /// Panel ▸ Docker repeats a stack heading's menu for the stack of the
+    /// selected container: the same titles, available exactly when the
+    /// heading's copy is, and run on that stack.
+    /// </summary>
+    [Fact]
+    public Task TheMenuBarRunsTheStackMenuOnTheSelectedContainersStack() =>
+        RunHeadlessAsync(async () =>
+        {
+            var client = new PagedLogDockerClient();
+            using var panel = new DockerRuntimePanelViewModel(
+                PanelInstanceId.New(),
+                "Docker",
+                client,
+                BuiltInConnections.Local);
+            await panel.Initialization;
+
+            var view = new DockerRuntimePanelView { DataContext = panel };
+            var window = new Window { Width = 1_400, Height = 700, Content = view };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                var target = (IPanelCommandTarget)view;
+                var stack = Assert.Single(panel.ContainerStacks);
+                panel.SelectResource(Assert.Single(stack.Containers));
+
+                var items = view.CreateStackContextMenu(panel, stack).Items.OfType<MenuItem>().ToArray();
+                PanelContextMenuAssert.ItemsAreInTheMenuBar(items);
+                Assert.All(items, item => Assert.Equal(item.IsEnabled, target.CanExecute((CommandId)item.Tag!)));
+
+                // Pause Running and Resume Paused sit side by side in the menu
+                // bar; with nothing paused, only Pause is available.
+                Assert.True(target.CanExecute(BuiltInCommands.DockerStackPause));
+                Assert.False(target.CanExecute(BuiltInCommands.DockerStackResume));
+                Assert.False(target.CanExecute(BuiltInCommands.DockerStackStart));
+                Assert.Contains(target.States, fact => fact.Key == CommandStates.IsDockerStackCollapsed && !fact.Value);
+
+                await target.ExecuteAsync(BuiltInCommands.DockerStackRestart);
+                Assert.Contains(("container", DockerContainerAction.Restart), client.ContainerActions);
+
+                stack = Assert.Single(panel.ContainerStacks);
+                await target.ExecuteAsync(BuiltInCommands.DockerStackToggle);
+                Assert.False(stack.IsExpanded);
+                Assert.Contains(target.States, fact => fact.Key == CommandStates.IsDockerStackCollapsed && fact.Value);
+                Assert.Equal(
+                    "Expand Stack",
+                    view.CreateStackContextMenu(panel, stack).Items.OfType<MenuItem>().Last().Header);
+
+                // Another section's selection has no stack.
+                panel.SelectSection(DockerPanelSection.Images);
+                panel.SelectResource(Assert.Single(panel.Resources));
+                Assert.False(target.CanExecute(BuiltInCommands.DockerStackToggle));
+                Assert.Empty(target.States);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+    /// <summary>
     /// A secondary click on a container selects it and offers what the
     /// toolbar offers: its views, its lifecycle, and copying its name.
     /// </summary>
@@ -860,7 +978,7 @@ public sealed class DockerRuntimePanelViewHeadlessTests
                 panel.SelectSection(DockerPanelSection.Containers);
                 var stack = Assert.Single(panel.ContainerStacks);
                 Assert.Equal(
-                    ["Start All", "Stop All", "Restart Running", "Pause Running", "-", "Collapse"],
+                    ["Start All", "Stop All", "Restart Running", "Pause Running", "-", "Collapse Stack"],
                     Headers(view.CreateStackContextMenu(panel, stack)),
                     StringComparer.Ordinal);
             }

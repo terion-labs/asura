@@ -120,5 +120,12 @@ public sealed class MacOsMenuShortcutsTests
         { "tab.previous", "[", KeyModifiers.Meta | KeyModifiers.Shift },
         { "tab.next", "]", KeyModifiers.Meta | KeyModifiers.Shift },
         { "window.minimize", "M", KeyModifiers.Meta },
+        { "files.open", "ARROWDOWN", KeyModifiers.Meta },
+        { "files.new-folder", "N", KeyModifiers.Meta | KeyModifiers.Shift },
+        { "files.delete", "BACKSPACE", KeyModifiers.Meta },
+        { "database.open-cell-editor", "ENTER", KeyModifiers.Meta },
+        { "database.copy-cell", "C", KeyModifiers.Meta | KeyModifiers.Shift },
+        { "database.refresh", "R", KeyModifiers.Meta | KeyModifiers.Alt },
+        { "database.add-row", "N", KeyModifiers.Meta | KeyModifiers.Alt },
     };
 }
