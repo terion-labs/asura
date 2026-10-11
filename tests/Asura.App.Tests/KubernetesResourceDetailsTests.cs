@@ -73,7 +73,7 @@ public sealed class KubernetesResourceDetailsTests
         var session = new DetailsSession();
         using var panel = Panel(session);
         await panel.Initialization;
-        panel.NamespaceSelection = "All namespaces";
+        panel.NamespaceSelection = "All Namespaces";
         await panel.SelectionLoading;
         var row = Assert.Single(panel.Rows);
         Assert.True(row.CanNavigateNamespace);

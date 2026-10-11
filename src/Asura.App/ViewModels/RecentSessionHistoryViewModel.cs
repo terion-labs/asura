@@ -74,19 +74,19 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
             "Don't retain session metadata. Existing history is removed.",
             new RecentSessionRetentionPolicy(0, TimeSpan.FromDays(30))),
         new(
-            "Private · 20 / 7 days",
+            "Private · 20 / 7 Days",
             "Keep at most 20 records for up to 7 days.",
             new RecentSessionRetentionPolicy(20, TimeSpan.FromDays(7))),
         new(
-            "Standard · 100 / 30 days",
+            "Standard · 100 / 30 Days",
             "Keep at most 100 records for up to 30 days.",
             RecentSessionRetentionPolicy.Default),
         new(
-            "Extended · 500 / 90 days",
+            "Extended · 500 / 90 Days",
             "Keep at most 500 records for up to 90 days.",
             new RecentSessionRetentionPolicy(500, TimeSpan.FromDays(90))),
         new(
-            "Maximum · 1,000 / 365 days",
+            "Maximum · 1,000 / 365 Days",
             "Keep at most 1,000 records for up to 365 days.",
             new RecentSessionRetentionPolicy(1_000, TimeSpan.FromDays(365))),
     ];

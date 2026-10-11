@@ -11,7 +11,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
 {
     private readonly KubernetesRowCollection _rows = [];
     private IReadOnlyList<KubernetesNavigationGroup> _navigationGroups = [];
-    private IReadOnlyList<string> _namespaceChoices = ["All namespaces"];
+    private IReadOnlyList<string> _namespaceChoices = ["All Namespaces"];
     private string _labelSelector = string.Empty;
     private string _namespaceFilter = string.Empty;
     private string _navigationFilter = string.Empty;
@@ -59,11 +59,11 @@ public sealed partial class KubernetesRuntimePanelViewModel
     public string LabelSelector { get => _labelSelector; set { if (SetProperty(ref _labelSelector, value)) { OnPropertyChanged(nameof(Target)); } } }
     public string NamespaceSelection
     {
-        get => EffectiveNamespace ?? "All namespaces";
+        get => EffectiveNamespace ?? "All Namespaces";
         set
         {
             if (value is null) { return; }
-            var next = value is "All namespaces" ? string.Empty : value.Trim();
+            var next = value is "All Namespaces" ? string.Empty : value.Trim();
             if (string.Equals(next, Namespace, StringComparison.Ordinal) || IsBusy) { return; }
             Namespace = next;
             if (string.Equals(Namespace, next, StringComparison.Ordinal)) { SelectionLoading = RefreshAsync(); }
@@ -147,7 +147,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             OnPropertyChanged(nameof(ResourceCountLabel));
         }
         finally { _publishingRows = false; }
-        NamespaceChoices = ["All namespaces", .. NamespaceChoices.Where(value => value is not "All namespaces")
+        NamespaceChoices = ["All Namespaces", .. NamespaceChoices.Where(value => value is not "All Namespaces")
             .Concat(_allResources.Select(item => item.Reference.Namespace).OfType<string>())
             .Append(Namespace).Where(value => value.Length > 0).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
     }
@@ -188,8 +188,8 @@ public sealed partial class KubernetesRuntimePanelViewModel
             var page = await _session.ListAsync(new(kind, Limit: 1000), _lifetime.Token);
             if (!_disposed)
             {
-                NamespaceChoices = ["All namespaces", .. page.Items.Select(item => item.Reference.Name)
-                    .Concat(NamespaceChoices.Where(value => value is not "All namespaces")).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
+                NamespaceChoices = ["All Namespaces", .. page.Items.Select(item => item.Reference.Name)
+                    .Concat(NamespaceChoices.Where(value => value is not "All Namespaces")).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
             }
         }
         catch (KubernetesRequestException) { /* Keep configured and observed namespaces when namespace-list access is unavailable. */ }

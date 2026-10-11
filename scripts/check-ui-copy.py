@@ -19,6 +19,14 @@ What is read:
   Header, when their names end in Label, ActionText, or ButtonText
   ("TestLabel", "HostKeyActionText"): every literal in the property's body is
   a button or menu label and takes title case.
+* C# lists that feed a pop-up button or combo box: the items of a "Choices:"
+  argument, an ItemsSource assignment, or a member named *Choices or *Options
+  (an item's first constructor argument when the items are records), and the
+  results of a method the list maps its items through (".Select(Label)").
+  Pop-up items are menu items, so they take title case.
+* C# positional constructor arguments that start with a capital letter, such
+  as an icon catalog's names or a state overlay's labels: one capitalized word
+  passed to a record reads as copy, so it is checked like prose.
 
 Rules: spelling (en-US), ellipsis ("..." instead of "…"), secret-store
 (hand-written names for the OS secret store; use Asura.Core.PlatformTerms),
@@ -329,7 +337,6 @@ def _xaml_context(element: dict, attribute: str, stack: list[dict]) -> tuple[str
     if attribute == "Content":
         in_segment = "Segment" in _classes(element["attributes"]) or any(
             ancestor["local"] in XAML_SEGMENT_HOSTS
-            or (ancestor["local"] == "Border" and "Segmented" in _classes(ancestor["attributes"]))
             for ancestor in stack[-3:-1]
         )
         if local in {"RadioButton", "ToggleButton"} and in_segment:
@@ -633,6 +640,7 @@ class CsContext:
     name: str
     argument: int = 0
     attribute: bool = False
+    constructor: bool = False
 
 
 def csharp_context(blanked: str, start: int) -> CsContext | None:
@@ -661,7 +669,8 @@ def csharp_context(blanked: str, start: int) -> CsContext | None:
                 # An attribute's bracket opens a line; an indexer's or a
                 # collection expression's follows an expression.
                 attribute = head.endswith("[") and (head[:-1].rstrip()[-1:] in {"", ";", "{", "}", "]"})
-                return CsContext("call", before, commas, attribute=attribute)
+                constructor = before == "new" or re.search(r"\bnew$", head) is not None
+                return CsContext("call", before, commas, attribute=attribute, constructor=constructor)
         elif depth == 0:
             if c == ";":
                 return None
@@ -685,6 +694,158 @@ def csharp_context(blanked: str, start: int) -> CsContext | None:
                     return CsContext("member", before) if before else None
         i -= 1
     return None
+
+
+# A pop-up button's or combo box's items are menu items, so a list that feeds
+# one takes title case: a "Choices:" argument, an ItemsSource assignment, or a
+# property or field whose name says it holds the choices.
+POP_UP_OWNER = re.compile(r"^(?:ItemsSource|Choices|\w+Choices|\w+Options)$")
+COLLECTION_PREFIX = re.compile(r"\bnew\s*(?:[A-Za-z_][\w.]*\s*(?:<[^<>;]*>)?\s*)?(?:\[\s*\]|\(\s*\))?\s*$")
+AUTO_PROPERTY = re.compile(r"\{\s*get;\s*(?:(?:init|set|private set);\s*)?\}\s*$")
+SELECTED_METHOD = re.compile(r"\.Select\(\s*([A-Za-z_]\w*)\s*\)")
+
+
+def _opener(blanked: str, start: int) -> tuple[int, int] | None:
+    """The innermost unclosed bracket before start, and the commas between."""
+    depth = 0
+    commas = 0
+    i = start - 1
+    while i >= 0:
+        c = blanked[i]
+        if c in ")]}":
+            depth += 1
+        elif c in "([{":
+            if depth == 0:
+                return i, commas
+            depth -= 1
+        elif depth == 0 and c == ",":
+            commas += 1
+        elif depth == 0 and c == ";":
+            return None
+        i -= 1
+    return None
+
+
+def _closer(blanked: str, opener: int) -> int:
+    depth = 0
+    for i in range(opener, len(blanked)):
+        c = blanked[i]
+        if c in "([{":
+            depth += 1
+        elif c in ")]}":
+            depth -= 1
+            if depth == 0:
+                return i
+    return len(blanked)
+
+
+def collection_owner(blanked: str, opener: int) -> str | None:
+    """The member a collection expression or initializer is assigned or passed to."""
+    if blanked[opener] not in "[{":
+        return None
+    head = blanked[:opener].rstrip()
+    if blanked[opener] == "{":
+        prefix = COLLECTION_PREFIX.search(head)
+        if not prefix or not prefix.group(0).strip():
+            return None
+        head = head[: prefix.start()].rstrip()
+    if head.endswith("?") or (head.endswith(":") and not re.search(r"[A-Za-z_]\w*\s*:$", head)):
+        # A branch of "cond ? [...] : [...]": the owner is the expression's.
+        head = _expression_head(head)
+    if head.endswith(":") and not head.endswith("::"):
+        named = re.search(r"([A-Za-z_]\w*)\s*:$", head)
+        return named.group(1) if named else None
+    if head.endswith("=>"):
+        head = head[:-2].rstrip()
+    elif head.endswith("=") and head[-2:-1] not in {"=", "!", "<", ">"}:
+        head = head[:-1].rstrip()
+    else:
+        return None
+    head = AUTO_PROPERTY.sub("", head).rstrip()
+    before = _identifier_before(head, len(head))
+    return _normalized(before) if before else None
+
+
+def _expression_head(head: str) -> str:
+    """What precedes the expression that ends in head: an argument's name, or an assignment."""
+    depth = 0
+    i = len(head) - 1
+    while i >= 0:
+        c = head[i]
+        if c in ")]}":
+            depth += 1
+        elif c in "([{":
+            if depth == 0:
+                break
+            depth -= 1
+        elif depth == 0 and c in ",;":
+            break
+        elif depth == 0 and c == "=" and head[i - 1:i] not in {"=", "!", "<", ">"} and head[i + 1:i + 2] not in {"=", ">"}:
+            return head[: i + 1]
+        i -= 1
+    named = NAMED_ARGUMENT.match(head[i + 1:])
+    return head[: i + 1] + named.group(0) if named else ""
+
+
+def _element_collection(blanked: str, literal: Literal) -> int | None:
+    """The collection a literal is an item of, directly or as the first argument of an item's constructor."""
+    found = _opener(blanked, literal.start)
+    if found is None:
+        return None
+    opener, commas = found
+    if blanked[opener] in "[{":
+        return opener if _is_whole_element(blanked, opener, literal) else None
+    head = blanked[:opener].rstrip()
+    before = _identifier_before(head, len(head))
+    if commas != 0 or not before or not (before == "new" or re.search(r"\bnew$", head[: -len(before)].rstrip())):
+        return None
+    if not _is_whole_element(blanked, opener, literal):
+        return None
+    outer = _opener(blanked, opener)
+    if outer is None or blanked[outer[0]] not in "[{":
+        return None
+    return outer[0]
+
+
+def _is_whole_element(blanked: str, opener: int, literal: Literal) -> bool:
+    leading = blanked[opener + 1:literal.start]
+    leading = leading[leading.rfind(",") + 1:]
+    trailing = blanked[literal.end:].lstrip()
+    return not leading.strip() and trailing[:1] in {",", ")", "]", "}"}
+
+
+def pop_up_extents(blanked: str) -> tuple[list[tuple[int, int]], set[str]]:
+    """Collections that feed a pop-up, and the methods they map their items through."""
+    extents = []
+    methods: set[str] = set()
+    for match in re.finditer(r"[\[{]", blanked):
+        owner = collection_owner(blanked, match.start())
+        if owner and POP_UP_OWNER.match(owner):
+            end = _closer(blanked, match.start())
+            extents.append((match.start(), end))
+            methods.update(SELECTED_METHOD.findall(blanked[match.start():end]))
+    return extents, methods
+
+
+STRING_METHOD = re.compile(r"\bstring\??\s+([A-Za-z_]\w*)\s*\([^()]*\)\s*(=>|\{)")
+
+
+def _method_extents(blanked: str, names: set[str]) -> list[tuple[int, int, str]]:
+    """The bodies of string-returning methods named in names, as (start, end, name)."""
+    extents = []
+    for match in STRING_METHOD.finditer(blanked):
+        if match.group(1) not in names:
+            continue
+        if match.group(2) == "{":
+            end = _closer(blanked, match.end() - 1)
+        else:
+            end = match.end()
+            depth = 0
+            while end < len(blanked) and not (blanked[end] == ";" and depth == 0):
+                depth += 1 if blanked[end] in "([{" else -1 if blanked[end] in ")]}" else 0
+                end += 1
+        extents.append((match.end(), end, match.group(1)))
+    return extents
 
 
 USER_FACING_MEMBER = re.compile(
@@ -740,6 +901,8 @@ def _property_extents(blanked: str, names: set[str]) -> list[tuple[int, int, str
 def csharp_strings(path: str, source: str, title_properties: set[str] | frozenset[str] = frozenset()) -> list[UiString]:
     literals, blanked = scan_csharp(source)
     label_bodies = _property_extents(blanked, set(title_properties)) if title_properties else []
+    pop_ups, pop_up_methods = pop_up_extents(blanked)
+    pop_up_bodies = _method_extents(blanked, pop_up_methods) if pop_up_methods else []
     vocabulary = path.startswith(VOCABULARY_CODE_PATHS)
     line_starts = [0] + [m.end() for m in re.finditer("\n", source)]
 
@@ -792,11 +955,24 @@ def csharp_strings(path: str, source: str, title_properties: set[str] | frozense
             # A button or menu label returned by a property the markup binds.
             checked = title = True
             label = f"C# {body} (bound as a button or menu label)"
+        collection = _element_collection(blanked, literal)
+        if collection is not None and any(start == collection for start, _ in pop_ups):
+            checked = title = True
+            label = f"C# {collection_owner(blanked, collection)} item (a pop-up menu item)"
+        mapper = next((name for start, end, name in pop_up_bodies if start <= literal.start < end), None)
+        if mapper is not None:
+            checked = title = True
+            label = f"C# {mapper}() result (a pop-up menu item)"
         visible = value.replace(HOLE, " ").strip()
         if not visible or CODE_VALUE.match(visible):
             checked = title = False
         elif not checked and PROSE.match(visible) and not SQL_START.match(visible):
             checked = True
+        elif not checked and context and context.constructor and visible[:1].isupper() and not SQL_START.match(visible):
+            # A positional record argument, such as an icon catalog's name or
+            # a state label: one capitalized word reads as copy, not code.
+            checked = True
+            label = f"C# {context.name}() argument"
         decisions[index] = (checked, title, label)
         if checked:
             exception = context is not None and context.kind == "call" and (
