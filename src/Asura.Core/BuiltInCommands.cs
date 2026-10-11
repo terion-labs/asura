@@ -96,6 +96,85 @@ public static class BuiltInCommands
     public static CommandId GitRebase { get; } = new("git.rebase");
     public static CommandId GitStash { get; } = new("git.stash");
 
+    public static CommandId DockerShowLogs { get; } = new("docker.show-logs");
+    public static CommandId DockerBrowseFiles { get; } = new("docker.browse-files");
+    public static CommandId DockerOpenShell { get; } = new("docker.open-shell");
+    public static CommandId DockerShowJson { get; } = new("docker.show-json");
+    public static CommandId DockerStart { get; } = new("docker.start");
+    public static CommandId DockerStop { get; } = new("docker.stop");
+    public static CommandId DockerRestart { get; } = new("docker.restart");
+    public static CommandId DockerPause { get; } = new("docker.pause");
+    public static CommandId DockerResume { get; } = new("docker.resume");
+    public static CommandId DockerCopyName { get; } = new("docker.copy-name");
+    public static CommandId DockerCopyId { get; } = new("docker.copy-id");
+
+    public static CommandId KubernetesShowLogs { get; } = new("kubernetes.show-logs");
+    public static CommandId KubernetesOpenTerminal { get; } = new("kubernetes.open-terminal");
+    public static CommandId KubernetesPortForward { get; } = new("kubernetes.port-forward");
+    public static CommandId KubernetesEditManifest { get; } = new("kubernetes.edit-manifest");
+    public static CommandId KubernetesCopyName { get; } = new("kubernetes.copy-name");
+    public static CommandId KubernetesDelete { get; } = new("kubernetes.delete");
+
+    public static CommandId FilesOpen { get; } = new("files.open");
+    public static CommandId FilesOpenExternally { get; } = new("files.open-externally");
+    public static CommandId FilesDownload { get; } = new("files.download");
+    public static CommandId FilesUpload { get; } = new("files.upload");
+    public static CommandId FilesTransfer { get; } = new("files.transfer");
+    public static CommandId FilesNewFolder { get; } = new("files.new-folder");
+    public static CommandId FilesRename { get; } = new("files.rename");
+    public static CommandId FilesCopyName { get; } = new("files.copy-name");
+    public static CommandId FilesCopyPath { get; } = new("files.copy-path");
+    public static CommandId FilesPermissions { get; } = new("files.permissions");
+    public static CommandId FilesRefresh { get; } = new("files.refresh");
+    public static CommandId FilesDelete { get; } = new("files.delete");
+
+    public static CommandId DatabaseOpenCellEditor { get; } = new("database.open-cell-editor");
+    public static CommandId DatabaseCopyRow { get; } = new("database.copy-row");
+    public static CommandId DatabaseCopyCell { get; } = new("database.copy-cell");
+    public static CommandId DatabaseCopyColumn { get; } = new("database.copy-column");
+    public static CommandId DatabaseCopyRowAsJson { get; } = new("database.copy-row-json");
+    public static CommandId DatabaseCopyRowAsCsv { get; } = new("database.copy-row-csv");
+    public static CommandId DatabaseCopyRowAsInsert { get; } = new("database.copy-row-insert");
+    public static CommandId DatabaseExportPage { get; } = new("database.export-page");
+    public static CommandId DatabaseRefresh { get; } = new("database.refresh");
+    public static CommandId DatabasePaste { get; } = new("database.paste");
+    public static CommandId DatabaseSetEmpty { get; } = new("database.set-empty");
+    public static CommandId DatabaseSetNull { get; } = new("database.set-null");
+    public static CommandId DatabaseSetDefault { get; } = new("database.set-default");
+    public static CommandId DatabaseSetFromFile { get; } = new("database.set-from-file");
+    public static CommandId DatabaseAddRow { get; } = new("database.add-row");
+    public static CommandId DatabaseDuplicateRow { get; } = new("database.duplicate-row");
+    public static CommandId DatabaseImportCsv { get; } = new("database.import-csv");
+    public static CommandId DatabaseDeleteRow { get; } = new("database.delete-row");
+
+    public static CommandId ProcessesCopyName { get; } = new("processes.copy-name");
+    public static CommandId ProcessesCopyProcessId { get; } = new("processes.copy-process-id");
+    public static CommandId ProcessesRefresh { get; } = new("processes.refresh");
+
+    /// <summary>
+    /// The commands a focused panel carries out on what it shows: the items
+    /// of the Docker, Kubernetes, Files, Database and Processes context menus,
+    /// which the menu bar repeats under Panel. The panel answers whether it
+    /// can run each one now. Git's menu runs its view model's commands instead.
+    /// </summary>
+    public static IReadOnlySet<CommandId> PanelContextCommands { get; } = new HashSet<CommandId>
+    {
+        DockerShowLogs, DockerBrowseFiles, DockerOpenShell, DockerShowJson,
+        DockerStart, DockerStop, DockerRestart, DockerPause, DockerResume,
+        DockerCopyName, DockerCopyId,
+        KubernetesShowLogs, KubernetesOpenTerminal, KubernetesPortForward,
+        KubernetesEditManifest, KubernetesCopyName, KubernetesDelete,
+        FilesOpen, FilesOpenExternally, FilesDownload, FilesUpload, FilesTransfer,
+        FilesNewFolder, FilesRename, FilesCopyName, FilesCopyPath, FilesPermissions,
+        FilesRefresh, FilesDelete,
+        DatabaseOpenCellEditor, DatabaseCopyRow, DatabaseCopyCell, DatabaseCopyColumn,
+        DatabaseCopyRowAsJson, DatabaseCopyRowAsCsv, DatabaseCopyRowAsInsert,
+        DatabaseExportPage, DatabaseRefresh, DatabasePaste, DatabaseSetEmpty,
+        DatabaseSetNull, DatabaseSetDefault, DatabaseSetFromFile, DatabaseAddRow,
+        DatabaseDuplicateRow, DatabaseImportCsv, DatabaseDeleteRow,
+        ProcessesCopyName, ProcessesCopyProcessId, ProcessesRefresh,
+    };
+
     public static CommandId ShowHelp { get; } = new("help.asura");
     public static CommandId ShowKeyboardShortcuts { get; } = new("help.keyboard-shortcuts");
     public static CommandId ShowReleaseNotes { get; } = new("help.release-notes");
@@ -129,6 +208,53 @@ public static class BuiltInCommands
         GitMerge,
         GitRebase,
         GitStash,
+        DockerShowLogs,
+        DockerBrowseFiles,
+        DockerOpenShell,
+        DockerShowJson,
+        DockerStart,
+        DockerStop,
+        DockerRestart,
+        DockerPause,
+        DockerResume,
+        DockerCopyName,
+        DockerCopyId,
+        KubernetesShowLogs,
+        KubernetesOpenTerminal,
+        KubernetesPortForward,
+        KubernetesEditManifest,
+        KubernetesCopyName,
+        KubernetesDelete,
+        FilesOpenExternally,
+        FilesDownload,
+        FilesUpload,
+        FilesTransfer,
+        FilesRename,
+        FilesCopyName,
+        FilesCopyPath,
+        FilesPermissions,
+        FilesRefresh,
+
+        // The grid answers Command-C and Command-V for Copy Row and Paste,
+        // which are the Edit menu's keys, and Delete Row takes the bare
+        // Delete key, which no menu item may take from every field.
+        DatabaseCopyRow,
+        DatabaseCopyColumn,
+        DatabaseCopyRowAsJson,
+        DatabaseCopyRowAsCsv,
+        DatabaseCopyRowAsInsert,
+        DatabaseExportPage,
+        DatabasePaste,
+        DatabaseSetEmpty,
+        DatabaseSetNull,
+        DatabaseSetDefault,
+        DatabaseSetFromFile,
+        DatabaseDuplicateRow,
+        DatabaseImportCsv,
+        DatabaseDeleteRow,
+        ProcessesCopyName,
+        ProcessesCopyProcessId,
+        ProcessesRefresh,
         ShowHelp,
         ShowKeyboardShortcuts,
         ShowReleaseNotes,
@@ -342,6 +468,81 @@ public static class BuiltInCommands
             DefinePanelCommand(GitRebase, "Rebase Branch…", "Git"),
             DefinePanelCommand(GitStash, "Stash Changes…", "Git"),
 
+            // Each panel's context menu, in its order. The context menus take
+            // their titles from here, so a menu-bar item and its context-menu
+            // item cannot drift apart.
+            DefinePanelCommand(DockerShowLogs, "Show Logs", "Docker"),
+            DefinePanelCommand(DockerBrowseFiles, "Browse Files", "Docker"),
+            DefinePanelCommand(DockerOpenShell, "Open Shell in New Tab", "Docker"),
+            DefinePanelCommand(DockerShowJson, "Show JSON", "Docker"),
+            DefinePanelCommand(DockerStart, "Start", "Docker"),
+            DefinePanelCommand(DockerStop, "Stop", "Docker"),
+            DefinePanelCommand(DockerRestart, "Restart", "Docker"),
+            DefinePanelCommand(DockerPause, "Pause", "Docker"),
+            DefinePanelCommand(DockerResume, "Resume", "Docker"),
+            DefinePanelCommand(DockerCopyName, "Copy Name", "Docker"),
+            DefinePanelCommand(DockerCopyId, "Copy ID", "Docker"),
+
+            DefinePanelCommand(KubernetesShowLogs, "Show Logs", "Kubernetes"),
+            DefinePanelCommand(KubernetesOpenTerminal, "Open Pod Terminal", "Kubernetes"),
+            DefinePanelCommand(KubernetesPortForward, "Port Forward…", "Kubernetes"),
+            DefinePanelCommand(KubernetesEditManifest, "Edit Manifest…", "Kubernetes"),
+            DefinePanelCommand(
+                KubernetesCopyName,
+                "Copy Name",
+                "Kubernetes",
+                (CommandStates.HasMultipleSelection, "Copy Names")),
+            DefinePanelCommand(KubernetesDelete, "Delete…", "Kubernetes"),
+
+            DefinePanelCommand(FilesOpen, "Open", "Files"),
+            DefinePanelCommand(FilesOpenExternally, "Open with Default App", "Files"),
+            DefinePanelCommand(FilesDownload, "Download…", "Files"),
+            DefinePanelCommand(FilesUpload, "Upload…", "Files"),
+            DefinePanelCommand(FilesTransfer, "Transfer…", "Files"),
+            DefinePanelCommand(FilesNewFolder, "New Folder…", "Files"),
+            DefinePanelCommand(FilesRename, "Rename…", "Files"),
+            DefinePanelCommand(FilesCopyName, "Copy Name", "Files"),
+            DefinePanelCommand(FilesCopyPath, "Copy Path", "Files"),
+            DefinePanelCommand(FilesPermissions, "Permissions…", "Files"),
+            DefinePanelCommand(FilesRefresh, "Refresh", "Files"),
+
+            // A local folder moves to the Trash at once; a connection without
+            // a Trash deletes for good and asks first.
+            DefinePanelCommand(
+                FilesDelete,
+                "Delete…",
+                "Files",
+                (CommandStates.MovesToTrash, "Move to Trash")),
+
+            // The context menu's Copy Row As and Set Value submenus become
+            // single items here, as the menu bar keeps to one submenu level.
+            DefinePanelCommand(DatabaseOpenCellEditor, "Open Cell Editor…", "Database"),
+            DefinePanelCommand(DatabaseCopyRow, "Copy Row", "Database"),
+            DefinePanelCommand(DatabaseCopyCell, "Copy Cell Value", "Database"),
+            DefinePanelCommand(DatabaseCopyColumn, "Copy All Column Values", "Database"),
+            DefinePanelCommand(DatabaseCopyRowAsJson, "Copy Row as JSON", "Database"),
+            DefinePanelCommand(DatabaseCopyRowAsCsv, "Copy Row as CSV", "Database"),
+            DefinePanelCommand(DatabaseCopyRowAsInsert, "Copy Row as SQL INSERT", "Database"),
+            DefinePanelCommand(DatabaseExportPage, "Export Page…", "Database"),
+            DefinePanelCommand(DatabaseRefresh, "Refresh", "Database"),
+            DefinePanelCommand(DatabasePaste, "Paste", "Database"),
+            DefinePanelCommand(DatabaseSetEmpty, "Set Value to Empty", "Database"),
+            DefinePanelCommand(DatabaseSetNull, "Set Value to NULL", "Database"),
+            DefinePanelCommand(DatabaseSetDefault, "Set Value to DEFAULT", "Database"),
+            DefinePanelCommand(DatabaseSetFromFile, "Set Value from File…", "Database"),
+            DefinePanelCommand(DatabaseAddRow, "Add Row", "Database"),
+            DefinePanelCommand(DatabaseDuplicateRow, "Duplicate Row", "Database"),
+            DefinePanelCommand(DatabaseImportCsv, "Import CSV…", "Database"),
+            DefinePanelCommand(
+                DatabaseDeleteRow,
+                "Delete Row",
+                "Database",
+                (CommandStates.HasMultipleSelection, "Delete Rows")),
+
+            DefinePanelCommand(ProcessesCopyName, "Copy Name", "Processes"),
+            DefinePanelCommand(ProcessesCopyProcessId, "Copy Process ID", "Processes"),
+            DefinePanelCommand(ProcessesRefresh, "Refresh", "Processes"),
+
             Define(ShowHelp, "Asura Help", "Help", CommandContext.Global),
             Define(ShowKeyboardShortcuts, "Keyboard Shortcuts", "Help", CommandContext.Global),
             Define(ShowReleaseNotes, "Release Notes", "Help", CommandContext.Global),
@@ -349,8 +550,12 @@ public static class BuiltInCommands
         ]);
     }
 
-    private static CommandDefinition DefinePanelCommand(CommandId id, string title, string category) =>
-        Define(id, title, category, CommandContext.Panel, state: CommandStates.CanExecute(id));
+    private static CommandDefinition DefinePanelCommand(
+        CommandId id,
+        string title,
+        string category,
+        (string State, string Title)? stateTitle = null) =>
+        Define(id, title, category, CommandContext.Panel, state: CommandStates.CanExecute(id), stateTitle: stateTitle);
 
     /// <param name="state">
     /// A <see cref="CommandStates"/> fact the host must report before the

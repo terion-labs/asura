@@ -159,6 +159,88 @@ internal static class ApplicationMenuLayout
             Item("Focus Next Panel", BuiltInCommands.FocusPanel, ("direction", "next")),
             MenuSeparatorNode.Instance,
             Item("Zoom Panel", BuiltInCommands.TogglePanelZoom) with { CheckedWhen = CommandStates.IsPanelZoomed },
+            MenuSeparatorNode.Instance,
+
+            // Each panel's context menu, so every item there has a menu-bar
+            // path that menu search finds. The focused panel runs them; the
+            // others' stay dimmed.
+            new MenuSubmenuNode("Docker",
+            [
+                Item("Show Logs", BuiltInCommands.DockerShowLogs),
+                Item("Browse Files", BuiltInCommands.DockerBrowseFiles),
+                Item("Open Shell in New Tab", BuiltInCommands.DockerOpenShell),
+                Item("Show JSON", BuiltInCommands.DockerShowJson),
+                MenuSeparatorNode.Instance,
+                Item("Start", BuiltInCommands.DockerStart),
+                Item("Stop", BuiltInCommands.DockerStop),
+                Item("Restart", BuiltInCommands.DockerRestart),
+                Item("Pause", BuiltInCommands.DockerPause),
+                Item("Resume", BuiltInCommands.DockerResume),
+                MenuSeparatorNode.Instance,
+                Item("Copy Name", BuiltInCommands.DockerCopyName),
+                Item("Copy ID", BuiltInCommands.DockerCopyId),
+            ]),
+            new MenuSubmenuNode("Kubernetes",
+            [
+                Item("Show Logs", BuiltInCommands.KubernetesShowLogs),
+                Item("Open Pod Terminal", BuiltInCommands.KubernetesOpenTerminal),
+                Item("Port Forward…", BuiltInCommands.KubernetesPortForward),
+                Item("Edit Manifest…", BuiltInCommands.KubernetesEditManifest),
+                MenuSeparatorNode.Instance,
+                Plural("Copy Name", "Copy Names", BuiltInCommands.KubernetesCopyName),
+                MenuSeparatorNode.Instance,
+                Item("Delete…", BuiltInCommands.KubernetesDelete),
+            ]),
+            new MenuSubmenuNode("Files",
+            [
+                Item("Open", BuiltInCommands.FilesOpen),
+                Item("Open with Default App", BuiltInCommands.FilesOpenExternally),
+                MenuSeparatorNode.Instance,
+                Item("Download…", BuiltInCommands.FilesDownload),
+                Item("Upload…", BuiltInCommands.FilesUpload),
+                Item("Transfer…", BuiltInCommands.FilesTransfer),
+                MenuSeparatorNode.Instance,
+                Item("New Folder…", BuiltInCommands.FilesNewFolder),
+                Item("Rename…", BuiltInCommands.FilesRename),
+                Item("Copy Name", BuiltInCommands.FilesCopyName),
+                Item("Copy Path", BuiltInCommands.FilesCopyPath),
+                Item("Permissions…", BuiltInCommands.FilesPermissions),
+                Item("Refresh", BuiltInCommands.FilesRefresh),
+                MenuSeparatorNode.Instance,
+                Item("Delete…", BuiltInCommands.FilesDelete)
+                    with { StateTitle = (CommandStates.MovesToTrash, "Move to Trash") },
+            ]),
+            new MenuSubmenuNode("Database",
+            [
+                Item("Open Cell Editor…", BuiltInCommands.DatabaseOpenCellEditor),
+                Item("Copy Row", BuiltInCommands.DatabaseCopyRow),
+                Item("Copy Cell Value", BuiltInCommands.DatabaseCopyCell),
+                Item("Copy All Column Values", BuiltInCommands.DatabaseCopyColumn),
+                Item("Copy Row as JSON", BuiltInCommands.DatabaseCopyRowAsJson),
+                Item("Copy Row as CSV", BuiltInCommands.DatabaseCopyRowAsCsv),
+                Item("Copy Row as SQL INSERT", BuiltInCommands.DatabaseCopyRowAsInsert),
+                Item("Export Page…", BuiltInCommands.DatabaseExportPage),
+                MenuSeparatorNode.Instance,
+                Item("Refresh", BuiltInCommands.DatabaseRefresh),
+                MenuSeparatorNode.Instance,
+                Item("Paste", BuiltInCommands.DatabasePaste),
+                Item("Set Value to Empty", BuiltInCommands.DatabaseSetEmpty),
+                Item("Set Value to NULL", BuiltInCommands.DatabaseSetNull),
+                Item("Set Value to DEFAULT", BuiltInCommands.DatabaseSetDefault),
+                Item("Set Value from File…", BuiltInCommands.DatabaseSetFromFile),
+                Item("Add Row", BuiltInCommands.DatabaseAddRow),
+                Item("Duplicate Row", BuiltInCommands.DatabaseDuplicateRow),
+                Item("Import CSV…", BuiltInCommands.DatabaseImportCsv),
+                MenuSeparatorNode.Instance,
+                Plural("Delete Row", "Delete Rows", BuiltInCommands.DatabaseDeleteRow),
+            ]),
+            new MenuSubmenuNode("Processes",
+            [
+                Item("Copy Name", BuiltInCommands.ProcessesCopyName),
+                Item("Copy Process ID", BuiltInCommands.ProcessesCopyProcessId),
+                MenuSeparatorNode.Instance,
+                Item("Refresh", BuiltInCommands.ProcessesRefresh),
+            ]),
         ]),
         new("Workspace",
         [
@@ -281,6 +363,10 @@ internal static class ApplicationMenuLayout
         string titleWhenOn,
         CommandId command,
         string state) => Item(title, command) with { StateTitle = (state, titleWhenOn) };
+
+    /// <summary>An item that names the plural while more than one thing is selected.</summary>
+    private static MenuCommandNode Plural(string title, string plural, CommandId command) =>
+        Toggle(title, plural, command, CommandStates.HasMultipleSelection);
 
     private static (string Name, string Value) Position(int position) =>
         ("position", position.ToString(CultureInfo.InvariantCulture));

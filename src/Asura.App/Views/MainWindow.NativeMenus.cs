@@ -47,6 +47,7 @@ public sealed partial class MainWindow : IShellCommandPresentation, IApplication
             new(CommandStates.IsFullScreen, WindowState == WindowState.FullScreen),
         };
         FocusedCommandTargets.AddState(state, FocusedEditTarget(focused), FocusedFindTarget(focused));
+        PanelCommandTargets.AddState(state, FocusedPanelTargets(focused), focused);
         var contexts = ViewModel.ActiveCommandContexts;
         if (focused is TextBox)
         {
@@ -72,12 +73,13 @@ public sealed partial class MainWindow : IShellCommandPresentation, IApplication
 
     /// <summary>
     /// Gives focus back to what had it before the palette opened, so an Edit
-    /// command chosen there reaches it. With nothing focused then, the active
-    /// panel takes focus.
+    /// or panel command chosen there reaches it. With nothing focused then,
+    /// the active panel takes focus.
     /// </summary>
     private void RestoreCommandPaletteOrigin(CommandId command)
     {
-        if (!FocusedCommandTargets.IsEditCommand(command))
+        if (!FocusedCommandTargets.IsEditCommand(command)
+            && !BuiltInCommands.PanelContextCommands.Contains(command))
         {
             return;
         }
@@ -211,6 +213,23 @@ public sealed partial class MainWindow : IShellCommandPresentation, IApplication
             git.Execute(null);
         }
     }
+
+    Task IShellCommandPresentation.ExecutePanelCommandAsync(CommandId command)
+    {
+        var focused = FocusManager?.GetFocusedElement();
+        return PanelCommandTargets.ExecuteAsync(FocusedPanelTargets(focused), command);
+    }
+
+    /// <summary>
+    /// The panel views the panel commands act on: those around the focused
+    /// element, or the active panel's when nothing in the window has focus.
+    /// </summary>
+    private IReadOnlyList<IPanelCommandTarget> FocusedPanelTargets(IInputElement? focused) =>
+        PanelCommandTargets.For(
+            focused,
+            () => ViewModel.ActivePanel is { } activePanel && ViewModel.IsWorkspaceVisible
+                ? PanelCommandTargets.Within(this, activePanel)
+                : []);
 
     /// <summary>
     /// The focused editable element. Only when nothing in the window has

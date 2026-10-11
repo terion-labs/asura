@@ -207,6 +207,56 @@ public sealed class DatabaseWorkspaceHigHeadlessTests
             await Task.CompletedTask;
         });
 
+    /// <summary>
+    /// Panel ▸ Database repeats the result menu for the current cell: every
+    /// item is a menu-bar command, available exactly when the context menu
+    /// shows it enabled, and the menu bar's copy runs the same handler.
+    /// </summary>
+    [Fact]
+    public Task TheMenuBarRunsTheResultMenuOnTheCurrentCell() =>
+        RunAsync(async (panel, window) =>
+        {
+            var view = new DatabaseWorkspaceView { DataContext = panel };
+            window.Content = view;
+            window.UpdateLayout();
+            var target = (IPanelCommandTarget)view;
+            var grid = Named<DataGrid>(view, "Database rows");
+            grid.SelectedItem = panel.ResultRows[0];
+            grid.CurrentColumn = grid.Columns[0];
+            grid.RaiseEvent(new ContextRequestedEventArgs { RoutedEvent = InputElement.ContextRequestedEvent });
+            window.UpdateLayout();
+            var menu = Assert.IsType<ContextMenu>(grid.ContextMenu);
+            Assert.True(menu.IsOpen);
+
+            var commands = Flatten(menu).Where(item => item.Tag is CommandId).ToArray();
+            PanelContextMenuAssert.ItemsAreInTheMenuBar(
+                commands,
+                "JSON", "CSV", "SQL INSERT", "Empty", "NULL", "DEFAULT", "Choose File…");
+            foreach (var item in commands)
+            {
+                var shown = item.IsVisible && item.IsEnabled
+                    && (item.Parent is not MenuItem parent || (parent.IsVisible && parent.IsEnabled));
+                Assert.True(
+                    shown == target.CanExecute((CommandId)item.Tag!),
+                    $"{item.Header}: the context menu says {shown}.");
+            }
+
+            // Every item but Quick Filter, whose choices depend on the cell's
+            // value, and the two submenu headings has a menu-bar copy.
+            Assert.All(
+                Flatten(menu).Where(item => item.Tag is null
+                    && item.Parent is not MenuItem { Name: "QuickFilterMenuItem" }),
+                item => Assert.Contains(item.Name, ["QuickFilterMenuItem", "CopyRowAsMenuItem", "SetValueMenuItem"], StringComparer.Ordinal));
+            menu.Close();
+            window.UpdateLayout();
+
+            var before = panel.ResultRows.Count;
+            Assert.True(target.CanExecute(BuiltInCommands.DatabaseAddRow));
+            await target.ExecuteAsync(BuiltInCommands.DatabaseAddRow);
+            Assert.Equal(before + 1, panel.ResultRows.Count);
+            Assert.Contains(target.States, fact => fact.Key == CommandStates.HasMultipleSelection && !fact.Value);
+        });
+
     [Fact]
     public Task TheResultTableSelectsSeveralRowsAndShowsTheSelection() =>
         RunAsync(async (panel, window) =>

@@ -124,13 +124,15 @@ internal class AuxiliaryWindowMenuHost(
             FocusedCommandTargets.FindTargetFor(focused, Lifetime));
         var git = GitPanel(focused);
         MainWindowViewModel.AddGitState(state, git);
+        var panels = PanelTargets(focused);
+        PanelCommandTargets.AddState(state, panels, focused);
         var contexts = Contexts;
         if (FocusedTerminal(focused) is not null)
         {
             contexts |= CommandContext.Terminal;
         }
 
-        if (git is not null)
+        if (git is not null || panels.Count > 0)
         {
             contexts |= CommandContext.Panel;
         }
@@ -168,7 +170,8 @@ internal class AuxiliaryWindowMenuHost(
             || command == BuiltInCommands.CloseWindow
             || (WindowFrameCommands.Handles(command) && WindowFrameCommands.CanExecute(Window, command))
             || FocusedTerminalCommands.Contains(command)
-            || MainWindowViewModel.IsGitCommand(command);
+            || MainWindowViewModel.IsGitCommand(command)
+            || BuiltInCommands.PanelContextCommands.Contains(command);
     }
 
     public virtual async Task ExecuteAsync(CommandId command, IReadOnlyDictionary<string, string> arguments)
@@ -202,6 +205,10 @@ internal class AuxiliaryWindowMenuHost(
         {
             git.Execute(null);
         }
+        else if (BuiltInCommands.PanelContextCommands.Contains(command))
+        {
+            await PanelCommandTargets.ExecuteAsync(PanelTargets(focused), command);
+        }
     }
 
     public MenuShortcutResolver CreateShortcutResolver() => application.CreateShortcutResolver();
@@ -227,6 +234,14 @@ internal class AuxiliaryWindowMenuHost(
             .FirstOrDefault()?
             .DataContext as GitRuntimePanelViewModel;
     }
+
+    /// <summary>
+    /// The panels the panel commands act on: those around the focused
+    /// element, or every panel in a floated window when nothing in it has
+    /// focus, as a floated window holds one.
+    /// </summary>
+    private IReadOnlyList<IPanelCommandTarget> PanelTargets(IInputElement? focused) =>
+        PanelCommandTargets.For(focused, () => PanelCommandTargets.Within(Window, panel: null));
 
     private static ManagedTerminalSurface? FocusedTerminal(IInputElement? focused) =>
         (focused as Avalonia.Visual)?.GetSelfAndVisualAncestors()

@@ -872,10 +872,12 @@
                         Header="Copy Row As"
                         AutomationProperties.Name="Copy the selected database row as">
                       <MenuItem
+                          x:Name="CopyRowJsonMenuItem"
                           Click="OnCopyRowJsonClick"
                           Header="JSON"
                           AutomationProperties.Name="Copy the selected database row as JSON" />
                       <MenuItem
+                          x:Name="CopyRowCsvMenuItem"
                           Click="OnCopyRowCsvClick"
                           Header="CSV"
                           AutomationProperties.Name="Copy the selected database row as CSV" />

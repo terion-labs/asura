@@ -3,6 +3,7 @@ using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
 using Asura.Application;
+using Asura.Core;
 using Asura.Docker;
 using Avalonia;
 using Avalonia.Controls;
@@ -15,7 +16,7 @@ using Avalonia.VisualTree;
 
 namespace Asura.App.Views.RuntimePanels;
 
-public sealed partial class DockerRuntimePanelView : UserControl
+public sealed partial class DockerRuntimePanelView : UserControl, IPanelCommandTarget
 {
     private const double CompactLayoutMinimumWidth = 1_100;
     private const double CompactDetailHeaderMinimumWidth = 640;
@@ -615,43 +616,153 @@ public sealed partial class DockerRuntimePanelView : UserControl
         var menu = new ContextMenu();
         if (resource.IsContainer)
         {
-            menu.Items.Add(Item("Show Logs", panel.CanShowLogs, () => ShowDetail(DockerPanelDetail.Logs)));
-            menu.Items.Add(Item("Browse Files", panel.CanShowFiles, () => ShowDetail(DockerPanelDetail.Files)));
-            menu.Items.Add(Item(
-                "Open Shell in New Tab",
-                panel.CanOpenShell,
-                () => ShellRequested?.Invoke(this, panel)));
+            menu.Items.Add(Item(BuiltInCommands.DockerShowLogs));
+            menu.Items.Add(Item(BuiltInCommands.DockerBrowseFiles));
+            menu.Items.Add(Item(BuiltInCommands.DockerOpenShell));
             menu.Items.Add(new Separator());
-            menu.Items.Add(resource.IsRunning || resource.IsPaused
-                ? CommandItem("Stop", panel.StopCommand)
-                : CommandItem("Start", panel.StartCommand));
-            menu.Items.Add(CommandItem("Restart", panel.RestartCommand));
-            menu.Items.Add(resource.IsPaused
-                ? CommandItem("Resume", panel.ResumeCommand)
-                : CommandItem("Pause", panel.PauseCommand));
+            menu.Items.Add(LifecycleItem(resource.IsRunning || resource.IsPaused
+                ? BuiltInCommands.DockerStop
+                : BuiltInCommands.DockerStart));
+            menu.Items.Add(LifecycleItem(BuiltInCommands.DockerRestart));
+            menu.Items.Add(LifecycleItem(resource.IsPaused
+                ? BuiltInCommands.DockerResume
+                : BuiltInCommands.DockerPause));
         }
         else
         {
             if (!resource.IsNetwork)
             {
-                menu.Items.Add(Item("Browse Files", panel.CanShowFiles, () => ShowDetail(DockerPanelDetail.Files)));
+                menu.Items.Add(Item(BuiltInCommands.DockerBrowseFiles));
             }
 
-            menu.Items.Add(Item("Show JSON", panel.CanShowJson, () => ShowDetail(DockerPanelDetail.Json)));
+            menu.Items.Add(Item(BuiltInCommands.DockerShowJson));
         }
 
         menu.Items.Add(new Separator());
-        menu.Items.Add(Item("Copy Name", isEnabled: true, () => _ = CopyTextAsync(resource.Title)));
+        menu.Items.Add(Item(BuiltInCommands.DockerCopyName));
         if (!resource.IsVolume)
         {
-            menu.Items.Add(Item("Copy ID", isEnabled: true, () => _ = CopyTextAsync(resource.Resource.Id)));
+            menu.Items.Add(Item(BuiltInCommands.DockerCopyId));
         }
 
         return menu;
 
-        static MenuItem CommandItem(string header, System.Windows.Input.ICommand command) =>
-            new() { Header = header, Command = command };
+        MenuItem Item(CommandId command) => PanelCommandTargets.MenuItem(
+            command,
+            CanRun(panel, resource, command),
+            () => RunAsync(panel, resource, command));
+
+        MenuItem LifecycleItem(CommandId command) => new()
+        {
+            Header = PanelCommandTargets.Title(command),
+            Command = LifecycleCommand(panel, command),
+            Tag = command,
+        };
     }
+
+    /// <summary>
+    /// Whether a resource command can run on <paramref name="resource"/> now.
+    /// The context menu and the menu bar's Docker items both ask here; the
+    /// menu bar offers Start and Stop, Pause and Resume side by side, so each
+    /// is available only in the state the context menu shows it in.
+    /// </summary>
+    private static bool CanRun(
+        DockerRuntimePanelViewModel panel,
+        DockerResourceItemViewModel resource,
+        CommandId command)
+    {
+        if (LifecycleCommand(panel, command) is { } lifecycle)
+        {
+            var isUp = resource.IsRunning || resource.IsPaused;
+            var inState = command == BuiltInCommands.DockerStart ? !isUp
+                : command == BuiltInCommands.DockerStop ? isUp
+                : command == BuiltInCommands.DockerPause ? !resource.IsPaused
+                : command != BuiltInCommands.DockerResume || resource.IsPaused;
+            return resource.IsContainer && inState && lifecycle.CanExecute(null);
+        }
+
+        if (command == BuiltInCommands.DockerShowLogs)
+        {
+            return resource.IsContainer && panel.CanShowLogs;
+        }
+
+        if (command == BuiltInCommands.DockerBrowseFiles)
+        {
+            return !resource.IsNetwork && panel.CanShowFiles;
+        }
+
+        if (command == BuiltInCommands.DockerOpenShell)
+        {
+            return resource.IsContainer && panel.CanOpenShell;
+        }
+
+        if (command == BuiltInCommands.DockerShowJson)
+        {
+            return panel.CanShowJson;
+        }
+
+        return command == BuiltInCommands.DockerCopyName
+            || (command == BuiltInCommands.DockerCopyId && !resource.IsVolume);
+    }
+
+    private Task RunAsync(
+        DockerRuntimePanelViewModel panel,
+        DockerResourceItemViewModel resource,
+        CommandId command)
+    {
+        if (LifecycleCommand(panel, command) is { } lifecycle)
+        {
+            lifecycle.Execute(null);
+        }
+        else if (command == BuiltInCommands.DockerShowLogs)
+        {
+            ShowDetail(DockerPanelDetail.Logs);
+        }
+        else if (command == BuiltInCommands.DockerBrowseFiles)
+        {
+            ShowDetail(DockerPanelDetail.Files);
+        }
+        else if (command == BuiltInCommands.DockerOpenShell)
+        {
+            ShellRequested?.Invoke(this, panel);
+        }
+        else if (command == BuiltInCommands.DockerShowJson)
+        {
+            ShowDetail(DockerPanelDetail.Json);
+        }
+        else if (command == BuiltInCommands.DockerCopyName)
+        {
+            return CopyTextAsync(resource.Title);
+        }
+        else if (command == BuiltInCommands.DockerCopyId)
+        {
+            return CopyTextAsync(resource.Resource.Id);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static System.Windows.Input.ICommand? LifecycleCommand(
+        DockerRuntimePanelViewModel panel,
+        CommandId command) =>
+        command == BuiltInCommands.DockerStart ? panel.StartCommand
+        : command == BuiltInCommands.DockerStop ? panel.StopCommand
+        : command == BuiltInCommands.DockerRestart ? panel.RestartCommand
+        : command == BuiltInCommands.DockerPause ? panel.PauseCommand
+        : command == BuiltInCommands.DockerResume ? panel.ResumeCommand
+        : null;
+
+    bool IPanelCommandTarget.CanExecute(CommandId command) =>
+        ViewModel is { SelectedResource: { } resource } panel
+        && panel.Resources.Contains(resource)
+        && CanRun(panel, resource, command);
+
+    Task IPanelCommandTarget.ExecuteAsync(CommandId command) =>
+        ViewModel is { SelectedResource: { } resource } panel
+        && panel.Resources.Contains(resource)
+        && CanRun(panel, resource, command)
+            ? RunAsync(panel, resource, command)
+            : Task.CompletedTask;
 
     /// <summary>The stack heading's own buttons, as a menu on the heading.</summary>
     internal ContextMenu CreateStackContextMenu(

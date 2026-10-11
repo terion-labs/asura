@@ -64,6 +64,9 @@ internal interface IShellCommandPresentation
 
     void ExecuteGitCommand(CommandId command);
 
+    /// <summary>Runs one of the focused panel's context-menu commands.</summary>
+    Task ExecutePanelCommandAsync(CommandId command);
+
     /// <summary>
     /// Moves keyboard focus to the next (1) or previous (-1) area of the
     /// window, as Control-F6 does in an AppKit window.
@@ -264,6 +267,9 @@ internal sealed class ShellCommandExecutor(
                 return;
             case ApplicationCommandActionKind.Git:
                 presentation.ExecuteGitCommand(action.Command!.Value);
+                return;
+            case ApplicationCommandActionKind.PanelContext:
+                await presentation.ExecutePanelCommandAsync(action.Command!.Value);
                 return;
             default:
                 throw new ArgumentOutOfRangeException(nameof(action), action.Kind, null);

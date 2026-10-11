@@ -2,6 +2,7 @@ using System.ComponentModel;
 using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
+using Asura.Core;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -22,7 +23,7 @@ internal enum KubernetesInspectorView
     Actions,
 }
 
-public sealed partial class KubernetesRuntimePanelView : UserControl
+public sealed partial class KubernetesRuntimePanelView : UserControl, IPanelCommandTarget
 {
     private const int ManifestEditMode = 0;
     private const int ManifestReviewMode = 1;
@@ -386,31 +387,106 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
     /// </summary>
     internal ContextMenu CreateResourceContextMenu()
     {
-        var model = _observed;
-        var names = ResourceList.SelectedItems.OfType<KubernetesResourceRow>().Select(row => row.Name).ToArray();
-        var single = names.Length == 1 && model?.HasSelection == true;
         var menu = new ContextMenu();
-        menu.Items.Add(Item("Show Logs", single && model!.CanReadLogs, ShowLogsAsync));
-        menu.Items.Add(Item("Open Pod Terminal", single && model!.CanOpenShell, OpenShellAsync));
-        menu.Items.Add(Item("Port Forward…", single && model!.CanForward, () =>
+        menu.Items.Add(Item(BuiltInCommands.KubernetesShowLogs));
+        menu.Items.Add(Item(BuiltInCommands.KubernetesOpenTerminal));
+        menu.Items.Add(Item(BuiltInCommands.KubernetesPortForward));
+        menu.Items.Add(Item(BuiltInCommands.KubernetesEditManifest));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item(
+            BuiltInCommands.KubernetesCopyName,
+            SelectedNames().Length > 1 ? PanelCommandTargets.StateTitle(BuiltInCommands.KubernetesCopyName) : null));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item(BuiltInCommands.KubernetesDelete));
+        return menu;
+
+        MenuItem Item(CommandId command, string? title = null) =>
+            PanelCommandTargets.MenuItem(command, CanRun(command), () => RunAsync(command), title);
+    }
+
+    private string[] SelectedNames() =>
+        [.. ResourceList.SelectedItems.OfType<KubernetesResourceRow>().Select(row => row.Name)];
+
+    /// <summary>
+    /// Whether a resource command can run now. Commands that act on one
+    /// resource need exactly one selected; copying names takes them all. The
+    /// context menu and the menu bar's Kubernetes items both ask here.
+    /// </summary>
+    private bool CanRun(CommandId command)
+    {
+        if (_observed is not { } model)
+        {
+            return false;
+        }
+
+        var names = SelectedNames();
+        var single = names.Length == 1 && model.HasSelection;
+        if (command == BuiltInCommands.KubernetesShowLogs)
+        {
+            return single && model.CanReadLogs;
+        }
+
+        if (command == BuiltInCommands.KubernetesOpenTerminal)
+        {
+            return single && model.CanOpenShell;
+        }
+
+        if (command == BuiltInCommands.KubernetesPortForward)
+        {
+            return single && model.CanForward;
+        }
+
+        if (command == BuiltInCommands.KubernetesEditManifest)
+        {
+            return single;
+        }
+
+        if (command == BuiltInCommands.KubernetesCopyName)
+        {
+            return names.Length > 0;
+        }
+
+        return command == BuiltInCommands.KubernetesDelete && single && model.CanRequestDelete;
+    }
+
+    private Task RunAsync(CommandId command)
+    {
+        if (command == BuiltInCommands.KubernetesShowLogs)
+        {
+            return ShowLogsAsync();
+        }
+
+        if (command == BuiltInCommands.KubernetesOpenTerminal)
+        {
+            return OpenShellAsync();
+        }
+
+        if (command == BuiltInCommands.KubernetesPortForward)
         {
             InspectorView = KubernetesInspectorView.Ports;
             return Task.CompletedTask;
-        }));
-        menu.Items.Add(Item("Edit Manifest…", single, EditManifestAsync));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(Item(names.Length > 1 ? "Copy Names" : "Copy Name", names.Length > 0, () => CopyTextAsync(string.Join(Environment.NewLine, names))));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(Item("Delete…", single && model!.CanRequestDelete, ReviewDeleteAsync));
-        return menu;
-
-        static MenuItem Item(string header, bool isEnabled, Func<Task> action)
-        {
-            var item = new MenuItem { Header = header, IsEnabled = isEnabled };
-            item.Click += async (_, _) => await action();
-            return item;
         }
+
+        if (command == BuiltInCommands.KubernetesEditManifest)
+        {
+            return EditManifestAsync();
+        }
+
+        if (command == BuiltInCommands.KubernetesCopyName)
+        {
+            return CopyTextAsync(string.Join(Environment.NewLine, SelectedNames()));
+        }
+
+        return command == BuiltInCommands.KubernetesDelete ? ReviewDeleteAsync() : Task.CompletedTask;
     }
+
+    bool IPanelCommandTarget.CanExecute(CommandId command) => CanRun(command);
+
+    Task IPanelCommandTarget.ExecuteAsync(CommandId command) =>
+        CanRun(command) ? RunAsync(command) : Task.CompletedTask;
+
+    IEnumerable<KeyValuePair<string, bool>> IPanelCommandTarget.States =>
+        [new(CommandStates.HasMultipleSelection, SelectedNames().Length > 1)];
 
     private async Task ShowLogsAsync()
     {

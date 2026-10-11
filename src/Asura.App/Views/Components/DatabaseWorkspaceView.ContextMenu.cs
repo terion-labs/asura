@@ -66,6 +66,7 @@ public sealed partial class DatabaseWorkspaceView
         CopyRowMenuItem.InputGesture = GridGesture(GridCommand.CopyRow);
         CopyCellMenuItem.InputGesture = GridGesture(GridCommand.CopyCell);
         DeleteRowMenuItem.InputGesture = GridGesture(GridCommand.DeleteRow);
+        BindContextMenuCommands();
     }
 
     private static KeyGesture? GridGesture(GridCommand command) =>

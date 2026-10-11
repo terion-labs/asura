@@ -796,6 +796,63 @@ public sealed class DockerRuntimePanelViewHeadlessTests
         });
 
     /// <summary>
+    /// Panel ▸ Docker repeats the resource menu: each item there is a
+    /// menu-bar command with the same title, available exactly when the
+    /// context menu's copy is, and run by the panel itself.
+    /// </summary>
+    [Fact]
+    public Task TheMenuBarRunsTheResourceMenuOnTheSelection() =>
+        RunHeadlessAsync(async () =>
+        {
+            using var panel = new DockerRuntimePanelViewModel(
+                PanelInstanceId.New(),
+                "Docker",
+                new PagedLogDockerClient(),
+                BuiltInConnections.Local);
+            await panel.Initialization;
+
+            var view = new DockerRuntimePanelView { DataContext = panel };
+            var window = new Window { Width = 1_400, Height = 700, Content = view };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                var target = (IPanelCommandTarget)view;
+                var container = Assert.Single(panel.Resources);
+                panel.SelectResource(container);
+                var menu = view.CreateResourceContextMenu(panel, container);
+                var items = menu.Items.OfType<MenuItem>().ToArray();
+                PanelContextMenuAssert.ItemsAreInTheMenuBar(items);
+                Assert.All(items, item => Assert.Equal(item.IsEnabled, target.CanExecute((CommandId)item.Tag!)));
+
+                // Start and Stop sit side by side in the menu bar; only the
+                // one the context menu shows is available.
+                Assert.True(target.CanExecute(BuiltInCommands.DockerStop));
+                Assert.False(target.CanExecute(BuiltInCommands.DockerStart));
+                Assert.False(target.CanExecute(BuiltInCommands.DockerResume));
+                Assert.False(target.CanExecute(BuiltInCommands.KubernetesShowLogs));
+
+                await target.ExecuteAsync(BuiltInCommands.DockerShowLogs);
+                Assert.True(panel.IsLogsDetail);
+                await target.ExecuteAsync(BuiltInCommands.DockerShowJson);
+                Assert.True(panel.IsJsonDetail);
+                var shellRequested = false;
+                view.ShellRequested += (_, _) => shellRequested = true;
+                await target.ExecuteAsync(BuiltInCommands.DockerOpenShell);
+                Assert.True(shellRequested);
+
+                panel.SelectSection(DockerPanelSection.Volumes);
+                var volume = Assert.Single(panel.Resources);
+                PanelContextMenuAssert.ItemsAreInTheMenuBar(
+                    view.CreateResourceContextMenu(panel, volume).Items.OfType<MenuItem>());
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+    /// <summary>
     /// A secondary click on a container selects it and offers what the
     /// toolbar offers: its views, its lifecycle, and copying its name.
     /// </summary>

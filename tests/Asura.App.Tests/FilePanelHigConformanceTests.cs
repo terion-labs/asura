@@ -144,7 +144,7 @@ public sealed class FilePanelHigConformanceTests
         {
             var label = FilePanelActionPresentation.Label(action);
             Assert.All(
-                label.TrimEnd('…').Split(' ').Where(word => word is not ("to" or "With")),
+                label.TrimEnd('…').Split(' ').Where(word => word is not ("to" or "with")),
                 word => Assert.True(char.IsUpper(word[0]), $"“{label}” is not title case."));
         }
     }

@@ -50,11 +50,16 @@ internal enum ApplicationCommandActionKind
 
     /// <summary>A command run by the focused Git panel.</summary>
     Git,
+
+    /// <summary>
+    /// One of a panel's context-menu commands, run by the focused panel.
+    /// </summary>
+    PanelContext,
 }
 
 /// <param name="Command">
-/// The registry command a forwarded kind (terminal, edit, window, application
-/// or Git) passes on to its owner.
+/// The registry command a forwarded kind (terminal, edit, window, application,
+/// Git or panel context) passes on to its owner.
 /// </param>
 internal sealed record ApplicationCommandAction(
     ApplicationCommandActionKind Kind,
@@ -231,6 +236,11 @@ internal static class ApplicationCommandRouter
         if (commandId == BuiltInCommands.FocusPreviousArea)
         {
             return Success(ApplicationCommandActionKind.FocusPreviousArea);
+        }
+
+        if (BuiltInCommands.PanelContextCommands.Contains(commandId))
+        {
+            return Forward(ApplicationCommandActionKind.PanelContext, commandId);
         }
 
         return definition.Category switch

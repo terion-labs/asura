@@ -5,6 +5,7 @@ using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
 using Asura.Application;
+using Asura.Core;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
@@ -18,7 +19,7 @@ using FluentIcons.Common;
 
 namespace Asura.App.Views.RuntimePanels;
 
-public sealed partial class ProcessMonitorRuntimePanelView : UserControl, IEditTarget
+public sealed partial class ProcessMonitorRuntimePanelView : UserControl, IEditTarget, IPanelCommandTarget
 {
     /// <summary>
     /// Below this width the Started column folds away, so name, CPU and
@@ -39,6 +40,10 @@ public sealed partial class ProcessMonitorRuntimePanelView : UserControl, IEditT
         ProcessGrid.SelectionChanged += OnProcessSelectionChanged;
         SizeChanged += (_, change) => UpdateStartedColumn(change.NewSize.Width);
         UpdateSortHeaders();
+        PanelCommandTargets.Bind(CopyRowsMenuItem, BuiltInCommands.EditCopy);
+        PanelCommandTargets.Bind(CopyNameMenuItem, BuiltInCommands.ProcessesCopyName);
+        PanelCommandTargets.Bind(CopyProcessIdMenuItem, BuiltInCommands.ProcessesCopyProcessId);
+        PanelCommandTargets.Bind(RefreshMenuItem, BuiltInCommands.ProcessesRefresh);
     }
 
     public event EventHandler<RoutedEventArgs>? CloseRequested;
@@ -277,11 +282,54 @@ public sealed partial class ProcessMonitorRuntimePanelView : UserControl, IEditT
     private void OnProcessContextMenuOpening(object? sender, CancelEventArgs e)
     {
         _ = sender;
-        var selected = SelectedProcesses();
-        CopyRowsMenuItem.IsEnabled = selected.Count > 0;
-        CopyNameMenuItem.IsEnabled = selected.Count == 1;
-        CopyProcessIdMenuItem.IsEnabled = selected.Count == 1;
+        CopyRowsMenuItem.IsEnabled = SelectedProcesses().Count > 0;
+        CopyNameMenuItem.IsEnabled = CanRun(BuiltInCommands.ProcessesCopyName);
+        CopyProcessIdMenuItem.IsEnabled = CanRun(BuiltInCommands.ProcessesCopyProcessId);
         e.Cancel = DataContext is not ProcessMonitorRuntimePanelViewModel { ShowContent: true };
+    }
+
+    /// <summary>
+    /// Whether a context-menu command can run now. The menu bar's Processes
+    /// items ask the same question, so the two menus dim together.
+    /// </summary>
+    private bool CanRun(CommandId command)
+    {
+        if (DataContext is not ProcessMonitorRuntimePanelViewModel { ShowContent: true } panel)
+        {
+            return false;
+        }
+
+        if (command == BuiltInCommands.ProcessesCopyName || command == BuiltInCommands.ProcessesCopyProcessId)
+        {
+            return SelectedProcesses().Count == 1;
+        }
+
+        return command == BuiltInCommands.ProcessesRefresh && panel.RefreshCommand.CanExecute(null);
+    }
+
+    bool IPanelCommandTarget.CanExecute(CommandId command) => CanRun(command);
+
+    Task IPanelCommandTarget.ExecuteAsync(CommandId command)
+    {
+        if (!CanRun(command))
+        {
+            return Task.CompletedTask;
+        }
+
+        if (command == BuiltInCommands.ProcessesCopyName)
+        {
+            OnCopyNameClick(null, new RoutedEventArgs());
+        }
+        else if (command == BuiltInCommands.ProcessesCopyProcessId)
+        {
+            OnCopyProcessIdClick(null, new RoutedEventArgs());
+        }
+        else if (DataContext is ProcessMonitorRuntimePanelViewModel panel)
+        {
+            panel.RefreshCommand.Execute(null);
+        }
+
+        return Task.CompletedTask;
     }
 
     private void OnCopyRowsClick(object? sender, RoutedEventArgs e) =>

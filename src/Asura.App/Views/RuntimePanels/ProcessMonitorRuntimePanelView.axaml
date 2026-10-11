@@ -135,7 +135,7 @@
               <MenuItem x:Name="CopyNameMenuItem" Header="Copy Name" Click="OnCopyNameClick" />
               <MenuItem x:Name="CopyProcessIdMenuItem" Header="Copy Process ID" Click="OnCopyProcessIdClick" />
               <Separator />
-              <MenuItem Header="Refresh" Command="{Binding RefreshCommand}" />
+              <MenuItem x:Name="RefreshMenuItem" Header="Refresh" Command="{Binding RefreshCommand}" />
             </ContextMenu>
           </DataGrid.ContextMenu>
           <DataGrid.Columns>

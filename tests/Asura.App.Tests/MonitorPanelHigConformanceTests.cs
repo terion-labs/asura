@@ -4,6 +4,7 @@ using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views.RuntimePanels;
 using Asura.Application;
+using Asura.Core;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
@@ -284,6 +285,24 @@ public sealed class MonitorPanelHigConformanceTests
     {
         Assert.Equal(expected, new ProcessColumnHeader("Name", direction).ToString());
     }
+
+    /// <summary>
+    /// Panel ▸ Processes and Edit ▸ Copy repeat the process menu, and the
+    /// panel answers them only while it shows its table.
+    /// </summary>
+    [Fact]
+    public Task The_process_menu_has_a_menu_bar_copy_of_every_item() => RunAsync(() =>
+    {
+        var processes = new ProcessMonitorRuntimePanelView();
+        var grid = processes.FindControl<DataGrid>("ProcessGrid");
+        var menu = Assert.IsType<ContextMenu>(grid?.ContextMenu);
+
+        PanelContextMenuAssert.ItemsAreInTheMenuBar(menu.Items.OfType<MenuItem>());
+        var target = (IPanelCommandTarget)processes;
+        Assert.All(
+            BuiltInCommands.PanelContextCommands,
+            command => Assert.False(target.CanExecute(command)));
+    });
 
     [Fact]
     public Task The_three_panels_load_with_their_mac_controls() => RunAsync(() =>

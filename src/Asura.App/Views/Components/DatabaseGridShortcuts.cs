@@ -87,6 +87,24 @@ internal static class DatabaseGridShortcuts
         new(GridCommand.DeleteRow, new KeyGesture(Key.Delete)) { AlsoAnswers = [new KeyGesture(Key.Back)] },
     ];
 
+    /// <summary>
+    /// The grid command's copy in the menu bar, under Panel ▸ Database. On a
+    /// Mac that item shows the grid's key, so the menu bar runs the same
+    /// command the grid would.
+    /// </summary>
+    public static CommandId MenuBarCommand(GridCommand command) => command switch
+    {
+        GridCommand.OpenCellEditor => BuiltInCommands.DatabaseOpenCellEditor,
+        GridCommand.CopyRow => BuiltInCommands.DatabaseCopyRow,
+        GridCommand.CopyCell => BuiltInCommands.DatabaseCopyCell,
+        GridCommand.RefreshPage => BuiltInCommands.DatabaseRefresh,
+        GridCommand.PasteCell => BuiltInCommands.DatabasePaste,
+        GridCommand.AddRow => BuiltInCommands.DatabaseAddRow,
+        GridCommand.DuplicateRow => BuiltInCommands.DatabaseDuplicateRow,
+        GridCommand.DeleteRow => BuiltInCommands.DatabaseDeleteRow,
+        _ => throw new ArgumentOutOfRangeException(nameof(command), command, null),
+    };
+
     /// <summary>The table this process answers to.</summary>
     public static IReadOnlyList<Entry> Current { get; } = For(HostPlatform.Current);
 
