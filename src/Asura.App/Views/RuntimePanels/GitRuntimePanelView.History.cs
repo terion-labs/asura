@@ -66,9 +66,34 @@ public sealed partial class GitRuntimePanelView
 
     private void OnHistorySelection(object? sender, SelectionChangedEventArgs e)
     {
-        if (!_isSyncingHistorySelection && sender is ListBox { SelectedItems: { } items } && ViewModel is { } viewModel)
+        if (!_isSyncingHistorySelection && sender is ListBox { SelectedItems: { } items } list && ViewModel is { } viewModel)
         {
-            viewModel.SelectedCommits = [.. items.OfType<GitCommitItemViewModel>()];
+            var selected = items.OfType<GitCommitItemViewModel>().ToArray();
+            viewModel.SelectedCommits = selected;
+
+            // The current commit stays while it is still selected, so adding
+            // a row with Command or Shift keeps the one being read; once it
+            // leaves the selection, the list's own current row takes over.
+            if (viewModel.SelectedCommit is not { } current || !selected.Contains(current))
+            {
+                viewModel.SelectedCommit = list.SelectedItem as GitCommitItemViewModel;
+            }
+        }
+    }
+
+    // The view model's current commit inside the list's selection leaves the
+    // selection alone; outside it, the commit becomes the selection.
+    private void PresentHistoryCurrent()
+    {
+        if (_isSyncingHistorySelection || ViewModel is not { } viewModel)
+        {
+            return;
+        }
+
+        var current = viewModel.SelectedCommit;
+        if (current is null ? CommitHistory.SelectedItems?.Count > 0 : CommitHistory.SelectedItems?.Contains(current) != true)
+        {
+            CommitHistory.SelectedItem = current;
         }
     }
 

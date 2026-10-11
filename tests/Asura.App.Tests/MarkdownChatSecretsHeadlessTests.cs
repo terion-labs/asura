@@ -24,7 +24,7 @@ public sealed class MarkdownChatSecretsHeadlessTests
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
         await using var session = HeadlessUnitTestSession.StartNew(typeof(AgentAttachmentHeadlessApplication));
-        await session.Dispatch(async () =>
+        Assert.True(await session.Dispatch(async () =>
         {
             var reference = new ChatHiddenReference(Guid.NewGuid().ToString("N"));
             var runtime = new RevealRuntime();
@@ -92,7 +92,9 @@ public sealed class MarkdownChatSecretsHeadlessTests
             {
                 window.Close();
             }
-        }, timeout.Token);
+
+            return true;
+        }, timeout.Token));
     }
 
     [Fact]
@@ -100,7 +102,7 @@ public sealed class MarkdownChatSecretsHeadlessTests
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
         await using var session = HeadlessUnitTestSession.StartNew(typeof(AgentAttachmentHeadlessApplication));
-        await session.Dispatch(async () =>
+        Assert.True(await session.Dispatch(async () =>
         {
             var reference = new ChatHiddenReference(Guid.NewGuid().ToString("N"));
             var runtime = new RevealRuntime { Release = new(TaskCreationOptions.RunContinuationsAsynchronously) };
@@ -122,7 +124,9 @@ public sealed class MarkdownChatSecretsHeadlessTests
             {
                 window.Close();
             }
-        }, timeout.Token);
+
+            return true;
+        }, timeout.Token));
     }
 
     private static async Task SettleAsync(MarkdownPreviewView preview, CancellationToken cancellationToken)

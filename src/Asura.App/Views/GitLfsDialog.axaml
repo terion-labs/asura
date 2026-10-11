@@ -3,10 +3,16 @@
        without blocking it and closes with ⌘W or Escape, like any window. -->
   <controls:DialogWindow.Styles>
     <!-- The tabs' lists start at the toolbar's leading edge, not a tab
-         control's own inset further in. -->
+         control's own inset further in, and a step below the tabs rather
+         than against them. -->
     <Style Selector="TabControl.LfsTabs">
-      <Setter Property="Padding" Value="0" />
+      <Setter Property="Padding" Value="{controls:Inset Top=Sm}" />
       <Setter Property="Margin" Value="0" />
+    </Style>
+    <!-- Rows spaced as File History spaces its revisions: an inset around
+         each row, and a step between the path and the line about it. -->
+    <Style Selector="TabControl.LfsTabs ListBox controls|ListItem">
+      <Setter Property="ContentPadding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
     </Style>
     <Style Selector="TabItem">
       <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
