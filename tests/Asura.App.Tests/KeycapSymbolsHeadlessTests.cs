@@ -145,6 +145,26 @@ public sealed class KeycapSymbolsHeadlessTests
         });
 
     [Fact]
+    public Task A_tooltip_shortcut_draws_return_as_text() =>
+        RunHeadlessAsync(() =>
+        {
+            var tip = new ToolTip { Content = "Run the statement (⌘↩︎)" };
+            var button = new Button { Content = "Run" };
+            ToolTip.SetTip(button, tip);
+            using var window = Show(button);
+
+            ToolTip.SetIsOpen(button, true);
+            window.Window.UpdateLayout();
+            tip.UpdateLayout();
+
+            var text = Assert.Single(
+                tip.GetVisualDescendants().OfType<TextBlock>(),
+                block => block.Text == "Run the statement (⌘↩︎)");
+            Assert.True(KeycapSymbols.GetAsText(text), "A tooltip's shortcut leaves its keys to the renderer's fallback.");
+            AssertSymbolsDrawAsText(text);
+        });
+
+    [Fact]
     public Task A_new_shortcut_redraws_its_symbols_and_plain_text_drops_them() =>
         RunHeadlessAsync(() =>
         {

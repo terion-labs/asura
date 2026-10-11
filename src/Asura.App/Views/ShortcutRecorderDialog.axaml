@@ -27,7 +27,7 @@
           AutomationProperties.Name="Shortcut capture area">
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
           <TextBlock Classes="Muted" Text="Click here, then press the shortcut" TextAlignment="Center" />
-          <TextBlock x:Name="RecordedShortcutText" FontSize="{DynamicResource ShellFontSize17}" FontWeight="SemiBold" Text="No keys recorded" TextAlignment="Center" TextWrapping="Wrap" />
+          <TextBlock x:Name="RecordedShortcutText" Classes="Shortcut" FontSize="{DynamicResource ShellFontSize17}" FontWeight="SemiBold" Text="No keys recorded" TextAlignment="Center" TextWrapping="Wrap" />
           <TextBlock x:Name="StrokeCountText" Classes="Eyebrow" HorizontalAlignment="Center" Text="0 of 8 strokes" />
         </StackPanel>
       </controls:SurfaceCard>

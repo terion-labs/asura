@@ -968,6 +968,14 @@
   </Style>
 
   <!--
+    Tooltips name their shortcut in parentheses, "Run the statement (⌘↩)".
+    Only the key-symbol runs change face; a tooltip without one is untouched.
+  -->
+  <Style Selector="ToolTip TextBlock, ToolTip /template/ ContentPresenter > TextBlock">
+    <Setter Property="controls:KeycapSymbols.AsText" Value="True" />
+  </Style>
+
+  <!--
     Truncation that keeps what identifies the thing. A path loses its middle
     segments and keeps its file name, as Finder truncates; a reference — a
     branch, an image tag, a key — keeps both ends around a middle ellipsis.

@@ -640,7 +640,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock VerticalAlignment="Center" MaxWidth="140" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Category}" TextTrimming="CharacterEllipsis" />
                             <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Grid.Column="2" VerticalAlignment="Center" MaxWidth="200" Text="{Binding Shortcut}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="2" VerticalAlignment="Center" MaxWidth="200" Classes="Shortcut" Text="{Binding Shortcut}" TextTrimming="CharacterEllipsis" />
                             <TextBlock Grid.Column="3" VerticalAlignment="Center" MaxWidth="140" Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Contexts}" />
                             <TextBlock Grid.Column="4" VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding Status}" />
                             <StackPanel Grid.Column="5" Classes="KeybindingRowActions" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}" IsVisible="{Binding ShowsActions}">

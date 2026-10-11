@@ -144,6 +144,7 @@
         IsHitTestVisible="False"
         IsVisible="{Binding IsCopyMode}">
       <TextBlock
+          Classes="Shortcut"
           FontSize="{DynamicResource ShellFontSize11}"
           Text="{x:Static controls:ManagedTerminalOverlay.CopyModeHintText}" />
     </Border>
