@@ -810,7 +810,7 @@ public sealed class RecentSessionHistoryViewModel : ObservableObject, IDisposabl
         if (option is null)
         {
             option = new HistoryRetentionOption(
-                $"Custom · {stored.Policy.MaximumEntries:N0} / {stored.Policy.MaximumAge.TotalDays:0} days",
+                $"Custom · {stored.Policy.MaximumEntries:N0} / {stored.Policy.MaximumAge.TotalDays:0} Days",
                 $"Keep at most {stored.Policy.MaximumEntries:N0} records for up to {stored.Policy.MaximumAge.TotalDays:0} days.",
                 stored.Policy);
             RetentionOptions.Add(option);

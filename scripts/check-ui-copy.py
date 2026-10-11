@@ -21,8 +21,10 @@ What is read:
   a button or menu label and takes title case.
 * C# lists that feed a pop-up button or combo box: the items of a "Choices:"
   argument, an ItemsSource assignment, or a member named *Choices or *Options
-  (an item's first constructor argument when the items are records), and the
-  results of a method the list maps its items through (".Select(Label)").
+  (an item's first constructor argument when the items are records), items
+  passed to such a list's Add(), directly or through a variable assigned a new
+  item, and the results of a method the list maps its items through
+  (".Select(Label)").
   Pop-up items are menu items, so they take title case.
 * C# positional constructor arguments that start with a capital letter, such
   as an icon catalog's names or a state overlay's labels: one capitalized word
@@ -814,6 +816,51 @@ def _is_whole_element(blanked: str, opener: int, literal: Literal) -> bool:
     return not leading.strip() and trailing[:1] in {",", ")", "]", "}"}
 
 
+POP_UP_ADD = re.compile(r"([A-Za-z_][\w.]*)\.Add\(\s*([A-Za-z_]\w*)\s*\)")
+
+
+def pop_up_added_variables(blanked: str) -> dict[str, str]:
+    """Variables passed to a pop-up list's Add(), mapped to the list's name."""
+    added = {}
+    for match in POP_UP_ADD.finditer(blanked):
+        owner = _normalized(match.group(1))
+        if POP_UP_OWNER.match(owner) and match.group(2) != "new":
+            added[match.group(2)] = owner
+    return added
+
+
+def _added_pop_up_item(blanked: str, literal: Literal, variables: dict[str, str]) -> str | None:
+    """The pop-up list a literal is added to with Add(), directly or as an item's first argument."""
+    found = _opener(blanked, literal.start)
+    if found is None:
+        return None
+    opener, commas = found
+    if blanked[opener] != "(" or commas != 0 or not _is_whole_element(blanked, opener, literal):
+        return None
+    head = blanked[:opener].rstrip()
+    added = re.search(r"([A-Za-z_][\w.]*)\.Add$", head)
+    if added is None:
+        before = _identifier_before(head, len(head))
+        if not before:
+            return None
+        rest = head if before == "new" else head[: -len(before)].rstrip()
+        if not re.search(r"\bnew$", rest):
+            return None
+        rest = rest[:-3].rstrip()
+        assigned = re.search(r"([A-Za-z_]\w*)\s*=$", rest)
+        if assigned and rest[-2:-1] not in {"=", "!", "<", ">"} and assigned.group(1) in variables:
+            # "option = new Item(…)" and later "Options.Add(option)".
+            return variables[assigned.group(1)]
+        outer = _opener(blanked, opener)
+        if outer is None or blanked[outer[0]] != "(" or outer[1] != 0:
+            return None
+        added = re.search(r"([A-Za-z_][\w.]*)\.Add$", blanked[: outer[0]].rstrip())
+        if added is None:
+            return None
+    owner = _normalized(added.group(1))
+    return owner if POP_UP_OWNER.match(owner) else None
+
+
 def pop_up_extents(blanked: str) -> tuple[list[tuple[int, int]], set[str]]:
     """Collections that feed a pop-up, and the methods they map their items through."""
     extents = []
@@ -903,6 +950,7 @@ def csharp_strings(path: str, source: str, title_properties: set[str] | frozense
     label_bodies = _property_extents(blanked, set(title_properties)) if title_properties else []
     pop_ups, pop_up_methods = pop_up_extents(blanked)
     pop_up_bodies = _method_extents(blanked, pop_up_methods) if pop_up_methods else []
+    pop_up_variables = pop_up_added_variables(blanked)
     vocabulary = path.startswith(VOCABULARY_CODE_PATHS)
     line_starts = [0] + [m.end() for m in re.finditer("\n", source)]
 
@@ -959,6 +1007,10 @@ def csharp_strings(path: str, source: str, title_properties: set[str] | frozense
         if collection is not None and any(start == collection for start, _ in pop_ups):
             checked = title = True
             label = f"C# {collection_owner(blanked, collection)} item (a pop-up menu item)"
+        added_to = _added_pop_up_item(blanked, literal, pop_up_variables)
+        if added_to is not None:
+            checked = title = True
+            label = f"C# {added_to} item (a pop-up menu item)"
         mapper = next((name for start, end, name in pop_up_bodies if start <= literal.start < end), None)
         if mapper is not None:
             checked = title = True

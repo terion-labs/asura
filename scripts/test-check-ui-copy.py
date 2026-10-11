@@ -178,6 +178,35 @@ class Sample
 '''
         self.assertEqual([], rules("Sample.cs", source))
 
+    def test_items_added_to_a_pop_up_list_take_title_case(self):
+        source = '''
+class Sample
+{
+    void Run(Policy stored)
+    {
+        RetentionOptions.Add(new RetentionOption($"Custom · {stored.Entries} / {stored.Days} days", "Keep up to {stored.Days} days."));
+        var option = new RetentionOption($"Custom · {stored.Days} days", "Keep up to {stored.Days} days.");
+        RetentionOptions.Add(option);
+        _namespaceChoices.Add("All namespaces");
+        Fields.Add("Not a pop-up item");
+        var other = new RetentionOption("Not a pop-up item", "Keep it.");
+    }
+}
+'''
+        flagged = [
+            (finding.line, finding.fragment, finding.context)
+            for finding in findings("Sample.cs", source)
+            if finding.rule == "title-case"
+        ]
+        self.assertEqual(
+            [
+                (6, "days", "C# RetentionOptions item (a pop-up menu item)"),
+                (7, "days", "C# RetentionOptions item (a pop-up menu item)"),
+                (9, "namespaces", "C# NamespaceChoices item (a pop-up menu item)"),
+            ],
+            flagged,
+        )
+
 
 class CopyRuleTests(unittest.TestCase):
     def test_british_spelling(self):
