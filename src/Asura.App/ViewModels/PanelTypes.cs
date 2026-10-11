@@ -10,65 +10,45 @@ namespace Asura.App.ViewModels;
 /// one grid; the Add Panel chooser said "Terminal", "Files" and "Processes";
 /// the palette grouped "Create · files" beside "Create · Docker"; Settings
 /// offered "File viewer". Each screen had written its own copy. The launcher,
-/// the chooser, the palette and Settings read them from here instead.
+/// the chooser, the palette and Settings read them from here instead. The
+/// nouns themselves live in <see cref="PanelTypeNames"/>, so the agent runtime
+/// names a panel type the same way.
 /// </summary>
 public static class PanelTypes
 {
-    public const string Terminal = "Terminal";
+    public const string Terminal = PanelTypeNames.Terminal;
     public const string TerminalDescription = "Your default shell on this computer";
 
-    public const string Browser = "Browser";
+    public const string Browser = PanelTypeNames.Browser;
     public const string BrowserDescription = "Web pages in a panel beside your work";
 
-    public const string Files = "Files";
+    public const string Files = PanelTypeNames.Files;
     public const string FilesDescription = "Browse files here or on a saved connection";
 
-    public const string Processes = "Processes";
+    public const string Processes = PanelTypeNames.Processes;
     public const string ProcessesDescription = "Watch the processes running on this computer";
 
-    public const string Statistics = "Statistics";
+    public const string Statistics = PanelTypeNames.Statistics;
     public const string StatisticsDescription = "Live CPU, memory, disk, and network use";
 
-    public const string Database = "Database";
+    public const string Database = PanelTypeNames.Database;
     public const string DatabaseDescription = "Query SQLite, PostgreSQL, or MySQL";
 
-    public const string Docker = "Docker";
+    public const string Docker = PanelTypeNames.Docker;
     public const string DockerDescription = "Containers, images, volumes, and networks";
 
-    public const string Kubernetes = "Kubernetes";
+    public const string Kubernetes = PanelTypeNames.Kubernetes;
     public const string KubernetesDescription = "Cluster resources, manifests, and pod logs";
 
-    public const string Git = "Git";
+    public const string Git = PanelTypeNames.Git;
     public const string GitDescription = "Stage, commit, and browse history";
 
     /// <summary>The noun for a panel type, as every screen names it.</summary>
-    public static string Name(PanelKind kind) => kind switch
-    {
-        PanelKind.Terminal => Terminal,
-        PanelKind.Browser => Browser,
-        PanelKind.FileViewer => Files,
-        PanelKind.Statistics => Statistics,
-        PanelKind.ProcessMonitor => Processes,
-        PanelKind.DatabaseViewer => Database,
-        PanelKind.Docker => Docker,
-        PanelKind.Kubernetes => Kubernetes,
-        PanelKind.Git => Git,
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
-    };
+    public static string Name(PanelKind kind) => kind == PanelKind.Placeholder
+        ? throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
+        : PanelTypeNames.Name(kind);
 
-    public static string Name(ScreenPanelKind kind) => kind switch
-    {
-        ScreenPanelKind.Terminal => Terminal,
-        ScreenPanelKind.Browser => Browser,
-        ScreenPanelKind.FileViewer => Files,
-        ScreenPanelKind.Statistics => Statistics,
-        ScreenPanelKind.ProcessMonitor => Processes,
-        ScreenPanelKind.DatabaseViewer => Database,
-        ScreenPanelKind.Docker => Docker,
-        ScreenPanelKind.Kubernetes => Kubernetes,
-        ScreenPanelKind.Git => Git,
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
-    };
+    public static string Name(ScreenPanelKind kind) => PanelTypeNames.Name(kind);
 
     public static string Description(PanelKind kind) => kind switch
     {

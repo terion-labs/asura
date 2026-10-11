@@ -5323,15 +5323,7 @@ public sealed partial class GovernedAgentRuntime :
         {
             AgentTarget.Panel or AgentTarget.ConnectionSession =>
                 string.IsNullOrWhiteSpace(first.PanelTitle)
-                    ? first.Kind switch
-                    {
-                        PanelKind.Terminal => "Terminal",
-                        PanelKind.Browser => "Browser",
-                        PanelKind.FileViewer => "Files",
-                        PanelKind.Statistics => "Statistics",
-                        PanelKind.ProcessMonitor => "Processes",
-                        _ => "Panel",
-                    }
+                    ? PanelTypeNames.Name(first.Kind)
                     : first.PanelTitle,
             AgentTarget.OpenTab =>
                 $"{first.TabTitle ?? "Current tab"} · "
@@ -5348,59 +5340,10 @@ public sealed partial class GovernedAgentRuntime :
         };
     }
 
+    // "3 Terminal panels" when every panel is one type, "4 panels" otherwise.
     private static string ScopePanelCount(
-        IReadOnlyList<AgentContextPanel> panels)
-    {
-        var terminalCount =
-            panels.Count(panel => panel.Kind == PanelKind.Terminal);
-        var browserCount =
-            panels.Count(panel => panel.Kind == PanelKind.Browser);
-        var fileCount =
-            panels.Count(panel => panel.Kind == PanelKind.FileViewer);
-        var statisticsCount =
-            panels.Count(panel => panel.Kind == PanelKind.Statistics);
-        var processCount =
-            panels.Count(panel => panel.Kind == PanelKind.ProcessMonitor);
-        var populatedKinds =
-            (terminalCount > 0 ? 1 : 0)
-            + (browserCount > 0 ? 1 : 0)
-            + (fileCount > 0 ? 1 : 0)
-            + (statisticsCount > 0 ? 1 : 0)
-            + (processCount > 0 ? 1 : 0);
-        if (populatedKinds != 1)
-        {
-            return CountText.Of(panels.Count, "panel", "panels");
-        }
-
-        if (terminalCount > 0)
-        {
-            return $"{terminalCount} "
-                + (terminalCount == 1 ? "terminal" : "terminals");
-        }
-
-        if (browserCount > 0)
-        {
-            return $"{browserCount} "
-                + (browserCount == 1 ? "browser" : "browsers");
-        }
-
-        if (fileCount > 0)
-        {
-            return $"{fileCount} "
-                + (fileCount == 1 ? "Files panel" : "Files panels");
-        }
-
-        if (statisticsCount > 0)
-        {
-            return $"{statisticsCount} "
-                + (statisticsCount == 1
-                    ? "Statistics panel"
-                    : "Statistics panels");
-        }
-
-        return $"{processCount} "
-            + (processCount == 1 ? "Processes panel" : "Processes panels");
-    }
+        IReadOnlyList<AgentContextPanel> panels) =>
+        PanelTypeNames.Count([.. panels.Select(panel => panel.Kind)]);
 
     private static ActorDescriptor ValidateApprovalPrincipal(
         ActorDescriptor actor)

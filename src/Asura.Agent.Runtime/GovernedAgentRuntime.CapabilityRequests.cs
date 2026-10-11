@@ -973,23 +973,18 @@ public sealed partial class GovernedAgentRuntime
         AgentContextSnapshot context)
     {
         var firstKind = context.Panels[0].Kind;
+        var panelCount = PanelTypeNames.Count(
+            [.. context.Panels.Select(panel => panel.Kind)]);
         return context.Target switch
         {
             AgentTarget.Panel or AgentTarget.ConnectionSession =>
-                firstKind switch
-                {
-                    PanelKind.Terminal => "Terminal",
-                    PanelKind.Browser => "Browser",
-                    PanelKind.FileViewer => "Files",
-                    PanelKind.ProcessMonitor => "Processes",
-                    _ => "Panel",
-                },
+                PanelTypeNames.Name(firstKind),
             AgentTarget.OpenTab =>
-                $"Current tab · {CountText.Of(context.Panels.Count, "panel", "panels")}",
+                $"Current tab · {panelCount}",
             AgentTarget.Workspace =>
-                $"Workspace · {CountText.Of(context.Panels.Count, "panel", "panels")}",
+                $"Workspace · {panelCount}",
             AgentTarget.SelectedPanels =>
-                $"Selected panels · {context.Panels.Count}",
+                $"Selected terminals · {context.Panels.Count}",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(context),
                 context.Target.GetType(),
