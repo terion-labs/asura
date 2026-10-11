@@ -34,6 +34,13 @@
       <Setter Property="MaxHeight" Value="480" />
     </Style>
 
+    <!-- The subscription list sits inside the card's padding already, so
+         its rows drop the list's own gutter: a row's plate spans the fields
+         above it, edge to edge, instead of standing a gutter inside them. -->
+    <Style Selector="ListBox.RedisSubscriptions ListBoxItem">
+      <Setter Property="Margin" Value="0" />
+    </Style>
+
     <!-- A dense form row keeps its check box at the dense size too. -->
     <Style Selector="CheckBox.Dense">
       <Setter Property="MinHeight" Value="24" />
@@ -753,7 +760,7 @@
                         AutomationProperties.Name="Subscribe to a Redis channel" />
                   </StackPanel>
                   <ListBox
-                      Classes="Rows"
+                      Classes="Rows RedisSubscriptions"
                       MaxHeight="120"
                       ItemsSource="{Binding Subscriptions}"
                       SelectedItem="{Binding SelectedSubscription, Mode=TwoWay}"

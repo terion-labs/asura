@@ -159,8 +159,33 @@ public sealed record DockerInspectionRow(string Name, string Value)
             value = ByteSize.Format(bytes);
         }
 
-        return new(property.Name, value);
+        return new(Label(property.Name), value);
     }
+
+    /// <summary>
+    /// The field's name as a person reads it. The engine names a field by its
+    /// path in the inspect document ("Config.WorkingDir", "CreatedAt"); a
+    /// path the panel doesn't know is shown as the engine wrote it.
+    /// </summary>
+    internal static string Label(string path) => path switch
+    {
+        "Id" => "ID",
+        "Created" or "CreatedAt" => "Created",
+        "State.Status" => "State",
+        "State.Running" => "Running",
+        "State.StartedAt" => "Started",
+        "Config.Image" => "Image",
+        "Config.Hostname" => "Host name",
+        "Config.WorkingDir" => "Working folder",
+        "Config.Entrypoint" => "Entrypoint",
+        "Config.Cmd" => "Command",
+        "HostConfig.NetworkMode" => "Network mode",
+        "NetworkSettings.IPAddress" => "IP address",
+        "Os" => "OS",
+        "Mountpoint" => "Mount point",
+        "IPAM.Config" => "Subnets",
+        _ => path,
+    };
 }
 
 public sealed class DockerContainerStackViewModel : ObservableObject

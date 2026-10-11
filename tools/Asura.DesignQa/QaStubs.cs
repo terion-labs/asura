@@ -210,30 +210,31 @@ internal sealed class QaDockerEngineClient : IDockerEngineClient
         DockerResourceReference resource,
         CancellationToken cancellationToken)
     {
+        // The fields the engine client reads, named by their inspect-document
+        // paths and in the engine's own shapes (RFC 3339 times, byte counts),
+        // so the capture shows what the panel makes of what Docker sends.
         IReadOnlyList<DockerInspectionProperty> properties = resource.Kind switch
         {
             DockerResourceKind.Image =>
             [
-                new DockerInspectionProperty("ID", resource.Id),
-                new DockerInspectionProperty("Tag", resource.DisplayName),
-                // The engine's own shapes: an RFC 3339 time and a byte count,
-                // which the panel writes in the reader's culture and as a size.
+                new DockerInspectionProperty("Id", resource.Id),
                 new DockerInspectionProperty("Created", "2026-08-06T09:12:00Z"),
+                new DockerInspectionProperty("Os", "linux"),
+                new DockerInspectionProperty("Architecture", "arm64"),
                 new DockerInspectionProperty("Size", "386000000"),
-                new DockerInspectionProperty("Platform", "linux/arm64"),
-                new DockerInspectionProperty("Working directory", "/app"),
-                new DockerInspectionProperty("Entrypoint", "[\"/usr/local/bin/docker-entrypoint.sh\"]"),
-                new DockerInspectionProperty("Command", "[\"bun\",\"server/index.mjs\"]"),
+                new DockerInspectionProperty("Config.WorkingDir", "/app"),
+                new DockerInspectionProperty("Config.Entrypoint", "[\"/usr/local/bin/docker-entrypoint.sh\"]"),
+                new DockerInspectionProperty("Config.Cmd", "[\"bun\",\"server/index.mjs\"]"),
             ],
             DockerResourceKind.Network =>
             [
                 new DockerInspectionProperty("Name", resource.DisplayName),
-                new DockerInspectionProperty("ID", resource.Id),
+                new DockerInspectionProperty("Id", resource.Id),
                 new DockerInspectionProperty("Created", "2026-08-08T14:20:00Z"),
-                new DockerInspectionProperty("Subnet", "172.22.0.0/16"),
-                new DockerInspectionProperty("Gateway", "172.22.0.1"),
                 new DockerInspectionProperty("Driver", "bridge"),
                 new DockerInspectionProperty("Scope", "local"),
+                new DockerInspectionProperty("Internal", "false"),
+                new DockerInspectionProperty("IPAM.Config", "172.22.0.0/16 via 172.22.0.1"),
             ],
             // A volume has its own fields; it used to answer with a
             // container's, so the volume capture showed a state and ports.
@@ -248,14 +249,15 @@ internal sealed class QaDockerEngineClient : IDockerEngineClient
             ],
             _ =>
             [
-                new DockerInspectionProperty("ID", $"sha256:{resource.Id}"),
-                new DockerInspectionProperty("State", "running"),
+                new DockerInspectionProperty("Id", resource.Id),
                 new DockerInspectionProperty("Created", "2026-08-08T14:22:00Z"),
-                new DockerInspectionProperty("Image", "ghcr.io/asura/api:main"),
-                new DockerInspectionProperty("Ports", "0.0.0.0:8080 → 8080/tcp"),
-                new DockerInspectionProperty("Network", "asura_default"),
-                new DockerInspectionProperty("Address", "172.22.0.4"),
-                new DockerInspectionProperty("Working directory", "/app"),
+                new DockerInspectionProperty("State.Status", "running"),
+                new DockerInspectionProperty("State.StartedAt", "2026-08-08T14:22:04Z"),
+                new DockerInspectionProperty("Config.Image", "ghcr.io/asura/api:main"),
+                new DockerInspectionProperty("Config.Hostname", "api"),
+                new DockerInspectionProperty("Config.WorkingDir", "/app"),
+                new DockerInspectionProperty("HostConfig.NetworkMode", "asura_default"),
+                new DockerInspectionProperty("NetworkSettings.IPAddress", "172.22.0.4"),
             ],
         };
         return ValueTask.FromResult<DockerResult<DockerResourceInspection>>(

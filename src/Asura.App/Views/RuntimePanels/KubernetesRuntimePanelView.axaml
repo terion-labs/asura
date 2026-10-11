@@ -166,6 +166,15 @@
     <Style Selector="StackPanel.InspectorForm TextBlock.Muted">
       <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
     </Style>
+    <!-- A section ranks above the fields it holds. The shared heading is a
+         small muted caption, which under a labelled field read as smaller
+         than the labels it was heading; in a form it takes the label's size
+         and the primary colour, and its weight does the ranking. -->
+    <Style Selector="StackPanel.InspectorForm TextBlock.SectionHeading">
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize13}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight13}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
+    </Style>
     <Style Selector="StackPanel.ActionRow">
       <Setter Property="Orientation" Value="Horizontal" />
       <Setter Property="Spacing" Value="{DynamicResource ShellSpaceXs}" />
@@ -1069,6 +1078,7 @@
                                   AutomationProperties.Name="Remote pod port" />
                               <Button
                                   Grid.Column="1"
+                                  VerticalAlignment="Center"
                                   Classes="PrimaryButton"
                                   Click="OnStartForwardClick"
                                   Content="Start Forward"
@@ -1095,7 +1105,9 @@
                                         Text="{Binding Address}"
                                         AutomationProperties.Name="Forward local address" />
                                     <TextBlock Classes="Muted" Text="{Binding Status}" />
-                                    <StackPanel Classes="ActionRow">
+                                    <!-- At the trailing edge, where Start Forward sits,
+                                         and at the same push-button size. -->
+                                    <StackPanel Classes="ActionRow" HorizontalAlignment="Right">
                                       <Button
                                           Classes="SecondaryButton"
                                           Click="OnOpenForwardBrowserClick"

@@ -3118,7 +3118,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
 
     private static void ShowKubernetesHelm(MainWindow window) =>
         window.GetVisualDescendants().OfType<Button>()
-            .Single(button => string.Equals(AutomationProperties.GetName(button), "Helm releases", StringComparison.Ordinal))
+            .Single(button => string.Equals(AutomationProperties.GetName(button), "Helm Releases", StringComparison.Ordinal))
             .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
     private static void ShowKubernetesHelmChange(MainWindow window)
