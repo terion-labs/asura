@@ -99,6 +99,8 @@ internal sealed class SettingRow : ContentControl
             (row, _) => row.UpdateStateClasses());
         IsLeadingProperty.Changed.AddClassHandler<SettingRow>(
             (row, _) => row.UpdateStateClasses());
+        IsLeadingProperty.Changed.AddClassHandler<SettingRow>(
+            (row, _) => row.UpdateAutomation());
         LabelProperty.Changed.AddClassHandler<SettingRow>(
             (row, _) => row.UpdateLeadingTitle());
         ContentProperty.Changed.AddClassHandler<SettingRow>(
@@ -178,8 +180,21 @@ internal sealed class SettingRow : ContentControl
     private ContentPresenter? _control;
     private object? _leadingTitle;
 
-    private void UpdateAutomation() =>
+    /// <summary>
+    /// A leading row's checkbox is named by its own title, so the row links
+    /// only its description, as the box's help text. Any other row names its
+    /// control by the label it draws.
+    /// </summary>
+    private void UpdateAutomation()
+    {
+        if (IsLeading && Content is CheckBox box)
+        {
+            _link.Update(box, null, Description);
+            return;
+        }
+
         _link.Update(FieldLabelLink.FindTarget(Content), _label, Description);
+    }
 
     private void ApplyControlWidth()
     {

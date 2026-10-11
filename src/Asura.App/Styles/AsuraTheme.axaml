@@ -186,8 +186,8 @@
        than spacing apart, so the run reads as one set. They are the host's
        default 28-point target: the header is taller than that at every
        density, and these were 24, the size a target shrinks to only when
-       nothing larger fits. When the header is short of width it hands the run
-       to its overflow strip instead of shrinking the targets. -->
+       nothing larger fits. When the header is short of width it lists the run
+       in its "…" menu instead of shrinking the targets. -->
   <Style Selector="Button.IconButton.Compact">
     <Setter Property="Width" Value="28" />
     <Setter Property="Height" Value="28" />
@@ -1223,7 +1223,7 @@
        twelve put each label a few points right of its column. -->
   <Style Selector="DataGrid.DatabaseGrid DataGridColumnHeader">
     <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
-    <Setter Property="Background" Value="{DynamicResource ShellSurfaceBrush}" />
+    <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
     <Setter Property="SeparatorBrush" Value="{DynamicResource ShellBorderBrush}" />
@@ -1235,9 +1235,32 @@
     <Setter Property="Margin" Value="{controls:Inset Horizontal=Sm}" />
   </Style>
 
+  <!--
+    The header row's fill is the row's, not each header's. A column whose
+    width is fractional — a results grid sizes columns from their text —
+    rounds its header a pixel wider than its slot, so it overlaps the next
+    header by one pixel. With an opaque fill on every header, the next one
+    painted over the divider at the overlap, and a column here and there
+    lost its divider depending on how its width happened to round. With
+    the headers clear, every divider shows whatever its column's width.
+  -->
+  <Style Selector="DataGrid.DatabaseGrid /template/ DataGridColumnHeadersPresenter#PART_ColumnHeadersPresenter">
+    <Setter Property="Background" Value="{DynamicResource ShellSurfaceBrush}" />
+  </Style>
+
+  <!-- A header being dragged to a new place floats over the others, so it
+       carries the row's fill with it. -->
+  <Style Selector="DataGrid.DatabaseGrid DataGridColumnHeader:dragIndicator">
+    <Setter Property="Background" Value="{DynamicResource ShellSurfaceBrush}" />
+  </Style>
+
   <!-- Every column is divided from the next in the header row, as a Mac
-       table's are, though the rows themselves carry no rules. The stock header
-       draws its divider only where the grid draws vertical lines. -->
+       table's are, though the rows themselves carry no rules, and the last
+       column is closed off the same way. The stock header draws its divider
+       only where the grid draws vertical lines and drops the last column's;
+       the pseudo-class here outranks that template binding, so the grid's
+       bookkeeping of which column happens to be last as columns are added
+       cannot take a divider away. -->
   <Style Selector="DataGrid.DatabaseGrid DataGridColumnHeader:not(:dragIndicator) /template/ Rectangle#VerticalSeparator">
     <Setter Property="IsVisible" Value="True" />
     <Setter Property="Width" Value="1" />
@@ -1246,7 +1269,27 @@
   </Style>
 
   <!-- The sort indicator is the host's: a small chevron at the header's
-       trailing edge, up for ascending and down for descending. -->
+       trailing edge, up for ascending and down for descending.
+
+       The stock header keeps a 32-point column for its own sort arrow at
+       the trailing edge whether or not it shows one. A header that draws its
+       own chevron at the end of its content — the results grid's does —
+       stopped 32 points short, which put the chevron in the middle of a
+       narrow column. The content takes that column too, and the stock arrow,
+       when it shows, sits at the trailing edge with the label kept clear of
+       it. -->
+  <Style Selector="DataGrid.DatabaseGrid DataGridColumnHeader /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Grid.ColumnSpan" Value="2" />
+  </Style>
+
+  <Style Selector="DataGrid.DatabaseGrid DataGridColumnHeader:sortascending /template/ ContentPresenter#PART_ContentPresenter, DataGrid.DatabaseGrid DataGridColumnHeader:sortdescending /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Margin" Value="{controls:Inset Right=Md}" />
+  </Style>
+
+  <Style Selector="DataGrid.DatabaseGrid DataGridColumnHeader /template/ Path#SortIcon">
+    <Setter Property="HorizontalAlignment" Value="Right" />
+  </Style>
+
   <Style Selector="DataGrid.DatabaseGrid DataGridColumnHeader:sortascending /template/ Path#SortIcon">
     <Setter Property="Data" Value="M 0,4.5 L 4,0.5 L 8,4.5 L 7,5.5 L 4,2.5 L 1,5.5 Z" />
     <Setter Property="Width" Value="8" />

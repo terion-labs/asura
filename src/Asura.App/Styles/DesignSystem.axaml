@@ -172,23 +172,24 @@
                         IsVisible="{TemplateBinding HasAttention}"
                         ToolTip.Tip="This panel has an unread notification" />
                     <StackPanel Name="PART_HeaderActions" Orientation="Horizontal">
-                      <!-- A wrap panel: one row in the header, which gives it
-                           all the width it asks for, and as many rows as it
-                           needs in the overflow strip, where it moves when
-                           the header is short of width. -->
-                      <WrapPanel Name="PART_SecondaryActions" Orientation="Horizontal">
+                      <!-- When the header is short of width these move,
+                           whole, behind the "…" button, which lists them in
+                           a menu by their OverflowHeader names. -->
+                      <StackPanel Name="PART_SecondaryActions" Orientation="Horizontal">
                         <Button
                             Name="PART_Collapse"
                             AutomationProperties.Name="Collapse this panel"
                             Classes="IconButton Compact"
-                            ToolTip.Tip="Collapse panel">
+                            ToolTip.Tip="Collapse panel"
+                            controls:PanelChrome.OverflowHeader="Collapse Panel">
                           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="Subtract" />
                         </Button>
                         <Button
                             Name="PART_Expand"
                             AutomationProperties.Name="{TemplateBinding ExpansionLabel}"
                             Classes="IconButton Compact"
-                            ToolTip.Tip="{TemplateBinding ExpansionLabel}">
+                            ToolTip.Tip="{TemplateBinding ExpansionLabel}"
+                            controls:PanelChrome.OverflowHeader="{TemplateBinding ExpansionMenuHeader}">
                           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="{TemplateBinding ExpansionIcon}" />
                         </Button>
                         <Button
@@ -196,7 +197,8 @@
                             AutomationProperties.Name="Move this panel to its own window"
                             Classes="IconButton Compact"
                             IsVisible="{TemplateBinding CanFloat}"
-                            ToolTip.Tip="Move to its own window">
+                            ToolTip.Tip="Move to its own window"
+                            controls:PanelChrome.OverflowHeader="Move to Its Own Window">
                           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="WindowMultiple" />
                         </Button>
                         <Button
@@ -204,7 +206,8 @@
                             AutomationProperties.Name="Put this panel back in the workspace"
                             Classes="IconButton Compact"
                             IsVisible="{TemplateBinding IsFloating}"
-                            ToolTip.Tip="Put back in the workspace">
+                            ToolTip.Tip="Put back in the workspace"
+                            controls:PanelChrome.OverflowHeader="Put Back in the Workspace">
                           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="WindowMultipleOff" />
                         </Button>
                         <Button
@@ -212,7 +215,8 @@
                             AutomationProperties.Name="Split this panel left and right"
                             Classes="IconButton Compact"
                             IsVisible="{TemplateBinding CanSplit}"
-                            ToolTip.Tip="Split left/right">
+                            ToolTip.Tip="Split left/right"
+                            controls:PanelChrome.OverflowHeader="Split Left and Right">
                           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="SplitVertical" />
                         </Button>
                         <Button
@@ -220,14 +224,17 @@
                             AutomationProperties.Name="Split this panel top and bottom"
                             Classes="IconButton Compact"
                             IsVisible="{TemplateBinding CanSplit}"
-                            ToolTip.Tip="Split top/bottom">
+                            ToolTip.Tip="Split top/bottom"
+                            controls:PanelChrome.OverflowHeader="Split Top and Bottom">
                           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="SplitHorizontal" />
                         </Button>
-                      </WrapPanel>
+                      </StackPanel>
                     </StackPanel>
+                    <!-- Opens a menu of the actions the header had no room
+                         for. -->
                     <Button Name="PART_Overflow" Classes="IconButton Compact"
                         IsVisible="{TemplateBinding IsHeaderCondensed}"
-                        AutomationProperties.Name="Panel actions" ToolTip.Tip="Panel actions">
+                        AutomationProperties.Name="More panel actions" ToolTip.Tip="More panel actions">
                       <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="MoreHorizontal" />
                     </Button>
                     <Button
@@ -297,21 +304,14 @@
                   </Grid>
                 </DockPanel>
               </Border>
-              <Border Grid.Row="1" Name="PART_OverflowStrip"
-                  IsVisible="{TemplateBinding IsHeaderOverflowOpen}"
-                  Background="{DynamicResource ShellSidebarBrush}"
-                  BorderBrush="{DynamicResource ShellSidebarBorderBrush}"
-                  BorderThickness="0,0,0,1"
-                  Padding="{controls:Inset Horizontal=Sm, Vertical=Xs}">
-                <!-- Wraps rather than scrolls, so every action in the strip is
-                     whole and in view. A scrolling row cut its last button in
-                     half on a narrow panel. -->
-                <WrapPanel Name="PART_OverflowActions" Orientation="Horizontal"
-                    HorizontalAlignment="Right" KeyboardNavigation.TabNavigation="Continue">
-                  <ContentPresenter Name="PART_BrowserOverflow"
-                      Content="{TemplateBinding HeaderOverflowContent}" />
-                </WrapPanel>
-              </Border>
+              <!-- Where the actions the header has no room for wait, out of
+                   sight but still bound, while the "…" menu stands in for
+                   them. Never shown: a strip of icons wrapping under the
+                   header was a second toolbar. -->
+              <Panel Grid.Row="1" Name="PART_OverflowActions" IsVisible="False">
+                <ContentPresenter Name="PART_BrowserOverflow"
+                    Content="{TemplateBinding HeaderOverflowContent}" />
+              </Panel>
               <components:ErrorNoticesView Grid.Row="2" DataContext="{CompiledBinding $parent[controls:PanelChrome].((vm:ObservableObject)DataContext).ErrorNotices}" />
               <ContentPresenter
                   Grid.Row="3"
@@ -1288,29 +1288,32 @@
            edge with the setting's name as its title, so a click on the words
            toggles it, and the description under the title, aligned with it
            rather than with the box. The row hands the label to a checkbox
-           that has no content of its own. -->
+           that has no content of its own. The box starts where another row's
+           label starts, so a group that mixes the two shapes keeps one edge. -->
       <Style Selector="^:leading">
         <Setter Property="Template">
           <ControlTemplate>
             <StackPanel>
-              <StackPanel
-                  Margin="{TemplateBinding Padding}"
-                  Spacing="{DynamicResource ShellSpaceXs}">
-                <ContentPresenter
-                    Name="PART_Control"
-                    Content="{TemplateBinding Content}"
-                    ContentTemplate="{TemplateBinding ContentTemplate}"
-                    HorizontalContentAlignment="Left" />
-                <TextBlock
-                    Name="PART_Description"
-                    Margin="{DynamicResource ShellCheckBoxTitleInset}"
-                    Foreground="{DynamicResource ShellMutedBrush}"
-                    FontSize="{DynamicResource ShellSecondaryFontSize}"
-                    LineHeight="{DynamicResource ShellLineHeight11}"
-                    Text="{TemplateBinding Description}"
-                    TextWrapping="Wrap"
-                    IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-              </StackPanel>
+              <Border Padding="{TemplateBinding Padding}">
+                <StackPanel
+                    Margin="{controls:Inset Horizontal=Xs}"
+                    Spacing="{DynamicResource ShellSpaceXs}">
+                  <ContentPresenter
+                      Name="PART_Control"
+                      Content="{TemplateBinding Content}"
+                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                      HorizontalContentAlignment="Left" />
+                  <TextBlock
+                      Name="PART_Description"
+                      Margin="{DynamicResource ShellCheckBoxTitleInset}"
+                      Foreground="{DynamicResource ShellMutedBrush}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                      LineHeight="{DynamicResource ShellLineHeight11}"
+                      Text="{TemplateBinding Description}"
+                      TextWrapping="Wrap"
+                      IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                </StackPanel>
+              </Border>
               <Border
                   Name="PART_Separator"
                   Height="1"

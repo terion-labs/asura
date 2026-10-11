@@ -208,7 +208,8 @@
             Classes="IconButton"
             Click="OnFindClick"
             IsEnabled="{Binding IsLive, ElementName=RuntimeBrowser}"
-            ToolTip.Tip="Find in page">
+            ToolTip.Tip="Find in page"
+            controls:PanelChrome.OverflowHeader="Find in Page…">
           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize13}" Symbol="Search" />
         </Button>
         <Button
@@ -218,7 +219,8 @@
             Classes="IconButton"
             Click="OnOpenInSystemBrowserClick"
             IsEnabled="{Binding IsLive, ElementName=RuntimeBrowser}"
-            ToolTip.Tip="Open in system browser for sign-in">
+            ToolTip.Tip="Open in system browser for sign-in"
+            controls:PanelChrome.OverflowHeader="Open in System Browser">
           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize13}" Symbol="Open" />
         </Button>
         <Button
@@ -228,7 +230,8 @@
             Classes="IconButton"
             Click="OnDeveloperToolsClick"
             IsEnabled="{Binding IsLive, ElementName=RuntimeBrowser}"
-            ToolTip.Tip="Developer tools">
+            ToolTip.Tip="Developer tools"
+            controls:PanelChrome.OverflowHeader="Developer Tools">
           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize13}" Symbol="Code" />
         </Button>
         <Button x:Name="BrowserOverflowButton" Grid.Column="7"

@@ -351,6 +351,154 @@ public sealed class ThemeComponentHeadlessTests
         });
 
     /// <summary>
+    /// A results grid sizes its columns from their text, so a header can be a
+    /// fraction of a pixel wider than its slot and round over its neighbor.
+    /// Every divider still shows, none painted over by the header after it,
+    /// however the columns were added.
+    /// </summary>
+    [Fact]
+    public Task Every_data_table_column_keeps_its_header_divider() =>
+        RunHeadlessAsync(window =>
+        {
+            var grid = new DataGrid
+            {
+                Classes = { "DatabaseGrid" },
+                Height = 200,
+                Width = 700,
+                AutoGenerateColumns = false,
+                ItemsSource = new[] { new GridRow("alpha", "1"), new GridRow("beta", "2") },
+                Columns =
+                {
+                    new DataGridTextColumn { Header = "Name", Binding = new Avalonia.Data.Binding(nameof(GridRow.Name)), Width = new DataGridLength(120) },
+                },
+            };
+            Show(window, grid);
+            grid.Columns.Clear();
+            string[] names = ["id", "service", "region", "status", "deployed_at"];
+            double[] widths = [76, 107.8, 101.2, 94.6, 154];
+            for (var index = 0; index < names.Length; index++)
+            {
+                grid.Columns.Add(new DataGridTextColumn
+                {
+                    Header = names[index],
+                    Binding = new Avalonia.Data.Binding(nameof(GridRow.Name)),
+                    Width = new DataGridLength(widths[index]),
+                });
+            }
+
+            window.UpdateLayout();
+
+            var headers = grid.GetVisualDescendants().OfType<DataGridColumnHeader>()
+                .Where(header => header.Content is string)
+                .OrderBy(header => header.Bounds.X)
+                .ToArray();
+            Assert.Equal(names, headers.Select(header => (string)header.Content!), StringComparer.Ordinal);
+            Assert.All(headers, header =>
+            {
+                var separator = Part<Avalonia.Controls.Shapes.Rectangle>(header, "VerticalSeparator");
+                Assert.True(separator.IsEffectivelyVisible && separator.Bounds.Width >= 1, $"{header.Content} has no divider.");
+                Assert.False(
+                    header.Background is ISolidColorBrush { Color.A: > 0 },
+                    $"{header.Content} paints its own fill, which covers the divider of a column that rounds over it.");
+            });
+            var row = Part<DataGridColumnHeadersPresenter>(grid, "PART_ColumnHeadersPresenter");
+            Assert.Equal(Brush(window, "ShellSurfaceBrush"), Color(row.Background));
+        });
+
+    /// <summary>
+    /// A header's own sort chevron sits at its trailing edge, as a Mac table
+    /// draws it, not 32 points in, where the stock header keeps a column for
+    /// an arrow it isn't showing.
+    /// </summary>
+    [Fact]
+    public Task A_data_table_sort_chevron_sits_at_the_trailing_edge() =>
+        RunHeadlessAsync(window =>
+        {
+            var chevron = new SymbolIcon { Symbol = Symbol.ChevronDown, FontSize = 12 };
+            Grid.SetColumn(chevron, 1);
+            var header = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                Children = { new TextBlock { Text = "service" }, chevron },
+            };
+            var grid = new DataGrid
+            {
+                Classes = { "DatabaseGrid" },
+                Height = 200,
+                Width = 400,
+                AutoGenerateColumns = false,
+                ItemsSource = new[] { new GridRow("alpha", "1") },
+                Columns =
+                {
+                    new DataGridTextColumn { Header = header, Binding = new Avalonia.Data.Binding(nameof(GridRow.Name)), Width = new DataGridLength(108) },
+                },
+            };
+            Show(window, grid);
+
+            var columnHeader = grid.GetVisualDescendants().OfType<DataGridColumnHeader>()
+                .Single(item => ReferenceEquals(item.Content, header));
+            var trailing = chevron.TranslatePoint(new Point(chevron.Bounds.Width, 0), columnHeader)!.Value.X;
+            Assert.True(
+                columnHeader.Bounds.Width - trailing <= columnHeader.Padding.Right + 2,
+                $"The chevron ends {columnHeader.Bounds.Width - trailing} points short of the header's edge.");
+        });
+
+    /// <summary>
+    /// A leading row's checkbox is named by its own title and described by
+    /// the row's description, and its box starts where the labels of the
+    /// rows around it start.
+    /// </summary>
+    [Fact]
+    public Task A_leading_setting_row_describes_its_checkbox_and_keeps_the_label_edge() =>
+        RunHeadlessAsync(window =>
+        {
+            var box = new CheckBox();
+            var leading = new SettingRow
+            {
+                Label = "Fetch in the background",
+                Description = "Fetches from every remote every five minutes.",
+                IsLeading = true,
+                Content = box,
+            };
+            var field = new SettingRow { Label = "Git executable", Content = new TextBox() };
+            Show(window, new SettingsGroup { Items = { field, leading }, Width = 560 });
+
+            Assert.Equal("Fetches from every remote every five minutes.", AutomationProperties.GetHelpText(box));
+            Assert.Null(AutomationProperties.GetLabeledBy(box));
+            Assert.Equal(
+                Part<TextBlock>(field, "PART_Label").TranslatePoint(default, field)!.Value.X,
+                box.TranslatePoint(default, leading)!.Value.X,
+                precision: 0);
+        });
+
+    /// <summary>
+    /// The gallery's sample shortcut is written by the shared formatter,
+    /// ⌃⌥T on a Mac, rather than spelled out as text.
+    /// </summary>
+    [Fact]
+    public Task The_gallery_writes_its_sample_shortcut_in_the_host_notation() =>
+        RunHeadlessAsync(_ =>
+        {
+            var gallery = new Asura.App.Views.DesignSystemGalleryWindow();
+            gallery.Show();
+            try
+            {
+                var expected = KeySequenceDisplay.Format(
+                    new KeyStroke("T", Asura.Core.KeyModifiers.Control | Asura.Core.KeyModifiers.Alt));
+                Assert.Contains(gallery.GetVisualDescendants().OfType<TextBlock>(), block => block.Text == expected);
+                Assert.DoesNotContain(gallery.GetVisualDescendants().OfType<TextBox>(), box => box.Text == "Ctrl+Alt+T");
+                if (HostPlatform.Current == HostOperatingSystem.MacOS)
+                {
+                    Assert.Equal("⌃⌥T", expected);
+                }
+            }
+            finally
+            {
+                gallery.Close();
+            }
+        });
+
+    /// <summary>
     /// The group's control width is a ceiling: the label keeps its minimum,
     /// the control takes what is left, and on a row too narrow for both the
     /// control moves under the label.

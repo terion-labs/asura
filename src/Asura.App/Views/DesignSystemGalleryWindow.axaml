@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:core="using:Asura.Core"
+    xmlns:views="using:Asura.App.Views"
     Title="Asura Design System"
     Width="880"
     SizeToContent="Height"
@@ -358,7 +359,15 @@
           <controls:SettingRow
               Label="Global shortcut"
               Description="Press the shortcut that summons the panel from anywhere.">
-            <TextBox Text="Ctrl+Alt+T" />
+            <!-- Shown as Settings shows one: a keycap in the host's own
+                 notation, ⌃⌥T on a Mac and Ctrl+Alt+T elsewhere. -->
+            <Border
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Classes="Keycap"
+                AutomationProperties.Name="Global shortcut">
+              <TextBlock Text="{x:Static views:DesignSystemGalleryWindow.SampleShortcut}" />
+            </Border>
           </controls:SettingRow>
           <controls:SettingRow
               Label="Show on display"

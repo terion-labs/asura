@@ -1005,7 +1005,8 @@ public sealed class SettingsViewContractTests
                      && element.Elements().Any(child =>
                          string.Equals(child.Name.LocalName, "CheckBox", StringComparison.Ordinal))))
         {
-            Assert.Equal("Option", AttributeValue(row, "Classes"));
+            Assert.Equal("True", AttributeValue(row, "IsLeading"));
+            Assert.Null(AttributeValue(row, "Classes"));
             Assert.False(string.IsNullOrWhiteSpace(AttributeValue(row, "Label")));
             var box = row.Elements().Single(child =>
                 string.Equals(child.Name.LocalName, "CheckBox", StringComparison.Ordinal));
