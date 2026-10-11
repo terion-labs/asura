@@ -181,9 +181,10 @@
       <Setter Property="Width" Value="28" />
       <Setter Property="Height" Value="28" />
     </Style>
+    <!-- A floor, not a height: at a large text size the label grows the
+         toggle instead of being clipped by it. -->
     <Style Selector="ToggleButton.DockerFollowToggle">
-      <Setter Property="Height" Value="32" />
-      <Setter Property="MinHeight" Value="32" />
+      <Setter Property="MinHeight" Value="{controls:TextScaled 32}" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>

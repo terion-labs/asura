@@ -240,6 +240,41 @@ public sealed class AccessibilityMarkupContractTests
         Assert.True(selectors.Length == 0, "Remove the dead segment styles: " + string.Join(", ", selectors));
     }
 
+    /// <summary>
+    /// A tab view only hosts the views a segmented control picks between.
+    /// The Git conflict, file history and LFS windows drew the Fluent tab
+    /// strip, each restyled locally, which left a second look for switching
+    /// views beside the segmented control every panel uses. A tab view whose
+    /// selection markup binds is bound to a segmented control's.
+    /// </summary>
+    [Fact]
+    public void Tab_views_are_driven_by_a_segmented_control()
+    {
+        foreach (var (path, document) in ApplicationMarkup())
+        {
+            var segmented = document.Descendants()
+                .Where(element => element.Name.LocalName == "SegmentedControl")
+                .Select(element => Attribute(element, "Name"))
+                .OfType<string>()
+                .ToHashSet(StringComparer.Ordinal);
+            foreach (var tabs in document.Descendants().Where(element => element.Name.LocalName == "TabControl"))
+            {
+                var where = $"{Relative(path)}:{((System.Xml.IXmlLineInfo)tabs).LineNumber}";
+                Assert.True(HasClass(tabs, "Headless"), $"{where} draws a tab strip; pick the view with controls:SegmentedControl.");
+                if (Attribute(tabs, "SelectedIndex") is not { } selected)
+                {
+                    // Picked in code by a navigator, as Kubernetes's
+                    // Resources and Helm places are.
+                    continue;
+                }
+
+                Assert.True(
+                    segmented.Any(name => string.Equals(selected, $"{{Binding #{name}.SelectedIndex}}", StringComparison.Ordinal)),
+                    $"{where} is not bound to a segmented control's selection.");
+            }
+        }
+    }
+
     private static bool HasClass(XElement element, string name) =>
         (Attribute(element, "Classes") ?? string.Empty)
             .Split(' ', StringSplitOptions.RemoveEmptyEntries)

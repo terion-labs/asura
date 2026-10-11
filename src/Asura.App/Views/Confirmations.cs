@@ -197,10 +197,11 @@ internal static class Confirmations
         {
             Heading = "Trust This Repository?",
             Detail = $"“{path}” belongs to a different user than this connection signs in as, "
-                + "so Git refuses to open it. Confirming runs Git's own remedy for the "
-                + $"signed-in user on that machine: git config --global --add safe.directory {path}",
-            Notice = "This tells Git to trust the repository's local configuration, "
-                + "so only confirm for repositories you control.",
+                + "so Git refuses to open it. Asura runs "
+                + $"git config --global --add safe.directory {path} "
+                + "for the signed-in user on that machine.",
+            Notice = "Git will then trust the repository's local configuration. "
+                + "Trust only repositories you control.",
             ConfirmLabel = "Trust Repository",
             Intent = ConfirmationIntent.Confirm,
             ConfirmAutomationName = "Confirm trust repository",

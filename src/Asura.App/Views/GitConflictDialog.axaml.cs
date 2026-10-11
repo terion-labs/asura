@@ -26,13 +26,13 @@ public sealed partial class GitConflictDialog : DialogWindow
         ArgumentNullException.ThrowIfNull(conflict);
         _path = conflict.Path;
         _fingerprint = conflict.Fingerprint;
-        // What Current and Incoming mean is said on the tabs themselves, where
-        // the choice is made, rather than in a line under the title.
+        // What Current and Incoming mean is said on their segments, where the
+        // choice is made, rather than in a line under the title.
         var checkout = string.IsNullOrWhiteSpace(currentBranchLabel) ? "the checked-out branch" : $"“{currentBranchLabel}”";
-        ToolTip.SetTip(CurrentTab, operationKind == GitOperationKind.Rebase
+        ToolTip.SetTip(CurrentSegment, operationKind == GitOperationKind.Rebase
             ? $"The branch {checkout} is being rebased onto"
             : $"The version on {checkout}");
-        ToolTip.SetTip(IncomingTab, operationKind == GitOperationKind.Rebase
+        ToolTip.SetTip(IncomingSegment, operationKind == GitOperationKind.Rebase
             ? "The commit being replayed"
             : "The version from the other side of the conflict");
         PathLabel.Text = conflict.IsBinary ? $"{conflict.Path} · binary file; keep one version or delete it" : conflict.Path;

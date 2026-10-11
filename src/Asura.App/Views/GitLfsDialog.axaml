@@ -2,22 +2,10 @@
   <!-- An inspector: consulted while working, so it opens beside the panel
        without blocking it and closes with ⌘W or Escape, like any window. -->
   <controls:DialogWindow.Styles>
-    <!-- The tabs' lists start at the toolbar's leading edge, not a tab
-         control's own inset further in, and a step below the tabs rather
-         than against them. -->
-    <Style Selector="TabControl.LfsTabs">
-      <Setter Property="Padding" Value="{controls:Inset Top=Sm}" />
-      <Setter Property="Margin" Value="0" />
-    </Style>
     <!-- Rows spaced as File History spaces its revisions: an inset around
          each row, and a step between the path and the line about it. -->
     <Style Selector="TabControl.LfsTabs ListBox controls|ListItem">
       <Setter Property="ContentPadding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
-    </Style>
-    <Style Selector="TabItem">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
-      <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
-      <Setter Property="MinHeight" Value="{DynamicResource ShellControlMinHeight}" />
     </Style>
   </controls:DialogWindow.Styles>
   <controls:DialogShell x:Name="Shell" Title="Git LFS" Subtitle="Locks are verified against the remote. Ordinary unlock is available only for locks owned by your account." Scrolls="False">
@@ -26,7 +14,7 @@
         <Button x:Name="RefreshButton" Content="Refresh" Classes="SecondaryButton" Click="OnRefresh" />
       </WrapPanel>
     </controls:DialogShell.Footer>
-    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
+    <Grid RowDefinitions="Auto,Auto,Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
       <TextBlock x:Name="Message" TextWrapping="Wrap" IsVisible="False" />
       <WrapPanel Grid.Row="1" ItemSpacing="{DynamicResource ShellSpaceSm}" LineSpacing="{DynamicResource ShellSpaceXs}">
         <ComboBox x:Name="RemoteInput" MinWidth="140" AutomationProperties.Name="LFS remote" SelectionChanged="OnRemoteChanged" />
@@ -35,7 +23,24 @@
         <Button x:Name="UnlockButton" Content="Unlock Selected" Click="OnUnlock" IsEnabled="False" />
         <Button x:Name="ForceButton" Content="Force Unlock Selected…" Classes="DestructiveButton" Click="OnForceUnlock" IsEnabled="False" />
       </WrapPanel>
-      <TabControl Grid.Row="2" Classes="LfsTabs">
+      <!-- Three fixed views of the repository's LFS state: the shared
+           segmented control picks one, and the tab view below only hosts
+           it. The lists start at the toolbar's leading edge, a step below
+           the segments. -->
+      <controls:SegmentedControl
+          x:Name="LfsViewSegments"
+          Grid.Row="2"
+          HorizontalAlignment="Center"
+          AutomationProperties.Name="LFS view">
+        <RadioButton Content="Locks" AutomationProperties.Name="Locks" />
+        <RadioButton Content="Changed Files" AutomationProperties.Name="Changed LFS files" />
+        <RadioButton Content="Summary" AutomationProperties.Name="Pending uploads and summary" />
+      </controls:SegmentedControl>
+      <TabControl
+          x:Name="LfsViews"
+          Grid.Row="3"
+          Classes="Headless LfsTabs"
+          SelectedIndex="{Binding #LfsViewSegments.SelectedIndex}">
         <TabItem Header="Locks">
           <ListBox x:Name="LocksList" SelectionChanged="OnLockSelection" AutomationProperties.Name="Verified LFS locks">
             <ListBox.ItemTemplate>

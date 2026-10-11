@@ -18,7 +18,7 @@ namespace Asura.App.Tests;
 public sealed class GitDialogLayoutHeadlessTests
 {
     [Fact]
-    public Task Lfs_lock_rows_are_inset_like_file_history_and_start_a_step_below_the_tabs() => RunAsync(() =>
+    public Task Lfs_lock_rows_are_inset_like_file_history_and_start_a_step_below_the_segments() => RunAsync(() =>
     {
         var dialog = new GitLfsDialog();
         dialog.LocksList.ItemsSource = new[]
@@ -43,15 +43,60 @@ public sealed class GitDialogLayoutHeadlessTests
             var titleOrigin = title.TranslatePoint(default, container)!.Value;
             Assert.True(titleOrigin.X >= small && titleOrigin.Y >= extraSmall, $"{titleOrigin}");
 
-            var tabs = dialog.LocksList.FindAncestorOfType<TabControl>()!;
-            var tab = tabs.GetVisualDescendants().OfType<TabItem>().First();
-            var tabBottom = tab.TranslatePoint(new Point(0, tab.Bounds.Height), tabs)!.Value.Y;
-            var listTop = dialog.LocksList.TranslatePoint(default, tabs)!.Value.Y;
-            Assert.True(listTop - tabBottom >= small - 0.5, $"The list starts {listTop - tabBottom} below the tabs.");
+            var segments = dialog.FindControl<SegmentedControl>("LfsViewSegments")!;
+            var segmentsBottom = segments.TranslatePoint(new Point(0, segments.Bounds.Height), dialog)!.Value.Y;
+            var listTop = dialog.LocksList.TranslatePoint(default, dialog)!.Value.Y;
+            Assert.True(listTop - segmentsBottom >= small - 0.5, $"The list starts {listTop - segmentsBottom} below the segments.");
         }
         finally
         {
             dialog.Close();
+        }
+    });
+
+    /// <summary>
+    /// The conflict, file history and LFS windows switch among a few fixed
+    /// views with the shared segmented control, as Kubernetes does, not with
+    /// a tab strip of their own: choosing a segment shows its view, and the
+    /// tab view underneath draws no strip.
+    /// </summary>
+    [Fact]
+    public Task Git_inspectors_switch_views_with_the_shared_segmented_control() => RunAsync(() =>
+    {
+        var conflict = new GitConflictDialog();
+        var history = new GitFileHistoryDialog();
+        var lfs = new GitLfsDialog();
+        (Window Dialog, string Segments, string Views, int Count)[] cases =
+        [
+            (conflict, "VersionSegments", "VersionViews", 4),
+            (history, "RevisionViewSegments", "RevisionViews", 3),
+            (lfs, "LfsViewSegments", "LfsViews", 3),
+        ];
+        foreach (var (dialog, segmentsName, viewsName, count) in cases)
+        {
+            dialog.Show();
+            try
+            {
+                dialog.UpdateLayout();
+                var segments = dialog.FindControl<SegmentedControl>(segmentsName)!;
+                var views = dialog.FindControl<TabControl>(viewsName)!;
+                Assert.Equal(count, segments.ItemCount);
+                Assert.Equal(count, views.ItemCount);
+                Assert.Contains("Headless", views.Classes, StringComparer.Ordinal);
+                Assert.DoesNotContain(views.GetVisualDescendants().OfType<TabItem>(), tab => tab.IsEffectivelyVisible);
+                Assert.Equal(0, views.SelectedIndex);
+
+                var last = segments.GetVisualDescendants().OfType<RadioButton>().Last();
+                last.IsChecked = true;
+                dialog.UpdateLayout();
+
+                Assert.Equal(count - 1, segments.SelectedIndex);
+                Assert.Equal(count - 1, views.SelectedIndex);
+            }
+            finally
+            {
+                dialog.Close();
+            }
         }
     });
 

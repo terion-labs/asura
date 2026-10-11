@@ -25,6 +25,32 @@ public sealed class SecretSettingsViewModelTests
         Assert.Equal(request.Reference, Assert.Single(viewModel.Secrets).Reference);
     }
 
+    /// <summary>
+    /// Settings › Credentials writes its dates the way Files, Git and the
+    /// agent do: local time in the reader's culture, not the invariant
+    /// culture's month-first numbers.
+    /// </summary>
+    [Fact]
+    public async Task Credential_dates_read_in_the_readers_culture()
+    {
+        using var culture = new CultureScope("de-DE");
+        var fixture = CreateFixture(DefinitionCatalogSnapshot.Empty);
+        using var viewModel = fixture.CreateViewModel();
+        var profileId = AiProviderProfileId.New();
+        var request = new CreateSecretRequest(SecretRef.New(), "Draft API key", SecretKind.ApiKey,
+            new SecretScope(SecretScopeKind.AiProvider, profileId.Value),
+            new SecretUsePurpose(SecretUseKind.UserManagement, profileId.Value));
+        using var material = SecretMaterial.CopyFrom("synthetic-key"u8);
+
+        await viewModel.CreateAiProviderDraftAsync(request, material, CancellationToken.None);
+
+        var secret = Assert.Single(viewModel.Secrets);
+        var german = System.Globalization.CultureInfo.GetCultureInfo("de-DE");
+        Assert.Equal(DateTimeOffset.UnixEpoch.ToLocalTime().ToString("g", german), secret.Updated);
+        Assert.Equal(DisplayDates.Format(DateTimeOffset.UnixEpoch), secret.Updated);
+        Assert.Equal("Never", secret.LastUsed);
+    }
+
     [Fact]
     public async Task Draft_ai_provider_rejects_other_credential_scopes_before_vault_mutation()
     {

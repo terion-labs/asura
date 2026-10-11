@@ -102,9 +102,7 @@ public sealed record NetworkCredentialOption(
         _ => "Storage unavailable",
     };
 
-    private string UpdatedLabel => UpdatedAt?.ToLocalTime().ToString(
-        "g",
-        System.Globalization.CultureInfo.CurrentCulture) ?? "unknown";
+    private string UpdatedLabel => DisplayDates.Format(UpdatedAt, "unknown");
 }
 
 /// <summary>

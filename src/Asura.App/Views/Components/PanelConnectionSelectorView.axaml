@@ -38,7 +38,7 @@
       <Flyout
           Placement="BottomEdgeAlignedLeft"
           Opened="OnFlyoutOpened">
-        <Grid Width="310" RowDefinitions="Auto,Auto,Auto" RowSpacing="{DynamicResource ShellSpaceSm}">
+        <Grid Width="{controls:TextScaled 310}" RowDefinitions="Auto,Auto,Auto" RowSpacing="{DynamicResource ShellSpaceSm}">
           <controls:SearchField
               x:Name="FilterBox"
               TextChanged="OnFilterTextChanged"
