@@ -105,6 +105,108 @@ internal static class AgentTargetPresentation
         return readable;
     }
 
+    /// <summary>
+    /// Where an approval's action runs, one fact per level a person can see:
+    /// the panel, its tab, its workspace, and the window, each by its title.
+    /// A level the run's context does not name is left out rather than shown
+    /// as an identifier; the identifiers themselves live under Technical
+    /// Details. Without an exact target the single fact is the human title.
+    /// </summary>
+    /// <param name="displayTitle">The human title, the innermost level's fallback.</param>
+    /// <param name="actionTarget">The exact target of the approval.</param>
+    /// <param name="context">The run's panels, which carry their titles.</param>
+    public static IReadOnlyList<AgentApprovalFactViewModel> Place(
+        string displayTitle,
+        AgentTarget? actionTarget,
+        IReadOnlyCollection<GovernedAgentContextItem>? context)
+    {
+        ArgumentNullException.ThrowIfNull(displayTitle);
+        context ??= [];
+        var facts = new List<AgentApprovalFactViewModel>();
+        switch (actionTarget)
+        {
+            case AgentTarget.Panel panel:
+                facts.Add(new("Panel", PanelTitle(context, panel.PanelId, null) ?? displayTitle));
+                AddTab(panel.TabId);
+                AddWorkspace(panel.WorkspaceId);
+                AddWindow(panel.WindowId);
+                break;
+            case AgentTarget.SelectedPanels selected:
+                facts.Add(new(
+                    "Panels",
+                    string.Join(
+                        ", ",
+                        selected.Panels.Select(item =>
+                            PanelTitle(context, item.PanelId, null) ?? "Untitled panel"))));
+                AddWorkspace(selected.Panels[0].WorkspaceId);
+                AddWindow(selected.Panels[0].WindowId);
+                break;
+            case AgentTarget.OpenTab tab:
+                AddTab(tab.TabId, fallback: displayTitle);
+                AddWorkspace(tab.WorkspaceId);
+                AddWindow(tab.WindowId);
+                break;
+            case AgentTarget.Workspace workspace:
+                AddWorkspace(workspace.WorkspaceId, fallback: displayTitle);
+                AddWindow(workspace.WindowId);
+                break;
+            case AgentTarget.ConnectionSession session:
+                var item = context.FirstOrDefault(candidate => candidate.SessionId == session.SessionId);
+                facts.Add(new("Connection", item?.PanelTitle is { Length: > 0 } title ? title : displayTitle));
+                if (item is not null)
+                {
+                    AddTab(item.TabId);
+                    AddWorkspace(item.WorkspaceId);
+                    AddWindow(item.WindowId);
+                }
+
+                break;
+            default:
+                facts.Add(new("Target", displayTitle));
+                break;
+        }
+
+        return facts;
+
+        void AddTab(TabInstanceId id, string? fallback = null)
+        {
+            if (context.FirstOrDefault(item => item.TabId == id)?.TabTitle is { Length: > 0 } title)
+            {
+                facts.Add(new("Tab", title));
+            }
+            else if (fallback is not null)
+            {
+                facts.Add(new("Tab", fallback));
+            }
+        }
+
+        void AddWorkspace(WorkspaceInstanceId id, string? fallback = null)
+        {
+            if (WorkspaceTitle(context, id.Value) is { } title)
+            {
+                facts.Add(new("Workspace", title));
+            }
+            else if (fallback is not null)
+            {
+                facts.Add(new("Workspace", fallback));
+            }
+        }
+
+        // A window has no title of its own to show. The run's context lists
+        // the panels of the window the agent works in, so that one is "This
+        // window"; any other is named as such rather than by its identifier.
+        // With no context there is nothing to tell them apart by.
+        void AddWindow(WindowInstanceId id)
+        {
+            if (context.Count > 0)
+            {
+                facts.Add(new(
+                    "Window",
+                    context.Any(item => item.WindowId == id) ? "This window" : "Another window"));
+            }
+        }
+    }
+
     private static string ScopeTitle(
         ScopeKind kind,
         string identifier,

@@ -2427,6 +2427,18 @@ public sealed partial class AgentChatViewModelTests
         Assert.Equal(
             "Approval required · Navigate browser · in Runbook · Makes changes",
             approval.AccessibleName);
+        // Details names the place level by level from the run's context; the
+        // identifiers stay with Technical Details.
+        Assert.Equal(
+            [
+                new AgentApprovalFactViewModel("Panel", "Runbook"),
+                new AgentApprovalFactViewModel("Tab", "Documentation"),
+                new AgentApprovalFactViewModel("Workspace", "Production workspace"),
+                new AgentApprovalFactViewModel("Window", "This window"),
+            ],
+            approval.TargetFacts);
+        Assert.Equal("browser-session-1", Assert.Single(approval.RoutingArguments).DisplayValue);
+        Assert.Contains("panel/panel-1", approval.ExactTarget, StringComparison.Ordinal);
     }
 
     [Fact]

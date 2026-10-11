@@ -66,6 +66,80 @@ public sealed partial class AgentChatViewModelTests
         Assert.True(approval.IsHighRisk);
         Assert.Equal("Can delete data", approval.Risk);
         Assert.DoesNotContain("01a0df93", approval.AccessibleName, StringComparison.Ordinal);
+        // Without an exact target, Details names the place by its one title,
+        // and the identifiers wait under Technical Details.
+        Assert.Equal([new AgentApprovalFactViewModel("Target", "Logs")], approval.TargetFacts);
+        Assert.Equal(["panel_id", "tab_id"], approval.RoutingArguments.Select(argument => argument.Name), StringComparer.Ordinal);
+        Assert.True(approval.HasRoutingArguments);
+    }
+
+    [Fact]
+    public void Approval_details_name_the_target_by_title_and_never_by_identifier()
+    {
+        var target = new AgentTarget.Panel(
+            new WindowInstanceId("01a0df93c28d7f37b282257dc68511d84"),
+            new WorkspaceInstanceId("01a0df93cae07372bf3c3f7e1de115cf"),
+            new TabInstanceId("01a0df93caed7642b128c7f1f894eb3ea"),
+            new PanelInstanceId("01a0df93caed736baaa598b6c213744d"));
+        GovernedAgentContextItem[] context =
+        [
+            new(
+                target.WindowId,
+                target.WorkspaceId,
+                target.TabId,
+                target.PanelId,
+                new SessionId("01a0df93caed71e99e7d2b4623b40c49"),
+                PanelKind.Browser,
+                workspaceTitle: "Operations",
+                tabTitle: "production-api",
+                panelTitle: "Browser",
+                connectionBoundary: null,
+                workingDirectory: null,
+                SessionLifecycle.Active,
+                SessionHealth.Healthy,
+                isVisible: true,
+                isFocused: true,
+                hasActiveWork: false,
+                [BuiltInAgentTools.BrowserNavigate]),
+        ];
+
+        var place = AgentTargetPresentation.Place("Browser", target, context);
+
+        Assert.Equal(
+            [
+                new AgentApprovalFactViewModel("Panel", "Browser"),
+                new AgentApprovalFactViewModel("Tab", "production-api"),
+                new AgentApprovalFactViewModel("Workspace", "Operations"),
+                new AgentApprovalFactViewModel("Window", "This window"),
+            ],
+            place);
+        Assert.All(place, fact => Assert.DoesNotContain("01a0df93", fact.Value, StringComparison.Ordinal));
+
+        // A window the run's context does not list is another one, by that name.
+        var elsewhere = new AgentTarget.Workspace(
+            new WindowInstanceId("01a0df93ffffffffffffffffffffffff"),
+            target.WorkspaceId);
+        Assert.Equal(
+            [
+                new AgentApprovalFactViewModel("Workspace", "Operations"),
+                new AgentApprovalFactViewModel("Window", "Another window"),
+            ],
+            AgentTargetPresentation.Place("this workspace", elsewhere, context));
+
+        // Levels nobody named are left out, not filled with identifiers.
+        Assert.Equal(
+            [new AgentApprovalFactViewModel("Panel", "Browser")],
+            AgentTargetPresentation.Place("Browser", target, []));
+        Assert.Equal(
+            [new AgentApprovalFactViewModel("Panels", "Untitled panel, Browser")],
+            AgentTargetPresentation.Place(
+                "selected panels",
+                new AgentTarget.SelectedPanels(
+                [
+                    target,
+                    new AgentTarget.Panel(target.WindowId, target.WorkspaceId, target.TabId, new PanelInstanceId("01a0df93aaaaaaaaaaaaaaaaaaaaaaaa")),
+                ]),
+                context).Take(1));
     }
 
     [Theory]

@@ -169,6 +169,30 @@ internal sealed class QaOfflineAgentRuntime : IGovernedAgentRuntime
             State = GovernedAgentState.AwaitingApproval,
             Target = target,
             TargetTitle = "Browser",
+            // The run's view of its window, as the product reports it: the
+            // titles Details names the target by, beside the identifiers the
+            // approval binds to.
+            ContextItems =
+            [
+                new GovernedAgentContextItem(
+                    target.WindowId,
+                    target.WorkspaceId,
+                    target.TabId,
+                    target.PanelId,
+                    new SessionId("01a0df93caed71e99e7d2b4623b40c49"),
+                    PanelKind.Browser,
+                    workspaceTitle: "Operations",
+                    tabTitle: "production-api",
+                    panelTitle: "Browser",
+                    connectionBoundary: null,
+                    workingDirectory: null,
+                    SessionLifecycle.Active,
+                    SessionHealth.Healthy,
+                    isVisible: true,
+                    isFocused: true,
+                    hasActiveWork: false,
+                    [BuiltInAgentTools.BrowserNavigate]),
+            ],
             PendingApproval = new GovernedAgentApproval(
                 new AgentApprovalId("qa-action-approval"),
                 "browser.navigate", "Navigate browser", AgentActionRisk.Mutation, AgentPermission.Ask,
