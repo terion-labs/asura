@@ -582,6 +582,14 @@ public sealed partial class AgentWorkspaceView : UserControl
         OpenAgentConversationRequested?.Invoke(sender, e);
     }
 
+    /// <summary>
+    /// The title of the File menu's Delete Conversation…, which a row's menu
+    /// shares so the two cannot drift apart. The row's item deletes that
+    /// row's conversation; the menu bar's, the one the panel shows.
+    /// </summary>
+    public static string DeleteConversationTitle { get; } =
+        PanelCommandTargets.Title(Asura.Core.BuiltInCommands.DeleteAgentConversation);
+
     private void OnDeleteConversationClick(object? sender, RoutedEventArgs e) =>
         DeleteAgentConversationRequested?.Invoke(sender, e);
 

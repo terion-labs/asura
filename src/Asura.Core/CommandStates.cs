@@ -47,8 +47,9 @@ public static class CommandStates
     public const string IsDatabaseConnected = "database.connected";
 
     /// <summary>
-    /// The fact a host reports when a panel-owned command, such as a Git
-    /// operation, can run against the focused panel.
+    /// The fact a host reports when a command can run against what it acts
+    /// on: a Git operation against the focused panel, or Terminate
+    /// Workspace… against the workspace in front.
     /// </summary>
     public static string CanExecute(CommandId command) => $"{command.Value}.can-execute";
 }

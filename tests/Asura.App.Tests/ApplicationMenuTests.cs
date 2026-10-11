@@ -198,6 +198,7 @@ public sealed class ApplicationMenuLayoutTests
         [
             "Settings…", "Check for Updates…", "New Tab…", "Find…", "Command Palette…",
             "Add Panel…", "Layout Designer…", "Rename Tab…", "Change Tab Icon…", "Report an Issue…",
+            "Edit Workspace…", "Terminate Workspace…", "Delete Conversation…",
         ];
         var titles = ApplicationMenuLayout.AllCommands().Select(item => item.Title).ToHashSet(StringComparer.Ordinal);
 
@@ -263,6 +264,92 @@ public sealed class ApplicationMenuLayoutTests
         var file = ApplicationMenuLayout.MenuBar.Single(menu => menu.Title == "File");
         var close = file.Items.Select(Title).ToList();
         Assert.Equal(close.IndexOf("Close Tab") + 1, close.IndexOf("Close Other Tabs"));
+    }
+
+    /// <summary>
+    /// The rail tile's menu and the agent history row's have a menu-bar
+    /// path: the Workspace menu ends with the tile's commands for the
+    /// workspace in front, ending it last behind a separator, and the File
+    /// menu deletes the conversation the agent panel shows.
+    /// </summary>
+    [Fact]
+    public void Rail_tile_and_conversation_menu_items_have_a_menu_bar_path()
+    {
+        var workspace = ApplicationMenuLayout.MenuBar.Single(menu => menu.Title == "Workspace");
+        Assert.Equal(
+            ["-", "Edit Workspace…", "Save Workspace Layout", "-", "Terminate Workspace…"],
+            workspace.Items.Select(Title).TakeLast(5),
+            StringComparer.Ordinal);
+        Assert.Equal(
+            [BuiltInCommands.EditWorkspace, BuiltInCommands.SaveWorkspaceLayout, BuiltInCommands.TerminateWorkspace],
+            workspace.Items.OfType<MenuCommandNode>().TakeLast(3).Select(item => item.Command));
+
+        var file = ApplicationMenuLayout.MenuBar.Single(menu => menu.Title == "File");
+        Assert.Equal(["-", "Delete Conversation…"], file.Items.Select(Title).TakeLast(2), StringComparer.Ordinal);
+        Assert.Equal(
+            BuiltInCommands.DeleteAgentConversation,
+            Assert.IsType<MenuCommandNode>(file.Items[^1]).Command);
+    }
+
+    [Theory]
+    [MemberData(nameof(FrontCommands))]
+    public void Workspace_and_conversation_commands_wait_for_the_window_to_say_they_can_run(
+        string command,
+        string kind)
+    {
+        var id = new CommandId(command);
+        Assert.False(ApplicationCommandRouter.Route(id, new CommandInvocation(CommandContext.All, [])).IsSuccess);
+        var routed = ApplicationCommandRouter.Route(
+            id,
+            new CommandInvocation(CommandContext.All, [], [new(CommandStates.CanExecute(id), true)]));
+
+        Assert.True(routed.IsSuccess, routed.Error);
+        Assert.Equal(kind, routed.Action!.Kind.ToString());
+        Assert.Contains(id, BuiltInCommands.UnboundByDefault);
+    }
+
+    public static TheoryData<string, string> FrontCommands => new()
+    {
+        { BuiltInCommands.EditWorkspace.Value, nameof(ApplicationCommandActionKind.EditWorkspace) },
+        { BuiltInCommands.SaveWorkspaceLayout.Value, nameof(ApplicationCommandActionKind.SaveWorkspaceLayout) },
+        { BuiltInCommands.TerminateWorkspace.Value, nameof(ApplicationCommandActionKind.TerminateWorkspace) },
+        { BuiltInCommands.DeleteAgentConversation.Value, nameof(ApplicationCommandActionKind.DeleteAgentConversation) },
+    };
+
+    /// <summary>
+    /// The Workspace menu's items follow the workspace in front as its rail
+    /// tile's items follow the tile's: Save while its layout can be saved,
+    /// Terminate while it can be ended, which Main never can.
+    /// </summary>
+    [Fact]
+    public void Workspace_items_follow_the_workspace_in_front()
+    {
+        var alpha = new Asura.App.ViewModels.LauncherWorkspaceViewModel(
+            new WorkspaceId("alpha"), 1, "Alpha", "", "#808080", "A", FluentIcons.Common.Symbol.Window, 0)
+        { IsOpen = true, CanSaveLayout = true };
+        var main = new Asura.App.ViewModels.LauncherWorkspaceViewModel(
+            new WorkspaceId(WorkspaceDefinition.DefaultWorkspaceId), 1, "Main", "", "#808080", "M", FluentIcons.Common.Symbol.Window, 0)
+        { IsOpen = true };
+
+        Assert.Equal([false, false, false], Available(null));
+        Assert.Equal([true, true, true], Available(alpha));
+        Assert.Equal([true, false, false], Available(main));
+        alpha.CanSaveLayout = false;
+        alpha.IsOpen = false;
+        Assert.Equal([true, false, false], Available(alpha));
+
+        static bool[] Available(Asura.App.ViewModels.LauncherWorkspaceViewModel? workspace)
+        {
+            var state = new List<KeyValuePair<string, bool>>();
+            Asura.App.ViewModels.MainWindowViewModel.AddWorkspaceState(state, workspace);
+            return
+            [
+                .. new[] { BuiltInCommands.EditWorkspace, BuiltInCommands.SaveWorkspaceLayout, BuiltInCommands.TerminateWorkspace }
+                    .Select(command => ApplicationCommandRouter.Route(
+                        command,
+                        new CommandInvocation(CommandContext.All, [], state)).IsSuccess),
+            ];
+        }
     }
 
     [Fact]

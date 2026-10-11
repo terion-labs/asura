@@ -178,6 +178,24 @@ public sealed partial class MainWindow : IShellCommandPresentation, IApplication
         OpenRuntimeWorkspaceAsync(token =>
             ViewModel.SelectWorkspaceAtPositionAsync(position, token));
 
+    async Task IShellCommandPresentation.EditFrontWorkspaceAsync()
+    {
+        if (ViewModel.FrontWorkspace is { } workspace)
+        {
+            await EditWorkspaceAsync(workspace.Id);
+        }
+    }
+
+    Task IShellCommandPresentation.TerminateFrontWorkspaceAsync() =>
+        ViewModel.FrontWorkspace is { } workspace
+            ? CloseWorkspaceAsync(workspace, confirmFirst: true)
+            : Task.CompletedTask;
+
+    Task IShellCommandPresentation.DeleteCurrentAgentConversationAsync() =>
+        ViewModel.CurrentAgentConversation is { } conversation
+            ? DeleteAgentConversationAsync(conversation.RunId)
+            : Task.CompletedTask;
+
     Task IShellCommandPresentation.SendLiteralPrefixAsync() => SendLiteralPrefixAsync();
 
     void IShellCommandPresentation.ToggleSidebar() =>

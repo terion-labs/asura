@@ -89,6 +89,11 @@ internal static class ApplicationMenuLayout
             Item("Close Other Tabs", BuiltInCommands.CloseOtherTabs),
             Item("Close Window", BuiltInCommands.CloseWindow),
             Item("Close Panel", BuiltInCommands.ClosePanel),
+            MenuSeparatorNode.Instance,
+
+            // The agent's conversation, where Messages keeps its own; the
+            // history's row menu deletes the conversation it was opened on.
+            Item("Delete Conversation…", BuiltInCommands.DeleteAgentConversation),
         ]),
         new("Edit",
         [
@@ -298,6 +303,14 @@ internal static class ApplicationMenuLayout
                     BuiltInCommands.MovePanelToWorkspace,
                     Position(position))),
             ]),
+            MenuSeparatorNode.Instance,
+
+            // The rail tile's menu, for the workspace in front: ending it
+            // comes last, behind a separator, as it does there.
+            Item("Edit Workspace…", BuiltInCommands.EditWorkspace),
+            Item("Save Workspace Layout", BuiltInCommands.SaveWorkspaceLayout),
+            MenuSeparatorNode.Instance,
+            Item("Terminate Workspace…", BuiltInCommands.TerminateWorkspace),
         ]),
         // The focused Git panel's core commands. Those that ask something
         // first open the same dialogs as the panel's own buttons and rows.

@@ -49,9 +49,51 @@ public sealed partial class MainWindowViewModel
                 new(CommandStates.IsAgentPanelVisible, IsAgentPanelVisible),
                 new(CommandStates.IsPanelZoomed, RuntimeWorkspace?.ActiveTab?.ZoomedPanelId is not null),
             ];
+            AddWorkspaceState(state, FrontWorkspace);
+            state.Add(new(
+                CommandStates.CanExecute(BuiltInCommands.DeleteAgentConversation),
+                CurrentAgentConversation is not null));
             AddGitState(state, ActivePanel as GitRuntimePanelViewModel);
             return state;
         }
+    }
+
+    /// <summary>
+    /// The workspace in front, as the rail lists it: what the Workspace
+    /// menu's Edit Workspace…, Save Workspace Layout and Terminate
+    /// Workspace… act on. A rail tile's menu acts on its own tile instead.
+    /// </summary>
+    internal LauncherWorkspaceViewModel? FrontWorkspace =>
+        RuntimeWorkspace is { } runtime
+            ? Workspaces.FirstOrDefault(item => ReferenceEquals(
+                FindOpenWorkspace(new DefinitionKey(WorkspaceDefinition.Kind, item.Id.Value)),
+                runtime))
+            : null;
+
+    /// <summary>
+    /// The saved conversation the agent panel shows, while the agent is free
+    /// to delete it: what the menu bar's Delete Conversation… deletes.
+    /// </summary>
+    internal AgentConversationItemViewModel? CurrentAgentConversation =>
+        AgentChat is { IsBusy: false, ConversationDeletedByClear: { } conversation }
+            ? conversation
+            : null;
+
+    /// <summary>
+    /// Whether each Workspace menu item can run against the workspace in
+    /// front, as its rail tile's menu item can against the tile's.
+    /// </summary>
+    internal static void AddWorkspaceState(
+        ICollection<KeyValuePair<string, bool>> state,
+        LauncherWorkspaceViewModel? workspace)
+    {
+        state.Add(new(CommandStates.CanExecute(BuiltInCommands.EditWorkspace), workspace is not null));
+        state.Add(new(
+            CommandStates.CanExecute(BuiltInCommands.SaveWorkspaceLayout),
+            workspace?.CanSaveLayout == true));
+        state.Add(new(
+            CommandStates.CanExecute(BuiltInCommands.TerminateWorkspace),
+            workspace?.CanClose == true));
     }
 
     /// <summary>

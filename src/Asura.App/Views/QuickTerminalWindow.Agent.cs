@@ -184,7 +184,7 @@ public sealed partial class QuickTerminalWindow
 
     private async void OnDeleteAgentConversationClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: AgentRunId runId }
+        if (sender is Control { Tag: AgentRunId runId }
             && DataContext is QuickTerminalViewModel { AgentChat: { } agent }
             && agent.Conversations.FirstOrDefault(item => item.RunId == runId) is { } item
             && await Confirmations.AgentConversationDelete(item.Title).ShowDialog<bool>(this))
