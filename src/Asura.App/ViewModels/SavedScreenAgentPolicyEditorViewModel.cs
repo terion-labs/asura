@@ -613,10 +613,39 @@ public sealed class SavedScreenAgentPolicyEditorViewModel : ObservableObject, ID
 
                 if (SetProperty(ref _selectedOption, value))
                 {
+                    OnPropertyChanged(nameof(SelectedOptionIndex));
                     OnPropertyChanged(nameof(SelectedPermission));
                     OnPropertyChanged(nameof(IsOff));
                     OnPropertyChanged(nameof(IsAsk));
                     OnPropertyChanged(nameof(IsAuto));
+                }
+            }
+        }
+
+        /// <summary>
+        /// The chosen option's place in <see cref="Options"/>: the segment the
+        /// permission picker shows as chosen. A place outside the options, as
+        /// a picker reports while its segments are replaced, is ignored.
+        /// </summary>
+        public int SelectedOptionIndex
+        {
+            get
+            {
+                for (var index = 0; index < Options.Count; index++)
+                {
+                    if (Options[index] == SelectedOption)
+                    {
+                        return index;
+                    }
+                }
+
+                return -1;
+            }
+            set
+            {
+                if (value >= 0 && value < Options.Count)
+                {
+                    SelectedOption = Options[value];
                 }
             }
         }

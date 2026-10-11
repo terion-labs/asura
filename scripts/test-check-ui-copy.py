@@ -114,6 +114,100 @@ class Sample
         )
 
 
+class PopUpItemTests(unittest.TestCase):
+    """A pop-up button's items are menu items, so the lists that feed one take title case."""
+
+    def test_choices_items_source_and_option_lists_take_title_case(self):
+        source = '''
+class Sample
+{
+    public static IReadOnlyList<TimeoutOption> TimeoutOptions { get; } =
+    [
+        new("Never", 0),
+        new("After 1 minute", 1),
+    ];
+
+    private IReadOnlyList<string> _namespaceChoices = ["All namespaces"];
+
+    void Run()
+    {
+        Mode.ItemsSource = new[] { "Side by side", "Swipe" };
+        Show(new Field("preset", "Command", "New command", Choices: ["New command", .. saved]));
+        Show(new Field("action", "When done", "Run", Choices: saved ? ["Run", "Save without running"] : ["Run"]));
+        Show(new Field("strategy", "Strategy", Choices: [.. Enum.GetValues<Strategy>().Select(StrategyLabel)]));
+        Fields = ["Not a pop-up item"];
+    }
+
+    private static string StrategyLabel(Strategy strategy) => strategy switch
+    {
+        Strategy.FastForward => "Fast-forward only",
+        _ => "Merge",
+    };
+
+    private static string OtherLabel(Strategy strategy) => "Not in a pop-up";
+}
+'''
+        flagged = [
+            (finding.line, finding.fragment, finding.context)
+            for finding in findings("Sample.cs", source)
+            if finding.rule == "title-case"
+        ]
+        self.assertEqual(
+            [
+                (7, "minute", "C# TimeoutOptions item (a pop-up menu item)"),
+                (10, "namespaces", "C# NamespaceChoices item (a pop-up menu item)"),
+                (14, "side", "C# ItemsSource item (a pop-up menu item)"),
+                (15, "command", "C# Choices item (a pop-up menu item)"),
+                (16, "without", "C# Choices item (a pop-up menu item)"),
+                (16, "running", "C# Choices item (a pop-up menu item)"),
+                (23, "Fast-forward", "C# StrategyLabel() result (a pop-up menu item)"),
+                (23, "only", "C# StrategyLabel() result (a pop-up menu item)"),
+            ],
+            flagged,
+        )
+
+    def test_only_an_items_first_argument_is_its_title(self):
+        source = '''
+class Sample
+{
+    public IReadOnlyList<RetentionOption> RetentionOptions { get; } =
+    [
+        new("Private · 20 / 7 Days", "Keep at most 20 records for up to 7 days."),
+    ];
+}
+'''
+        self.assertEqual([], rules("Sample.cs", source))
+
+    def test_items_added_to_a_pop_up_list_take_title_case(self):
+        source = '''
+class Sample
+{
+    void Run(Policy stored)
+    {
+        RetentionOptions.Add(new RetentionOption($"Custom · {stored.Entries} / {stored.Days} days", "Keep up to {stored.Days} days."));
+        var option = new RetentionOption($"Custom · {stored.Days} days", "Keep up to {stored.Days} days.");
+        RetentionOptions.Add(option);
+        _namespaceChoices.Add("All namespaces");
+        Fields.Add("Not a pop-up item");
+        var other = new RetentionOption("Not a pop-up item", "Keep it.");
+    }
+}
+'''
+        flagged = [
+            (finding.line, finding.fragment, finding.context)
+            for finding in findings("Sample.cs", source)
+            if finding.rule == "title-case"
+        ]
+        self.assertEqual(
+            [
+                (6, "days", "C# RetentionOptions item (a pop-up menu item)"),
+                (7, "days", "C# RetentionOptions item (a pop-up menu item)"),
+                (9, "namespaces", "C# NamespaceChoices item (a pop-up menu item)"),
+            ],
+            flagged,
+        )
+
+
 class CopyRuleTests(unittest.TestCase):
     def test_british_spelling(self):
         source = axaml(
@@ -186,6 +280,39 @@ class Sample
                 ("secret-store", "OS keystore"),
                 ("secret-store", "OS vault"),
                 ("plural", "item(s)"),
+            ],
+            rules("Sample.cs", source),
+        )
+
+    def test_positional_record_arguments_are_read_for_spelling(self):
+        source = '''
+class Sample
+{
+    public static IReadOnlyList<IconOption> All { get; } =
+    [
+        new("building", "Organisation", Symbol.Building, "company office team"),
+        new("heart", "Favourites", Symbol.Heart, "liked favourite"),
+    ];
+
+    public static StatePresentation For(StateKind kind) => kind switch
+    {
+        StateKind.Cancelled =>
+            new(Symbol.Dismiss, SurfaceTone.Default, AutomationLiveSetting.Polite, "Cancelled"),
+        _ => new StatePresentation(Symbol.Info, "Grey"),
+    };
+
+    void Run()
+    {
+        var command = new SqliteCommand("CREATE TABLE colours (state TEXT CHECK (state IN ('Cancelled')))");
+    }
+}
+'''
+        self.assertEqual(
+            [
+                ("spelling", "Organisation"),
+                ("spelling", "Favourites"),
+                ("spelling", "Cancelled"),
+                ("spelling", "Grey"),
             ],
             rules("Sample.cs", source),
         )

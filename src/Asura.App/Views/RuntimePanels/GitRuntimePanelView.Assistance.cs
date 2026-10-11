@@ -55,7 +55,7 @@ public sealed partial class GitRuntimePanelView
         if (saved.Count > 0)
         {
             var selection = await ShowGitFormAsync("Repository Commands", "Continue…", "Choose a saved command or configure a new one.",
-                new GitWorkflowField("preset", "Command", "New command", Choices: ["New command", .. saved.Select(command => command.Name)]));
+                new GitWorkflowField("preset", "Command", "New Command", Choices: ["New Command", .. saved.Select(command => command.Name)]));
             if (selection is null)
             {
                 return;
@@ -71,17 +71,17 @@ public sealed partial class GitRuntimePanelView
                 new("name", "Save as (optional)", preset?.Name ?? "", Required: false),
                 new("executable", "Executable", preset?.Executable ?? "git"),
                 new("arguments", "Arguments, one per line", preset is null ? "status" : string.Join("\n", preset.Arguments), Required: false, Multiline: true),
-                new("action", "When done", "Run", Choices: preset is null ? ["Run", "Save without running"] : ["Run", "Save without running", "Delete saved command"]),
+                new("action", "When done", "Run", Choices: preset is null ? ["Run", "Save Without Running"] : ["Run", "Save Without Running", "Delete Saved Command"]),
             ])
         {
             // The button says which of the three the choice above it will do.
             ActionFor = current => current.GetValueOrDefault("action") switch
             {
-                "Save without running" => new GitWorkflowAction("Save"),
-                "Delete saved command" => new GitWorkflowAction("Delete Command", IsDestructive: true),
+                "Save Without Running" => new GitWorkflowAction("Save"),
+                "Delete Saved Command" => new GitWorkflowAction("Delete Command", IsDestructive: true),
                 _ => new GitWorkflowAction("Run"),
             },
-            Validate = current => string.Equals(current["action"], "Delete saved command", StringComparison.Ordinal)
+            Validate = current => string.Equals(current["action"], "Delete Saved Command", StringComparison.Ordinal)
                 ? null
                 : GitPreferenceRules.ExecutableError(current["executable"]) is { } problem
                     ? new GitWorkflowFieldError("executable", problem)
@@ -91,7 +91,7 @@ public sealed partial class GitRuntimePanelView
         {
             return;
         }
-        if (string.Equals(values["action"], "Delete saved command", StringComparison.Ordinal))
+        if (string.Equals(values["action"], "Delete Saved Command", StringComparison.Ordinal))
         {
             await viewModel.RemoveCustomCommandAsync(preset!.Name);
             return;
@@ -102,7 +102,7 @@ public sealed partial class GitRuntimePanelView
         {
             await viewModel.SaveCustomCommandAsync(new(values["name"], values["executable"], template));
         }
-        if (string.Equals(values["action"], "Save without running", StringComparison.Ordinal))
+        if (string.Equals(values["action"], "Save Without Running", StringComparison.Ordinal))
         {
             return;
         }

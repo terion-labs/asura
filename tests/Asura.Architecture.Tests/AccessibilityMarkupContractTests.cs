@@ -211,6 +211,40 @@ public sealed class AccessibilityMarkupContractTests
         }
     }
 
+    /// <summary>
+    /// A choice between a few values is the shared segmented control, so a
+    /// screen reader hears a radio group. The hand-built track around toggle
+    /// buttons announced each segment as a toggle button, and the segmented
+    /// tab strip no longer matched any view.
+    /// </summary>
+    [Fact]
+    public void Segmented_choices_use_the_shared_control()
+    {
+        foreach (var (path, document) in ApplicationMarkup())
+        {
+            var handBuilt = document.Descendants()
+                .Where(element =>
+                    (element.Name.LocalName is "Border" or "TabControl" && HasClass(element, "Segmented"))
+                    || (element.Name.LocalName == "ToggleButton" && HasClass(element, "Segment")))
+                .Select(element => $"{Relative(path)}:{((System.Xml.IXmlLineInfo)element).LineNumber}")
+                .ToArray();
+            Assert.True(handBuilt.Length == 0, "Use controls:SegmentedControl instead of: " + string.Join(", ", handBuilt));
+        }
+
+        var selectors = Theme("AsuraTheme.axaml").Descendants()
+            .Where(element => element.Name.LocalName == "Style")
+            .Select(element => Attribute(element, "Selector") ?? string.Empty)
+            .Where(selector => selector.Contains(".Segmented", StringComparison.Ordinal)
+                || selector.Contains("ToggleButton.Segment", StringComparison.Ordinal))
+            .ToArray();
+        Assert.True(selectors.Length == 0, "Remove the dead segment styles: " + string.Join(", ", selectors));
+    }
+
+    private static bool HasClass(XElement element, string name) =>
+        (Attribute(element, "Classes") ?? string.Empty)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Contains(name, StringComparer.Ordinal);
+
     private static bool IsNamed(XElement element)
     {
         if (Attribute(element, "AutomationProperties.Name") is not null

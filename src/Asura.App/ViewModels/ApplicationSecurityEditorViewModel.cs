@@ -17,10 +17,10 @@ public sealed class ApplicationSecurityEditorViewModel : ObservableObject
     public static IReadOnlyList<LockTimeoutOption> LockTimeoutOptions { get; } =
     [
         new("Never", 0),
-        new("After 1 minute", 1),
-        new("After 5 minutes", 5),
-        new("After 15 minutes", 15),
-        new("After 1 hour", 60),
+        new("After 1 Minute", 1),
+        new("After 5 Minutes", 5),
+        new("After 15 Minutes", 15),
+        new("After 1 Hour", 60),
     ];
 
     private readonly IApplicationEncryption? _encryption;

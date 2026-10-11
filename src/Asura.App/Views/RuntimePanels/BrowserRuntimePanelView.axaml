@@ -170,7 +170,7 @@
                   </ListBox.ItemTemplate>
                 </ListBox>
                 <TextBlock Text="{Binding HistoryStatus}" IsVisible="{Binding HistoryStatus, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}"
-                    Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" TextWrapping="Wrap" FontSize="{DynamicResource ShellFontSize10}" />
+                    Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" TextWrapping="Wrap" FontSize="{DynamicResource ShellSecondaryFontSize}" />
               </StackPanel>
             </Border>
           </Popup>

@@ -80,6 +80,16 @@ public sealed class WorkspaceIconCatalogTests
         Assert.Empty(WorkspaceIcons.Search("zzzznotanicon"));
     }
 
+    /// <summary>The picker shows these names, so they are written in US English.</summary>
+    [Theory]
+    [InlineData("building", "Organization")]
+    [InlineData("heart", "Favorites")]
+    public void Icon_names_use_us_spelling(string id, string name)
+    {
+        Assert.Equal(name, WorkspaceIcons.All.Single(icon => string.Equals(icon.Id, id, StringComparison.Ordinal)).Name);
+        Assert.Contains(WorkspaceIcons.Search(name), icon => string.Equals(icon.Id, id, StringComparison.Ordinal));
+    }
+
     /// <summary>
     /// The presets are an identity palette: two that read alike at tab size would
     /// make two workspaces indistinguishable.

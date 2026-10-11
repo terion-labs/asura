@@ -810,7 +810,6 @@
                           <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                             <TextBlock
                                 Classes="Eyebrow Accent"
-                                FontSize="{DynamicResource ShellFontSize10}"
                                 Text="{Binding Kind}" />
                             <TextBlock
                                 FontWeight="SemiBold"

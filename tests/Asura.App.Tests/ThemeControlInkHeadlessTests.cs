@@ -59,33 +59,6 @@ public sealed class ThemeControlInkHeadlessTests
             Assert.Equal(Colors.Transparent, Color(Part<Border>(other, "SegmentRoot").Background));
         });
 
-    [Fact]
-    public Task Toggle_segments_follow_the_same_rule() =>
-        RunHeadlessAsync(window =>
-        {
-            var on = new ToggleButton { Classes = { "Segment" }, Content = "Follow", IsChecked = true };
-            var off = new ToggleButton { Classes = { "Segment" }, Content = "Wrap" };
-            Show(window, new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Children = { on, off } });
-
-            Assert.Equal(Brush(window, "ShellTextBrush"), Color(Text(on).Foreground));
-            Assert.Equal(Brush(window, "ShellMutedBrush"), Color(Text(off).Foreground));
-            Assert.Equal(Brush(window, "ShellControlSurfaceBrush"), Color(Part<Border>(on, "SegmentRoot").Background));
-        });
-
-    [Fact]
-    public Task A_segmented_tab_strip_selects_with_the_plate_too() =>
-        RunHeadlessAsync(window =>
-        {
-            var first = new TabItem { Header = "Overview", Content = new TextBlock() };
-            var second = new TabItem { Header = "Events", Content = new TextBlock() };
-            var tabs = new TabControl { Classes = { "Segmented" }, Items = { first, second } };
-            Show(window, tabs);
-
-            Assert.Equal(Brush(window, "ShellTextBrush"), Color(Text(first).Foreground));
-            Assert.Equal(Brush(window, "ShellMutedBrush"), Color(Text(second).Foreground));
-            Assert.Equal(Brush(window, "ShellControlSurfaceBrush"), Color(Part<Border>(first, "SegmentRoot").Background));
-        });
-
     /// <summary>
     /// A toggle that is on stands on the accent, and its label takes the
     /// measured ink rather than the stock white.

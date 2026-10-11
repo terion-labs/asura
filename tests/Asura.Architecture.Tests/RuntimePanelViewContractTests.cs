@@ -1083,7 +1083,9 @@ public sealed class RuntimePanelViewContractTests
         Assert.DoesNotContain(
             root.Descendants(),
             element => AttributeValue(element, "Command") is "{Binding ConnectCommand}" or "{Binding DisconnectCommand}");
-        Assert.Equal("26", AttributeValue(connection, "Height"));
+        // A floor that grows with the text, not a fixed 26 that clips at 200%.
+        Assert.Null(AttributeValue(connection, "Height"));
+        Assert.Equal("{controls:TextScaled 26}", AttributeValue(connection, "MinHeight"));
         Assert.Equal("{controls:Inset Horizontal=Md}", AttributeValue(connection, "Padding"));
         Assert.Equal("Center", AttributeValue(connection, "VerticalAlignment"));
         Assert.Equal("Center", AttributeValue(connection, "VerticalContentAlignment"));

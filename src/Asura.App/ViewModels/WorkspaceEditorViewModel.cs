@@ -220,13 +220,6 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>The same choice from the other segment of the picker.</summary>
-    public bool FollowsApplicationNetwork
-    {
-        get => !_overridesNetworkSettings;
-        set => OverridesNetworkSettings = !value;
-    }
-
     public string InheritedNetworkSummary =>
         NetworkPolicySummary(_applicationNetworkSettings.Policy);
 
@@ -1332,7 +1325,6 @@ public sealed class WorkspaceEditorViewModel : ObservableObject, IDisposable
 
     private void PublishNetworkMode()
     {
-        OnPropertyChanged(nameof(FollowsApplicationNetwork));
         OnPropertyChanged(nameof(InheritedNetworkSummary));
         OnPropertyChanged(nameof(NetworkModeSummary));
     }

@@ -98,9 +98,16 @@ public sealed class SettingsViewContractTests
         Assert.Equal("False", AttributeValue(expander, "IsExpanded"));
         Assert.Equal("Tool permissions", AttributeValue(expander, "Header"));
         Assert.Equal("Default agent tool permissions", AttributeValue(expander, "AutomationProperties.Name"));
-        Assert.Equal(["{Binding IsOff, Mode=TwoWay}", "{Binding IsAsk, Mode=TwoWay}", "{Binding IsAuto, Mode=TwoWay}"],
-            permissions.Descendants().Where(element => string.Equals(element.Name.LocalName, "ToggleButton", StringComparison.Ordinal))
-                .Select(element => AttributeValue(element, "IsChecked")), StringComparer.Ordinal);
+        // One choice of three values: the shared segmented control, whose
+        // segments a screen reader hears as a radio group.
+        var picker = Assert.Single(permissions.Descendants(), element => string.Equals(
+            element.Name.LocalName, "SegmentedControl", StringComparison.Ordinal));
+        Assert.Equal("{Binding SelectedOptionIndex, Mode=TwoWay}", AttributeValue(picker, "SelectedIndex"));
+        Assert.Equal(["Off", "Ask", "Auto"],
+            picker.Elements().Where(element => string.Equals(element.Name.LocalName, "RadioButton", StringComparison.Ordinal))
+                .Select(element => AttributeValue(element, "Content")), StringComparer.Ordinal);
+        Assert.DoesNotContain(permissions.Descendants(), element => string.Equals(
+            element.Name.LocalName, "ToggleButton", StringComparison.Ordinal));
         var model = Assert.Single(settings.Descendants(), element => string.Equals(
             AttributeValue(element, "AutomationProperties.Name"), "Default AI model", StringComparison.Ordinal));
         Assert.DoesNotContain(expander, model.Ancestors());

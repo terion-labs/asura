@@ -155,7 +155,7 @@
           <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
             <ComboBox
                 MinWidth="96"
-                Height="26"
+                MinHeight="{controls:TextScaled 26}"
                 VerticalAlignment="Center"
                 ItemsSource="{Binding Databases}"
                 SelectedItem="{Binding SelectedDatabase, Mode=TwoWay}"
@@ -178,7 +178,7 @@
             <Button
                 x:Name="ConnectionButton"
                 MinWidth="96"
-                Height="26"
+                MinHeight="{controls:TextScaled 26}"
                 Padding="{controls:Inset Horizontal=Md}"
                 VerticalAlignment="Center"
                 VerticalContentAlignment="Center"

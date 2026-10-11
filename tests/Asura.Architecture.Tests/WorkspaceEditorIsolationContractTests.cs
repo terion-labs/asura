@@ -149,13 +149,20 @@ public sealed class WorkspaceEditorIsolationContractTests
         var guestPath = FindAccessibleElement(mountRow, "Path inside the environment");
         Assert.Equal("{Binding GuestPath, Mode=TwoWay}", AttributeValue(guestPath, "Text"));
         var readOnly = FindAccessibleElement(mountRow, "Mount host path read only");
-        Assert.Equal("{Binding IsReadOnly, Mode=TwoWay}", AttributeValue(readOnly, "IsChecked"));
         var readWrite = FindAccessibleElement(mountRow, "Mount host path read and write");
-        Assert.Equal("{Binding IsReadWrite, Mode=TwoWay}", AttributeValue(readWrite, "IsChecked"));
         // A radio cannot be clicked off, so a mount always has exactly one
-        // access level; a toggle segment could be left with neither.
+        // access level; a toggle segment could be left with neither. The
+        // shared segmented control holds them and is bound by index, Read &
+        // Write second.
         Assert.Equal("RadioButton", readOnly.Name.LocalName);
         Assert.Equal("RadioButton", readWrite.Name.LocalName);
+        var access = Assert.IsType<XElement>(readOnly.Parent);
+        Assert.Same(access, readWrite.Parent);
+        Assert.Equal("SegmentedControl", access.Name.LocalName);
+        Assert.Equal(
+            "{Binding IsReadWrite, Mode=TwoWay, Converter={x:Static controls:SegmentedControl.SecondWhenTrue}}",
+            AttributeValue(access, "SelectedIndex"));
+        Assert.Equal([readOnly, readWrite], access.Elements());
         Assert.Equal("True", AttributeValue(mountRow, "IsStacked"));
         var browse = FindAccessibleElement(mountRow, "Choose a host folder");
         Assert.Equal("OnBrowseIsolationMountHostPathClick", AttributeValue(browse, "Click"));

@@ -254,7 +254,7 @@ public sealed partial class GitRuntimePanelView
     /// <summary>What the pull strategy pop-up shows for each strategy, in place of its enum name.</summary>
     private static string PullStrategyLabel(GitPullStrategy strategy) => strategy switch
     {
-        GitPullStrategy.FastForward => "Fast-forward only",
+        GitPullStrategy.FastForward => "Fast-Forward Only",
         GitPullStrategy.Merge => "Merge",
         GitPullStrategy.Rebase => "Rebase",
         _ => throw new ArgumentOutOfRangeException(nameof(strategy), strategy, null),
@@ -383,11 +383,11 @@ public sealed partial class GitRuntimePanelView
         }
 
         var keys = await viewModel.ReadSigningKeysAsync();
-        const string manualKey = "Enter a key below";
+        const string manualKey = "Enter a Key Below";
         var keyChoices = new[] { manualKey }.Concat(keys.Select(key => key.Fingerprint + " · " + key.Identity)).ToArray();
         var values = await ShowGitFormAsync("Repository Identity and Signing", "Save",
             "These are the Git settings in effect, including global values. Repository overrides apply only to this repository. If signing fails, your commit message is kept.",
-            new("mode", "Settings source", "Repository overrides", Choices: ["Repository overrides", "Inherit global settings"]),
+            new("mode", "Settings source", "Repository Overrides", Choices: ["Repository Overrides", "Inherit Global Settings"]),
             new("name", "Author name", identity.Name), new("email", "Author email", identity.Email),
             GitWorkflowField.CheckBox("sign", "Sign commits", identity.SignCommits),
             new("selectedKey", "Available signing keys", manualKey, Choices: keyChoices),
@@ -396,7 +396,7 @@ public sealed partial class GitRuntimePanelView
         {
             return;
         }
-        if (string.Equals(values["mode"], "Inherit global settings", StringComparison.Ordinal))
+        if (string.Equals(values["mode"], "Inherit Global Settings", StringComparison.Ordinal))
         {
             await viewModel.ResetIdentityAsync();
             return;

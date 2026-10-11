@@ -24,7 +24,7 @@ public sealed partial class GitImageDiffView : UserControl
     public GitImageDiffView()
     {
         InitializeComponent();
-        Mode.ItemsSource = new[] { "Side by side", "Onion skin", "Swipe", "Pixel difference" };
+        Mode.ItemsSource = new[] { "Side by Side", "Onion Skin", "Swipe", "Pixel Difference" };
         Mode.SelectedIndex = 0;
         DetachedFromVisualTree += (_, _) => ClearImages();
     }

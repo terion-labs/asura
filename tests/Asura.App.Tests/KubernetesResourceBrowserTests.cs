@@ -125,12 +125,12 @@ public sealed class KubernetesResourceBrowserTests
             _ => ValueTask.FromResult<IKubernetesClientSession>(client));
         await panel.Initialization;
         Assert.Equal("configured", panel.NamespaceSelection);
-        Assert.Contains("All namespaces", panel.NamespaceChoices, StringComparer.Ordinal);
+        Assert.Contains("All Namespaces", panel.NamespaceChoices, StringComparer.Ordinal);
         Assert.Contains("configured", panel.NamespaceChoices, StringComparer.Ordinal);
         Assert.Contains("restricted", panel.NamespaceChoices, StringComparer.Ordinal);
         Assert.Equal(!denied, panel.NamespaceChoices.Contains("discovered", StringComparer.Ordinal));
         Assert.Null(panel.Issue);
-        panel.NamespaceSelection = "All namespaces";
+        panel.NamespaceSelection = "All Namespaces";
         await panel.SelectionLoading;
         Assert.Equal(string.Empty, panel.Namespace);
         Assert.Contains("configured", panel.NamespaceChoices, StringComparer.Ordinal);

@@ -42,28 +42,30 @@
       <Setter Property="Background" Value="Transparent" />
     </Style>
 
-    <!-- One control height for the whole panel: the connection pill's 26px, the
-         same rule the database toolbar follows. The kit's push button, text
-         field and dense variants are 32, 28 and 24 tall, and a row that mixes
-         them never lines up. Multi-line fields keep their own height. -->
+    <!-- One control height for the whole panel: the connection pill's 26 at
+         body text, the same rule the database toolbar follows. The kit's push
+         button, text field and dense variants are 32, 28 and 24 tall, and a
+         row that mixes them never lines up. The height grows with the text
+         size, or 22-point text at 200% clips in a 26-point box. Multi-line
+         fields keep their own height. -->
     <Style Selector="Button.PrimaryButton, Button.SecondaryButton, Button.DestructiveButton, Button.TextButton, Button.PanelPicker, ToggleButton.KubernetesFollowToggle">
-      <Setter Property="Height" Value="26" />
-      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="Height" Value="{controls:TextScaled 26}" />
+      <Setter Property="MinHeight" Value="{controls:TextScaled 26}" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Md}" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
     </Style>
     <Style Selector="ComboBox">
-      <Setter Property="Height" Value="26" />
-      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="Height" Value="{controls:TextScaled 26}" />
+      <Setter Property="MinHeight" Value="{controls:TextScaled 26}" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Md}" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
     </Style>
     <Style Selector="TextBox">
-      <Setter Property="Height" Value="26" />
-      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="Height" Value="{controls:TextScaled 26}" />
+      <Setter Property="MinHeight" Value="{controls:TextScaled 26}" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Md}" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />

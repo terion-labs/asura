@@ -34,7 +34,7 @@
       <TextBlock x:Name="RecorderStatusText" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Tab moves to the controls; Escape cancels." TextAlignment="Center" />
       <TextBlock
           x:Name="ReservedShortcutText"
-          FontSize="{DynamicResource ShellFontSize10}"
+          FontSize="{DynamicResource ShellSecondaryFontSize}"
           Foreground="{DynamicResource ShellWarningBrush}"
           IsVisible="False"
           TextAlignment="Center"

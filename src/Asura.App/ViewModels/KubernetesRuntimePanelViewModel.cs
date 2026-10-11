@@ -54,7 +54,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
         _namespace = target is not null ? target.NamespaceName ?? string.Empty : profile?.DefaultNamespace ?? "default";
         // The view can attach while the first API requests are still pending.
         // Its configured scope must already be selectable before discovery adds choices.
-        _namespaceChoices = string.IsNullOrWhiteSpace(_namespace) ? ["All namespaces"] : ["All namespaces", _namespace.Trim()];
+        _namespaceChoices = string.IsNullOrWhiteSpace(_namespace) ? ["All Namespaces"] : ["All Namespaces", _namespace.Trim()];
         _refreshCommand = new(RefreshAsync, () => !_disposed && !IsBusy && _connect is not null && !HasUnsavedChanges);
         _logsCommand = new(LoadLogsAsync, () => !_disposed && !IsBusy && CanReadLogs);
         _moreCommand = new(LoadMoreAsync, () => !_disposed && !IsBusy && HasMore);

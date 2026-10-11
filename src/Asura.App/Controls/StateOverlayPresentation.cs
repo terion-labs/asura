@@ -87,7 +87,7 @@ internal sealed record StateOverlayPresentation(
                 AutomationLiveSetting.Assertive, "Failed"),
         StateOverlayKind.Cancelled =>
             new(Symbol.Dismiss, SurfaceTone.Default, StateOverlayLayout.Neutral,
-                AutomationLiveSetting.Polite, "Cancelled"),
+                AutomationLiveSetting.Polite, "Canceled"),
         // The host's caution mark, not a trash can: not every irreversible
         // action deletes something, and the alert that asks badges the app's
         // icon with this rather than replacing it.

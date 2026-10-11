@@ -11,9 +11,9 @@
     Focusable="False">
   <Button
       x:Name="SelectorButton"
-      Height="26"
-      MinWidth="74"
-      MaxWidth="180"
+      MinHeight="{controls:TextScaled 26}"
+      MinWidth="{controls:TextScaled 74}"
+      MaxWidth="{controls:TextScaled 180}"
       Padding="{controls:Inset Left=Md, Right=Sm}"
       HorizontalContentAlignment="Stretch"
       Background="{DynamicResource ShellSurfaceRaisedBrush}"
@@ -24,7 +24,7 @@
     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
       <TextBlock
           VerticalAlignment="Center"
-          FontSize="{DynamicResource ShellFontSize10}"
+          FontSize="{DynamicResource ShellFontSize12}"
           FontWeight="SemiBold"
           Text="{Binding SelectedLabel, ElementName=Root}"
           TextTrimming="CharacterEllipsis" />
@@ -71,7 +71,6 @@
                           <TextBlock
                               VerticalAlignment="Center"
                               Classes="Eyebrow"
-                              FontSize="{DynamicResource ShellFontSize10}"
                               Text="{Binding Kind}" />
                         </controls:ListItem.Trailing>
                       </controls:ListItem>

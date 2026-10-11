@@ -27,7 +27,7 @@ public sealed class GitImageDiffViewHeadlessTests
                 window.Show();
                 var mode = view.FindControl<ComboBox>("Mode")!;
                 var image = view.FindControl<Image>("After")!;
-                mode.SelectedItem = "Pixel difference";
+                mode.SelectedItem = "Pixel Difference";
                 var first = await WaitForBitmapAsync(image, timeout.Token);
                 var firstPixel = FirstPixel(first);
                 Assert.Equal(SKColors.Red, firstPixel);
@@ -35,7 +35,7 @@ public sealed class GitImageDiffViewHeadlessTests
                 // A new selection changes the image pair without another mode
                 // gesture. The displayed difference must belong to that pair.
                 view.ImagePair = new(before, ImageVersion(SKColors.Blue, "After"));
-                Assert.Equal("Pixel difference", mode.SelectedItem);
+                Assert.Equal("Pixel Difference", mode.SelectedItem);
                 var second = await WaitForBitmapAsync(image, timeout.Token);
 
                 Assert.NotSame(first, second);
