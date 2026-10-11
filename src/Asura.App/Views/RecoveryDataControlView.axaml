@@ -38,7 +38,7 @@
       <controls:Callout
           Tone="Notice"
           Glyph="Shield"
-          Text="Only snapshots from previous runs are shown here. The current run is protected." />
+          Text="Asura keeps these to reopen your work after a crash. This run’s own snapshot isn’t listed." />
 
       <!-- One state at a time: loading, nothing to show, couldn't load, or
            the list with its summary line. -->
