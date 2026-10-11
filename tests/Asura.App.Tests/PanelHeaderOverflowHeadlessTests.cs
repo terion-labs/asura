@@ -243,6 +243,42 @@ public sealed class PanelHeaderOverflowHeadlessTests
         }, timeout.Token));
     }
 
+    /// <summary>
+    /// A view's XAML fills the header's slots before the view is in a window.
+    /// Weighing a slot then must not style it from the detached tree: a
+    /// control is styled once, so a toolbar's icon buttons would keep the
+    /// theme's text padding and rounded fills for good.
+    /// </summary>
+    [Fact]
+    public async Task HeaderActionsSetBeforeTheWindowTakeTheApplicationStyles()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        Assert.True(await session.Dispatch(() =>
+        {
+            var action = new Button { Classes = { "IconButton", "ToolbarGroupAction" } };
+            var group = new Border { Classes = { "ToolbarGroup" }, Child = action };
+            var chrome = new PanelChrome { Title = "Files", Actions = group, Leading = new TextBlock { Text = "Local" } };
+            var window = new Window { Content = chrome, Width = 900, Height = 400 };
+            window.Show();
+            try
+            {
+                window.UpdateLayout();
+                Assert.True(action.IsEffectivelyVisible);
+                Assert.Equal(32, action.Width);
+                Assert.Equal(32, action.Height);
+                Assert.Equal(default, action.Padding);
+                Assert.Equal(default, action.CornerRadius);
+            }
+            finally
+            {
+                window.Close();
+            }
+
+            return Task.FromResult(true);
+        }, timeout.Token));
+    }
+
     private static MenuItem Item(PanelChrome chrome, string header) =>
         chrome.HeaderOverflowMenu!.Items.OfType<MenuItem>().Single(item => Equals(item.Header, header));
 }
