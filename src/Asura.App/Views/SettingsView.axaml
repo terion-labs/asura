@@ -310,6 +310,7 @@
                           <controls:ListItem.ContextMenu>
                             <ContextMenu>
                               <MenuItem Header="Edit…" Click="OnEditWorkspaceClick" />
+                              <Separator />
                               <MenuItem Header="Delete" Click="OnDeleteWorkspaceClick" IsEnabled="{Binding CanDelete}" />
                             </ContextMenu>
                           </controls:ListItem.ContextMenu>
@@ -381,6 +382,7 @@
                           <controls:ListItem.ContextMenu>
                             <ContextMenu>
                               <MenuItem Header="Edit…" Click="OnEditScreenClick" />
+                              <Separator />
                               <MenuItem Header="Delete" Click="OnDeleteScreenClick" />
                             </ContextMenu>
                           </controls:ListItem.ContextMenu>
@@ -688,6 +690,7 @@
                           <controls:ListItem.ContextMenu>
                             <ContextMenu>
                               <MenuItem Header="Edit…" Click="OnEditFileProviderClick" />
+                              <Separator />
                               <MenuItem Header="Delete" Click="OnDeleteFileProviderClick" />
                             </ContextMenu>
                           </controls:ListItem.ContextMenu>
@@ -1412,6 +1415,7 @@
                           <Grid.ContextMenu>
                             <ContextMenu>
                               <MenuItem Header="Edit…" Click="OnEditSecretClick" />
+                              <Separator />
                               <MenuItem Header="Delete…" Click="OnDeleteSecretClick" />
                             </ContextMenu>
                           </Grid.ContextMenu>
@@ -1660,6 +1664,7 @@
                           <Grid.ContextMenu>
                             <ContextMenu>
                               <MenuItem Header="Edit…" Click="OnEditAiProviderClick" />
+                              <Separator />
                               <MenuItem Header="Delete…" Click="OnDeleteAiProviderClick" />
                             </ContextMenu>
                           </Grid.ContextMenu>
@@ -1796,6 +1801,7 @@
                           <Grid.ContextMenu>
                             <ContextMenu>
                               <MenuItem Header="Edit…" Click="OnEditMcpServerClick" />
+                              <Separator />
                               <MenuItem Header="Delete…" Click="OnDeleteMcpServerClick" />
                             </ContextMenu>
                           </Grid.ContextMenu>

@@ -127,6 +127,7 @@
                 <controls:ListItem.ContextMenu>
                   <ContextMenu>
                     <MenuItem Header="Edit…" Click="OnEditProfileClick" />
+                    <Separator />
                     <MenuItem Header="Delete…" Click="OnDeleteProfileClick" />
                   </ContextMenu>
                 </controls:ListItem.ContextMenu>
