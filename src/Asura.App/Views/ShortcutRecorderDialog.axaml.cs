@@ -87,6 +87,9 @@ public sealed partial class ShortcutRecorderDialog : DialogWindow
             _strokes.RemoveAt(_strokes.Count - 1);
             Refresh();
         }
+
+        // The status line asks for the next key press, which the capture area records.
+        this.FindControl<SurfaceCard>("CaptureArea")?.Focus();
     }
 
     private void OnClearClick(object? sender, RoutedEventArgs e)
