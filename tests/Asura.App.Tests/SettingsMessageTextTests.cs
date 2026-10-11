@@ -32,6 +32,17 @@ public sealed class SettingsMessageTextTests
     }
 
     [Fact]
+    public void A_refused_credential_label_says_why()
+    {
+        Assert.Equal(
+            "That label is too long. Use 256 characters or fewer, then try again.",
+            SecretSettingsViewModel.RelabelRefusal(new ArgumentOutOfRangeException("label", 300, "A secret label cannot exceed 256 characters.")));
+        Assert.Equal(
+            "Enter a label for the credential, then try again.",
+            SecretSettingsViewModel.RelabelRefusal(new ArgumentException("The value cannot be an empty string or composed entirely of whitespace. (Parameter 'label')")));
+    }
+
+    [Fact]
     public void The_saved_appearance_names_its_mode_and_platform()
     {
         Assert.Equal("Match system", AppearanceSettingsViewModel.ModeLabel(AppearanceMode.System));

@@ -104,7 +104,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             else { OperationDescription = "Asura couldn't prepare a review of this change, so it can't be confirmed. Try again."; }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (KubernetesRequestException exception) { PresentError(exception); }
+        catch (KubernetesRequestException exception) { PresentError(exception, KubernetesActivity.ResourceChange); }
         finally { if (!_disposed) { IsBusy = false; } }
     }
     public async Task ConfirmOperationAsync()
@@ -123,7 +123,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             };
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (KubernetesRequestException exception) { PresentError(exception); }
+        catch (KubernetesRequestException exception) { PresentError(exception, KubernetesActivity.ResourceChange); }
         finally { if (!_disposed) { IsBusy = false; } }
     }
     private void ClearOperationReview()

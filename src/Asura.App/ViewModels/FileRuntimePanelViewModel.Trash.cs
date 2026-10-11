@@ -190,20 +190,20 @@ public sealed partial class FileRuntimePanelViewModel
         var name = Path.GetFileName(item.OriginalPath);
         if (exception is UnauthorizedAccessException)
         {
-            return $"“{name}” couldn't be put back because you don't have permission to change the folder it came from.";
+            return $"“{name}” couldn't be put back because you don't have permission to change the folder it came from. Check the folder's permissions, then choose Undo again.";
         }
 
         if (File.Exists(item.OriginalPath) || Directory.Exists(item.OriginalPath))
         {
-            return $"“{name}” couldn't be put back because an item with that name is already in the folder it came from.";
+            return $"“{name}” couldn't be put back because an item with that name is already in the folder it came from. Rename or move that item, then choose Undo again.";
         }
 
         if (item.TrashedPath is not { } trashed
             || !(File.Exists(trashed) || Directory.Exists(trashed)))
         {
-            return $"“{name}” couldn't be put back because it's no longer in the Trash.";
+            return $"“{name}” couldn't be put back because it's no longer in the Trash. Refresh the folder to see whether it's already back.";
         }
 
-        return $"“{name}” couldn't be put back from the Trash.";
+        return $"“{name}” couldn't be put back from the Trash. Choose Undo again, or open the Trash and put it back from there.";
     }
 }

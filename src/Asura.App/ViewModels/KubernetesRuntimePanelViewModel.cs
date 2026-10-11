@@ -193,6 +193,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
         IsBusy = true;
         Issue = null;
         var generation = ++_generation;
+        var activity = KubernetesActivity.Connect;
         try
         {
             Status = "Connecting…";
@@ -205,6 +206,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
                 OnPropertyChanged(nameof(HasMetrics)); OnPropertyChanged(nameof(HasHelm));
                 OnPropertyChanged(nameof(IsHelmNavigationVisible)); OnPropertyChanged(nameof(HasNavigationMatches));
             }
+            activity = KubernetesActivity.Request;
             if (Kinds.Count == 0)
             {
                 var discovery = await _session.DiscoverAsync(_lifetime.Token);
@@ -239,7 +241,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
             Status = TableStatus(page.IsTruncated || page.ContinueToken is not null ? "Results limited" : null);
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (KubernetesRequestException exception) { PresentError(exception); }
+        catch (KubernetesRequestException exception) { PresentError(exception, activity); }
         finally
         {
             if (!_disposed)
@@ -348,7 +350,14 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
         KubernetesRequestException exception,
         KubernetesActivity activity = KubernetesActivity.Request)
     {
-        Status = ErrorStatus(exception.Code);
+        // A refused change leaves the table as it was; a refused browse names
+        // the request, not the connection, unless the connection never opened.
+        if (!KubernetesErrorText.IsRefusedChange(exception, activity))
+        {
+            Status = exception.Code == KubernetesErrorCode.InvalidConfiguration && activity != KubernetesActivity.Connect
+                ? "Request not sent"
+                : ErrorStatus(exception.Code);
+        }
         Issue = KubernetesErrorText.Describe(exception, activity);
     }
 

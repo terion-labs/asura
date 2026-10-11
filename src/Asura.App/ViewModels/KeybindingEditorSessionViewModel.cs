@@ -235,9 +235,12 @@ public sealed class KeybindingEditorSessionViewModel : ObservableObject, IDispos
         {
             return _editor.CreateSaveRequest();
         }
-        catch (InvalidOperationException exception)
+        catch (InvalidOperationException exception) when (!_editor.CanSave)
         {
-            // The editor's refusal names the conflicts to resolve, in words.
+            // Only the conflict refusal is written for people: it names the
+            // conflicts to resolve. Any other failure is an internal check
+            // ("Keybinding row '…' has no command metadata.") and is left
+            // unmarked, so the caller shows its own sentence instead.
             throw FailureReason.Readable(exception);
         }
     }

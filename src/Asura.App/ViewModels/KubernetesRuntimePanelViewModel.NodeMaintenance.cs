@@ -112,7 +112,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (KubernetesRequestException exception) { PresentError(exception); }
+        catch (KubernetesRequestException exception) { PresentError(exception, KubernetesActivity.NodeMaintenance); }
         finally { if (!_disposed) { IsBusy = false; } }
     }
     public async Task ReviewNodeDrainAsync()
@@ -131,7 +131,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             PublishNodeState();
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (KubernetesRequestException exception) { PresentError(exception); }
+        catch (KubernetesRequestException exception) { PresentError(exception, KubernetesActivity.NodeMaintenance); }
         finally { if (!_disposed) { IsBusy = false; } }
     }
     public async Task ConfirmNodeAsync()
@@ -156,7 +156,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (KubernetesRequestException exception) { PresentError(exception); }
+        catch (KubernetesRequestException exception) { PresentError(exception, KubernetesActivity.NodeMaintenance); }
         finally { if (!_disposed) { IsBusy = false; } }
     }
     private void ClearNodeReview()

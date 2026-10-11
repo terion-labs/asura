@@ -230,6 +230,15 @@ public sealed class SecretSettingsViewModel : ObservableObject, IDisposable
         return true;
     }
 
+    /// <summary>
+    /// Why a new label was refused: the request accepts a label that isn't
+    /// empty and is at most 256 characters long, and throws
+    /// <see cref="ArgumentOutOfRangeException"/> only for the length.
+    /// </summary>
+    internal static string RelabelRefusal(ArgumentException exception) => exception is ArgumentOutOfRangeException
+        ? "That label is too long. Use 256 characters or fewer, then try again."
+        : "Enter a label for the credential, then try again.";
+
     public async ValueTask<bool> RelabelAsync(
         SecretMetadataViewModel secret,
         string label,
@@ -254,7 +263,7 @@ public sealed class SecretSettingsViewModel : ObservableObject, IDisposable
             return Fail(FailureReason.Refusal(
                 "secret.relabel.refused",
                 exception,
-                "That label is too long for the credential. Enter a shorter one, then try again."));
+                RelabelRefusal(exception)));
         }
 
         if (result is SecretVaultResult<SecretMetadata>.Failure failure)

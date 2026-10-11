@@ -139,7 +139,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
         {
             _reviewedManifest = null;
             _reviewedResource = null;
-            PresentError(exception);
+            PresentError(exception, KubernetesActivity.ManifestEdit);
         }
         finally { if (!_disposed) { IsBusy = false; } }
     }
