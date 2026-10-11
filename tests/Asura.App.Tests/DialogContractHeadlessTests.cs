@@ -434,6 +434,35 @@ public sealed class DialogContractHeadlessTests
         });
     }
 
+    /// <summary>
+    /// An alert states what its action does, not which button to press: the
+    /// trust alert spoke of "confirming" when its button says Trust
+    /// Repository and no button says Confirm.
+    /// </summary>
+    [Fact]
+    public async Task Trust_repository_alert_states_the_consequence_not_its_button()
+    {
+        await RunAsync(() =>
+        {
+            var dialog = Confirmations.GitTrustRepository("/srv/repo");
+
+            Assert.Equal("Trust Repository", dialog.ConfirmLabel);
+            foreach (var text in new[] { dialog.Detail, dialog.Notice ?? string.Empty })
+            {
+                Assert.DoesNotContain("confirm", text, StringComparison.OrdinalIgnoreCase);
+            }
+
+            Assert.Contains(
+                "Asura runs git config --global --add safe.directory /srv/repo for the signed-in user on that machine.",
+                dialog.Detail,
+                StringComparison.Ordinal);
+            Assert.Equal(
+                "Git will then trust the repository's local configuration. Trust only repositories you control.",
+                dialog.Notice);
+            return Task.CompletedTask;
+        });
+    }
+
     [Fact]
     public async Task Git_form_says_its_verb_and_draws_options_as_checkboxes()
     {

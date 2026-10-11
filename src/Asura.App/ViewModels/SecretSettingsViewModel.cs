@@ -434,12 +434,10 @@ public sealed class SecretSettingsViewModel : ObservableObject, IDisposable
             metadata.Label,
             KindLabel(metadata.Kind),
             ScopeLabel(metadata.Scope.Kind),
-            metadata.UpdatedAt.ToLocalTime().ToString(
-                "g",
-                System.Globalization.CultureInfo.InvariantCulture),
-            metadata.LastUsedAt?.ToLocalTime().ToString(
-                "g",
-                System.Globalization.CultureInfo.InvariantCulture) ?? "Never",
+            // In the reader's own date style, as Files, Git and the agent
+            // write a moment.
+            DisplayDates.Format(metadata.UpdatedAt),
+            DisplayDates.Format(metadata.LastUsedAt, "Never"),
             metadata.Scope,
             dependencies.Length == 0
                 ? "Not used by any saved item"
