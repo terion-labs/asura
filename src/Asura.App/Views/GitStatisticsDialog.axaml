@@ -1,11 +1,27 @@
-<controls:DialogWindow x:Class="Asura.App.Views.GitStatisticsDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:Asura.App.Controls" Width="850" Height="650" Presentation="Inspector">
+<controls:DialogWindow x:Class="Asura.App.Views.GitStatisticsDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:Asura.App.Controls" xmlns:views="using:Asura.App.Views" Width="850" Height="650" Presentation="Inspector">
   <!-- An inspector: consulted while working, so it opens beside the panel
        without blocking it and closes with ⌘W or Escape, like any window. -->
   <controls:DialogShell Title="Repository Statistics" Scrolls="False" Subtitle="Tracked blob sizes at HEAD. Each rectangle represents a top-level folder; submodule contents are counted in their own repository.">
-    <Grid RowDefinitions="Auto,2*,*" RowSpacing="{DynamicResource ShellSpaceSm}">
+    <Grid RowDefinitions="Auto,2*,Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
       <TextBlock x:Name="Summary" />
       <Canvas x:Name="Treemap" Grid.Row="1" SizeChanged="OnTreemapSize" AutomationProperties.Name="Repository size treemap" />
-      <TextBox x:Name="Contributors" Grid.Row="2" IsReadOnly="True" AcceptsReturn="True" AutomationProperties.Name="Contributors by commit count" />
+      <!-- Contributors as a two-column table: the commit count right-aligned
+           in a column of its own, then who made them. -->
+      <Grid Grid.Row="2" ColumnDefinitions="64,*" ColumnSpacing="{DynamicResource ShellSpaceMd}" Margin="{controls:Inset Horizontal=Sm}">
+        <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextAlignment="Right" Text="Commits" />
+        <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Contributor" />
+      </Grid>
+      <ListBox x:Name="Contributors" Grid.Row="3" Classes="Rows" AutomationProperties.Name="Contributors by commit count">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="views:GitContributorRow">
+            <Grid ColumnDefinitions="64,*" ColumnSpacing="{DynamicResource ShellSpaceMd}" AutomationProperties.Name="{Binding AccessibleName}">
+              <TextBlock TextAlignment="Right" FontFamily="{DynamicResource ShellDataFontFamily}" Text="{Binding CommitsText}" />
+              <TextBlock Grid.Column="1" Text="{Binding Author}" TextTrimming="CharacterEllipsis" />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <TextBlock x:Name="NoContributors" Grid.Row="3" Classes="Muted" Margin="{controls:Inset Horizontal=Sm}" Text="No commits yet." IsVisible="False" />
     </Grid>
   </controls:DialogShell>
 </controls:DialogWindow>

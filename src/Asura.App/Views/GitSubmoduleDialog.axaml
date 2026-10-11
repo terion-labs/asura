@@ -1,37 +1,75 @@
-<controls:DialogWindow x:Class="Asura.App.Views.GitSubmoduleDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Asura.App.ViewModels" xmlns:controls="using:Asura.App.Controls" Width="900" Height="650" MinWidth="550" MinHeight="400" Presentation="Inspector">
+<controls:DialogWindow x:Class="Asura.App.Views.GitSubmoduleDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Asura.App.ViewModels" xmlns:controls="using:Asura.App.Controls" xmlns:icons="using:FluentIcons.Avalonia" Width="900" Height="650" MinWidth="550" MinHeight="400" Presentation="Inspector">
   <!-- An inspector: consulted while working, so it opens beside the panel
        without blocking it and closes with ⌘W or Escape, like any window. -->
   <controls:DialogShell x:Name="Shell" Title="Submodule" Scrolls="False">
     <controls:DialogShell.Footer>
-      <WrapPanel x:Name="FooterActions" ItemSpacing="{DynamicResource ShellSpaceSm}" LineSpacing="{DynamicResource ShellSpaceXs}">
-        <Button x:Name="RefreshButton" Content="Refresh" Click="OnRefresh" />
-        <Button x:Name="InitializeButton" Content="Initialize" Tag="Initialize" Click="OnSubmoduleAction" />
-        <Button x:Name="UpdateButton" Content="Update Checkout" Tag="Update" Click="OnSubmoduleAction" />
-        <Button x:Name="SyncButton" Content="Sync Configured URL" Tag="Sync" Click="OnSubmoduleAction" />
-        <Button x:Name="CompareButton" Content="Compare Recorded and Checkout" Click="OnCompare" />
-        <Button x:Name="OpenButton" Content="Open Submodule" Classes="PrimaryButton" Click="OnOpen" />
-      </WrapPanel>
+      <!-- One row at every width: the commands that change or inspect the
+           submodule in one pull-down on the leading edge, and the window's
+           own way out and its primary action on the trailing edge, so the
+           primary never wraps onto a row of its own. -->
+      <Grid x:Name="FooterRow" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <Button x:Name="ActionsButton" Classes="SecondaryButton" ToolTip.Tip="Refresh, update or compare this submodule" AutomationProperties.Name="Actions">
+          <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+            <TextBlock VerticalAlignment="Center" Text="Actions" />
+            <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" Foreground="{DynamicResource ShellMutedBrush}" />
+          </StackPanel>
+          <Button.Flyout>
+            <MenuFlyout Placement="TopEdgeAlignedLeft">
+              <MenuItem x:Name="RefreshItem" Header="Refresh" Click="OnRefresh" />
+              <Separator />
+              <MenuItem x:Name="InitializeItem" Header="Initialize…" Tag="Initialize" Click="OnSubmoduleAction" />
+              <MenuItem x:Name="UpdateItem" Header="Update Checkout…" Tag="Update" Click="OnSubmoduleAction" />
+              <MenuItem x:Name="SyncItem" Header="Sync Configured URL…" Tag="Sync" Click="OnSubmoduleAction" />
+              <Separator />
+              <MenuItem x:Name="CompareItem" Header="Compare Recorded and Checkout" Click="OnCompare" />
+            </MenuFlyout>
+          </Button.Flyout>
+        </Button>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+          <Button Classes="SecondaryButton" Content="Close" Click="OnClose" IsCancel="True" />
+          <Button x:Name="OpenButton" Content="Open Submodule" Classes="PrimaryButton" Click="OnOpen" IsDefault="True" />
+        </StackPanel>
+      </Grid>
     </controls:DialogShell.Footer>
-    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
-      <TextBlock x:Name="Message" TextWrapping="Wrap" IsVisible="False" />
-      <StackPanel Grid.Row="1" Spacing="{DynamicResource ShellSpaceXs}">
+    <Grid RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceMd}">
+      <!-- A stack, not grid rows: a hidden message takes no row and no gap. -->
+      <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+        <TextBlock x:Name="Message" TextWrapping="Wrap" IsVisible="False" />
         <TextBlock x:Name="StateLabel" TextWrapping="Wrap" />
-        <controls:LabeledField Label="Recorded revision"><TextBox x:Name="ExpectedInput" IsReadOnly="True" AutomationProperties.Name="Submodule revision recorded in parent index" /></controls:LabeledField>
-        <controls:LabeledField Label="Checked-out revision"><TextBox x:Name="CheckoutInput" IsReadOnly="True" AutomationProperties.Name="Submodule checked-out revision" /></controls:LabeledField>
+        <controls:LabeledField Label="Recorded revision"><TextBox x:Name="ExpectedInput" IsReadOnly="True" FontFamily="{DynamicResource ShellDataFontFamily}" AutomationProperties.Name="Submodule revision recorded in parent index" /></controls:LabeledField>
+        <controls:LabeledField Label="Checked-out revision"><TextBox x:Name="CheckoutInput" IsReadOnly="True" FontFamily="{DynamicResource ShellDataFontFamily}" AutomationProperties.Name="Submodule checked-out revision" /></controls:LabeledField>
       </StackPanel>
-      <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-        <ListBox x:Name="ChangesList" SelectionChanged="OnComparisonSelection" AutomationProperties.Name="Submodule revision changes">
-          <ListBox.ItemTemplate>
-            <DataTemplate x:DataType="vm:GitChangeItemViewModel">
-              <StackPanel Margin="{DynamicResource ShellInsetSm}" Spacing="{DynamicResource ShellSpaceXs}">
-                <TextBlock Text="{Binding Path}" TextWrapping="Wrap" />
-                <TextBlock Classes="Muted" Text="{Binding KindLabel}" />
-              </StackPanel>
-            </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
-        <TextBox Grid.Column="1" x:Name="PatchInput" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" AutomationProperties.Name="Selected submodule file patch" />
+      <!-- Two wells of one kind: a bordered well each, the file list beside
+           the selected file's patch, and each says what goes in it while
+           it is empty. -->
+      <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <Border Classes="GitSubmoduleWell">
+          <Panel>
+            <ListBox x:Name="ChangesList" Classes="Rows" SelectionChanged="OnComparisonSelection" AutomationProperties.Name="Submodule revision changes">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:GitChangeItemViewModel">
+                  <controls:ListItem Classes="MiddleTruncatedTitle" Title="{Binding Path}" Detail="{Binding KindLabel}" />
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock x:Name="ChangesEmpty" Classes="Muted" Margin="{controls:Inset Md}" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" Text="Choose Compare Recorded and Checkout from Actions to list the files that differ." />
+          </Panel>
+        </Border>
+        <Border Grid.Column="1" Classes="GitSubmoduleWell">
+          <Panel>
+            <TextBox x:Name="PatchInput" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" BorderThickness="0" Background="Transparent" FontFamily="{DynamicResource ShellDataFontFamily}" AutomationProperties.Name="Selected submodule file patch" />
+            <TextBlock x:Name="PatchEmpty" Classes="Muted" Margin="{controls:Inset Md}" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" IsHitTestVisible="False" Text="Select a file to see how it changed." />
+          </Panel>
+        </Border>
       </Grid>
     </Grid>
   </controls:DialogShell>
+  <controls:DialogWindow.Styles>
+    <Style Selector="Border.GitSubmoduleWell">
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
+      <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+  </controls:DialogWindow.Styles>
 </controls:DialogWindow>

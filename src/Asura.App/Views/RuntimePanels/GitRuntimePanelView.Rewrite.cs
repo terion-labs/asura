@@ -215,7 +215,7 @@ public sealed partial class GitRuntimePanelView
             new("name", "Name / version", Required: action is not (GitFlowAction.Initialize or GitFlowAction.CancelFinish)),
             new("main", "Main branch", settings.MainBranch), new("develop", "Development branch", settings.DevelopBranch),
             new("feature", "Feature prefix", settings.FeaturePrefix, Required: false), new("release", "Release prefix", settings.ReleasePrefix, Required: false),
-            new("hotfix", "Hotfix prefix", settings.HotfixPrefix, Required: false), new("remote", "Publish remote", viewModel.Remotes.FirstOrDefault()?.Name ?? "origin"));
+            new("hotfix", "Hotfix prefix", settings.HotfixPrefix, Required: false), GitWorkflowField.ChoiceOrText("remote", "Publish remote", RemoteNames(viewModel), "origin"));
         if (values is null)
         {
             return;

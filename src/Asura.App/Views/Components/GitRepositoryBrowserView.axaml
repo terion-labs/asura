@@ -13,6 +13,21 @@
     Repository dialog, and the connection editor, which shows it in place under
     its Repository path field rather than stacking a second modal on itself.
   -->
+  <UserControl.Styles>
+    <!-- A folder list, not a list of headings: names in the regular weight,
+         as a Finder or Open panel row has them, and glyphs in the secondary
+         colour so the selection is the one coloured thing in the list. The
+         selection still turns both to its own foreground. -->
+    <Style Selector="ListBox.GitFolders controls|ListItem /template/ TextBlock#PART_Title">
+      <Setter Property="FontWeight" Value="Normal" />
+    </Style>
+    <Style Selector="icons|SymbolIcon.GitFolderGlyph">
+      <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+    </Style>
+    <Style Selector="ListBox.GitFolders:focus-within ListBoxItem:selected icons|SymbolIcon.GitFolderGlyph">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    </Style>
+  </UserControl.Styles>
   <Grid RowDefinitions="Auto,Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
       <Button
@@ -34,7 +49,7 @@
 
     <ListBox
         Grid.Row="2"
-        Classes="Rows"
+        Classes="Rows GitFolders"
         ItemsSource="{Binding Directories}"
         SelectedItem="{Binding SelectedDirectory, Mode=TwoWay}"
         DoubleTapped="OnDirectoryDoubleTapped"
@@ -53,14 +68,14 @@
             <controls:ListItem.Leading>
               <Panel>
                 <icons:SymbolIcon
+                    Classes="GitFolderGlyph"
                     Symbol="Folder"
                     FontSize="{DynamicResource ShellIconSizeSm}"
-                    Foreground="{DynamicResource ShellMutedBrush}"
                     IsVisible="{Binding !IsRepository}" />
                 <icons:SymbolIcon
+                    Classes="GitFolderGlyph"
                     Symbol="BranchFork"
                     FontSize="{DynamicResource ShellIconSizeSm}"
-                    Foreground="{DynamicResource ShellAccentBrush}"
                     IsVisible="{Binding IsRepository}" />
               </Panel>
             </controls:ListItem.Leading>

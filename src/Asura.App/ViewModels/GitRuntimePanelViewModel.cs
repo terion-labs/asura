@@ -239,8 +239,8 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
     /// A picker over this panel's own connection, so browsing works wherever
     /// the repository lives — locally or over SSH.
     /// </summary>
-    public GitRepositoryPickerViewModel CreateRepositoryPicker() =>
-        new(_client, _connection, RepositoryPathInput, ConnectionDisplayName);
+    public GitRepositoryPickerViewModel CreateRepositoryPicker(string? initialPath = null) =>
+        new(_client, _connection, initialPath ?? RepositoryPathInput, ConnectionDisplayName);
 
     public ICommand OpenRepositoryCommand => _openRepositoryCommand;
 

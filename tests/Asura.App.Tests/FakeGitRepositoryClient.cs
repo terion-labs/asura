@@ -29,6 +29,15 @@ internal sealed class FakeGitRepositoryClient : IGitRepositoryClient
     /// <summary>When set, staging waits for the test to release it.</summary>
     public TaskCompletionSource? StageGate { get; set; }
 
+    /// <summary>When set, a hosted repository read waits for the test to answer it.</summary>
+    public TaskCompletionSource<GitHostedRepositoryPage>? HostedRepositoriesGate { get; set; }
+
+    /// <summary>The repositories an ungated hosted read lists.</summary>
+    public IReadOnlyList<GitHostedRepository> HostedRepositories { get; init; } = [];
+
+    /// <summary>The Starred argument of every hosted repository read, in order.</summary>
+    public List<bool> HostedRepositoryReadsStarred { get; } = [];
+
     /// <summary>Replaces the default two-file unstaged list when set.</summary>
     public IReadOnlyList<GitFileChange>? UnstagedChangesOverride { get; init; }
 
@@ -138,17 +147,23 @@ internal sealed class FakeGitRepositoryClient : IGitRepositoryClient
                 IsBinary: false,
                 IsTruncated: false)));
 
+    /// <summary>The folders the browser asked to list, in order.</summary>
+    public List<string> ListedDirectories { get; } = [];
+
     public ValueTask<GitResult<GitDirectoryListing>> ListDirectoriesAsync(
         ConnectionProfile connection,
         string path,
-        CancellationToken cancellationToken) =>
-        ValueTask.FromResult<GitResult<GitDirectoryListing>>(
+        CancellationToken cancellationToken)
+    {
+        ListedDirectories.Add(path);
+        return ValueTask.FromResult<GitResult<GitDirectoryListing>>(
             new GitResult<GitDirectoryListing>.Success(new GitDirectoryListing(
                 "/home/qa",
                 [
                     new GitDirectoryEntry("asura", IsRepository: true),
                     new GitDirectoryEntry("notes", IsRepository: false),
                 ])));
+    }
 
     private static GitHeadState Head() =>
         new("dev", HeadCommit.Sha, "origin/dev", Ahead: 2, Behind: 1, IsDetached: false);
@@ -266,6 +281,15 @@ internal sealed class FakeGitRepositoryClient : IGitRepositoryClient
 
         StagedPaths.AddRange(paths);
         return new GitResult<GitUnit>.Success(GitUnit.Value);
+    }
+
+    public async ValueTask<GitResult<GitHostedRepositoryPage>> ReadHostedRepositoriesAsync(ConnectionProfile connection,
+        GitHostingProvider provider, Uri apiBase, GitHostingAccount? account, int page, bool starred,
+        CancellationToken cancellationToken)
+    {
+        HostedRepositoryReadsStarred.Add(starred);
+        return new GitResult<GitHostedRepositoryPage>.Success(
+            HostedRepositoriesGate is { } gate ? await gate.Task : new(HostedRepositories, page, false));
     }
 
     public ValueTask<GitResult<GitUnit>> UnstageAsync(

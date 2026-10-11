@@ -89,7 +89,7 @@ public sealed partial class GitLfsDialog : DialogWindow
         if (await new ConfirmationDialog(new ConfirmationDialogOptions
         {
             Heading = $"Force Unlock “{selected.Path}”?",
-            Detail = $"Owner: {selected.OwnerName}\nLock: {selected.Id}\nRemote: {Remote}",
+            Detail = $"Owner: {selected.OwnerName}\nLock ID: {selected.Id}\nRemote: {Remote}",
             Notice = "This removes the lock even when another account owns it, and that person's work on the file is no longer protected.",
             ConfirmLabel = "Force Unlock",
             Intent = ConfirmationIntent.Destructive,

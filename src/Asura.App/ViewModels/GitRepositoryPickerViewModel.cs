@@ -36,6 +36,8 @@ public sealed class GitRepositoryPickerViewModel : ObservableObject
     private GitDirectoryEntryViewModel? _selectedDirectory;
     private bool _isLoading;
     private string? _issueMessage;
+    private bool _choosesFolder;
+    private string? _newFolderName;
 
     public GitRepositoryPickerViewModel(
         IGitRepositoryClient client,
@@ -52,6 +54,54 @@ public sealed class GitRepositoryPickerViewModel : ObservableObject
     public string ConnectionDisplayName =>
         _connectionDisplayName
         ?? (_connection.Endpoint is ConnectionEndpoint.Local ? "Local" : _connection.Name);
+
+    /// <summary>
+    /// The dialog's line under its title, naming the place being browsed as a
+    /// place: “this Mac” rather than the connection's “Local”, and another
+    /// connection by its name in quotation marks.
+    /// </summary>
+    public string Subtitle =>
+        $"Browsing {(_connection.Endpoint is ConnectionEndpoint.Local ? ThisComputer : $"“{ConnectionDisplayName}”")}."
+        + (!ChoosesFolder ? " Folders that hold a repository are marked."
+            : NewFolderName is { } name ? $" A new folder named “{name}” is made inside the folder you choose."
+            : "");
+
+    /// <summary>
+    /// When choosing a folder, the name of the folder that will be made inside
+    /// the chosen one, such as a clone's; the subtitle says so, because this
+    /// browser cannot tell whether a folder over SSH already holds files.
+    /// </summary>
+    public string? NewFolderName
+    {
+        get => _newFolderName;
+        set
+        {
+            if (SetProperty(ref _newFolderName, value))
+            {
+                OnPropertyChanged(nameof(Subtitle));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether the browser chooses a folder for something else, such as a
+    /// clone's destination, rather than a repository to open. Every folder,
+    /// a repository's included, is then a place to step into, and only the
+    /// dialog's button chooses.
+    /// </summary>
+    public bool ChoosesFolder
+    {
+        get => _choosesFolder;
+        set
+        {
+            if (SetProperty(ref _choosesFolder, value))
+            {
+                OnPropertyChanged(nameof(Subtitle));
+            }
+        }
+    }
+
+    private static string ThisComputer => OperatingSystem.IsMacOS() ? "this Mac" : "this computer";
 
     public string CurrentPath
     {

@@ -80,7 +80,7 @@ public sealed partial class GitImageDiffView : UserControl
     private static string Describe(Bitmap? bitmap, GitImageVersion version) => version.IsLfsPointer ? "in Git LFS, not downloaded"
         : version.IsPreviewUnavailable ? "too large to preview, or not a supported image"
         : bitmap is null ? "none"
-        : $"{version.PixelWidth ?? bitmap.PixelSize.Width} × {version.PixelHeight ?? bitmap.PixelSize.Height}, {version.OriginalByteLength ?? version.Bytes.Length:N0} bytes · {version.FormatName ?? "image"}";
+        : $"{version.PixelWidth ?? bitmap.PixelSize.Width} × {version.PixelHeight ?? bitmap.PixelSize.Height}, {version.OriginalByteLength ?? version.Bytes.Length:N0} bytes · {GitRuntimePanelViewModel.ImageFormatLabel(version.FormatName) ?? "image"}";
 
     private static Bitmap? Difference(GitImagePair pair)
     {

@@ -10,13 +10,14 @@
     Height="520"
     CanResize="False">
   <controls:DialogShell
+      x:Name="Shell"
       Title="Open Git Repository"
-      Subtitle="{Binding ConnectionDisplayName, StringFormat=Browsing {0}. Folders holding a repository are marked.}"
+      Subtitle="{Binding Subtitle}"
       Scrolls="False">
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
         <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
-        <Button Classes="PrimaryButton" Click="OnOpenClick" Content="Open" IsDefault="True" />
+        <Button x:Name="OpenButton" Classes="PrimaryButton" Click="OnOpenClick" Content="Open" IsDefault="True" />
       </StackPanel>
     </controls:DialogShell.Footer>
 

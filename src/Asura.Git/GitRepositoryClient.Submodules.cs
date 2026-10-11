@@ -112,7 +112,7 @@ public sealed partial class GitRepositoryClient
         if (probe is GitResult<CommandOutput>.Failure probeFailure)
         {
             return new GitResult<GitRepositoryHandle?>.Failure(probeFailure.Error.Code == GitErrorCode.CommandFailed
-                ? probeFailure.Error with { Message = "The submodule directory was replaced or is a symbolic link. Refresh before opening it." }
+                ? probeFailure.Error with { Message = "The submodule folder was replaced or is a symbolic link. Refresh before opening it." }
                 : probeFailure.Error);
         }
 

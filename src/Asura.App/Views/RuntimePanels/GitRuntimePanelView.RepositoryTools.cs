@@ -1,3 +1,4 @@
+using Asura.App.ViewModels;
 using Asura.Git;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -44,12 +45,29 @@ public sealed partial class GitRuntimePanelView
         }
 
         var clone = string.Equals(kind, "Clone", StringComparison.Ordinal);
-        var values = await ShowGitFormAsync(
+        GitWorkflowField destination = new("path", "Destination path", viewModel.RepositoryPathInput)
+        {
+            // A clone usually goes in the folder that holds other repositories,
+            // so a chosen folder that already has files gets a new folder
+            // inside it named after the repository, as git clone itself does.
+            ChooseFolder = clone
+                ? FolderChooser("Choose a Folder for the Clone", values => RepositoryFolderName(values.GetValueOrDefault("source") ?? ""))
+                : FolderChooser("Choose a Folder to Initialize"),
+        };
+
+        // The URL comes first when cloning: it names the folder the clone goes in.
+        var values = await ShowGitFormAsync(new GitWorkflowForm(
             clone ? "Clone Repository" : "Initialize Repository",
-            clone ? "Clone" : "Initialize",
             $"Connection: {viewModel.ConnectionDisplayName}",
-            new("path", "Destination path", viewModel.RepositoryPathInput),
-            new("source", clone ? "Repository URL" : "Initial branch", clone ? "" : "main"));
+            new GitWorkflowAction(clone ? "Clone" : "Initialize"),
+            clone
+                ? [new("source", "Repository URL"), destination]
+                : [destination, new("source", "Initial branch", "main")])
+        {
+            Validate = clone && viewModel.UsesSystemFolderPicker
+                ? values => ValidateCloneDestination(values["path"], RepositoryFolderName(values["source"]))
+                : null,
+        });
         if (values is null)
         {
             return;
@@ -57,6 +75,87 @@ public sealed partial class GitRuntimePanelView
 
         await viewModel.CreateRepositoryAsync(values["path"], clone ? "main" : values["source"], clone ? values["source"] : null);
     }
+
+    /// <summary>
+    /// The folder a clone of <paramref name="repositoryUrl"/> is named after:
+    /// the URL's last segment without ".git", as git clone names it.
+    /// </summary>
+    internal static string? RepositoryFolderName(string repositoryUrl)
+    {
+        var trimmed = repositoryUrl.Trim().TrimEnd('/', '\\');
+        var name = trimmed[(trimmed.LastIndexOfAny(['/', '\\', ':']) + 1)..];
+        if (name.EndsWith(".git", StringComparison.OrdinalIgnoreCase))
+        {
+            name = name[..^4];
+        }
+
+        return name.Length == 0 ? null : name;
+    }
+
+    /// <summary>
+    /// Git cannot clone into a folder on this Mac that already has files in it,
+    /// so the form says so under the field, with the folder it could use
+    /// instead, rather than the clone failing after the form has closed.
+    /// </summary>
+    internal static GitWorkflowFieldError? ValidateCloneDestination(string path, string? folderName)
+    {
+        if (!Directory.Exists(path) || !Directory.EnumerateFileSystemEntries(path).Any())
+        {
+            return null;
+        }
+
+        return folderName is not null && !string.Equals(Path.GetFileName(path.TrimEnd('/', '\\')), folderName, StringComparison.Ordinal)
+            ? new("path", $"This folder isn’t empty. To clone into a new folder inside it, use {Path.Combine(path, folderName)}.")
+            : new("path", "This folder isn’t empty. Choose an empty folder or a new folder name.");
+    }
+
+    /// <summary>
+    /// The folder chosen on this Mac when it is empty, otherwise a new folder
+    /// named <paramref name="folderName"/> inside it; the chosen folder itself
+    /// when there is no name to give one.
+    /// </summary>
+    internal static string ChosenDestination(string chosenFolder, string? folderName) =>
+        folderName is null ? chosenFolder : WorktreeDestination(chosenFolder, folderName);
+
+    /// <summary>
+    /// The folder chosen over SSH with a new folder named
+    /// <paramref name="folderName"/> inside it, always: the connection's folder
+    /// browser lists folders, not files, so it cannot tell an empty folder from
+    /// one that holds files, and the browser's subtitle says the folder is made.
+    /// </summary>
+    internal static string RemoteChosenDestination(string chosenFolder, string? folderName) =>
+        folderName is null ? chosenFolder : $"{chosenFolder.TrimEnd('/')}/{folderName}";
+
+    /// <summary>
+    /// The Choose… beside a destination field. A folder on this Mac comes from
+    /// the system's Open panel, with its sidebar, recents and search; one over
+    /// SSH from Asura's folder browser, which sees the connection's files. With
+    /// <paramref name="folderName"/>, a chosen folder on this Mac that already
+    /// holds files gets a new folder inside it, named from the form's values,
+    /// as a worktree does; over SSH the new folder is always made, and the
+    /// browser says so (<see cref="RemoteChosenDestination"/>).
+    /// </summary>
+    private Func<Window, string, IReadOnlyDictionary<string, string>, Task<string?>> FolderChooser(
+        string title, Func<IReadOnlyDictionary<string, string>, string?>? folderName = null) =>
+        async (owner, current, values) =>
+        {
+            if (ViewModel is not { } viewModel)
+            {
+                return null;
+            }
+
+            var name = folderName?.Invoke(values);
+            if (SystemFolderPicker(owner) is { } storage && viewModel.UsesSystemFolderPicker)
+            {
+                var start = Directory.Exists(current) ? current : Path.GetDirectoryName(current.TrimEnd('/', '\\'));
+                var local = await PickLocalFolderAsync(storage, title, start);
+                return local is null ? null : ChosenDestination(local, name);
+            }
+
+            var remote = await new GitRepositoryPickerDialog(viewModel.CreateRepositoryPicker(current), title, "Choose", name)
+                .ShowDialog<string?>(owner);
+            return remote is null ? null : RemoteChosenDestination(remote, name);
+        };
 
     private async void OnNetworkOptions(object? sender, RoutedEventArgs e)
     {
@@ -77,7 +176,7 @@ public sealed partial class GitRuntimePanelView
 
         var action = networkAction.ToString();
 
-        List<GitWorkflowField> fields = [new("remote", "Remote", viewModel.Remotes.FirstOrDefault()?.Name ?? "origin"),
+        List<GitWorkflowField> fields = [GitWorkflowField.ChoiceOrText("remote", "Remote", RemoteNames(viewModel), "origin"),
             new("source", networkAction == GitNetworkAction.Push ? "Source branch or revision (optional)" : "Remote branch (optional)", Required: false)];
         if (networkAction == GitNetworkAction.Pull)
         {
@@ -126,7 +225,7 @@ public sealed partial class GitRuntimePanelView
             lease = viewModel.GetReviewedRemoteSha(values["remote"], destinationBranch) ?? "";
             var confirmed = await new ConfirmationDialog(new ConfirmationDialogOptions
             {
-                Heading = $"Force push to “{values["remote"]}/{destinationBranch}”?",
+                Heading = $"Force Push to “{values["remote"]}/{destinationBranch}”?",
                 Detail = $"{source ?? "HEAD"} replaces the remote branch. Commits on the remote that aren’t in it are dropped from the branch.",
                 Notice = lease.Length == 0
                     ? "The branch doesn’t exist on the remote yet. Git rejects the push if it appears before then."
@@ -161,34 +260,58 @@ public sealed partial class GitRuntimePanelView
         _ => throw new ArgumentOutOfRangeException(nameof(strategy), strategy, null),
     };
 
+    /// <summary>
+    /// Lock, Unlock or Remove a linked worktree. From a worktree's own row the
+    /// row says which; from the Branch menu the form offers the repository's
+    /// linked worktrees to choose from rather than a path to type. Adding one
+    /// has its own command, <see cref="OnAddWorktree"/>.
+    /// </summary>
     private async void OnWorktreeTool(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel is not { } viewModel || sender is not MenuItem { Tag: string action }
-            || !Enum.TryParse<GitWorktreeAction>(action, out var kind))
+        _ = e;
+        if (ViewModel is not { } viewModel || OwnerWindow is not { } window || sender is not MenuItem { Tag: string action } menu
+            || !Enum.TryParse<GitWorktreeAction>(action, out var kind) || kind is GitWorktreeAction.Add or GitWorktreeAction.Prune)
         {
             return;
         }
 
-        var item = (sender as MenuItem)?.DataContext as GitWorktreeItem;
-        List<GitWorkflowField> fields = [new("path", "Worktree path", item?.Path ?? "")];
-        if (kind == GitWorktreeAction.Add)
+        string[] linked = menu.DataContext is GitWorktreeItem item
+            ? [item.Path]
+            : [.. viewModel.Worktrees.Where(worktree => !worktree.IsMain).Select(worktree => worktree.Path)];
+        if (linked.Length == 0)
         {
-            fields.Add(new("branch", "Starting branch or revision", "HEAD"));
-            fields.Add(new("new", "New branch name (optional)", Required: false));
+            await Confirmations.Problem("No Linked Worktrees",
+                "This repository has only its main worktree, which Git doesn’t lock or remove. Add a worktree first.").ShowDialog(window);
+            return;
         }
+
+        var verb = WorktreeVerb(kind);
         var values = await ShowGitFormAsync(new GitWorkflowForm(
-            $"{kind} Worktree",
-            "Removing a worktree requires a clean checkout. Git preserves dirty or locked worktrees.",
-            new GitWorkflowAction(kind.ToString(), IsDestructive: kind == GitWorktreeAction.Remove),
-            fields));
+            $"{verb} Worktree",
+            kind == GitWorktreeAction.Remove
+                ? "Git removes only a clean worktree. It keeps a worktree with local edits or a lock."
+                : "A locked worktree stays registered even when its folder is on a drive that isn’t connected.",
+            new GitWorkflowAction(kind == GitWorktreeAction.Remove ? "Remove Worktree" : verb, IsDestructive: kind == GitWorktreeAction.Remove),
+            [new("path", "Worktree", linked[0], Choices: linked)]));
         if (values is null)
         {
             return;
         }
 
-        await viewModel.ManageWorktreeAsync(new(kind, values["path"], values.GetValueOrDefault("branch"),
-            values.GetValueOrDefault("new") is { Length: > 0 } branch ? branch : null));
+        await viewModel.ManageWorktreeAsync(new(kind, values["path"]));
     }
+
+    private static string WorktreeVerb(GitWorktreeAction action) => action switch
+    {
+        GitWorktreeAction.Lock => "Lock",
+        GitWorktreeAction.Unlock => "Unlock",
+        GitWorktreeAction.Remove => "Remove",
+        _ => throw new ArgumentOutOfRangeException(nameof(action), action, null),
+    };
+
+    /// <summary>The names of the repository's remotes, for a pop-up in place of a typed name.</summary>
+    private static string[] RemoteNames(GitRuntimePanelViewModel viewModel) =>
+        [.. viewModel.Remotes.Select(remote => remote.Name)];
 
     private async void OnSubmoduleTool(object? sender, RoutedEventArgs e)
     {
@@ -198,12 +321,13 @@ public sealed partial class GitRuntimePanelView
             return;
         }
 
+        // A submodule the repository already records is chosen from its list;
+        // only a new one is typed.
         var item = (sender as MenuItem)?.DataContext as GitSubmoduleItem;
-        List<GitWorkflowField> fields = [new("path", "Submodule path", item?.Path ?? "")];
-        if (kind == GitSubmoduleAction.Add)
-        {
-            fields.Add(new("url", "Repository URL"));
-        }
+        List<GitWorkflowField> fields = kind == GitSubmoduleAction.Add
+            ? [new("path", "Submodule path"), new("url", "Repository URL")]
+            : [GitWorkflowField.ChoiceOrText("path", "Submodule",
+                item is not null ? [item.Path] : [.. viewModel.Submodules.Select(submodule => submodule.Path)], "")];
 
         var values = await ShowGitFormAsync(new GitWorkflowForm(
             $"{kind} Submodule",

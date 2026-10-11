@@ -42,7 +42,8 @@ public sealed partial class GitRepositoryBrowserView : UserControl
     }
 
     // Double-tapping a repository chooses it; double-tapping a plain folder
-    // steps into it, because the repository may live deeper.
+    // steps into it, because the repository may live deeper. A browser
+    // choosing a destination folder steps into every folder instead.
     private async void OnDirectoryDoubleTapped(object? sender, TappedEventArgs e)
     {
         _ = sender;
@@ -52,7 +53,7 @@ public sealed partial class GitRepositoryBrowserView : UserControl
             return;
         }
 
-        if (entry.IsRepository)
+        if (entry.IsRepository && !picker.ChoosesFolder)
         {
             RepositoryChosen?.Invoke(this, entry.FullPath);
         }

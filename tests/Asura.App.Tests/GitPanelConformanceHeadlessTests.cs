@@ -6,6 +6,7 @@ using Asura.App.Views.RuntimePanels;
 using Asura.Application;
 using Asura.Core;
 using Asura.Git;
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
@@ -485,6 +486,100 @@ public sealed class GitPanelConformanceHeadlessTests
         Assert.True(((IFindTarget)view).CanFindNext);
         return Task.CompletedTask;
     });
+
+    [Fact]
+    public Task The_current_branch_is_a_checkmark_and_a_status_not_a_second_selection() => RunPanelAsync((view, panel, window) =>
+    {
+        var tree = view.FindControl<TreeView>("GitLocalBranchTree")!;
+        var current = RefItem(tree, "main");
+        Assert.Equal("Current branch", AutomationProperties.GetItemStatus(current));
+        Assert.Equal("main", AutomationProperties.GetName(current));
+        var mark = current.GetVisualDescendants().OfType<SymbolIcon>().Single(icon => icon.Classes.Contains("GitCurrentMark"));
+        Assert.True(mark.IsEffectivelyVisible);
+        var band = current.GetVisualDescendants().OfType<Border>().First(border => border.Classes.Contains("GitRefRow"));
+        Assert.Equal(Colors.Transparent, Color(band.Background));
+        var name = current.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Text == "main" && text.IsEffectivelyVisible);
+        Assert.Equal(FontWeight.SemiBold, name.FontWeight);
+
+        var other = RefItem(tree, "feature");
+        Assert.Null(AutomationProperties.GetItemStatus(other));
+        Assert.DoesNotContain(other.GetVisualDescendants().OfType<SymbolIcon>(),
+            icon => icon.Classes.Contains("GitCurrentMark") && icon.IsEffectivelyVisible);
+        return Task.CompletedTask;
+    }, BranchesAndTags());
+
+    [Fact]
+    public Task Ref_tree_names_share_one_column_and_the_chevron_stays_small() => RunPanelAsync((view, panel, window) =>
+    {
+        // The icon ramp the app publishes at start-up, which a headless run
+        // doesn't, so the chevron is measured at its real size.
+        window.Resources["ShellIconSizeXs"] = 10d;
+        panel.IsTagsSectionExpanded = true;
+        window.UpdateLayout();
+        var branches = view.FindControl<TreeView>("GitLocalBranchTree")!;
+        var tags = view.FindControl<TreeView>("GitTagTree")!;
+        var branchName = NameLeft(RefItem(branches, "main"), "main");
+        var tagName = NameLeft(RefItem(tags, "v1.0"), "v1.0");
+        var folder = RefItem(branches, "codex");
+        var folderName = NameLeft(folder, "codex");
+
+        // A tag's name starts where a branch's does, and a folder's name
+        // starts there too, after its disclosure target rather than under it.
+        Assert.Equal(branchName, tagName, 0.5);
+        Assert.Equal(branchName, folderName, 2);
+        var toggle = folder.GetVisualDescendants().OfType<ToggleButton>().First(button => button.Name == "PART_ExpandCollapseChevron");
+        var chevron = toggle.GetVisualDescendants().OfType<SymbolIcon>().Single(icon => icon.IsEffectivelyVisible);
+        Assert.True(chevron.Bounds.Width <= 12 && chevron.Bounds.Height <= 12, $"The chevron draws at {chevron.Bounds.Size}.");
+        Assert.True(toggle.Bounds.Width >= 20 && toggle.Bounds.Height >= 20);
+        var toggleRight = toggle.TranslatePoint(new Point(toggle.Bounds.Width, 0), view)!.Value.X;
+        Assert.True(toggleRight <= folderName + 0.5, "The disclosure target runs under the folder's name.");
+        return Task.CompletedTask;
+
+        double NameLeft(TreeViewItem item, string text)
+        {
+            var block = item.GetVisualDescendants().OfType<TextBlock>().First(candidate => candidate.Text == text && candidate.IsEffectivelyVisible);
+            return block.TranslatePoint(default, view)!.Value.X;
+        }
+    }, BranchesAndTags());
+
+    [Fact]
+    public Task Stage_and_unstage_everything_say_their_verb() => RunPanelAsync((view, panel, window) =>
+    {
+        var labels = view.GetLogicalDescendants().OfType<Button>().Select(button => button.Content as string).ToArray();
+        Assert.Contains("Stage All", labels, StringComparer.Ordinal);
+        Assert.Contains("Unstage All", labels, StringComparer.Ordinal);
+        Assert.DoesNotContain("All", labels, StringComparer.Ordinal);
+        Assert.DoesNotContain(view.GetLogicalDescendants().OfType<Button>(), button => Equals(button.Content, "Browse…"));
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task Diff_code_draws_in_the_data_font() => RunDiffAsync((view, panel, window) =>
+    {
+        var code = view.FindControl<ListBox>("UnifiedLines")!.GetVisualDescendants().OfType<GitDiffTextBlock>().First();
+        Assert.Equal(typeof(TextBlock), code.StyleKey);
+        var dataFont = new FontFamily("Probe Mono");
+        window.Resources["ShellDataFontFamily"] = dataFont;
+        window.UpdateLayout();
+        Assert.Equal(dataFont, code.FontFamily);
+        var number = view.FindControl<ListBox>("UnifiedLines")!.GetVisualDescendants().OfType<TextBlock>()
+            .First(text => text.Classes.Contains("GitDiffNumber"));
+        Assert.Equal(code.FontSize, number.FontSize);
+        return Task.CompletedTask;
+    });
+
+    private static TreeViewItem RefItem(TreeView tree, string name) =>
+        tree.GetVisualDescendants().OfType<TreeViewItem>().First(item => item.DataContext is GitRefTreeNodeViewModel node && node.Name == name);
+
+    private static FakeGitRepositoryClient BranchesAndTags() => new()
+    {
+        RefsOverride =
+        [
+            new("refs/heads/main", "main", GitRefKind.LocalBranch, "aaaa000000000000000000000000000000000000", IsCurrent: true),
+            new("refs/heads/codex/feature", "codex/feature", GitRefKind.LocalBranch, "aaaa000000000000000000000000000000000000", IsCurrent: false),
+            new("refs/tags/v1.0", "v1.0", GitRefKind.Tag, "aaaa000000000000000000000000000000000000", IsCurrent: false),
+        ],
+    };
 
     private static void AssertTitleCase(string? header)
     {

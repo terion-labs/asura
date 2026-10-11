@@ -30,9 +30,28 @@
     <Style Selector="ListBox.GitSections ListBoxItem">
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
       <Setter Property="Margin" Value="0" />
-      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="MinHeight" Value="24" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <!-- One size for the panel's rows and the controls among them: the
+         section list, the sidebar's refs, the file lists, the history and the
+         pull-downs above them all read at the row size, so no label stands a
+         size above the list it sits in. -->
+    <Style Selector="ListBox.GitSections ListBoxItem TextBlock">
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+    </Style>
+    <Style Selector="ListBox.GitSections ListBoxItem Border.GitCountBadge TextBlock">
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+    </Style>
+    <Style Selector="ListBox.GitSections ListBoxItem icons|SymbolIcon">
+      <Setter Property="FontSize" Value="{DynamicResource ShellIconSizeSm}" />
+    </Style>
+    <Style Selector="Button.Dense">
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+    </Style>
+    <Style Selector="Button.Dense TextBlock">
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
     </Style>
     <Style Selector="ListBox.GitSections:focus-within ListBoxItem:selected Border.GitCountBadge">
       <Setter Property="Background" Value="Transparent" />
@@ -67,8 +86,9 @@
     </Style>
     <!-- Ref names keep both ends, so feature/… branches stay apart. -->
     <Style Selector="TextBlock.GitSidebarRow">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="TextTrimming" Value="{x:Static TextTrimming.PrefixCharacterEllipsis}" />
     </Style>
     <!-- Ref trees use the shell's standard tree template with a single icon
@@ -83,7 +103,7 @@
     <Style Selector="TextBox.GitRefFilter">
       <Setter Property="MinHeight" Value="24" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="Grid.GitSidebarRowLayout">
@@ -147,16 +167,27 @@
       <Setter Property="MinHeight" Value="24" />
     </Style>
     <Style Selector="TextBlock.GitCommitCell">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
     </Style>
     <!-- A ref name is a label, not something to act on, so it wears a
-         neutral fill rather than the accent the selection and focus use. -->
+         neutral fill rather than the accent the selection and focus use. A
+         hairline keeps it a pill on a selected row, whose gray is the same
+         step as its fill; on a focused row it turns with the row's text. -->
     <Style Selector="Border.GitRefTag">
       <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellPillCornerRadius}" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs}" />
       <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ListBox.GitCommits ListBoxItem:selected Border.GitRefTag">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellMutedBrush}" />
+    </Style>
+    <Style Selector="ListBox.GitCommits:focus-within ListBoxItem:selected Border.GitRefTag">
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentForegroundBrush}" />
     </Style>
     <Style Selector="Border.GitRefTag TextBlock">
       <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
@@ -177,10 +208,27 @@
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
+    <!-- The commit's metadata is one secondary block: labels, values and the
+         signature line share the secondary size, the labels muted, so the
+         subject and message below are the step up. -->
     <Style Selector="TextBlock.GitMetaLabel">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.GitMetaValue">
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.GitCommitBody">
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight13}" />
+    </Style>
+    <Style Selector="Button.GitMetaLink">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="controls|SegmentedControl#GitCompactSections">
@@ -193,25 +241,28 @@
          differently from arrows, and the whole point of one text run is a
          shared baseline. -->
     <Style Selector="TextBlock.GitTrackingText">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <!-- Ref rows are plain data wrapped in a hit-testable band so the whole
-         row answers to the pointer; the current branch wears the accent. -->
+         row answers to the pointer. Every sidebar row puts its label in the
+         same column: a 16-point glyph column, then the name, whether the row
+         is a branch, a tag, a stash or a worktree. The current branch is
+         marked the way a Mac marks the current choice — a checkmark in the
+         glyph column and a heavier name — and never with a fill, so the
+         selection is the only filled row in the list. -->
     <Style Selector="Border.GitRefRow">
       <Setter Property="Background" Value="Transparent" />
-      <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="24" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
     </Style>
     <Style Selector="Border.GitRefRow:pointerover">
       <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
     </Style>
-    <Style Selector="Border.GitRefRow.current">
-      <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
-    </Style>
-    <Style Selector="Border.GitRefRow.current:pointerover">
-      <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
+    <Style Selector="icons|SymbolIcon.GitCurrentMark">
+      <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
     </Style>
     <!-- A ref tree with focus selects in accent, as a source list does. The
          rules reach only the selected row's own band and its own content (the
@@ -419,7 +470,7 @@
                   <Separator />
                   <MenuItem Header="Repository Statistics…" Tag="Statistics" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
                   <MenuItem Header="Activity Log…" Click="OnActivityLog" IsEnabled="{Binding CanReadRepository}" />
-                  <MenuItem x:Name="GitBenchmarkMenuItem" Header="Benchmark Status Read…" Tag="Benchmark" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem x:Name="GitBenchmarkMenuItem" Header="Measure Status Read Time…" Tag="Benchmark" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
                 </MenuItem>
                 <MenuItem Header="Patches">
                   <MenuItem Header="Copy Selected Patch" Click="OnCopySelectedPatch" IsEnabled="{Binding CanReadRepository}" />
@@ -583,7 +634,8 @@
                     Classes="SecondaryButton"
                     VerticalAlignment="Stretch"
                     Click="OnBrowseRepositoryClick"
-                    Content="Browse…" />
+                    Content="Choose…"
+                    AutomationProperties.Name="Choose repository folder" />
               </Grid>
             </controls:LabeledField>
             <Button
@@ -644,11 +696,17 @@
               <Setter Property="BorderThickness" Value="0" />
               <Setter Property="MinHeight" Value="24" />
               <Setter Property="HorizontalAlignment" Value="Stretch" />
+              <!-- A ref row says what it is to VoiceOver by its name, and the
+                   current branch says so as its status, not only by its
+                   checkmark and weight. -->
+              <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleName}" />
+              <Setter Property="AutomationProperties.ItemStatus" Value="{Binding AccessibleStatus}" />
               <!-- State selectors override the Fluent template's fixed margins.
-                   The disclosure toggle is a 20 × 20 target around the
-                   8-point chevron, where it was 8 × 8. It sits four points
-                   into the folder name's column so the centred glyph still
-                   ends against the name rather than floating before it. -->
+                   The disclosure toggle is a 20 × 20 target, but the chevron
+                   drawn in it stays the section headers' small one rather
+                   than stretching to fill the target. The target ends where
+                   the folder name begins, so the gap before the name is the
+                   target's own room around the glyph and nothing overlaps. -->
               <Style Selector="^:not(:empty) /template/ Panel#PART_ExpandCollapseChevronContainer">
                 <Setter Property="Margin" Value="0" />
                 <Setter Property="Width" Value="20" />
@@ -656,11 +714,36 @@
               <Style Selector="^ /template/ ToggleButton#PART_ExpandCollapseChevron">
                 <Setter Property="Width" Value="20" />
                 <Setter Property="Height" Value="20" />
-                <Setter Property="Margin" Value="4,0,-4,0" />
+                <Setter Property="Margin" Value="0" />
                 <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+                <!-- Fluent stretches its chevron path to fill the toggle, so a
+                     20-point target drew a 20-point chevron. This draws the
+                     section headers' own glyph at its own size instead. -->
+                <Setter Property="Template">
+                  <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="{TemplateBinding Background}">
+                      <Panel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <icons:SymbolIcon
+                            Symbol="ChevronRight"
+                            FontSize="{DynamicResource ShellIconSizeXs}"
+                            Foreground="{TemplateBinding Foreground}"
+                            IsVisible="{TemplateBinding IsChecked, Converter={x:Static ObjectConverters.NotEqual}, ConverterParameter={x:True}}" />
+                        <icons:SymbolIcon
+                            Symbol="ChevronDown"
+                            FontSize="{DynamicResource ShellIconSizeXs}"
+                            Foreground="{TemplateBinding Foreground}"
+                            IsVisible="{TemplateBinding IsChecked, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:True}}" />
+                      </Panel>
+                    </Border>
+                  </ControlTemplate>
+                </Setter>
               </Style>
-              <!-- A leaf's ref icon occupies the disclosure column. Reserving
-                   an empty chevron here would double its apparent indent. -->
+              <!-- A leaf's ref glyph occupies the disclosure column. Reserving
+                   an empty chevron here would double its apparent indent, so
+                   every leaf, a branch, a remote branch or a tag, carries a
+                   16-point glyph column instead and its name lines up with
+                   a folder's name beside the chevron. -->
               <Style Selector="^:empty /template/ Panel#PART_ExpandCollapseChevronContainer">
                 <Setter Property="Margin" Value="0" />
                 <Setter Property="Width" Value="0" />
@@ -684,7 +767,7 @@
                   AutomationProperties.Name="Repository sections">
                 <ListBoxItem AutomationProperties.Name="Local Changes">
                   <Grid VerticalAlignment="Center" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="Edit" FontSize="{DynamicResource ShellIconSizeMd}" />
+                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="Edit" />
                     <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="Local Changes" />
                     <Border Grid.Column="2" HorizontalAlignment="Right" Classes="GitCountBadge">
                       <TextBlock Text="{Binding UnstagedCount}" />
@@ -693,7 +776,7 @@
                 </ListBoxItem>
                 <ListBoxItem AutomationProperties.Name="All Commits">
                   <Grid VerticalAlignment="Center" ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="History" FontSize="{DynamicResource ShellIconSizeMd}" />
+                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="History" />
                     <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="All Commits" />
                   </Grid>
                 </ListBoxItem>
@@ -725,7 +808,6 @@
                           <Border IsVisible="{Binding HasRef}">
                             <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" MinHeight="24"
                                 Classes="GitRefRow"
-                                Classes.current="{Binding IsCurrent}"
                                 DoubleTapped="OnBranchRowDoubleTapped">
                               <!-- Three groups: what you do with the branch,
                                    what you make from it, and deleting it,
@@ -777,7 +859,16 @@
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
                                     Symbol="BranchFork"
-                                    FontSize="{DynamicResource ShellIconSizeXs}" />
+                                    FontSize="{DynamicResource ShellIconSizeXs}"
+                                    IsVisible="{Binding !IsCurrent}" />
+                                <icons:SymbolIcon
+                                    Classes="GitCurrentMark"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Symbol="Checkmark"
+                                    FontSize="{DynamicResource ShellIconSizeXs}"
+                                    IsVisible="{Binding IsCurrent}"
+                                    ToolTip.Tip="Current branch" />
                                 <TextBlock
                                     Grid.Column="1"
                                     VerticalAlignment="Center"
@@ -889,7 +980,15 @@
                                   <MenuItem Header="Delete…" Click="OnDeleteTagClick" />
                                 </ContextMenu>
                               </Border.ContextMenu>
-                              <TextBlock Classes="GitSidebarRow" Text="{Binding LeafName}" ToolTip.Tip="{Binding Name}" />
+                              <Grid ColumnDefinitions="16,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                                <icons:SymbolIcon
+                                    Classes="GitRefGlyph"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Symbol="Tag"
+                                    FontSize="{DynamicResource ShellIconSizeXs}" />
+                                <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="GitSidebarRow" Text="{Binding LeafName}" ToolTip.Tip="{Binding Name}" />
+                              </Grid>
                             </Border>
                           </Border>
                         </Panel>
@@ -918,10 +1017,14 @@
                               <MenuItem Header="Drop Stash…" Click="OnStashDropClick" />
                             </ContextMenu>
                           </Border.ContextMenu>
-                          <TextBlock
-                              Classes="GitSidebarRow"
-                              Text="{Binding Subject}"
-                              ToolTip.Tip="{Binding Reference}" />
+                          <Grid ColumnDefinitions="16,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                            <icons:SymbolIcon Classes="GitRefGlyph" HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Archive" FontSize="{DynamicResource ShellIconSizeXs}" />
+                            <TextBlock
+                                Grid.Column="1"
+                                Classes="GitSidebarRow"
+                                Text="{Binding Subject}"
+                                ToolTip.Tip="{Binding Reference}" />
+                          </Grid>
                         </Border>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -948,10 +1051,14 @@
                               <MenuItem Header="Remove Worktree…" Tag="Remove" Click="OnWorktreeTool" />
                             </ContextMenu>
                           </Border.ContextMenu>
-                          <TextBlock
-                              Classes="GitSidebarRow Path"
-                              Text="{Binding Path}"
-                              ToolTip.Tip="{Binding Branch}" />
+                          <Grid ColumnDefinitions="16,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                            <icons:SymbolIcon Classes="GitRefGlyph" HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Folder" FontSize="{DynamicResource ShellIconSizeXs}" />
+                            <TextBlock
+                                Grid.Column="1"
+                                Classes="GitSidebarRow Path"
+                                Text="{Binding Path}"
+                                ToolTip.Tip="{Binding Branch}" />
+                          </Grid>
                         </Border>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -979,10 +1086,14 @@
                               <MenuItem Header="Remove Submodule…" Tag="Remove" Click="OnSubmoduleTool" />
                             </ContextMenu>
                           </Border.ContextMenu>
-                          <TextBlock
-                              Classes="GitSidebarRow Path"
-                              Text="{Binding Path}"
-                              ToolTip.Tip="{Binding State}" />
+                          <Grid ColumnDefinitions="16,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                            <icons:SymbolIcon Classes="GitRefGlyph" HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Box" FontSize="{DynamicResource ShellIconSizeXs}" />
+                            <TextBlock
+                                Grid.Column="1"
+                                Classes="GitSidebarRow Path"
+                                Text="{Binding Path}"
+                                ToolTip.Tip="{Binding State}" />
+                          </Grid>
                         </Border>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -1090,9 +1201,9 @@
                       Grid.Column="6"
                       Classes="SecondaryButton Dense"
                       Command="{Binding StageAllCommand}"
-                      Content="All"
-                      ToolTip.Tip="Stage all"
-                      AutomationProperties.Name="Stage all" />
+                      Content="Stage All"
+                      ToolTip.Tip="Stage every unstaged change"
+                      AutomationProperties.Name="Stage All" />
                 </Grid>
               </Border>
               <ListBox
@@ -1113,6 +1224,7 @@
                 <ListBox.ItemTemplate>
                   <DataTemplate>
                     <controls:ListItem
+                        Classes="MiddleTruncatedDetail"
                         ContentPadding="{DynamicResource ShellListRowPadding}"
                         Title="{Binding FileName}"
                         Detail="{Binding Directory}"
@@ -1227,9 +1339,9 @@
                       Grid.Column="5"
                       Classes="SecondaryButton Dense"
                       Command="{Binding UnstageAllCommand}"
-                      Content="All"
-                      ToolTip.Tip="Unstage all"
-                      AutomationProperties.Name="Unstage all" />
+                      Content="Unstage All"
+                      ToolTip.Tip="Unstage every staged change"
+                      AutomationProperties.Name="Unstage All" />
                 </Grid>
               </Border>
               <ListBox
@@ -1250,6 +1362,7 @@
                 <ListBox.ItemTemplate>
                   <DataTemplate>
                     <controls:ListItem
+                        Classes="MiddleTruncatedDetail"
                         ContentPadding="{DynamicResource ShellListRowPadding}"
                         Title="{Binding FileName}"
                         Detail="{Binding Directory}"
@@ -1553,7 +1666,7 @@
                       <TextBlock Classes="GitMetaLabel" Text="Author" />
                       <TextBlock
                           Grid.Column="1"
-                          Classes="GitCommitCell"
+                          Classes="GitMetaValue"
                           Text="{Binding CommitDetailMeta}"
                           TextWrapping="Wrap" />
                       <TextBlock Grid.Row="1" Classes="GitMetaLabel" Text="Refs" IsVisible="{Binding SelectedCommit.HasRefs}" />
@@ -1580,7 +1693,7 @@
                       <TextBlock
                           Grid.Row="2"
                           Grid.Column="1"
-                          Classes="GitCommitCell Muted MiddleTruncated"
+                          Classes="GitMetaValue MiddleTruncated"
                           FontFamily="{DynamicResource ShellDataFontFamily}"
                           Text="{Binding SelectedCommit.Commit.Sha}" />
                       <TextBlock Grid.Row="3" Classes="GitMetaLabel" Text="Parents" IsVisible="{Binding HasCommitParents}" />
@@ -1596,8 +1709,10 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                           <DataTemplate>
+                            <!-- No padding, so the link starts in the value
+                                 column with the SHA above it. -->
                             <Button
-                                Classes="TextButton Accent Dense"
+                                Classes="TextButton Accent GitMetaLink"
                                 Click="OnParentShaClick"
                                 Content="{Binding}"
                                 FontFamily="{DynamicResource ShellDataFontFamily}" />
@@ -1606,13 +1721,14 @@
                       </ItemsControl>
                     </Grid>
 
-                    <TextBlock Classes="Muted" Text="{Binding CommitSignatureSummary}" TextWrapping="Wrap" IsVisible="{Binding CommitSignatureSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    <TextBlock Classes="GitMetaValue Muted" Text="{Binding CommitSignatureSummary}" TextWrapping="Wrap" IsVisible="{Binding CommitSignatureSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
                     <TextBlock
                         FontWeight="SemiBold"
                         Text="{Binding SelectedCommit.Subject}"
                         TextWrapping="Wrap" />
                     <TextBlock
+                        Classes="GitCommitBody"
                         Text="{Binding CommitDetailBody}"
                         TextWrapping="Wrap"
                         IsVisible="{Binding HasCommitDetailBody}" />
@@ -1702,6 +1818,7 @@
                   <ListBox.ItemTemplate>
                     <DataTemplate>
                       <controls:ListItem
+                          Classes="MiddleTruncatedDetail"
                           ContentPadding="{DynamicResource ShellListRowPadding}"
                           Title="{Binding FileName}"
                           Detail="{Binding Directory}"
@@ -1759,8 +1876,8 @@
                     <TextBlock
                         VerticalAlignment="Center"
                         FontFamily="{DynamicResource ShellDataFontFamily}"
-                        FontSize="{DynamicResource ShellFontSize10}"
-                        LineHeight="{DynamicResource ShellLineHeight10}"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
+                        LineHeight="{DynamicResource ShellLineHeight11}"
                         Classes="Path"
                         Text="{Binding CommitFileName}" />
                   </Border>

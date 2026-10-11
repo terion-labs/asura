@@ -9,16 +9,13 @@ public sealed partial class GitConflictDialog : DialogWindow
 {
     private readonly string _path = "";
     private readonly string _fingerprint = "";
+    private readonly string _fileName = "";
 
     public GitConflictDialog()
     {
         InitializeComponent();
-        Opened += (_, _) => BoundFooter();
-        SizeChanged += (_, _) => BoundFooter();
+        GitDialogFooter.Span(Shell, FooterRow, DeleteButton, ResolutionButtons);
     }
-
-    private void BoundFooter() => FooterActions.MaxWidth = Math.Max(0,
-        Bounds.Width - Shell.Padding.Left - Shell.Padding.Right - FooterActions.ItemSpacing);
 
     public GitConflictDialog(
         GitConflictContent conflict,
@@ -29,17 +26,17 @@ public sealed partial class GitConflictDialog : DialogWindow
         ArgumentNullException.ThrowIfNull(conflict);
         _path = conflict.Path;
         _fingerprint = conflict.Fingerprint;
-        var checkout = string.IsNullOrWhiteSpace(currentBranchLabel) ? "detached checkout" : currentBranchLabel;
-        var operation = operationKind switch
-        {
-            GitOperationKind.CherryPick => "Cherry-pick",
-            GitOperationKind.Normal => "Conflict resolution",
-            _ => operationKind.ToString(),
-        };
-        Shell.Subtitle = operationKind == GitOperationKind.Rebase
-            ? $"{operation} · {checkout}. Current is the branch being rebased onto; incoming is the commit being replayed."
-            : $"{operation} · {checkout}. Current is the checked-out version; incoming is the other side of this conflict.";
-        PathLabel.Text = conflict.IsBinary ? $"{conflict.Path} · binary conflict; choose a version or deletion" : conflict.Path;
+        // What Current and Incoming mean is said on the tabs themselves, where
+        // the choice is made, rather than in a line under the title.
+        var checkout = string.IsNullOrWhiteSpace(currentBranchLabel) ? "the checked-out branch" : $"“{currentBranchLabel}”";
+        ToolTip.SetTip(CurrentTab, operationKind == GitOperationKind.Rebase
+            ? $"The branch {checkout} is being rebased onto"
+            : $"The version on {checkout}");
+        ToolTip.SetTip(IncomingTab, operationKind == GitOperationKind.Rebase
+            ? "The commit being replayed"
+            : "The version from the other side of the conflict");
+        PathLabel.Text = conflict.IsBinary ? $"{conflict.Path} · binary file; keep one version or delete it" : conflict.Path;
+        _fileName = Path.GetFileName(conflict.Path);
         CurrentIdentity.Text = $"Revision: {conflict.CurrentRevision ?? "not available"}\nFile object, stage 2: {FileObject(conflict.CurrentObjectId, conflict.CurrentExists)}";
         IncomingIdentity.Text = $"Revision: {conflict.IncomingRevision ?? "not associated with a known incoming commit"}\nFile object, stage 3: {FileObject(conflict.IncomingObjectId, conflict.IncomingExists)}";
         BaseIdentity.Text = $"Common ancestor file object, stage 1: {FileObject(conflict.BaseObjectId, conflict.BaseExists)}";
@@ -59,7 +56,20 @@ public sealed partial class GitConflictDialog : DialogWindow
     private void OnCancel(object? sender, RoutedEventArgs e) => Close(null);
     private void OnCurrent(object? sender, RoutedEventArgs e) => Close(new GitConflictRequest(_path, GitConflictResolution.Current, ExpectedFingerprint: _fingerprint));
     private void OnIncoming(object? sender, RoutedEventArgs e) => Close(new GitConflictRequest(_path, GitConflictResolution.Incoming, ExpectedFingerprint: _fingerprint));
-    private void OnDelete(object? sender, RoutedEventArgs e) => Close(new GitConflictRequest(_path, GitConflictResolution.Delete, ExpectedFingerprint: _fingerprint));
+    private async void OnDelete(object? sender, RoutedEventArgs e)
+    {
+        if (await new ConfirmationDialog(new ConfirmationDialogOptions
+        {
+            Heading = $"Delete “{_fileName}”?",
+            Detail = "The file is removed from the working tree and the deletion is marked as the resolution.",
+            Notice = "Both versions stay in the repository’s history.",
+            ConfirmLabel = "Delete File",
+            Intent = ConfirmationIntent.Destructive,
+        }).ShowDialog<bool>(this))
+        {
+            Close(new GitConflictRequest(_path, GitConflictResolution.Delete, ExpectedFingerprint: _fingerprint));
+        }
+    }
     private void OnSave(object? sender, RoutedEventArgs e) => Close(new GitConflictRequest(_path, GitConflictResolution.Edited, ResultInput.Text ?? "", _fingerprint));
     private void OnBoth(object? sender, RoutedEventArgs e) => ResultInput.Text = (CurrentInput.Text ?? "").TrimEnd('\r', '\n') + "\n" + IncomingInput.Text;
 }

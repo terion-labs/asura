@@ -1,8 +1,11 @@
 using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views;
+using Asura.App.Views.RuntimePanels;
 using Asura.Application;
 using Asura.Core;
+using Asura.Git;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
@@ -469,6 +472,239 @@ public sealed class DialogContractHeadlessTests
             Assert.True(table.Extent.Height > table.Viewport.Height);
             dialog.Close();
         });
+    }
+
+    [Fact]
+    public async Task Git_form_path_fields_choose_a_folder_and_remotes_are_a_pop_up()
+    {
+        await RunAsync(async () =>
+        {
+            string? startedFrom = null;
+            string? urlWhenChoosing = null;
+            var dialog = new GitWorkflowDialog(new GitWorkflowForm(
+                "Clone Repository",
+                "Connection: Local",
+                new GitWorkflowAction("Clone"),
+                [
+                    new("path", "Destination path", "/Users/ada/src")
+                    {
+                        ChooseFolder = (_, current, values) =>
+                        {
+                            startedFrom = current;
+                            urlWhenChoosing = values["source"];
+                            return Task.FromResult<string?>("/Users/ada/clones");
+                        },
+                    },
+                    new("source", "Repository URL", "https://example.com/ada/engine.git"),
+                    GitWorkflowField.ChoiceOrText("remote", "Remote", ["origin", "upstream"], "origin"),
+                ]));
+            dialog.Show();
+            await Idle();
+
+            // The prefilled first field takes the keyboard with its text
+            // selected, so typing replaces it.
+            var path = dialog.GetVisualDescendants().OfType<TextBox>().First();
+            Assert.True(path.IsFocused);
+            Assert.Equal(0, path.SelectionStart);
+            Assert.Equal("/Users/ada/src".Length, path.SelectionEnd);
+
+            var choose = dialog.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Choose…"));
+            choose.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await Idle();
+            Assert.Equal("/Users/ada/src", startedFrom);
+            // The chooser sees the URL typed so far, to name the clone's folder.
+            Assert.Equal("https://example.com/ada/engine.git", urlWhenChoosing);
+            Assert.Equal("/Users/ada/clones", path.Text);
+
+            var remote = dialog.GetVisualDescendants().OfType<ComboBox>().Single();
+            Assert.Equal("origin", remote.SelectedItem);
+            Assert.Equal(2, remote.ItemCount);
+            dialog.Close();
+        });
+    }
+
+    [Fact]
+    public async Task Submodule_footer_keeps_its_primary_trailing_and_empty_wells_say_what_goes_in_them()
+    {
+        await RunAsync(async () =>
+        {
+            var dialog = new GitSubmoduleDialog { Width = 560 };
+            dialog.Show();
+            await Idle();
+
+            var row = dialog.FindControl<Grid>("FooterRow")!;
+            var open = dialog.FindControl<Button>("OpenButton")!;
+            var actions = dialog.FindControl<Button>("ActionsButton")!;
+            Assert.True(open.IsDefault);
+            Assert.IsType<MenuFlyout>(actions.Flyout);
+            Assert.DoesNotContain(dialog.GetVisualDescendants(), visual => visual is WrapPanel);
+            // One row: Actions on the leading edge, the primary on the
+            // trailing one, both on the same line.
+            var openCenter = open.TranslatePoint(new Point(0, open.Bounds.Height / 2), row)!.Value;
+            var actionsCenter = actions.TranslatePoint(new Point(0, actions.Bounds.Height / 2), row)!.Value;
+            Assert.Equal(actionsCenter.Y, openCenter.Y, 0.5);
+            Assert.True(actionsCenter.X < openCenter.X);
+            Assert.True(row.Bounds.Height < open.Bounds.Height * 2, "The footer wrapped onto a second row.");
+            AssertFooterSpansTheInsets(dialog, leading: actions, trailing: open);
+            Assert.True(dialog.FindControl<TextBlock>("ChangesEmpty")!.IsVisible);
+            Assert.True(dialog.FindControl<TextBlock>("PatchEmpty")!.IsVisible);
+            dialog.Close();
+        });
+    }
+
+    [Fact]
+    public async Task Conflict_footer_keeps_delete_on_the_leading_inset_and_the_default_on_the_trailing_one()
+    {
+        await RunAsync(async () =>
+        {
+            // Wide enough for the headless font's wider glyphs to fit the
+            // footer's five buttons on one row.
+            var dialog = new GitConflictDialog { Width = 1400 };
+            dialog.Show();
+            await Idle();
+
+            var delete = dialog.FindControl<Button>("DeleteButton")!;
+            var save = dialog.FindControl<Button>("SaveButton")!;
+            Assert.True(save.IsDefault);
+            Assert.False(delete.IsDefault);
+            AssertFooterSpansTheInsets(dialog, leading: delete, trailing: save);
+            dialog.Close();
+        });
+    }
+
+    [Fact]
+    public async Task Conflict_footer_moves_the_resolutions_to_a_second_line_when_the_window_is_narrow()
+    {
+        await RunAsync(async () =>
+        {
+            var dialog = new GitConflictDialog();
+            dialog.Width = dialog.MinWidth;
+            dialog.Show();
+            await Idle();
+            await Idle();
+
+            var row = dialog.FindControl<Grid>("FooterRow")!;
+            var delete = dialog.FindControl<Button>("DeleteButton")!;
+            var resolutions = dialog.FindControl<StackPanel>("ResolutionButtons")!;
+            var deleteBounds = new Rect(delete.TranslatePoint(default, row)!.Value, delete.Bounds.Size);
+            var resolutionBounds = new Rect(resolutions.TranslatePoint(default, row)!.Value, resolutions.Bounds.Size);
+            Assert.False(deleteBounds.Intersects(resolutionBounds), "Delete File… overlaps the resolution buttons.");
+            Assert.True(resolutionBounds.Right <= row.Bounds.Width + 0.5, "The resolution buttons run past the footer.");
+            Assert.Equal(0, deleteBounds.X, 0.5);
+
+            // Wide again, both share one line.
+            dialog.Width = 1400;
+            await Idle();
+            await Idle();
+            var deleteCenter = delete.TranslatePoint(new Point(0, delete.Bounds.Height / 2), row)!.Value;
+            var saveButton = dialog.FindControl<Button>("SaveButton")!;
+            var saveCenter = saveButton.TranslatePoint(new Point(0, saveButton.Bounds.Height / 2), row)!.Value;
+            Assert.Equal(deleteCenter.Y, saveCenter.Y, 0.5);
+            dialog.Close();
+        });
+    }
+
+    [Fact]
+    public async Task Hosting_starred_only_reloads_the_starred_list_when_ticked()
+    {
+        await RunAsync(async () =>
+        {
+            var repository = new GitHostedRepository("ada/engine", "https://example.com/ada/engine.git",
+                "git@example.com:ada/engine.git", "https://example.com/ada/engine", IsPrivate: false);
+            var client = new FakeGitRepositoryClient { HostedRepositories = [repository] };
+            // The dialog disposes its browser when it closes.
+            var browser = new GitHostingBrowserViewModel(client, BuiltInConnections.Local)
+            {
+                SelectedAccount = new GitHostingAccount(
+                    GitHostingProvider.GitHub, new Uri("https://api.github.com/"), "ada", new SecretRef("hosting-ada")),
+            };
+            var dialog = new GitHostingDialog(browser);
+            dialog.Show();
+            await Idle();
+
+            dialog.FindControl<CheckBox>("StarredCheckBox")!.IsChecked = true;
+            await Idle();
+            await Idle();
+
+            Assert.Equal([true], client.HostedRepositoryReadsStarred);
+            Assert.True(browser.Starred);
+            Assert.False(browser.IsBusy);
+            Assert.Equal([repository], browser.Repositories);
+            Assert.False(browser.IsListEmpty);
+            dialog.Close();
+        });
+    }
+
+    [Fact]
+    public async Task Choosing_a_clone_folder_over_SSH_says_a_folder_named_after_the_repository_is_made()
+    {
+        await RunAsync(async () =>
+        {
+            var picker = new GitRepositoryPickerViewModel(new FakeGitRepositoryClient(), BuiltInConnections.Local, "/home/qa");
+            var dialog = new GitRepositoryPickerDialog(picker, "Choose a Folder for the Clone", "Choose", "engine");
+            dialog.Show();
+            await Idle();
+
+            Assert.EndsWith("A new folder named “engine” is made inside the folder you choose.", picker.Subtitle, StringComparison.Ordinal);
+            Assert.Equal("/srv/empty/engine", GitRuntimePanelView.RemoteChosenDestination("/srv/empty/", "engine"));
+            Assert.Equal("/srv/empty", GitRuntimePanelView.RemoteChosenDestination("/srv/empty", null));
+            dialog.Close();
+        });
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Repository_picker_chooses_a_repository_on_double_click_only_when_opening_one(bool choosingDestination)
+    {
+        await RunAsync(async () =>
+        {
+            var client = new FakeGitRepositoryClient();
+            var picker = new GitRepositoryPickerViewModel(client, BuiltInConnections.Local, "/home/qa");
+            var dialog = choosingDestination
+                ? new GitRepositoryPickerDialog(picker, "Choose a Folder for the Clone", "Choose")
+                : new GitRepositoryPickerDialog(picker);
+            var closed = false;
+            dialog.Closed += (_, _) => closed = true;
+            dialog.Show();
+            await Idle();
+
+            var folders = dialog.GetVisualDescendants().OfType<ListBox>().Single();
+            picker.SelectedDirectory = picker.Directories.Single(entry => entry.IsRepository);
+            folders.RaiseEvent(new TappedEventArgs(InputElement.DoubleTappedEvent, null!));
+            await Idle();
+
+            if (choosingDestination)
+            {
+                // Choosing where a clone goes: a repository is a folder to
+                // step into, not an answer, and the subtitle is not about
+                // repositories.
+                Assert.False(closed);
+                Assert.Equal("/home/qa/asura", client.ListedDirectories[^1]);
+                Assert.DoesNotContain("repository", picker.Subtitle, StringComparison.OrdinalIgnoreCase);
+                dialog.Close();
+            }
+            else
+            {
+                Assert.True(closed);
+                Assert.Contains("repository", picker.Subtitle, StringComparison.OrdinalIgnoreCase);
+            }
+        });
+    }
+
+    /// <summary>
+    /// A footer with a command on the leading edge starts where the content
+    /// starts and ends at the same trailing inset as every other dialog's
+    /// buttons.
+    /// </summary>
+    private static void AssertFooterSpansTheInsets(DialogWindow dialog, Button leading, Button trailing)
+    {
+        var shell = dialog.FindControl<DialogShell>("Shell")!;
+        var inset = shell.TryFindResource("ShellSpaceLg", out var value) && value is double space ? space : 16;
+        var leadingEdge = leading.TranslatePoint(default, shell)!.Value.X;
+        var trailingEdge = trailing.TranslatePoint(new Point(trailing.Bounds.Width, 0), shell)!.Value.X;
+        Assert.Equal(inset, leadingEdge, 0.5);
+        Assert.Equal(shell.Bounds.Width - inset, trailingEdge, 0.5);
     }
 
     private static async Task RunAsync(Func<Task> test)

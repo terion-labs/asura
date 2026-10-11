@@ -30,6 +30,12 @@ public sealed class GitDiffTextBlock : TextBlock
     public bool ShowInvisibles { get => GetValue(ShowInvisiblesProperty); set => SetValue(ShowInvisiblesProperty, value); }
     public bool HighlightWords { get => GetValue(HighlightWordsProperty); set => SetValue(HighlightWordsProperty, value); }
 
+    // Styled as a TextBlock, so the diff's own rules for its text (the data
+    // font, its size and line height) reach this one too. Without this the
+    // selector "Border.GitDiffLine TextBlock" skipped the subclass and the
+    // code drew in the proportional interface font.
+    protected override Type StyleKeyOverride => typeof(TextBlock);
+
     public GitDiffTextBlock()
     {
         ActualThemeVariantChanged += (_, _) => Present();

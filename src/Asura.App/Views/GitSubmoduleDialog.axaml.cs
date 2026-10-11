@@ -20,13 +20,11 @@ public sealed partial class GitSubmoduleDialog : DialogWindow
     public GitSubmoduleDialog()
     {
         InitializeComponent();
-        Opened += (_, _) => BoundFooter();
-        SizeChanged += (_, _) => BoundFooter();
+        GitDialogFooter.Span(Shell, FooterRow);
         Closed += (_, _) => { _lifetime.Cancel(); _lifetime.Dispose(); };
     }
 
-    private void BoundFooter() => FooterActions.MaxWidth = Math.Max(0,
-        Bounds.Width - Shell.Padding.Left - Shell.Padding.Right - FooterActions.ItemSpacing);
+    private void OnClose(object? sender, RoutedEventArgs e) => Close();
 
     public GitSubmoduleDialog(GitRuntimePanelViewModel panel, GitSubmoduleItem item) : this()
     {
@@ -52,12 +50,23 @@ public sealed partial class GitSubmoduleDialog : DialogWindow
         }
         ExpectedInput.Text = item.ExpectedRevision;
         CheckoutInput.Text = item.CheckedOutRevision ?? "Not checked out";
-        RefreshButton.IsEnabled = !_busy;
-        InitializeButton.IsEnabled = !_busy && !item.IsInitialized && _panel?.CanMutateRepository == true;
-        UpdateButton.IsEnabled = !_busy && _panel?.CanMutateRepository == true;
-        SyncButton.IsEnabled = !_busy && _panel?.CanMutateRepository == true;
+        RefreshItem.IsEnabled = !_busy;
+        InitializeItem.IsEnabled = !_busy && !item.IsInitialized && _panel?.CanMutateRepository == true;
+        UpdateItem.IsEnabled = !_busy && _panel?.CanMutateRepository == true;
+        SyncItem.IsEnabled = !_busy && _panel?.CanMutateRepository == true;
         OpenButton.IsEnabled = !_busy && item.IsInitialized;
-        CompareButton.IsEnabled = !_busy && item.IsInitialized && item.CheckedOutRevision is not null;
+        CompareItem.IsEnabled = !_busy && item.IsInitialized && item.CheckedOutRevision is not null;
+        PresentWells();
+    }
+
+    /// <summary>Each well says what goes in it while it has nothing to show.</summary>
+    private void PresentWells()
+    {
+        ChangesEmpty.Text = _comparisonRepository is null
+            ? "Choose Compare Recorded and Checkout from Actions to list the files that differ."
+            : "The recorded and checked-out revisions contain the same files.";
+        ChangesEmpty.IsVisible = ChangesList.ItemCount == 0;
+        PatchEmpty.IsVisible = string.IsNullOrEmpty(PatchInput.Text);
     }
 
     private async void OnRefresh(object? sender, RoutedEventArgs e) => await ReloadAsync();
@@ -84,7 +93,7 @@ public sealed partial class GitSubmoduleDialog : DialogWindow
 
     private async void OnSubmoduleAction(object? sender, RoutedEventArgs e)
     {
-        if (_busy || _panel is not { } panel || _item is not { } item || sender is not Button { Tag: string tag }
+        if (_busy || _panel is not { } panel || _item is not { } item || sender is not MenuItem { Tag: string tag }
             || !Enum.TryParse<GitSubmoduleAction>(tag, out var action)) { return; }
         if (!await new ConfirmationDialog(new ConfirmationDialogOptions
         {
@@ -139,7 +148,7 @@ public sealed partial class GitSubmoduleDialog : DialogWindow
             var changes = ((GitResult<GitComparison>.Success)comparison).Value.Changes;
             ChangesList.ItemsSource = changes.Select(change => new GitChangeItemViewModel(change)).ToArray();
             ChangesList.SelectedIndex = changes.Count > 0 ? 0 : -1;
-            ShowMessage(changes.Count == 0 ? "The recorded and checked-out revisions contain the same files." : "Showing checked-out revision against recorded revision. Local uncommitted edits are shown in the opened submodule panel.");
+            ShowMessage(changes.Count == 0 ? "" : "Showing checked-out revision against recorded revision. Local uncommitted edits are shown in the opened submodule panel.");
         }
         finally { if (!_lifetime.IsCancellationRequested) { SetBusy(false); } }
     }
@@ -148,10 +157,11 @@ public sealed partial class GitSubmoduleDialog : DialogWindow
     {
         var generation = ++_patchGeneration;
         if (_lifetime.IsCancellationRequested || _panel is not { } panel || _comparisonRepository is not { } repository || ChangesList.SelectedItem is not GitChangeItemViewModel change
-            || _comparisonBase is null || _comparisonTarget is null) { PatchInput.Text = ""; return; }
+            || _comparisonBase is null || _comparisonTarget is null) { PatchInput.Text = ""; PresentWells(); return; }
         var result = await panel.ReadSubmoduleDiffAsync(repository, new(GitDiffArea.Commit, change.Path, OriginalPath: change.Change.OriginalPath,
             BaseRevision: _comparisonBase, CommitSha: _comparisonTarget), _lifetime.Token);
         if (_lifetime.IsCancellationRequested || generation != _patchGeneration) { return; }
         PatchInput.Text = result is GitResult<GitDiffDocument>.Success success ? success.Value.RawPatch : ((GitResult<GitDiffDocument>.Failure)result).Error.Message;
+        PresentWells();
     }
 }

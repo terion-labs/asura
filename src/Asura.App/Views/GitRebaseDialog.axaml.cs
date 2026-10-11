@@ -28,6 +28,17 @@ public sealed partial class GitRebaseDialog : DialogWindow
         }
 
         Rows.ItemsSource = _rows;
+        _rows.CollectionChanged += (_, _) => UpdatePositions();
+        UpdatePositions();
+    }
+
+    /// <summary>The first step can't move earlier and the last can't move later.</summary>
+    private void UpdatePositions()
+    {
+        for (var index = 0; index < _rows.Count; index++)
+        {
+            _rows[index].SetPosition(index, _rows.Count);
+        }
     }
 
     private void OnCancel(object? sender, RoutedEventArgs e) => Close(null);
@@ -88,6 +99,7 @@ public sealed partial class GitRebaseDialog : DialogWindow
         if (target >= 0 && target < _rows.Count)
         {
             _rows.Move(index, target);
+            Rows.SelectedItem = row;
         }
     }
 
