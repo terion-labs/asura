@@ -50,7 +50,7 @@
     <!-- A dense form row keeps its check box at the dense size too. -->
     <Style Selector="CheckBox.Dense">
       <Setter Property="MinHeight" Value="24" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
     </Style>
 
     <!-- A row of a collection form: its inputs are one run, the remove sits
@@ -70,7 +70,7 @@
       <Setter Property="HorizontalAlignment" Value="Left" />
       <Setter Property="MinHeight" Value="0" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs, Vertical=Xs}" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
     </Style>
 
     <!-- A Redis key is an identifier, so the row's title reads in the data

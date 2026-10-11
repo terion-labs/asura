@@ -99,6 +99,84 @@ public sealed class TextScaleLayoutContractTests
         Assert.True(captions.Length == 0, "Set these at body or callout size: " + string.Join(", ", captions));
     }
 
+    /// <summary>
+    /// Lengths laid out for 13 pt text grow with the text: the Quick Terminal
+    /// agent column squeezed its conversation at a large text size, the
+    /// connection picker's rows truncated, and Docker's Follow toggle clipped
+    /// its own label at a fixed height.
+    /// </summary>
+    [Theory]
+    [InlineData("Views/QuickTerminalWindow.axaml", "views|AgentWorkspaceView", "Width", "{controls:TextScaled 352}")]
+    [InlineData("Views/RuntimePanels/DockerRuntimePanelView.axaml", "ToggleButton.DockerFollowToggle", "MinHeight", "{controls:TextScaled 32}")]
+    public void Fixed_lengths_around_text_scale_with_it(string view, string selector, string property, string value)
+    {
+        var setters = Load(view).Descendants()
+            .Where(element => element.Name.LocalName == "Style"
+                && string.Equals(Attribute(element, "Selector"), selector, StringComparison.Ordinal))
+            .SelectMany(style => style.Elements().Where(element => element.Name.LocalName == "Setter"))
+            .ToArray();
+
+        Assert.Contains(setters, setter =>
+            string.Equals(Attribute(setter, "Property"), property, StringComparison.Ordinal)
+            && string.Equals(Attribute(setter, "Value"), value, StringComparison.Ordinal));
+        Assert.DoesNotContain(setters, setter =>
+            string.Equals(Attribute(setter, "Property"), "Height", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_connection_pickers_list_widens_with_the_text()
+    {
+        var list = Load("Views/Components/PanelConnectionSelectorView.axaml").Descendants()
+            .Single(element => element.Name.LocalName == "Flyout")
+            .Elements()
+            .Single();
+
+        Assert.Equal("{controls:TextScaled 310}", Attribute(list, "Width"));
+    }
+
+    /// <summary>
+    /// Text people read as content is at least the Subheadline size. A URL is
+    /// the page's own address, the SQL diagnostics line and the layout hint
+    /// are sentences, and a dense check box or add-row button sits beside
+    /// dense controls that are already at the secondary size. Badges,
+    /// keycaps, chips and chart axis labels stay at the Caption size.
+    /// </summary>
+    [Theory]
+    [InlineData("Views/RuntimePanels/BrowserRuntimePanelView.axaml", "AddressBox", "{DynamicResource ShellFontSize12}")]
+    [InlineData("Views/RuntimePanels/BrowserRuntimePanelView.axaml", "AddressDisplay", "{DynamicResource ShellFontSize12}")]
+    [InlineData("Views/Components/CodeEditBox.axaml", "DiagnosticStatusText", null)]
+    public void Content_text_is_not_set_at_the_caption_size(string view, string name, string? fontSize)
+    {
+        var element = Load(view).Descendants()
+            .Single(candidate => string.Equals(Attribute(candidate, "Name"), name, StringComparison.Ordinal));
+
+        Assert.Equal(fontSize, Attribute(element, "FontSize"));
+    }
+
+    [Theory]
+    [InlineData("Views/RuntimePanels/RedisRuntimePanelView.axaml", "CheckBox.Dense")]
+    [InlineData("Views/RuntimePanels/RedisRuntimePanelView.axaml", "Button.RedisAddRow")]
+    public void Dense_redis_controls_match_the_other_dense_controls(string view, string selector)
+    {
+        var style = Load(view).Descendants()
+            .Single(element => element.Name.LocalName == "Style"
+                && string.Equals(Attribute(element, "Selector"), selector, StringComparison.Ordinal));
+        var fontSize = style.Elements()
+            .Single(setter => string.Equals(Attribute(setter, "Property"), "FontSize", StringComparison.Ordinal));
+
+        Assert.Equal("{DynamicResource ShellSecondaryFontSize}", Attribute(fontSize, "Value"));
+    }
+
+    [Fact]
+    public void The_layout_designer_hint_is_secondary_text()
+    {
+        var hint = Load("Views/Overlays/LayoutDesignerView.axaml").Descendants()
+            .Single(element => element.Name.LocalName == "TextBlock"
+                && string.Equals(Attribute(element, "Text"), "{Binding LayoutDesignerEditor.GridHint}", StringComparison.Ordinal));
+
+        Assert.Equal("{DynamicResource ShellSecondaryFontSize}", Attribute(hint, "FontSize"));
+    }
+
     public static TheoryData<string> CompactToolbars()
     {
         var data = new TheoryData<string>();

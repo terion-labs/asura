@@ -94,7 +94,7 @@
               Classes="BrowserAddress"
               VerticalAlignment="Center"
               AutomationProperties.Name="Browser address"
-              FontSize="{DynamicResource ShellFontSize10}"
+              FontSize="{DynamicResource ShellFontSize12}"
               GotFocus="OnAddressGotFocus"
               IsEnabled="{Binding IsLive, ElementName=RuntimeBrowser}"
               KeyDown="OnAddressKeyDown"
@@ -110,7 +110,7 @@
                 x:Name="AddressDisplay"
                 Margin="{Binding #AddressBox.Padding}"
                 VerticalAlignment="Center"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellFontSize12}"
                 Text="{Binding AddressText, ElementName=RuntimeBrowser}"
                 TextTrimming="CharacterEllipsis" />
           </Border>

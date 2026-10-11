@@ -45,7 +45,6 @@
       <controls:LiveRegionTextBlock
           x:Name="DiagnosticStatusText"
           Classes="Eyebrow"
-          FontSize="{DynamicResource ShellFontSize10}"
           AutomationProperties.Name="SQL diagnostics"
           AutomationProperties.LiveSetting="Polite" />
     </Border>

@@ -23,7 +23,7 @@
          shorter, so the floating surface stretches within its content area
          instead of assuming the main window's 620px flyout height. -->
     <Style Selector="views|AgentWorkspaceView">
-      <Setter Property="Width" Value="352" />
+      <Setter Property="Width" Value="{controls:TextScaled 352}" />
       <Setter Property="Margin" Value="0" />
     </Style>
     <Style Selector="views|AgentWorkspaceView.floating">
