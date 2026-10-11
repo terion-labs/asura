@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -128,7 +129,10 @@ public sealed class TerminalSettingsViewModel : ObservableObject, IDisposable
         }
         catch (Exception exception) when (exception is ArgumentException or FormatException)
         {
-            return Fail<StoredDefinition<TerminalProfile>>(exception.Message);
+            return Fail<StoredDefinition<TerminalProfile>>(FailureReason.Refusal(
+                "terminal.profile.save.refused",
+                exception,
+                "Asura couldn't save the terminal profile with these settings. Check the font, sizes, and colors, then try again."));
         }
 
         // A no-op save must not publish a catalog change. Rebinding the editor
@@ -183,7 +187,10 @@ public sealed class TerminalSettingsViewModel : ObservableObject, IDisposable
         }
         catch (Exception exception) when (exception is ArgumentException or FormatException)
         {
-            return Fail<StoredDefinition<QuickTerminalSettings>>(exception.Message);
+            return Fail<StoredDefinition<QuickTerminalSettings>>(FailureReason.Refusal(
+                "terminal.quick-terminal.save.refused",
+                exception,
+                "Asura couldn't save the Quick Terminal settings. Check the shortcut, height, and opacity, then try again."));
         }
 
         var editor = QuickTerminalEditor;

@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Numerics;
 using System.Text;
 using System.Text.Json;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -146,7 +147,7 @@ public sealed class DatabaseResultCellViewModel : ObservableObject
         // read-only cell-size cap. Full streamed export remains available.
         if (content.Length > int.MaxValue || content.Length > Math.Max(0, availableMemoryBytes - reserve) / 6)
         {
-            throw new IOException("There isn't enough memory to open this complete value in the text editor. Export the full value to a file, or free memory and retry.");
+            throw FailureReason.Readable(new IOException("There isn't enough memory to open this complete value in the text editor. Export the full value to a file, or free some memory and try again."));
         }
 
         await using var source = content.OpenRead();

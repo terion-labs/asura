@@ -156,7 +156,10 @@ public sealed partial class McpServerProfileEditorDialog : DialogWindow
             // failure about the whole server goes to the list at the top.
             if (!FieldValidation.Present(this, exception))
             {
-                ShowValidationError(exception.Message);
+                ShowValidationError(FailureReason.Refusal(
+                    "mcp-server.editor.save.refused",
+                    exception,
+                    "Asura can't save the MCP server with these settings. Check each value, then try again."));
             }
         }
     }
@@ -169,7 +172,10 @@ public sealed partial class McpServerProfileEditorDialog : DialogWindow
         }
         catch (InvalidOperationException exception)
         {
-            ShowValidationError(exception.Message);
+            ShowValidationError(FailureReason.Refusal(
+                "mcp-server.editor.change.refused",
+                exception,
+                "Asura couldn't make that change to the MCP server. Try again."));
         }
     }
 

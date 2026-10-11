@@ -495,6 +495,7 @@ public sealed class TerminalProfileEditorViewModel : ObservableObject
 
     public TerminalProfileEditorSaveRequest CreateSaveRequest()
     {
+        ValidateForSave();
         var palette = new TerminalPalette(
             _paletteName,
             RgbColor.Parse(Foreground),
@@ -522,6 +523,55 @@ public sealed class TerminalProfileEditorViewModel : ObservableObject
                 Compatibility,
                 AskBeforeClosing),
             ExpectedRevision);
+    }
+
+    /// <summary>
+    /// Checks the values the profile's own rules would refuse, so a refusal
+    /// names the field and says what it accepts instead of carrying the
+    /// profile's argument text ("Font size must be between 6 and 96 points.
+    /// (Parameter 'fontSize')").
+    /// </summary>
+    private void ValidateForSave()
+    {
+        if (string.IsNullOrWhiteSpace(FontFamily))
+        {
+            throw InvalidField.Exception(nameof(FontFamily), "Choose a font.");
+        }
+
+        if (FontFamily.AsSpan().IndexOfAny('\r', '\n', '\0') >= 0)
+        {
+            throw InvalidField.Exception(nameof(FontFamily), "A font name must fit on one line. Choose the font again.");
+        }
+
+        if (!double.IsFinite(FontSize) || FontSize is < 6 or > 96)
+        {
+            throw InvalidField.Exception(nameof(FontSize), "Choose a font size from 6 to 96 points.");
+        }
+
+        if (!double.IsFinite(LineHeight) || LineHeight is < 0.8 or > 3)
+        {
+            throw InvalidField.Exception(nameof(LineHeight), "Choose a line height from 0.8 to 3.");
+        }
+
+        if (ScrollbackLines is < 0 or > 10_000_000)
+        {
+            throw InvalidField.Exception(nameof(ScrollbackLines), "Choose a scrollback length from 0 to 10,000,000 lines.");
+        }
+
+        RequireColor(Foreground, nameof(Foreground), "text");
+        RequireColor(Background, nameof(Background), "background");
+        RequireColor(Cursor, nameof(Cursor), "cursor");
+        RequireColor(Selection, nameof(Selection), "selection");
+    }
+
+    private static void RequireColor(string value, string field, string name)
+    {
+        if (!RgbColor.TryParse(value, out _))
+        {
+            throw InvalidField.Exception(
+                field,
+                $"Enter the {name} color as six hexadecimal digits, such as #1E1E2E.");
+        }
     }
 
     private static IReadOnlyList<TerminalKeymapOption> CreateTerminalKeymapOptions(

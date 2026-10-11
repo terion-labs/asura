@@ -82,7 +82,7 @@ public sealed partial class GitRuntimePanelViewModel
         }
         catch (ArgumentException exception)
         {
-            return new GitResult<T>.Failure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false));
+            return new GitResult<T>.Failure(GitRequestRefusal.Error(exception, GitRequestRefusal.Specialist));
         }
     }
 }

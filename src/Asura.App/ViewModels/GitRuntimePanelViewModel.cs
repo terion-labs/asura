@@ -1185,7 +1185,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (openGeneration == _openGeneration)
             {
-                PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the repository path");
+                PresentFailure(GitRequestRefusal.Error(exception, GitRequestRefusal.OpenRepository), "Couldn't open repository");
             }
         }
         finally
@@ -1574,7 +1574,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (historyGeneration == _historyGeneration)
             {
-                PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the history filter");
+                PresentFailure(GitRequestRefusal.Error(exception, GitRequestRefusal.HistoryFilter), "Couldn't search history");
             }
         }
         finally
@@ -2299,7 +2299,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (ArgumentException exception)
         {
-            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Check the Git request");
+            PresentFailure(GitRequestRefusal.Error(exception, GitRequestRefusal.Operation), "Git action not started");
             return false;
         }
         finally

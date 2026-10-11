@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -351,7 +352,10 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         catch (Exception exception) when (exception is ArgumentException or UriFormatException)
         {
             TestStatus = "Validation failed";
-            TestDetail = exception.Message;
+            TestDetail = FailureReason.Refusal(
+                "file-provider.editor.test.refused",
+                exception,
+                "Asura can't test the file provider with these settings. Check each value, then test again.");
             ReportError(TestDetail, TestStatus);
             return;
         }
@@ -412,7 +416,10 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         }
         catch (ArgumentException exception)
         {
-            _hostKeyReviewStatus = exception.Message;
+            _hostKeyReviewStatus = FailureReason.Refusal(
+                "file-provider.editor.host-key.refused",
+                exception,
+                "Asura can't trust the host key until the provider's settings are complete. Check each value, then try again.");
             OnPropertyChanged(nameof(HostKeyReviewStatus));
             return;
         }
@@ -534,7 +541,9 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
             OptionalExact(RootPrefix)),
         FileProviderKind.Sftp => new FileProviderConfiguration.Sftp(
             SelectedSshConnection?.Id
-                ?? throw new ArgumentException("An SSH connection is required for SFTP."),
+                ?? throw InvalidField.Exception(
+                    nameof(SelectedSshConnection),
+                    "Choose the SSH connection for SFTP to use."),
             Required(RemoteRoot, "Remote root")),
         FileProviderKind.Ftp => new FileProviderConfiguration.Ftp(
             Required(Host, "FTP host"),
@@ -553,7 +562,9 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
             UsesSmbCredential ? Required(Username, "SMB username") : null,
             UsesSmbCredential
                 ? SelectedCredential?.Reference
-                    ?? throw new ArgumentException("An SMB password secret is required.")
+                    ?? throw InvalidField.Exception(
+                        nameof(SelectedCredential),
+                        "Choose the saved credential that holds the SMB password.")
                 : null,
             Required(RemoteRoot, "Remote root")),
         FileProviderKind.WebDav => new FileProviderConfiguration.WebDav(

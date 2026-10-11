@@ -1,3 +1,4 @@
+using Asura.Application;
 using Asura.Databases;
 using Npgsql;
 
@@ -110,8 +111,11 @@ public sealed class PostgresConnectionStringsTests
     [Fact]
     public void A_parameter_the_driver_cannot_honour_is_named_rather_than_dropped()
     {
-        var refusal = Assert.Throws<ArgumentException>(() => PostgresConnectionStrings.Normalize(
+        var refusal = Assert.Throws<UnsupportedConnectionParameterException>(() => PostgresConnectionStrings.Normalize(
             "postgresql://alice@db.example.test/app?sslmode=require&gssencmode=require"));
+
+        Assert.Equal("PostgreSQL", refusal.Engine);
+        Assert.Equal(["gssencmode"], refusal.Parameters);
 
         Assert.Contains("gssencmode", refusal.Message, StringComparison.Ordinal);
         Assert.Contains("keyword=value", refusal.Message, StringComparison.Ordinal);

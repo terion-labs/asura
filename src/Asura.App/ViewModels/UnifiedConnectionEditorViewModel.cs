@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -108,7 +109,8 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
     }
 
     public ConnectionSecretEditorViewModel CreateSecretEditor(SecretKind kind, SecretScope scope) =>
-        new(_secretVault ?? throw new InvalidOperationException($"{PlatformTerms.SecretStore} isn't available."),
+        new(_secretVault ?? throw FailureReason.Readable(new InvalidOperationException(
+                $"Asura can't reach {PlatformTerms.SecretStore}, so it can't store the credential. Try again later.")),
             scope, kind, $"{Name} {kind}");
 
     public ConnectionEditorViewModel Terminal { get; }

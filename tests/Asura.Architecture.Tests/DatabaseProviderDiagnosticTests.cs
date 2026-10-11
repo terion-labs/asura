@@ -79,6 +79,37 @@ public sealed class DatabaseProviderDiagnosticTests
         Assert.Equal("syntax error at SELECT", diagnostic.Message);
     }
 
+    [Fact]
+    public async Task OnlyAServerReasonIsMarkedAsTheServersAndPlaceholdersAreWithheld()
+    {
+        await using var catalog = new DatabasePanelClient();
+        var target = new DatabaseWorkerConnection("postgres", "Host=fixture.invalid");
+        var server = DatabaseProviderDiagnostic.Create(
+            new Npgsql.PostgresException("syntax error at SELECT", "ERROR", "ERROR", "42601", position: 17), target, catalog);
+        var client = DatabaseProviderDiagnostic.Create(new Npgsql.NpgsqlException("Exception while reading from stream"), target, catalog);
+        var unreachable = DatabaseProviderDiagnostic.Create(
+            new Npgsql.NpgsqlException("Failed to connect", new System.Net.Sockets.SocketException()), target, catalog);
+        var timedOut = DatabaseProviderDiagnostic.Create(
+            new Npgsql.NpgsqlException("Timeout", new TimeoutException()), target, catalog);
+        var nonProvider = DatabaseProviderDiagnostic.Create(new ArgumentException("Value cannot be null. (Parameter 'sql')"), target, catalog);
+
+        Assert.Equal(DatabaseProviderFailureKind.Server, server.Kind);
+        Assert.Equal(DatabaseProviderFailureKind.Client, client.Kind);
+        Assert.Equal(DatabaseProviderFailureKind.Unreachable, unreachable.Kind);
+        Assert.Equal(DatabaseProviderFailureKind.TimedOut, timedOut.Kind);
+        Assert.Equal(DatabaseProviderFailureKind.Client, nonProvider.Kind);
+
+        var reported = new DatabaseProviderOperationException(server);
+        Assert.Equal("syntax error at SELECT", reported.ServerReason);
+        Assert.Equal(17, reported.Position);
+        Assert.Contains("may have completed", reported.Message, StringComparison.Ordinal);
+        Assert.Null(new DatabaseProviderOperationException(client).ServerReason);
+
+        var withheld = DatabaseProviderDiagnostic.Create(new ReportedError(Canary, "42601"), new("unknown", Canary), catalog);
+        Assert.Equal(DatabaseProviderFailureException.ReasonOmittedWithoutSecretExtraction, withheld.Message);
+        Assert.Null(new DatabaseProviderOperationException(withheld).ServerReason);
+    }
+
     private sealed class ReportedError(string message, string state) : DbException(message)
     {
         public override string? SqlState => state;
