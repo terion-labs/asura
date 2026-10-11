@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Asura.Application;
 using Asura.Core;
 
 namespace Asura.App.ViewModels;
@@ -16,7 +17,8 @@ public sealed record SettingsDraft(SettingsPage Page, string Heading, string Det
 /// drafts: a set of keyboard shortcuts that must be free of conflicts before
 /// any of it is saved, and a browser profile's HTTP authentication, whose
 /// password must not be stored half typed. A draft is never thrown away
-/// without asking.
+/// without asking, and neither is an appearance change that could not be
+/// saved: until it is saved or discarded it is a draft too.
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
@@ -26,6 +28,10 @@ public sealed partial class MainWindowViewModel
     /// </summary>
     public SettingsDraft? PendingSettingsDraft(SettingsPage page) => page switch
     {
+        SettingsPage.Appearance when CanRetryAppearanceSave => new(
+            page,
+            "Discard Appearance Changes?",
+            "Some appearance changes couldn't be saved. Discard them, or keep editing and choose Try Again."),
         SettingsPage.Browser when BrowserProfileSettingsEditor.HasUnsavedAuthentication => new(
             page,
             "Discard HTTP Authentication Changes?",
@@ -171,7 +177,10 @@ public sealed partial class MainWindowViewModel
     /// changes: there is no Apply. Changes made while a save is in flight are
     /// saved after it, newest last, so dragging a colour costs one save per
     /// round trip rather than one per step. The preview ends once what is
-    /// saved is what is shown.
+    /// saved is what is shown. A save that fails leaves the preview up and
+    /// offers Try Again, and leaving the page asks before it is discarded.
+    /// Callers start this without awaiting it, so it reports every expected
+    /// failure itself rather than throwing.
     /// </summary>
     public async Task ApplyTerminalAppearanceChangeAsync(CancellationToken cancellationToken)
     {
@@ -187,8 +196,31 @@ public sealed partial class MainWindowViewModel
             do
             {
                 _terminalAppearanceApplyPending = false;
-                var result = await SaveTerminalProfileAsync(cancellationToken);
-                if (!result.IsSuccess || _disposed)
+                _terminalAppearanceSaveFailed = false;
+                DefinitionStoreResult<StoredDefinition<TerminalProfile>> result;
+                try
+                {
+                    result = await SaveTerminalProfileAsync(cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception exception) when (exception is
+                    ArgumentException or FormatException or InvalidOperationException or OperationCanceledException)
+                {
+                    SetError(exception.Message);
+                    _terminalAppearanceSaveFailed = true;
+                    break;
+                }
+
+                if (!result.IsSuccess)
+                {
+                    _terminalAppearanceSaveFailed = true;
+                    break;
+                }
+
+                if (_disposed)
                 {
                     break;
                 }
@@ -203,14 +235,16 @@ public sealed partial class MainWindowViewModel
                     _ = _appearancePreviewLease?.ClearTerminal();
                     ReleaseInactiveAppearanceLease();
                 }
-
-                PublishAppearanceDraftState();
             }
             while (_terminalAppearanceApplyPending && !_disposed);
         }
         finally
         {
             _terminalAppearanceApplyRunning = false;
+            if (!_disposed)
+            {
+                PublishAppearanceDraftState();
+            }
         }
     }
 
@@ -291,6 +325,9 @@ public sealed partial class MainWindowViewModel
     {
         switch (page)
         {
+            case SettingsPage.Appearance when CanRetryAppearanceSave:
+                DiscardUnsavedAppearance();
+                break;
             case SettingsPage.Browser when BrowserProfileSettingsEditor.HasUnsavedAuthentication:
                 BrowserProfileSettingsEditor.DiscardAuthenticationDraft();
                 break;

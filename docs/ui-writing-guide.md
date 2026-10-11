@@ -183,6 +183,7 @@ Settings follow the Mac settings window: there is no Save, Apply, or OK.
   - Keyboard Shortcuts. A set of shortcuts has to be free of conflicts before any of it is saved, so the pane keeps Save Shortcuts, and resolving a conflict happens in the draft.
   - A browser profile's HTTP authentication. A password is stored whole or not at all, so the group keeps Save Authentication.
 - Leaving a page that holds one of these drafts, or closing the window, asks first. Nothing else asks, because nothing else is unsaved.
+- A change that applies as it is made can still fail to save. It stays on show with Try Again and Discard Changes beside it, and until one of them is chosen it counts as a draft: leaving the page asks first.
 - An on/off option is a checkbox whose label is its own text, with the box leading and the description under the words. A switch is used only for the setting that turns a whole section on or off, such as Use a network connection.
 - Pop-up menu items are menu items, so they are title case ("Confirm Before Open", "Use App Setting").
 - A delete that leaves Undo (workspaces, saved screens, file providers) happens at once, so its Delete has no "…". Where a question follows, as for a stored credential, the item keeps "Delete…".

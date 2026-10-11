@@ -996,17 +996,20 @@ public sealed class SettingsViewContractTests
         string?[] expected = masters is null ? [] : masters.Split('|');
         Assert.Equal(expected, switches);
 
-        // Every checkbox in a settings row names itself; none sits bare at
-        // the row's trailing edge.
+        // Every checkbox in a settings row is a leading option named by its
+        // row's label, which the checkbox shows as its title; none sits bare
+        // at the row's trailing edge. The name lives on the row so search
+        // finds the row it names.
         foreach (var row in root.Descendants().Where(element =>
                      string.Equals(element.Name.LocalName, "SettingRow", StringComparison.Ordinal)
                      && element.Elements().Any(child =>
                          string.Equals(child.Name.LocalName, "CheckBox", StringComparison.Ordinal))))
         {
             Assert.Equal("Option", AttributeValue(row, "Classes"));
+            Assert.False(string.IsNullOrWhiteSpace(AttributeValue(row, "Label")));
             var box = row.Elements().Single(child =>
                 string.Equals(child.Name.LocalName, "CheckBox", StringComparison.Ordinal));
-            Assert.False(string.IsNullOrWhiteSpace(AttributeValue(box, "Content")));
+            Assert.Null(AttributeValue(box, "Content"));
         }
     }
 

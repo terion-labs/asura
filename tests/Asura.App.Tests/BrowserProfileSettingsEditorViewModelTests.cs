@@ -22,6 +22,20 @@ public sealed class BrowserProfileSettingsEditorViewModelTests
     }
 
     [Fact]
+    public void AnEmptyPortShowsTheProtocolsOwnPortAsItsPlaceholder()
+    {
+        var editor = new BrowserProfileSettingsEditorViewModel(new InMemoryBrowserProfilePreferences());
+        var changed = new List<string?>();
+        editor.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        Assert.Equal("443", editor.AuthenticationDefaultPort);
+        editor.AuthenticationOriginScheme = "http";
+
+        Assert.Equal("80", editor.AuthenticationDefaultPort);
+        Assert.Contains(nameof(BrowserProfileSettingsEditorViewModel.AuthenticationDefaultPort), changed, StringComparer.Ordinal);
+    }
+
+    [Fact]
     public void SharingChoicesAreTitleCaseMenuItems()
     {
         var editor = new BrowserProfileSettingsEditorViewModel(new InMemoryBrowserProfilePreferences());

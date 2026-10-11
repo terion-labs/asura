@@ -53,9 +53,9 @@
       </controls:SettingRow>
       <controls:SettingRow
           Classes="Option"
+          Label="Kill switch"
           Description="Block Asura-routed traffic when the connection fails instead of falling back to a direct route. Programs that ignore proxy settings aren’t held back; isolate a workspace when every process must be.">
         <CheckBox
-            Content="Kill switch"
             IsChecked="{Binding Policy.KillSwitchEnabled, Mode=TwoWay}"
             AutomationProperties.Name="Application network kill switch" />
       </controls:SettingRow>

@@ -919,7 +919,7 @@ public sealed partial class SettingsView : UserControl
 
                 foreach (var row in group.Items.OfType<SettingRow>())
                 {
-                    if (!SettingsSearchIndex.Matches($"{row.Label} {row.Description}", query))
+                    if (!SearchableText(row).Any(text => SettingsSearchIndex.Matches(text, query)))
                     {
                         Hide(row);
                     }

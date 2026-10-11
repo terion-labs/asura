@@ -1311,7 +1311,26 @@ public sealed partial class MainWindow
         }
 
         // Shown at once on every terminal, then saved: there is no Apply.
-        _ = ViewModel.ApplyTerminalAppearanceChangeAsync(_lifetime.Token);
+        _ = SaveTerminalAppearanceChangeAsync();
+    }
+
+    /// <summary>
+    /// Saves the terminal appearance on show and, when that fails, says so
+    /// where the page reports appearance status; Try Again is then offered.
+    /// It reports rather than throws, so it is safe to start unawaited.
+    /// </summary>
+    private async Task<bool> SaveTerminalAppearanceChangeAsync()
+    {
+        await ViewModel.ApplyTerminalAppearanceChangeAsync(_lifetime.Token);
+        if (!ViewModel.CanRetryTerminalAppearanceSave)
+        {
+            return true;
+        }
+
+        SettingsRoute.SetAppearanceValidationStatus(
+            ViewModel.OperationError ?? "The terminal appearance couldn’t be saved.",
+            isWarning: true);
+        return false;
     }
 
     /// <summary>
@@ -1436,17 +1455,27 @@ public sealed partial class MainWindow
         _ = e;
         try
         {
-            var result = await ViewModel.SaveAppearanceThemeChangeAsync(
-                ThemeFrom(SettingsRoute.CaptureAppearance()),
-                _lifetime.Token);
-            if (!result.IsSuccess)
+            var retryTerminal = ViewModel.CanRetryTerminalAppearanceSave;
+            if (!retryTerminal || ViewModel.HasThemeAppearanceDraft)
+            {
+                var result = await ViewModel.SaveAppearanceThemeChangeAsync(
+                    ThemeFrom(SettingsRoute.CaptureAppearance()),
+                    _lifetime.Token);
+                if (!result.IsSuccess)
+                {
+                    return;
+                }
+
+                _appearanceControlsSource = ViewModel.ActiveTheme;
+            }
+
+            if (retryTerminal && !await SaveTerminalAppearanceChangeAsync())
             {
                 return;
             }
 
-            _appearanceControlsSource = ViewModel.ActiveTheme;
             SettingsRoute.SetAppearanceValidationStatus(
-                "Application appearance saved.",
+                "Appearance saved.",
                 isWarning: false);
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
@@ -1465,11 +1494,11 @@ public sealed partial class MainWindow
     {
         _ = sender;
         _ = e;
-        ViewModel.CancelAppearanceThemeDraft();
+        ViewModel.DiscardUnsavedAppearance();
         _appearanceControlsSource = null;
         RefreshAppearanceControlsFromStoredProfile();
         SettingsRoute.SetAppearanceValidationStatus(
-            "Saved application appearance restored.",
+            "Saved appearance restored.",
             isWarning: false);
     }
 
@@ -1614,9 +1643,11 @@ public sealed partial class MainWindow
                 SettingsRoute.SetAppearanceValidationStatus(savedTheme.Error!.Message, isWarning: true);
                 return;
             }
-            if (terminal is not null && ViewModel.PreviewTerminalAppearance(terminal))
+            if (terminal is not null
+                && ViewModel.PreviewTerminalAppearance(terminal)
+                && !await SaveTerminalAppearanceChangeAsync())
             {
-                await ViewModel.ApplyTerminalAppearanceChangeAsync(_lifetime.Token);
+                return;
             }
 
             var status = AppearanceContrastStatus(theme, terminal);

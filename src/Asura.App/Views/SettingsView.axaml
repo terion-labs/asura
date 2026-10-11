@@ -240,9 +240,9 @@
               <controls:SettingsGroup>
                 <controls:SettingRow
                     Classes="Option"
+                    Label="Restore sessions on start"
                     Description="Reopen the tabs, panels, connections, and locations from the previous session.">
                   <CheckBox
-                      Content="Restore sessions on start"
                       AutomationProperties.Name="Restore sessions on start"
                       IsChecked="{Binding RestoreSessionsOnStart, Mode=OneWay}"
                       IsCheckedChanged="OnRestoreSessionsOnStartChanged"
@@ -582,9 +582,11 @@
                       Orientation="Horizontal"
                       Spacing="{DynamicResource ShellSpaceSm}">
                     <Button Classes="SecondaryButton" Click="OnRecordKeybindingPrefixClick" Content="Record Prefix…" IsEnabled="{Binding KeybindingEditorSession.CanEditPrefix}" />
-                    <!-- A draft edit like a row's Reset: nothing is lost until
-                         Save Shortcuts, so neither is styled as destructive. -->
-                    <Button Classes="SecondaryButton" Click="OnClearKeybindingPrefixClick" Content="Clear" IsEnabled="{Binding KeybindingEditorSession.CanEditPrefix}" AutomationProperties.Name="Clear application prefix" />
+                    <!-- A draft edit like a row's Reset, and styled like it:
+                         Record is the bordered action and the edits beside it
+                         are text buttons, as in each shortcut row. Nothing is
+                         lost until Save Shortcuts, so neither is destructive. -->
+                    <Button Classes="TextButton" Click="OnClearKeybindingPrefixClick" Content="Clear" IsEnabled="{Binding KeybindingEditorSession.CanEditPrefix}" AutomationProperties.Name="Clear application prefix" />
                   </StackPanel>
                 </controls:SettingsGroup.Footer>
               </controls:SettingsGroup>
@@ -751,9 +753,9 @@
                   </controls:SettingRow>
                   <controls:SettingRow
                       Classes="Option"
+                      Label="Keep downloaded previews between runs"
                       Description="When on, downloaded files stay on disk so opening one again is instant, even after a restart. When off, previews are kept only while Asura runs, in memory or in an encrypted file, and are deleted when you quit. A copy left behind if Asura quits unexpectedly can't be read.">
                     <CheckBox
-                        Content="Keep downloaded previews between runs"
                         IsChecked="{Binding FilePreviewSettingsEditor.KeepPreviewsBetweenRuns}"
                         AutomationProperties.Name="Keep downloaded previews between runs" />
                   </controls:SettingRow>
@@ -876,35 +878,54 @@
                       </DataTemplate>
                     </ListBox.ItemTemplate>
                   </ListBox>
+                  <!-- + and – under the list, as on the other Settings lists.
+                       A profile is created with the name typed beside them,
+                       so the name field shares the bar; + asks which kind. -->
                   <Border Classes="ListActionBar">
-                    <!-- Built-in profiles cannot be deleted, so – dims for them. -->
-                    <Button
-                        x:Name="DeleteBrowserProfileButton"
-                        HorizontalAlignment="Left"
-                        Classes="IconButton"
-                        Click="OnDeleteBrowserProfileClick"
-                        IsEnabled="False"
-                        ToolTip.Tip="Delete profile…"
-                        AutomationProperties.Name="Delete selected browser profile">
-                      <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
-                    </Button>
+                    <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                      <Button
+                          x:Name="AddBrowserProfileButton"
+                          Classes="IconButton"
+                          ToolTip.Tip="Add profile"
+                          AutomationProperties.Name="Add browser profile">
+                        <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
+                        <Button.Flyout>
+                          <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                            <MenuItem
+                                Header="Persistent Profile"
+                                Command="{Binding BrowserProfileSettingsEditor.CreateDurableCommand}"
+                                ToolTip.Tip="Kept between runs, encrypted when Asura quits"
+                                AutomationProperties.Name="Add persistent browser profile" />
+                            <MenuItem
+                                Header="Private Profile"
+                                Command="{Binding BrowserProfileSettingsEditor.CreatePrivateCommand}"
+                                ToolTip.Tip="Discarded when its panel closes"
+                                AutomationProperties.Name="Add private-session browser profile" />
+                          </MenuFlyout>
+                        </Button.Flyout>
+                      </Button>
+                      <!-- Built-in profiles cannot be deleted, so – dims for them. -->
+                      <Button
+                          x:Name="DeleteBrowserProfileButton"
+                          Grid.Column="1"
+                          Classes="IconButton"
+                          Click="OnDeleteBrowserProfileClick"
+                          IsEnabled="False"
+                          ToolTip.Tip="Delete profile…"
+                          AutomationProperties.Name="Delete selected browser profile">
+                        <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
+                      </Button>
+                      <TextBox
+                          Grid.Column="2"
+                          MaxWidth="260"
+                          HorizontalAlignment="Left"
+                          Text="{Binding BrowserProfileSettingsEditor.NewProfileName, Mode=TwoWay}"
+                          PlaceholderText="New profile name"
+                          AutomationProperties.Name="New browser profile name" />
+                    </Grid>
                   </Border>
                   </StackPanel>
                 </controls:SurfaceCard>
-                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                  <TextBox
-                      Text="{Binding BrowserProfileSettingsEditor.NewProfileName, Mode=TwoWay}"
-                      PlaceholderText="New profile name"
-                      AutomationProperties.Name="New browser profile name" />
-                  <Button Grid.Column="1" Classes="SecondaryButton"
-                      Command="{Binding BrowserProfileSettingsEditor.CreateDurableCommand}"
-                      Content="Add Persistent Profile"
-                      AutomationProperties.Name="Add persistent browser profile" />
-                  <Button Grid.Column="2" Classes="SecondaryButton"
-                      Command="{Binding BrowserProfileSettingsEditor.CreatePrivateCommand}"
-                      Content="Add Private Profile"
-                      AutomationProperties.Name="Add private-session browser profile" />
-                </Grid>
               </StackPanel>
               <!-- A draft, like Keyboard Shortcuts: a password is saved whole or
                    not at all, so this group keeps Save Authentication. -->
@@ -941,7 +962,7 @@
                       <TextBox
                           Width="110"
                           Text="{Binding BrowserProfileSettingsEditor.AuthenticationPort, Mode=TwoWay}"
-                          PlaceholderText="Default"
+                          PlaceholderText="{Binding BrowserProfileSettingsEditor.AuthenticationDefaultPort}"
                           AutomationProperties.Name="Browser HTTP authentication port" />
                     </controls:LabeledField>
                     <controls:LabeledField Grid.Column="2" Label="Scheme">
@@ -1037,10 +1058,10 @@
               <controls:SettingsGroup Heading="Continuity">
                 <controls:SettingRow
                     Classes="Option"
+                    Label="Multiplex SSH terminals"
                     Description="New SSH terminals use an app-managed tmux session, with GNU Screen as a fallback. Disconnecting or closing Asura preserves it; explicitly closing the panel, tab, or workspace ends it."
                     IsLast="True">
                   <CheckBox
-                      Content="Multiplex SSH terminals"
                       IsChecked="{Binding UseTerminalMultiplexingForSshTerminals, Mode=OneWay}"
                       IsEnabled="{Binding CanChangeTerminalMultiplexing}"
                       IsCheckedChanged="OnTerminalMultiplexingChanged"
@@ -1100,9 +1121,8 @@
                 <controls:SettingRow Label="Cursor shape">
                   <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding TerminalSettingsEditor.CursorStyles}" SelectedItem="{Binding TerminalSettingsEditor.CursorStyle}" AutomationProperties.Name="Cursor shape" />
                 </controls:SettingRow>
-                <controls:SettingRow Classes="Option">
+                <controls:SettingRow Classes="Option" Label="Blink cursor">
                   <CheckBox
-                      Content="Blink cursor"
                       IsChecked="{Binding TerminalSettingsEditor.CursorBlink}"
                       AutomationProperties.Name="Blink cursor" />
                 </controls:SettingRow>
@@ -1124,16 +1144,14 @@
                 <controls:SettingRow Label="Open terminal links">
                   <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding TerminalSettingsEditor.LinkPolicies}" SelectedItem="{Binding TerminalSettingsEditor.LinkPolicy}" />
                 </controls:SettingRow>
-                <controls:SettingRow Classes="Option">
+                <controls:SettingRow Classes="Option" Label="Enable IME input">
                   <CheckBox
-                      Content="Enable IME input"
                       IsChecked="{Binding TerminalSettingsEditor.ImeEnabled}" />
                 </controls:SettingRow>
                 <!-- Turns back on what "Don't ask again" in a close or quit
                      alert turned off. -->
-                <controls:SettingRow Classes="Option" IsLast="True">
+                <controls:SettingRow Classes="Option" Label="Ask before closing running sessions" IsLast="True">
                   <CheckBox
-                      Content="Ask before closing running sessions"
                       IsChecked="{Binding TerminalSettingsEditor.AskBeforeClosing}" />
                 </controls:SettingRow>
               </controls:SettingsGroup>
@@ -1991,25 +2009,25 @@
                   IsEnabled="{Binding NotificationSettings.IsAvailable}">
                 <controls:SettingRow
                     Classes="Option"
+                    Label="Terminal"
                     Description="Notifications that programs send from the terminal, the bell when the terminal profile sends it to the system, and work that finishes in a workspace behind the one on show.">
                   <CheckBox
-                      Content="Terminal"
                       IsChecked="{Binding NotificationSettings.ShowsTerminal}"
                       AutomationProperties.Name="Terminal notifications" />
                 </controls:SettingRow>
                 <controls:SettingRow
                     Classes="Option"
+                    Label="Agent runs"
                     Description="An agent run that finishes or fails while its panel is out of sight.">
                   <CheckBox
-                      Content="Agent runs"
                       IsChecked="{Binding NotificationSettings.ShowsAgent}"
                       AutomationProperties.Name="Agent run notifications" />
                 </controls:SettingRow>
                 <controls:SettingRow
                     Classes="Option"
+                    Label="File transfers"
                     Description="A file transfer that finishes or fails.">
                   <CheckBox
-                      Content="File transfers"
                       IsChecked="{Binding NotificationSettings.ShowsFileTransfers}"
                       AutomationProperties.Name="File transfer notifications" />
                 </controls:SettingRow>

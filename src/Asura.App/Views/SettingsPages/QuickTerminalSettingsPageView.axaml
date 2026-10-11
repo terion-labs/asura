@@ -150,9 +150,9 @@
       </controls:SettingRow>
       <controls:SettingRow
           Classes="Option"
+          Label="Translucency"
           Description="Whether the terminal sits on the platform's own material, so the desktop shows through it. The amount of blur is the platform's to decide.">
         <CheckBox
-            Content="Translucency"
             IsChecked="{Binding QuickTerminalSettingsEditor.IsTranslucent}"
             AutomationProperties.Name="Quick Terminal translucency" />
       </controls:SettingRow>
@@ -171,17 +171,17 @@
         ControlWidth="280">
       <controls:SettingRow
           Classes="Option"
+          Label="Animate the drop-down"
           Description="Slide the panel in and out instead of snapping.">
         <CheckBox
-            Content="Animate the drop-down"
             IsChecked="{Binding QuickTerminalSettingsEditor.AnimateSlide}"
             AutomationProperties.Name="Animate Quick Terminal" />
       </controls:SettingRow>
       <controls:SettingRow
           Classes="Option"
+          Label="Reduce motion"
           Description="Disable slide animation even when animation is enabled.">
         <CheckBox
-            Content="Reduce motion"
             IsChecked="{Binding QuickTerminalSettingsEditor.ReduceMotion}"
             AutomationProperties.Name="Reduce Quick Terminal motion" />
       </controls:SettingRow>
@@ -204,33 +204,33 @@
       </controls:SettingRow>
       <controls:SettingRow
           Classes="Option"
+          Label="Hide on focus loss"
           Description="Dismiss the panel when focus moves to another application.">
         <CheckBox
-            Content="Hide on focus loss"
             IsChecked="{Binding QuickTerminalSettingsEditor.HideOnFocusLoss}"
             AutomationProperties.Name="Hide Quick Terminal on focus loss" />
       </controls:SettingRow>
       <controls:SettingRow
           Classes="Option"
+          Label="Escape hides Quick Terminal"
           Description="Dismiss the panel with Escape. When off, Escape reaches the program in the terminal, such as vim or less.">
         <CheckBox
-            Content="Escape hides Quick Terminal"
             IsChecked="{Binding QuickTerminalSettingsEditor.HideOnEscape}"
             AutomationProperties.Name="Escape hides Quick Terminal" />
       </controls:SettingRow>
       <controls:SettingRow
           Classes="Option"
+          Label="Keep terminal session"
           Description="Retain the terminal and scrollback between openings. Turning this off starts a fresh shell next time.">
         <CheckBox
-            Content="Keep terminal session"
             IsChecked="{Binding QuickTerminalSettingsEditor.RestoreLastSession}"
             AutomationProperties.Name="Keep Quick Terminal session" />
       </controls:SettingRow>
       <controls:SettingRow
           Classes="Option"
+          Label="Restore on start"
           Description="Reopen Quick Terminal tabs and their connections when Asura starts, like main-window session restore.">
         <CheckBox
-            Content="Restore on start"
             IsChecked="{Binding QuickTerminalSettingsEditor.RestoreOnStart}"
             AutomationProperties.Name="Restore Quick Terminal on start" />
       </controls:SettingRow>

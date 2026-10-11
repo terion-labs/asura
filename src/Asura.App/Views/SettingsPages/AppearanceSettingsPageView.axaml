@@ -147,8 +147,11 @@
             AutomationProperties.HelpText="Puts back the terminal palette and font as they were when this page opened." />
         <controls:StatusChip Shape="Rounded" Tone="Default" IsOutlined="False" Grid.Column="2" VerticalAlignment="Center" Content="{Binding TerminalSettingsEditor.PaletteName}" />
       </Grid>
+      <!-- Six presets in at most three columns: three by two, or two by
+           three when narrow, so no row is left with a lone card. Four
+           columns left a ragged row of two under a row of four. -->
       <ItemsControl x:Name="TerminalPalettePresets" ItemsSource="{Binding TerminalSettingsEditor.PalettePresets}">
-        <ItemsControl.ItemsPanel><ItemsPanelTemplate><controls:CardGridPanel MinItemWidth="168" Spacing="{DynamicResource ShellSpaceMd}" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        <ItemsControl.ItemsPanel><ItemsPanelTemplate><controls:CardGridPanel MinItemWidth="168" MaxColumns="3" Spacing="{DynamicResource ShellSpaceMd}" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate>
             <RadioButton
@@ -484,29 +487,29 @@
         </controls:SettingRow>
         <controls:SettingRow
             Classes="Option"
+            Label="Translucency"
             Description="Show the desktop through the window’s sidebars and title bar.">
           <CheckBox
               x:Name="TranslucencyToggle"
-              Content="Translucency"
               IsCheckedChanged="OnAppearanceChanged"
               AutomationProperties.Name="Translucency" />
         </controls:SettingRow>
         <controls:SettingRow
             Classes="Option"
+            Label="Glass panels"
             Description="Let the desktop show through the panels too, not only the sidebars and title bar.">
           <CheckBox
               x:Name="GlassPanelsToggle"
-              Content="Glass panels"
               IsEnabled="{Binding #TranslucencyToggle.IsChecked}"
               IsCheckedChanged="OnAppearanceChanged"
               AutomationProperties.Name="Glass panels" />
         </controls:SettingRow>
         <controls:SettingRow
             Classes="Option"
+            Label="Set background opacity"
             Description="Off leaves the material’s own translucency alone. On paints the window’s color over it: lower values let more of the desktop through; at full, it reads as a frame around the panels rather than as glass.">
           <CheckBox
               x:Name="OverrideOpacityToggle"
-              Content="Set background opacity"
               IsEnabled="{Binding #TranslucencyToggle.IsChecked}"
               IsCheckedChanged="OnAppearanceChanged"
               AutomationProperties.Name="Override background opacity" />
@@ -535,16 +538,16 @@
              Increase Contrast, or a host without it. -->
         <controls:SettingRow
             Classes="Option"
+            Label="Translucent terminal background"
             Description="{DynamicResource ShellTerminalTranslucencyStatus}">
           <CheckBox
               x:Name="TranslucentTerminalToggle"
-              Content="Translucent terminal background"
               IsEnabled="{DynamicResource ShellTerminalTranslucencyAvailable}"
               IsCheckedChanged="OnAppearanceChanged"
               AutomationProperties.Name="Translucent terminal background" />
         </controls:SettingRow>
-        <controls:SettingRow Classes="Option" IsLast="True">
-          <CheckBox x:Name="ShowTabBarSwitch" Content="Show tab bar" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Show tab bar" />
+        <controls:SettingRow Classes="Option" Label="Show tab bar" IsLast="True">
+          <CheckBox x:Name="ShowTabBarSwitch" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Show tab bar" />
         </controls:SettingRow>
       </controls:SettingsGroup>
     </StackPanel>
@@ -555,8 +558,8 @@
           Heading="Tabs &amp; Workspaces"
           Description="Where the tab strip sits, plus how the workspaces panel is arranged." />
       <controls:SettingsGroup>
-        <controls:SettingRow Classes="Option" IsLast="True">
-          <CheckBox x:Name="ShowWorkspacesPanelSwitch" Content="Show workspaces panel" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Show workspaces panel" />
+        <controls:SettingRow Classes="Option" Label="Show workspaces panel" IsLast="True">
+          <CheckBox x:Name="ShowWorkspacesPanelSwitch" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Show workspaces panel" />
         </controls:SettingRow>
       </controls:SettingsGroup>
       <controls:SurfaceCard Tone="Raised">
@@ -736,8 +739,8 @@
             <Button Classes="SecondaryButton" Click="OnImportClick" Content="Import…" />
             <Button Classes="SecondaryButton" Click="OnExportClick" Content="Export…" />
             <Button Classes="DestructiveButton" Click="OnResetClick" Content="Reset App Defaults" AutomationProperties.Name="Reset application appearance to defaults" />
-            <Button Classes="DestructiveButton" Click="OnCancelClick" Content="Discard Changes" IsVisible="{Binding CanRetryAppearanceSave}" AutomationProperties.Name="Discard unsaved application appearance changes" />
-            <Button Classes="PrimaryButton" Click="OnApplyClick" Content="Try Again" IsVisible="{Binding CanRetryAppearanceSave}" AutomationProperties.Name="Retry saving application appearance changes" />
+            <Button Classes="DestructiveButton" Click="OnCancelClick" Content="Discard Changes" IsVisible="{Binding CanRetryAppearanceSave}" AutomationProperties.Name="Discard unsaved appearance changes" />
+            <Button Classes="PrimaryButton" Click="OnApplyClick" Content="Try Again" IsVisible="{Binding CanRetryAppearanceSave}" AutomationProperties.Name="Retry saving appearance changes" />
           </StackPanel>
         </StackPanel>
       </Grid>

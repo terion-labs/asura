@@ -318,6 +318,47 @@ public sealed class MainWindowSettingsSaveFacadeTests
         }
     }
 
+    /// <summary>
+    /// A palette change that couldn't be saved stays on show, offers Try
+    /// Again, and is a draft: leaving the page asks before discarding it.
+    /// </summary>
+    [Fact]
+    public async Task A_terminal_appearance_change_that_fails_to_save_is_kept_until_discarded()
+    {
+        var error = new DefinitionStoreError(
+            DefinitionStoreErrorCode.StorageUnavailable,
+            "The settings store is unavailable.");
+        var catalog = new RecordingDefinitionCatalog(SettingsSnapshot())
+        {
+            SaveError = error,
+        };
+        using var viewModel = CreateViewModel(catalog);
+        viewModel.ShowSettings(SettingsPage.Appearance);
+        viewModel.BeginTerminalAppearanceSession();
+        var editor = Assert.IsType<TerminalProfileEditorViewModel>(
+            viewModel.TerminalSettingsEditor);
+        var saved = editor.FontSize;
+        editor.FontSize = saved + 3;
+        Assert.True(viewModel.PreviewTerminalAppearance(editor.CreateSaveRequest().Profile));
+
+        await viewModel.ApplyTerminalAppearanceChangeAsync(CancellationToken.None);
+
+        Assert.True(viewModel.HasTerminalAppearanceDraft);
+        Assert.True(viewModel.CanRetryTerminalAppearanceSave);
+        Assert.True(viewModel.CanRetryAppearanceSave);
+        Assert.Equal(error.Message, viewModel.OperationError);
+        var draft = Assert.IsType<SettingsDraft>(viewModel.PendingSettingsDraft(SettingsPage.Appearance));
+
+        viewModel.DiscardSettingsDraft(draft.Page);
+
+        Assert.False(viewModel.HasTerminalAppearanceDraft);
+        Assert.False(viewModel.CanRetryAppearanceSave);
+        Assert.Null(viewModel.PendingSettingsDraft(SettingsPage.Appearance));
+        Assert.Equal(
+            saved,
+            Assert.IsType<TerminalProfileEditorViewModel>(viewModel.TerminalSettingsEditor).FontSize);
+    }
+
     [Fact]
     public async Task Failed_terminal_save_preserves_the_live_draft_and_error()
     {

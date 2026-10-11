@@ -354,10 +354,10 @@
               </controls:SettingRow>
               <controls:SettingRow
                   Classes="Option"
+                  Label="Kill switch"
                   Description="Block routed traffic if the connection fails instead of falling back to a direct route. An isolated workspace holds every program to it; other programs can ignore proxy settings."
                   IsVisible="{Binding OverridesNetworkSettings}">
                 <CheckBox
-                    Content="Kill switch"
                     IsChecked="{Binding NetworkPolicy.KillSwitchEnabled, Mode=TwoWay}"
                     AutomationProperties.Name="Workspace network kill switch" />
               </controls:SettingRow>
@@ -724,11 +724,11 @@
                      label is its content, as everywhere else in the editor. -->
                 <controls:SettingRow
                     Classes="Option"
+                    Label="Run the AI agent in the workspace environment"
                     Padding="0"
                     Description="When this is on, the provider is reached through this workspace’s route, and providers available only on this computer can’t be chosen. When it’s off, the provider is reached over this computer’s network."
                     IsVisible="{Binding IsIsolated}">
                   <CheckBox
-                      Content="Run the AI agent in the workspace environment"
                       IsChecked="{CompiledBinding RunAgentInIsolation, Mode=TwoWay}"
                       AutomationProperties.Name="Run the AI agent in the workspace environment" />
                 </controls:SettingRow>
@@ -865,9 +865,9 @@
               </controls:SettingRow>
               <controls:SettingRow
                   Classes="Option"
+                  Label="Autosave"
                   Description="Save tab and panel changes back to this workspace while you work.">
                 <CheckBox
-                    Content="Autosave"
                     IsChecked="{Binding AutoSave, Mode=TwoWay}"
                     AutomationProperties.Name="Autosave workspace changes" />
               </controls:SettingRow>

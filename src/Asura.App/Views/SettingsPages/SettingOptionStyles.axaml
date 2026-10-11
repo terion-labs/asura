@@ -16,6 +16,10 @@
     Option is the one shape: the checkbox carries the name, clicking the words
     toggles it, and the description lines up under the words rather than
     under the box.
+
+    The shared theme is adding the same shape as SettingRow IsLeading. When
+    it lands, each Option row becomes IsLeading="True" as it stands (the name
+    is already the row's Label) and this file goes.
   -->
   <Style Selector="controls|SettingRow.Option">
     <Setter Property="Template">
@@ -51,13 +55,13 @@
     <Setter Property="IsVisible" Value="False" />
   </Style>
 
+  <!-- The row's label is the checkbox's title, so the setting is named once,
+       on the row, where search and the shared leading row read it. The
+       description is the checkbox's help text, as a row's description is its
+       control's. -->
   <Style Selector="controls|SettingRow.Option > CheckBox">
     <Setter Property="HorizontalAlignment" Value="Left" />
-  </Style>
-
-  <!-- The description is the checkbox's help text, as a row's description
-       is its control's. -->
-  <Style Selector="controls|SettingRow.Option > CheckBox">
+    <Setter Property="Content" Value="{Binding $parent[controls:SettingRow].Label}" />
     <Setter Property="AutomationProperties.HelpText" Value="{Binding $parent[controls:SettingRow].Description}" />
   </Style>
 </Styles>
