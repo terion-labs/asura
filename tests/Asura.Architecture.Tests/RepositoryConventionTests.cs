@@ -232,59 +232,79 @@ public sealed partial class RepositoryConventionTests
     }
 
     [Fact]
-    public void The_app_icon_fill_is_the_brand_accent_in_display_p3()
+    public void The_icon_document_and_the_product_identity_manifest_describe_one_icon()
     {
-        // One brand orange: the icon document states it in Display P3, the
-        // interface in sRGB, and the two have to be the same colour.
+        // The owner-approved legal record binds the manifest's bytes, and the
+        // manifest binds the icon's, so the icon colour stays as approved
+        // until the owner approves a new one. This checks that the document,
+        // its artwork and the manifest still name the same icon.
+        using var manifest = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(
+            RepositoryRoot,
+            "assets",
+            "macos",
+            "product-identity.json")));
         using var icon = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(
             RepositoryRoot,
             "assets",
             "macos",
             "Asura.icon",
             "icon.json")));
-        var fill = icon.RootElement
-            .GetProperty("fill-specializations")
-            .EnumerateArray()
-            .Single(item => !item.TryGetProperty("appearance", out _))
-            .GetProperty("value")
-            .GetProperty("solid")
-            .GetString()!;
-        Assert.StartsWith("display-p3:", fill, StringComparison.Ordinal);
-        var components = fill["display-p3:".Length..]
-            .Split(',')
-            .Select(value => double.Parse(value, System.Globalization.CultureInfo.InvariantCulture))
-            .ToArray();
-
-        var brand = Asura.Core.ThemePreference.BrandAccent;
-        var expected = SrgbToDisplayP3(brand.Red, brand.Green, brand.Blue);
-        for (var channel = 0; channel < 3; channel++)
-        {
-            Assert.InRange(components[channel], expected[channel] - 0.002, expected[channel] + 0.002);
-        }
-    }
-
-    /// <summary>
-    /// sRGB to Display P3: both use the sRGB transfer curve and a D65 white,
-    /// so only the primaries change between the linear values.
-    /// </summary>
-    private static double[] SrgbToDisplayP3(byte red, byte green, byte blue)
-    {
-        static double Linear(byte value)
-        {
-            var c = value / 255d;
-            return c <= 0.04045 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
-        }
-
-        static double Encode(double c) =>
-            c <= 0.0031308 ? c * 12.92 : (1.055 * Math.Pow(c, 1 / 2.4)) - 0.055;
-
-        var (r, g, b) = (Linear(red), Linear(green), Linear(blue));
-        return
+        var iconName = manifest.RootElement.GetProperty("iconName").GetString();
+        var files = manifest.RootElement.GetProperty("files").EnumerateArray().ToArray();
+        string[] PathsOf(string role) =>
         [
-            Encode((0.8224621 * r) + (0.1775380 * g)),
-            Encode((0.0331941 * r) + (0.9668058 * g)),
-            Encode((0.0170827 * r) + (0.0723974 * g) + (0.9105199 * b)),
+            .. files
+                .Where(file => string.Equals(file.GetProperty("role").GetString(), role, StringComparison.Ordinal))
+                .Select(file => file.GetProperty("path").GetString()!),
         ];
+
+        Assert.Equal([$"assets/macos/{iconName}.icon/icon.json"], PathsOf("icon-composer-document"));
+        Assert.Equal([$"assets/macos/{iconName}.icns"], PathsOf("icns-fallback"));
+
+        var layers = icon.RootElement
+            .GetProperty("groups")
+            .EnumerateArray()
+            .SelectMany(group => group.GetProperty("layers").EnumerateArray())
+            .ToArray();
+        Assert.NotEmpty(layers);
+        Assert.Equal(
+            PathsOf("source-artwork").Order(StringComparer.Ordinal),
+            layers
+                .Select(layer => $"assets/macos/{iconName}.icon/Assets/{layer.GetProperty("image-name").GetString()}")
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal),
+            StringComparer.Ordinal);
+
+        // The document specializes every appearance family the manifest
+        // requires; the Clear appearances are derived from the glass layers.
+        static string? AppearanceOf(JsonElement specialization) =>
+            specialization.TryGetProperty("appearance", out var appearance) ? appearance.GetString() : null;
+        var background = icon.RootElement.GetProperty("fill-specializations").EnumerateArray().ToArray();
+        Assert.Equal(
+            [null, "dark", "tinted"],
+            background.Select(AppearanceOf).Order(StringComparer.Ordinal),
+            StringComparer.Ordinal);
+        Assert.Equal(
+            ["Default", "Dark", "TintedLight", "TintedDark", "ClearLight", "ClearDark"],
+            manifest.RootElement
+                .GetProperty("requiredAppearances")
+                .EnumerateArray()
+                .Select(value => value.GetString()),
+            StringComparer.Ordinal);
+        Assert.All(layers, layer => Assert.True(layer.GetProperty("glass").GetBoolean()));
+
+        // The default background and the dark mark are the one brand fill, so
+        // a recolour cannot change one appearance and leave the other.
+        static string SolidOf(IEnumerable<JsonElement> specializations, string? appearance) =>
+            specializations
+                .Single(item => string.Equals(AppearanceOf(item), appearance, StringComparison.Ordinal))
+                .GetProperty("value")
+                .GetProperty("solid")
+                .GetString()!;
+        var brandFill = SolidOf(background, appearance: null);
+        Assert.All(layers, layer => Assert.Equal(
+            brandFill,
+            SolidOf(layer.GetProperty("fill-specializations").EnumerateArray(), "dark")));
     }
 
     [Fact]
