@@ -209,7 +209,21 @@ public sealed class DialogContractHeadlessTests
             edited = null;
             edit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.Equal("Staging", edited?.Name);
+
+            // The count above the list is a real plural.
+            static bool ShowsText(Window window, string text) =>
+                window.GetVisualDescendants().OfType<TextBlock>().Any(block => block.Text == text);
+            Assert.True(ShowsText(inspector, "2 saved connections"));
             inspector.Close();
+
+            using var single = new LauncherViewModel(() => []);
+            single.Connections.Add(new LauncherConnectionViewModel(
+                new ConnectionId("one"), 1, "Build server", "SSH", "ops@build", "Ready", true, []));
+            var singleInspector = new SavedConnectionsDialog { DataContext = single };
+            singleInspector.Show();
+            await Idle();
+            Assert.True(ShowsText(singleInspector, "1 saved connection"));
+            singleInspector.Close();
         });
     }
 
