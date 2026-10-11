@@ -306,7 +306,7 @@ public sealed partial class MainWindow
         var viewModel = DataContext as MainWindowViewModel;
         var next = Avalonia.Application.Current is App { IsQuitting: true }
             ? null
-            : OpenMainWindows().FirstOrDefault(window => !ReferenceEquals(window, this)
+            : OpenMainWindows().LastOrDefault(window => !ReferenceEquals(window, this)
                 && window.IsVisible
                 && window.DataContext is MainWindowViewModel);
         if (next is null)
@@ -326,13 +326,23 @@ public sealed partial class MainWindow
     private static readonly List<MainWindow> s_openMainWindows = [];
 
     /// <summary>
-    /// The main windows open on this UI thread, in the order they opened —
-    /// the ones the Settings window can be handed to.
+    /// The main windows open on this UI thread, least recently active first —
+    /// the ones the Settings window can be handed to. The last is the window
+    /// the Mac brings forward when the active one closes.
     /// </summary>
     private static IEnumerable<MainWindow> OpenMainWindows()
     {
         _ = s_openMainWindows.RemoveAll(window => !window.CheckAccess());
         return [.. s_openMainWindows];
+    }
+
+    /// <summary>Moves this window to the most recently active end of <see cref="s_openMainWindows"/>.</summary>
+    private void NoteSettingsHandOffActivation()
+    {
+        if (s_openMainWindows.Remove(this))
+        {
+            s_openMainWindows.Add(this);
+        }
     }
 
     /// <summary>Takes over the open Settings window from a main window that is closing.</summary>

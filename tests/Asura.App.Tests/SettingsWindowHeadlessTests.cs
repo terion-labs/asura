@@ -182,6 +182,53 @@ public sealed class SettingsWindowHeadlessTests
     }
 
     [Fact]
+    public async Task Settings_goes_to_the_most_recently_active_main_window_when_its_own_closes()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            ForgetSettingsWindowState();
+            using var firstViewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();
+            using var secondViewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();
+            using var thirdViewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();
+            var first = new MainWindow { DataContext = firstViewModel, Width = 1400, Height = 900 };
+            var second = new MainWindow { DataContext = secondViewModel, Width = 1400, Height = 900 };
+            var third = new MainWindow { DataContext = thirdViewModel, Width = 1400, Height = 900 };
+            first.Show();
+            second.Show();
+            third.Show();
+            try
+            {
+                // The second window was used after the third opened, so it is
+                // the one in front once the first closes.
+                second.Activate();
+                first.Activate();
+                Dispatcher.UIThread.RunJobs();
+                first.NavigateToSettings(SettingsPage.Notifications);
+                Dispatcher.UIThread.RunJobs();
+                var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
+                Assert.Same(first, settings.Host);
+
+                Assert.True(await first.CloseForQuitAsync());
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Same(settings, SettingsWindow.Current);
+                Assert.Same(second, settings.Host);
+                Assert.True(secondViewModel.IsSettingsVisible);
+                Assert.False(thirdViewModel.IsSettingsVisible);
+                return true;
+            }
+            finally
+            {
+                SettingsWindow.Current?.CloseForHost();
+                first.Close();
+                second.Close();
+                third.Close();
+            }
+        }, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Saved_workspaces_are_deleted_by_selection_the_minus_button_the_delete_key_or_the_context_menu()
     {
         await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));

@@ -2018,6 +2018,7 @@ public sealed partial class MainWindow : Window
             viewModel.IsWindowFocused = true;
         }
 
+        NoteSettingsHandOffActivation();
         RefreshWindowChromeMetrics();
         QueueBackingScaleReconciliation();
         _focusNavigator?.NotifyWindowActivated();
