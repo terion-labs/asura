@@ -73,6 +73,32 @@ public sealed class FilePreviewHigTests
     }
 
     [Fact]
+    public void A_change_stamp_is_not_shown_as_a_version_unless_the_provider_keeps_versions()
+    {
+        var entry = new FilePanelEntry(
+            new FilePanelLocation(
+                "s3.assets",
+                "bucket",
+                new FilePanelAddress.Hierarchical(FilePanelPath.Root),
+                "3HL4kqtJlcpXroDTDmJ.rmSpXd3dIbrHY"),
+            "logo.png",
+            FilePanelEntryKind.File,
+            1200,
+            null,
+            IsHidden: false);
+
+        var stamped = new FileEntryMetadataViewModel(entry, isStatBacked: true);
+        var versioned = new FileEntryMetadataViewModel(
+            entry,
+            isStatBacked: true,
+            providerKeepsVersions: true);
+
+        Assert.False(stamped.HasVersion);
+        Assert.True(versioned.HasVersion);
+        Assert.Equal("3HL4kqtJlcpXroDTDmJ.rmSpXd3dIbrHY", versioned.Version);
+    }
+
+    [Fact]
     public void A_missing_item_says_what_to_do_next()
     {
         var issue = FileOperationIssue.FromProvider(new FilePanelError(

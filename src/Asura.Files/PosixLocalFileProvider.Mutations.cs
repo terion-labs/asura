@@ -90,7 +90,7 @@ public sealed partial class PosixLocalFileProvider
         {
             return ParentDirectoryHandle.Failed(FileProviderError.Create(
                 FileProviderErrorCode.RootMutationNotAllowed,
-                "The provider root cannot be mutated."));
+                "The root folder of this location can't be changed."));
         }
 
         var descriptor = open(RootPath, DirectoryOpenFlags());

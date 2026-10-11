@@ -182,6 +182,7 @@ public sealed partial class FileRuntimePanelViewModel : RuntimePanelViewModel, I
     private GridLength _fileNameColumnWidth = new(1, GridUnitType.Star);
     private GridLength _fileSizeColumnWidth = new(90);
     private GridLength _fileModifiedColumnWidth = new(140);
+    private double _fileDetailsAvailableWidth = double.PositiveInfinity;
     private GridLength _fileListColumnWidth = new(3, GridUnitType.Star);
     private GridLength _previewColumnWidth = new(2, GridUnitType.Star);
     private GridLength _hiddenPreviewColumnWidth = new(2, GridUnitType.Star);
@@ -634,13 +635,81 @@ public sealed partial class FileRuntimePanelViewModel : RuntimePanelViewModel, I
     public GridLength FileSizeColumnWidth
     {
         get => _fileSizeColumnWidth;
-        set => SetProperty(ref _fileSizeColumnWidth, value);
+        set
+        {
+            if (SetProperty(ref _fileSizeColumnWidth, value))
+            {
+                OnDetailsColumnRoomChanged();
+            }
+        }
     }
 
     public GridLength FileModifiedColumnWidth
     {
         get => _fileModifiedColumnWidth;
-        set => SetProperty(ref _fileModifiedColumnWidth, value);
+        set
+        {
+            if (SetProperty(ref _fileModifiedColumnWidth, value))
+            {
+                OnDetailsColumnRoomChanged();
+            }
+        }
+    }
+
+    /// <summary>The narrowest the name column goes before the others give way.</summary>
+    public const double FileNameColumnMinWidth = 140;
+
+    /// <summary>Room for "999.9 KB".</summary>
+    public const double FileSizeColumnMinWidth = 68;
+
+    /// <summary>Room for a time or a short date, which the column falls back to.</summary>
+    public const double FileModifiedColumnMinWidth = 72;
+
+    /// <summary>
+    /// The width the details rows have, set by the view. The columns are as
+    /// wide as the person made them, but a narrow panel cannot hold three
+    /// columns at those widths, and a grid of fixed columns overflows rather
+    /// than shrinks: the date was cut off by the panel's edge, mid-number and
+    /// with no ellipsis. Measured here, the size and then the date give way
+    /// first, so each still fits its own cell and shortens itself.
+    /// </summary>
+    public double FileDetailsAvailableWidth
+    {
+        get => _fileDetailsAvailableWidth;
+        set
+        {
+            if (SetProperty(ref _fileDetailsAvailableWidth, value))
+            {
+                OnDetailsColumnRoomChanged();
+            }
+        }
+    }
+
+    public double FileSizeColumnMaxWidth => DetailsColumnLimits().Size;
+
+    public double FileModifiedColumnMaxWidth => DetailsColumnLimits().Modified;
+
+    private (double Size, double Modified) DetailsColumnLimits()
+    {
+        if (!double.IsFinite(_fileDetailsAvailableWidth) || _fileDetailsAvailableWidth <= 0)
+        {
+            return (double.PositiveInfinity, double.PositiveInfinity);
+        }
+
+        // Two five-point grips sit between the three columns.
+        var room = _fileDetailsAvailableWidth - FileNameColumnMinWidth - 10;
+        var modified = _fileModifiedColumnWidth.IsAbsolute ? _fileModifiedColumnWidth.Value : 0;
+        var size = Math.Max(FileSizeColumnMinWidth, room - modified);
+        var sizeShown = _fileSizeColumnWidth.IsAbsolute
+            ? Math.Min(_fileSizeColumnWidth.Value, size)
+            : size;
+        return (size, Math.Max(FileModifiedColumnMinWidth, room - sizeShown));
+    }
+
+    private void OnDetailsColumnRoomChanged()
+    {
+        OnPropertyChanged(nameof(FileSizeColumnMaxWidth));
+        OnPropertyChanged(nameof(FileModifiedColumnMaxWidth));
     }
 
     /// <summary>
@@ -2584,7 +2653,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             SelectedMetadata = new FileEntryMetadataViewModel(
                 entry.Entry,
-                isStatBacked: false);
+                isStatBacked: false,
+                ProviderKeepsVersions);
             return;
         }
 
@@ -2604,7 +2674,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             {
                 SelectedMetadata = new FileEntryMetadataViewModel(
                     entry.Entry,
-                    isStatBacked: false);
+                    isStatBacked: false,
+                ProviderKeepsVersions);
                 MetadataIssue = FileOperationIssue.Unexpected(
                     "The provider failed unexpectedly while reading item metadata.");
             }
@@ -2628,15 +2699,20 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             SelectedMetadata = new FileEntryMetadataViewModel(
                 entry.Entry,
-                isStatBacked: false);
+                isStatBacked: false,
+                ProviderKeepsVersions);
             MetadataIssue = FileOperationIssue.FromProvider(result.Error!);
             return;
         }
 
         SelectedMetadata = new FileEntryMetadataViewModel(
             result.Value!,
-            isStatBacked: true);
+            isStatBacked: true,
+            ProviderKeepsVersions);
     }
+
+    private bool ProviderKeepsVersions =>
+        SelectedProfile?.Capabilities.HasFlag(FilePanelCapability.Versioning) == true;
 
     private async Task LoadPreviewAsync(
         FileEntryViewModel? entry,

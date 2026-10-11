@@ -321,13 +321,16 @@
                 MinHeight="{controls:TextScaled 29}"
                 Background="{DynamicResource ShellSurfaceBrush}"
                 IsVisible="{Binding IsDetailsView}">
-              <Grid Margin="{controls:Inset Horizontal=Md}">
+              <!-- Its width is the room the rows have: the panel narrows the
+                   size and date columns to fit it rather than letting the
+                   date run off the edge. -->
+              <Grid x:Name="FileDetailsHeaderGrid" Margin="{controls:Inset Horizontal=Md}">
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="{Binding FileNameColumnWidth, Mode=TwoWay}" MinWidth="140" />
+                  <ColumnDefinition Width="{Binding FileNameColumnWidth, Mode=TwoWay}" MinWidth="{x:Static vm:FileRuntimePanelViewModel.FileNameColumnMinWidth}" />
                   <ColumnDefinition Width="5" />
-                  <ColumnDefinition Width="{Binding FileSizeColumnWidth, Mode=TwoWay}" MinWidth="72" />
+                  <ColumnDefinition Width="{Binding FileSizeColumnWidth, Mode=TwoWay}" MinWidth="{x:Static vm:FileRuntimePanelViewModel.FileSizeColumnMinWidth}" MaxWidth="{Binding FileSizeColumnMaxWidth}" />
                   <ColumnDefinition Width="5" />
-                  <ColumnDefinition Width="{Binding FileModifiedColumnWidth, Mode=TwoWay}" MinWidth="112" />
+                  <ColumnDefinition Width="{Binding FileModifiedColumnWidth, Mode=TwoWay}" MinWidth="{x:Static vm:FileRuntimePanelViewModel.FileModifiedColumnMinWidth}" MaxWidth="{Binding FileModifiedColumnMaxWidth}" />
                 </Grid.ColumnDefinitions>
                 <Button
                     Classes="FileColumnHeader"
@@ -453,11 +456,11 @@
                          header stop shrinking while the rows keep collapsing,
                          and the columns visibly part ways. -->
                     <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileNameColumnWidth}" MinWidth="140" />
+                      <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileNameColumnWidth}" MinWidth="{x:Static vm:FileRuntimePanelViewModel.FileNameColumnMinWidth}" />
                       <ColumnDefinition Width="5" />
-                      <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileSizeColumnWidth}" MinWidth="72" />
+                      <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileSizeColumnWidth}" MinWidth="{x:Static vm:FileRuntimePanelViewModel.FileSizeColumnMinWidth}" MaxWidth="{Binding $parent[UserControl].DataContext.FileSizeColumnMaxWidth}" />
                       <ColumnDefinition Width="5" />
-                      <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileModifiedColumnWidth}" MinWidth="112" />
+                      <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileModifiedColumnWidth}" MinWidth="{x:Static vm:FileRuntimePanelViewModel.FileModifiedColumnMinWidth}" MaxWidth="{Binding $parent[UserControl].DataContext.FileModifiedColumnMaxWidth}" />
                     </Grid.ColumnDefinitions>
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                       <Panel Classes="FileEntryIcon" VerticalAlignment="Center">

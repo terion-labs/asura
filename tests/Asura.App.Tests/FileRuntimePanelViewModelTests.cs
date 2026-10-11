@@ -1179,6 +1179,61 @@ public sealed class FileRuntimePanelViewModelTests
     }
 
     [Fact]
+    public async Task ANarrowListingShrinksTheSizeThenTheDateInsteadOfOverflowing()
+    {
+        using var panel = new FileRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Files",
+            new StubFilePanelClient());
+        await panel.Initialization;
+
+        // Unmeasured, the columns keep the widths the person chose.
+        Assert.Equal(double.PositiveInfinity, panel.FileSizeColumnMaxWidth);
+        Assert.Equal(double.PositiveInfinity, panel.FileModifiedColumnMaxWidth);
+
+        // A wide listing holds 140 + 90 + 140 and the grips.
+        panel.FileDetailsAvailableWidth = 600;
+        Assert.True(panel.FileSizeColumnMaxWidth >= 90);
+        Assert.True(panel.FileModifiedColumnMaxWidth >= 140);
+
+        // 311 points: the name keeps its minimum, the size gives way to its
+        // own minimum, and the date takes what is left.
+        panel.FileDetailsAvailableWidth = 311;
+        Assert.Equal(FileRuntimePanelViewModel.FileSizeColumnMinWidth, panel.FileSizeColumnMaxWidth);
+        Assert.Equal(
+            311 - FileRuntimePanelViewModel.FileNameColumnMinWidth - 10 - FileRuntimePanelViewModel.FileSizeColumnMinWidth,
+            panel.FileModifiedColumnMaxWidth);
+
+        // Narrower still, nothing goes below its minimum.
+        panel.FileDetailsAvailableWidth = 200;
+        Assert.Equal(FileRuntimePanelViewModel.FileModifiedColumnMinWidth, panel.FileModifiedColumnMaxWidth);
+    }
+
+    [Fact]
+    public async Task AProviderThatKeepsVersionsShowsTheSelectedItemsVersion()
+    {
+        var client = new StubFilePanelClient();
+        client.EnableCapabilities(FilePanelCapability.Versioning);
+        var listed = Entry(client.Root, "report.bin", FilePanelEntryKind.File, 4);
+        client.Entries.Add(listed);
+        client.StatEntry = new FilePanelEntry(
+            listed.Location.WithVersion("v7"),
+            listed.Name,
+            listed.Kind,
+            4096,
+            null,
+            false);
+        using var panel = new FileRuntimePanelViewModel(PanelInstanceId.New(), "Files", client);
+        await panel.Initialization;
+
+        panel.SelectedEntry = Assert.Single(panel.Entries);
+        await panel.PreviewSelectedAsync();
+
+        Assert.True(panel.SelectedMetadata?.HasVersion);
+        Assert.Equal("v7", panel.SelectedMetadata?.Version);
+    }
+
+    [Fact]
     public async Task SelectionPresentsFreshStatMetadataAlongsidePreview()
     {
         var client = new StubFilePanelClient();
@@ -1203,8 +1258,11 @@ public sealed class FileRuntimePanelViewModelTests
         Assert.Equal(listed.Location, client.LastStatLocation);
         Assert.True(panel.SelectedMetadata?.IsStatBacked);
         Assert.Equal("4.1 KB", panel.SelectedMetadata?.Size);
-        Assert.Equal("stat-version", panel.SelectedMetadata?.Version);
-        Assert.True(panel.SelectedMetadata?.HasVersion);
+        // The fresh stat's entry is the one presented. This provider keeps
+        // no versions, so its tag is a change stamp the details keep to
+        // themselves.
+        Assert.Equal("stat-version", panel.SelectedMetadata?.Entry.Location.Version);
+        Assert.False(panel.SelectedMetadata?.HasVersion);
         Assert.Null(panel.MetadataIssue);
     }
 

@@ -367,11 +367,17 @@ public sealed record FileOperationIssue(
 /// </summary>
 public sealed class FileEntryMetadataViewModel
 {
-    public FileEntryMetadataViewModel(FilePanelEntry entry, bool isStatBacked)
+    public FileEntryMetadataViewModel(
+        FilePanelEntry entry,
+        bool isStatBacked,
+        bool providerKeepsVersions = false)
     {
         Entry = entry ?? throw new ArgumentNullException(nameof(entry));
         IsStatBacked = isStatBacked;
+        _providerKeepsVersions = providerKeepsVersions;
     }
+
+    private readonly bool _providerKeepsVersions;
 
     public FilePanelEntry Entry { get; }
 
@@ -402,11 +408,14 @@ public sealed class FileEntryMetadataViewModel
     public string Location => FileLocationPresentation.Display(Entry.Location);
 
     /// <summary>
-    /// The provider's version tag (an ETag, a revision), when it has one. It
-    /// is a hash to most people, so the panel keeps it behind a disclosure
-    /// and says nothing at all when there is none.
+    /// The provider's version tag (an ETag, a revision), when the provider
+    /// keeps versions people can tell apart. It is a hash to most people, so
+    /// the panel keeps it behind a disclosure. Every other provider's tag is
+    /// only a change stamp the panel uses to notice edits — a local file has
+    /// one, Finder shows none — so the details say nothing about it.
     /// </summary>
-    public string? Version => string.IsNullOrWhiteSpace(Entry.Location.Version)
+    public string? Version => !_providerKeepsVersions
+        || string.IsNullOrWhiteSpace(Entry.Location.Version)
         ? null
         : Entry.Location.Version;
 

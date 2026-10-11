@@ -35,14 +35,13 @@ public sealed class MonitorPanelHigConformanceTests
     }
 
     [Theory]
-    [InlineData(1_850_000_000d, TimeSeriesUnit.Bytes, 2_000_000_000d)]
-    [InlineData(700d, TimeSeriesUnit.BytesPerSecond, 1000d)]
-    [InlineData(300d, TimeSeriesUnit.BytesPerSecond, 500d)]
-    [InlineData(37d, TimeSeriesUnit.Number, 50d)]
-    [InlineData(0d, TimeSeriesUnit.Bytes, 1d)]
-    public void An_automatic_scale_tops_out_at_a_round_number(double peak, TimeSeriesUnit unit, double expected)
+    [InlineData(1_850_000_000d, 2_000_000_000d)]
+    [InlineData(700d, 1000d)]
+    [InlineData(300d, 500d)]
+    [InlineData(37d, 50d)]
+    [InlineData(0d, 1d)]
+    public void An_automatic_scale_tops_out_at_a_round_number(double peak, double expected)
     {
-        _ = unit;
         Assert.Equal(expected, TimeSeriesChart.NiceCeiling(peak));
     }
 
