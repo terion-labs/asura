@@ -62,7 +62,10 @@ public sealed partial class KubernetesRuntimePanelViewModel
             if (CanConfirmNode || IsBusy) { return null; }
             if (_schedulingReview is null && _drainReview is null)
             {
-                return "Review Cordon, Review Uncordon, or Preview Drain to continue.";
+                // Name only the review that is on offer for this node.
+                return IsNodeCordoned
+                    ? "Review Uncordon or Preview Drain to continue."
+                    : "Review Cordon or Preview Drain to continue.";
             }
 
             if (_drainReview is { } review)

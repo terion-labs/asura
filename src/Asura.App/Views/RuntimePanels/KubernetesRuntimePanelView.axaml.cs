@@ -3,6 +3,7 @@ using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
@@ -286,15 +287,20 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
     private async void OnFollowLogsToggled(object? sender, RoutedEventArgs e)
     {
         if (_observed is not { } model) { return; }
+        // SetCurrentValue keeps the IsChecked binding to FollowingLogs; a
+        // plain assignment would replace it after the first click.
         if (model.FollowingLogs) { model.StopFollowingLogs(); }
         else
         {
             var follow = model.FollowLogsAsync();
-            FollowLogsToggle.IsChecked = model.FollowingLogs;
+            FollowLogsToggle.SetCurrentValue(ToggleButton.IsCheckedProperty, model.FollowingLogs);
             await follow;
         }
 
-        FollowLogsToggle.IsChecked = model.FollowingLogs;
+        if (ReferenceEquals(_observed, model))
+        {
+            FollowLogsToggle.SetCurrentValue(ToggleButton.IsCheckedProperty, model.FollowingLogs);
+        }
     }
 
     private async void OnLoadMetricHistoryClick(object? sender, RoutedEventArgs e) { if (_observed is { } model) { await model.LoadMetricHistoryAsync(); } }

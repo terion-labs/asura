@@ -176,7 +176,7 @@ public sealed record DockerInspectionRow(string Name, string Value)
         "State.StartedAt" => "Started",
         "Config.Image" => "Image",
         "Config.Hostname" => "Host name",
-        "Config.WorkingDir" => "Working folder",
+        "Config.WorkingDir" => "Working directory",
         "Config.Entrypoint" => "Entrypoint",
         "Config.Cmd" => "Command",
         "HostConfig.NetworkMode" => "Network mode",

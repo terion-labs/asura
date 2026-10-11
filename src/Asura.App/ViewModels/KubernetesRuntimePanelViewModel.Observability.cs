@@ -1,4 +1,5 @@
 using System.Globalization;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 using Avalonia.Data.Converters;
@@ -119,7 +120,9 @@ public sealed partial class KubernetesRuntimePanelViewModel
         var selected = _inspection ?? SelectedResource;
         if (selected is null) { return "N/A"; }
         var row = KubernetesResourceRow.Create(selected, Usage.Select(item => item.Entry));
-        return memory ? row.Memory : row.CpuValue is not null ? $"{row.Cpu} cores" : "N/A";
+        // The inspector writes CPU the way its history chart does; the fixed
+        // three decimals belong to the table's right-aligned column.
+        return memory ? row.Memory : row.CpuValue is { } cores ? TimeSeriesChart.Format((double)cores, TimeSeriesUnit.Cores) : "N/A";
     }
     public async Task LoadHelmAsync(bool nextPage = false)
     {
@@ -163,9 +166,9 @@ public sealed partial class KubernetesRuntimePanelViewModel
 public sealed record KubernetesUsageRow(KubernetesUsageEntry Entry)
 {
     public string Identity => $"{Entry.Namespace}/{Entry.Name}{(Entry.Container is null ? "" : $" · {Entry.Container}")}";
-    public string Usage => $"CPU {Format(Entry.CpuCores)} cores · Memory {(Entry.MemoryBytes is { } bytes ? KubernetesResourceRow.FormatBytes(bytes) : "unavailable")}";
+    public string Usage => $"CPU {Format(Entry.CpuCores)} · Memory {(Entry.MemoryBytes is { } bytes ? KubernetesResourceRow.FormatBytes(bytes) : "unavailable")}";
     public string Sample => $"{DisplayDates.Format(Entry.Timestamp, "Timestamp unavailable")} · Window {Entry.Window}";
-    private static string Format(decimal? value) => value?.ToString("0.000", CultureInfo.InvariantCulture) ?? "unavailable";
+    private static string Format(decimal? value) => value is { } cores ? TimeSeriesChart.Format((double)cores, TimeSeriesUnit.Cores) : "unavailable";
 }
 
 /// <summary>

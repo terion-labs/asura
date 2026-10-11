@@ -15,7 +15,7 @@ public sealed class DockerInspectionRowTests
     [InlineData("Id", "ID")]
     [InlineData("State.Status", "State")]
     [InlineData("State.StartedAt", "Started")]
-    [InlineData("Config.WorkingDir", "Working folder")]
+    [InlineData("Config.WorkingDir", "Working directory")]
     [InlineData("Config.Cmd", "Command")]
     [InlineData("HostConfig.NetworkMode", "Network mode")]
     [InlineData("NetworkSettings.IPAddress", "IP address")]

@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using System.Text.RegularExpressions;
 
 namespace Asura.App.ViewModels;
 
@@ -9,7 +10,7 @@ namespace Asura.App.ViewModels;
 /// a reason the server itself gave — a permission or a query syntax error —
 /// is kept after the curated sentence, because only the server can say it.
 /// </summary>
-internal static class RedisErrorText
+internal static partial class RedisErrorText
 {
     private const string CuratedKey = "Asura.Redis.CuratedMessage";
 
@@ -31,6 +32,7 @@ internal static class RedisErrorText
     {
         ArgumentNullException.ThrowIfNull(exception);
         SecretSafeDiagnostics.WriteTrace("redis.connect.failed", exception);
+        if (Known(exception) is { } known) { return known; }
         return Classify(exception) switch
         {
             Failure.Unreachable => "Asura couldn’t reach the Redis server. Check that it’s running and that the host and port are correct, then try again.",
@@ -47,6 +49,7 @@ internal static class RedisErrorText
         ArgumentNullException.ThrowIfNull(exception);
         if (IsCurated(exception)) { return exception.Message; }
         SecretSafeDiagnostics.WriteTrace("redis.command.failed", exception);
+        if (Known(exception) is { } known) { return known; }
         return Classify(exception) switch
         {
             Failure.Unreachable => "The connection to the Redis server was lost. Reconnect, then try again.",
@@ -60,6 +63,45 @@ internal static class RedisErrorText
             _ => "Asura couldn’t complete that Redis command. Try again; if it keeps failing, reconnect.",
         };
     }
+
+    /// <summary>
+    /// The failures Asura's own Redis layer reports, each with the step that
+    /// gets past it. Retrying doesn't help with a build that has no SSH
+    /// tunnels or a database a cluster doesn't have, so these never fall
+    /// through to the generic "try again". Null for anything else.
+    /// </summary>
+    private static string? Known(Exception exception)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            var message = current.Message;
+            switch (current)
+            {
+                case InvalidOperationException when message.StartsWith("SSH tunneling is unavailable", StringComparison.Ordinal):
+                    return "This build of Asura can’t open SSH tunnels. Choose a direct connection to the Redis server instead.";
+                case NotSupportedException when message.StartsWith("Redis Cluster supports logical database zero only", StringComparison.Ordinal):
+                    return "Redis Cluster has only database 0. Choose database 0 to continue.";
+                case ArgumentOutOfRangeException when DatabaseRange().Match(message) is { Success: true } range:
+                    return $"This Redis server has databases 0 through {range.Groups["last"].Value}. Choose one of those to continue.";
+                case NotSupportedException or ArgumentException when message.StartsWith("The Redis endpoint is not a TCP endpoint", StringComparison.Ordinal):
+                    return "Asura connects to Redis over TCP only. Enter the server’s host and port.";
+                case ArgumentException when message.StartsWith("The Redis connection needs a host", StringComparison.Ordinal)
+                    || message.StartsWith("The Redis connection needs an endpoint", StringComparison.Ordinal):
+                    return "Enter the Redis server’s host name or address, then connect again.";
+                case ArgumentException when message.StartsWith("Enter a Redis connection string or URL", StringComparison.Ordinal):
+                    return "Enter a Redis connection string or URL, then connect again.";
+                case ArgumentException when message.StartsWith("Redis logical database must be a non-negative number", StringComparison.Ordinal):
+                    return "Enter a database number of 0 or more, then connect again.";
+                case NotSupportedException when message.Contains("has no entries that can be removed one at a time", StringComparison.Ordinal):
+                    return "Entries of this type can’t be removed one at a time. Delete the whole key instead.";
+            }
+        }
+
+        return null;
+    }
+
+    [GeneratedRegex(@"^This Redis server exposes logical databases 0 through (?<last>\d+)\.", RegexOptions.CultureInvariant, 1000)]
+    private static partial Regex DatabaseRange();
 
     private enum Failure
     {

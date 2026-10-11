@@ -96,4 +96,50 @@ public sealed class RedisPanelPresentationTests
 
         Assert.Equal("Enter a field name.", message);
     }
+
+    // The messages below are the ones Asura.Redis throws (RedisPanelSessionFactory,
+    // RedisConnectionCatalog). Retrying doesn't get past any of them, so each
+    // names the step that does.
+    [Fact]
+    public void A_build_without_ssh_tunnels_says_to_choose_a_direct_connection()
+    {
+        var message = RedisErrorText.ForConnection(
+            new InvalidOperationException("SSH tunneling is unavailable in this build."));
+
+        Assert.Equal(
+            "This build of Asura can’t open SSH tunnels. Choose a direct connection to the Redis server instead.",
+            message);
+    }
+
+    [Fact]
+    public void A_cluster_database_other_than_zero_says_to_choose_database_zero()
+    {
+        var message = RedisErrorText.ForCommand(
+            new NotSupportedException("Redis Cluster supports logical database zero only."));
+
+        Assert.Equal("Redis Cluster has only database 0. Choose database 0 to continue.", message);
+    }
+
+    [Fact]
+    public void A_database_past_the_servers_range_names_the_range()
+    {
+        var message = RedisErrorText.ForCommand(new ArgumentOutOfRangeException(
+            "database",
+            "This Redis server exposes logical databases 0 through 15."));
+
+        Assert.Equal(
+            "This Redis server has databases 0 through 15. Choose one of those to continue.",
+            message);
+    }
+
+    [Theory]
+    [InlineData("The Redis connection needs a host.", "Enter the Redis server’s host name or address, then connect again.")]
+    [InlineData("Enter a Redis connection string or URL.", "Enter a Redis connection string or URL, then connect again.")]
+    [InlineData("Redis logical database must be a non-negative number.", "Enter a database number of 0 or more, then connect again.")]
+    public void A_connection_string_problem_says_what_to_enter(string thrown, string expected)
+    {
+        var message = RedisErrorText.ForConnection(new ArgumentException(thrown, "value"));
+
+        Assert.Equal(expected, message);
+    }
 }

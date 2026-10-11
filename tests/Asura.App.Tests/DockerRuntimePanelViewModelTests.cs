@@ -243,6 +243,107 @@ public sealed class DockerRuntimePanelViewModelTests
     }
 
     [Fact]
+    public async Task ShellViewShowsProgressWhileResolvingAndOffersRetryOnlyAfterAFailure()
+    {
+        var client = new FakeDockerEngineClient(Snapshot());
+        using var panel = new DockerRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Docker",
+            client,
+            BuiltInConnections.Local);
+        await panel.Initialization;
+        Assert.Equal("api", panel.SelectedResource?.Title);
+
+        panel.BeginShellResolution("abc");
+
+        Assert.True(panel.IsResolvingShell);
+        Assert.True(panel.ShowShellProgress);
+        Assert.False(panel.ShowShellFailure);
+        Assert.False(panel.ShowShellIdle);
+        Assert.False(panel.CanRetryShell);
+        Assert.Equal("Finding a container shell…", panel.ShellStateTitle);
+
+        panel.PresentShellResolutionFailure(
+            "abc",
+            new DockerError(DockerErrorCode.ShellUnavailable, "No shell was found in this image.", false));
+
+        Assert.True(panel.IsShellDetail);
+        Assert.False(panel.IsResolvingShell);
+        Assert.True(panel.HasShellFailure);
+        Assert.True(panel.ShowShellFailure);
+        Assert.False(panel.ShowShellProgress);
+        Assert.False(panel.ShowShellIdle);
+        Assert.True(panel.CanRetryShell);
+        Assert.Equal("No interactive shell found", panel.ShellStateTitle);
+        Assert.Equal("No shell was found in this image.", panel.ShellStateMessage);
+
+        panel.BeginShellResolution("abc");
+
+        Assert.False(panel.HasShellFailure);
+        Assert.False(panel.CanRetryShell);
+        Assert.True(panel.ShowShellProgress);
+    }
+
+    [Fact]
+    public async Task ShellViewIsIdleWithoutRetryForAStoppedContainer()
+    {
+        var client = new FakeDockerEngineClient(Snapshot());
+        using var panel = new DockerRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Docker",
+            client,
+            BuiltInConnections.Local);
+        await panel.Initialization;
+        panel.PresentShellResolutionFailure(
+            "abc",
+            new DockerError(DockerErrorCode.CommandFailed, "exec failed", true));
+        Assert.True(panel.CanRetryShell);
+
+        panel.SelectResource(Assert.Single(
+            panel.Resources,
+            item => string.Equals(item.Title, "worker", StringComparison.Ordinal)));
+
+        Assert.True(panel.ShowShellIdle);
+        Assert.False(panel.ShowShellProgress);
+        Assert.False(panel.ShowShellFailure);
+        Assert.False(panel.CanRetryShell);
+        Assert.Equal("Container isn’t running", panel.ShellStateTitle);
+    }
+
+    [Fact]
+    public async Task LogSearchMarksLinesWithoutAMatchAsContext()
+    {
+        var client = new FakeDockerEngineClient(Snapshot())
+        {
+            LogPageFactory = _ => new DockerContainerLogPage(
+                [
+                    new DockerContainerLogLine("2026-08-10T12:00:00Z", "starting worker"),
+                    new DockerContainerLogLine("2026-08-10T12:00:01Z", "database unavailable"),
+                    new DockerContainerLogLine("2026-08-10T12:00:02Z", "retrying in 5s"),
+                ],
+                false,
+                "2026-08-10T12:00:00Z",
+                "2026-08-10T12:00:02Z"),
+        };
+        using var panel = new DockerRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Docker",
+            client,
+            BuiltInConnections.Local);
+        await panel.Initialization;
+        panel.SelectDetail(DockerPanelDetail.Logs);
+        await WaitUntilAsync(() => panel.LogRows.Count == 3);
+        Assert.All(panel.LogRows, row => Assert.False(row.IsContextLine));
+
+        panel.LogSearchText = "unavailable";
+        await panel.SearchLogsAsync();
+
+        Assert.Equal(
+            [true, false, true],
+            panel.LogRows.Select(row => row.IsContextLine));
+    }
+
+    [Fact]
     public async Task SwitchingSectionReprojectsResourcesAndDisablesContainerDetails()
     {
         var client = new FakeDockerEngineClient(Snapshot());

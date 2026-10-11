@@ -423,5 +423,8 @@ internal sealed class KubernetesUiSession : IKubernetesClientSession
     public ValueTask<KubernetesHelmChangeResult> ExecuteHelmChangeAsync(string reviewToken, CancellationToken cancellationToken)
     { HelmExecutions++; return ValueTask.FromResult(new KubernetesHelmChangeResult(KubernetesMutationOutcome.Applied)); }
     public ValueTask<KubernetesHelmHistory> ReadHelmHistoryAsync(KubernetesHelmHistoryRequest request, CancellationToken cancellationToken) => ValueTask.FromResult(new KubernetesHelmHistory([]));
+    internal IReadOnlyList<KubernetesHelmRelease> HelmReleases { get; init; } = [];
+    public ValueTask<KubernetesHelmReleasePage> ListHelmReleasesAsync(KubernetesHelmListRequest request, CancellationToken cancellationToken) =>
+        ValueTask.FromResult(new KubernetesHelmReleasePage(HelmReleases, null));
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }

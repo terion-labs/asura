@@ -71,6 +71,18 @@ public sealed class KubernetesPanelHigConformanceTests
         Assert.Equal("Node cordoned. New pods won't be scheduled on it.", panel.NodeStatus);
     }
 
+    [Fact]
+    public async Task A_dimmed_node_confirm_names_only_the_review_on_offer()
+    {
+        using var schedulable = Create(NodeSession("{\"kind\":\"Node\"}"));
+        await SelectFirstAsync(schedulable);
+        Assert.Equal("Review Cordon or Preview Drain to continue.", schedulable.NodeConfirmHint);
+
+        using var cordoned = Create(NodeSession("{\"kind\":\"Node\",\"spec\":{\"unschedulable\":true}}"));
+        await SelectFirstAsync(cordoned);
+        Assert.Equal("Review Uncordon or Preview Drain to continue.", cordoned.NodeConfirmHint);
+    }
+
     [Theory]
     [InlineData(KubernetesDrainPodDisposition.Evict, "Will be evicted")]
     [InlineData(KubernetesDrainPodDisposition.SkipDaemonSet, "Skipped (daemon set)")]
@@ -127,6 +139,33 @@ public sealed class KubernetesPanelHigConformanceTests
         Assert.EndsWith("resource", panel.ResourceCountLabel, StringComparison.Ordinal);
         Assert.DoesNotContain("resource", panel.Status, StringComparison.Ordinal);
         Assert.StartsWith(panel.ResourceTitle, panel.Status, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_status_bar_names_the_table_and_its_scope()
+    {
+        using var panel = Create(new KubernetesUiSession());
+        await panel.Initialization;
+
+        Assert.Equal($"{panel.ResourceTitle} in {panel.Namespace}", panel.Status);
+    }
+
+    [Fact]
+    public async Task Load_Releases_becomes_Refresh_after_the_first_load()
+    {
+        var release = new KubernetesHelmRelease("api", "team", 3, "deployed", "api-1.2.0", "1.2.0", "2026-09-16 10:30:00 +0000 UTC");
+        using var panel = Create(new KubernetesUiSession
+        {
+            ExtraFeatures = KubernetesSessionFeatures.HelmRead,
+            HelmReleases = [release],
+        });
+        await panel.Initialization;
+        Assert.Equal("Load Releases", panel.HelmLoadLabel);
+
+        await panel.LoadHelmAsync();
+
+        Assert.Equal("Refresh", panel.HelmLoadLabel);
+        Assert.Equal([release], panel.Releases);
     }
 
     [Fact]
