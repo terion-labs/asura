@@ -19,7 +19,7 @@ if [[ ! -d "${icon_document}" || -L "${icon_document}" ]]; then
     echo "The layered Icon Composer document is missing or linked." >&2
     exit 1
 fi
-if [[ ! -x /usr/bin/iconutil || ! -x /usr/bin/sips || ! -x /usr/bin/xcrun ]]; then
+if [[ ! -x /usr/bin/iconutil || ! -x /usr/bin/sips ]]; then
     echo "The macOS icon utilities are unavailable." >&2
     exit 1
 fi
@@ -33,52 +33,33 @@ trap cleanup EXIT
 iconset="${working_directory}/Asura.iconset"
 mkdir -- "${iconset}"
 
-# The .icns is the fallback for macOS 13 through 15 (and for development
-# bundles, which carry no Assets.car). Those releases draw icons on the
-# pre-26 grid: an 824-point body centred on a 1024-point canvas, with a soft
-# shadow. Icon Composer only exports the macOS 26 and 27 designs, which fill
-# the canvas, so one full-size rendition is placed on the older grid and every
-# smaller size is resampled from it.
-full_bleed="${working_directory}/full-bleed-1024.png"
-legacy_grid="${working_directory}/legacy-grid-1024.png"
-"${icon_composer_tool}" \
-    "${icon_document}" \
-    --export-image \
-    --output-file "${full_bleed}" \
-    --platform macOS \
-    --rendition Default \
-    --width 512 \
-    --height 512 \
-    --scale 2 \
-    --design-generation 26
-
-pixel_width() {
-    /usr/bin/sips -g pixelWidth "$1" | /usr/bin/awk '/pixelWidth:/ {print $2}'
-}
-pixel_height() {
-    /usr/bin/sips -g pixelHeight "$1" | /usr/bin/awk '/pixelHeight:/ {print $2}'
-}
-
-if [[ "$(pixel_width "${full_bleed}")" != "1024" || "$(pixel_height "${full_bleed}")" != "1024" ]]; then
-    echo "Icon Composer produced an unexpected full-size rendition." >&2
-    exit 1
-fi
-
-/usr/bin/xcrun swift "${script_dir}/macos-icon-legacy-grid.swift" "${full_bleed}" "${legacy_grid}"
-
 render() {
     local points="$1"
     local scale="$2"
     local suffix=""
-    local pixels=$((points * scale))
+    local expected_pixels=$((points * scale))
     if [[ "${scale}" == "2" ]]; then
         suffix="@2x"
     fi
 
     local output="${iconset}/icon_${points}x${points}${suffix}.png"
-    /usr/bin/sips -z "${pixels}" "${pixels}" "${legacy_grid}" --out "${output}" >/dev/null
-    if [[ "$(pixel_width "${output}")" != "${pixels}" || "$(pixel_height "${output}")" != "${pixels}" ]]; then
-        echo "sips produced an unexpected ${points}pt@${scale}x rendition." >&2
+    "${icon_composer_tool}" \
+        "${icon_document}" \
+        --export-image \
+        --output-file "${output}" \
+        --platform macOS \
+        --rendition Default \
+        --width "${points}" \
+        --height "${points}" \
+        --scale "${scale}" \
+        --design-generation 26
+
+    local width
+    local height
+    width="$(/usr/bin/sips -g pixelWidth "${output}" | /usr/bin/awk '/pixelWidth:/ {print $2}')"
+    height="$(/usr/bin/sips -g pixelHeight "${output}" | /usr/bin/awk '/pixelHeight:/ {print $2}')"
+    if [[ "${width}" != "${expected_pixels}" || "${height}" != "${expected_pixels}" ]]; then
+        echo "Icon Composer produced an unexpected ${width}x${height} rendition." >&2
         exit 1
     fi
 }
