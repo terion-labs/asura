@@ -1075,14 +1075,16 @@
                 Spacing="{DynamicResource ShellSpaceMd}">
               <Border
                   Name="PART_GlyphTile"
-                  Width="54"
-                  Height="54"
+                  Width="{controls:TextScaled 54}"
+                  Height="{controls:TextScaled 54}"
                   HorizontalAlignment="Center"
                   Background="{DynamicResource ShellSurfaceHoverBrush}"
                   CornerRadius="{DynamicResource ShellCardCornerRadius}"
                   IsVisible="{TemplateBinding ShowsGlyph}">
                 <!-- Neutral, not the accent: the empty state is not something
-                     to press, and the accent is kept for what is. -->
+                     to press, and the accent is kept for what is. The tile
+                     scales with the glyph, or a larger text size draws the
+                     glyph past the tile's rounded edge. -->
                 <icons:SymbolIcon
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
