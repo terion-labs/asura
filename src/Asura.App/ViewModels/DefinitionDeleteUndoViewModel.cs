@@ -22,6 +22,7 @@ public sealed class DefinitionDeleteUndoViewModel : ObservableObject
     private readonly IDefinitionCatalog _catalog;
     private readonly ISecretVault _vault;
     private PendingDelete? _pending;
+    private RestoreInFlight? _restore;
     private bool _isRestoring;
     private string _status = string.Empty;
     private string _detail = string.Empty;
@@ -148,6 +149,9 @@ public sealed class DefinitionDeleteUndoViewModel : ObservableObject
             return Failure(DefinitionStoreErrorCode.InvalidDefinition, "The deleted item is already being restored.");
         }
 
+        var outcome = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var restored = false;
+        _restore = new RestoreInFlight(pending, outcome.Task);
         IsRestoring = true;
         Status = $"Restoring “{pending.Receipt.Name}”…";
         try
@@ -157,6 +161,7 @@ public sealed class DefinitionDeleteUndoViewModel : ObservableObject
             {
                 // Restored: its credentials belong to it again, so nothing is
                 // left to remove.
+                restored = true;
                 ClearPending(pending, $"Restored “{pending.Receipt.Name}”.");
                 return DefinitionStoreResult<Unit>.Success(Unit.Value);
             }
@@ -179,7 +184,9 @@ public sealed class DefinitionDeleteUndoViewModel : ObservableObject
         }
         finally
         {
+            _restore = null;
             IsRestoring = false;
+            outcome.SetResult(restored);
         }
     }
 
@@ -197,7 +204,8 @@ public sealed class DefinitionDeleteUndoViewModel : ObservableObject
 
     /// <summary>
     /// The window is closing: whatever delete is still waiting for Undo is
-    /// final, and its credentials are removed.
+    /// final, and its credentials are removed. An Undo already under way
+    /// finishes first; what it puts back keeps its credentials.
     /// </summary>
     public async ValueTask CommitPendingAsync()
     {
@@ -256,6 +264,17 @@ public sealed class DefinitionDeleteUndoViewModel : ObservableObject
     /// </summary>
     private async ValueTask CommitAsync(PendingDelete pending)
     {
+        // An Undo of this delete still under way decides it. Its save may
+        // not be in the catalog yet, so wait: a restored connection keeps
+        // its credentials, and only a failed or canceled restore leaves the
+        // delete final.
+        if (_restore is { } restore
+            && ReferenceEquals(restore.Pending, pending)
+            && await restore.Restored)
+        {
+            return;
+        }
+
         if (pending.OwnedSecrets is not { } scope
             || FindConnection(_catalog.Snapshot, pending.Receipt.Key) is not null)
         {
@@ -403,4 +422,7 @@ public sealed class DefinitionDeleteUndoViewModel : ObservableObject
         string Detail,
         SecretScope? OwnedSecrets,
         Func<CancellationToken, ValueTask<DefinitionStoreError?>> Restore);
+
+    /// <param name="Restored">Completes when the restore ends: true if the definition is back.</param>
+    private sealed record RestoreInFlight(PendingDelete Pending, Task<bool> Restored);
 }
