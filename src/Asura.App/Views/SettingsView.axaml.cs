@@ -60,9 +60,27 @@ public sealed partial class SettingsView : UserControl
 {
     private BrowserProfileSettingsEditorViewModel? _browserProfileEditor;
 
+    /// <summary>
+    /// The page on show, bound from the window's navigation, so the view
+    /// names it in its title band and keeps its history without knowing the
+    /// window's view model.
+    /// </summary>
+    public static readonly Avalonia.StyledProperty<SettingsPage?> CurrentSettingsPageProperty =
+        Avalonia.AvaloniaProperty.Register<SettingsView, SettingsPage?>(nameof(CurrentSettingsPage));
+
+    private readonly SettingsNavigationHistory _history = new();
+
+    public SettingsPage? CurrentSettingsPage
+    {
+        get => GetValue(CurrentSettingsPageProperty);
+        set => SetValue(CurrentSettingsPageProperty, value);
+    }
+
     public SettingsView()
     {
         InitializeComponent();
+        _history.PropertyChanged += (_, _) => RefreshHistoryButtons();
+        AddHandler(KeyDownEvent, OnSettingsKeyDown, RoutingStrategies.Tunnel);
         foreach (var (_, _, content) in Pages())
         {
             content.PropertyChanged += OnPageContentPropertyChanged;
@@ -285,6 +303,12 @@ public sealed partial class SettingsView : UserControl
 
     /// <summary>Return in the search field: open this page, the first that matches.</summary>
     public event EventHandler<SettingsPage>? SettingsSearchSubmitted;
+
+    /// <summary>
+    /// Back, forward, or an arrow key in the sidebar asks for this page. The
+    /// window shows it once a draft on the page being left is settled.
+    /// </summary>
+    public event EventHandler<SettingsPage>? SettingsPageRequested;
 
     internal void ConfigureAppearanceControls(
         IReadOnlyList<PlatformProfile> platformProfiles,
@@ -751,6 +775,162 @@ public sealed partial class SettingsView : UserControl
     internal static bool IsDeleteKey(KeyEventArgs e) =>
         e.KeyModifiers is Avalonia.Input.KeyModifiers.None or Avalonia.Input.KeyModifiers.Meta
         && e.Key is Key.Delete or Key.Back;
+
+    // ---- Navigation: the title band, history, and the sidebar's keys ----
+
+    /// <summary>The pages this Settings window has shown, for back and forward.</summary>
+    internal SettingsNavigationHistory History => _history;
+
+    protected override void OnPropertyChanged(Avalonia.AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == CurrentSettingsPageProperty)
+        {
+            FollowSettingsPage();
+        }
+    }
+
+    /// <summary>The page on show names the title band and joins the history.</summary>
+    private void FollowSettingsPage()
+    {
+        if (CurrentSettingsPage is not { } current)
+        {
+            return;
+        }
+
+        var page = SettingsPanes.SidebarPage(current);
+        SettingsPageTitle.Text = SettingsPanes.Title(page);
+        _history.Visit(page);
+        RefreshHistoryButtons();
+    }
+
+    private void RefreshHistoryButtons()
+    {
+        SettingsBackButton.IsEnabled = _history.CanGoBack;
+        SettingsForwardButton.IsEnabled = _history.CanGoForward;
+        ToolTip.SetTip(
+            SettingsBackButton,
+            _history.BackTarget is { } back ? $"Back to {SettingsPanes.Title(back)} (⌘[)" : "Back (⌘[)");
+        ToolTip.SetTip(
+            SettingsForwardButton,
+            _history.ForwardTarget is { } forward ? $"Forward to {SettingsPanes.Title(forward)} (⌘])" : "Forward (⌘])");
+    }
+
+    /// <summary>Back: the page shown before this one.</summary>
+    internal bool GoBack()
+    {
+        if (!_history.TryGoBack(out var page))
+        {
+            return false;
+        }
+
+        SettingsPageRequested?.Invoke(this, page);
+        return true;
+    }
+
+    /// <summary>Forward: the page gone back from.</summary>
+    internal bool GoForward()
+    {
+        if (!_history.TryGoForward(out var page))
+        {
+            return false;
+        }
+
+        SettingsPageRequested?.Invoke(this, page);
+        return true;
+    }
+
+    private void OnSettingsBackClick(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        e.Handled = true;
+        _ = GoBack();
+    }
+
+    private void OnSettingsForwardClick(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        e.Handled = true;
+        _ = GoForward();
+    }
+
+    /// <summary>
+    /// ⌘[ and ⌘] go back and forward wherever focus is in the window, as in
+    /// System Settings; a text field's own use of them comes second to the
+    /// window's, which is the host's order too.
+    /// </summary>
+    private void OnSettingsKeyDown(object? sender, KeyEventArgs e)
+    {
+        _ = sender;
+        if (e.KeyModifiers != Avalonia.Input.KeyModifiers.Meta)
+        {
+            return;
+        }
+
+        if (e.Key == Key.OemOpenBrackets)
+        {
+            e.Handled = true;
+            _ = GoBack();
+        }
+        else if (e.Key == Key.OemCloseBrackets)
+        {
+            e.Handled = true;
+            _ = GoForward();
+        }
+    }
+
+    /// <summary>
+    /// Up and Down in the sidebar move to the page above or below the one
+    /// with focus, skipping the ones a search has hidden, and show it; Home
+    /// and End go to the first and last. Focus moves with the selection, so
+    /// the next key goes on from there.
+    /// </summary>
+    private void OnSettingsNavigationKeyDown(object? sender, KeyEventArgs e)
+    {
+        _ = sender;
+        if (e.KeyModifiers != Avalonia.Input.KeyModifiers.None
+            || e.Key is not (Key.Up or Key.Down or Key.Home or Key.End))
+        {
+            return;
+        }
+
+        var shown = Pages()
+            .Where(page => page.Navigation.IsVisible)
+            .ToList();
+        if (shown.Count == 0)
+        {
+            return;
+        }
+
+        var focused = shown.FindIndex(page =>
+            page.Navigation is ShellNavigationItem item && item.IsKeyboardFocusWithin);
+        if (focused < 0)
+        {
+            focused = shown.FindIndex(page =>
+                page.Navigation is ShellNavigationItem { IsActive: true });
+        }
+
+        var target = e.Key switch
+        {
+            Key.Home => 0,
+            Key.End => shown.Count - 1,
+            Key.Up => Math.Max(0, focused - 1),
+            _ => Math.Min(shown.Count - 1, focused + 1),
+        };
+        e.Handled = true;
+        if (target == focused && focused >= 0)
+        {
+            return;
+        }
+
+        var (page, navigation, _) = shown[target];
+        if (navigation is ShellNavigationItem next)
+        {
+            next.FocusItem();
+        }
+
+        SettingsPageRequested?.Invoke(this, page);
+    }
 
     // ---- Search ----
 

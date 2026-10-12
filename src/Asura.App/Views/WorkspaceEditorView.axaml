@@ -726,141 +726,141 @@
               </controls:SurfaceCard>
             </StackPanel>
 
+            <!-- The workspace's AI choices as a grouped form, the same rows
+                 as the AI settings they override: each choice a row with its
+                 control at the trailing edge, and the override's own rows
+                 shown only while the override is on. -->
             <controls:SettingsGroup
                 Heading="AI configuration"
                 Description="Use app defaults or choose a provider, model, and tool permissions for this workspace.">
-              <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceMd}">
-                <!-- An option, not the section's master: a switch at the
-                     row's trailing edge with its label on the left, as every
-                     on/off setting in the editor and in Settings is drawn. -->
-                <controls:SettingRow
-                    Label="Run the AI agent in the workspace environment"
-                    Padding="0"
-                    IsLast="True"
-                    Description="When this is on, the provider is reached through this workspace’s route, and providers available only on this computer can’t be chosen. When it’s off, the provider is reached over this computer’s network."
-                    IsVisible="{Binding IsIsolated}">
-                  <ToggleSwitch
-                      IsChecked="{CompiledBinding RunAgentInIsolation, Mode=TwoWay}"
-                      AutomationProperties.Name="Run the AI agent in the workspace environment" />
-                </controls:SettingRow>
-                <controls:ToggleField
-                    Label="Override AI configuration for this workspace"
+              <!-- An option, not the section's master: a switch at the
+                   row's trailing edge with its label on the left, as every
+                   on/off setting in the editor and in Settings is drawn. -->
+              <controls:SettingRow
+                  Label="Run the AI agent in the workspace environment"
+                  Description="When this is on, the provider is reached through this workspace’s route, and providers available only on this computer can’t be chosen. When it’s off, the provider is reached over this computer’s network."
+                  IsVisible="{Binding IsIsolated}">
+                <ToggleSwitch
+                    IsChecked="{CompiledBinding RunAgentInIsolation, Mode=TwoWay}"
+                    AutomationProperties.Name="Run the AI agent in the workspace environment" />
+              </controls:SettingRow>
+              <controls:SettingRow Label="Override AI configuration for this workspace">
+                <ToggleSwitch
                     IsChecked="{CompiledBinding AgentPolicy.IsEnabled, Mode=TwoWay}"
                     AutomationProperties.Name="Override AI configuration for this workspace" />
-                <StackPanel
-                    Spacing="{DynamicResource ShellSpaceMd}"
-                    IsVisible="{CompiledBinding AgentPolicy.IsEnabled}">
-                  <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <controls:LabeledField Label="Provider profile">
-                      <Grid MinHeight="{DynamicResource ShellControlMinHeight}">
-                        <ComboBox
-                            IsVisible="{Binding AgentPolicy.HasMultipleProviderOptions}"
-                            ItemsSource="{Binding AgentPolicy.ProviderOptions}"
-                            SelectedItem="{Binding AgentPolicy.SelectedProvider, Mode=TwoWay}"
-                            AutomationProperties.Name="Workspace AI provider profile">
-                          <ComboBox.ItemTemplate>
-                            <DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
-                          </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            FontWeight="SemiBold"
-                            IsVisible="{Binding AgentPolicy.HasSingleProviderOption}"
-                            Text="{Binding AgentPolicy.SelectedProvider.DisplayName}" />
-                      </Grid>
-                    </controls:LabeledField>
-                    <controls:LabeledField Grid.Column="1" Label="Model">
-                      <Grid MinHeight="{DynamicResource ShellControlMinHeight}">
-                        <ComboBox
-                            IsVisible="{Binding AgentPolicy.HasMultipleModelOptions}"
-                            ItemsSource="{Binding AgentPolicy.ModelOptions}"
-                            SelectedItem="{Binding AgentPolicy.SelectedModel, Mode=TwoWay}"
-                            AutomationProperties.Name="Workspace AI model">
-                          <ComboBox.ItemTemplate>
-                            <DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
-                          </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            FontWeight="SemiBold"
-                            IsVisible="{Binding AgentPolicy.HasSingleModelOption}"
-                            Text="{Binding AgentPolicy.SelectedModel.DisplayName}" />
-                      </Grid>
-                    </controls:LabeledField>
-                  </Grid>
-                  <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <controls:LabeledField Label="Compaction model">
-                      <ComboBox
-                          ItemsSource="{Binding AgentPolicy.AgentTaskModelOptions}"
-                          SelectedItem="{Binding AgentPolicy.SelectedCompactionModel, Mode=TwoWay}"
-                          AutomationProperties.Name="Workspace conversation compaction model">
-                        <ComboBox.ItemTemplate>
-                          <DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
-                        </ComboBox.ItemTemplate>
-                      </ComboBox>
-                    </controls:LabeledField>
-                    <controls:LabeledField Grid.Column="1" Label="Title model">
-                      <Grid MinHeight="{DynamicResource ShellControlMinHeight}">
-                        <ComboBox
-                            IsVisible="{Binding AgentPolicy.HasMultipleTitleModelOptions}"
-                            ItemsSource="{Binding AgentPolicy.TitleModelOptions}"
-                            SelectedItem="{Binding AgentPolicy.SelectedTitleModel, Mode=TwoWay}"
-                            AutomationProperties.Name="Workspace conversation title model">
-                          <ComboBox.ItemTemplate>
-                            <DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
-                          </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            FontWeight="SemiBold"
-                            IsVisible="{Binding AgentPolicy.HasSingleTitleModelOption}"
-                            Text="{Binding AgentPolicy.SelectedTitleModel.DisplayName}" />
-                      </Grid>
-                    </controls:LabeledField>
-                  </Grid>
-                  <controls:LabeledField Label="System prompt override">
-                    <TextBox
-                        MinHeight="140"
-                        MaxLength="8000"
-                        AcceptsReturn="True"
-                        TextWrapping="Wrap"
-                        VerticalContentAlignment="Top"
-                        Text="{Binding AgentPolicy.SystemPrompt, Mode=TwoWay}"
-                        PlaceholderText="Leave empty to inherit the global instructions."
-                        AutomationProperties.Name="Workspace agent system prompt" />
-                  </controls:LabeledField>
+              </controls:SettingRow>
+              <controls:SettingRow Label="Provider profile" IsVisible="{CompiledBinding AgentPolicy.IsEnabled}">
+                <Panel HorizontalAlignment="Right">
+                  <ComboBox
+                      IsVisible="{Binding AgentPolicy.HasMultipleProviderOptions}"
+                      ItemsSource="{Binding AgentPolicy.ProviderOptions}"
+                      SelectedItem="{Binding AgentPolicy.SelectedProvider, Mode=TwoWay}"
+                      AutomationProperties.Name="Workspace AI provider profile">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
                   <TextBlock
+                      VerticalAlignment="Center"
                       Classes="Muted"
-                      FontSize="{DynamicResource ShellSecondaryFontSize}"
-                      Text="These values apply to every tab in this workspace unless a saved screen has a more specific override."
-                      TextWrapping="Wrap" />
-                  <ItemsControl ItemsSource="{Binding AgentPolicy.Capabilities}">
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate>
-                        <Grid Margin="{controls:Inset Vertical=Sm}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                          <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-                            <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" TextWrapping="Wrap" />
-                            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Description}" TextWrapping="Wrap" />
-                          </StackPanel>
-                          <controls:SegmentedControl
-                              Grid.Column="1"
-                              MinWidth="{controls:TextScaled 180}"
-                              SelectedIndex="{Binding SelectedOptionIndex, Mode=TwoWay}"
-                              AutomationProperties.Name="{Binding DisplayName, StringFormat={}{0} permission}">
-                            <RadioButton Content="Off" />
-                            <RadioButton Content="Ask" />
-                            <RadioButton Content="Auto" />
-                          </controls:SegmentedControl>
-                        </Grid>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
+                      IsVisible="{Binding AgentPolicy.HasSingleProviderOption}"
+                      Text="{Binding AgentPolicy.SelectedProvider.DisplayName}" />
+                </Panel>
+              </controls:SettingRow>
+              <controls:SettingRow Label="Model" IsVisible="{CompiledBinding AgentPolicy.IsEnabled}">
+                <Panel HorizontalAlignment="Right">
+                  <ComboBox
+                      IsVisible="{Binding AgentPolicy.HasMultipleModelOptions}"
+                      ItemsSource="{Binding AgentPolicy.ModelOptions}"
+                      SelectedItem="{Binding AgentPolicy.SelectedModel, Mode=TwoWay}"
+                      AutomationProperties.Name="Workspace AI model">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
                   <TextBlock
-                      Foreground="{DynamicResource ShellDangerBrush}"
-                      FontSize="{DynamicResource ShellSecondaryFontSize}"
-                      Text="Choose an AI provider that’s available and turned on, and enter a model name."
-                      IsVisible="{CompiledBinding !AgentPolicy.IsValid}" />
-                </StackPanel>
+                      VerticalAlignment="Center"
+                      Classes="Muted"
+                      IsVisible="{Binding AgentPolicy.HasSingleModelOption}"
+                      Text="{Binding AgentPolicy.SelectedModel.DisplayName}" />
+                </Panel>
+              </controls:SettingRow>
+              <controls:SettingRow Label="Compaction model" IsVisible="{CompiledBinding AgentPolicy.IsEnabled}">
+                <ComboBox
+                    ItemsSource="{Binding AgentPolicy.AgentTaskModelOptions}"
+                    SelectedItem="{Binding AgentPolicy.SelectedCompactionModel, Mode=TwoWay}"
+                    AutomationProperties.Name="Workspace conversation compaction model">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+              </controls:SettingRow>
+              <controls:SettingRow Label="Title model" IsVisible="{CompiledBinding AgentPolicy.IsEnabled}">
+                <Panel HorizontalAlignment="Right">
+                  <ComboBox
+                      IsVisible="{Binding AgentPolicy.HasMultipleTitleModelOptions}"
+                      ItemsSource="{Binding AgentPolicy.TitleModelOptions}"
+                      SelectedItem="{Binding AgentPolicy.SelectedTitleModel, Mode=TwoWay}"
+                      AutomationProperties.Name="Workspace conversation title model">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                  <TextBlock
+                      VerticalAlignment="Center"
+                      Classes="Muted"
+                      IsVisible="{Binding AgentPolicy.HasSingleTitleModelOption}"
+                      Text="{Binding AgentPolicy.SelectedTitleModel.DisplayName}" />
+                </Panel>
+              </controls:SettingRow>
+              <controls:SettingRow
+                  Label="System prompt override"
+                  Description="These values apply to every tab in this workspace unless a saved screen has a more specific override."
+                  IsStacked="True"
+                  IsVisible="{CompiledBinding AgentPolicy.IsEnabled}">
+                <TextBox
+                    MinHeight="140"
+                    MaxLength="8000"
+                    AcceptsReturn="True"
+                    TextWrapping="Wrap"
+                    VerticalContentAlignment="Top"
+                    Text="{Binding AgentPolicy.SystemPrompt, Mode=TwoWay}"
+                    PlaceholderText="Leave empty to inherit the global instructions."
+                    AutomationProperties.Name="Workspace agent system prompt" />
+              </controls:SettingRow>
+              <!-- Each capability's Off, Ask, and Auto, a row apiece. -->
+              <StackPanel
+                  Margin="{DynamicResource ShellSettingsSeparatorInset}"
+                  IsVisible="{CompiledBinding AgentPolicy.IsEnabled}">
+                <ItemsControl ItemsSource="{Binding AgentPolicy.Capabilities}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Grid MinHeight="{DynamicResource ShellSettingsRowMinHeight}" Margin="{controls:Inset Vertical=Sm}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceLg}">
+                        <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSettingsLabelSpacing}">
+                          <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                          <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Description}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <controls:SegmentedControl
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            MinWidth="{controls:TextScaled 180}"
+                            SelectedIndex="{Binding SelectedOptionIndex, Mode=TwoWay}"
+                            AutomationProperties.Name="{Binding DisplayName, StringFormat={}{0} permission}">
+                          <RadioButton Content="Off" />
+                          <RadioButton Content="Ask" />
+                          <RadioButton Content="Auto" />
+                        </controls:SegmentedControl>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock
+                    Margin="{controls:Inset Bottom=Sm}"
+                    Foreground="{DynamicResource ShellDangerBrush}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
+                    Text="Choose an AI provider that’s available and turned on, and enter a model name."
+                    TextWrapping="Wrap"
+                    IsVisible="{CompiledBinding !AgentPolicy.IsValid}" />
               </StackPanel>
             </controls:SettingsGroup>
 

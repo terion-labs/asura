@@ -6,6 +6,12 @@
     xmlns:icons="using:FluentIcons.Avalonia"
     Focusable="False"
     HorizontalContentAlignment="Stretch">
+  <!--
+    A page in the Settings sidebar, as System Settings draws one: a small
+    rounded tile in the page's own colour with a white glyph, then the page's
+    name in body text. The tile is identity, so it keeps its colour when the
+    row is selected; only the row's plate and its label change.
+  -->
   <Button
       x:Name="NavigationButton"
       HorizontalAlignment="Stretch"
@@ -13,17 +19,33 @@
       Classes.active="{Binding IsActive, ElementName=Root}"
       Click="OnClick"
       AutomationProperties.Name="{Binding AutomationName, ElementName=Root}">
-    <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-      <icons:SymbolIcon
-          x:Name="NavigationIcon"
+    <!-- A grid, not a stack: the name is given what the row has left, so a
+         long one at a large text size ends in an ellipsis rather than being
+         cut off at the sidebar's edge. -->
+    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+      <Border
+          x:Name="NavigationTile"
+          Classes="SettingsTile"
+          Width="{DynamicResource ShellSettingsTileSize}"
+          Height="{DynamicResource ShellSettingsTileSize}"
           VerticalAlignment="Center"
-          Symbol="{Binding Icon, ElementName=Root}"
-          FontSize="{Binding IconSize, ElementName=Root}" />
+          Background="{Binding TileBrush, ElementName=Root}"
+          CornerRadius="{DynamicResource ShellSettingsTileCornerRadius}">
+        <icons:SymbolIcon
+            x:Name="NavigationIcon"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Foreground="{DynamicResource ShellSettingsTileGlyphBrush}"
+            IconVariant="Filled"
+            Symbol="{Binding Icon, ElementName=Root}"
+            FontSize="{DynamicResource ShellSettingsTileGlyphSize}" />
+      </Border>
       <TextBlock
+          Grid.Column="1"
           VerticalAlignment="Center"
           FontSize="{DynamicResource ShellFontSize13}"
           Text="{Binding Label, ElementName=Root}"
           TextTrimming="CharacterEllipsis" />
-    </StackPanel>
+    </Grid>
   </Button>
 </UserControl>

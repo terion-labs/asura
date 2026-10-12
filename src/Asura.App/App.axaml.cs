@@ -1165,6 +1165,7 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellSpaceSection", HalfPoint(spacing.Small * 2.5));
         Publish("ShellInsetSection", new Thickness(HalfPoint(spacing.Small * 2.5)));
         Publish("ShellPillPadding", new Thickness(spacing.Small, spacing.ExtraSmall));
+        SettingsChromeTokens.Publish(Publish, resources);
 
         // For a native child view that has to round its own layer because Avalonia
         // cannot clip it. Only the bottom corners are at the panel's edge — a
@@ -1247,6 +1248,9 @@ public sealed partial class App : Avalonia.Application
                 break;
             case QuickTerminalWindow quickTerminalWindow:
                 quickTerminalWindow.ApplyBackdrop();
+                break;
+            case SettingsWindow settingsWindow:
+                settingsWindow.RefreshWindowBackdrop();
                 break;
         }
     }

@@ -145,6 +145,7 @@
           NotificationSettingsRequested="OnNotificationSettingsClick"
           OpenNotificationSystemSettingsRequested="OnOpenNotificationSystemSettingsClick"
           SettingsSearchSubmitted="OnSettingsSearchSubmitted"
+          SettingsPageRequested="OnSettingsPageRequested"
           HistoryRetentionSelectionChangedRequested="OnHistoryRetentionSelectionChanged"
           AgentHistoryRetentionSelectionChangedRequested="OnAgentHistoryRetentionSelectionChanged" />
     </DataTemplate>

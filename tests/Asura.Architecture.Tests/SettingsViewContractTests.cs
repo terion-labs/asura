@@ -337,21 +337,38 @@ public sealed class SettingsViewContractTests
 
         Assert.Equal("Stretch", AttributeValue(root, "HorizontalContentAlignment"));
         Assert.Equal("Stretch", AttributeValue(root, "VerticalContentAlignment"));
-        // The Settings window's own title bar names the page: no chrome band,
-        // no Back button, and no "Preferences" header in the sidebar.
+        // Laid out as System Settings: a sidebar the window's full height,
+        // with the window's buttons on its title band, and beside it the
+        // page's own title band with back and forward and the page's name.
+        // No shell chrome band and no "Preferences" header.
         Assert.DoesNotContain(
             root.Descendants(),
             element => string.Equals(AttributeValue(element, "Classes"), "TopChrome", StringComparison.Ordinal)
-                || string.Equals(AttributeValue(element, "Name"), "SettingsBackButton", StringComparison.Ordinal)
                 || string.Equals(AttributeValue(element, "Text"), "Preferences", StringComparison.Ordinal));
-        Assert.Equal("244,*", AttributeValue(body, "ColumnDefinitions"));
-        Assert.Contains(
+        Assert.Equal("Auto,*", AttributeValue(body, "ColumnDefinitions"));
+        var sidebar = Assert.Single(
             body.Elements(),
-            element => string.Equals(element.Name.LocalName, "Border"
-, StringComparison.Ordinal) && string.Equals(
-                    AttributeValue(element, "Classes"),
-                    "FloatingSidebar",
-                    StringComparison.Ordinal));
+            element => string.Equals(AttributeValue(element, "Name"), "SettingsSidebar", StringComparison.Ordinal));
+        Assert.Equal("{DynamicResource ShellSettingsSidebarWidth}", AttributeValue(sidebar, "Width"));
+        // The sidebar's plane is a style's, so the window can clear it over
+        // the platform's sidebar material.
+        Assert.Null(AttributeValue(sidebar, "Background"));
+        foreach (var band in new[] { "SettingsSidebarTitleBand", "SettingsTitleBand" })
+        {
+            var titleBand = FindNamedElement(root, band);
+            Assert.Equal("TitleBar", AttributeValue(titleBand, "WindowDecorationProperties.ElementRole"));
+            Assert.Equal("{DynamicResource ShellSettingsTitleBandHeight}", AttributeValue(titleBand, "Height"));
+        }
+
+        Assert.Equal(
+            "User",
+            AttributeValue(FindNamedElement(root, "SettingsHistoryCapsule"), "WindowDecorationProperties.ElementRole"));
+        Assert.Equal("Back", AttributeValue(FindNamedElement(root, "SettingsBackButton"), "AutomationProperties.Name"));
+        Assert.Equal("Forward", AttributeValue(FindNamedElement(root, "SettingsForwardButton"), "AutomationProperties.Name"));
+        var title = FindNamedElement(root, "SettingsPageTitle");
+        Assert.Equal("1", AttributeValue(title, "AutomationProperties.HeadingLevel"));
+        Assert.Equal("Bold", AttributeValue(title, "FontWeight"));
+        Assert.Equal("{Binding SettingsPage}", AttributeValue(root, "CurrentSettingsPage"));
         var search = FindNamedElement(root, "SettingsSearch");
         Assert.Equal("SearchField", search.Name.LocalName);
         Assert.Equal("Search settings", AttributeValue(search, "AutomationProperties.Name"));
@@ -478,12 +495,12 @@ public sealed class SettingsViewContractTests
         var content = Assert.Single(
             root.Elements(),
             element => string.Equals(element.Name.LocalName, "StackPanel", StringComparison.Ordinal));
-        // Sections are one step apart on the spacing scale. This page and Quick
-        // Terminal used to say 22 and 20 for the same intent, which is the drift
-        // the scale exists to stop; a literal pinned here would reintroduce it.
-        Assert.Equal(
-            "{DynamicResource ShellSpaceSection}",
-            AttributeValue(content, "Spacing"));
+        // The page's rhythm is the settings page's: plates a group's gap
+        // apart and a headed section a section's gap below, from one style
+        // rather than a number written here. This page and Quick Terminal
+        // used to say 22 and 20 for the same intent.
+        Assert.Equal("SettingsPage", AttributeValue(content, "Classes"));
+        Assert.Null(AttributeValue(content, "Spacing"));
         Assert.Null(AttributeValue(content, "Margin"));
         Assert.Null(AttributeValue(content, "IsVisible"));
 
@@ -642,12 +659,12 @@ public sealed class SettingsViewContractTests
         var content = Assert.Single(
             root.Elements(),
             element => string.Equals(element.Name.LocalName, "StackPanel", StringComparison.Ordinal));
-        // The gap between sections comes from the spacing scale, not from a number
-        // written here. A literal is a gap the density and text-scale settings
-        // cannot reach, and pinning one in a test is how it would stay that way.
-        Assert.Equal(
-            "{DynamicResource ShellSpaceSection}",
-            AttributeValue(content, "Spacing"));
+        // The gap between sections comes from the settings page's style, not
+        // from a number written here. A literal is a gap the density and
+        // text-scale settings cannot reach, and pinning one in a test is how
+        // it would stay that way.
+        Assert.Equal("SettingsPage", AttributeValue(content, "Classes"));
+        Assert.Null(AttributeValue(content, "Spacing"));
         Assert.Null(AttributeValue(content, "Margin"));
         Assert.Null(AttributeValue(content, "IsVisible"));
 
@@ -1037,23 +1054,27 @@ public sealed class SettingsViewContractTests
                     "DataTemplate",
                     StringComparison.Ordinal)));
 
-        var card = Assert.Single(
-            root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "SurfaceCard", StringComparison.Ordinal)
-                && string.Equals(AttributeValue(element, "Name"), listName, StringComparison.Ordinal));
-        Assert.Null(AttributeValue(card, "Tone"));
-        Assert.Equal("0", AttributeValue(card, "Padding"));
+        // The rows are the list itself, in the plate of the section's
+        // settings group: no card of their own, no notice tone.
         var rows = Assert.Single(
-            card.Descendants(),
-            element => string.Equals(element.Name.LocalName, "ItemsControl", StringComparison.Ordinal));
-        Assert.Contains("Separated", AttributeValue(rows, "Classes") ?? string.Empty, StringComparison.Ordinal);
-
-        // The section is a page section, not a card of its own.
-        Assert.NotEqual("SurfaceCard", root.Elements().First().Name.LocalName, StringComparer.Ordinal);
-        Assert.Contains(
             root.Descendants(),
-            element => string.Equals(AttributeValue(element, "Classes"), "Headline", StringComparison.Ordinal)
-                && string.Equals(AttributeValue(element, "AutomationProperties.HeadingLevel"), "2", StringComparison.Ordinal));
+            element => string.Equals(element.Name.LocalName, "ItemsControl", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Name"), listName, StringComparison.Ordinal));
+        Assert.Contains("Separated", AttributeValue(rows, "Classes") ?? string.Empty, StringComparison.Ordinal);
+        var group = Assert.Single(
+            rows.Ancestors(),
+            ancestor => string.Equals(ancestor.Name.LocalName, "SettingsGroup", StringComparison.Ordinal));
+        Assert.False(string.IsNullOrWhiteSpace(AttributeValue(group, "Heading")));
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => element.Name.LocalName is "SurfaceCard" or "Callout");
+
+        // The section is a page section, not a card of its own, and its
+        // heading is the group's, a section heading's rank.
+        Assert.NotEqual("SurfaceCard", root.Elements().First().Name.LocalName, StringComparer.Ordinal);
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => string.Equals(AttributeValue(element, "Classes"), "Headline", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -1100,9 +1121,15 @@ public sealed class SettingsViewContractTests
         Assert.NotEmpty(lists);
         foreach (var list in lists)
         {
+            // A list is a plate of the grouped form, under its section's
+            // heading, as any other group of settings is.
             Assert.Contains("Separated", AttributeValue(list, "Classes"), StringComparison.Ordinal);
-            Assert.Contains(
-                list.Ancestors(),
+            var group = list.Ancestors().FirstOrDefault(ancestor =>
+                string.Equals(ancestor.Name.LocalName, "SettingsGroup", StringComparison.Ordinal));
+            Assert.True(group is not null, $"{AttributeValue(list, "AutomationProperties.Name")} is not a plate of a settings group.");
+            Assert.False(string.IsNullOrWhiteSpace(AttributeValue(group!, "Heading")));
+            Assert.DoesNotContain(
+                list.Ancestors().TakeWhile(ancestor => !ReferenceEquals(ancestor, group)),
                 ancestor => string.Equals(ancestor.Name.LocalName, "SurfaceCard", StringComparison.Ordinal));
         }
 
@@ -1122,42 +1149,66 @@ public sealed class SettingsViewContractTests
             Assert.True(bar is not null, $"{AttributeValue(action.Parent!, "AutomationProperties.Name")} is not in a list's action bar.");
             Assert.Contains(
                 bar!.Ancestors(),
-                ancestor => string.Equals(ancestor.Name.LocalName, "SurfaceCard", StringComparison.Ordinal));
+                ancestor => string.Equals(ancestor.Name.LocalName, "SettingsGroup", StringComparison.Ordinal));
         }
     }
 
     /// <summary>
-    /// Every settings page puts one gap between its sections: the section
-    /// token, 20 points at 100%. Pages used 24, Keyboard Shortcuts, About and
-    /// AI used 16, so the rhythm changed from one page to the next.
+    /// Every settings page has System Settings' one rhythm: plates a group's
+    /// gap apart, and a headed section a section's gap further down, from the
+    /// settings page's style. Pages used 24, Keyboard Shortcuts, About and AI
+    /// used 16, so the rhythm changed from one page to the next.
     /// </summary>
     [Fact]
     public void Every_settings_page_uses_one_section_gap()
     {
-        const string section = "{DynamicResource ShellSpaceSection}";
+        const string page = "SettingsPage";
+        const string groupGap = "{DynamicResource ShellSettingsGroupGap}";
         var settings = Assert.IsType<XElement>(LoadView("SettingsView").Root);
         var pages = settings.Descendants()
             .Where(element => string.Equals(element.Name.LocalName, "StackPanel", StringComparison.Ordinal)
                 && (AttributeValue(element, "Name") ?? string.Empty).EndsWith("SettingsPage", StringComparison.Ordinal))
             .ToArray();
         Assert.True(pages.Length >= 10, $"Found {pages.Length} inline settings pages.");
-        foreach (var page in pages)
+        foreach (var inline in pages)
         {
-            Assert.Equal(section, AttributeValue(page, "Spacing"));
+            Assert.Equal(page, AttributeValue(inline, "Classes"));
+            Assert.Null(AttributeValue(inline, "Spacing"));
         }
 
-        // The AI page's two halves are sections of their own.
-        Assert.Equal(section, AttributeValue(FindNamedElement(settings, "McpSettingsSection"), "Spacing"));
+        // The AI page's two halves: its own sections stacked a plate's gap
+        // apart, and MCP a section of the page under its own heading.
+        Assert.Equal("SettingsSection", AttributeValue(FindNamedElement(settings, "McpSettingsSection"), "Classes"));
         Assert.Equal(
-            section,
+            groupGap,
             AttributeValue(FindNamedElement(settings, "AiSettingsPage").Elements().First(), "Spacing"));
 
-        foreach (var page in new[] { "AppearanceSettingsPageView", "GitSettingsPageView", "NetworkingSettingsPageView", "QuickTerminalSettingsPageView" })
+        // A stack inside a page stacks its plates the same gap apart.
+        Assert.DoesNotContain(
+            pages.SelectMany(inline => inline.Descendants()),
+            element => string.Equals(element.Name.LocalName, "StackPanel", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Spacing"), "{DynamicResource ShellSpaceSection}", StringComparison.Ordinal));
+
+        foreach (var view in new[] { "AppearanceSettingsPageView", "GitSettingsPageView", "NetworkingSettingsPageView", "QuickTerminalSettingsPageView" })
         {
-            var root = Assert.IsType<XElement>(LoadSettingsPage(page).Root);
+            var root = Assert.IsType<XElement>(LoadSettingsPage(view).Root);
             var stack = root.Elements().First(element => string.Equals(element.Name.LocalName, "StackPanel", StringComparison.Ordinal));
-            Assert.Equal(section, AttributeValue(stack, "Spacing"));
+            Assert.Equal(page, AttributeValue(stack, "Classes"));
+            Assert.Null(AttributeValue(stack, "Spacing"));
         }
+
+        var styles = File.ReadAllText(Path.Combine(
+            ApplicationViews.RepositoryRoot,
+            "src",
+            "Asura.App",
+            "Styles",
+            "SettingsStyles.axaml"));
+        Assert.Contains("<Style Selector=\"StackPanel.SettingsPage\">", styles, StringComparison.Ordinal);
+        Assert.Contains(
+            "<Style Selector=\"StackPanel.SettingsPage controls|SettingsGroup:headed\">",
+            styles,
+            StringComparison.Ordinal);
+        Assert.Contains("ShellSettingsSectionInset", styles, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -1185,10 +1236,17 @@ public sealed class SettingsViewContractTests
             StringComparer.Ordinal);
         foreach (var state in states)
         {
-            var card = Assert.IsType<XElement>(state.Parent);
-            Assert.Equal("SurfaceCard", card.Name.LocalName);
-            Assert.Equal("0", AttributeValue(card, "Padding"));
-            Assert.Null(AttributeValue(card, "Tone"));
+            // In the one plate the list fills, in the panel the list stands
+            // in, not in a card of its own.
+            var plate = state.Ancestors().First(ancestor =>
+                string.Equals(ancestor.Name.LocalName, "SettingsGroup", StringComparison.Ordinal));
+            Assert.Contains(
+                plate.Descendants(),
+                element => string.Equals(element.Name.LocalName, "ItemsControl", StringComparison.Ordinal)
+                    && (AttributeValue(element, "Classes") ?? string.Empty).Contains("Separated", StringComparison.Ordinal));
+            Assert.DoesNotContain(
+                state.Ancestors().TakeWhile(ancestor => !ReferenceEquals(ancestor, plate)),
+                ancestor => string.Equals(ancestor.Name.LocalName, "SurfaceCard", StringComparison.Ordinal));
             Assert.Equal("{controls:Inset Xl}", AttributeValue(state, "Margin"));
         }
     }
@@ -1237,7 +1295,8 @@ public sealed class SettingsViewContractTests
             root.Descendants(),
             element => string.Equals(element.Name.LocalName, "ItemsControl", StringComparison.Ordinal)
                 && string.Equals(AttributeValue(element, "ItemsSource"), "{Binding Layouts}", StringComparison.Ordinal));
-        var card = layouts.Ancestors().First(ancestor => string.Equals(ancestor.Name.LocalName, "SurfaceCard", StringComparison.Ordinal));
+        var card = layouts.Ancestors().First(ancestor => string.Equals(ancestor.Name.LocalName, "SettingsGroup", StringComparison.Ordinal));
+        Assert.Equal("Layouts", AttributeValue(card, "Heading"));
         var empty = Assert.Single(
             card.Descendants(),
             element => string.Equals(element.Name.LocalName, "StateOverlay", StringComparison.Ordinal));

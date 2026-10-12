@@ -10,148 +10,152 @@
     xmlns:icons="using:FluentIcons.Avalonia"
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch">
-  <StackPanel Spacing="{DynamicResource ShellSpaceSection}">
+  <!--
+    Appearance as a grouped form: each section a plate under its heading, each
+    setting a row of it with its control at the trailing edge. The choices
+    that are pictures — the theme, the terminal palette, where the tab strip
+    sits — keep their tiles, inside the plate of the setting they choose.
+  -->
+  <StackPanel Classes="SettingsPage">
     <components:SettingsPageHeader
         Heading="Appearance"
         Description="Customize how the app looks — color scheme, accent, and window style." />
 
     <!-- Theme -->
-    <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-      <components:SectionHeader
-          Heading="Theme"
-          Description="Asura follows the system's appearance. Override it only when this app has to differ." />
-      <!--
-        The tile is the control. Each one previews the chrome its mode produces
-        with the surface, border, and text colours the appearance mapper
-        publishes for that mode, so the tile and the window agree.
-        Sibling radio buttons use their logical parent as the group, so detached
-        settings pages cannot change selections in another page. System stands
-        on its own and Dark and Light sit together in the disclosure below, so
-        the three are kept exclusive by OnAppearanceModeChanged.
+    <!--
+      The tile is the control. Each one previews the chrome its mode produces
+      with the surface, border, and text colours the appearance mapper
+      publishes for that mode, so the tile and the window agree.
+      Sibling radio buttons use their logical parent as the group, so detached
+      settings pages cannot change selections in another page. System stands
+      on its own and Dark and Light sit together in the disclosure below, so
+      the three are kept exclusive by OnAppearanceModeChanged.
 
-        System is the visible default, as the host would have it: an app-level
-        light or dark mode is an override, so it is offered as one rather than
-        as three equal choices.
-      -->
-      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceMd}">
-        <RadioButton
-            x:Name="AppearanceModeSystem"
-            Classes="PresetCard"
-            IsCheckedChanged="OnAppearanceModeChanged"
-            AutomationProperties.Name="Color mode System">
-          <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-            <Border Height="72" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
-              <Grid ColumnDefinitions="*,*">
-                <Border Background="{DynamicResource ShellThemePreviewDarkBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewDarkBorderBrush}" BorderThickness="1,1,0,1" CornerRadius="8,0,0,8" />
-                <Border Grid.Column="1" Background="{DynamicResource ShellThemePreviewLightBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewLightBorderBrush}" BorderThickness="0,1,1,1" CornerRadius="0,8,8,0" />
-                <TextBlock Margin="{controls:Inset Left=Sm}" VerticalAlignment="Center" FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkMutedBrush}" Text="❯ dev" />
-                <TextBlock Grid.Column="1" Margin="{controls:Inset Right=Sm}" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightMutedBrush}" Text="❯ dev" />
+      System is the visible default, as the host would have it: an app-level
+      light or dark mode is an override, so it is offered as one rather than
+      as three equal choices.
+    -->
+    <controls:SettingsGroup
+        Heading="Theme"
+        Description="Asura follows the system's appearance. Override it only when this app has to differ.">
+      <StackPanel Margin="{DynamicResource ShellSettingsGroupContentPadding}" Spacing="{DynamicResource ShellSpaceSm}">
+        <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceMd}">
+          <RadioButton
+              x:Name="AppearanceModeSystem"
+              Classes="PresetCard"
+              IsCheckedChanged="OnAppearanceModeChanged"
+              AutomationProperties.Name="Color mode System">
+            <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+              <Border Height="72" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
+                <Grid ColumnDefinitions="*,*">
+                  <Border Background="{DynamicResource ShellThemePreviewDarkBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewDarkBorderBrush}" BorderThickness="1,1,0,1" CornerRadius="8,0,0,8" />
+                  <Border Grid.Column="1" Background="{DynamicResource ShellThemePreviewLightBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewLightBorderBrush}" BorderThickness="0,1,1,1" CornerRadius="0,8,8,0" />
+                  <TextBlock Margin="{controls:Inset Left=Sm}" VerticalAlignment="Center" FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkMutedBrush}" Text="❯ dev" />
+                  <TextBlock Grid.Column="1" Margin="{controls:Inset Right=Sm}" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightMutedBrush}" Text="❯ dev" />
+                </Grid>
+              </Border>
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="PresetName" Text="System" />
+                <icons:SymbolIcon Grid.Column="1" Classes="PresetCheck" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
               </Grid>
-            </Border>
-            <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Classes="PresetName" Text="System" />
-              <icons:SymbolIcon Grid.Column="1" Classes="PresetCheck" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
-            </Grid>
-          </StackPanel>
-        </RadioButton>
-      </StackPanel>
-      <!-- Starts folded; it opens on its own when the stored mode is already
-           an override, so an override is never hidden from the person who
-           made it. -->
-      <Expander
-          x:Name="AppearanceOverrideExpander"
-          Header="Override system appearance"
-          IsExpanded="False"
-          AutomationProperties.Name="Override system appearance">
-        <StackPanel Margin="{controls:Inset Top=Sm}" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceMd}">
-            <RadioButton
-                x:Name="AppearanceModeDark"
-                Classes="PresetCard"
-                IsCheckedChanged="OnAppearanceModeChanged"
-                AutomationProperties.Name="Color mode Dark">
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <Border Height="72" Background="{DynamicResource ShellThemePreviewDarkBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewDarkBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
-                  <StackPanel Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceXs}">
-                    <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkMutedBrush}" Text="❯ npm run dev" />
-                    <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkSuccessBrush}" Text="✓ ready in 312ms" />
-                    <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkAccentTextBrush}" Text="▸ localhost:3000" />
-                  </StackPanel>
-                </Border>
-                <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock Classes="PresetName" Text="Dark" />
-                  <icons:SymbolIcon Grid.Column="1" Classes="PresetCheck" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
-                </Grid>
-              </StackPanel>
-            </RadioButton>
-            <RadioButton
-                x:Name="AppearanceModeLight"
-                Classes="PresetCard"
-                IsCheckedChanged="OnAppearanceModeChanged"
-                AutomationProperties.Name="Color mode Light">
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <Border Height="72" Background="{DynamicResource ShellThemePreviewLightBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewLightBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
-                  <StackPanel Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceXs}">
-                    <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightMutedBrush}" Text="❯ npm run dev" />
-                    <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightSuccessBrush}" Text="✓ ready in 312ms" />
-                    <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightAccentTextBrush}" Text="▸ localhost:3000" />
-                  </StackPanel>
-                </Border>
-                <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock Classes="PresetName" Text="Light" />
-                  <icons:SymbolIcon Grid.Column="1" Classes="PresetCheck" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
-                </Grid>
-              </StackPanel>
-            </RadioButton>
+            </StackPanel>
+          </RadioButton>
         </StackPanel>
-      </Expander>
+        <!-- Starts folded; it opens on its own when the stored mode is already
+             an override, so an override is never hidden from the person who
+             made it. -->
+        <Expander
+            x:Name="AppearanceOverrideExpander"
+            Header="Override system appearance"
+            IsExpanded="False"
+            AutomationProperties.Name="Override system appearance">
+          <StackPanel Margin="{controls:Inset Top=Sm}" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceMd}">
+              <RadioButton
+                  x:Name="AppearanceModeDark"
+                  Classes="PresetCard"
+                  IsCheckedChanged="OnAppearanceModeChanged"
+                  AutomationProperties.Name="Color mode Dark">
+                <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+                  <Border Height="72" Background="{DynamicResource ShellThemePreviewDarkBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewDarkBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
+                    <StackPanel Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceXs}">
+                      <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkMutedBrush}" Text="❯ npm run dev" />
+                      <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkSuccessBrush}" Text="✓ ready in 312ms" />
+                      <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkAccentTextBrush}" Text="▸ localhost:3000" />
+                    </StackPanel>
+                  </Border>
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="PresetName" Text="Dark" />
+                    <icons:SymbolIcon Grid.Column="1" Classes="PresetCheck" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
+                  </Grid>
+                </StackPanel>
+              </RadioButton>
+              <RadioButton
+                  x:Name="AppearanceModeLight"
+                  Classes="PresetCard"
+                  IsCheckedChanged="OnAppearanceModeChanged"
+                  AutomationProperties.Name="Color mode Light">
+                <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+                  <Border Height="72" Background="{DynamicResource ShellThemePreviewLightBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewLightBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
+                    <StackPanel Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceXs}">
+                      <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightMutedBrush}" Text="❯ npm run dev" />
+                      <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightSuccessBrush}" Text="✓ ready in 312ms" />
+                      <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightAccentTextBrush}" Text="▸ localhost:3000" />
+                    </StackPanel>
+                  </Border>
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="PresetName" Text="Light" />
+                    <icons:SymbolIcon Grid.Column="1" Classes="PresetCheck" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
+                  </Grid>
+                </StackPanel>
+              </RadioButton>
+          </StackPanel>
+        </Expander>
+      </StackPanel>
       <!-- A setting, not a theme: a row under the tiles rather than a card
            beside them that read as a fourth tile. -->
-      <controls:SettingsGroup ControlWidth="240">
-        <controls:SettingRow
-            Label="Platform profile"
-            Description="Which system’s look to match: window controls, corner radius, and density."
-            IsLast="True">
-          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
-            <ComboBox x:Name="PlatformProfilePicker" HorizontalAlignment="Stretch" SelectionChanged="OnPlatformProfileChanged" AutomationProperties.Name="Platform profile" />
-            <TextBlock
-                x:Name="ProfileDepartureMarker"
-                Grid.Column="1"
-                VerticalAlignment="Center"
-                FontWeight="SemiBold"
-                Text="*"
-                IsVisible="False"
-                ToolTip.Tip="Density or translucency has been changed from what this profile arrives with."
-                AutomationProperties.Name="Profile settings changed" />
-          </Grid>
-        </controls:SettingRow>
-      </controls:SettingsGroup>
-    </StackPanel>
+      <controls:SettingRow
+          Label="Platform profile"
+          Description="Which system’s look to match: window controls, corner radius, and density.">
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+          <ComboBox x:Name="PlatformProfilePicker" SelectionChanged="OnPlatformProfileChanged" AutomationProperties.Name="Platform profile" />
+          <TextBlock
+              x:Name="ProfileDepartureMarker"
+              VerticalAlignment="Center"
+              FontWeight="SemiBold"
+              Text="*"
+              IsVisible="False"
+              ToolTip.Tip="Density or translucency has been changed from what this profile arrives with."
+              AutomationProperties.Name="Profile settings changed" />
+        </StackPanel>
+      </controls:SettingRow>
+    </controls:SettingsGroup>
 
-    <!-- Terminal palette -->
-    <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-        <components:SectionHeader
-            Heading="Terminal palette"
-            Description="Pick a preset or start from a custom palette. Every terminal shows a change as it’s made." />
-        <!-- Applied as it changes, like every other setting here. Revert
-             puts back the palette and font this page opened with. -->
-        <Button
-            x:Name="RevertTerminalButton"
-            Grid.Column="1"
-            VerticalAlignment="Center"
-            Classes="TextButton"
-            Click="OnRevertTerminalClick"
-            Content="Revert"
-            IsEnabled="{Binding CanRevertTerminalAppearance}"
-            AutomationProperties.Name="Revert the terminal palette and font"
-            AutomationProperties.HelpText="Puts back the terminal palette and font as they were when this page opened." />
-        <controls:StatusChip Shape="Rounded" Tone="Default" IsOutlined="False" Grid.Column="2" VerticalAlignment="Center" Content="{Binding TerminalSettingsEditor.PaletteName}" />
-      </Grid>
+    <!-- Terminal palette: the palette in use, with Revert, as the plate's
+         first row, and the presets to choose from under it. Applied as it
+         changes, like every other setting here. Revert puts back the palette
+         and font this page opened with. -->
+    <controls:SettingsGroup
+        Heading="Terminal palette"
+        Description="Pick a preset or start from a custom palette. Every terminal shows a change as it’s made.">
+      <controls:SettingRow Label="Palette">
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+          <Button
+              x:Name="RevertTerminalButton"
+              VerticalAlignment="Center"
+              Classes="TextButton"
+              Click="OnRevertTerminalClick"
+              Content="Revert"
+              IsEnabled="{Binding CanRevertTerminalAppearance}"
+              AutomationProperties.Name="Revert the terminal palette and font"
+              AutomationProperties.HelpText="Puts back the terminal palette and font as they were when this page opened." />
+          <controls:StatusChip Shape="Rounded" Tone="Default" IsOutlined="False" VerticalAlignment="Center" Content="{Binding TerminalSettingsEditor.PaletteName}" />
+        </StackPanel>
+      </controls:SettingRow>
       <!-- Six presets in at most three columns: three by two, or two by
            three when narrow, so no row is left with a lone card. Four
            columns left a ragged row of two under a row of four. -->
-      <ItemsControl x:Name="TerminalPalettePresets" ItemsSource="{Binding TerminalSettingsEditor.PalettePresets}">
-        <ItemsControl.ItemsPanel><ItemsPanelTemplate><controls:CardGridPanel MinItemWidth="168" MaxColumns="3" Spacing="{DynamicResource ShellSpaceMd}" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+      <ItemsControl x:Name="TerminalPalettePresets" Margin="{DynamicResource ShellSettingsGroupContentPadding}" ItemsSource="{Binding TerminalSettingsEditor.PalettePresets}">
+        <ItemsControl.ItemsPanel><ItemsPanelTemplate><controls:CardGridPanel MinItemWidth="150" MaxColumns="3" Spacing="{DynamicResource ShellSpaceMd}" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate>
             <RadioButton
@@ -179,488 +183,404 @@
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
-    </StackPanel>
+    </controls:SettingsGroup>
 
-    <!-- Colors -->
-    <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-      <components:SectionHeader
-          Heading="Colors"
-          Description="Fine-tune the terminal palette and review its ANSI colors." />
-      <!-- Two to a row, so a hex field has room for "#RRGGBB" under its
-           label; four to a row left each one a few characters wide. -->
-      <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}" RowSpacing="{DynamicResource ShellSpaceMd}">
-        <controls:SurfaceCard Tone="Raised">
-          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-            <ColorPicker
-                Classes="Swatch"
-                Color="{Binding TerminalSettingsEditor.BackgroundColor, Mode=TwoWay}"
-                ColorChanged="OnColorChanged"
-                AutomationProperties.Name="Pick the terminal background color" />
-            <controls:LabeledField Grid.Column="1" VerticalAlignment="Center"
-                Label="Background">
-              <TextBox
-                  MinWidth="96"
-                  FontFamily="{DynamicResource ShellDataFontFamily}"
-                  Text="{Binding TerminalSettingsEditor.Background}"
-                  LostFocus="OnTerminalAppearanceChanged"
-                  KeyDown="OnCommitKeyDown"
-                  AutomationProperties.Name="Terminal background color" />
+    <!-- Colors: one row per colour of the palette, its well, its value and
+         the sampler at the trailing edge. -->
+    <controls:SettingsGroup
+        Heading="Colors"
+        Description="Fine-tune the terminal palette and review its ANSI colors.">
+      <controls:SettingRow Label="Background">
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+          <ColorPicker
+              Classes="Swatch"
+              Color="{Binding TerminalSettingsEditor.BackgroundColor, Mode=TwoWay}"
+              ColorChanged="OnColorChanged"
+              AutomationProperties.Name="Pick the terminal background color" />
+          <TextBox
+              Width="{controls:TextScaled 96}"
+              FontFamily="{DynamicResource ShellDataFontFamily}"
+              Text="{Binding TerminalSettingsEditor.Background}"
+              LostFocus="OnTerminalAppearanceChanged"
+              KeyDown="OnCommitKeyDown"
+              AutomationProperties.Name="Terminal background color" />
+          <Button
+              Classes="IconButton"
+              Tag="Background"
+              Click="OnPickColorClick"
+              ToolTip.Tip="Sample a color from the window"
+              AutomationProperties.Name="Sample the terminal background color from the window">
+            <icons:SymbolIcon Symbol="Eyedropper" FontSize="{DynamicResource ShellIconSizeSm}" />
+          </Button>
+        </StackPanel>
+      </controls:SettingRow>
+      <controls:SettingRow Label="Foreground">
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+          <ColorPicker
+              Classes="Swatch"
+              Color="{Binding TerminalSettingsEditor.ForegroundColor, Mode=TwoWay}"
+              ColorChanged="OnColorChanged"
+              AutomationProperties.Name="Pick the terminal foreground color" />
+          <TextBox
+              Width="{controls:TextScaled 96}"
+              FontFamily="{DynamicResource ShellDataFontFamily}"
+              Text="{Binding TerminalSettingsEditor.Foreground}"
+              LostFocus="OnTerminalAppearanceChanged"
+              KeyDown="OnCommitKeyDown"
+              AutomationProperties.Name="Terminal foreground color" />
+          <Button
+              Classes="IconButton"
+              Tag="Foreground"
+              Click="OnPickColorClick"
+              ToolTip.Tip="Sample a color from the window"
+              AutomationProperties.Name="Sample the terminal foreground color from the window">
+            <icons:SymbolIcon Symbol="Eyedropper" FontSize="{DynamicResource ShellIconSizeSm}" />
+          </Button>
+        </StackPanel>
+      </controls:SettingRow>
+      <controls:SettingRow Label="Cursor">
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+          <ColorPicker
+              Classes="Swatch"
+              Color="{Binding TerminalSettingsEditor.CursorColor, Mode=TwoWay}"
+              ColorChanged="OnColorChanged"
+              AutomationProperties.Name="Pick the terminal cursor color" />
+          <TextBox
+              Width="{controls:TextScaled 96}"
+              FontFamily="{DynamicResource ShellDataFontFamily}"
+              Text="{Binding TerminalSettingsEditor.Cursor}"
+              LostFocus="OnTerminalAppearanceChanged"
+              KeyDown="OnCommitKeyDown"
+              AutomationProperties.Name="Terminal cursor color" />
+          <Button
+              Classes="IconButton"
+              Tag="Cursor"
+              Click="OnPickColorClick"
+              ToolTip.Tip="Sample a color from the window"
+              AutomationProperties.Name="Sample the terminal cursor color from the window">
+            <icons:SymbolIcon Symbol="Eyedropper" FontSize="{DynamicResource ShellIconSizeSm}" />
+          </Button>
+        </StackPanel>
+      </controls:SettingRow>
+      <controls:SettingRow Label="Selection">
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+          <ColorPicker
+              Classes="Swatch"
+              Color="{Binding TerminalSettingsEditor.SelectionColor, Mode=TwoWay}"
+              ColorChanged="OnColorChanged"
+              AutomationProperties.Name="Pick the terminal selection color" />
+          <TextBox
+              Width="{controls:TextScaled 96}"
+              FontFamily="{DynamicResource ShellDataFontFamily}"
+              Text="{Binding TerminalSettingsEditor.Selection}"
+              LostFocus="OnTerminalAppearanceChanged"
+              KeyDown="OnCommitKeyDown"
+              AutomationProperties.Name="Terminal selection color" />
+          <Button
+              Classes="IconButton"
+              Tag="Selection"
+              Click="OnPickColorClick"
+              ToolTip.Tip="Sample a color from the window"
+              AutomationProperties.Name="Sample the terminal selection color from the window">
+            <icons:SymbolIcon Symbol="Eyedropper" FontSize="{DynamicResource ShellIconSizeSm}" />
+          </Button>
+        </StackPanel>
+      </controls:SettingRow>
+      <controls:SettingsGroup.Footer>
+        <controls:LiveRegionTextBlock
+            Classes="Muted"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
+            AutomationProperties.Name="Terminal contrast status"
+            AutomationProperties.LiveSetting="Polite"
+            IsVisible="{Binding TerminalSettingsEditor.HasContrastWarning}"
+            Text="{Binding TerminalSettingsEditor.ContrastWarning}"
+            TextWrapping="Wrap" />
+      </controls:SettingsGroup.Footer>
+    </controls:SettingsGroup>
 
-            </controls:LabeledField>
-            <Button
-                Grid.Column="2"
-                VerticalAlignment="Bottom"
-                Classes="IconButton"
-                Tag="Background"
-                Click="OnPickColorClick"
-                ToolTip.Tip="Sample a color from the window"
-                AutomationProperties.Name="Sample the terminal background color from the window">
-              <icons:SymbolIcon Symbol="Eyedropper" FontSize="{DynamicResource ShellIconSizeSm}" />
-            </Button>
-          </Grid>
-        </controls:SurfaceCard>
-        <controls:SurfaceCard Tone="Raised" Grid.Column="1">
-          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-            <ColorPicker
-                Classes="Swatch"
-                Color="{Binding TerminalSettingsEditor.ForegroundColor, Mode=TwoWay}"
-                ColorChanged="OnColorChanged"
-                AutomationProperties.Name="Pick the terminal foreground color" />
-            <controls:LabeledField Grid.Column="1" VerticalAlignment="Center"
-                Label="Foreground">
-              <TextBox
-                  MinWidth="96"
-                  FontFamily="{DynamicResource ShellDataFontFamily}"
-                  Text="{Binding TerminalSettingsEditor.Foreground}"
-                  LostFocus="OnTerminalAppearanceChanged"
-                  KeyDown="OnCommitKeyDown"
-                  AutomationProperties.Name="Terminal foreground color" />
+    <controls:SettingsGroup
+        Heading="Accent"
+        Description="Where the interface accent comes from.">
+      <controls:SettingRow Label="Source">
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+          <ComboBox
+              x:Name="AccentModePicker"
+              SelectionChanged="OnAccentModeSelectionChanged"
+              AutomationProperties.Name="Accent mode">
+            <ComboBoxItem Content="Follow System" />
+            <ComboBoxItem Content="Asura Orange" />
+            <ComboBoxItem Content="Custom" />
+          </ComboBox>
+          <Border
+              Width="{DynamicResource ShellSettingsChevronBoxSize}"
+              Height="{DynamicResource ShellSettingsChevronBoxSize}"
+              VerticalAlignment="Center"
+              Classes="Swatch AccentDot"
+              Background="{DynamicResource ShellAccentBrush}" />
+        </StackPanel>
+      </controls:SettingRow>
+      <controls:SettingRow Label="Custom color" Description="Applies only when the source is Custom.">
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+          <ColorPicker
+              x:Name="CustomAccentPicker"
+              Classes="Swatch"
+              ColorChanged="OnCustomAccentPicked"
+              AutomationProperties.Name="Pick a custom accent color" />
+          <TextBox
+              x:Name="CustomAccentText"
+              Width="{controls:TextScaled 96}"
+              TextChanged="OnCustomAccentTextChanged"
+              LostFocus="OnAppearanceChanged"
+              KeyDown="OnCommitKeyDown"
+              AutomationProperties.Name="Custom accent color" />
+          <Button
+              x:Name="CustomAccentEyedropper"
+              Classes="IconButton"
+              Tag="Accent"
+              Click="OnPickColorClick"
+              ToolTip.Tip="Sample a color from the screen"
+              AutomationProperties.Name="Sample the accent color from the screen">
+            <icons:SymbolIcon Symbol="Eyedropper" FontSize="{DynamicResource ShellIconSizeSm}" />
+          </Button>
+        </StackPanel>
+      </controls:SettingRow>
+    </controls:SettingsGroup>
 
-            </controls:LabeledField>
-            <Button
-                Grid.Column="2"
-                VerticalAlignment="Bottom"
-                Classes="IconButton"
-                Tag="Foreground"
-                Click="OnPickColorClick"
-                ToolTip.Tip="Sample a color from the window"
-                AutomationProperties.Name="Sample the terminal foreground color from the window">
-              <icons:SymbolIcon Symbol="Eyedropper" FontSize="{DynamicResource ShellIconSizeSm}" />
-            </Button>
-          </Grid>
-        </controls:SurfaceCard>
-        <controls:SurfaceCard Tone="Raised" Grid.Row="1">
-          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-            <ColorPicker
-                Classes="Swatch"
-                Color="{Binding TerminalSettingsEditor.CursorColor, Mode=TwoWay}"
-                ColorChanged="OnColorChanged"
-                AutomationProperties.Name="Pick the terminal cursor color" />
-            <controls:LabeledField Grid.Column="1" VerticalAlignment="Center"
-                Label="Cursor">
-              <TextBox
-                  MinWidth="96"
-                  FontFamily="{DynamicResource ShellDataFontFamily}"
-                  Text="{Binding TerminalSettingsEditor.Cursor}"
-                  LostFocus="OnTerminalAppearanceChanged"
-                  KeyDown="OnCommitKeyDown"
-                  AutomationProperties.Name="Terminal cursor color" />
+    <!-- The terminal profile's typeface. Labeled like Family and Size. The
+         interface is written in English, so its numbers are too: "1.40" with
+         the invariant culture, as the Scrollback and Timeout fields group
+         "100,000", whatever the region's number format. -->
+    <controls:SettingsGroup
+        Heading="Font"
+        Description="The terminal profile's typeface, size, and line height.">
+      <controls:SettingRow Label="Family">
+        <ComboBox
+            ItemsSource="{Binding TerminalSettingsEditor.FontFamilies}"
+            SelectedItem="{Binding TerminalSettingsEditor.FontFamily, Mode=TwoWay}"
+            SelectionChanged="OnTerminalAppearanceChanged"
+            AutomationProperties.Name="Terminal font family" />
+      </controls:SettingRow>
+      <controls:SettingRow Label="Size">
+        <NumericUpDown
+            Width="{controls:TextScaled 96}"
+            HorizontalAlignment="Right"
+            Minimum="6"
+            Maximum="72"
+            Increment="1"
+            FormatString="0"
+            Value="{Binding TerminalSettingsEditor.FontSize, Mode=TwoWay}"
+            ValueChanged="OnTerminalAppearanceChanged"
+            AutomationProperties.Name="Terminal font size" />
+      </controls:SettingRow>
+      <controls:SettingRow Label="Line height" Description="{Binding TerminalSettingsEditor.LineHeightText}" IsStacked="True">
+        <controls:SliderEndLabels StartLabel="Tight" EndLabel="Loose">
+          <Slider
+              Minimum="1"
+              Maximum="2"
+              TickFrequency="0.01"
+              IsSnapToTickEnabled="True"
+              Value="{Binding TerminalSettingsEditor.LineHeight, Mode=TwoWay}"
+              ValueChanged="OnTerminalAppearanceChanged"
+              AutomationProperties.Name="Terminal line height" />
+        </controls:SliderEndLabels>
+      </controls:SettingRow>
+    </controls:SettingsGroup>
 
-            </controls:LabeledField>
-            <Button
-                Grid.Column="2"
-                VerticalAlignment="Bottom"
-                Classes="IconButton"
-                Tag="Cursor"
-                Click="OnPickColorClick"
-                ToolTip.Tip="Sample a color from the window"
-                AutomationProperties.Name="Sample the terminal cursor color from the window">
-              <icons:SymbolIcon Symbol="Eyedropper" FontSize="{DynamicResource ShellIconSizeSm}" />
-            </Button>
-          </Grid>
-        </controls:SurfaceCard>
-        <controls:SurfaceCard Tone="Raised" Grid.Row="1" Grid.Column="1">
-          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-            <ColorPicker
-                Classes="Swatch"
-                Color="{Binding TerminalSettingsEditor.SelectionColor, Mode=TwoWay}"
-                ColorChanged="OnColorChanged"
-                AutomationProperties.Name="Pick the terminal selection color" />
-            <controls:LabeledField Grid.Column="1" VerticalAlignment="Center"
-                Label="Selection">
-              <TextBox
-                  MinWidth="96"
-                  FontFamily="{DynamicResource ShellDataFontFamily}"
-                  Text="{Binding TerminalSettingsEditor.Selection}"
-                  LostFocus="OnTerminalAppearanceChanged"
-                  KeyDown="OnCommitKeyDown"
-                  AutomationProperties.Name="Terminal selection color" />
+    <!-- The terminal's font is set once, in Font above. -->
+    <controls:SettingsGroup
+        Heading="Typography"
+        Description="Scale application text across every Asura window.">
+      <controls:SettingRow
+          Label="Application text size"
+          Description="Follow System uses the system’s text size. Changes apply right away.">
+        <ComboBox
+            x:Name="ApplicationTextScalePicker"
+            SelectionChanged="OnAppearanceChanged"
+            AutomationProperties.Name="Application text size">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="pages:AppearanceTextScaleOption">
+              <TextBlock Text="{Binding DisplayName}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+      </controls:SettingRow>
+    </controls:SettingsGroup>
 
-            </controls:LabeledField>
-            <Button
-                Grid.Column="2"
-                VerticalAlignment="Bottom"
-                Classes="IconButton"
-                Tag="Selection"
-                Click="OnPickColorClick"
-                ToolTip.Tip="Sample a color from the window"
-                AutomationProperties.Name="Sample the terminal selection color from the window">
-              <icons:SymbolIcon Symbol="Eyedropper" FontSize="{DynamicResource ShellIconSizeSm}" />
-            </Button>
-          </Grid>
-        </controls:SurfaceCard>
-      </Grid>
-      <controls:LiveRegionTextBlock
-          Classes="Muted"
-          AutomationProperties.Name="Terminal contrast status"
-          AutomationProperties.LiveSetting="Polite"
-          IsVisible="{Binding TerminalSettingsEditor.HasContrastWarning}"
-          Text="{Binding TerminalSettingsEditor.ContrastWarning}"
-          TextWrapping="Wrap" />
-    </StackPanel>
+    <!-- Every on/off choice here is one shape: the option's name and its
+         description on the left, a switch at the row's trailing edge. The
+         cursor's settings moved to the Terminal page, beside the rest of
+         the cursor. -->
+    <controls:SettingsGroup
+        Heading="Corners &amp; UI"
+        Description="Window corners, density, and interface behavior.">
+      <controls:SettingRow
+          Label="Density"
+          Description="Padding, spacing, and corner rounding across the interface.">
+        <!-- Compact, Normal, Spacious: the segment order is the
+             InterfaceDensity order, Compact first. -->
+        <controls:SegmentedControl
+            x:Name="DensityPicker"
+            AutomationProperties.Name="Density">
+          <RadioButton Content="Compact" AutomationProperties.Name="Compact density" />
+          <RadioButton Content="Normal" AutomationProperties.Name="Normal density" />
+          <RadioButton Content="Spacious" AutomationProperties.Name="Spacious density" />
+        </controls:SegmentedControl>
+      </controls:SettingRow>
+      <controls:SettingRow
+          Label="Translucency"
+          Description="Show the desktop through the window’s sidebars and title bar.">
+        <ToggleSwitch
+            x:Name="TranslucencyToggle"
+            IsCheckedChanged="OnAppearanceChanged"
+            AutomationProperties.Name="Translucency" />
+      </controls:SettingRow>
+      <controls:SettingRow
+          Label="Glass panels"
+          Description="Let the desktop show through the panels too, not only the sidebars and title bar.">
+        <ToggleSwitch
+            x:Name="GlassPanelsToggle"
+            IsEnabled="{Binding #TranslucencyToggle.IsChecked}"
+            IsCheckedChanged="OnAppearanceChanged"
+            AutomationProperties.Name="Glass panels" />
+      </controls:SettingRow>
+      <controls:SettingRow
+          Label="Set background opacity"
+          Description="Off leaves the material’s own translucency alone. On paints the window’s color over it: lower values let more of the desktop through; at full, it reads as a frame around the panels rather than as glass.">
+        <ToggleSwitch
+            x:Name="OverrideOpacityToggle"
+            IsEnabled="{Binding #TranslucencyToggle.IsChecked}"
+            IsCheckedChanged="OnAppearanceChanged"
+            AutomationProperties.Name="Override background opacity" />
+      </controls:SettingRow>
+      <controls:SettingRow
+          Label="Background opacity"
+          Description="{Binding #BackdropOpacitySlider.Value, StringFormat={}{0:0}%}"
+          IsStacked="True">
+        <controls:SliderEndLabels StartLabel="Clear" EndLabel="Opaque">
+          <Slider
+              x:Name="BackdropOpacitySlider"
+              IsEnabled="{Binding #OverrideOpacityToggle.IsChecked}"
+              ValueChanged="OnAppearanceChanged"
+              Minimum="40"
+              Maximum="100"
+              TickFrequency="2"
+              IsSnapToTickEnabled="True"
+              AutomationProperties.Name="Background opacity" />
+        </controls:SliderEndLabels>
+      </controls:SettingRow>
+      <!-- Terminal output is content and stays opaque unless asked. The
+           box is dimmed, with the reason under it, wherever the window
+           has no material to show: translucency off, Reduce Transparency,
+           Increase Contrast, or a host without it. -->
+      <controls:SettingRow
+          Label="Translucent terminal background"
+          Description="{DynamicResource ShellTerminalTranslucencyStatus}">
+        <ToggleSwitch
+            x:Name="TranslucentTerminalToggle"
+            IsEnabled="{DynamicResource ShellTerminalTranslucencyAvailable}"
+            IsCheckedChanged="OnAppearanceChanged"
+            AutomationProperties.Name="Translucent terminal background" />
+      </controls:SettingRow>
+      <controls:SettingRow Label="Show tab bar">
+        <ToggleSwitch x:Name="ShowTabBarSwitch" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Show tab bar" />
+      </controls:SettingRow>
+    </controls:SettingsGroup>
 
-    <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-      <components:SectionHeader
-          Heading="Accent"
-          Description="Where the interface accent comes from." />
-      <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-        <controls:SurfaceCard Tone="Raised">
-          <controls:LabeledField
-              Label="Source">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-              <ComboBox
-                  x:Name="AccentModePicker"
-                  SelectionChanged="OnAccentModeSelectionChanged"
-                  AutomationProperties.Name="Accent mode">
-                <ComboBoxItem Content="Follow System" />
-                <ComboBoxItem Content="Asura Orange" />
-                <ComboBoxItem Content="Custom" />
-              </ComboBox>
-              <Border
-                  Grid.Column="1"
-                  Width="30"
-                  Height="30"
-                  VerticalAlignment="Center"
-                  Classes="Swatch"
-                  Background="{DynamicResource ShellAccentBrush}" />
-            </Grid>
-
-          </controls:LabeledField>
-        </controls:SurfaceCard>
-        <controls:SurfaceCard Tone="Raised" Grid.Column="1">
-          <controls:LabeledField
-              Label="Custom color">
-            <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-              <ColorPicker
-                  x:Name="CustomAccentPicker"
-                  Classes="Swatch"
-                  ColorChanged="OnCustomAccentPicked"
-                  AutomationProperties.Name="Pick a custom accent color" />
-              <TextBox
-                  x:Name="CustomAccentText"
-                  Grid.Column="1"
-                  TextChanged="OnCustomAccentTextChanged"
-                  LostFocus="OnAppearanceChanged"
-                  KeyDown="OnCommitKeyDown"
-                  AutomationProperties.Name="Custom accent color" />
-              <Button
-                  x:Name="CustomAccentEyedropper"
-                  Grid.Column="2"
-                  Classes="IconButton"
-                  Tag="Accent"
-                  Click="OnPickColorClick"
-                  ToolTip.Tip="Sample a color from the screen"
-                  AutomationProperties.Name="Sample the accent color from the screen">
-                <icons:SymbolIcon Symbol="Eyedropper" FontSize="{DynamicResource ShellIconSizeSm}" />
-              </Button>
-            </Grid>
-            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Applies only when the source is Custom." />
-
-
+    <!-- Tabs & Workspaces: where the tab strip and the workspaces panel
+         sit, each chosen from pictures of the window in a row of its own. -->
+    <controls:SettingsGroup
+        Heading="Tabs &amp; Workspaces"
+        Description="Where the tab strip sits, plus how the workspaces panel is arranged.">
+      <controls:SettingRow Label="Show workspaces panel">
+        <ToggleSwitch x:Name="ShowWorkspacesPanelSwitch" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Show workspaces panel" />
+      </controls:SettingRow>
+      <controls:SettingRow Label="Tab placement" Description="Where the tab strip sits" IsStacked="True">
+        <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+          <RadioButton x:Name="TabPlacementTop" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Tab strip at the top">
+            <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+              <Border Height="56" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Xs}">
+                <StackPanel VerticalAlignment="Top" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+                  <Border Width="22" Height="7" Background="{DynamicResource ShellAccentBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
+                  <Border Width="16" Height="7" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
+                  <Border Width="16" Height="7" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
+                </StackPanel>
+              </Border>
+              <TextBlock HorizontalAlignment="Center" Classes="PresetName" Text="Top" />
             </StackPanel>
-</controls:LabeledField>
-        </controls:SurfaceCard>
-      </Grid>
-    </StackPanel>
-
-    <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-      <components:SectionHeader
-          Heading="Font"
-          Description="The terminal profile's typeface, size, and line height." />
-      <Grid ColumnDefinitions="2*,*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-        <controls:SurfaceCard Tone="Raised">
-          <controls:LabeledField
-              Label="Family">
-            <ComboBox
-                ItemsSource="{Binding TerminalSettingsEditor.FontFamilies}"
-                SelectedItem="{Binding TerminalSettingsEditor.FontFamily, Mode=TwoWay}"
-                SelectionChanged="OnTerminalAppearanceChanged"
-                AutomationProperties.Name="Terminal font family" />
-
-          </controls:LabeledField>
-        </controls:SurfaceCard>
-        <controls:SurfaceCard Tone="Raised" Grid.Column="1">
-          <controls:LabeledField
-              Label="Size">
-            <NumericUpDown
-                Minimum="6"
-                Maximum="72"
-                Increment="1"
-                FormatString="0"
-                Value="{Binding TerminalSettingsEditor.FontSize, Mode=TwoWay}"
-                ValueChanged="OnTerminalAppearanceChanged"
-                AutomationProperties.Name="Terminal font size" />
-
-          </controls:LabeledField>
-        </controls:SurfaceCard>
-        <!-- Labeled like Family and Size beside it. The interface is written
-             in English, so its numbers are too: "1.40" with the invariant
-             culture, as the Scrollback and Timeout fields group "100,000",
-             whatever the region's number format. -->
-        <controls:SurfaceCard Tone="Raised" Grid.Column="2">
-          <controls:LabeledField
-              Label="Line height">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-              <Slider
-                  VerticalAlignment="Center"
-                  Minimum="1"
-                  Maximum="2"
-                  TickFrequency="0.01"
-                  IsSnapToTickEnabled="True"
-                  Value="{Binding TerminalSettingsEditor.LineHeight, Mode=TwoWay}"
-                  ValueChanged="OnTerminalAppearanceChanged"
-                  AutomationProperties.Name="Terminal line height" />
-              <TextBlock
-                  Grid.Column="1"
-                  VerticalAlignment="Center"
-                  Text="{Binding TerminalSettingsEditor.LineHeightText}" />
-            </Grid>
-          </controls:LabeledField>
-        </controls:SurfaceCard>
-      </Grid>
-    </StackPanel>
-
-    <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-      <components:SectionHeader
-          Heading="Typography"
-          Description="Scale application text across every Asura window." />
-      <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-        <!-- The terminal's font is set once, in Font above. -->
-        <controls:SurfaceCard Tone="Raised">
-          <controls:LabeledField
-              Label="Application text size"
-              Hint="Follow System uses the system’s text size. Changes apply right away.">
-            <ComboBox
-                x:Name="ApplicationTextScalePicker"
-                SelectionChanged="OnAppearanceChanged"
-                AutomationProperties.Name="Application text size">
-              <ComboBox.ItemTemplate>
-                <DataTemplate x:DataType="pages:AppearanceTextScaleOption">
-                  <TextBlock Text="{Binding DisplayName}" />
-                </DataTemplate>
-              </ComboBox.ItemTemplate>
-            </ComboBox>
-          </controls:LabeledField>
-        </controls:SurfaceCard>
-      </Grid>
-    </StackPanel>
-
-    <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-      <components:SectionHeader
-          Heading="Corners &amp; UI"
-          Description="Window corners, density, and interface behavior." />
-      <!-- Every on/off choice here is one shape: the option's name and its
-           description on the left, a switch at the row's trailing edge. The
-           cursor's settings moved to the Terminal page, beside the rest of
-           the cursor. -->
-      <controls:SettingsGroup ControlWidth="300">
-        <controls:SettingRow
-            Label="Density"
-            Description="Padding, spacing, and corner rounding across the interface.">
-          <!-- Compact, Normal, Spacious: the segment order is the
-               InterfaceDensity order, Compact first. -->
-          <controls:SegmentedControl
-              x:Name="DensityPicker"
-              AutomationProperties.Name="Density">
-            <RadioButton Content="Compact" AutomationProperties.Name="Compact density" />
-            <RadioButton Content="Normal" AutomationProperties.Name="Normal density" />
-            <RadioButton Content="Spacious" AutomationProperties.Name="Spacious density" />
-          </controls:SegmentedControl>
-        </controls:SettingRow>
-        <controls:SettingRow
-            Label="Translucency"
-            Description="Show the desktop through the window’s sidebars and title bar.">
-          <ToggleSwitch
-              x:Name="TranslucencyToggle"
-              IsCheckedChanged="OnAppearanceChanged"
-              AutomationProperties.Name="Translucency" />
-        </controls:SettingRow>
-        <controls:SettingRow
-            Label="Glass panels"
-            Description="Let the desktop show through the panels too, not only the sidebars and title bar.">
-          <ToggleSwitch
-              x:Name="GlassPanelsToggle"
-              IsEnabled="{Binding #TranslucencyToggle.IsChecked}"
-              IsCheckedChanged="OnAppearanceChanged"
-              AutomationProperties.Name="Glass panels" />
-        </controls:SettingRow>
-        <controls:SettingRow
-            Label="Set background opacity"
-            Description="Off leaves the material’s own translucency alone. On paints the window’s color over it: lower values let more of the desktop through; at full, it reads as a frame around the panels rather than as glass.">
-          <ToggleSwitch
-              x:Name="OverrideOpacityToggle"
-              IsEnabled="{Binding #TranslucencyToggle.IsChecked}"
-              IsCheckedChanged="OnAppearanceChanged"
-              AutomationProperties.Name="Override background opacity" />
-        </controls:SettingRow>
-        <controls:SettingRow Label="Background opacity">
-          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-            <Slider
-                x:Name="BackdropOpacitySlider"
-                VerticalAlignment="Center"
-                IsEnabled="{Binding #OverrideOpacityToggle.IsChecked}"
-                ValueChanged="OnAppearanceChanged"
-                Minimum="40"
-                Maximum="100"
-                TickFrequency="2"
-                IsSnapToTickEnabled="True"
-                AutomationProperties.Name="Background opacity" />
-            <TextBlock
-                Grid.Column="1"
-                VerticalAlignment="Center"
-                Text="{Binding #BackdropOpacitySlider.Value, StringFormat={}{0:0}%}" />
-          </Grid>
-        </controls:SettingRow>
-        <!-- Terminal output is content and stays opaque unless asked. The
-             box is dimmed, with the reason under it, wherever the window
-             has no material to show: translucency off, Reduce Transparency,
-             Increase Contrast, or a host without it. -->
-        <controls:SettingRow
-            Label="Translucent terminal background"
-            Description="{DynamicResource ShellTerminalTranslucencyStatus}">
-          <ToggleSwitch
-              x:Name="TranslucentTerminalToggle"
-              IsEnabled="{DynamicResource ShellTerminalTranslucencyAvailable}"
-              IsCheckedChanged="OnAppearanceChanged"
-              AutomationProperties.Name="Translucent terminal background" />
-        </controls:SettingRow>
-        <controls:SettingRow Label="Show tab bar" IsLast="True">
-          <ToggleSwitch x:Name="ShowTabBarSwitch" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Show tab bar" />
-        </controls:SettingRow>
-      </controls:SettingsGroup>
-    </StackPanel>
-
-    <!-- Tabs & Workspaces -->
-    <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-      <components:SectionHeader
-          Heading="Tabs &amp; Workspaces"
-          Description="Where the tab strip sits, plus how the workspaces panel is arranged." />
-      <controls:SettingsGroup>
-        <controls:SettingRow Label="Show workspaces panel" IsLast="True">
-          <ToggleSwitch x:Name="ShowWorkspacesPanelSwitch" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Show workspaces panel" />
-        </controls:SettingRow>
-      </controls:SettingsGroup>
-      <controls:SurfaceCard Tone="Raised">
-        <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-          <StackPanel Classes="CardText" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-            <TextBlock Classes="Headline" Text="Tab placement" />
-            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Where the tab strip sits" />
-          </StackPanel>
-          <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-            <RadioButton x:Name="TabPlacementTop" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Tab strip at the top">
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <Border Height="56" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Xs}">
-                  <StackPanel VerticalAlignment="Top" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                    <Border Width="22" Height="7" Background="{DynamicResource ShellAccentBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
-                    <Border Width="16" Height="7" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
-                    <Border Width="16" Height="7" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
-                  </StackPanel>
-                </Border>
-                <TextBlock HorizontalAlignment="Center" Classes="PresetName" Text="Top" />
-              </StackPanel>
-            </RadioButton>
-            <RadioButton x:Name="TabPlacementBottom" Grid.Column="1" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Tab strip at the bottom">
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <Border Height="56" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Xs}">
-                  <StackPanel VerticalAlignment="Bottom" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                    <Border Width="22" Height="7" Background="{DynamicResource ShellAccentBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
-                    <Border Width="16" Height="7" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
-                    <Border Width="16" Height="7" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
-                  </StackPanel>
-                </Border>
-                <TextBlock HorizontalAlignment="Center" Classes="PresetName" Text="Bottom" />
-              </StackPanel>
-            </RadioButton>
-            <RadioButton x:Name="TabPlacementLeft" Grid.Column="2" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Tab strip on the left">
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <Border Height="56" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Xs}">
-                  <StackPanel HorizontalAlignment="Left" Spacing="{DynamicResource ShellSpaceXs}">
-                    <Border Width="26" Height="7" Background="{DynamicResource ShellAccentBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
-                    <Border Width="26" Height="7" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
-                    <Border Width="26" Height="7" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
-                  </StackPanel>
-                </Border>
-                <TextBlock HorizontalAlignment="Center" Classes="PresetName" Text="Left" />
-              </StackPanel>
-            </RadioButton>
-            <RadioButton x:Name="TabPlacementRight" Grid.Column="3" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Tab strip on the right">
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <Border Height="56" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Xs}">
-                  <StackPanel HorizontalAlignment="Right" Spacing="{DynamicResource ShellSpaceXs}">
-                    <Border Width="26" Height="7" Background="{DynamicResource ShellAccentBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
-                    <Border Width="26" Height="7" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
-                    <Border Width="26" Height="7" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
-                  </StackPanel>
-                </Border>
-                <TextBlock HorizontalAlignment="Center" Classes="PresetName" Text="Right" />
-              </StackPanel>
-            </RadioButton>
-          </Grid>
-        </StackPanel>
-      </controls:SurfaceCard>
-      <controls:SurfaceCard Tone="Raised">
-        <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-          <StackPanel Classes="CardText" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-            <TextBlock Classes="Headline" Text="Workspaces panel placement" />
-            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Which edge the workspaces panel sits on" />
-          </StackPanel>
-          <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-            <RadioButton x:Name="WorkspacePanelLeft" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Workspaces panel on the left">
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <Border Height="56" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Xs}">
-                  <StackPanel HorizontalAlignment="Left" Spacing="{DynamicResource ShellSpaceXs}">
-                    <Border Width="8" Height="8" Background="{DynamicResource ShellAccentBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
-                    <Border Width="8" Height="8" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
-                    <Border Width="8" Height="8" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
-                  </StackPanel>
-                </Border>
-                <TextBlock HorizontalAlignment="Center" Classes="PresetName" Text="Left" />
-              </StackPanel>
-            </RadioButton>
-            <RadioButton x:Name="WorkspacePanelRight" Grid.Column="1" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Workspaces panel on the right">
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <Border Height="56" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Xs}">
-                  <StackPanel HorizontalAlignment="Right" Spacing="{DynamicResource ShellSpaceXs}">
-                    <Border Width="8" Height="8" Background="{DynamicResource ShellAccentBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
-                    <Border Width="8" Height="8" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
-                    <Border Width="8" Height="8" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
-                  </StackPanel>
-                </Border>
-                <TextBlock HorizontalAlignment="Center" Classes="PresetName" Text="Right" />
-              </StackPanel>
-            </RadioButton>
-          </Grid>
-        </StackPanel>
-      </controls:SurfaceCard>
-    </StackPanel>
+          </RadioButton>
+          <RadioButton x:Name="TabPlacementBottom" Grid.Column="1" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Tab strip at the bottom">
+            <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+              <Border Height="56" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Xs}">
+                <StackPanel VerticalAlignment="Bottom" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+                  <Border Width="22" Height="7" Background="{DynamicResource ShellAccentBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
+                  <Border Width="16" Height="7" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
+                  <Border Width="16" Height="7" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
+                </StackPanel>
+              </Border>
+              <TextBlock HorizontalAlignment="Center" Classes="PresetName" Text="Bottom" />
+            </StackPanel>
+          </RadioButton>
+          <RadioButton x:Name="TabPlacementLeft" Grid.Column="2" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Tab strip on the left">
+            <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+              <Border Height="56" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Xs}">
+                <StackPanel HorizontalAlignment="Left" Spacing="{DynamicResource ShellSpaceXs}">
+                  <Border Width="26" Height="7" Background="{DynamicResource ShellAccentBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
+                  <Border Width="26" Height="7" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
+                  <Border Width="26" Height="7" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
+                </StackPanel>
+              </Border>
+              <TextBlock HorizontalAlignment="Center" Classes="PresetName" Text="Left" />
+            </StackPanel>
+          </RadioButton>
+          <RadioButton x:Name="TabPlacementRight" Grid.Column="3" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Tab strip on the right">
+            <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+              <Border Height="56" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Xs}">
+                <StackPanel HorizontalAlignment="Right" Spacing="{DynamicResource ShellSpaceXs}">
+                  <Border Width="26" Height="7" Background="{DynamicResource ShellAccentBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
+                  <Border Width="26" Height="7" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
+                  <Border Width="26" Height="7" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
+                </StackPanel>
+              </Border>
+              <TextBlock HorizontalAlignment="Center" Classes="PresetName" Text="Right" />
+            </StackPanel>
+          </RadioButton>
+        </Grid>
+      </controls:SettingRow>
+      <controls:SettingRow Label="Workspaces panel placement" Description="Which edge the workspaces panel sits on" IsStacked="True">
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+          <RadioButton x:Name="WorkspacePanelLeft" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Workspaces panel on the left">
+            <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+              <Border Height="56" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Xs}">
+                <StackPanel HorizontalAlignment="Left" Spacing="{DynamicResource ShellSpaceXs}">
+                  <Border Width="8" Height="8" Background="{DynamicResource ShellAccentBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
+                  <Border Width="8" Height="8" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
+                  <Border Width="8" Height="8" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
+                </StackPanel>
+              </Border>
+              <TextBlock HorizontalAlignment="Center" Classes="PresetName" Text="Left" />
+            </StackPanel>
+          </RadioButton>
+          <RadioButton x:Name="WorkspacePanelRight" Grid.Column="1" Width="NaN" HorizontalAlignment="Stretch" Classes="PresetCard" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Workspaces panel on the right">
+            <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+              <Border Height="56" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Xs}">
+                <StackPanel HorizontalAlignment="Right" Spacing="{DynamicResource ShellSpaceXs}">
+                  <Border Width="8" Height="8" Background="{DynamicResource ShellAccentBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
+                  <Border Width="8" Height="8" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
+                  <Border Width="8" Height="8" Background="{DynamicResource ShellSurfaceHoverBrush}" CornerRadius="{DynamicResource ShellInnerCornerRadius}" />
+                </StackPanel>
+              </Border>
+              <TextBlock HorizontalAlignment="Center" Classes="PresetName" Text="Right" />
+            </StackPanel>
+          </RadioButton>
+        </Grid>
+      </controls:SettingRow>
+    </controls:SettingsGroup>
 
     <!-- Preview -->
-    <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-      <components:SectionHeader
-          Heading="Preview"
-          Description="The saved profile as the shell renders it right now." />
-      <controls:SurfaceCard Tone="Raised">
+    <controls:SettingsGroup
+        Heading="Preview"
+        Description="The saved profile as the shell renders it right now.">
+      <Border Padding="{DynamicResource ShellSettingsGroupContentPadding}">
         <Border
             Height="168"
             Background="{DynamicResource ShellBackgroundBrush}"
@@ -710,21 +630,20 @@
             </Grid>
           </Grid>
         </Border>
-      </controls:SurfaceCard>
-    </StackPanel>
+      </Border>
+    </controls:SettingsGroup>
 
     <!-- Stored profile -->
-    <controls:SurfaceCard>
-      <!-- The validation line runs the card's full width under both
-           columns: beside the buttons, an unwrapped warning took the whole
-           width and squeezed the saved profile's details out of view. -->
+    <controls:SettingsGroup Heading="Saved appearance">
+      <Border Padding="{DynamicResource ShellSettingsRowPadding}">
+      <!-- What is saved, then what can be done with it at the trailing
+           edge under it, then the validation line the full width: beside
+           the buttons, an unwrapped warning took the whole width and
+           squeezed the saved profile's details out of view. -->
       <Grid
-          ColumnDefinitions="*,Auto"
-          RowDefinitions="Auto,Auto"
-          ColumnSpacing="{DynamicResource ShellSpaceLg}"
+          RowDefinitions="Auto,Auto,Auto"
           RowSpacing="{DynamicResource ShellSpaceSm}">
         <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-          <TextBlock Classes="SectionHeading" Text="Saved appearance" />
           <TextBlock Text="{Binding ThemeMode, StringFormat={}Mode: {0}}" />
           <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ThemeProfile, StringFormat={}Platform: {0}}" />
           <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ThemeTextScale, StringFormat={}Text size: {0}}" />
@@ -732,21 +651,21 @@
           <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{DynamicResource ShellAccentStatus}" AutomationProperties.Name="Effective accent status" AutomationProperties.LiveSetting="Polite" />
           <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{DynamicResource ShellMaterialStatus}" AutomationProperties.Name="Effective material status" AutomationProperties.LiveSetting="Polite" />
         </StackPanel>
-        <StackPanel
-            Grid.Column="1"
-            VerticalAlignment="Top"
+        <WrapPanel
+            Grid.Row="1"
+            HorizontalAlignment="Right"
             Orientation="Horizontal"
-            Spacing="{DynamicResource ShellSpaceSm}">
+            ItemSpacing="{DynamicResource ShellSpaceSm}"
+            LineSpacing="{DynamicResource ShellSpaceSm}">
           <Button Classes="SecondaryButton" Click="OnImportClick" Content="Import…" />
           <Button Classes="SecondaryButton" Click="OnExportClick" Content="Export…" />
           <Button Classes="DestructiveButton" Click="OnResetClick" Content="Reset App Defaults" AutomationProperties.Name="Reset application appearance to defaults" />
           <Button Classes="DestructiveButton" Click="OnCancelClick" Content="Discard Changes" IsVisible="{Binding CanRetryAppearanceSave}" AutomationProperties.Name="Discard unsaved appearance changes" />
           <Button Classes="PrimaryButton" Click="OnApplyClick" Content="Try Again" IsVisible="{Binding CanRetryAppearanceSave}" AutomationProperties.Name="Retry saving appearance changes" />
-        </StackPanel>
+        </WrapPanel>
         <controls:LiveRegionTextBlock
             x:Name="AppearanceValidationStatus"
-            Grid.Row="1"
-            Grid.ColumnSpan="2"
+            Grid.Row="2"
             AutomationProperties.Name="Appearance validation status"
             AutomationProperties.LiveSetting="Polite"
             Classes="Muted"
@@ -754,6 +673,7 @@
             TextWrapping="Wrap"
             IsVisible="False" />
       </Grid>
-    </controls:SurfaceCard>
+      </Border>
+    </controls:SettingsGroup>
   </StackPanel>
 </UserControl>

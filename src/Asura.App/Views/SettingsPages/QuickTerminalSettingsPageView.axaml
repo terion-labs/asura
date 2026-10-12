@@ -19,7 +19,7 @@
     The page now says only what each setting is. Where the label sits, how wide the
     control column is, and which row draws a separator are the group's business.
   -->
-  <StackPanel Spacing="{DynamicResource ShellSpaceSection}">
+  <StackPanel Classes="SettingsPage">
     <!-- Every setting here applies as it changes; there is nothing to save. -->
     <components:SettingsPageHeader
         Heading="Quick Terminal"
@@ -109,8 +109,9 @@
       <controls:SettingRow
           Label="Panel height"
           Description="Percentage of the selected display's working area.">
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
           <NumericUpDown
+              Width="{controls:TextScaled 96}"
               Minimum="25"
               Maximum="90"
               Increment="1"
@@ -118,11 +119,10 @@
               Value="{Binding QuickTerminalSettingsEditor.HeightPercent}"
               AutomationProperties.Name="Quick Terminal panel height" />
           <TextBlock
-              Grid.Column="1"
               VerticalAlignment="Center"
               Classes="Muted"
               Text="%" />
-        </Grid>
+        </StackPanel>
       </controls:SettingRow>
     </controls:SettingsGroup>
 
@@ -133,8 +133,9 @@
       <controls:SettingRow
           Label="Background opacity"
           Description="Opacity of the terminal backdrop; text, cursor, and controls stay crisp.">
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
           <NumericUpDown
+              Width="{controls:TextScaled 96}"
               ClipValueToMinMax="True"
               Minimum="0"
               Maximum="100"
@@ -142,11 +143,10 @@
               Value="{Binding QuickTerminalSettingsEditor.OpacityPercent}"
               AutomationProperties.Name="Quick Terminal background opacity" />
           <TextBlock
-              Grid.Column="1"
               VerticalAlignment="Center"
               Classes="Muted"
               Text="%" />
-        </Grid>
+        </StackPanel>
       </controls:SettingRow>
       <controls:SettingRow
           Label="Translucency"
@@ -185,19 +185,19 @@
       <controls:SettingRow
           Label="Animation duration"
           Description="Slide duration in milliseconds when motion is enabled.">
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
           <NumericUpDown
+              Width="{controls:TextScaled 96}"
               Minimum="0"
               Maximum="1000"
               Increment="10"
               Value="{Binding QuickTerminalSettingsEditor.AnimationDurationMilliseconds}"
               AutomationProperties.Name="Quick Terminal animation duration" />
           <TextBlock
-              Grid.Column="1"
               VerticalAlignment="Center"
               Classes="Muted"
               Text="ms" />
-        </Grid>
+        </StackPanel>
       </controls:SettingRow>
       <controls:SettingRow
           Label="Hide on focus loss"

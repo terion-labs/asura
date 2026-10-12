@@ -29,7 +29,7 @@ namespace Asura.App.Controls;
 /// the form has closed and taken the typed value with it.
 /// </summary>
 [TemplatePart("PART_Label", typeof(TextBlock))]
-[PseudoClasses(":error")]
+[PseudoClasses(":error", ":noted")]
 internal sealed class LabeledField : ContentControl
 {
     public static readonly StyledProperty<string> LabelProperty =
@@ -57,6 +57,7 @@ internal sealed class LabeledField : ContentControl
     static LabeledField()
     {
         HintProperty.Changed.AddClassHandler<LabeledField>((field, _) => field.UpdateAutomation());
+        HintProperty.Changed.AddClassHandler<LabeledField>((field, _) => field.UpdateNoted());
         ErrorProperty.Changed.AddClassHandler<LabeledField>((field, _) => field.UpdateError());
         ContentProperty.Changed.AddClassHandler<LabeledField>((field, _) => field.UpdateAutomation());
     }
@@ -131,8 +132,16 @@ internal sealed class LabeledField : ContentControl
     {
         HasError = !string.IsNullOrWhiteSpace(Error);
         PseudoClasses.Set(":error", HasError);
+        UpdateNoted();
         UpdateAutomation();
     }
+
+    /// <summary>
+    /// Whether a sentence shows under the control, an error or a hint: a form
+    /// row keeps no room for one it has not got.
+    /// </summary>
+    private void UpdateNoted() =>
+        PseudoClasses.Set(":noted", HasError || !string.IsNullOrWhiteSpace(Hint));
 
     /// <summary>
     /// The error, while there is one, is what a screen reader hears after the

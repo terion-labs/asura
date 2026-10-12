@@ -207,8 +207,13 @@ internal sealed class SettingRow : ContentControl
     /// lines beside an empty half, and at a large text size moved the switch
     /// under its label for want of room it never needed.
     /// </summary>
+    /// <remarks>
+    /// A pop-up button is the same: in a grouped form it is its value and a
+    /// pair of chevrons hugging the trailing edge, as wide as what it shows,
+    /// so a column reserved for its widest choice only took the label's room.
+    /// </remarks>
     private GridLength ControlColumnWidth =>
-        Content is ToggleSwitch ? GridLength.Auto : ControlWidth;
+        Content is ToggleSwitch or ComboBox ? GridLength.Auto : ControlWidth;
 
     private void ApplyControlWidth()
     {

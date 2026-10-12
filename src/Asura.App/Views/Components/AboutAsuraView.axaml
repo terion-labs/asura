@@ -39,32 +39,36 @@
       </StackPanel>
     </StackPanel>
 
-    <!-- Settings' About page lists what is bundled; an empty list shows
-         nothing rather than a warning about itself. -->
+    <!-- Settings' About page lists what is bundled, as one grouped list:
+         a row per component with what it is for and its version and
+         licence under its name. An empty list shows nothing rather than a
+         warning about itself. -->
     <StackPanel
         x:Name="ProductComponentList"
-        Spacing="{DynamicResource ShellSpaceSm}"
         IsVisible="False">
-      <TextBlock Classes="SectionHeading" Text="Open-source components" />
-      <ItemsControl ItemsSource="{Binding ProductComponents}">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate>
-            <controls:SurfaceCard Padding="{DynamicResource ShellCardPaddingCompact}" Margin="{controls:Inset Bottom=Sm}">
-              <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}" RowSpacing="{DynamicResource ShellSpaceSm}">
-                <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                  <TextBlock Classes="Headline" Text="{Binding Name}" TextWrapping="Wrap" />
-                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Purpose}" TextWrapping="Wrap" />
-                </StackPanel>
-                <TextBlock Grid.Column="1" VerticalAlignment="Top" Classes="Eyebrow" Text="Bundled" />
-                <WrapPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal">
-                  <TextBlock Margin="{controls:Inset Right=Lg}" Text="{Binding Version}" TextWrapping="Wrap" />
-                  <TextBlock Classes="Muted" Text="{Binding License}" TextWrapping="Wrap" />
-                </WrapPanel>
-              </Grid>
-            </controls:SurfaceCard>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+      <controls:SettingsGroup Heading="Open-source components">
+        <ItemsControl Classes="Separated StretchItems" ItemsSource="{Binding ProductComponents}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border
+                  MinHeight="{DynamicResource ShellSettingsRowMinHeight}"
+                  Padding="{DynamicResource ShellSettingsRowPadding}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceLg}">
+                  <StackPanel Spacing="{DynamicResource ShellSettingsLabelSpacing}">
+                    <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Purpose}" TextWrapping="Wrap" />
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceMd}">
+                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Version}" TextWrapping="Wrap" />
+                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding License}" TextWrapping="Wrap" />
+                    </WrapPanel>
+                  </StackPanel>
+                  <TextBlock Grid.Column="1" VerticalAlignment="Top" Classes="Eyebrow" Text="Bundled" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </controls:SettingsGroup>
     </StackPanel>
   </StackPanel>
 </UserControl>
