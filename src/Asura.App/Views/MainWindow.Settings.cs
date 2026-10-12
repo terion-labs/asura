@@ -658,6 +658,10 @@ public sealed partial class MainWindow
     private void OnSettingsSearchSubmitted(object? sender, SettingsPage page) =>
         _ = RequestSettingsPageAsync(page);
 
+    /// <summary>Back, forward, or an arrow key in the Settings sidebar.</summary>
+    private void OnSettingsPageRequested(object? sender, SettingsPage page) =>
+        _ = RequestSettingsPageAsync(page);
+
     /// <summary>
     /// Session history keeps what is chosen as soon as it is chosen. Keeping
     /// less removes history, so that asks first, and a No puts the previous

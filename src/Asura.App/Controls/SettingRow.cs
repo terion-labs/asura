@@ -31,6 +31,14 @@ internal sealed class SettingRow : ContentControl
         AvaloniaProperty.Register<SettingRow, string?>(nameof(Description));
 
     /// <summary>
+    /// A reading of what the control is set to, shown at the trailing end of
+    /// a stacked row's label line: a slider's value, which a slider does not
+    /// draw itself. A screen reader hears the value from the control.
+    /// </summary>
+    public static readonly StyledProperty<string?> ValueProperty =
+        AvaloniaProperty.Register<SettingRow, string?>(nameof(Value));
+
+    /// <summary>
     /// How wide the control column is at most.
     ///
     /// Set on the <see cref="SettingsGroup"/> rather than the row, so every row in
@@ -124,6 +132,12 @@ internal sealed class SettingRow : ContentControl
         set => SetValue(DescriptionProperty, value);
     }
 
+    public string? Value
+    {
+        get => GetValue(ValueProperty);
+        set => SetValue(ValueProperty, value);
+    }
+
     public GridLength ControlWidth
     {
         get => GetValue(ControlWidthProperty);
@@ -207,8 +221,13 @@ internal sealed class SettingRow : ContentControl
     /// lines beside an empty half, and at a large text size moved the switch
     /// under its label for want of room it never needed.
     /// </summary>
+    /// <remarks>
+    /// A pop-up button is the same: in a grouped form it is its value and a
+    /// pair of chevrons hugging the trailing edge, as wide as what it shows,
+    /// so a column reserved for its widest choice only took the label's room.
+    /// </remarks>
     private GridLength ControlColumnWidth =>
-        Content is ToggleSwitch ? GridLength.Auto : ControlWidth;
+        Content is ToggleSwitch or ComboBox ? GridLength.Auto : ControlWidth;
 
     private void ApplyControlWidth()
     {

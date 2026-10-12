@@ -3,7 +3,9 @@ using Asura.App.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.Platform;
+using Avalonia.Threading;
 
 namespace Asura.App.Views;
 
@@ -28,9 +30,102 @@ public sealed partial class SettingsWindow : Window
     private bool _closeApproved;
     private bool _closeInProgress;
 
+    /// <summary>The frame a Settings window opens at before it has one to restore.</summary>
+    internal static Size DefaultSize { get; } = new(850, 800);
+
+    /// <summary>
+    /// The class the window wears while its content runs under the title
+    /// bar, which is what gives the sidebar the band the window's buttons
+    /// sit in.
+    /// </summary>
+    internal const string ExtendedClass = "settings-extended";
+
+    /// <summary>
+    /// The class the window wears while the platform's sidebar material shows
+    /// through the sidebar. Without it — Reduce Transparency, Increase
+    /// Contrast, translucency turned off, or a host with no material — the
+    /// sidebar is an opaque plane.
+    /// </summary>
+    internal const string TranslucentClass = "settings-translucent";
+
     public SettingsWindow()
     {
         InitializeComponent();
+        if (OperatingSystem.IsMacOS())
+        {
+            // As System Settings: the sidebar and the page run up into the
+            // title bar, and the window's buttons sit on the sidebar.
+            WindowDecorations = WindowDecorations.Full;
+            ExtendClientAreaToDecorationsHint = true;
+            ExtendClientAreaTitleBarHeightHint = -1;
+            Classes.Add(ExtendedClass);
+        }
+    }
+
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        ApplyChrome();
+        // Again once the window is on screen: the native calls need a window
+        // the platform has finished making.
+        Dispatcher.UIThread.Post(ApplyChrome, DispatcherPriority.Background);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == WindowStateProperty && IsVisible)
+        {
+            ApplyChrome();
+        }
+    }
+
+    /// <summary>
+    /// Re-reads the stored backdrop: called when the appearance is
+    /// republished, so turning translucency off — or Reduce Transparency on —
+    /// gives the sidebar its opaque plane at once.
+    /// </summary>
+    internal void RefreshWindowBackdrop() => ApplyChrome();
+
+    /// <summary>
+    /// The unified toolbar's band, so the window's buttons sit 26 points down
+    /// on the line the page's title is on, and the sidebar's material behind
+    /// a transparent sidebar when the appearance allows it.
+    /// </summary>
+    private void ApplyChrome()
+    {
+        var translucent = OperatingSystem.IsMacOS()
+            && Avalonia.Application.Current is App { WindowIsTranslucent: true };
+        if (OperatingSystem.IsMacOS())
+        {
+            _ = MacOsWindowTitleBar.TryLetTheBaseSurfaceRunToTheTop(this, MacOsWindowKind.Toolbar);
+        }
+
+        if (!translucent)
+        {
+            Classes.Remove(TranslucentClass);
+            TransparencyLevelHint = [WindowTransparencyLevel.None];
+            ClearValue(BackgroundProperty);
+            return;
+        }
+
+        TransparencyLevelHint =
+        [
+            WindowTransparencyLevel.AcrylicBlur,
+            WindowTransparencyLevel.Blur,
+            WindowTransparencyLevel.Transparent,
+        ];
+        var material = MacOsWindowMaterial.TrySit(this, MacOsMaterial.Sidebar);
+        var shows = material && ActualTransparencyLevel != WindowTransparencyLevel.None;
+        Classes.Set(TranslucentClass, shows);
+        if (shows)
+        {
+            Background = Brushes.Transparent;
+        }
+        else
+        {
+            ClearValue(BackgroundProperty);
+        }
     }
 
     private static SettingsWindow? s_current;

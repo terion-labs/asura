@@ -588,12 +588,24 @@ public sealed class ThemeComponentHeadlessTests
         {
             var toggle = new ToggleSwitch();
             var row = new SettingRow { Label = "Show workspaces panel", Content = toggle };
-            Show(window, new SettingsGroup { Items = { row }, Width = 560 });
+            var last = new SettingRow { Label = "Show tab bar", Content = new ToggleSwitch() };
+            Show(window, new SettingsGroup { Items = { row, last }, Width = 560 });
 
-            Assert.Equal(new Thickness(10, 6), row.Padding);
+            // System Settings' grouped form at 1x: the label 10 in from the
+            // plate's edge, the row at least 37 tall with a 1-point hairline
+            // under it, inset by the row's own leading and trailing padding,
+            // and none under the row that closes the plate.
+            Assert.Equal(new Thickness(10, 8), row.Padding);
             var label = Part<TextBlock>(row, "PART_Label");
-            Assert.Equal(14, label.TranslatePoint(default, row)!.Value.X, precision: 0);
-            Assert.InRange(row.Bounds.Height, 28, 41);
+            Assert.Equal(10, label.TranslatePoint(default, row)!.Value.X, precision: 0);
+            var body = Part<Border>(row, "PART_Body");
+            Assert.Equal(37, body.Bounds.Height, precision: 0);
+            var separator = Part<Border>(row, "PART_Separator");
+            Assert.Equal(new Thickness(10, 0), separator.Margin);
+            Assert.Equal(1, separator.Bounds.Height, precision: 0);
+            Assert.Equal(38, row.Bounds.Height, precision: 0);
+            Assert.True(last.IsLast);
+            Assert.False(Part<Border>(last, "PART_Separator").IsVisible);
         });
 
     /// <summary>

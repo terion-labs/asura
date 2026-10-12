@@ -7,100 +7,66 @@
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls">
   <!-- Drawn as a settings group is, like the cache and logs section above
-       it: the heading on the page, then one card whose rows are the runs,
-       separated by hairlines, with the summary as the card's footer. Each
-       run used to be a card of its own, filled with the notice tone. -->
-  <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
+       it: the heading above one plate whose rows are the runs, separated by
+       inset hairlines, then a row with the summary, Refresh and Clear All…,
+       and why the snapshots are kept as the plate's footnote. Each run used
+       to be a card of its own, filled with the notice tone. -->
+  <StackPanel Spacing="{DynamicResource ShellSettingsGroupGap}">
     <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
-    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-      <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-        <TextBlock Classes="Headline" Text="Crash recovery data" AutomationProperties.HeadingLevel="2" />
-        <TextBlock
-            Classes="Muted"
-            FontSize="{DynamicResource ShellSecondaryFontSize}"
-            Text="Review recovery snapshots from previous runs."
-            TextWrapping="Wrap" />
-      </StackPanel>
-      <Button
-          x:Name="RefreshRecoveryDataButton"
-          Grid.Column="1"
-          VerticalAlignment="Center"
-          Classes="SecondaryButton"
-          Click="OnRefreshClick"
-          Content="Refresh"
-          IsEnabled="{Binding CanRefresh, FallbackValue=False}"
-          AutomationProperties.Name="Refresh crash recovery data" />
-      <Button
-          Grid.Column="2"
-          VerticalAlignment="Center"
-          Classes="DestructiveButton"
-          Click="OnClearAllClick"
-          Content="Clear All…"
-          IsEnabled="{Binding CanClearAll, FallbackValue=False}"
-          AutomationProperties.Name="Clear all previous crash recovery data" />
-    </Grid>
-
-    <controls:Callout
-        Tone="Notice"
-        Glyph="Shield"
-        Text="Asura keeps these to reopen your work after a crash. This run’s own snapshot isn’t listed." />
-
-    <!-- One state at a time: loading, nothing to show, couldn't load, or
-         the list with its summary line. A refresh with snapshots already
-         listed keeps the list; the summary line says it is reloading.
-         Every state sits in the card the list would fill, as the cache and
-         logs section's states above do. -->
-    <controls:SurfaceCard Padding="0">
-      <controls:SurfaceCard.IsVisible>
-        <MultiBinding Converter="{x:Static BoolConverters.And}">
-          <Binding Path="IsBusy" FallbackValue="False" />
-          <Binding Path="!HasRuns" FallbackValue="False" />
-        </MultiBinding>
-      </controls:SurfaceCard.IsVisible>
-      <controls:StateOverlay
-          Margin="{controls:Inset Xl}"
-          Kind="Loading"
-          Heading="Loading recovery snapshots…"
-          Body="This run’s own snapshot stays protected while earlier ones load." />
-    </controls:SurfaceCard>
-
-    <controls:SurfaceCard Padding="0" IsVisible="{Binding HasNoRuns, FallbackValue=False}">
-      <controls:StateOverlay
-          Margin="{controls:Inset Xl}"
-          Kind="Empty"
-          Heading="No snapshots from earlier runs"
-          Body="This run’s own snapshot is protected, so it isn’t listed." />
-    </controls:SurfaceCard>
-
-    <controls:SurfaceCard Padding="0" IsVisible="{Binding HasError, FallbackValue=False}">
-      <controls:StateOverlay
-          Margin="{controls:Inset Xl}"
-          Kind="Retry"
-          Heading="Recovery snapshots couldn’t be loaded"
-          Body="Nothing was removed. Click Refresh to try again."
-          ActionLabel="Refresh"
-          ActionRequested="OnRefreshClick"
-          FocusTarget="PrimaryAction" />
-    </controls:SurfaceCard>
-
-    <controls:SurfaceCard
-        x:Name="RecoveryRunList"
-        Padding="0"
-        ClipsContent="True"
-        IsVisible="{Binding HasRuns, FallbackValue=False}">
-      <StackPanel>
+    <controls:SettingsGroup
+        x:Name="RecoveryRunGroup"
+        Heading="Crash recovery data"
+        Description="Review recovery snapshots from previous runs.">
+      <!-- One state at a time: loading, nothing to show, couldn't load, or
+           the list. A refresh with snapshots already listed keeps the list;
+           the summary row says it is reloading. Every state sits in the
+           plate the list would fill, as the cache and logs section's states
+           above do. -->
+      <Panel>
+        <Panel>
+          <Panel.IsVisible>
+            <MultiBinding Converter="{x:Static BoolConverters.And}">
+              <Binding Path="IsBusy" FallbackValue="False" />
+              <Binding Path="!HasRuns" FallbackValue="False" />
+            </MultiBinding>
+          </Panel.IsVisible>
+          <controls:StateOverlay
+              Margin="{controls:Inset Xl}"
+              Kind="Loading"
+              Heading="Loading recovery snapshots…"
+              Body="This run’s own snapshot stays protected while earlier ones load." />
+        </Panel>
+        <controls:StateOverlay
+            Margin="{controls:Inset Xl}"
+            IsVisible="{Binding HasNoRuns, FallbackValue=False}"
+            Kind="Empty"
+            Heading="No snapshots from earlier runs"
+            Body="This run’s own snapshot is protected, so it isn’t listed." />
+        <controls:StateOverlay
+            Margin="{controls:Inset Xl}"
+            IsVisible="{Binding HasError, FallbackValue=False}"
+            Kind="Retry"
+            Heading="Recovery snapshots couldn’t be loaded"
+            Body="Nothing was removed. Click Refresh to try again."
+            ActionLabel="Refresh"
+            ActionRequested="OnRefreshClick"
+            FocusTarget="PrimaryAction" />
         <ItemsControl
+            x:Name="RecoveryRunList"
             Classes="Separated StretchItems"
             ItemsSource="{Binding Runs}"
-            IsEnabled="{Binding CanClearRuns, FallbackValue=False}">
+            IsEnabled="{Binding CanClearRuns, FallbackValue=False}"
+            IsVisible="{Binding HasRuns, FallbackValue=False}">
           <ItemsControl.ItemTemplate>
             <DataTemplate>
-              <!-- A grouped row: the list row's inset inside the step every
-                   settings card keeps from its edge, so its title starts
-                   where a settings row's label starts. -->
-              <Grid Margin="{DynamicResource ShellInsetXs}">
-                <Grid Margin="{DynamicResource ShellListRowPadding}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                  <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
+              <!-- A row of the grouped form: the run where a settings row's
+                   label starts, what it holds under it, and Clear… at the
+                   trailing edge. -->
+              <Border
+                  MinHeight="{DynamicResource ShellSettingsRowMinHeight}"
+                  Padding="{DynamicResource ShellSettingsRowPadding}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceLg}">
+                  <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSettingsLabelSpacing}">
                     <TextBlock Text="{Binding Title}" />
                     <WrapPanel Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceMd}">
                       <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding SnapshotLabel}" />
@@ -116,21 +82,50 @@
                       Content="Clear…"
                       AutomationProperties.Name="{Binding ClearAutomationName}" />
                 </Grid>
-              </Grid>
+              </Border>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
-        <Border Height="1" Background="{DynamicResource ShellBorderBrush}" />
-        <controls:LiveRegionTextBlock
-            Margin="{DynamicResource ShellListRowPadding}"
-            Padding="{controls:Inset Horizontal=Xs}"
+      </Panel>
+      <!-- What the runs add up to, with the actions on all of them. -->
+      <Border
+          MinHeight="{DynamicResource ShellSettingsRowMinHeight}"
+          Padding="{DynamicResource ShellSettingsRowPadding}">
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+          <controls:LiveRegionTextBlock
+              VerticalAlignment="Center"
+              Classes="Muted"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
+              Text="{Binding StatusMessage}"
+              TextWrapping="Wrap"
+              AutomationProperties.LiveSetting="Polite"
+              AutomationProperties.Name="{Binding StatusAutomationName}" />
+          <Button
+              x:Name="RefreshRecoveryDataButton"
+              Grid.Column="1"
+              VerticalAlignment="Center"
+              Classes="SecondaryButton"
+              Click="OnRefreshClick"
+              Content="Refresh"
+              IsEnabled="{Binding CanRefresh, FallbackValue=False}"
+              AutomationProperties.Name="Refresh crash recovery data" />
+          <Button
+              Grid.Column="2"
+              VerticalAlignment="Center"
+              Classes="DestructiveButton"
+              Click="OnClearAllClick"
+              Content="Clear All…"
+              IsEnabled="{Binding CanClearAll, FallbackValue=False}"
+              AutomationProperties.Name="Clear all previous crash recovery data" />
+        </Grid>
+      </Border>
+      <controls:SettingsGroup.Footer>
+        <TextBlock
             Classes="Muted"
             FontSize="{DynamicResource ShellSecondaryFontSize}"
-            Text="{Binding StatusMessage}"
-            TextWrapping="Wrap"
-            AutomationProperties.LiveSetting="Polite"
-            AutomationProperties.Name="{Binding StatusAutomationName}" />
-      </StackPanel>
-    </controls:SurfaceCard>
+            Text="Asura keeps these to reopen your work after a crash. This run’s own snapshot isn’t listed."
+            TextWrapping="Wrap" />
+      </controls:SettingsGroup.Footer>
+    </controls:SettingsGroup>
   </StackPanel>
 </UserControl>

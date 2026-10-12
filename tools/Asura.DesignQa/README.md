@@ -12,10 +12,26 @@ shown off-screen and rendered at their own arranged size, so a capture reflects
 the dialog's real geometry rather than a fixed frame.
 
 A route captures the window its surface is shown in. Settings routes render the
-Settings window at 980 × 720 (or the taller height a `-full` route asks for);
-workspace-editor routes and `overlay-layout-designer` render the editor's own
-window, opened the way the product opens it. `overlay-new-panel` is the Add
-Panel popover on the title band's "+".
+Settings window at 850 × 800, its default frame (or the taller height a `-full`
+route asks for); the headless platform draws no traffic lights, so the sidebar's
+title band is empty in a capture. `settings-diagnostics` and
+`settings-diagnostics-full` bind the Data & Diagnostics page's own sections —
+the cache and logs, three earlier runs' recovery snapshots, and the bundle — to
+sample collaborators, as the product binds its own; without them the page shows
+only its first group. `settings-terminal-light`,
+`settings-terminal-high-contrast`, `settings-terminal-scale-200` and
+`settings-appearance-scale-250` show the grouped form in the appearances it has
+to survive; the high-contrast route marks the Settings window with the
+`high-contrast` class as the product's App does every window it reaches.
+`settings-workspace-editor-ai` turns the workspace's AI override on and scrolls
+the editor to its AI configuration, whose rows are otherwise below every
+capture's fold. `settings-appearance-density-spacious` chooses Spacious density
+on the Appearance page and must visibly loosen against `settings-appearance`; a
+route that clicks a segment or a radio button checks it, since a raised click
+event alone toggles nothing. Workspace-editor routes and
+`overlay-layout-designer` render the editor's own window, opened the way the
+product opens it. `overlay-new-panel`
+is the Add Panel popover on the title band's "+".
 
 A route that throws is logged as `FAILED <route>: <error>` and the run carries
 on with the next route. The run still exits non-zero, lists every failed route

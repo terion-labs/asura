@@ -317,8 +317,11 @@ public sealed class SettingsWindowHeadlessTests
                     .Single(item => string.Equals(item.Name, minusName, StringComparison.Ordinal));
                 Assert.Contains("Separated", list.Classes, StringComparer.Ordinal);
 
-                // The + and – sit in the bar inside the list's own card.
-                var card = list.GetVisualAncestors().OfType<Asura.App.Controls.SurfaceCard>().First();
+                // The + and – sit in the bar inside the plate of the list's
+                // settings group.
+                var card = list.GetVisualAncestors().OfType<Border>()
+                    .First(border => string.Equals(border.Name, "PART_Plate", StringComparison.Ordinal));
+                Assert.IsType<Asura.App.Controls.SettingsGroup>(card.TemplatedParent);
                 var bar = minus.GetVisualAncestors().OfType<Border>()
                     .First(border => border.Classes.Contains("ListActionBar"));
                 Assert.Contains(card, bar.GetVisualAncestors());

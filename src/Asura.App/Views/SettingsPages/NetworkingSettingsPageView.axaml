@@ -14,7 +14,7 @@
     connection is a dialog, like every other definition editor, so the page
     stays a page.
   -->
-  <StackPanel Spacing="{DynamicResource ShellSpaceSection}">
+  <StackPanel Classes="SettingsPage">
       <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
     <components:SettingsPageHeader
         Heading="Networking"
@@ -36,17 +36,23 @@
           Label="Active connection"
           Description="Used by application traffic and by every workspace that follows the default.">
         <ComboBox
-            HorizontalAlignment="Stretch"
             ItemsSource="{Binding Policy.AvailableConnections}"
             SelectedItem="{Binding Policy.SelectedConnection, Mode=TwoWay}"
             IsEnabled="{Binding Policy.HasAvailableConnections}"
             AutomationProperties.Name="Application network connection">
+          <!-- The button shows the connection's name alone, as a pop-up
+               button does; the menu says what kind each one is. -->
+          <ComboBox.SelectionBoxItemTemplate>
+            <DataTemplate x:DataType="vm:NetworkPolicyConnectionOptionViewModel">
+              <TextBlock Classes="MiddleTruncated" Text="{Binding Name}" />
+            </DataTemplate>
+          </ComboBox.SelectionBoxItemTemplate>
           <ComboBox.ItemTemplate>
             <DataTemplate x:DataType="vm:NetworkPolicyConnectionOptionViewModel">
-              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                <TextBlock Classes="MiddleTruncated" Text="{Binding Name}" />
-                <TextBlock Grid.Column="1" Classes="Eyebrow" Text="{Binding KindLabel}" />
-              </Grid>
+              <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+                <TextBlock VerticalAlignment="Center" Classes="MiddleTruncated" Text="{Binding Name}" />
+                <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding KindLabel}" />
+              </StackPanel>
             </DataTemplate>
           </ComboBox.ItemTemplate>
         </ComboBox>
@@ -91,10 +97,9 @@
       </controls:SettingsGroup.Footer>
     </controls:SettingsGroup>
 
-    <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-      <components:SectionHeader
-          Heading="Network connections"
-          Description="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat={}Saved proxy and VPN connections. Credentials stay in {0}.}" />
+    <controls:SettingsGroup
+        Heading="Network connections"
+        Description="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat={}Saved proxy and VPN connections. Credentials stay in {0}.}">
 
       <!-- The status line shows only while there is one and no error
            notice stands in for it. An empty wrapper would still take a
@@ -120,8 +125,7 @@
 
       <!-- The Mac list pattern: select a connection, then – below the
            list, its context menu, or Delete removes it; + adds one. -->
-      <controls:SurfaceCard Padding="0" ClipsContent="True">
-        <StackPanel>
+      <StackPanel>
           <ListBox
               x:Name="ProfileList"
               Classes="Rows Separated"
@@ -179,8 +183,7 @@
               </Button>
             </StackPanel>
           </Border>
-        </StackPanel>
-      </controls:SurfaceCard>
-    </StackPanel>
+      </StackPanel>
+    </controls:SettingsGroup>
   </StackPanel>
 </UserControl>

@@ -22,12 +22,15 @@
     signing are the repository's, and stay in the panel. Every choice applies
     as it changes and reaches every open Git panel at once.
   -->
-  <StackPanel Spacing="{DynamicResource ShellSpaceSection}">
+  <StackPanel Classes="SettingsPage">
     <components:SettingsPageHeader
         Heading="Git"
         Description="Choices that apply to every Git panel. A repository's identity and signing are set in its panel, from Tools ▸ Repository." />
 
-    <controls:SettingsGroup Heading="Git command" ControlWidth="300">
+    <controls:SettingsGroup
+        Heading="Git command"
+        Description="Choices here apply to every Git panel. A repository's identity and signing are set in its panel, from Tools ▸ Repository."
+        ControlWidth="300">
       <controls:SettingRow
           Label="Git executable"
           Description="The program each Git panel runs, on that panel's own connection: a command name such as git, or a full path.">
@@ -129,12 +132,11 @@
     <!-- The Mac list pattern: select a command, then – below the list, its
          context menu, or Delete removes it. Commands are saved from a Git
          panel's Run Custom Command…, next to the repository they run in. -->
-    <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-      <components:SectionHeader
-          Heading="Saved commands"
-          Description="Commands saved from Run Custom Command… in a Git panel. Every Git panel offers them." />
-      <controls:SurfaceCard Padding="0" ClipsContent="True" IsVisible="{Binding HasCustomCommands}">
-        <StackPanel>
+    <controls:SettingsGroup
+        Heading="Saved commands"
+        Description="Commands saved from Run Custom Command… in a Git panel. Every Git panel offers them.">
+      <Panel>
+        <StackPanel IsVisible="{Binding HasCustomCommands}">
           <ListBox
               x:Name="CustomCommandList"
               Classes="Rows Separated"
@@ -171,13 +173,17 @@
             </StackPanel>
           </Border>
         </StackPanel>
-      </controls:SurfaceCard>
-      <TextBlock
-          Classes="Muted"
-          FontSize="{DynamicResource ShellSecondaryFontSize}"
-          IsVisible="{Binding !HasCustomCommands}"
-          Text="No saved commands."
-          TextWrapping="Wrap" />
-    </StackPanel>
+        <Border
+            MinHeight="{DynamicResource ShellSettingsRowMinHeight}"
+            Padding="{DynamicResource ShellSettingsRowPadding}"
+            IsVisible="{Binding !HasCustomCommands}">
+          <TextBlock
+              VerticalAlignment="Center"
+              Classes="Muted"
+              Text="No saved commands."
+              TextWrapping="Wrap" />
+        </Border>
+      </Panel>
+    </controls:SettingsGroup>
   </StackPanel>
 </UserControl>

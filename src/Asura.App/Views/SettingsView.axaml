@@ -12,23 +12,37 @@
     xmlns:views="using:Asura.App.Views"
     xmlns:globalization="using:System.Globalization"
     HorizontalContentAlignment="Stretch"
-    VerticalContentAlignment="Stretch">
+    VerticalContentAlignment="Stretch"
+    CurrentSettingsPage="{Binding SettingsPage}">
   <UserControl.Styles>
-    <!-- The page on show is the sidebar's selected row, drawn as every other
-         selected sidebar row: the accent fill with its measured ink while the
-         sidebar has focus, and the unemphasized gray with plain label text
-         when focus is in the page. Accent text on gray was a third way. -->
-    <Style Selector="Button.NavButton.active">
+    <!-- The page on show is the sidebar's selected row: a neutral plate with
+         the label in the row's own ink, as System Settings draws it, and the
+         accent fill with its white label only while the sidebar itself has
+         focus, when AppKit would draw the list's selection emphasized. The
+         pointer lights nothing: a sidebar row is not a button that hovers.
+         The tile keeps its colour and its white glyph either way. -->
+    <Style Selector="StackPanel#SettingsNavigation Button.NavButton">
+      <Setter Property="MinHeight" Value="{DynamicResource ShellSettingsSidebarRowHeight}" />
+      <Setter Property="Padding" Value="{DynamicResource ShellSettingsSidebarItemPadding}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource ShellSettingsSidebarSelectionCornerRadius}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
+      <Setter Property="FontWeight" Value="Normal" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="StackPanel#SettingsNavigation Button.NavButton:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="StackPanel#SettingsNavigation Button.NavButton TextBlock">
       <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
     </Style>
-    <Style Selector="Button.NavButton.active /template/ ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource ShellUnemphasizedSelectionBrush}" />
+    <Style Selector="StackPanel#SettingsNavigation Button.NavButton icons|SymbolIcon">
+      <Setter Property="Foreground" Value="{DynamicResource ShellSettingsTileGlyphBrush}" />
     </Style>
-    <Style Selector="Button.NavButton.active TextBlock">
-      <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
+    <Style Selector="StackPanel#SettingsNavigation Button.NavButton.active /template/ ContentPresenter, StackPanel#SettingsNavigation Button.NavButton.active:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ShellSettingsSidebarSelectionBrush}" />
     </Style>
-    <Style Selector="Button.NavButton.active icons|SymbolIcon">
-      <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
+    <Style Selector="StackPanel#SettingsNavigation Button.NavButton.active TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource ShellSettingsSidebarSelectionForegroundBrush}" />
     </Style>
     <Style Selector="StackPanel#SettingsNavigation:focus-within Button.NavButton.active /template/ ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
@@ -36,215 +50,257 @@
     <Style Selector="StackPanel#SettingsNavigation:focus-within Button.NavButton.active TextBlock">
       <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
     </Style>
-    <Style Selector="StackPanel#SettingsNavigation:focus-within Button.NavButton.active icons|SymbolIcon">
-      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
-    </Style>
-
-    <!-- A settings list is one rounded card, as in System Settings: the
-         rows sit edge to edge inside it with a hairline between them, and
-         the + and – that act on it sit in a bar along the card's bottom
-         edge. A row's highlight is inset by the same amount on every side,
-         from the card's edges and from the hairlines alike; the stock row
-         was inset at its sides only, so a selected row met the card's top
-         edge and the hairline under it while it stood clear of the sides. -->
-    <Style Selector="ListBox.Separated > ListBoxItem">
-      <Setter Property="Margin" Value="0" />
-      <Setter Property="Template">
-        <ControlTemplate>
-          <Panel>
-            <ContentPresenter
-                Name="PART_ContentPresenter"
-                Margin="{DynamicResource ShellInsetXs}"
-                Padding="{TemplateBinding Padding}"
-                Background="{TemplateBinding Background}"
-                CornerRadius="{TemplateBinding CornerRadius}"
-                Content="{TemplateBinding Content}"
-                ContentTemplate="{TemplateBinding ContentTemplate}"
-                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
-            <Border
-                Name="PART_Separator"
-                Height="1"
-                VerticalAlignment="Bottom"
-                Background="{DynamicResource ShellBorderBrush}" />
-          </Panel>
-        </ControlTemplate>
-      </Setter>
-    </Style>
-    <Style Selector="ListBox.Separated > ListBoxItem:nth-last-child(1) /template/ Border#PART_Separator">
+    <!-- Under the window's buttons only where the window runs under its
+         title bar; elsewhere the platform draws a title bar of its own above
+         the sidebar. Over the sidebar material, the sidebar is clear. -->
+    <Style Selector=":is(Window):not(.settings-extended) Border#SettingsSidebarTitleBand">
       <Setter Property="IsVisible" Value="False" />
     </Style>
-    <!-- The same card for a list nothing is selected in: the layouts. -->
-    <Style Selector="ItemsControl.Separated > ContentPresenter">
-      <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
-      <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Style Selector="Border#SettingsSidebar">
+      <Setter Property="Background" Value="{DynamicResource ShellSettingsSidebarBrush}" />
     </Style>
-    <Style Selector="ItemsControl.Separated > ContentPresenter:nth-last-child(1)">
-      <Setter Property="BorderThickness" Value="0" />
+    <Style Selector=":is(Window).settings-translucent Border#SettingsSidebar">
+      <Setter Property="Background" Value="Transparent" />
     </Style>
-    <!-- The hairline between a list and its + and – bar is the list's own
-         bottom edge, not the bar's top edge, so an empty list draws none:
-         the bar's line sat right under the card's border, a doubled edge
-         on a card with nothing in it. -->
-    <Style Selector="ListBox.Separated">
-      <Setter Property="Padding" Value="0" />
-      <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
-      <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <!-- Logical groups of pages stand a little apart, as the host's do. -->
+    <Style Selector="StackPanel#SettingsNavigation > components|ShellNavigationItem.GroupStart">
+      <Setter Property="Margin" Value="{DynamicResource ShellSettingsSidebarGroupInset}" />
     </Style>
-    <Style Selector="ListBox.Separated:empty">
-      <Setter Property="BorderThickness" Value="0" />
-    </Style>
-    <Style Selector="Border.ListActionBar">
-      <Setter Property="Padding" Value="{DynamicResource ShellInsetXs}" />
-    </Style>
+
   </UserControl.Styles>
   <!--
-    The Settings window's content. The window's own title bar names the page,
-    so there is no header band here and no Back button: Settings is a window
-    of its own and closes like one.
+    The Settings window's content, laid out as System Settings: a sidebar the
+    full height of the window, with the window's buttons at its top and the
+    search field under them, and beside it the page — its title band, where
+    back and forward and the page's name sit on the window buttons' line, and
+    the page's grouped form under it. The content runs into the title bar, so
+    both bands are where the window is dragged from.
   -->
-  <Grid ColumnDefinitions="244,*">
-        <Border Classes="FloatingSidebar"
-          controls:Concentric.IsEnabled="True" Classes.routeSidebar="True">
-          <Grid RowDefinitions="Auto,*">
-            <!-- Filters the pages below and the rows of the page on show.
-                 Return opens the first matching page. -->
-            <controls:SearchField
-                x:Name="SettingsSearch"
-                Margin="{controls:Inset Md}"
-                PlaceholderText="Search"
-                TextChanged="OnSettingsSearchTextChanged"
-                KeyDown="OnSettingsSearchKeyDown"
-                AutomationProperties.Name="Search settings" />
-            <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-              <StackPanel x:Name="SettingsNavigation" Margin="{controls:Inset Horizontal=Md, Bottom=Lg}" Spacing="{DynamicResource ShellSpaceXs}">
-                <components:ShellNavigationItem
-                    x:Name="AppearanceNavigationItem"
-                    AutomationName="Appearance"
-                    Click="OnAppearanceSettingsClick"
-                    Icon="Color"
-                    IsActive="{Binding IsAppearanceSettingsVisible}"
-                    Label="Appearance" />
-                <components:ShellNavigationItem
-                    x:Name="WorkspacesNavigationItem"
-                    AutomationName="Workspaces &amp; Screens"
-                    Click="OnWorkspaceSettingsClick"
-                    Icon="Window"
-                    IsActive="{Binding IsWorkspaceSettingsVisible}"
-                    Label="Workspaces &amp; Screens" />
-                <components:ShellNavigationItem
-                    x:Name="NetworkingNavigationItem"
-                    AutomationName="Networking"
-                    Click="OnNetworkingSettingsClick"
-                    Icon="ArrowRouting"
-                    IsActive="{Binding IsNetworkingSettingsVisible}"
-                    Label="Networking" />
-                <components:ShellNavigationItem
-                    x:Name="KeybindingsNavigationItem"
-                    AutomationName="Keyboard Shortcuts"
-                    Click="OnKeybindingSettingsClick"
-                    Icon="Keyboard"
-                    IsActive="{Binding IsKeybindingSettingsVisible}"
-                    Label="Keyboard Shortcuts" />
-                <components:ShellNavigationItem
-                    x:Name="FilesNavigationItem"
-                    AutomationName="Files &amp; Transfers"
-                    Click="OnFilesSettingsClick"
-                    Icon="Folder"
-                    IsActive="{Binding IsFilesSettingsVisible}"
-                    Label="Files &amp; Transfers" />
-                <components:ShellNavigationItem
-                    x:Name="BrowserNavigationItem"
-                    AutomationName="Browser"
-                    Click="OnBrowserSettingsClick"
-                    Icon="Globe"
-                    IsActive="{Binding IsBrowserSettingsVisible}"
-                    Label="Browser" />
-                <components:ShellNavigationItem
-                    x:Name="TerminalNavigationItem"
-                    AutomationName="Terminal"
-                    Click="OnTerminalSettingsClick"
-                    Icon="WindowConsole"
-                    IsActive="{Binding IsTerminalSettingsVisible}"
-                    Label="Terminal" />
-                <components:ShellNavigationItem
-                    x:Name="QuickTerminalNavigationItem"
-                    AutomationName="Quick Terminal"
-                    Click="OnQuickTerminalSettingsClick"
-                    Icon="PanelTopExpand"
-                    IsActive="{Binding IsQuickTerminalSettingsVisible}"
-                    Label="Quick Terminal" />
-                <components:ShellNavigationItem
-                    x:Name="GitNavigationItem"
-                    AutomationName="Git"
-                    Click="OnGitSettingsClick"
-                    Icon="BranchFork"
-                    IsActive="{Binding IsGitSettingsVisible}"
-                    Label="Git" />
-                <components:ShellNavigationItem
-                    x:Name="NotificationsNavigationItem"
-                    AutomationName="Notifications"
-                    Click="OnNotificationSettingsClick"
-                    Icon="Alert"
-                    IsActive="{Binding IsNotificationSettingsVisible}"
-                    Label="Notifications" />
-                <components:ShellNavigationItem
-                    x:Name="SecretsNavigationItem"
-                    AutomationName="Security &amp; Secrets"
-                    Click="OnSecretsSettingsClick"
-                    Icon="Key"
-                    IsActive="{Binding IsSecretsSettingsVisible}"
-                    Label="Security &amp; Secrets" />
-                <components:ShellNavigationItem
-                    x:Name="DiagnosticsNavigationItem"
-                    AutomationName="Data &amp; Diagnostics"
-                    Click="OnDiagnosticsSettingsClick"
-                    Icon="DocumentBulletList"
-                    IsActive="{Binding IsDiagnosticsSettingsVisible}"
-                    Label="Data &amp; Diagnostics" />
-                <components:ShellNavigationItem
-                    x:Name="AgentNavigationItem"
-                    AutomationName="AI"
-                    Click="OnAgentSettingsClick"
-                    Icon="Bot"
-                    IsActive="{Binding IsAgentSettingsVisible}"
-                    Label="AI" />
-                <components:ShellNavigationItem
-                    x:Name="AboutNavigationItem"
-                    AutomationName="About"
-                    Click="OnAboutSettingsClick"
-                    Icon="BookInformation"
-                    IsActive="{Binding IsAboutSettingsVisible}"
-                    Label="About" />
-                <TextBlock
-                    x:Name="SettingsSearchNoResults"
-                    Margin="{controls:Inset Horizontal=Sm, Top=Sm}"
-                    Classes="Muted"
-                    IsVisible="False"
-                    Text="No Results"
-                    AutomationProperties.LiveSetting="Polite" />
-              </StackPanel>
-            </ScrollViewer>
-          </Grid>
-        </Border>
-
-        <ScrollViewer x:Name="SettingsPageScroll" Grid.Column="1">
-          <!-- The top inset matches the sidebar's, so both columns start at the
-               same height. A page inset on top of the chrome band above it put
-               the first heading a section's worth below everything beside it,
-               which reads as the page having been pushed down rather than as
-               room to breathe. -->
-          <Grid Margin="{controls:Inset Horizontal=Xxl, Top=Md, Bottom=Xxl}">
-            <!-- Shown under the page heading when a search leaves nothing on
-                 the page; the sidebar lists the pages that do match. -->
+  <Grid x:Name="SettingsLayout" ColumnDefinitions="Auto,*">
+    <Border
+        x:Name="SettingsSidebar"
+        Width="{DynamicResource ShellSettingsSidebarWidth}">
+      <Grid RowDefinitions="Auto,Auto,*">
+        <!-- The window's buttons sit here, on the title band's axis. -->
+        <Border
+            x:Name="SettingsSidebarTitleBand"
+            Height="{DynamicResource ShellSettingsTitleBandHeight}"
+            Background="Transparent"
+            WindowDecorationProperties.ElementRole="TitleBar" />
+        <!-- Filters the pages below and the rows of the page on show.
+             Return opens the first matching page. -->
+        <controls:SearchField
+            x:Name="SettingsSearch"
+            Grid.Row="1"
+            Classes="SettingsSearch"
+            Margin="{DynamicResource ShellSettingsSidebarSearchInset}"
+            PlaceholderText="Search"
+            TextChanged="OnSettingsSearchTextChanged"
+            KeyDown="OnSettingsSearchKeyDown"
+            AutomationProperties.Name="Search settings" />
+        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+          <!-- Up and Down move through the pages and show each, as the
+               host's sidebar does; Tab leaves for the page. -->
+          <StackPanel
+              x:Name="SettingsNavigation"
+              Margin="{DynamicResource ShellSettingsSidebarInset}"
+              KeyDown="OnSettingsNavigationKeyDown"
+              AutomationProperties.Name="Settings pages">
+            <components:ShellNavigationItem
+                x:Name="AppearanceNavigationItem"
+                AutomationName="Appearance"
+                Click="OnAppearanceSettingsClick"
+                Icon="DarkTheme"
+                TileBrush="{DynamicResource ShellSettingsTileGraphiteBrush}"
+                IsActive="{Binding IsAppearanceSettingsVisible}"
+                Label="Appearance" />
+            <components:ShellNavigationItem
+                x:Name="WorkspacesNavigationItem"
+                AutomationName="Workspaces &amp; Screens"
+                Click="OnWorkspaceSettingsClick"
+                Icon="Window"
+                TileBrush="{DynamicResource ShellSettingsTileGreenBrush}"
+                IsActive="{Binding IsWorkspaceSettingsVisible}"
+                Label="Workspaces &amp; Screens" />
+            <components:ShellNavigationItem
+                x:Name="NetworkingNavigationItem"
+                AutomationName="Networking"
+                Click="OnNetworkingSettingsClick"
+                Icon="Globe"
+                TileBrush="{DynamicResource ShellSettingsTileBlueBrush}"
+                IsActive="{Binding IsNetworkingSettingsVisible}"
+                Label="Networking" />
+            <components:ShellNavigationItem
+                x:Name="KeybindingsNavigationItem"
+                AutomationName="Keyboard Shortcuts"
+                Click="OnKeybindingSettingsClick"
+                Icon="Keyboard"
+                TileBrush="{DynamicResource ShellSettingsTileGrayBrush}"
+                IsActive="{Binding IsKeybindingSettingsVisible}"
+                Label="Keyboard Shortcuts" />
+            <components:ShellNavigationItem
+                x:Name="FilesNavigationItem"
+                Classes="GroupStart"
+                AutomationName="Files &amp; Transfers"
+                Click="OnFilesSettingsClick"
+                Icon="Folder"
+                TileBrush="{DynamicResource ShellSettingsTileSkyBrush}"
+                IsActive="{Binding IsFilesSettingsVisible}"
+                Label="Files &amp; Transfers" />
+            <components:ShellNavigationItem
+                x:Name="BrowserNavigationItem"
+                AutomationName="Browser"
+                Click="OnBrowserSettingsClick"
+                Icon="CompassNorthwest"
+                TileBrush="{DynamicResource ShellSettingsTileBlueBrush}"
+                IsActive="{Binding IsBrowserSettingsVisible}"
+                Label="Browser" />
+            <components:ShellNavigationItem
+                x:Name="TerminalNavigationItem"
+                AutomationName="Terminal"
+                Click="OnTerminalSettingsClick"
+                Icon="WindowConsole"
+                TileBrush="{DynamicResource ShellSettingsTileDarkGrayBrush}"
+                IsActive="{Binding IsTerminalSettingsVisible}"
+                Label="Terminal" />
+            <components:ShellNavigationItem
+                x:Name="QuickTerminalNavigationItem"
+                AutomationName="Quick Terminal"
+                Click="OnQuickTerminalSettingsClick"
+                Icon="PanelTopExpand"
+                TileBrush="{DynamicResource ShellSettingsTileDarkGrayBrush}"
+                IsActive="{Binding IsQuickTerminalSettingsVisible}"
+                Label="Quick Terminal" />
+            <components:ShellNavigationItem
+                x:Name="GitNavigationItem"
+                AutomationName="Git"
+                Click="OnGitSettingsClick"
+                Icon="BranchFork"
+                TileBrush="{DynamicResource ShellSettingsTileOrangeBrush}"
+                IsActive="{Binding IsGitSettingsVisible}"
+                Label="Git" />
+            <components:ShellNavigationItem
+                x:Name="NotificationsNavigationItem"
+                Classes="GroupStart"
+                AutomationName="Notifications"
+                Click="OnNotificationSettingsClick"
+                Icon="Alert"
+                TileBrush="{DynamicResource ShellSettingsTileRedBrush}"
+                IsActive="{Binding IsNotificationSettingsVisible}"
+                Label="Notifications" />
+            <components:ShellNavigationItem
+                x:Name="SecretsNavigationItem"
+                AutomationName="Security &amp; Secrets"
+                Click="OnSecretsSettingsClick"
+                Icon="LockClosed"
+                TileBrush="{DynamicResource ShellSettingsTileGrayBrush}"
+                IsActive="{Binding IsSecretsSettingsVisible}"
+                Label="Security &amp; Secrets" />
+            <components:ShellNavigationItem
+                x:Name="DiagnosticsNavigationItem"
+                AutomationName="Data &amp; Diagnostics"
+                Click="OnDiagnosticsSettingsClick"
+                Icon="DataPie"
+                TileBrush="{DynamicResource ShellSettingsTileGrayBrush}"
+                IsActive="{Binding IsDiagnosticsSettingsVisible}"
+                Label="Data &amp; Diagnostics" />
+            <components:ShellNavigationItem
+                x:Name="AgentNavigationItem"
+                Classes="GroupStart"
+                AutomationName="AI"
+                Click="OnAgentSettingsClick"
+                Icon="Bot"
+                TileBrush="{DynamicResource ShellSettingsTilePurpleBrush}"
+                IsActive="{Binding IsAgentSettingsVisible}"
+                Label="AI" />
+            <components:ShellNavigationItem
+                x:Name="AboutNavigationItem"
+                AutomationName="About"
+                Click="OnAboutSettingsClick"
+                Icon="Info"
+                TileBrush="{DynamicResource ShellSettingsTileGrayBrush}"
+                IsActive="{Binding IsAboutSettingsVisible}"
+                Label="About" />
             <TextBlock
-                x:Name="SettingsPageNoResults"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Top"
+                x:Name="SettingsSearchNoResults"
+                Margin="{DynamicResource ShellSettingsSidebarItemPadding}"
                 Classes="Muted"
                 IsVisible="False"
-                Text="No Results on This Page"
+                Text="No Results"
                 AutomationProperties.LiveSetting="Polite" />
+          </StackPanel>
+        </ScrollViewer>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Column="1" RowDefinitions="Auto,*" Background="{DynamicResource ShellBackgroundBrush}">
+      <!-- The page's title band: back and forward through the pages visited,
+           and the page's name, on the window buttons' line. -->
+      <Border
+          x:Name="SettingsTitleBand"
+          Height="{DynamicResource ShellSettingsTitleBandHeight}"
+          Background="Transparent"
+          WindowDecorationProperties.ElementRole="TitleBar">
+        <!-- A grid, so a long title at a large text size has a width to
+             trim to rather than the endless one a horizontal stack gives. -->
+        <Grid
+            Margin="{DynamicResource ShellSettingsTitleBandInset}"
+            VerticalAlignment="Center"
+            ColumnDefinitions="Auto,*"
+            ColumnSpacing="{DynamicResource ShellSpaceMd}">
+          <Border
+              x:Name="SettingsHistoryCapsule"
+              Classes="SettingsHistoryCapsule"
+              Height="{DynamicResource ShellSettingsHistoryButtonHeight}"
+              VerticalAlignment="Center"
+              WindowDecorationProperties.ElementRole="User">
+            <StackPanel Orientation="Horizontal">
+              <Button
+                  x:Name="SettingsBackButton"
+                  Classes="SettingsHistoryButton"
+                  Click="OnSettingsBackClick"
+                  IsEnabled="False"
+                  ToolTip.Tip="Back (⌘[)"
+                  AutomationProperties.Name="Back">
+                <icons:SymbolIcon Symbol="ChevronLeft" />
+              </Button>
+              <Border Classes="SettingsHistoryDivider" />
+              <Button
+                  x:Name="SettingsForwardButton"
+                  Classes="SettingsHistoryButton"
+                  Click="OnSettingsForwardClick"
+                  IsEnabled="False"
+                  ToolTip.Tip="Forward (⌘])"
+                  AutomationProperties.Name="Forward">
+                <icons:SymbolIcon Symbol="ChevronRight" />
+              </Button>
+            </StackPanel>
+          </Border>
+          <TextBlock
+              x:Name="SettingsPageTitle"
+              Grid.Column="1"
+              Margin="{DynamicResource ShellSettingsTitleInset}"
+              VerticalAlignment="Center"
+              FontSize="{DynamicResource ShellFontSize15}"
+              FontWeight="Bold"
+              TextTrimming="CharacterEllipsis"
+              AutomationProperties.HeadingLevel="1" />
+        </Grid>
+      </Border>
+
+      <ScrollViewer x:Name="SettingsPageScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+        <Grid Margin="{DynamicResource ShellSettingsPagePadding}">
+          <!-- Shown under the page's opening line when a search leaves
+               nothing on the page; the sidebar lists the pages that do
+               match. -->
+          <TextBlock
+              x:Name="SettingsPageNoResults"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Top"
+              Classes="Muted"
+              IsVisible="False"
+              Text="No Results on This Page"
+              AutomationProperties.LiveSetting="Polite" />
             <settingsPages:AppearanceSettingsPageView
                 x:Name="AppearanceSettingsPage"
                 IsVisible="{Binding IsAppearanceSettingsVisible}"
@@ -266,11 +322,11 @@
                   DataContext="{Binding NetworkSettings}" />
             </Grid>
 
-            <StackPanel x:Name="WorkspacesSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsWorkspaceSettingsVisible}">
+            <StackPanel x:Name="WorkspacesSettingsPage" Classes="SettingsPage" IsVisible="{Binding IsWorkspaceSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="Workspaces &amp; Screens"
                   Description="Manage saved workspaces, the screens they open, and launch layouts." />
-              <controls:SettingsGroup>
+              <controls:SettingsGroup Heading="Startup">
                 <controls:SettingRow
                     Label="Restore sessions on start"
                     Description="Reopen the tabs, panels, connections, and locations from the previous session.">
@@ -295,7 +351,7 @@
                       AutomationProperties.Name="Install Apple container runtime" />
                 </controls:Callout.Action>
               </controls:Callout>
-              <controls:SurfaceCard Tone="Notice" Padding="{DynamicResource ShellCardPaddingCompact}"
+              <controls:SurfaceCard Tone="Notice" Padding="{DynamicResource ShellSettingsRowPadding}"
                   x:Name="SavedScreenDeleteUndoNotice"
                   IsVisible="{Binding SavedScreenDeleteUndo.HasPending}"
                   AutomationProperties.LiveSetting="Polite"
@@ -327,10 +383,8 @@
               <!-- The Mac list pattern: select a row, then – below the list or
                    the row's context menu removes it. Edit… stays on the row,
                    and nothing red sits on every line. -->
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <TextBlock Classes="SectionHeading" Text="Workspaces" />
-                <controls:SurfaceCard Padding="0" ClipsContent="True">
-                  <StackPanel>
+              <controls:SettingsGroup Heading="Workspaces">
+                <StackPanel>
                   <ListBox
                       x:Name="WorkspaceList"
                       Classes="Rows Separated"
@@ -338,8 +392,8 @@
                       SelectionChanged="OnWorkspaceListSelectionChanged"
                       KeyDown="OnWorkspaceListKeyDown"
                       AutomationProperties.Name="Workspaces">
-                  <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:LauncherWorkspaceViewModel">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:LauncherWorkspaceViewModel">
                         <controls:ListItem ContentPadding="{DynamicResource ShellListRowPadding}" Title="{Binding Name}" Detail="{Binding Description}">
                           <controls:ListItem.ContextMenu>
                             <ContextMenu>
@@ -372,8 +426,8 @@
                             </StackPanel>
                           </controls:ListItem.Trailing>
                         </controls:ListItem>
-                    </DataTemplate>
-                  </ListBox.ItemTemplate>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
                   </ListBox>
                   <Border Classes="ListActionBar">
                     <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
@@ -396,13 +450,10 @@
                       </Button>
                     </StackPanel>
                   </Border>
-                  </StackPanel>
-                </controls:SurfaceCard>
-              </StackPanel>
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <TextBlock Classes="SectionHeading" Text="Saved screens" />
-                <controls:SurfaceCard Padding="0" ClipsContent="True">
-                  <StackPanel>
+                </StackPanel>
+              </controls:SettingsGroup>
+              <controls:SettingsGroup Heading="Saved screens">
+                <StackPanel>
                   <ListBox
                       x:Name="ScreenList"
                       Classes="Rows Separated"
@@ -410,8 +461,8 @@
                       SelectionChanged="OnScreenListSelectionChanged"
                       KeyDown="OnScreenListKeyDown"
                       AutomationProperties.Name="Saved screens">
-                  <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:LauncherScreenViewModel">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:LauncherScreenViewModel">
                         <controls:ListItem ContentPadding="{DynamicResource ShellListRowPadding}" Title="{Binding Name}" Detail="{Binding Description}">
                           <controls:ListItem.ContextMenu>
                             <ContextMenu>
@@ -430,8 +481,8 @@
                             </StackPanel>
                           </controls:ListItem.Trailing>
                         </controls:ListItem>
-                    </DataTemplate>
-                  </ListBox.ItemTemplate>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
                   </ListBox>
                   <Border Classes="ListActionBar">
                     <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
@@ -453,48 +504,51 @@
                       </Button>
                     </StackPanel>
                   </Border>
-                  </StackPanel>
-                </controls:SurfaceCard>
-              </StackPanel>
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <Grid ColumnDefinitions="*,Auto"><TextBlock VerticalAlignment="Center" Classes="SectionHeading" Text="Layouts" /><Button Grid.Column="1" Classes="SecondaryButton" Click="OnShowLayoutDesignerClick" Content="Layout Designer…" /></Grid>
-                <controls:SurfaceCard Padding="0" ClipsContent="True">
+                </StackPanel>
+              </controls:SettingsGroup>
+              <!-- Layouts are made in the Layout Designer, which the plate's
+                   bottom bar opens, where another list keeps its + and –. -->
+              <controls:SettingsGroup Heading="Layouts">
+                <StackPanel>
                   <Panel>
-                  <controls:StateOverlay
-                      Margin="{controls:Inset Xl}"
-                      Kind="Empty"
-                      Heading="No layouts"
-                      Body="Open the Layout Designer to make one."
-                      IsVisible="{Binding !Layouts.Count}" />
-                  <ItemsControl Classes="Separated StretchItems" ItemsSource="{Binding Layouts}">
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate>
-                        <controls:ListItem Margin="{DynamicResource ShellInsetXs}" ContentPadding="{DynamicResource ShellListRowPadding}" Title="{Binding Name}" Detail="{Binding GridSummary}">
-                          <controls:ListItem.Leading>
-                            <Border Width="72" Height="44" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellInnerCornerRadius}" ClipToBounds="True">
-                              <ItemsControl Margin="{DynamicResource ShellPreviewTileInset}" ItemsSource="{Binding PreviewPanels}">
-                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><controls:ScreenLayoutPreviewPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                  <DataTemplate>
-                                    <Border Margin="{DynamicResource ShellHairlineInset}" Classes="ScreenPreviewPanel" Classes.primary="{Binding IsPrimary}" />
-                                  </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                              </ItemsControl>
-                            </Border>
-                          </controls:ListItem.Leading>
-                          <controls:ListItem.Trailing>
-                            <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                              <controls:StatusChip Shape="Rounded" Tone="Default" Content="{Binding SlotCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=slot}" />
-                              <Button Classes="SecondaryButton" Click="OnEditLayoutClick" Content="Edit…" AutomationProperties.Name="{Binding Name, StringFormat={}Edit layout {0}}" />
-                            </StackPanel>
-                          </controls:ListItem.Trailing>
-                        </controls:ListItem>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
+                    <controls:StateOverlay
+                        Margin="{controls:Inset Xl}"
+                        Kind="Empty"
+                        Heading="No layouts"
+                        Body="Open the Layout Designer to make one."
+                        IsVisible="{Binding !Layouts.Count}" />
+                    <ItemsControl Classes="Separated StretchItems" ItemsSource="{Binding Layouts}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <controls:ListItem Margin="{DynamicResource ShellInsetXs}" ContentPadding="{DynamicResource ShellListRowPadding}" Title="{Binding Name}" Detail="{Binding GridSummary}">
+                            <controls:ListItem.Leading>
+                              <Border Width="72" Height="44" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellInnerCornerRadius}" ClipToBounds="True">
+                                <ItemsControl Margin="{DynamicResource ShellPreviewTileInset}" ItemsSource="{Binding PreviewPanels}">
+                                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><controls:ScreenLayoutPreviewPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                  <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                      <Border Margin="{DynamicResource ShellHairlineInset}" Classes="ScreenPreviewPanel" Classes.primary="{Binding IsPrimary}" />
+                                    </DataTemplate>
+                                  </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                              </Border>
+                            </controls:ListItem.Leading>
+                            <controls:ListItem.Trailing>
+                              <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+                                <controls:StatusChip Shape="Rounded" Tone="Default" Content="{Binding SlotCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=slot}" />
+                                <Button Classes="SecondaryButton" Click="OnEditLayoutClick" Content="Edit…" AutomationProperties.Name="{Binding Name, StringFormat={}Edit layout {0}}" />
+                              </StackPanel>
+                            </controls:ListItem.Trailing>
+                          </controls:ListItem>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                   </Panel>
-                </controls:SurfaceCard>
-              </StackPanel>
+                  <Border Classes="ListActionBar ListActionBarRule">
+                    <Button HorizontalAlignment="Right" Classes="SecondaryButton" Click="OnShowLayoutDesignerClick" Content="Layout Designer…" />
+                  </Border>
+                </StackPanel>
+              </controls:SettingsGroup>
               <controls:SettingsGroup Heading="Export and import">
                 <controls:SettingRow
                     Label="Move your Asura setup"
@@ -509,55 +563,62 @@
                 </controls:SettingsGroup.Footer>
               </controls:SettingsGroup>
             </StackPanel>
+            <StackPanel x:Name="KeybindingsSettingsPage" Classes="SettingsPage" IsVisible="{Binding IsKeybindingSettingsVisible}">
+              <components:SettingsPageHeader
+                  Heading="Keyboard Shortcuts"
+                  Description="Record, unbind, reset, and check application and terminal shortcuts. Shortcuts with blocking conflicts can’t be saved." />
 
-            <StackPanel x:Name="KeybindingsSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsKeybindingSettingsVisible}">
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <components:SettingsPageHeader
-                    Heading="Keyboard Shortcuts"
-                    Description="Record, unbind, reset, and check application and terminal shortcuts. Shortcuts with blocking conflicts can’t be saved." />
-                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ActiveApplicationKeymapName, StringFormat={}Active application profile · {0}}" />
-                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap" Text="Your newest custom application profile is the active one. To use the tmux-like prefix, choose its preset and clone it." />
-              </StackPanel>
+              <!-- The profile is chosen in a row of its own, with Clone Preset
+                   beside the pop-up; which profile is active is said under
+                   its name, and how one becomes active closes the plate. -->
+              <controls:SettingsGroup
+                  Heading="Profile"
+                  Description="Shortcuts with blocking conflicts can’t be saved.">
+                <controls:SettingRow
+                    Label="Shortcut profile"
+                    Description="{Binding ActiveApplicationKeymapName, StringFormat={}Active application profile · {0}}">
+                  <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+                    <ComboBox
+                        VerticalAlignment="Center"
+                        ItemsSource="{Binding KeybindingProfiles}"
+                        SelectedItem="{Binding SelectedKeybindingProfile, Mode=OneWay}"
+                        SelectionChanged="OnKeybindingProfileSelectionChanged"
+                        AutomationProperties.Name="Keyboard shortcut profile">
+                      <!-- The button shows the value alone, as a pop-up button
+                           does; the menu says which layer each one is. -->
+                      <ComboBox.SelectionBoxItemTemplate>
+                        <DataTemplate>
+                          <TextBlock Classes="MiddleTruncated" Text="{Binding Name}" />
+                        </DataTemplate>
+                      </ComboBox.SelectionBoxItemTemplate>
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                          <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+                            <TextBlock VerticalAlignment="Center" Classes="MiddleTruncated" Text="{Binding Name}" />
+                            <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding LayerLabel}" />
+                          </StackPanel>
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button VerticalAlignment="Center" Classes="SecondaryButton" Click="OnCloneKeybindingPresetClick" Content="Clone Preset" IsEnabled="{Binding CanCloneSelectedKeybindingProfile}" />
+                  </StackPanel>
+                </controls:SettingRow>
+                <controls:SettingsGroup.Footer>
+                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap" Text="Your newest custom application profile is the active one. To use the tmux-like prefix, choose its preset and clone it." />
+                </controls:SettingsGroup.Footer>
+              </controls:SettingsGroup>
 
-              <!-- The profile and its Clone Preset share a row; the filter has a
-                   row of its own, so a narrow window wraps nothing over it. -->
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                  <ComboBox
-                      MaxWidth="360"
-                      HorizontalAlignment="Stretch"
-                      ItemsSource="{Binding KeybindingProfiles}"
-                      SelectedItem="{Binding SelectedKeybindingProfile, Mode=OneWay}"
-                      SelectionChanged="OnKeybindingProfileSelectionChanged"
-                      AutomationProperties.Name="Keyboard shortcut profile">
-                    <ComboBox.ItemTemplate>
-                      <DataTemplate>
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                          <TextBlock VerticalAlignment="Center" Classes="MiddleTruncated" Text="{Binding Name}" />
-                          <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding LayerLabel}" />
-                        </Grid>
-                      </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                  </ComboBox>
-                  <Button Grid.Column="1" Classes="SecondaryButton" Click="OnCloneKeybindingPresetClick" Content="Clone Preset" IsEnabled="{Binding CanCloneSelectedKeybindingProfile}" />
-                </Grid>
-                <controls:SearchField
-                    Text="{Binding KeybindingEditorSession.Query}"
-                    PlaceholderText="Filter commands or shortcuts"
-                    AutomationProperties.Name="Filter keyboard shortcuts" />
-              </StackPanel>
-
-              <controls:SurfaceCard Padding="{DynamicResource ShellRowPadding}">
+              <controls:SurfaceCard Padding="{DynamicResource ShellSettingsRowPadding}">
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                  <StackPanel>
+                  <StackPanel Spacing="{DynamicResource ShellSettingsLabelSpacing}">
                     <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                      <TextBlock FontWeight="SemiBold" Text="{Binding KeybindingEditorSession.Name}" />
+                      <TextBlock Text="{Binding KeybindingEditorSession.Name}" />
                       <Border Classes="Keycap"><TextBlock Text="{Binding SelectedKeybindingProfile.StateLabel}" /></Border>
                     </StackPanel>
                     <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding KeybindingEditorSession.StateSummary}" />
                   </StackPanel>
-                  <controls:StatusChip Grid.Column="1" Content="{Binding KeybindingEditorSession.ConflictCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=conflict}" />
-                  <controls:StatusChip Grid.Column="2" Content="{Binding KeybindingEditorSession.WarningCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=warning}" />
+                  <controls:StatusChip Grid.Column="1" VerticalAlignment="Center" Content="{Binding KeybindingEditorSession.ConflictCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=conflict}" />
+                  <controls:StatusChip Grid.Column="2" VerticalAlignment="Center" Content="{Binding KeybindingEditorSession.WarningCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=warning}" />
                 </Grid>
               </controls:SurfaceCard>
 
@@ -569,7 +630,7 @@
 
               <!-- Shown for a profile that has a prefix, or one that can be
                    given one; a preset with no prefix has nothing to show. -->
-              <controls:SettingsGroup ControlWidth="360">
+              <controls:SettingsGroup Heading="Application prefix" ControlWidth="360">
                 <controls:SettingsGroup.IsVisible>
                   <MultiBinding Converter="{x:Static BoolConverters.Or}">
                     <Binding Path="KeybindingEditorSession.HasPrefix" FallbackValue="False" />
@@ -602,9 +663,10 @@
                       AutomationProperties.Name="Repeatable prefix" />
                 </controls:SettingRow>
                 <controls:SettingRow Label="Timeout">
-                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                  <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
                     <NumericUpDown
                         x:Name="KeybindingPrefixTimeout"
+                        Width="{controls:TextScaled 130}"
                         Minimum="50"
                         Maximum="10000"
                         Increment="50"
@@ -614,13 +676,12 @@
                         IsEnabled="{Binding KeybindingEditorSession.CanEditPrefix}"
                         ValueChanged="OnKeybindingPrefixOptionsChanged"
                         AutomationProperties.Name="Prefix timeout in milliseconds" />
-                    <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Muted" Text="ms" />
-                  </Grid>
+                    <TextBlock VerticalAlignment="Center" Classes="Muted" Text="ms" />
+                  </StackPanel>
                 </controls:SettingRow>
                 <controls:SettingRow Label="On unknown sequence">
                   <ComboBox
                       x:Name="KeybindingPrefixFailure"
-                      HorizontalAlignment="Stretch"
                       ItemsSource="{Binding KeybindingEditorSession.FailedSequenceBehaviors}"
                       SelectedItem="{Binding KeybindingEditorSession.PrefixFailedBehavior}"
                       SelectionChanged="OnKeybindingPrefixOptionsChanged"
@@ -628,133 +689,146 @@
                 </controls:SettingRow>
               </controls:SettingsGroup>
 
-              <!-- Columns size to what they hold and line up across rows through
-                   shared size groups; Command takes what is left and never less
-                   than its minimum, so it can't collapse to nothing. -->
-              <controls:SurfaceCard Padding="0">
-                <Grid RowDefinitions="34,*" Grid.IsSharedSizeScope="True">
-                  <Grid Margin="{controls:Inset Horizontal=Md}" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingCategory" />
-                      <ColumnDefinition Width="*" MinWidth="180" />
-                      <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingShortcut" />
-                      <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingContext" />
-                      <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingStatus" />
-                      <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingActions" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Classes="Eyebrow" VerticalAlignment="Center" Text="Category" />
-                    <TextBlock Grid.Column="1" Classes="Eyebrow" VerticalAlignment="Center" Text="Command" />
-                    <TextBlock Grid.Column="2" Classes="Eyebrow" VerticalAlignment="Center" Text="Shortcut" />
-                    <TextBlock Grid.Column="3" Classes="Eyebrow" VerticalAlignment="Center" Text="Context" />
-                    <TextBlock Grid.Column="4" Classes="Eyebrow" VerticalAlignment="Center" Text="Status" />
-                    <TextBlock Grid.Column="5" Classes="Eyebrow" VerticalAlignment="Center" Text="Actions" />
-                  </Grid>
-                  <ItemsControl Grid.Row="1" ItemsSource="{Binding KeybindingEditorSession.Rows}">
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate>
-                        <!-- Row actions appear on the row being pointed at or
-                             holding keyboard focus, as list rows do on macOS.
-                             They stay in the tab order while transparent, and a
-                             read-only preset has none at all. -->
-                        <Border Classes="KeybindingRow" Background="Transparent" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="0,1,0,0" ToolTip.Tip="{Binding IssueSummary}">
-                          <Border.Styles>
-                            <Style Selector="Border.KeybindingRow StackPanel.KeybindingRowActions">
-                              <Setter Property="Opacity" Value="0" />
-                            </Style>
-                            <Style Selector="Border.KeybindingRow:pointerover StackPanel.KeybindingRowActions">
-                              <Setter Property="Opacity" Value="1" />
-                            </Style>
-                            <Style Selector="Border.KeybindingRow:focus-within StackPanel.KeybindingRowActions">
-                              <Setter Property="Opacity" Value="1" />
-                            </Style>
-                          </Border.Styles>
-                          <Grid Margin="{controls:Inset Horizontal=Md, Vertical=Sm}" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                            <Grid.ColumnDefinitions>
-                              <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingCategory" />
-                              <ColumnDefinition Width="*" MinWidth="180" />
-                              <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingShortcut" />
-                              <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingContext" />
-                              <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingStatus" />
-                              <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingActions" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock VerticalAlignment="Center" MaxWidth="140" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Category}" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Grid.Column="2" VerticalAlignment="Center" MaxWidth="200" Classes="Shortcut" Text="{Binding Shortcut}" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Grid.Column="3" VerticalAlignment="Center" MaxWidth="140" Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Contexts}" />
-                            <TextBlock Grid.Column="4" VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding Status}" />
-                            <StackPanel Grid.Column="5" Classes="KeybindingRowActions" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}" IsVisible="{Binding ShowsActions}">
-                              <Button Classes="SecondaryButton" Click="OnRecordKeybindingClick" Content="Record…" IsEnabled="{Binding CanEdit}" AutomationProperties.Name="{Binding Title, StringFormat={}Record a shortcut for {0}}" />
-                              <Button Classes="TextButton" Click="OnUnbindKeybindingClick" Content="Unbind" IsEnabled="{Binding CanUnbind}" />
-                              <Button Classes="TextButton" Click="OnResetKeybindingClick" Content="Reset" IsEnabled="{Binding CanResetShortcut}" />
+              <!-- The shortcuts: a filter over the list, then the list itself
+                   as one plate. Columns size to what they hold and line up
+                   across rows through shared size groups; Command takes what
+                   is left and never less than its minimum, so it can't
+                   collapse to nothing. -->
+              <StackPanel Classes="SettingsSection">
+                <TextBlock Classes="SectionHeading" Text="Shortcuts" AutomationProperties.HeadingLevel="2" />
+                <controls:SearchField
+                    Text="{Binding KeybindingEditorSession.Query}"
+                    PlaceholderText="Filter commands or shortcuts"
+                    AutomationProperties.Name="Filter keyboard shortcuts" />
+                <controls:SurfaceCard Padding="0">
+                  <Grid RowDefinitions="34,*" Grid.IsSharedSizeScope="True">
+                    <Grid Margin="{DynamicResource ShellSettingsSeparatorInset}" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingCategory" />
+                        <ColumnDefinition Width="*" MinWidth="180" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingShortcut" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingContext" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingStatus" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingActions" />
+                      </Grid.ColumnDefinitions>
+                      <TextBlock Classes="Eyebrow" VerticalAlignment="Center" Text="Category" />
+                      <TextBlock Grid.Column="1" Classes="Eyebrow" VerticalAlignment="Center" Text="Command" />
+                      <TextBlock Grid.Column="2" Classes="Eyebrow" VerticalAlignment="Center" Text="Shortcut" />
+                      <TextBlock Grid.Column="3" Classes="Eyebrow" VerticalAlignment="Center" Text="Context" />
+                      <TextBlock Grid.Column="4" Classes="Eyebrow" VerticalAlignment="Center" Text="Status" />
+                      <TextBlock Grid.Column="5" Classes="Eyebrow" VerticalAlignment="Center" Text="Actions" />
+                    </Grid>
+                    <ItemsControl Grid.Row="1" ItemsSource="{Binding KeybindingEditorSession.Rows}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <!-- Row actions appear on the row being pointed at or
+                               holding keyboard focus, as list rows do on macOS.
+                               They stay in the tab order while transparent, and a
+                               read-only preset has none at all. -->
+                          <Border Classes="KeybindingRow" Background="Transparent" ToolTip.Tip="{Binding IssueSummary}">
+                            <Border.Styles>
+                              <Style Selector="Border.KeybindingRow StackPanel.KeybindingRowActions">
+                                <Setter Property="Opacity" Value="0" />
+                              </Style>
+                              <Style Selector="Border.KeybindingRow:pointerover StackPanel.KeybindingRowActions">
+                                <Setter Property="Opacity" Value="1" />
+                              </Style>
+                              <Style Selector="Border.KeybindingRow:focus-within StackPanel.KeybindingRowActions">
+                                <Setter Property="Opacity" Value="1" />
+                              </Style>
+                            </Border.Styles>
+                            <StackPanel>
+                              <Border Height="1" Margin="{DynamicResource ShellSettingsSeparatorInset}" Background="{DynamicResource ShellSettingsSeparatorBrush}" />
+                              <Grid MinHeight="{DynamicResource ShellSettingsRowMinHeight}" Margin="{DynamicResource ShellSettingsSeparatorInset}" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                                <Grid.ColumnDefinitions>
+                                  <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingCategory" />
+                                  <ColumnDefinition Width="*" MinWidth="180" />
+                                  <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingShortcut" />
+                                  <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingContext" />
+                                  <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingStatus" />
+                                  <ColumnDefinition Width="Auto" SharedSizeGroup="KeybindingActions" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock VerticalAlignment="Center" MaxWidth="140" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Category}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="2" VerticalAlignment="Center" MaxWidth="200" Classes="Shortcut" Text="{Binding Shortcut}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="3" VerticalAlignment="Center" MaxWidth="140" Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Contexts}" />
+                                <TextBlock Grid.Column="4" VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding Status}" />
+                                <StackPanel Grid.Column="5" VerticalAlignment="Center" Classes="KeybindingRowActions" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}" IsVisible="{Binding ShowsActions}">
+                                  <Button Classes="SecondaryButton" Click="OnRecordKeybindingClick" Content="Record…" IsEnabled="{Binding CanEdit}" AutomationProperties.Name="{Binding Title, StringFormat={}Record a shortcut for {0}}" />
+                                  <Button Classes="TextButton" Click="OnUnbindKeybindingClick" Content="Unbind" IsEnabled="{Binding CanUnbind}" />
+                                  <Button Classes="TextButton" Click="OnResetKeybindingClick" Content="Reset" IsEnabled="{Binding CanResetShortcut}" />
+                                </StackPanel>
+                              </Grid>
                             </StackPanel>
-                          </Grid>
-                        </Border>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                  <controls:StateOverlay Grid.Row="1" Margin="{controls:Inset Xl}" IsVisible="{Binding KeybindingEditorSession.HasNoResults}"
-                      Kind="NoResults"
-                      Heading="No matching shortcuts"
-                      Body="Change the search query or choose another profile." />
-                </Grid>
-              </controls:SurfaceCard>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <controls:StateOverlay Grid.Row="1" Margin="{controls:Inset Xl}" IsVisible="{Binding KeybindingEditorSession.HasNoResults}"
+                        Kind="NoResults"
+                        Heading="No matching shortcuts"
+                        Body="Change the search query or choose another profile." />
+                  </Grid>
+                </controls:SurfaceCard>
+              </StackPanel>
 
+              <!-- The profile's own actions, under the list they act on, as
+                   a sheet's buttons sit: the default action at the trailing
+                   edge. -->
               <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Shortcuts for commands this version doesn’t know are kept, so an older version never erases them." />
-                <Button Grid.Column="1" Classes="DestructiveButton" Click="OnResetAllKeybindingsClick" Content="Reset Profile" IsEnabled="{Binding KeybindingEditorSession.CanEditRows}" />
-                <Button Grid.Column="2" Classes="PrimaryButton" Click="OnSaveKeybindingsClick" Content="Save Shortcuts" IsEnabled="{Binding KeybindingEditorSession.CanSave}" />
+                <TextBlock Margin="{DynamicResource ShellSettingsSeparatorInset}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap" Text="Shortcuts for commands this version doesn’t know are kept, so an older version never erases them." />
+                <Button Grid.Column="1" VerticalAlignment="Center" Classes="DestructiveButton" Click="OnResetAllKeybindingsClick" Content="Reset Profile" IsEnabled="{Binding KeybindingEditorSession.CanEditRows}" />
+                <Button Grid.Column="2" VerticalAlignment="Center" Classes="PrimaryButton" Click="OnSaveKeybindingsClick" Content="Save Shortcuts" IsEnabled="{Binding KeybindingEditorSession.CanSave}" />
               </Grid>
             </StackPanel>
-
-            <StackPanel x:Name="FilesSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsFilesSettingsVisible}">
+            <StackPanel x:Name="FilesSettingsPage" Classes="SettingsPage" IsVisible="{Binding IsFilesSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="Files &amp; Transfers"
                   Description="Manage file locations, transfers, and previews." />
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <!-- The Mac list pattern, as Workspaces: select a row, then –
-                     below the list, its context menu, or Delete removes it.
-                     Edit… stays on the row. -->
-                <TextBlock Classes="SectionHeading" Text="Configured providers" />
-                <controls:SurfaceCard Padding="0" ClipsContent="True">
-                  <StackPanel>
-                    <ListBox
-                        x:Name="FileProviderList"
-                        Classes="Rows Separated"
-                        ItemsSource="{Binding FileProviderDefinitions}"
-                        AutomationProperties.Name="Configured file providers">
-                      <ListBox.ItemTemplate>
-                        <DataTemplate x:DataType="vm:FileProviderProfileItemViewModel">
-                          <controls:ListItem ContentPadding="{DynamicResource ShellListRowPadding}" Title="{Binding Name}" Detail="{Binding Endpoint}" Metadata="{Binding StatusDetail}">
-                            <controls:ListItem.ContextMenu>
-                              <ContextMenu>
-                                <MenuItem Header="Edit…" Click="OnEditFileProviderClick" />
-                                <Separator />
-                                <MenuItem Header="Delete" Click="OnDeleteFileProviderClick" />
-                              </ContextMenu>
-                            </controls:ListItem.ContextMenu>
-                            <controls:ListItem.Leading>
-                              <controls:IdentityTile TileSize="Small" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="Folder" />
-                            </controls:ListItem.Leading>
-                            <controls:ListItem.Trailing>
-                              <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-                                <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding Kind}" />
-                                <!-- Neutral until something needs attention: a
-                                     provider still loading is not good news. The
-                                     tone is three classes that never apply
-                                     together, because a Tone pseudo-class is
-                                     declared after the classes and would win. -->
-                                <controls:StatusChip
-                                    Classes.Neutral="{Binding IsStatusNeutral}"
-                                    Classes.Warning="{Binding HasWarning}"
-                                    Classes.Danger="{Binding HasError}"
-                                    Content="{Binding Status}" />
-                                <Button Classes="SecondaryButton" Click="OnEditFileProviderClick" Content="Edit…" AutomationProperties.Name="{Binding Name, StringFormat={}Edit file provider {0}}" />
-                              </StackPanel>
-                            </controls:ListItem.Trailing>
-                          </controls:ListItem>
-                        </DataTemplate>
-                      </ListBox.ItemTemplate>
-                    </ListBox>
+              <!-- The Mac list pattern, as Workspaces: select a row, then –
+                   below the list, its context menu, or Delete removes it.
+                   Edit… stays on the row. Where credentials are kept closes
+                   the plate. -->
+              <controls:SettingsGroup Heading="Configured providers">
+                <StackPanel>
+                  <ListBox
+                      x:Name="FileProviderList"
+                      Classes="Rows Separated"
+                      ItemsSource="{Binding FileProviderDefinitions}"
+                      AutomationProperties.Name="Configured file providers">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:FileProviderProfileItemViewModel">
+                        <controls:ListItem ContentPadding="{DynamicResource ShellListRowPadding}" Title="{Binding Name}" Detail="{Binding Endpoint}" Metadata="{Binding StatusDetail}">
+                          <controls:ListItem.ContextMenu>
+                            <ContextMenu>
+                              <MenuItem Header="Edit…" Click="OnEditFileProviderClick" />
+                              <Separator />
+                              <MenuItem Header="Delete" Click="OnDeleteFileProviderClick" />
+                            </ContextMenu>
+                          </controls:ListItem.ContextMenu>
+                          <controls:ListItem.Leading>
+                            <controls:IdentityTile TileSize="Small" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="Folder" />
+                          </controls:ListItem.Leading>
+                          <controls:ListItem.Trailing>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
+                              <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding Kind}" />
+                              <!-- Neutral until something needs attention: a
+                                   provider still loading is not good news. The
+                                   tone is three classes that never apply
+                                   together, because a Tone pseudo-class is
+                                   declared after the classes and would win. -->
+                              <controls:StatusChip
+                                  Classes.Neutral="{Binding IsStatusNeutral}"
+                                  Classes.Warning="{Binding HasWarning}"
+                                  Classes.Danger="{Binding HasError}"
+                                  Content="{Binding Status}" />
+                              <Button Classes="SecondaryButton" Click="OnEditFileProviderClick" Content="Edit…" AutomationProperties.Name="{Binding Name, StringFormat={}Edit file provider {0}}" />
+                            </StackPanel>
+                          </controls:ListItem.Trailing>
+                        </controls:ListItem>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
                   <Border Classes="ListActionBar">
                     <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
                       <Button
@@ -775,90 +849,90 @@
                       </Button>
                     </StackPanel>
                   </Border>
+                </StackPanel>
+                <controls:SettingsGroup.Footer>
+                  <TextBlock
+                      Classes="Muted"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                      TextWrapping="Wrap"
+                      Text="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Home is always available as a built-in local provider. Credentials for saved providers stay in {0}.'}" />
+                </controls:SettingsGroup.Footer>
+              </controls:SettingsGroup>
+              <controls:SettingsGroup Heading="Remote previews">
+                <controls:SettingRow
+                    Label="Auto-load previews up to"
+                    Description="Selecting a remote file downloads it for preview. Files up to this size are fetched the moment they are selected; larger ones show a download action instead, so scrolling a listing never spends bandwidth you didn't ask to spend. Local files are unaffected — nothing is downloaded for them.">
+                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
+                    <NumericUpDown Minimum="1" Maximum="256" Increment="1" Width="{controls:TextScaled 110}" FormatString="0"
+                        Value="{Binding FilePreviewSettingsEditor.AutoLoadThresholdMegabytes}"
+                        AutomationProperties.Name="Auto-load preview threshold in megabytes" />
+                    <TextBlock VerticalAlignment="Center" Classes="Muted" Text="MB" />
                   </StackPanel>
-                </controls:SurfaceCard>
-                <controls:Callout
-                    ShowsGlyph="False"
-                    Text="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Home is always available as a built-in local provider. Credentials for saved providers stay in {0}.'}" />
-              </StackPanel>
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <controls:SettingsGroup Heading="Remote previews">
-                  <controls:SettingRow
-                      Label="Auto-load previews up to"
-                      Description="Selecting a remote file downloads it for preview. Files up to this size are fetched the moment they are selected; larger ones show a download action instead, so scrolling a listing never spends bandwidth you didn't ask to spend. Local files are unaffected — nothing is downloaded for them.">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
-                      <NumericUpDown Minimum="1" Maximum="256" Increment="1" Width="130" FormatString="0"
-                          Value="{Binding FilePreviewSettingsEditor.AutoLoadThresholdMegabytes}"
-                          AutomationProperties.Name="Auto-load preview threshold in megabytes" />
-                      <TextBlock VerticalAlignment="Center" Classes="Muted" Text="MB" />
-                    </StackPanel>
-                  </controls:SettingRow>
-                  <controls:SettingRow
-                      Label="Keep downloaded previews between runs"
-                      Description="When on, downloaded files stay on disk so opening one again is instant, even after a restart. When off, previews are kept only while Asura runs, in memory or in an encrypted file, and are deleted when you quit. A copy left behind if Asura quits unexpectedly can't be read.">
-                    <ToggleSwitch
-                        IsChecked="{Binding FilePreviewSettingsEditor.KeepPreviewsBetweenRuns}"
-                        AutomationProperties.Name="Keep downloaded previews between runs" />
-                  </controls:SettingRow>
-                  <controls:SettingRow
-                      Label="Preview cache size limit"
-                      Description="The most disk the preview cache may hold. When it fills, the copies you haven't looked at longest are removed first. This bounds the cache; it never fails a preview.">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
-                      <NumericUpDown Minimum="16" Maximum="16384" Increment="128" Width="130" FormatString="0"
-                          Value="{Binding FilePreviewSettingsEditor.CacheBudgetMegabytes}"
-                          AutomationProperties.Name="Preview cache size limit in megabytes" />
-                      <TextBlock VerticalAlignment="Center" Classes="Muted" Text="MB" />
-                    </StackPanel>
-                  </controls:SettingRow>
-                </controls:SettingsGroup>
-                <controls:Callout
-                    Glyph="Delete"
-                    Text="{Binding FilePreviewSettingsEditor.CacheUsageText}">
-                  <controls:Callout.Action>
-                    <Button VerticalAlignment="Center" Classes="DestructiveButton"
-                        Command="{Binding FilePreviewSettingsEditor.ClearCacheCommand}"
-                        Content="Clear Cache" AutomationProperties.Name="Clear preview cache" />
-                  </controls:Callout.Action>
-                </controls:Callout>
-              </StackPanel>
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Label="Keep downloaded previews between runs"
+                    Description="When on, downloaded files stay on disk so opening one again is instant, even after a restart. When off, previews are kept only while Asura runs, in memory or in an encrypted file, and are deleted when you quit. A copy left behind if Asura quits unexpectedly can't be read.">
+                  <ToggleSwitch
+                      IsChecked="{Binding FilePreviewSettingsEditor.KeepPreviewsBetweenRuns}"
+                      AutomationProperties.Name="Keep downloaded previews between runs" />
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Label="Preview cache size limit"
+                    Description="The most disk the preview cache may hold. When it fills, the copies you haven't looked at longest are removed first. This bounds the cache; it never fails a preview.">
+                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
+                    <NumericUpDown Minimum="16" Maximum="16384" Increment="128" Width="{controls:TextScaled 110}" FormatString="0"
+                        Value="{Binding FilePreviewSettingsEditor.CacheBudgetMegabytes}"
+                        AutomationProperties.Name="Preview cache size limit in megabytes" />
+                    <TextBlock VerticalAlignment="Center" Classes="Muted" Text="MB" />
+                  </StackPanel>
+                </controls:SettingRow>
+                <!-- What the cache holds now, and the button that empties it,
+                     as the last row of the plate it is bounded by. -->
+                <controls:SettingRow
+                    Label="Preview cache"
+                    Description="{Binding FilePreviewSettingsEditor.CacheUsageText}">
+                  <Button Classes="DestructiveButton"
+                      Command="{Binding FilePreviewSettingsEditor.ClearCacheCommand}"
+                      Content="Clear Cache" AutomationProperties.Name="Clear preview cache" />
+                </controls:SettingRow>
+              </controls:SettingsGroup>
             </StackPanel>
-
-            <StackPanel x:Name="BrowserSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsBrowserSettingsVisible}">
+            <StackPanel x:Name="BrowserSettingsPage" Classes="SettingsPage" IsVisible="{Binding IsBrowserSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="Browser"
                   Description="Manage browser profiles. Persistent profiles keep cookies, site storage, cache, and history in encrypted storage between runs. Permission requests and downloads are blocked." />
-              <controls:SettingsGroup Heading="Defaults" ControlWidth="300">
+              <controls:SettingsGroup
+                  Heading="Defaults"
+                  Description="Persistent profiles keep cookies, site storage, cache, and history in encrypted storage between runs. Permission requests and downloads are blocked.">
                 <controls:SettingRow
                     Label="Default named profile"
                     Description="Used by new browser panels. If it’s turned off or missing, the panel says so instead of using another profile.">
-                  <!-- One line per item, as a pop-up button's menu is; what the
-                       chosen profile keeps is said under the field. -->
-                  <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                    <ComboBox
-                        HorizontalAlignment="Stretch"
-                        ItemsSource="{Binding BrowserProfileSettingsEditor.Profiles}"
-                        SelectedItem="{Binding BrowserProfileSettingsEditor.SelectedDefaultProfile, Mode=TwoWay}"
-                        AutomationProperties.Name="Default named browser profile">
-                      <ComboBox.ItemTemplate>
-                        <DataTemplate>
-                          <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                        </DataTemplate>
-                      </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <TextBlock
-                        Margin="{controls:Inset Horizontal=Xs}"
-                        Classes="Muted"
-                        FontSize="{DynamicResource ShellSecondaryFontSize}"
-                        Text="{Binding BrowserProfileSettingsEditor.SelectedDefaultProfile.PersistenceLabel, FallbackValue={x:Null}}"
-                        TextWrapping="Wrap" />
-                  </StackPanel>
+                  <!-- The button shows the profile's name alone, as a pop-up
+                       button does; the menu says what each profile keeps. -->
+                  <ComboBox
+                      ItemsSource="{Binding BrowserProfileSettingsEditor.Profiles}"
+                      SelectedItem="{Binding BrowserProfileSettingsEditor.SelectedDefaultProfile, Mode=TwoWay}"
+                      AutomationProperties.Name="Default named browser profile">
+                    <ComboBox.SelectionBoxItemTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                      </DataTemplate>
+                    </ComboBox.SelectionBoxItemTemplate>
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+                          <TextBlock VerticalAlignment="Center" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                          <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding PersistenceLabel}" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
                 </controls:SettingRow>
                 <controls:SettingRow
                     Label="Default profile sharing"
                     Description="Whether browser panels that use the built-in Default profile share one session across workspaces or keep one for each workspace."
                     IsLast="True">
                   <ComboBox
-                      HorizontalAlignment="Stretch"
                       ItemsSource="{Binding BrowserProfileSettingsEditor.SharingOptions}"
                       SelectedItem="{Binding BrowserProfileSettingsEditor.SelectedSharing, Mode=TwoWay}"
                       AutomationProperties.Name="Default browser profile sharing">
@@ -870,16 +944,14 @@
                   </ComboBox>
                 </controls:SettingRow>
               </controls:SettingsGroup>
-              <!-- The selection is the context for the two cards below. Each
+              <!-- The selection is the context for the two plates below. Each
                    row keeps its own Enabled switch; deleting follows the Mac
                    list pattern: – below the list, the row's context menu, or
                    Delete removes the selected profile. -->
-              <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-                <components:SectionHeader
-                    Heading="Named profiles"
-                    Description="Persistent profiles are encrypted when Asura quits and restored the next time it opens. Private profiles are discarded when their panel closes. Select a profile to manage its authentication and saved data below." />
-                <controls:SurfaceCard Padding="0" ClipsContent="True">
-                  <StackPanel>
+              <controls:SettingsGroup
+                  Heading="Named profiles"
+                  Description="Persistent profiles are encrypted when Asura quits and restored the next time it opens. Private profiles are discarded when their panel closes. Select a profile to manage its authentication and saved data below.">
+                <StackPanel>
                   <ListBox
                       Classes="Rows Separated"
                       MaxHeight="280"
@@ -905,10 +977,12 @@
                                 Foreground="{DynamicResource ShellTextBrush}"
                                 Symbol="Globe" />
                           </controls:ListItem.Leading>
-                          <!-- The switch is the state; a chip saying the
-                               same beside it was the second copy. -->
+                          <!-- The switch is the state, a mini switch as in any
+                               grouped list; a chip saying the same beside it
+                               was the second copy. -->
                           <controls:ListItem.Trailing>
                             <ToggleSwitch
+                                Classes="Mini"
                                 VerticalAlignment="Center"
                                 IsChecked="{Binding IsEnabled, Mode=OneWay}"
                                 IsCheckedChanged="OnBrowserProfileEnabledChanged"
@@ -991,130 +1065,132 @@
                       </Button>
                     </StackPanel>
                   </Border>
-                  </StackPanel>
-                </controls:SurfaceCard>
-              </StackPanel>
+                </StackPanel>
+              </controls:SettingsGroup>
               <!-- A draft, like Keyboard Shortcuts: a password is saved whole or
-                   not at all, so this group keeps Save Authentication. -->
+                   not at all, so this group keeps Save Authentication. Each
+                   field is a row of the form, its name leading and the field
+                   trailing. -->
               <controls:SettingsGroup
                   Heading="HTTP authentication"
                   Description="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Answers Basic or Digest sign-in requests from one site, reached one way, for the selected profile. The password stays in {0}.'}">
-                <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceSm}">
-                  <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <controls:LabeledField Label="Protocol">
-                      <ComboBox ItemsSource="{Binding BrowserProfileSettingsEditor.AuthenticationOriginSchemes}"
-                                SelectedItem="{Binding BrowserProfileSettingsEditor.AuthenticationOriginScheme, Mode=TwoWay}"
-                                AutomationProperties.Name="Browser HTTP authentication protocol" />
-                    </controls:LabeledField>
-                    <controls:LabeledField Grid.Column="1" Label="Connect through">
-                      <ComboBox ItemsSource="{Binding BrowserProfileSettingsEditor.AuthenticationRoutes}"
-                                SelectedItem="{Binding BrowserProfileSettingsEditor.AuthenticationRoute, Mode=TwoWay}"
-                                AutomationProperties.Name="Browser HTTP authentication network route">
-                        <ComboBox.ItemTemplate>
-                          <DataTemplate x:DataType="vm:BrowserAuthenticationRouteOption">
-                            <TextBlock Text="{Binding DisplayName}" />
-                          </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                      </ComboBox>
-                    </controls:LabeledField>
-                  </Grid>
-                  <Grid ColumnDefinitions="2*,Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <controls:LabeledField Label="Host">
-                      <TextBox
-                          Text="{Binding BrowserProfileSettingsEditor.AuthenticationHost, Mode=TwoWay}"
-                          PlaceholderText="internal.example.com"
-                          AutomationProperties.Name="Browser HTTP authentication host" />
-                    </controls:LabeledField>
-                    <controls:LabeledField Grid.Column="1" Label="Port">
-                      <TextBox
-                          Width="110"
-                          Text="{Binding BrowserProfileSettingsEditor.AuthenticationPort, Mode=TwoWay}"
-                          PlaceholderText="{Binding BrowserProfileSettingsEditor.AuthenticationDefaultPort}"
-                          AutomationProperties.Name="Browser HTTP authentication port" />
-                    </controls:LabeledField>
-                    <controls:LabeledField Grid.Column="2" Label="Scheme">
-                      <ComboBox
-                          ItemsSource="{Binding BrowserProfileSettingsEditor.AuthenticationSchemes}"
-                          SelectedItem="{Binding BrowserProfileSettingsEditor.AuthenticationScheme, Mode=TwoWay}"
-                          AutomationProperties.Name="Browser HTTP authentication scheme" />
-                    </controls:LabeledField>
-                  </Grid>
-                  <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <controls:LabeledField Label="Realm (optional)">
-                      <TextBox
-                          Text="{Binding BrowserProfileSettingsEditor.AuthenticationRealm, Mode=TwoWay}"
-                          PlaceholderText="Operations"
-                          AutomationProperties.Name="Browser HTTP authentication realm" />
-                    </controls:LabeledField>
-                    <controls:LabeledField Grid.Column="1" Label="Username">
-                      <TextBox
-                          Text="{Binding BrowserProfileSettingsEditor.AuthenticationUsername, Mode=TwoWay}"
-                          PlaceholderText="operator"
-                          AutomationProperties.Name="Browser HTTP authentication username" />
-                    </controls:LabeledField>
-                  </Grid>
-                  <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <TextBox
-                        PasswordChar="●"
-                        Text="{Binding BrowserProfileSettingsEditor.AuthenticationPassword, Mode=TwoWay}"
-                        PlaceholderText="Required when attaching; leave empty to keep the stored password"
-                        AutomationProperties.Name="Browser HTTP authentication password" />
-                    <Button
-                        Grid.Column="1"
-                        Classes="PrimaryButton"
-                        Command="{Binding BrowserProfileSettingsEditor.SaveAuthenticationCommand}"
-                        Content="Save Authentication"
-                        AutomationProperties.Name="Save selected browser profile HTTP authentication" />
-                    <Button
-                        Grid.Column="2"
-                        Classes="SecondaryButton"
-                        Command="{Binding BrowserProfileSettingsEditor.DetachAuthenticationCommand}"
-                        Content="Detach"
-                        AutomationProperties.Name="Detach selected browser profile HTTP authentication" />
-                  </Grid>
-                </StackPanel>
-                <controls:SettingsGroup.Footer>
+                <controls:LabeledField Classes="FormRow" Label="Protocol">
+                  <ComboBox ItemsSource="{Binding BrowserProfileSettingsEditor.AuthenticationOriginSchemes}"
+                            SelectedItem="{Binding BrowserProfileSettingsEditor.AuthenticationOriginScheme, Mode=TwoWay}"
+                            AutomationProperties.Name="Browser HTTP authentication protocol" />
+                </controls:LabeledField>
+                <controls:LabeledField Classes="FormRow" Label="Connect through">
+                  <ComboBox ItemsSource="{Binding BrowserProfileSettingsEditor.AuthenticationRoutes}"
+                            SelectedItem="{Binding BrowserProfileSettingsEditor.AuthenticationRoute, Mode=TwoWay}"
+                            AutomationProperties.Name="Browser HTTP authentication network route">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:BrowserAuthenticationRouteOption">
+                        <TextBlock Text="{Binding DisplayName}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </controls:LabeledField>
+                <controls:LabeledField Classes="FormRow" Label="Host">
+                  <TextBox
+                      Text="{Binding BrowserProfileSettingsEditor.AuthenticationHost, Mode=TwoWay}"
+                      PlaceholderText="internal.example.com"
+                      AutomationProperties.Name="Browser HTTP authentication host" />
+                </controls:LabeledField>
+                <controls:LabeledField Classes="FormRow" Label="Port">
+                  <TextBox
+                      Width="{controls:TextScaled 110}"
+                      HorizontalAlignment="Right"
+                      Text="{Binding BrowserProfileSettingsEditor.AuthenticationPort, Mode=TwoWay}"
+                      PlaceholderText="{Binding BrowserProfileSettingsEditor.AuthenticationDefaultPort}"
+                      AutomationProperties.Name="Browser HTTP authentication port" />
+                </controls:LabeledField>
+                <controls:LabeledField Classes="FormRow" Label="Scheme">
+                  <ComboBox
+                      ItemsSource="{Binding BrowserProfileSettingsEditor.AuthenticationSchemes}"
+                      SelectedItem="{Binding BrowserProfileSettingsEditor.AuthenticationScheme, Mode=TwoWay}"
+                      AutomationProperties.Name="Browser HTTP authentication scheme" />
+                </controls:LabeledField>
+                <controls:LabeledField Classes="FormRow" Label="Realm (optional)">
+                  <TextBox
+                      Text="{Binding BrowserProfileSettingsEditor.AuthenticationRealm, Mode=TwoWay}"
+                      PlaceholderText="Operations"
+                      AutomationProperties.Name="Browser HTTP authentication realm" />
+                </controls:LabeledField>
+                <controls:LabeledField Classes="FormRow" Label="Username">
+                  <TextBox
+                      Text="{Binding BrowserProfileSettingsEditor.AuthenticationUsername, Mode=TwoWay}"
+                      PlaceholderText="operator"
+                      AutomationProperties.Name="Browser HTTP authentication username" />
+                </controls:LabeledField>
+                <controls:LabeledField Classes="FormRow" Label="Password">
+                  <TextBox
+                      PasswordChar="●"
+                      Text="{Binding BrowserProfileSettingsEditor.AuthenticationPassword, Mode=TwoWay}"
+                      PlaceholderText="Required when attaching"
+                      AutomationProperties.Name="Browser HTTP authentication password"
+                      AutomationProperties.HelpText="Required when attaching; leave empty to keep the stored password." />
+                </controls:LabeledField>
+                <!-- A status with an action is the plate's last row, not a footnote. -->
+                <Grid Margin="{DynamicResource ShellSettingsRowPadding}" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                   <TextBlock
+                      VerticalAlignment="Center"
                       Classes="Muted"
                       FontSize="{DynamicResource ShellSecondaryFontSize}"
-                      Text="The built-in profile can’t store authentication. Open browser panels keep the profile settings they started with until they close."
+                      Text="Leave the password empty to keep the stored one. The built-in profile can’t store authentication. Open browser panels keep the profile settings they started with until they close."
                       TextWrapping="Wrap" />
-                </controls:SettingsGroup.Footer>
+                  <Button
+                      Grid.Column="1"
+                      VerticalAlignment="Center"
+                      Classes="SecondaryButton"
+                      Command="{Binding BrowserProfileSettingsEditor.DetachAuthenticationCommand}"
+                      Content="Detach"
+                      AutomationProperties.Name="Detach selected browser profile HTTP authentication" />
+                  <Button
+                      Grid.Column="2"
+                      VerticalAlignment="Center"
+                      Classes="PrimaryButton"
+                      Command="{Binding BrowserProfileSettingsEditor.SaveAuthenticationCommand}"
+                      Content="Save Authentication"
+                      AutomationProperties.Name="Save selected browser profile HTTP authentication" />
+                </Grid>
               </controls:SettingsGroup>
               <controls:SettingsGroup
                   Heading="Browsing data"
                   Description="Clear cookies or HTTP authentication for the selected profile on their own. To reset all of its data, first close every browser panel that uses it. Downloads are blocked, and clearing never touches your own files.">
-                <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceSm}">
-                  <TextBlock Classes="Muted" Text="{Binding BrowserProfileSettingsEditor.StateText}" TextWrapping="Wrap" />
-                  <WrapPanel Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceSm}" LineSpacing="{DynamicResource ShellSpaceSm}">
-                    <Button Classes="DestructiveButton"
-                        Command="{Binding BrowserProfileSettingsEditor.ClearCookiesCommand}"
-                        Content="Clear Cookies"
-                        AutomationProperties.Name="Clear cookies for the selected browser profile" />
-                    <Button Classes="DestructiveButton"
-                        Command="{Binding BrowserProfileSettingsEditor.ClearAuthenticationCommand}"
-                        Content="Clear HTTP Authentication"
-                        AutomationProperties.Name="Clear HTTP authentication for the selected browser profile" />
-                    <Button Classes="DestructiveButton"
-                        Command="{Binding BrowserProfileSettingsEditor.ResetEphemeralContentCommand}"
-                        Content="Reset All Data"
-                        AutomationProperties.Name="Reset all data for the selected browser profile" />
-                    <Button Classes="SecondaryButton"
-                        Command="{Binding BrowserProfileSettingsEditor.CancelClearCommand}"
-                        Content="Cancel"
-                        IsVisible="{Binding BrowserProfileSettingsEditor.IsClearing}"
-                        AutomationProperties.Name="Cancel browser profile clearing" />
-                  </WrapPanel>
-                  <controls:Callout
-                      Tone="Notice"
-                      ShowsGlyph="False"
-                      Text="{Binding BrowserProfileSettingsEditor.OperationStatus}"
-                      IsVisible="{Binding BrowserProfileSettingsEditor.HasOperationStatus}" />
-                </StackPanel>
+                <controls:SettingRow
+                    Label="Saved data"
+                    Description="{Binding BrowserProfileSettingsEditor.StateText}"
+                    IsStacked="True">
+                  <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceSm}" LineSpacing="{DynamicResource ShellSpaceSm}">
+                      <Button Classes="DestructiveButton"
+                          Command="{Binding BrowserProfileSettingsEditor.ClearCookiesCommand}"
+                          Content="Clear Cookies"
+                          AutomationProperties.Name="Clear cookies for the selected browser profile" />
+                      <Button Classes="DestructiveButton"
+                          Command="{Binding BrowserProfileSettingsEditor.ClearAuthenticationCommand}"
+                          Content="Clear HTTP Authentication"
+                          AutomationProperties.Name="Clear HTTP authentication for the selected browser profile" />
+                      <Button Classes="DestructiveButton"
+                          Command="{Binding BrowserProfileSettingsEditor.ResetEphemeralContentCommand}"
+                          Content="Reset All Data"
+                          AutomationProperties.Name="Reset all data for the selected browser profile" />
+                      <Button Classes="SecondaryButton"
+                          Command="{Binding BrowserProfileSettingsEditor.CancelClearCommand}"
+                          Content="Cancel"
+                          IsVisible="{Binding BrowserProfileSettingsEditor.IsClearing}"
+                          AutomationProperties.Name="Cancel browser profile clearing" />
+                    </WrapPanel>
+                    <controls:Callout
+                        Tone="Notice"
+                        ShowsGlyph="False"
+                        Text="{Binding BrowserProfileSettingsEditor.OperationStatus}"
+                        IsVisible="{Binding BrowserProfileSettingsEditor.HasOperationStatus}" />
+                  </StackPanel>
+                </controls:SettingRow>
               </controls:SettingsGroup>
             </StackPanel>
-
-            <StackPanel x:Name="TerminalSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsTerminalSettingsVisible}">
+            <StackPanel x:Name="TerminalSettingsPage" Classes="SettingsPage" IsVisible="{Binding IsTerminalSettingsVisible}">
               <!-- Applied as each setting changes, to new sessions. -->
               <components:SettingsPageHeader
                   Heading="Terminal"
@@ -1122,7 +1198,7 @@
 
               <!-- One section treatment for the whole page: each section is a
                    settings group with its heading, and each setting a row. -->
-              <controls:SettingsGroup Heading="Continuity">
+              <controls:SettingsGroup Heading="Continuity" Description="Terminal settings apply to new sessions.">
                 <controls:SettingRow
                     Label="Multiplex SSH terminals"
                     Description="New SSH terminals use an app-managed tmux session, with GNU Screen as a fallback. Disconnecting or closing Asura preserves it; explicitly closing the panel, tab, or workspace ends it."
@@ -1138,20 +1214,23 @@
               <controls:SettingsGroup
                   Heading="Managed remote sessions"
                   Description="Sessions created by Asura remain here until they are ended or deliberately forgotten.">
-                <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceSm}">
-                  <TextBlock
-                      Classes="Muted"
-                      FontSize="{DynamicResource ShellSecondaryFontSize}"
-                      Text="No managed remote sessions"
-                      IsVisible="{Binding !HasManagedRemoteSessions}" />
-                  <ItemsControl ItemsSource="{Binding ManagedRemoteSessions}">
+                <!-- One row per session in the plate, as a grouped list;
+                     with none, the plate says so in a row of its own. -->
+                <StackPanel>
+                  <Border MinHeight="{DynamicResource ShellSettingsRowMinHeight}" Padding="{DynamicResource ShellSettingsRowPadding}" IsVisible="{Binding !HasManagedRemoteSessions}">
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Classes="Muted"
+                        Text="No managed remote sessions" />
+                  </Border>
+                  <ItemsControl Classes="Separated StretchItems" ItemsSource="{Binding ManagedRemoteSessions}">
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
-                        <controls:SurfaceCard Margin="{controls:Inset Bottom=Sm}" Tone="Sunken">
+                        <Border MinHeight="{DynamicResource ShellSettingsRowMinHeight}" Padding="{DynamicResource ShellSettingsRowPadding}">
                           <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                            <StackPanel Spacing="{DynamicResource ShellSpace2Xs}">
-                              <TextBlock FontWeight="SemiBold" Text="{Binding ConnectionName}" />
-                              <TextBlock Classes="Muted" FontFamily="{DynamicResource ShellDataFontFamily}" Text="{Binding SessionName}" />
+                            <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSettingsLabelSpacing}">
+                              <TextBlock Text="{Binding ConnectionName}" />
+                              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" FontFamily="{DynamicResource ShellDataFontFamily}" Text="{Binding SessionName}" />
                             </StackPanel>
                             <controls:StatusChip
                                 Grid.Column="1"
@@ -1171,7 +1250,7 @@
                                   AutomationProperties.Name="Forget managed remote session record" />
                             </StackPanel>
                           </Grid>
-                        </controls:SurfaceCard>
+                        </Border>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
@@ -1185,7 +1264,7 @@
                   Description="How the caret is drawn and how much history each session keeps."
                   ControlWidth="240">
                 <controls:SettingRow Label="Cursor shape">
-                  <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding TerminalSettingsEditor.CursorStyles}" SelectedItem="{Binding TerminalSettingsEditor.CursorStyle}" AutomationProperties.Name="Cursor shape" />
+                  <ComboBox ItemsSource="{Binding TerminalSettingsEditor.CursorStyles}" SelectedItem="{Binding TerminalSettingsEditor.CursorStyle}" AutomationProperties.Name="Cursor shape" />
                 </controls:SettingRow>
                 <controls:SettingRow Label="Blink cursor">
                   <ToggleSwitch
@@ -1193,22 +1272,22 @@
                       AutomationProperties.Name="Blink cursor" />
                 </controls:SettingRow>
                 <controls:SettingRow Label="Scrollback lines" IsLast="True">
-                  <NumericUpDown HorizontalAlignment="Stretch" Minimum="0" Maximum="10000000" Increment="1000" FormatString="N0" NumberFormat="{x:Static globalization:NumberFormatInfo.InvariantInfo}" Value="{Binding TerminalSettingsEditor.ScrollbackLines}" AutomationProperties.Name="Scrollback lines" />
+                  <NumericUpDown Width="{controls:TextScaled 140}" HorizontalAlignment="Right" Minimum="0" Maximum="10000000" Increment="1000" FormatString="N0" NumberFormat="{x:Static globalization:NumberFormatInfo.InvariantInfo}" Value="{Binding TerminalSettingsEditor.ScrollbackLines}" AutomationProperties.Name="Scrollback lines" />
                 </controls:SettingRow>
               </controls:SettingsGroup>
 
               <controls:SettingsGroup Heading="Input &amp; safety" ControlWidth="240">
                 <controls:SettingRow Label="Clipboard read">
-                  <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding TerminalSettingsEditor.ClipboardAccessOptions}" SelectedItem="{Binding TerminalSettingsEditor.ClipboardRead}" />
+                  <ComboBox ItemsSource="{Binding TerminalSettingsEditor.ClipboardAccessOptions}" SelectedItem="{Binding TerminalSettingsEditor.ClipboardRead}" />
                 </controls:SettingRow>
                 <controls:SettingRow Label="Clipboard write">
-                  <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding TerminalSettingsEditor.ClipboardAccessOptions}" SelectedItem="{Binding TerminalSettingsEditor.ClipboardWrite}" />
+                  <ComboBox ItemsSource="{Binding TerminalSettingsEditor.ClipboardAccessOptions}" SelectedItem="{Binding TerminalSettingsEditor.ClipboardWrite}" />
                 </controls:SettingRow>
                 <controls:SettingRow Label="Terminal keymap">
-                  <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding TerminalSettingsEditor.TerminalKeymaps}" SelectedItem="{Binding TerminalSettingsEditor.SelectedKeymap}" />
+                  <ComboBox ItemsSource="{Binding TerminalSettingsEditor.TerminalKeymaps}" SelectedItem="{Binding TerminalSettingsEditor.SelectedKeymap}" />
                 </controls:SettingRow>
                 <controls:SettingRow Label="Open terminal links">
-                  <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding TerminalSettingsEditor.LinkPolicies}" SelectedItem="{Binding TerminalSettingsEditor.LinkPolicy}" />
+                  <ComboBox ItemsSource="{Binding TerminalSettingsEditor.LinkPolicies}" SelectedItem="{Binding TerminalSettingsEditor.LinkPolicy}" />
                 </controls:SettingRow>
                 <controls:SettingRow Label="Enable IME input">
                   <ToggleSwitch
@@ -1224,13 +1303,13 @@
 
               <controls:SettingsGroup Heading="Integration &amp; compatibility" ControlWidth="240">
                 <controls:SettingRow Label="Shell integration">
-                  <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding TerminalSettingsEditor.ShellIntegrationModes}" SelectedItem="{Binding TerminalSettingsEditor.ShellIntegration}" />
+                  <ComboBox ItemsSource="{Binding TerminalSettingsEditor.ShellIntegrationModes}" SelectedItem="{Binding TerminalSettingsEditor.ShellIntegration}" />
                 </controls:SettingRow>
                 <controls:SettingRow Label="Bell">
-                  <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding TerminalSettingsEditor.BellModes}" SelectedItem="{Binding TerminalSettingsEditor.BellMode}" />
+                  <ComboBox ItemsSource="{Binding TerminalSettingsEditor.BellModes}" SelectedItem="{Binding TerminalSettingsEditor.BellMode}" />
                 </controls:SettingRow>
                 <controls:SettingRow Label="Compatibility" IsLast="True">
-                  <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding TerminalSettingsEditor.CompatibilityProfiles}" SelectedItem="{Binding TerminalSettingsEditor.Compatibility}" />
+                  <ComboBox ItemsSource="{Binding TerminalSettingsEditor.CompatibilityProfiles}" SelectedItem="{Binding TerminalSettingsEditor.Compatibility}" />
                 </controls:SettingRow>
                 <controls:SettingsGroup.Footer>
                   <TextBlock
@@ -1254,11 +1333,11 @@
                   DataContext="{Binding GitSettings}" />
             </Grid>
 
-            <StackPanel x:Name="SecretsSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsSecretsSettingsVisible}">
+            <StackPanel x:Name="SecretsSettingsPage" Classes="SettingsPage" IsVisible="{Binding IsSecretsSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="Security &amp; Secrets"
                   Description="Manage app encryption and saved credentials." />
-              <StackPanel Spacing="{DynamicResource ShellSpaceSection}">
+              <StackPanel Spacing="{DynamicResource ShellSettingsGroupGap}">
                 <controls:SettingsGroup Heading="Application security">
                   <controls:SettingRow
                       Label="Enable app encryption"
@@ -1303,7 +1382,7 @@
                       Label="Lock timeout"
                       Description="How long the app may sit idle before it locks itself. Any key or pointer input counts as activity."
                       IsVisible="{Binding ApplicationSecurityEditor.ShowProtectionControls}">
-                    <ComboBox HorizontalAlignment="Stretch"
+                    <ComboBox
                         ItemsSource="{Binding ApplicationSecurityEditor.LockTimeoutOptions}"
                         SelectedItem="{Binding ApplicationSecurityEditor.SelectedLockTimeout}"
                         AutomationProperties.Name="Lock timeout" />
@@ -1343,7 +1422,7 @@
               <!-- Kept here rather than beside the history it governs: whether
                    a record of every session is written down at all is a
                    question about this machine, not about the list. -->
-              <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
+              <StackPanel Spacing="{DynamicResource ShellSettingsGroupGap}">
                 <controls:StateOverlay
                     Kind="Loading"
                     Heading="Loading session history…"
@@ -1368,7 +1447,6 @@
                          that removes history. -->
                     <ComboBox
                         x:Name="HistoryRetentionPicker"
-                        HorizontalAlignment="Stretch"
                         ItemsSource="{Binding HistoryRetentionOptions}"
                         SelectedItem="{Binding SelectedHistoryRetentionOption, Mode=TwoWay}"
                         IsEnabled="{Binding CanManageHistoryRetention}"
@@ -1378,98 +1456,84 @@
                       <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
                     </ComboBox>
                   </controls:SettingRow>
-                  <controls:SettingsGroup.Footer>
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                      <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-                        <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
-                            Text="{Binding HistoryRetentionStatus}"
-                            AutomationProperties.LiveSetting="Polite"
-                            AutomationProperties.Name="History retention status" />
-                        <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
-                            Text="{Binding HistoryExportStatus}"
-                            IsVisible="{Binding HistoryExportStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                            AutomationProperties.LiveSetting="Polite"
-                            AutomationProperties.Name="History export status" />
-                      </StackPanel>
-                      <WrapPanel Grid.Column="1" HorizontalAlignment="Right" Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceXs}" LineSpacing="{DynamicResource ShellSpaceXs}">
-                        <Button Classes="SecondaryButton" Click="OnExportAllHistoryClick" Content="Export All…" IsEnabled="{Binding CanExportAllHistory}" AutomationProperties.Name="Export all session history" />
-                        <Button Classes="SecondaryButton" Click="OnCancelHistoryExportClick" Content="Cancel Export" IsVisible="{Binding IsHistoryExporting}" AutomationProperties.Name="Cancel session history export" />
-                        <Button Classes="DestructiveButton" Click="OnClearRecentSessionsClick" Content="Clear History…" IsEnabled="{Binding CanClearRecentSessionHistory}" AutomationProperties.Name="Clear session history" />
-                        <Button Classes="DestructiveButton" Click="OnResetRecentSessionHistoryClick" Content="Reset Unreadable History…" IsEnabled="{Binding CanResetRecentSessionHistory}" IsVisible="{Binding HasUnreadableRecentSessionHistory}" AutomationProperties.Name="Reset unreadable session history" />
-                      </WrapPanel>
-                    </Grid>
-                  </controls:SettingsGroup.Footer>
+                  <!-- A status with an action is the plate's last row, not a footnote. -->
+                  <Grid Margin="{DynamicResource ShellSettingsRowPadding}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                    <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
+                      <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
+                          Text="{Binding HistoryRetentionStatus}"
+                          AutomationProperties.LiveSetting="Polite"
+                          AutomationProperties.Name="History retention status" />
+                      <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
+                          Text="{Binding HistoryExportStatus}"
+                          IsVisible="{Binding HistoryExportStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                          AutomationProperties.LiveSetting="Polite"
+                          AutomationProperties.Name="History export status" />
+                    </StackPanel>
+                    <WrapPanel Grid.Column="1" HorizontalAlignment="Right" Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceXs}" LineSpacing="{DynamicResource ShellSpaceXs}">
+                      <Button Classes="SecondaryButton" Click="OnExportAllHistoryClick" Content="Export All…" IsEnabled="{Binding CanExportAllHistory}" AutomationProperties.Name="Export all session history" />
+                      <Button Classes="SecondaryButton" Click="OnCancelHistoryExportClick" Content="Cancel Export" IsVisible="{Binding IsHistoryExporting}" AutomationProperties.Name="Cancel session history export" />
+                      <Button Classes="DestructiveButton" Click="OnClearRecentSessionsClick" Content="Clear History…" IsEnabled="{Binding CanClearRecentSessionHistory}" AutomationProperties.Name="Clear session history" />
+                      <Button Classes="DestructiveButton" Click="OnResetRecentSessionHistoryClick" Content="Reset Unreadable History…" IsEnabled="{Binding CanResetRecentSessionHistory}" IsVisible="{Binding HasUnreadableRecentSessionHistory}" AutomationProperties.Name="Reset unreadable session history" />
+                    </WrapPanel>
+                  </Grid>
                 </controls:SettingsGroup>
               </StackPanel>
               <controls:Callout Glyph="Shield" Text="{Binding SecretVaultStatus}" />
               <controls:SettingsGroup Heading="New connection credential">
-                <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceMd}">
-                  <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <controls:LabeledField x:Name="SecretConnectionField" Label="Connection">
-                      <ComboBox x:Name="SecretConnectionPicker" ItemsSource="{Binding Connections}" PlaceholderText="Choose a connection">
-                        <ComboBox.ItemTemplate>
-                          <DataTemplate>
-                            <TextBlock Text="{Binding Name}" />
-                          </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                      </ComboBox>
-                    </controls:LabeledField>
-                    <controls:LabeledField x:Name="SecretKindField" Grid.Column="1" Label="Kind">
-                      <ComboBox x:Name="SecretKindPicker" ItemsSource="{Binding SecretKinds}" SelectedIndex="0" />
-                    </controls:LabeledField>
-                  </Grid>
-                  <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <controls:LabeledField Label="Label">
-                      <TextBox x:Name="SecretLabelInput" PlaceholderText="Production password" />
-                    </controls:LabeledField>
-                    <controls:LabeledField Grid.Column="1" Label="Value">
-                      <TextBox x:Name="SecretValueInput" PasswordChar="●" PlaceholderText="Never displayed again" />
-                    </controls:LabeledField>
-                  </Grid>
-                </StackPanel>
-                <controls:SettingsGroup.Footer>
-                  <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Use this credential when editing a connection." />
-                    <Button Grid.Column="1" Classes="SecondaryButton" Click="OnCreateConnectionSecretClick" Content="Store Credential" AutomationProperties.Name="Store connection credential" />
-                  </Grid>
-                </controls:SettingsGroup.Footer>
+                <controls:LabeledField x:Name="SecretConnectionField" Classes="FormRow" Label="Connection">
+                  <ComboBox x:Name="SecretConnectionPicker" ItemsSource="{Binding Connections}" PlaceholderText="Choose a connection">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding Name}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </controls:LabeledField>
+                <controls:LabeledField x:Name="SecretKindField" Classes="FormRow" Label="Kind">
+                  <ComboBox x:Name="SecretKindPicker" ItemsSource="{Binding SecretKinds}" SelectedIndex="0" />
+                </controls:LabeledField>
+                <controls:LabeledField Classes="FormRow" Label="Label">
+                  <TextBox x:Name="SecretLabelInput" PlaceholderText="Production password" />
+                </controls:LabeledField>
+                <controls:LabeledField Classes="FormRow" Label="Value">
+                  <TextBox x:Name="SecretValueInput" PasswordChar="●" PlaceholderText="Never displayed again" />
+                </controls:LabeledField>
+                <!-- A status with an action is the plate's last row, not a footnote. -->
+                <Grid Margin="{DynamicResource ShellSettingsRowPadding}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                  <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Use this credential when editing a connection." TextWrapping="Wrap" />
+                  <Button Grid.Column="1" Classes="SecondaryButton" Click="OnCreateConnectionSecretClick" Content="Store Credential" AutomationProperties.Name="Store connection credential" />
+                </Grid>
               </controls:SettingsGroup>
               <controls:SettingsGroup Heading="New file-provider credential">
-                <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceMd}">
-                  <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <controls:LabeledField x:Name="SecretFileProviderField" Label="File provider">
-                      <ComboBox x:Name="SecretFileProviderPicker" ItemsSource="{Binding FileProviderDefinitions}" PlaceholderText="Choose a file provider">
-                        <ComboBox.ItemTemplate>
-                          <DataTemplate>
-                            <TextBlock Text="{Binding Name}" />
-                          </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                      </ComboBox>
-                    </controls:LabeledField>
-                    <controls:LabeledField x:Name="FileProviderSecretKindField" Grid.Column="1" Label="Kind">
-                      <ComboBox x:Name="FileProviderSecretKindPicker" ItemsSource="{Binding SecretKinds}" SelectedIndex="0" />
-                    </controls:LabeledField>
-                  </Grid>
-                  <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <controls:LabeledField Label="Label">
-                      <TextBox x:Name="FileProviderSecretLabelInput" PlaceholderText="Production provider credential" />
-                    </controls:LabeledField>
-                    <controls:LabeledField Grid.Column="1" Label="Value">
-                      <TextBox x:Name="FileProviderSecretValueInput" PasswordChar="●" PlaceholderText="Never displayed again" />
-                    </controls:LabeledField>
-                  </Grid>
-                </StackPanel>
-                <controls:SettingsGroup.Footer>
-                  <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Save the provider first, then store and select its credential." TextWrapping="Wrap" />
-                    <Button Grid.Column="1" Classes="SecondaryButton" Click="OnCreateFileProviderSecretClick" Content="Store Credential" AutomationProperties.Name="Store file-provider credential" />
-                  </Grid>
-                </controls:SettingsGroup.Footer>
+                <controls:LabeledField x:Name="SecretFileProviderField" Classes="FormRow" Label="File provider">
+                  <ComboBox x:Name="SecretFileProviderPicker" ItemsSource="{Binding FileProviderDefinitions}" PlaceholderText="Choose a file provider">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding Name}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </controls:LabeledField>
+                <controls:LabeledField x:Name="FileProviderSecretKindField" Classes="FormRow" Label="Kind">
+                  <ComboBox x:Name="FileProviderSecretKindPicker" ItemsSource="{Binding SecretKinds}" SelectedIndex="0" />
+                </controls:LabeledField>
+                <controls:LabeledField Classes="FormRow" Label="Label">
+                  <TextBox x:Name="FileProviderSecretLabelInput" PlaceholderText="Production provider credential" />
+                </controls:LabeledField>
+                <controls:LabeledField Classes="FormRow" Label="Value">
+                  <TextBox x:Name="FileProviderSecretValueInput" PasswordChar="●" PlaceholderText="Never displayed again" />
+                </controls:LabeledField>
+                <!-- A status with an action is the plate's last row, not a footnote. -->
+                <Grid Margin="{DynamicResource ShellSettingsRowPadding}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                  <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Save the provider first, then store and select its credential." TextWrapping="Wrap" />
+                  <Button Grid.Column="1" Classes="SecondaryButton" Click="OnCreateFileProviderSecretClick" Content="Store Credential" AutomationProperties.Name="Store file-provider credential" />
+                </Grid>
               </controls:SettingsGroup>
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <TextBlock Classes="SectionHeading" Text="Saved credentials" />
-                <controls:SurfaceCard Padding="0" ClipsContent="True" IsVisible="{Binding !HasNoSecrets}">
-                  <StackPanel>
+              <!-- Credentials are stored from the forms above; – removes the
+                   selected one, as its context menu and Delete do. -->
+              <controls:SettingsGroup Heading="Saved credentials">
+                <Panel>
+                  <StackPanel IsVisible="{Binding !HasNoSecrets}">
                     <ListBox
                         x:Name="SecretList"
                         Classes="Rows Separated"
@@ -1477,7 +1541,7 @@
                         AutomationProperties.Name="Stored credentials">
                       <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:SecretMetadataViewModel">
-                          <Grid Margin="{DynamicResource ShellListRowPadding}" Background="Transparent" ColumnDefinitions="Auto,*,220,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                          <Grid Margin="{DynamicResource ShellListRowPadding}" Background="Transparent" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
                             <Grid.ContextMenu>
                               <ContextMenu>
                                 <MenuItem Header="Edit…" Click="OnEditSecretClick" />
@@ -1487,12 +1551,12 @@
                             </Grid.ContextMenu>
                             <controls:IdentityTile VerticalAlignment="Center" TileSize="Small" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="Key" />
                             <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
-                              <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}"><TextBlock FontWeight="SemiBold" Text="{Binding Label}" /><TextBlock Classes="Eyebrow" Text="{Binding Kind}" /></StackPanel>
+                              <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}"><TextBlock Text="{Binding Label}" /><TextBlock Classes="Eyebrow" Text="{Binding Kind}" /></StackPanel>
                               <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Scope}" />
                               <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Dependencies}" />
                               <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding LastUsed, StringFormat={}Last used: {0}}" />
                             </StackPanel>
-                            <TextBox Grid.Column="2" VerticalAlignment="Center" FontFamily="{DynamicResource ShellDataFontFamily}" FontSize="{DynamicResource ShellSecondaryFontSize}" IsReadOnly="True" Text="{Binding Reference.Value}" AutomationProperties.Name="Credential ID" />
+                            <TextBox Grid.Column="2" Width="{controls:TextScaled 200}" VerticalAlignment="Center" FontFamily="{DynamicResource ShellDataFontFamily}" FontSize="{DynamicResource ShellSecondaryFontSize}" IsReadOnly="True" Text="{Binding Reference.Value}" AutomationProperties.Name="Credential ID" />
                             <Button Grid.Column="3" VerticalAlignment="Center" Classes="SecondaryButton" Click="OnEditSecretClick" Content="Edit…" AutomationProperties.Name="{Binding Label, StringFormat={}Edit credential {0}}" />
                           </Grid>
                         </DataTemplate>
@@ -1512,20 +1576,17 @@
                     </StackPanel>
                   </Border>
                   </StackPanel>
-                </controls:SurfaceCard>
-                <!-- Credentials are stored from the forms above; – removes the
-                     selected one, as its context menu and Delete do. -->
-                <controls:SurfaceCard IsVisible="{Binding HasNoSecrets}">
                   <controls:StateOverlay
+                      Margin="{controls:Inset Xl}"
+                      IsVisible="{Binding HasNoSecrets}"
                       Kind="Empty"
                       Heading="No stored credentials"
                       Body="Saved credentials appear here." />
-                </controls:SurfaceCard>
-              </StackPanel>
+                </Panel>
+              </controls:SettingsGroup>
             </StackPanel>
 
-            <StackPanel x:Name="AiSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsAgentSettingsVisible}">
-              <StackPanel Spacing="{DynamicResource ShellSpaceSection}">
+            <StackPanel x:Name="AiSettingsPage" Classes="SettingsPage" IsVisible="{Binding IsAgentSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="AI"
                   Description="Choose agent defaults, connect model providers, and manage MCP servers. Workspaces and saved screens can override agent defaults." />
@@ -1533,7 +1594,7 @@
               <controls:SettingsGroup
                   Heading="System prompt"
                   Description="Base instructions added to every new agent conversation. A workspace or saved screen can override them.">
-                <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceSm}">
+                <StackPanel Margin="{DynamicResource ShellSettingsGroupContentPadding}" Spacing="{DynamicResource ShellSpaceSm}">
                   <TextBox
                       MinHeight="160"
                       MaxLength="8000"
@@ -1551,143 +1612,145 @@
                 </StackPanel>
               </controls:SettingsGroup>
 
+              <!-- One row per choice, as a grouped form: the provider, the
+                   default model, and the two models the agent uses for its
+                   own housekeeping. A choice with one option says it as the
+                   row's value rather than offering a menu of one. -->
               <controls:SettingsGroup
                   Heading="Default agent configuration"
                   Description="Used by the floating agent unless the current workspace or saved screen supplies an override.">
-                <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceMd}">
-                  <controls:Callout
-                      Glyph="Bot"
-                      Text="Add a provider below, then choose the default provider and model here."
-                      IsVisible="{Binding HasNoAiProviders}" />
-                  <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}" IsVisible="{Binding HasAiProviders}">
-                    <controls:LabeledField Label="Provider profile">
-                      <Grid MinHeight="{DynamicResource ShellControlMinHeight}">
-                        <ComboBox
-                            IsVisible="{Binding DefaultAgentPolicy.HasMultipleProviderOptions}"
-                            ItemsSource="{Binding DefaultAgentPolicy.ProviderOptions}"
-                            SelectedItem="{Binding DefaultAgentPolicy.SelectedProvider, Mode=TwoWay}"
-                            AutomationProperties.Name="Default AI provider profile">
-                          <ComboBox.ItemTemplate>
-                            <DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
-                          </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            FontWeight="SemiBold"
-                            IsVisible="{Binding DefaultAgentPolicy.HasSingleProviderOption}"
-                            Text="{Binding DefaultAgentPolicy.SelectedProvider.DisplayName}" />
-                      </Grid>
-                    </controls:LabeledField>
-                    <controls:LabeledField Grid.Column="1" Label="Default model">
-                      <Grid MinHeight="{DynamicResource ShellControlMinHeight}">
-                        <ComboBox
-                            IsVisible="{Binding DefaultAgentPolicy.HasMultipleModelOptions}"
-                            ItemsSource="{Binding DefaultAgentPolicy.ModelOptions}"
-                            SelectedItem="{Binding DefaultAgentPolicy.SelectedModel, Mode=TwoWay}"
-                            AutomationProperties.Name="Default AI model">
-                          <ComboBox.ItemTemplate>
-                            <DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
-                          </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            FontWeight="SemiBold"
-                            IsVisible="{Binding DefaultAgentPolicy.HasSingleModelOption}"
-                            Text="{Binding DefaultAgentPolicy.SelectedModel.DisplayName}" />
-                      </Grid>
-                    </controls:LabeledField>
-                  </Grid>
-                  <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}" IsVisible="{Binding HasAiProviders}">
-                    <controls:LabeledField Label="Compaction model">
-                      <ComboBox
-                          ItemsSource="{Binding DefaultAgentPolicy.AgentTaskModelOptions}"
-                          SelectedItem="{Binding DefaultAgentPolicy.SelectedCompactionModel, Mode=TwoWay}"
-                          AutomationProperties.Name="Model used to compact long AI conversations">
-                        <ComboBox.ItemTemplate>
-                          <DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
-                        </ComboBox.ItemTemplate>
-                      </ComboBox>
-                    </controls:LabeledField>
-                    <controls:LabeledField Grid.Column="1" Label="Title model">
-                      <Grid MinHeight="{DynamicResource ShellControlMinHeight}">
-                        <ComboBox
-                            IsVisible="{Binding DefaultAgentPolicy.HasMultipleTitleModelOptions}"
-                            ItemsSource="{Binding DefaultAgentPolicy.TitleModelOptions}"
-                            SelectedItem="{Binding DefaultAgentPolicy.SelectedTitleModel, Mode=TwoWay}"
-                            AutomationProperties.Name="Model used to generate AI conversation titles">
-                          <ComboBox.ItemTemplate>
-                            <DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
-                          </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            FontWeight="SemiBold"
-                            IsVisible="{Binding DefaultAgentPolicy.HasSingleTitleModelOption}"
-                            Text="{Binding DefaultAgentPolicy.SelectedTitleModel.DisplayName}" />
-                      </Grid>
-                    </controls:LabeledField>
-                  </Grid>
-                  <TextBlock
-                      Classes="Muted"
-                      FontSize="{DynamicResource ShellSecondaryFontSize}"
-                      Text="Long conversations compact automatically before the provider context limit. When configured, title generation runs once after the first completed response."
-                      TextWrapping="Wrap" />
-                  <Expander
-                      Header="Tool permissions"
-                      HorizontalAlignment="Stretch"
-                      HorizontalContentAlignment="Stretch"
-                      IsExpanded="False"
-                      AutomationProperties.Name="Default agent tool permissions"
-                      AutomationProperties.HelpText="Expand to edit the Off, Ask, and Auto permissions for each capability.">
-                    <ItemsControl ItemsSource="{Binding DefaultAgentPolicy.Capabilities}">
-                      <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                          <Grid Margin="{controls:Inset Vertical=Sm}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                            <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-                              <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" TextWrapping="Wrap" />
-                              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Description}" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <controls:SegmentedControl
-                                Grid.Column="1"
-                                MinWidth="{controls:TextScaled 180}"
-                                SelectedIndex="{Binding SelectedOptionIndex, Mode=TwoWay}"
-                                AutomationProperties.Name="{Binding DisplayName, StringFormat={}{0} permission}">
-                              <RadioButton Content="Off" />
-                              <RadioButton Content="Ask" />
-                              <RadioButton Content="Auto" />
-                            </controls:SegmentedControl>
-                          </Grid>
-                        </DataTemplate>
-                      </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                  </Expander>
-                  <!-- Saved as it changes, like every other setting here. -->
-                  <!-- Shown only after the default has been changed and left
-                       incomplete. On a page nobody has touched, the notice
-                       above says what to do first; an error beside it would
-                       blame an untouched page. -->
-                  <TextBlock
-                      Foreground="{DynamicResource ShellDangerBrush}"
-                      FontSize="{DynamicResource ShellSecondaryFontSize}"
-                      Text="Choose an available provider and a valid model. The default is saved once it is complete."
-                      TextWrapping="Wrap">
-                    <TextBlock.IsVisible>
-                      <MultiBinding Converter="{x:Static BoolConverters.And}">
-                        <Binding Path="DefaultAgentPolicySettings.ShowsIncompleteDefault" FallbackValue="False" />
-                        <Binding Path="HasAiProviders" FallbackValue="False" />
-                      </MultiBinding>
-                    </TextBlock.IsVisible>
-                  </TextBlock>
-                </StackPanel>
+                <controls:Callout
+                    Glyph="Bot"
+                    Text="Add a provider below, then choose the default provider and model here."
+                    IsVisible="{Binding HasNoAiProviders}" />
+                <controls:SettingRow Label="Provider profile" IsVisible="{Binding HasAiProviders}">
+                  <Panel HorizontalAlignment="Right">
+                    <ComboBox
+                        IsVisible="{Binding DefaultAgentPolicy.HasMultipleProviderOptions}"
+                        ItemsSource="{Binding DefaultAgentPolicy.ProviderOptions}"
+                        SelectedItem="{Binding DefaultAgentPolicy.SelectedProvider, Mode=TwoWay}"
+                        AutomationProperties.Name="Default AI provider profile">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Classes="Muted"
+                        IsVisible="{Binding DefaultAgentPolicy.HasSingleProviderOption}"
+                        Text="{Binding DefaultAgentPolicy.SelectedProvider.DisplayName}" />
+                  </Panel>
+                </controls:SettingRow>
+                <controls:SettingRow Label="Default model" IsVisible="{Binding HasAiProviders}">
+                  <Panel HorizontalAlignment="Right">
+                    <ComboBox
+                        IsVisible="{Binding DefaultAgentPolicy.HasMultipleModelOptions}"
+                        ItemsSource="{Binding DefaultAgentPolicy.ModelOptions}"
+                        SelectedItem="{Binding DefaultAgentPolicy.SelectedModel, Mode=TwoWay}"
+                        AutomationProperties.Name="Default AI model">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Classes="Muted"
+                        IsVisible="{Binding DefaultAgentPolicy.HasSingleModelOption}"
+                        Text="{Binding DefaultAgentPolicy.SelectedModel.DisplayName}" />
+                  </Panel>
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Label="Compaction model"
+                    Description="Long conversations compact automatically before the provider context limit."
+                    IsVisible="{Binding HasAiProviders}">
+                  <ComboBox
+                      ItemsSource="{Binding DefaultAgentPolicy.AgentTaskModelOptions}"
+                      SelectedItem="{Binding DefaultAgentPolicy.SelectedCompactionModel, Mode=TwoWay}"
+                      AutomationProperties.Name="Model used to compact long AI conversations">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Label="Title model"
+                    Description="When configured, title generation runs once after the first completed response."
+                    IsVisible="{Binding HasAiProviders}">
+                  <Panel HorizontalAlignment="Right">
+                    <ComboBox
+                        IsVisible="{Binding DefaultAgentPolicy.HasMultipleTitleModelOptions}"
+                        ItemsSource="{Binding DefaultAgentPolicy.TitleModelOptions}"
+                        SelectedItem="{Binding DefaultAgentPolicy.SelectedTitleModel, Mode=TwoWay}"
+                        AutomationProperties.Name="Model used to generate AI conversation titles">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Classes="Muted"
+                        IsVisible="{Binding DefaultAgentPolicy.HasSingleTitleModelOption}"
+                        Text="{Binding DefaultAgentPolicy.SelectedTitleModel.DisplayName}" />
+                  </Panel>
+                </controls:SettingRow>
+                <!-- The permissions are a list of their own, folded until
+                     asked for: each capability's Off, Ask, and Auto. -->
+                <Expander
+                    Margin="{DynamicResource ShellSettingsRowPadding}"
+                    Header="Tool permissions"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    IsExpanded="False"
+                    AutomationProperties.Name="Default agent tool permissions"
+                    AutomationProperties.HelpText="Expand to edit the Off, Ask, and Auto permissions for each capability.">
+                  <ItemsControl ItemsSource="{Binding DefaultAgentPolicy.Capabilities}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Grid Margin="{controls:Inset Vertical=Sm}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                          <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSettingsLabelSpacing}">
+                            <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Description}" TextWrapping="Wrap" />
+                          </StackPanel>
+                          <controls:SegmentedControl
+                              Grid.Column="1"
+                              MinWidth="{controls:TextScaled 180}"
+                              SelectedIndex="{Binding SelectedOptionIndex, Mode=TwoWay}"
+                              AutomationProperties.Name="{Binding DisplayName, StringFormat={}{0} permission}">
+                            <RadioButton Content="Off" />
+                            <RadioButton Content="Ask" />
+                            <RadioButton Content="Auto" />
+                          </controls:SegmentedControl>
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </Expander>
+                <!-- Saved as it changes, like every other setting here. -->
+                <!-- Shown only after the default has been changed and left
+                     incomplete. On a page nobody has touched, the notice
+                     above says what to do first; an error beside it would
+                     blame an untouched page. -->
+                <TextBlock
+                    Margin="{DynamicResource ShellSettingsGroupContentPadding}"
+                    Foreground="{DynamicResource ShellDangerBrush}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
+                    Text="Choose an available provider and a valid model. The default is saved once it is complete."
+                    TextWrapping="Wrap">
+                  <TextBlock.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                      <Binding Path="DefaultAgentPolicySettings.ShowsIncompleteDefault" FallbackValue="False" />
+                      <Binding Path="HasAiProviders" FallbackValue="False" />
+                    </MultiBinding>
+                  </TextBlock.IsVisible>
+                </TextBlock>
               </controls:SettingsGroup>
 
               <controls:SettingsGroup
                   Heading="Agent history"
                   Description="Choose how much agent history to keep, or export a record of past runs."
                   IsVisible="{Binding AgentHistoryOwner, Converter={x:Static ObjectConverters.IsNotNull}}">
-                <controls:SettingRow Label="Keep history">
+                <controls:SettingRow Label="Keep history" Description="{Binding AgentHistoryOwner.HistoryRetentionEffect}">
                   <ComboBox
-                      HorizontalAlignment="Stretch"
                       ItemsSource="{Binding AgentHistoryOwner.HistoryRetentionOptions}"
                       SelectedItem="{Binding AgentHistoryOwner.SelectedHistoryRetentionOption, Mode=TwoWay}"
                       IsEnabled="{Binding !AgentHistoryOwner.IsHistoryRetentionLoading}"
@@ -1700,66 +1763,60 @@
                     </ComboBox.ItemTemplate>
                   </ComboBox>
                 </controls:SettingRow>
+                <controls:SettingRow Label="Export history" Description="A record of past runs, as one file.">
+                  <Button Classes="SecondaryButton" Click="OnExportAgentHistoryClick" Content="Export…"
+                      IsEnabled="{Binding AgentHistoryOwner.CanExportHistory}"
+                      AutomationProperties.Name="Export agent history" />
+                </controls:SettingRow>
                 <controls:SettingsGroup.Footer>
-                  <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                    <TextBlock Classes="Muted" Text="{Binding AgentHistoryOwner.HistoryRetentionEffect}" TextWrapping="Wrap" />
-                    <WrapPanel Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceSm}" LineSpacing="{DynamicResource ShellSpaceXs}">
-                      <Button Classes="SecondaryButton" Click="OnExportAgentHistoryClick" Content="Export…"
-                          IsEnabled="{Binding AgentHistoryOwner.CanExportHistory}"
-                          AutomationProperties.Name="Export agent history" />
-                    </WrapPanel>
-                    <controls:LiveRegionTextBlock Classes="Muted" Text="{Binding AgentHistoryOwner.AgentHistoryStatus}" TextWrapping="Wrap"
-                        AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Agent history status" />
-                  </StackPanel>
+                  <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding AgentHistoryOwner.AgentHistoryStatus}" TextWrapping="Wrap"
+                      AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Agent history status" />
                 </controls:SettingsGroup.Footer>
               </controls:SettingsGroup>
 
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <components:SectionHeader
-                    Heading="Providers"
-                    Description="Connect and manage model providers." />
-
-                <!-- The Mac list pattern: select a provider, then – below the
-                     list, its context menu, or Delete removes it. -->
-                <StackPanel Spacing="{DynamicResource ShellSpaceSm}" IsVisible="{Binding HasAiProviders}">
-                  <controls:SurfaceCard Padding="0" ClipsContent="True">
-                    <StackPanel>
-                      <ListBox
-                          x:Name="AiProviderList"
-                          Classes="Rows Separated"
-                          ItemsSource="{Binding AiProviderDefinitions}"
-                          AutomationProperties.Name="AI providers">
-                        <ListBox.ItemTemplate>
-                          <DataTemplate x:DataType="vm:AiProviderProfileItemViewModel">
-                            <Grid Margin="{DynamicResource ShellListRowPadding}" Background="Transparent" ColumnDefinitions="Auto,2*,2*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                              <Grid.ContextMenu>
-                                <ContextMenu>
-                                  <MenuItem Header="Edit…" Click="OnEditAiProviderClick" />
-                                  <Separator />
-                                  <MenuItem Header="Delete…" Click="OnDeleteAiProviderClick" />
-                                </ContextMenu>
-                              </Grid.ContextMenu>
-                              <controls:IdentityTile VerticalAlignment="Center" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="Bot" />
-                              <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
-                                <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                                  <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
-                                  <TextBlock Classes="Eyebrow" Text="{Binding Kind}" />
-                                </StackPanel>
-                                <TextBlock Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Endpoint}" />
-                                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding DefaultModel, StringFormat={}Default model: {0}}" />
+              <!-- The Mac list pattern: select a provider, then – below the
+                   list, its context menu, or Delete removes it. -->
+              <controls:SettingsGroup
+                  Heading="Providers"
+                  Description="Connect and manage model providers.">
+                <Panel>
+                  <StackPanel IsVisible="{Binding HasAiProviders}">
+                    <ListBox
+                        x:Name="AiProviderList"
+                        Classes="Rows Separated"
+                        ItemsSource="{Binding AiProviderDefinitions}"
+                        AutomationProperties.Name="AI providers">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AiProviderProfileItemViewModel">
+                          <Grid Margin="{DynamicResource ShellListRowPadding}" Background="Transparent" ColumnDefinitions="Auto,2*,2*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                            <Grid.ContextMenu>
+                              <ContextMenu>
+                                <MenuItem Header="Edit…" Click="OnEditAiProviderClick" />
+                                <Separator />
+                                <MenuItem Header="Delete…" Click="OnDeleteAiProviderClick" />
+                              </ContextMenu>
+                            </Grid.ContextMenu>
+                            <controls:IdentityTile VerticalAlignment="Center" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="Bot" />
+                            <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSettingsLabelSpacing}">
+                              <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+                                <TextBlock Text="{Binding Name}" />
+                                <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding Kind}" />
                               </StackPanel>
-                              <StackPanel Grid.Column="2" Spacing="{DynamicResource ShellSpaceXs}">
-                                <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                                  <TextBlock FontWeight="SemiBold" Text="{Binding Status}" />
-                                  <TextBlock Classes="Eyebrow" Text="{Binding Order, StringFormat={}Order {0}}" />
-                                </StackPanel>
-                                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding StatusDetail}" TextWrapping="Wrap" />
+                              <TextBlock Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Endpoint}" />
+                              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding DefaultModel, StringFormat={}Default model: {0}}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Spacing="{DynamicResource ShellSettingsLabelSpacing}">
+                              <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+                                <TextBlock Text="{Binding Status}" />
+                                <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding Order, StringFormat={}Order {0}}" />
                               </StackPanel>
-                              <Button Grid.Column="3" VerticalAlignment="Center" Classes="SecondaryButton" Click="OnEditAiProviderClick" Content="Edit…" AutomationProperties.Name="{Binding Name, StringFormat={}Edit AI provider {0}}" />
-                            </Grid>
-                          </DataTemplate>
-                        </ListBox.ItemTemplate>
-                      </ListBox>
+                              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding StatusDetail}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Button Grid.Column="3" VerticalAlignment="Center" Classes="SecondaryButton" Click="OnEditAiProviderClick" Content="Edit…" AutomationProperties.Name="{Binding Name, StringFormat={}Edit AI provider {0}}" />
+                          </Grid>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
                     <Border Classes="ListActionBar">
                       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
                         <Button
@@ -1780,58 +1837,50 @@
                         </Button>
                       </StackPanel>
                     </Border>
-                    </StackPanel>
-                  </controls:SurfaceCard>
-                </StackPanel>
-
-                <controls:SurfaceCard Padding="0" IsVisible="{Binding HasNoAiProviders}">
+                  </StackPanel>
                   <controls:StateOverlay Margin="{controls:Inset Xl}"
+                      IsVisible="{Binding HasNoAiProviders}"
                       Kind="Empty"
                       Heading="No provider configured"
                       Body="Add a provider to start using the AI agent.">
                     <Button HorizontalAlignment="Center" Classes="SecondaryButton" Click="OnAddAiProviderClick" Content="Add Provider…" AutomationProperties.Name="Add first AI provider" />
                   </controls:StateOverlay>
-                </controls:SurfaceCard>
-              </StackPanel>
+                </Panel>
+              </controls:SettingsGroup>
 
               <!-- The credential slot belongs to a saved profile, so with no
-                   profile there is nothing to fill: the card stays visible to
+                   profile there is nothing to fill: the plate stays visible to
                    explain the order, and its controls stay inert rather than
                    inviting a keystroke that cannot go anywhere. -->
               <controls:SettingsGroup
                   Heading="Provider API key"
                   Description="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat={}Store an API key for a saved provider. Keys stay in {0}.}"
                   IsEnabled="{Binding HasAiProviders}">
-                <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceMd}">
-                  <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <controls:LabeledField x:Name="AiProviderSecretProfileField" Label="Provider">
-                      <ComboBox x:Name="AiProviderSecretProfilePicker" ItemsSource="{Binding AiProviderDefinitions}" SelectedIndex="0" PlaceholderText="Choose a provider">
-                        <ComboBox.ItemTemplate>
-                          <DataTemplate>
-                            <TextBlock Text="{Binding Name}" />
-                          </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                      </ComboBox>
-                    </controls:LabeledField>
-                    <controls:LabeledField Grid.Column="1" Label="Label">
-                      <TextBox x:Name="AiProviderSecretLabelInput" PlaceholderText="Provider API key" />
-                    </controls:LabeledField>
-                  </Grid>
-                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <TextBox x:Name="AiProviderSecretValueInput" PasswordChar="●" PlaceholderText="API key · never displayed again" AutomationProperties.Name="API key" />
-                    <Button Grid.Column="1" Classes="SecondaryButton" Click="OnCreateAiProviderSecretClick" Content="Store Credential" AutomationProperties.Name="Store AI provider credential" />
-                  </Grid>
-                </StackPanel>
+                <controls:LabeledField x:Name="AiProviderSecretProfileField" Classes="FormRow" Label="Provider">
+                  <ComboBox x:Name="AiProviderSecretProfilePicker" ItemsSource="{Binding AiProviderDefinitions}" SelectedIndex="0" PlaceholderText="Choose a provider">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding Name}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </controls:LabeledField>
+                <controls:LabeledField Classes="FormRow" Label="Label">
+                  <TextBox x:Name="AiProviderSecretLabelInput" PlaceholderText="Provider API key" />
+                </controls:LabeledField>
+                <controls:LabeledField Classes="FormRow" Label="API key">
+                  <TextBox x:Name="AiProviderSecretValueInput" PasswordChar="●" PlaceholderText="Never displayed again" AutomationProperties.Name="API key" />
+                </controls:LabeledField>
+                <!-- A status with an action is the plate's last row, not a footnote. -->
+                <Button Margin="{DynamicResource ShellSettingsRowPadding}" HorizontalAlignment="Right" Classes="SecondaryButton" Click="OnCreateAiProviderSecretClick" Content="Store Credential" AutomationProperties.Name="Store AI provider credential" />
               </controls:SettingsGroup>
-
-              </StackPanel>
 
               <!-- A section of the AI page under its own heading: the window's
                    title already names the page. The heading has the rank of
                    every other section heading here (SectionHeader's), not a
                    page title's, and keeps its heading level for VoiceOver. -->
-              <StackPanel x:Name="McpSettingsSection" Spacing="{DynamicResource ShellSpaceSection}">
-              <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+              <StackPanel x:Name="McpSettingsSection" Classes="SettingsSection">
+              <StackPanel Margin="{DynamicResource ShellSettingsHeadingTextInset}" Spacing="{DynamicResource ShellSettingsLabelSpacing}">
                 <TextBlock Classes="Headline" Text="MCP" AutomationProperties.HeadingLevel="2" />
                 <TextBlock
                     Classes="Muted"
@@ -1842,93 +1891,86 @@
 
               <settingsPages:LocalMcpServerSettingsView DataContext="{Binding LocalMcpServerSettings}" />
 
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                  <components:SectionHeader
-                      Heading="Connected servers"
-                      Description="Servers the agent can call. Each one lists the tools it offers; enable only the ones you want." />
-                  <StackPanel
-                      Grid.Column="1"
-                      Orientation="Horizontal"
-                      VerticalAlignment="Center"
-                      Spacing="{DynamicResource ShellSpaceSm}">
-                    <Button
-                        Classes="DestructiveButton"
-                        Click="OnClearMcpServerDiagnosticHistoryClick"
-                        Content="Clear History"
-                        IsVisible="{Binding HasMcpDiagnosticHistory}"
-                        AutomationProperties.Name="Clear MCP diagnostic history" />
-                  </StackPanel>
-                </Grid>
-                <!-- The Mac list pattern: select a server, then – below the
-                     list, its context menu, or Delete removes it. -->
-                <StackPanel Spacing="{DynamicResource ShellSpaceSm}" IsVisible="{Binding HasMcpServers}">
-                  <controls:SurfaceCard Padding="0" ClipsContent="True">
-                    <StackPanel>
-                      <ListBox
-                          x:Name="McpServerList"
-                          Classes="Rows Separated"
-                          ItemsSource="{Binding McpServerDefinitions}"
-                          AutomationProperties.Name="Connected MCP servers">
-                        <ListBox.ItemTemplate>
-                          <DataTemplate x:DataType="vm:McpServerProfileItemViewModel">
-                            <Grid Margin="{DynamicResource ShellListRowPadding}" Background="Transparent"
-                                ColumnDefinitions="Auto,2*,2*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}"
-                                AutomationProperties.Name="{Binding Name, StringFormat={}MCP server {0}}">
-                              <Grid.ContextMenu>
-                                <ContextMenu>
-                                  <MenuItem Header="Edit…" Click="OnEditMcpServerClick" />
-                                  <Separator />
-                                  <MenuItem Header="Delete…" Click="OnDeleteMcpServerClick" />
-                                </ContextMenu>
-                              </Grid.ContextMenu>
-                              <controls:IdentityTile VerticalAlignment="Center" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="Code" />
-                              <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
-                                <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
-                                <TextBlock
-                                    Classes="Muted MiddleTruncated"
-                                    FontSize="{DynamicResource ShellSecondaryFontSize}"
-                                    Text="{Binding Address}"
-                                    ToolTip.Tip="{Binding Address}" />
-                                <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding TransportSummary}" />
-                                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ArgumentSummary}" IsVisible="{Binding IsStdio}" />
-                                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding CredentialBindingSummary}" />
-                                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding EnabledToolSummary}" />
-                                </StackPanel>
+              <!-- The Mac list pattern: select a server, then – below the
+                   list, its context menu, or Delete removes it. The bar under
+                   the list stays when the list is empty, so the servers'
+                   diagnostic history can be cleared with none left. -->
+              <controls:SettingsGroup
+                  Heading="Connected servers"
+                  Description="Servers the agent can call. Each one lists the tools it offers; enable only the ones you want.">
+                <StackPanel>
+                  <Panel>
+                    <ListBox
+                        x:Name="McpServerList"
+                        Classes="Rows Separated"
+                        IsVisible="{Binding HasMcpServers}"
+                        ItemsSource="{Binding McpServerDefinitions}"
+                        AutomationProperties.Name="Connected MCP servers">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:McpServerProfileItemViewModel">
+                          <Grid Margin="{DynamicResource ShellListRowPadding}" Background="Transparent"
+                              ColumnDefinitions="Auto,2*,2*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}"
+                              AutomationProperties.Name="{Binding Name, StringFormat={}MCP server {0}}">
+                            <Grid.ContextMenu>
+                              <ContextMenu>
+                                <MenuItem Header="Edit…" Click="OnEditMcpServerClick" />
+                                <Separator />
+                                <MenuItem Header="Delete…" Click="OnDeleteMcpServerClick" />
+                              </ContextMenu>
+                            </Grid.ContextMenu>
+                            <controls:IdentityTile VerticalAlignment="Center" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="Code" />
+                            <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSettingsLabelSpacing}">
+                              <TextBlock Text="{Binding Name}" />
+                              <TextBlock
+                                  Classes="Muted MiddleTruncated"
+                                  FontSize="{DynamicResource ShellSecondaryFontSize}"
+                                  Text="{Binding Address}"
+                                  ToolTip.Tip="{Binding Address}" />
+                              <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+                                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding TransportSummary}" />
+                                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ArgumentSummary}" IsVisible="{Binding IsStdio}" />
+                                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding CredentialBindingSummary}" />
+                                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding EnabledToolSummary}" />
                               </StackPanel>
-                              <StackPanel Grid.Column="2" Spacing="{DynamicResource ShellSpaceXs}">
-                                <controls:LiveRegionTextBlock
-                                    FontWeight="SemiBold"
-                                    Text="{Binding Status}"
-                                    AutomationProperties.LiveSetting="Polite"
-                                    AutomationProperties.Name="{Binding Status, StringFormat={}MCP server status · {0}}" />
-                                <TextBlock
-                                    Classes="Muted"
-                                    FontSize="{DynamicResource ShellSecondaryFontSize}"
-                                    Text="{Binding StatusDetail}"
-                                    TextWrapping="Wrap" />
-                              </StackPanel>
-                              <Button
-                                  Grid.Column="3"
-                                  VerticalAlignment="Center"
-                                  Classes="SecondaryButton"
-                                  Click="OnTestMcpServerClick"
-                                  Content="{Binding TestActionLabel}"
-                                  IsEnabled="{Binding CanTest}"
-                                  AutomationProperties.Name="{Binding Name, StringFormat={}Test MCP server {0}}" />
-                              <Button
-                                  Grid.Column="4"
-                                  VerticalAlignment="Center"
-                                  Classes="SecondaryButton"
-                                  Click="OnEditMcpServerClick"
-                                  Content="Edit…"
-                                  AutomationProperties.Name="{Binding Name, StringFormat={}Edit MCP server {0}}" />
-                            </Grid>
-                          </DataTemplate>
-                        </ListBox.ItemTemplate>
-                      </ListBox>
-                    <Border Classes="ListActionBar">
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Spacing="{DynamicResource ShellSettingsLabelSpacing}">
+                              <controls:LiveRegionTextBlock
+                                  Text="{Binding Status}"
+                                  AutomationProperties.LiveSetting="Polite"
+                                  AutomationProperties.Name="{Binding Status, StringFormat={}MCP server status · {0}}" />
+                              <TextBlock
+                                  Classes="Muted"
+                                  FontSize="{DynamicResource ShellSecondaryFontSize}"
+                                  Text="{Binding StatusDetail}"
+                                  TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Button
+                                Grid.Column="3"
+                                VerticalAlignment="Center"
+                                Classes="SecondaryButton"
+                                Click="OnTestMcpServerClick"
+                                Content="{Binding TestActionLabel}"
+                                IsEnabled="{Binding CanTest}"
+                                AutomationProperties.Name="{Binding Name, StringFormat={}Test MCP server {0}}" />
+                            <Button
+                                Grid.Column="4"
+                                VerticalAlignment="Center"
+                                Classes="SecondaryButton"
+                                Click="OnEditMcpServerClick"
+                                Content="Edit…"
+                                AutomationProperties.Name="{Binding Name, StringFormat={}Edit MCP server {0}}" />
+                          </Grid>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+                    <controls:StateOverlay Margin="{controls:Inset Xl}"
+                        IsVisible="{Binding HasNoMcpServers}"
+                        Kind="Empty"
+                        Heading="No MCP server configured"
+                        Body="Add a local or remote MCP server to make its selected tools available to the agent." />
+                  </Panel>
+                  <Border Classes="ListActionBar">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
                       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
                         <Button
                             Classes="IconButton"
@@ -1947,91 +1989,80 @@
                           <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                         </Button>
                       </StackPanel>
-                    </Border>
-                    </StackPanel>
-                  </controls:SurfaceCard>
+                      <Button
+                          Grid.Column="2"
+                          Classes="DestructiveButton"
+                          Click="OnClearMcpServerDiagnosticHistoryClick"
+                          Content="Clear History"
+                          IsVisible="{Binding HasMcpDiagnosticHistory}"
+                          AutomationProperties.Name="Clear MCP diagnostic history" />
+                    </Grid>
+                  </Border>
                 </StackPanel>
-
-                <controls:SurfaceCard Padding="0" IsVisible="{Binding HasNoMcpServers}">
-                  <controls:StateOverlay Margin="{controls:Inset Xl}"
-                      Kind="Empty"
-                      Heading="No MCP server configured"
-                      Body="Add a local or remote MCP server to make its selected tools available to the agent.">
-                    <Button Classes="SecondaryButton" Click="OnAddMcpServerClick" Content="Add Server…" AutomationProperties.Name="Add first MCP server" />
-                  </controls:StateOverlay>
-                </controls:SurfaceCard>
-              </StackPanel>
+              </controls:SettingsGroup>
 
               <controls:SettingsGroup
                   Heading="Store MCP credential"
                   Description="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat={}Store a credential for a saved MCP server. Values stay in {0}.}">
-                <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceMd}">
-                  <Grid ColumnDefinitions="2*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <controls:LabeledField x:Name="McpServerSecretTargetField" Label="Credential binding">
-                      <ComboBox
-                          x:Name="McpServerSecretTargetPicker"
-                          ItemsSource="{Binding McpServerSecretTargets}"
-                          SelectedIndex="0"
-                          PlaceholderText="Choose a server and setting"
-                          AutomationProperties.Name="MCP credential binding">
-                        <ComboBox.ItemTemplate>
-                          <DataTemplate>
-                            <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
-                          </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                      </ComboBox>
-                    </controls:LabeledField>
-                    <controls:LabeledField x:Name="McpServerSecretKindField" Grid.Column="1" Label="Kind">
-                      <ComboBox
-                          x:Name="McpServerSecretKindPicker"
-                          ItemsSource="{Binding SecretKinds}"
-                          SelectedIndex="0"
-                          AutomationProperties.Name="MCP credential kind" />
-                    </controls:LabeledField>
-                  </Grid>
-                  <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <controls:LabeledField Label="Label">
-                      <TextBox
-                        x:Name="McpServerSecretLabelInput"
-                        PlaceholderText="Server token"
-                        AutomationProperties.Name="MCP credential label" />
-                    </controls:LabeledField>
-                    <controls:LabeledField Grid.Column="1" Label="Value">
-                      <TextBox
-                          x:Name="McpServerSecretValueInput"
-                        PasswordChar="●"
-                        PlaceholderText="Never displayed again"
-                        AutomationProperties.Name="MCP credential value" />
-                    </controls:LabeledField>
-                  </Grid>
-                </StackPanel>
-                <controls:SettingsGroup.Footer>
-                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                    <TextBlock
-                        VerticalAlignment="Center"
-                        Classes="Muted"
-                        FontSize="{DynamicResource ShellSecondaryFontSize}"
-                        Text="Choose a credential binding above."
-                        TextWrapping="Wrap" />
-                    <Button
-                        Grid.Column="1"
-                        Classes="SecondaryButton"
-                        Click="OnCreateMcpServerSecretClick"
-                        Content="Store Credential"
-                        IsEnabled="{Binding HasMcpServerSecretTargets}"
-                        AutomationProperties.Name="Store MCP credential" />
-                  </Grid>
-                </controls:SettingsGroup.Footer>
+                <controls:LabeledField x:Name="McpServerSecretTargetField" Classes="FormRow" Label="Credential binding">
+                  <ComboBox
+                      x:Name="McpServerSecretTargetPicker"
+                      ItemsSource="{Binding McpServerSecretTargets}"
+                      SelectedIndex="0"
+                      PlaceholderText="Choose a server and setting"
+                      AutomationProperties.Name="MCP credential binding">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </controls:LabeledField>
+                <controls:LabeledField x:Name="McpServerSecretKindField" Classes="FormRow" Label="Kind">
+                  <ComboBox
+                      x:Name="McpServerSecretKindPicker"
+                      ItemsSource="{Binding SecretKinds}"
+                      SelectedIndex="0"
+                      AutomationProperties.Name="MCP credential kind" />
+                </controls:LabeledField>
+                <controls:LabeledField Classes="FormRow" Label="Label">
+                  <TextBox
+                    x:Name="McpServerSecretLabelInput"
+                    PlaceholderText="Server token"
+                    AutomationProperties.Name="MCP credential label" />
+                </controls:LabeledField>
+                <controls:LabeledField Classes="FormRow" Label="Value">
+                  <TextBox
+                      x:Name="McpServerSecretValueInput"
+                    PasswordChar="●"
+                    PlaceholderText="Never displayed again"
+                    AutomationProperties.Name="MCP credential value" />
+                </controls:LabeledField>
+                <!-- A status with an action is the plate's last row, not a footnote. -->
+                <Grid Margin="{DynamicResource ShellSettingsRowPadding}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                  <TextBlock
+                      VerticalAlignment="Center"
+                      Classes="Muted"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                      Text="Choose a credential binding above."
+                      TextWrapping="Wrap" />
+                  <Button
+                      Grid.Column="1"
+                      Classes="SecondaryButton"
+                      Click="OnCreateMcpServerSecretClick"
+                      Content="Store Credential"
+                      IsEnabled="{Binding HasMcpServerSecretTargets}"
+                      AutomationProperties.Name="Store MCP credential" />
+                </Grid>
               </controls:SettingsGroup>
 
               </StackPanel>
             </StackPanel>
-
-            <StackPanel x:Name="DiagnosticsSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsDiagnosticsSettingsVisible}">
+            <StackPanel x:Name="DiagnosticsSettingsPage" Classes="SettingsPage" IsVisible="{Binding IsDiagnosticsSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="Data &amp; Diagnostics"
                   Description="Export support information without terminal content, commands, credentials, or environment values." />
-              <controls:SettingsGroup>
+              <controls:SettingsGroup Heading="Setup &amp; privacy">
                 <controls:SettingRow
                     Label="Getting started &amp; local privacy"
                     Description="Review setup, import or export settings, and manage session-history retention.">
@@ -2053,18 +2084,20 @@
 
             <!-- The same content the About window shows, so the two never
                  disagree about the version or what is bundled. -->
-            <StackPanel x:Name="AboutSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsAboutSettingsVisible}">
+            <StackPanel x:Name="AboutSettingsPage" Classes="SettingsPage" IsVisible="{Binding IsAboutSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="About"
                   Description="Version, updates, and the open-source components Asura bundles." />
               <components:AboutAsuraView ShowsComponents="True" />
             </StackPanel>
 
-            <StackPanel x:Name="NotificationsSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsNotificationSettingsVisible}">
+            <StackPanel x:Name="NotificationsSettingsPage" Classes="SettingsPage" IsVisible="{Binding IsNotificationSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="Notifications"
                   Description="Choose what Asura posts to the system's notification center while you work in another app. While Asura is in front, it shows the same news as attention marks on the panel, tab, and workspace instead of a banner." />
-              <controls:SettingsGroup Heading="System permission">
+              <controls:SettingsGroup
+                  Heading="System permission"
+                  Description="Asura posts to the system's notification center while you work in another app. While Asura is in front, it shows the same news as attention marks on the panel, tab, and workspace instead of a banner.">
                 <controls:SettingRow
                     Label="Notifications for Asura"
                     Description="{Binding NotificationSettings.AuthorizationDetail}">
@@ -2117,8 +2150,8 @@
                 </controls:SettingRow>
               </controls:SettingsGroup>
             </StackPanel>
-          </Grid>
-        </ScrollViewer>
+        </Grid>
+      </ScrollViewer>
+    </Grid>
   </Grid>
-
 </UserControl>

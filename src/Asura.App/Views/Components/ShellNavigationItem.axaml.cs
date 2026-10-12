@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using FluentIcons.Common;
 
 namespace Asura.App.Views.Components;
@@ -16,10 +17,9 @@ public sealed partial class ShellNavigationItem : UserControl
     public static readonly StyledProperty<Symbol> IconProperty =
         AvaloniaProperty.Register<ShellNavigationItem, Symbol>(nameof(Icon));
 
-    public static readonly StyledProperty<double> IconSizeProperty =
-        AvaloniaProperty.Register<ShellNavigationItem, double>(
-            nameof(IconSize),
-            15);
+    /// <summary>The colour of the page's icon tile.</summary>
+    public static readonly StyledProperty<IBrush?> TileBrushProperty =
+        AvaloniaProperty.Register<ShellNavigationItem, IBrush?>(nameof(TileBrush));
 
     public static readonly StyledProperty<bool> IsActiveProperty =
         AvaloniaProperty.Register<ShellNavigationItem, bool>(nameof(IsActive));
@@ -48,10 +48,10 @@ public sealed partial class ShellNavigationItem : UserControl
         set => SetValue(IconProperty, value);
     }
 
-    public double IconSize
+    public IBrush? TileBrush
     {
-        get => GetValue(IconSizeProperty);
-        set => SetValue(IconSizeProperty, value);
+        get => GetValue(TileBrushProperty);
+        set => SetValue(TileBrushProperty, value);
     }
 
     public bool IsActive

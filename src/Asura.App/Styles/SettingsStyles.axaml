@@ -1,0 +1,573 @@
+<Styles
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Asura.App.Controls"
+    xmlns:components="using:Asura.App.Views.Components"
+    xmlns:icons="using:FluentIcons.Avalonia">
+  <!--
+    The Settings window's grouped form, as macOS 26 System Settings draws it.
+    Every selector here is a settings surface's: a settings row and what sits
+    in it, a settings page, and the Settings window's own chrome. The values
+    are the ShellSettings* tokens SettingsChromeTokens publishes.
+  -->
+  <Styles.Resources>
+    <!--
+      A pop-up button inside a grouped form: the chosen value in the row's
+      text colour and, after it, the pair of chevrons on a small rounded
+      plate, with no bezel around the two, both hugging the row's trailing
+      edge. It opens the same menu every pop-up button does.
+    -->
+    <ControlTheme x:Key="SettingsPopUpButtonTheme" TargetType="ComboBox">
+      <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="{DynamicResource ShellInsetNone}" />
+      <Setter Property="Padding" Value="{DynamicResource ShellInsetNone}" />
+      <Setter Property="MaxDropDownHeight" Value="504" />
+      <Setter Property="Focusable" Value="True" />
+      <Setter Property="Cursor" Value="Arrow" />
+      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+      <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Grid
+              Name="PART_Root"
+              Background="Transparent"
+              ColumnDefinitions="*,Auto"
+              ColumnSpacing="{DynamicResource ShellSettingsControlSpacing}">
+            <Border
+                Name="Background"
+                Grid.ColumnSpan="2"
+                Background="Transparent"
+                CornerRadius="{DynamicResource ShellSettingsChevronBoxCornerRadius}" />
+            <TextBlock
+                Name="PlaceholderTextBlock"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Foreground="{DynamicResource ShellMutedBrush}"
+                Text="{TemplateBinding PlaceholderText}"
+                TextTrimming="CharacterEllipsis"
+                IsVisible="{TemplateBinding SelectionBoxItem, Converter={x:Static ObjectConverters.IsNull}}" />
+            <ContentControl
+                Name="ContentPresenter"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Foreground="{TemplateBinding Foreground}"
+                Content="{TemplateBinding SelectionBoxItem}"
+                ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" />
+            <Border
+                Name="ChevronPlate"
+                Grid.Column="1"
+                Width="{DynamicResource ShellSettingsChevronBoxSize}"
+                Height="{DynamicResource ShellSettingsChevronBoxSize}"
+                VerticalAlignment="Center"
+                Background="{DynamicResource ShellSettingsChevronBoxBrush}"
+                CornerRadius="{DynamicResource ShellSettingsChevronBoxCornerRadius}">
+              <PathIcon
+                  Name="DropDownGlyph"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Foreground="{DynamicResource ShellTextBrush}"
+                  IsHitTestVisible="False" />
+            </Border>
+            <Popup
+                Name="PART_Popup"
+                WindowManagerAddShadowHint="False"
+                IsOpen="{TemplateBinding IsDropDownOpen, Mode=TwoWay}"
+                MinWidth="{Binding Bounds.Width, RelativeSource={RelativeSource TemplatedParent}}"
+                MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                PlacementTarget="Background"
+                IsLightDismissEnabled="True"
+                InheritsTransform="True">
+              <Border Name="PopupBorder">
+                <ScrollViewer
+                    HorizontalScrollBarVisibility="{TemplateBinding (ScrollViewer.HorizontalScrollBarVisibility)}"
+                    VerticalScrollBarVisibility="{TemplateBinding (ScrollViewer.VerticalScrollBarVisibility)}">
+                  <ItemsPresenter
+                      Name="PART_ItemsPresenter"
+                      ItemsPanel="{TemplateBinding ItemsPanel}" />
+                </ScrollViewer>
+              </Border>
+            </Popup>
+          </Grid>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover /template/ Border#ChevronPlate">
+        <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
+      </Style>
+      <Style Selector="^:disabled">
+        <Setter Property="Opacity" Value="0.48" />
+      </Style>
+    </ControlTheme>
+    <!--
+      A field of a form inside a grouped form is a row of it: the field's
+      name leading at body size, the field trailing in the wider part of the
+      row, and an error or hint under the field, not under the name. The
+      hairline under it is inset like a settings row's.
+    -->
+    <ControlTheme x:Key="SettingsFormRowTheme" TargetType="controls:LabeledField">
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <StackPanel>
+            <Border
+                MinHeight="{DynamicResource ShellSettingsRowMinHeight}"
+                Padding="{DynamicResource ShellSettingsRowPadding}">
+              <Grid
+                  VerticalAlignment="Center"
+                  ColumnDefinitions="2*,3*"
+                  RowDefinitions="Auto,Auto"
+                  ColumnSpacing="{DynamicResource ShellSpaceLg}">
+                <TextBlock
+                    Name="PART_Label"
+                    VerticalAlignment="Center"
+                    LineHeight="{DynamicResource ShellBodyLineHeight}"
+                    Text="{TemplateBinding Label}"
+                    TextWrapping="Wrap" />
+                <ContentPresenter
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Content="{TemplateBinding Content}"
+                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                    HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                <StackPanel
+                    Name="PART_Notes"
+                    Grid.Row="1"
+                    Grid.Column="1"
+                    Margin="{DynamicResource ShellSettingsFormNoteInset}"
+                    IsVisible="False">
+                  <Grid
+                      Name="PART_Error"
+                      ColumnDefinitions="Auto,*"
+                      ColumnSpacing="{DynamicResource ShellSpaceXs}"
+                      IsVisible="False">
+                    <icons:SymbolIcon
+                        VerticalAlignment="Top"
+                        Symbol="ErrorCircle"
+                        FontSize="{DynamicResource ShellIconSizeSm}"
+                        Foreground="{DynamicResource ShellDangerBrush}" />
+                    <TextBlock
+                        Grid.Column="1"
+                        Foreground="{DynamicResource ShellDangerBrush}"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
+                        LineHeight="{DynamicResource ShellSecondaryLineHeight}"
+                        Text="{TemplateBinding Error}"
+                        TextWrapping="Wrap" />
+                  </Grid>
+                  <TextBlock
+                      Name="PART_Hint"
+                      Foreground="{DynamicResource ShellMutedBrush}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                      LineHeight="{DynamicResource ShellSecondaryLineHeight}"
+                      Text="{TemplateBinding Hint}"
+                      TextWrapping="Wrap"
+                      IsVisible="{TemplateBinding Hint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                </StackPanel>
+              </Grid>
+            </Border>
+            <Border
+                Name="PART_Separator"
+                Height="1"
+                Margin="{DynamicResource ShellSettingsSeparatorInset}"
+                Background="{DynamicResource ShellSettingsSeparatorBrush}" />
+          </StackPanel>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:noted /template/ StackPanel#PART_Notes">
+        <Setter Property="IsVisible" Value="True" />
+      </Style>
+      <Style Selector="^:error /template/ Grid#PART_Error">
+        <Setter Property="IsVisible" Value="True" />
+      </Style>
+      <Style Selector="^:error /template/ TextBlock#PART_Hint">
+        <Setter Property="IsVisible" Value="False" />
+      </Style>
+      <Style Selector="^:nth-last-child(1) /template/ Border#PART_Separator">
+        <Setter Property="IsVisible" Value="False" />
+      </Style>
+    </ControlTheme>
+    <!-- A slider in a grouped form with what its ends mean in the caption
+         size under each end, the slider itself taking the row's width. The
+         words sit close under the track, as the host's do. -->
+    <ControlTheme x:Key="{x:Type controls:SliderEndLabels}" TargetType="controls:SliderEndLabels">
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <StackPanel Spacing="{DynamicResource ShellSettingsLabelSpacing}">
+            <ContentPresenter
+                Name="PART_ContentPresenter"
+                Content="{TemplateBinding Content}"
+                ContentTemplate="{TemplateBinding ContentTemplate}"
+                HorizontalContentAlignment="Stretch" />
+            <Grid Name="PART_EndLabels" ColumnDefinitions="Auto,*,Auto">
+              <TextBlock
+                  Name="PART_StartLabel"
+                  Foreground="{DynamicResource ShellMutedBrush}"
+                  FontSize="{DynamicResource ShellCaptionFontSize}"
+                  LineHeight="{DynamicResource ShellCaptionLineHeight}"
+                  Text="{TemplateBinding StartLabel}" />
+              <TextBlock
+                  Name="PART_EndLabel"
+                  Grid.Column="2"
+                  Foreground="{DynamicResource ShellMutedBrush}"
+                  FontSize="{DynamicResource ShellCaptionFontSize}"
+                  LineHeight="{DynamicResource ShellCaptionLineHeight}"
+                  Text="{TemplateBinding EndLabel}" />
+            </Grid>
+          </StackPanel>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+    <!--
+      A slider in a grouped form, as System Settings draws one: a thin
+      rounded track the accent fills up to the value, and a white capsule
+      knob with a soft shadow. Fluent's slider reserved fifteen points above
+      and below its track for tick marks a settings slider never shows,
+      which stood the track 60 points under its label.
+    -->
+    <ControlTheme x:Key="SettingsSliderTrackButtonTheme" TargetType="RepeatButton">
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="Transparent">
+            <Border
+                Name="PART_TrackPart"
+                Height="{DynamicResource ShellSettingsSliderTrackHeight}"
+                VerticalAlignment="Center"
+                Background="{TemplateBinding Background}"
+                CornerRadius="{DynamicResource ShellSettingsSliderTrackCornerRadius}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+    <ControlTheme x:Key="SettingsSliderKnobTheme" TargetType="Thumb">
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border
+              Name="PART_Knob"
+              Width="{DynamicResource ShellSettingsSliderKnobWidth}"
+              Height="{DynamicResource ShellSettingsSliderKnobHeight}"
+              Background="{DynamicResource ShellSettingsSliderKnobBrush}"
+              BorderBrush="{DynamicResource ShellBorderBrush}"
+              BorderThickness="{DynamicResource ShellSettingsChromeEdgeThickness}"
+              CornerRadius="{DynamicResource ShellSettingsSliderKnobCornerRadius}"
+              BoxShadow="{DynamicResource ShellSettingsSliderKnobShadow}" />
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+    <ControlTheme x:Key="SettingsSliderTheme" TargetType="Slider">
+      <Setter Property="MinHeight" Value="{DynamicResource ShellSettingsSliderKnobHeight}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ShellSettingsSliderTrackBrush}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Grid Name="SliderContainer" Background="Transparent">
+            <Track
+                Name="PART_Track"
+                Orientation="Horizontal"
+                Minimum="{TemplateBinding Minimum}"
+                Maximum="{TemplateBinding Maximum}"
+                Value="{TemplateBinding Value, Mode=TwoWay}"
+                IsDirectionReversed="{TemplateBinding IsDirectionReversed}">
+              <Track.DecreaseButton>
+                <RepeatButton
+                    Name="PART_DecreaseButton"
+                    Theme="{StaticResource SettingsSliderTrackButtonTheme}"
+                    Background="{TemplateBinding Foreground}" />
+              </Track.DecreaseButton>
+              <Track.IncreaseButton>
+                <RepeatButton
+                    Name="PART_IncreaseButton"
+                    Theme="{StaticResource SettingsSliderTrackButtonTheme}"
+                    Background="{TemplateBinding Background}" />
+              </Track.IncreaseButton>
+              <Thumb
+                  Name="thumb"
+                  Theme="{StaticResource SettingsSliderKnobTheme}"
+                  DataContext="{TemplateBinding Value}" />
+            </Track>
+          </Grid>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:disabled">
+        <Setter Property="Opacity" Value="0.48" />
+      </Style>
+    </ControlTheme>
+  </Styles.Resources>
+
+  <!-- ===== Rows ===== -->
+
+  <!-- A pop-up button in a settings row is System Settings': value and
+       chevrons at the trailing edge. -->
+  <Style Selector="controls|LabeledField.FormRow">
+    <Setter Property="Theme" Value="{StaticResource SettingsFormRowTheme}" />
+  </Style>
+
+  <Style Selector="controls|SettingRow ComboBox, controls|LabeledField.FormRow ComboBox">
+    <Setter Property="Theme" Value="{StaticResource SettingsPopUpButtonTheme}" />
+    <!-- The chevrons stand where a pop-up button's bezel would end, a few
+         points further in than a switch's edge. -->
+    <Setter Property="Margin" Value="{DynamicResource ShellSettingsPopUpInset}" />
+    <Setter Property="HorizontalAlignment" Value="Right" />
+    <Setter Property="HorizontalContentAlignment" Value="Right" />
+    <Setter Property="MinHeight" Value="{DynamicResource ShellSettingsChevronBoxSize}" />
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <!-- A slider with its ends named is a grouped form's slider; under a
+       stacked row's label it takes back the stack's step and a little more,
+       so the track rides close under the label as the host's does. -->
+  <Style Selector="controls|SliderEndLabels > Slider">
+    <Setter Property="Theme" Value="{StaticResource SettingsSliderTheme}" />
+  </Style>
+  <Style Selector="controls|SettingRow > controls|SliderEndLabels">
+    <Setter Property="Margin" Value="{DynamicResource ShellSettingsSliderLineInset}" />
+  </Style>
+
+  <!-- A switch in a grouped form is the mini switch, as the HIG asks for a
+       setting in a single row: a 36 by 16 track and a capsule knob that
+       stands 1.5 off it. A list row's switch takes the same size. The
+       template writes the regular size on its parts, and only a style with
+       a condition outranks a value a template writes, so the rule names
+       both states of the switch. -->
+  <Style Selector="controls|SettingRow ToggleSwitch:checked /template/ Border#SwitchTrack, controls|ToggleField /template/ ToggleSwitch:checked /template/ Border#SwitchTrack, ToggleSwitch.Mini:checked /template/ Border#SwitchTrack, controls|SettingRow ToggleSwitch:unchecked /template/ Border#SwitchTrack, controls|ToggleField /template/ ToggleSwitch:unchecked /template/ Border#SwitchTrack, ToggleSwitch.Mini:unchecked /template/ Border#SwitchTrack">
+    <Setter Property="Width" Value="36" />
+    <Setter Property="Height" Value="16" />
+    <Setter Property="Padding" Value="{DynamicResource ShellSettingsSwitchPadding}" />
+  </Style>
+  <Style Selector="controls|SettingRow ToggleSwitch:checked /template/ Border#SwitchKnob, controls|ToggleField /template/ ToggleSwitch:checked /template/ Border#SwitchKnob, ToggleSwitch.Mini:checked /template/ Border#SwitchKnob, controls|SettingRow ToggleSwitch:unchecked /template/ Border#SwitchKnob, controls|ToggleField /template/ ToggleSwitch:unchecked /template/ Border#SwitchKnob, ToggleSwitch.Mini:unchecked /template/ Border#SwitchKnob">
+    <Setter Property="Width" Value="21" />
+    <Setter Property="Height" Value="13" />
+  </Style>
+  <Style Selector="controls|SettingRow > ToggleSwitch, controls|ToggleField /template/ ToggleSwitch, ToggleSwitch.Mini">
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="MinWidth" Value="0" />
+  </Style>
+
+  <!-- A row's described control sits on its label's line: a short control
+       is centred on that line rather than hung from its top. -->
+  <Style Selector="controls|SettingRow:described > ToggleSwitch">
+    <Setter Property="Margin" Value="{DynamicResource ShellSettingsSwitchLineInset}" />
+  </Style>
+
+  <!-- A push button in a grouped form is the regular one System Settings
+       puts in a row — "Details…", "Edit…" — not the taller bezel a sheet's
+       footer wears. -->
+  <Style Selector="StackPanel.SettingsPage Button.SecondaryButton, StackPanel.SettingsPage Button.PrimaryButton, StackPanel.SettingsPage Button.DestructiveButton">
+    <Setter Property="MinHeight" Value="{DynamicResource ShellSettingsPushButtonHeight}" />
+    <Setter Property="Padding" Value="{DynamicResource ShellSettingsPushButtonPadding}" />
+  </Style>
+
+  <!-- A colour well in a row is the row's size, and the accent's own swatch
+       a dot. -->
+  <Style Selector="controls|SettingRow ColorPicker.Swatch">
+    <Setter Property="Width" Value="40" />
+    <Setter Property="Height" Value="{DynamicResource ShellSettingsPushButtonHeight}" />
+  </Style>
+  <Style Selector="controls|SettingRow Border.AccentDot">
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellPillCornerRadius}" />
+  </Style>
+
+  <!-- ===== Lists ===== -->
+
+  <!-- A settings list is one plate of the grouped form, as in System
+       Settings: the rows sit edge to edge inside it with a hairline between
+       them, inset like a form row's, and the + and – that act on it sit in
+       a bar along the plate's bottom edge. A row's highlight is inset by
+       the same amount on every side, from the plate's edges and from the
+       hairlines alike. -->
+  <Style Selector="ListBox.Separated > ListBoxItem">
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <ContentPresenter
+              Name="PART_ContentPresenter"
+              Margin="{DynamicResource ShellInsetXs}"
+              Padding="{TemplateBinding Padding}"
+              Background="{TemplateBinding Background}"
+              CornerRadius="{TemplateBinding CornerRadius}"
+              Content="{TemplateBinding Content}"
+              ContentTemplate="{TemplateBinding ContentTemplate}"
+              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+          <Border
+              Name="PART_Separator"
+              Height="1"
+              Margin="{DynamicResource ShellSettingsSeparatorInset}"
+              VerticalAlignment="Bottom"
+              Background="{DynamicResource ShellSettingsSeparatorBrush}" />
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.Separated > ListBoxItem:nth-last-child(1) /template/ Border#PART_Separator">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <!-- The same plate for a list nothing is selected in — the layouts, the
+       managed sessions, the kinds of cached files: the panel draws the
+       inset hairline between two shown rows. -->
+  <Style Selector="StackPanel.SettingsPage ItemsControl.Separated, controls|SettingsGroup ItemsControl.Separated">
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <controls:RowSeparatorPanel
+            SeparatorBrush="{DynamicResource ShellSettingsSeparatorBrush}"
+            SeparatorInset="{DynamicResource ShellSettingsSeparatorInset}" />
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
+  <!-- The hairline between a list and its + and – bar is the list's own
+       bottom edge, not the bar's top edge, so an empty list draws none:
+       the bar's line sat right under the plate's edge, a doubled edge on a
+       plate with nothing in it. -->
+  <Style Selector="ListBox.Separated">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellSettingsSeparatorBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+  <Style Selector="ListBox.Separated:empty">
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Border.ListActionBar">
+    <Setter Property="Padding" Value="{DynamicResource ShellInsetXs}" />
+  </Style>
+  <!-- A bar under a list that is not a selectable one draws its own rule. -->
+  <Style Selector="Border.ListActionBarRule">
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellSettingsSeparatorBrush}" />
+    <Setter Property="BorderThickness" Value="0,1,0,0" />
+  </Style>
+
+  <!-- ===== Pages ===== -->
+
+  <!-- A settings page stacks its plates 10 apart; a section with a heading
+       stands a section's gap further down, except the first one shown,
+       which starts under the title band. -->
+  <Style Selector="StackPanel.SettingsPage">
+    <Setter Property="Spacing" Value="{DynamicResource ShellSettingsGroupGap}" />
+  </Style>
+  <Style Selector="StackPanel.SettingsPage controls|SettingsGroup:headed">
+    <Setter Property="Margin" Value="{DynamicResource ShellSettingsSectionInset}" />
+  </Style>
+  <Style Selector="StackPanel.SettingsPage > controls|SettingsGroup:headed:first-shown">
+    <Setter Property="Margin" Value="{DynamicResource ShellInsetNone}" />
+  </Style>
+  <Style Selector="StackPanel.SettingsSection">
+    <Setter Property="Margin" Value="{DynamicResource ShellSettingsSectionInset}" />
+    <Setter Property="Spacing" Value="{DynamicResource ShellSettingsGroupGap}" />
+  </Style>
+
+  <!-- A heading over content that is not a settings group still stands on
+       the rows' label edge. -->
+  <Style Selector="StackPanel.SettingsPage TextBlock.SectionHeading, StackPanel.SettingsSection > TextBlock.SectionHeading">
+    <Setter Property="Margin" Value="{DynamicResource ShellSettingsHeadingTextInset}" />
+  </Style>
+  <!-- A page opens on its first section's heading, as System Settings'
+       do: the window's title names the page, and what a page is for is said
+       by its sections. The page's own heading and line stay in the tree for
+       the search, unseen. -->
+  <Style Selector="StackPanel.SettingsPage > components|SettingsPageHeader">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+
+  <!-- A theme tile keeps its width at 100% and grows with the text, up to
+       what the column can give it, rather than running its name into its
+       check at a large text size. -->
+  <Style Selector="StackPanel.SettingsPage RadioButton.PresetCard.ModeTile">
+    <Setter Property="Width" Value="NaN" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="MinWidth" Value="{DynamicResource ShellSettingsModeTileMinWidth}" />
+    <Setter Property="MaxWidth" Value="{DynamicResource ShellSettingsModeTileMaxWidth}" />
+  </Style>
+
+  <!-- A card on a settings page is a plate of the grouped form: the
+       window's ground lifted a few percent, rounded, with no edge. A tinted
+       card — a warning, a failure — keeps its tint and edge and takes the
+       plate's corner. -->
+  <Style Selector="StackPanel.SettingsPage controls|SurfaceCard:tone-default, StackPanel.SettingsPage controls|SurfaceCard:tone-raised, StackPanel.SettingsPage controls|SurfaceCard:tone-notice">
+    <Setter Property="Background" Value="{DynamicResource ShellSettingsGroupBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellSettingsSeparatorBrush}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource ShellSettingsGroupBorderThickness}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellSettingsGroupCornerRadius}" />
+  </Style>
+  <Style Selector="StackPanel.SettingsPage controls|SurfaceCard:tone-danger, StackPanel.SettingsPage controls|SurfaceCard:tone-warning, StackPanel.SettingsPage controls|SurfaceCard:tone-success">
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellSettingsGroupCornerRadius}" />
+  </Style>
+  <!-- A plate inside a plate is the row it stands in, not a second plate. -->
+  <Style Selector="StackPanel.SettingsPage controls|SurfaceCard controls|SurfaceCard:tone-default, StackPanel.SettingsPage controls|SettingsGroup controls|SurfaceCard:tone-default">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <!-- ===== The window's chrome ===== -->
+
+  <!-- The search field at the top of the sidebar is a capsule. -->
+  <!-- Its corners are half its height exactly, on the field and on the
+       part that wears the focus ring, so the ring is a capsule too. The
+       ring is drawn outside the field: a text box clips to its bounds, which
+       cut the ring to the four slivers between the capsule and its box, so
+       the field and its validation frame let it through. Its text is still
+       clipped by the field's own scroller. -->
+  <Style Selector="TextBox.SettingsSearch, TextBox.SettingsSearch /template/ DataValidationErrors">
+    <Setter Property="ClipToBounds" Value="False" />
+  </Style>
+  <Style Selector="TextBox.SettingsSearch">
+    <Setter Property="MinHeight" Value="{DynamicResource ShellSettingsSearchFieldHeight}" />
+    <Setter Property="Height" Value="{DynamicResource ShellSettingsSearchFieldHeight}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellSettingsSearchFieldCornerRadius}" />
+    <Setter Property="Background" Value="{DynamicResource ShellSettingsSearchFieldBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource ShellSettingsChromeEdgeThickness}" />
+  </Style>
+  <Style Selector="TextBox.SettingsSearch /template/ Border#PART_BorderElement, TextBox.SettingsSearch:focus /template/ Border#PART_BorderElement, TextBox.SettingsSearch:pointerover /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="{DynamicResource ShellSettingsSearchFieldBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource ShellSettingsChromeEdgeThickness}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellSettingsSearchFieldCornerRadius}" />
+  </Style>
+
+  <!-- Back and forward: one capsule, two halves, as the host's toolbar
+       draws a segmented pair. -->
+  <!-- Increase Contrast gives the capsule an edge, as it does the search
+       field and every plate: on a black window their fill is the window's.
+       The capsule is a toolbar item, one size at every text size. -->
+  <Style Selector="Border.SettingsHistoryCapsule">
+    <Setter Property="Background" Value="{DynamicResource ShellSettingsHistoryCapsuleBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource ShellSettingsChromeEdgeThickness}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellSettingsHistoryCornerRadius}" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+  <Style Selector="Button.SettingsHistoryButton">
+    <Setter Property="Width" Value="{DynamicResource ShellSettingsHistoryButtonHeight}" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="Padding" Value="{DynamicResource ShellInsetNone}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="{DynamicResource ShellInsetNone}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellSettingsHistoryCornerRadius}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.SettingsHistoryButton icons|SymbolIcon">
+    <Setter Property="FontSize" Value="{DynamicResource ShellSettingsHistoryGlyphSize}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
+  </Style>
+  <Style Selector="Button.SettingsHistoryButton:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
+  </Style>
+  <Style Selector="Button.SettingsHistoryButton:disabled /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.SettingsHistoryButton:disabled icons|SymbolIcon">
+    <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+    <Setter Property="Opacity" Value="0.6" />
+  </Style>
+  <Style Selector="Border.SettingsHistoryDivider">
+    <Setter Property="Width" Value="1" />
+    <Setter Property="Height" Value="{DynamicResource ShellSettingsHistoryDividerHeight}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Background" Value="{DynamicResource ShellSettingsSeparatorBrush}" />
+  </Style>
+</Styles>

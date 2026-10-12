@@ -284,6 +284,82 @@
       <x:Double x:Key="ShellSpaceSection">20</x:Double>
       <Thickness x:Key="ShellInsetSection">20</Thickness>
       <Thickness x:Key="ShellPillPadding">8,4</Thickness>
+      <!-- The Settings window, as macOS 26 System Settings measures at 1x.
+           Republished with the appearance by SettingsChromeTokens. -->
+      <x:Double x:Key="ShellSettingsSidebarWidth">232</x:Double>
+      <x:Double x:Key="ShellSettingsTitleBandHeight">52</x:Double>
+      <x:Double x:Key="ShellSettingsSidebarRowHeight">32</x:Double>
+      <x:Double x:Key="ShellSettingsSearchFieldHeight">28</x:Double>
+      <x:Double x:Key="ShellSettingsHistoryButtonHeight">36</x:Double>
+      <CornerRadius x:Key="ShellSettingsHistoryCornerRadius">18</CornerRadius>
+      <x:Double x:Key="ShellSettingsHistoryGlyphSize">14</x:Double>
+      <CornerRadius x:Key="ShellSettingsSearchFieldCornerRadius">14</CornerRadius>
+      <Thickness x:Key="ShellSettingsChromeEdgeThickness">0</Thickness>
+      <x:Double x:Key="ShellSettingsSliderTrackHeight">6</x:Double>
+      <CornerRadius x:Key="ShellSettingsSliderTrackCornerRadius">3</CornerRadius>
+      <x:Double x:Key="ShellSettingsSliderKnobWidth">20</x:Double>
+      <x:Double x:Key="ShellSettingsSliderKnobHeight">16</x:Double>
+      <CornerRadius x:Key="ShellSettingsSliderKnobCornerRadius">8</CornerRadius>
+      <Thickness x:Key="ShellSettingsSliderLineInset">0,-10,0,0</Thickness>
+      <Thickness x:Key="ShellSettingsFooterInset">10,6,10,0</Thickness>
+      <x:Double x:Key="ShellSettingsModeTileMinWidth">212</x:Double>
+      <x:Double x:Key="ShellSettingsModeTileMaxWidth">212</x:Double>
+      <SolidColorBrush x:Key="ShellSettingsSliderTrackBrush" Color="#393939" />
+      <SolidColorBrush x:Key="ShellSettingsSliderKnobBrush" Color="#DCDCDC" />
+      <BoxShadows x:Key="ShellSettingsSliderKnobShadow">0 0.5 2 0 #80000000</BoxShadows>
+      <x:Double x:Key="ShellSettingsTileSize">20</x:Double>
+      <x:Double x:Key="ShellSettingsTileGlyphSize">13</x:Double>
+      <CornerRadius x:Key="ShellSettingsTileCornerRadius">5</CornerRadius>
+      <Thickness x:Key="ShellSettingsSidebarInset">10,0</Thickness>
+      <Thickness x:Key="ShellSettingsSidebarSearchInset">10,9,10,8</Thickness>
+      <Thickness x:Key="ShellSettingsSidebarItemPadding">9,0</Thickness>
+      <Thickness x:Key="ShellSettingsSidebarGroupInset">0,12,0,0</Thickness>
+      <CornerRadius x:Key="ShellSettingsSidebarSelectionCornerRadius">8</CornerRadius>
+      <Thickness x:Key="ShellSettingsTitleBandInset">8,0,20,0</Thickness>
+      <Thickness x:Key="ShellSettingsPagePadding">20,12,20,20</Thickness>
+      <x:Double x:Key="ShellSettingsGroupGap">10</x:Double>
+      <Thickness x:Key="ShellSettingsSectionInset">0,20,0,0</Thickness>
+      <Thickness x:Key="ShellSettingsHeadingInset">10,0,10,10</Thickness>
+      <Thickness x:Key="ShellSettingsHeadingTextInset">10,0</Thickness>
+      <CornerRadius x:Key="ShellSettingsGroupCornerRadius">12</CornerRadius>
+      <Thickness x:Key="ShellSettingsGroupContentPadding">10</Thickness>
+      <Thickness x:Key="ShellSettingsRowPadding">10,8</Thickness>
+      <x:Double x:Key="ShellSettingsRowMinHeight">37</x:Double>
+      <Thickness x:Key="ShellSettingsSeparatorInset">10,0</Thickness>
+      <x:Double x:Key="ShellSettingsControlSpacing">10</x:Double>
+      <x:Double x:Key="ShellSettingsChevronBoxSize">20</x:Double>
+      <CornerRadius x:Key="ShellSettingsChevronBoxCornerRadius">5</CornerRadius>
+      <Thickness x:Key="ShellSettingsGroupBorderThickness">0</Thickness>
+      <x:Double x:Key="ShellSettingsLabelSpacing">2</x:Double>
+      <Thickness x:Key="ShellSettingsSwitchPadding">0.5</Thickness>
+      <Thickness x:Key="ShellSettingsSwitchLineInset">0,1,0,0</Thickness>
+      <Thickness x:Key="ShellSettingsFormNoteInset">0,4,0,0</Thickness>
+      <Thickness x:Key="ShellSettingsPopUpInset">0,0,3.5,0</Thickness>
+      <Thickness x:Key="ShellSettingsTitleInset">0,2,0,0</Thickness>
+      <x:Double x:Key="ShellSettingsPushButtonHeight">24</x:Double>
+      <Thickness x:Key="ShellSettingsPushButtonPadding">12,2</Thickness>
+      <x:Double x:Key="ShellSettingsHistoryDividerHeight">18</x:Double>
+      <SolidColorBrush x:Key="ShellSettingsSearchFieldBrush" Color="#535353" />
+      <SolidColorBrush x:Key="ShellSettingsHistoryCapsuleBrush" Color="#353535" />
+      <SolidColorBrush x:Key="ShellSettingsSidebarBrush" Color="#252525" />
+      <SolidColorBrush x:Key="ShellSettingsGroupBrush" Color="#232323" />
+      <SolidColorBrush x:Key="ShellSettingsSeparatorBrush" Color="#2C2C2C" />
+      <SolidColorBrush x:Key="ShellSettingsSidebarSelectionBrush" Color="#5A5A5B" />
+      <SolidColorBrush x:Key="ShellSettingsSidebarSelectionForegroundBrush" Color="#F5F5F7" />
+      <SolidColorBrush x:Key="ShellSettingsChevronBoxBrush" Color="#323233" />
+      <!-- Each Settings page's icon tile: a white glyph on the page's own
+           colour, as System Settings draws its sidebar. Identity, not state,
+           so they keep their colour in every theme. -->
+      <SolidColorBrush x:Key="ShellSettingsTileGlyphBrush" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="ShellSettingsTileGraphiteBrush" Color="#3A3A3C" />
+      <SolidColorBrush x:Key="ShellSettingsTileGreenBrush" Color="#28A03F" />
+      <SolidColorBrush x:Key="ShellSettingsTileBlueBrush" Color="#0A7AFF" />
+      <SolidColorBrush x:Key="ShellSettingsTileSkyBrush" Color="#1A82D4" />
+      <SolidColorBrush x:Key="ShellSettingsTileGrayBrush" Color="#7C7C80" />
+      <SolidColorBrush x:Key="ShellSettingsTileDarkGrayBrush" Color="#5A5A5E" />
+      <SolidColorBrush x:Key="ShellSettingsTileOrangeBrush" Color="#E0620E" />
+      <SolidColorBrush x:Key="ShellSettingsTileRedBrush" Color="#F0473C" />
+      <SolidColorBrush x:Key="ShellSettingsTilePurpleBrush" Color="#9B59D9" />
       <Thickness x:Key="ShellTabStripTopClearance">0,1,0,0</Thickness>
       <Thickness x:Key="ShellToolbarSeparatorMargin">0,7</Thickness>
       <!-- The ground a warning toast stands on when it floats over arbitrary
@@ -379,6 +455,7 @@
     <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
     <StyleInclude Source="avares://Asura.App/Styles/DesignSystem.axaml" />
     <StyleInclude Source="avares://Asura.App/Styles/AsuraTheme.axaml" />
+    <StyleInclude Source="avares://Asura.App/Styles/SettingsStyles.axaml" />
     <StyleInclude Source="avares://Asura.App/Styles/AsuraDockTheme.axaml" />
     <StyleInclude Source="avares://Asura.App/Styles/AsuraDockImmediateTheme.axaml" />
   </Application.Styles>

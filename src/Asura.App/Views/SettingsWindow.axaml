@@ -7,22 +7,25 @@
     xmlns:controls="using:Asura.App.Controls"
     xmlns:components="using:Asura.App.Views.Components"
     Title="Settings"
-    Width="980"
-    Height="720"
-    MinWidth="760"
-    MinHeight="480"
+    Width="850"
+    Height="800"
+    MinWidth="700"
+    MinHeight="500"
     CanMinimize="False"
     CanMaximize="False"
     WindowStartupLocation="CenterScreen">
   <!--
     Settings… opens this one window, whichever main window asked. It is not
     modal: the workspace stays live beside it, so a terminal setting can be
-    watched taking effect. Its title names the page on show, minimize and zoom
-    are dimmed as they are for every Mac settings window, it keeps one size
-    whichever page it shows (a long page scrolls), and it reopens on the page
-    it was left on, where and as large as it was left.
+    watched taking effect. It is laid out as macOS 26 System Settings: 850 by
+    800 to begin with, the sidebar running the full height under the window's
+    buttons, and the page's title on their line. Its title names the page on
+    show, minimize and zoom are dimmed as they are for every Mac settings
+    window, it keeps one size whichever page it shows (a long page scrolls),
+    and it reopens on the page it was left on, where and as large as it was
+    left.
   -->
-  <Grid Background="{DynamicResource ShellBackgroundBrush}">
+  <Grid>
     <ContentControl
         x:Name="SettingsHost"
         HorizontalContentAlignment="Stretch"

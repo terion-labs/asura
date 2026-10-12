@@ -1222,81 +1222,98 @@
       </Style>
     </ControlTheme>
 
-    <!-- A settings row is a grouped list row, System Settings': 10 across and
-         6 down from the card, with the label standing in a further step so it
-         starts where a list row's title starts inside its inset highlight.
-         The row was 16,12 around a control-tall column, which stood a single
-         switch in a band 52 points tall. -->
+    <!-- A settings row is a row of System Settings' grouped form: the label
+         10 in from the plate's edge, the description under it in the
+         secondary size, and the control alone at the trailing edge. A row is
+         at least 37 tall, so a switch row and a pop-up row stand as one even
+         list, and the hairline under it is inset by the row's own leading and
+         trailing padding, as AppKit insets a form's separators. With a
+         description the control sits on the label's line rather than on the
+         middle of the paragraph. -->
     <ControlTheme x:Key="{x:Type controls:SettingRow}" TargetType="controls:SettingRow">
-      <Setter Property="Padding" Value="{DynamicResource ShellListRowPadding}" />
+      <Setter Property="Padding" Value="{DynamicResource ShellSettingsRowPadding}" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="Template">
         <ControlTemplate>
           <StackPanel>
-            <Grid
-                Name="PART_Row"
-                Margin="{TemplateBinding Padding}"
-                ColumnSpacing="{DynamicResource ShellSpaceLg}">
-              <!--
-                The control column's width is set from code. A ColumnDefinition is
-                not a visual and so has no templated parent, which means a
-                TemplateBinding here silently resolves to nothing and both columns
-                fall back to an even split — the row still renders, just never at
-                the width the group asked for. The code also gives the column up
-                when the row is too narrow for it and a readable label both: the
-                control then moves under the label, into the second row.
-              -->
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-              </Grid.ColumnDefinitions>
-              <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-              </Grid.RowDefinitions>
-              <!-- The label is the control's accessible name too, and reads in
-                   the regular weight the host gives a form row's label. -->
-              <StackPanel
-                  Margin="{controls:Inset Horizontal=Xs}"
+            <Border
+                Name="PART_Body"
+                MinHeight="{DynamicResource ShellSettingsRowMinHeight}"
+                Padding="{TemplateBinding Padding}">
+              <Grid
+                  Name="PART_Row"
                   VerticalAlignment="Center"
-                  Spacing="{DynamicResource ShellSpaceXs}">
-                <TextBlock
-                    Name="PART_Label"
-                    LineHeight="{DynamicResource ShellBodyLineHeight}"
-                    Text="{TemplateBinding Label}"
-                    TextWrapping="Wrap" />
-                <TextBlock
-                    Foreground="{DynamicResource ShellMutedBrush}"
-                    FontSize="{DynamicResource ShellSecondaryFontSize}"
-                    LineHeight="{DynamicResource ShellSecondaryLineHeight}"
-                    Text="{TemplateBinding Description}"
-                    TextWrapping="Wrap"
-                    IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-              </StackPanel>
-              <!-- At least a control's height, so a row whose control is a
-                   switch stands as tall as one whose control is a pop-up
-                   button: a group of rows reads as one even list. -->
-              <ContentPresenter
-                  Name="PART_Control"
-                  Grid.Column="1"
-                  MinHeight="{DynamicResource ShellControlMinHeight}"
-                  Content="{TemplateBinding Content}"
-                  ContentTemplate="{TemplateBinding ContentTemplate}"
-                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
-            </Grid>
+                  ColumnSpacing="{DynamicResource ShellSpaceLg}">
+                <!--
+                  The control column's width is set from code. A ColumnDefinition is
+                  not a visual and so has no templated parent, which means a
+                  TemplateBinding here silently resolves to nothing and both columns
+                  fall back to an even split — the row still renders, just never at
+                  the width the group asked for. The code also gives the column up
+                  when the row is too narrow for it and a readable label both: the
+                  control then moves under the label, into the second row.
+                -->
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <!-- The label is the control's accessible name too, and reads in
+                     the regular weight the host gives a form row's label. -->
+                <StackPanel
+                    VerticalAlignment="Center"
+                    Spacing="{DynamicResource ShellSettingsLabelSpacing}">
+                  <TextBlock
+                      Name="PART_Label"
+                      LineHeight="{DynamicResource ShellBodyLineHeight}"
+                      Text="{TemplateBinding Label}"
+                      TextWrapping="Wrap" />
+                  <TextBlock
+                      Name="PART_Description"
+                      Foreground="{DynamicResource ShellMutedBrush}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                      LineHeight="{DynamicResource ShellSecondaryLineHeight}"
+                      Text="{TemplateBinding Description}"
+                      TextWrapping="Wrap"
+                      IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                </StackPanel>
+                <ContentPresenter
+                    Name="PART_Control"
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Content="{TemplateBinding Content}"
+                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                    HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                    VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+              </Grid>
+            </Border>
             <!-- The group decides which row is last; the row only draws it. -->
             <Border
                 Name="PART_Separator"
                 Height="1"
-                Background="{DynamicResource ShellBorderBrush}" />
+                Margin="{DynamicResource ShellSettingsSeparatorInset}"
+                Background="{DynamicResource ShellSettingsSeparatorBrush}" />
           </StackPanel>
         </ControlTemplate>
       </Setter>
 
       <Style Selector="^:last /template/ Border#PART_Separator">
         <Setter Property="IsVisible" Value="False" />
+      </Style>
+
+      <!-- A described row keeps its control on the label's line. -->
+      <Style Selector="^:described /template/ ContentPresenter#PART_Control">
+        <Setter Property="VerticalAlignment" Value="Top" />
+      </Style>
+
+      <!-- Moved under its label for want of width, the control starts at
+           the label's edge. -->
+      <Style Selector="^:wrapped /template/ ContentPresenter#PART_Control">
+        <Setter Property="HorizontalAlignment" Value="Left" />
       </Style>
 
       <!-- A checkbox row, as the host lays one out: the box at the leading
@@ -1309,10 +1326,13 @@
         <Setter Property="Template">
           <ControlTemplate>
             <StackPanel>
-              <Border Padding="{TemplateBinding Padding}">
+              <Border
+                  Name="PART_Body"
+                  MinHeight="{DynamicResource ShellSettingsRowMinHeight}"
+                  Padding="{TemplateBinding Padding}">
                 <StackPanel
-                    Margin="{controls:Inset Horizontal=Xs}"
-                    Spacing="{DynamicResource ShellSpaceXs}">
+                    VerticalAlignment="Center"
+                    Spacing="{DynamicResource ShellSettingsLabelSpacing}">
                   <ContentPresenter
                       Name="PART_Control"
                       Content="{TemplateBinding Content}"
@@ -1332,7 +1352,8 @@
               <Border
                   Name="PART_Separator"
                   Height="1"
-                  Background="{DynamicResource ShellBorderBrush}" />
+                  Margin="{DynamicResource ShellSettingsSeparatorInset}"
+                  Background="{DynamicResource ShellSettingsSeparatorBrush}" />
             </StackPanel>
           </ControlTemplate>
         </Setter>
@@ -1345,57 +1366,96 @@
         <Setter Property="Template">
           <ControlTemplate>
             <StackPanel>
-              <StackPanel
-                  Margin="{TemplateBinding Padding}"
-                  Spacing="{DynamicResource ShellSpaceMd}">
+              <Border
+                  Name="PART_Body"
+                  MinHeight="{DynamicResource ShellSettingsRowMinHeight}"
+                  Padding="{TemplateBinding Padding}">
                 <StackPanel
-                    Margin="{controls:Inset Horizontal=Xs}"
-                    Spacing="{DynamicResource ShellSpaceXs}">
-                  <TextBlock
-                      Name="PART_Label"
-                      LineHeight="{DynamicResource ShellBodyLineHeight}"
-                      Text="{TemplateBinding Label}"
-                      TextWrapping="Wrap" />
-                  <TextBlock
-                      Foreground="{DynamicResource ShellMutedBrush}"
-                      FontSize="{DynamicResource ShellSecondaryFontSize}"
-                      LineHeight="{DynamicResource ShellSecondaryLineHeight}"
-                      Text="{TemplateBinding Description}"
-                      TextWrapping="Wrap"
-                      IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    VerticalAlignment="Center"
+                    Spacing="{DynamicResource ShellSpaceSm}">
+                  <StackPanel Spacing="{DynamicResource ShellSettingsLabelSpacing}">
+                    <!-- A reading of the control — a slider's value — stands
+                         at the label line's trailing end. -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceLg}">
+                      <TextBlock
+                          Name="PART_Label"
+                          LineHeight="{DynamicResource ShellBodyLineHeight}"
+                          Text="{TemplateBinding Label}"
+                          TextWrapping="Wrap" />
+                      <TextBlock
+                          Name="PART_Value"
+                          Grid.Column="1"
+                          Foreground="{DynamicResource ShellMutedBrush}"
+                          LineHeight="{DynamicResource ShellBodyLineHeight}"
+                          Text="{TemplateBinding Value}"
+                          IsVisible="{TemplateBinding Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    </Grid>
+                    <TextBlock
+                        Name="PART_Description"
+                        Foreground="{DynamicResource ShellMutedBrush}"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
+                        LineHeight="{DynamicResource ShellSecondaryLineHeight}"
+                        Text="{TemplateBinding Description}"
+                        TextWrapping="Wrap"
+                        IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                  </StackPanel>
+                  <ContentPresenter
+                      Name="PART_Control"
+                      Content="{TemplateBinding Content}"
+                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                      HorizontalContentAlignment="Stretch" />
                 </StackPanel>
-                <ContentPresenter
-                    Content="{TemplateBinding Content}"
-                    ContentTemplate="{TemplateBinding ContentTemplate}"
-                    HorizontalContentAlignment="Stretch" />
-              </StackPanel>
+              </Border>
               <Border
                   Name="PART_Separator"
                   Height="1"
-                  Background="{DynamicResource ShellBorderBrush}" />
+                  Margin="{DynamicResource ShellSettingsSeparatorInset}"
+                  Background="{DynamicResource ShellSettingsSeparatorBrush}" />
             </StackPanel>
           </ControlTemplate>
         </Setter>
       </Style>
     </ControlTheme>
 
+    <!-- A section of System Settings' grouped form. Its heading is bold body
+         text standing above the plate, not inside it, inset to the rows'
+         label edge, with what the section is for in the secondary size under
+         it. The plate is the window's ground lifted by a few percent of the
+         label colour, rounded and with no edge of its own — Increase
+         Contrast gives it one — and the rows run edge to edge inside it. A
+         footer is the footnote under the plate. On a settings page a headed
+         section also stands a section's gap below whatever is above it
+         (SettingsStyles), where a plate without a heading stands only the
+         gap between two plates. -->
     <ControlTheme x:Key="{x:Type controls:SettingsGroup}" TargetType="controls:SettingsGroup">
+      <!-- Rows draw their own hairline; anything else in the plate — a row
+           of pictures, a disclosure, a notice — is parted from its
+           neighbours by the panel, so the plate reads as one list. -->
+      <Setter Property="ItemsPanel">
+        <ItemsPanelTemplate>
+          <controls:RowSeparatorPanel
+              SkipsSeparatedRows="True"
+              SeparatorBrush="{DynamicResource ShellSettingsSeparatorBrush}"
+              SeparatorInset="{DynamicResource ShellSettingsSeparatorInset}" />
+        </ItemsPanelTemplate>
+      </Setter>
       <Setter Property="Template">
         <ControlTemplate>
-          <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-            <!-- A group's heading is the host's Headline: body size, bold. It
-                 was 14 semibold, a size the host's ramp does not have. -->
+          <StackPanel>
             <StackPanel
-                Spacing="{DynamicResource ShellSpaceXs}"
-                IsVisible="{TemplateBinding Heading, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                Name="PART_Header"
+                Margin="{DynamicResource ShellSettingsHeadingInset}"
+                Spacing="{DynamicResource ShellSettingsLabelSpacing}"
+                IsVisible="False">
               <TextBlock
+                  Name="PART_Heading"
                   Classes="Headline"
                   AutomationProperties.HeadingLevel="2"
-                  Text="{TemplateBinding Heading}" />
-              <!-- The same rank as SectionHeader's description, on purpose:
-                   these are the two components that head a group of content,
-                   and they disagreed by two points for no reason anyone chose. -->
+                  Text="{TemplateBinding Heading}"
+                  TextWrapping="Wrap"
+                  IsVisible="{TemplateBinding Heading, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
               <TextBlock
+                  Name="PART_Description"
                   Foreground="{DynamicResource ShellMutedBrush}"
                   FontSize="{DynamicResource ShellSecondaryFontSize}"
                   LineHeight="{DynamicResource ShellSecondaryLineHeight}"
@@ -1403,33 +1463,34 @@
                   TextWrapping="Wrap"
                   IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
             </StackPanel>
-            <controls:SurfaceCard Padding="0">
-              <StackPanel>
-                <ItemsPresenter Name="PART_Rows" ItemsPanel="{TemplateBinding ItemsPanel}" />
-                <Border
-                    Name="PART_FooterSeparator"
-                    Height="1"
-                    Background="{DynamicResource ShellBorderBrush}"
-                    IsVisible="False" />
-                <ContentPresenter
-                    Name="PART_Footer"
-                    Margin="{DynamicResource ShellListRowPadding}"
-                    Padding="{controls:Inset Horizontal=Xs}"
-                    Content="{TemplateBinding Footer}"
-                    IsVisible="False" />
-              </StackPanel>
-            </controls:SurfaceCard>
+            <Border
+                Name="PART_Plate"
+                Background="{DynamicResource ShellSettingsGroupBrush}"
+                BorderBrush="{DynamicResource ShellSettingsSeparatorBrush}"
+                BorderThickness="{DynamicResource ShellSettingsGroupBorderThickness}"
+                CornerRadius="{DynamicResource ShellSettingsGroupCornerRadius}"
+                ClipToBounds="True">
+              <ItemsPresenter Name="PART_Rows" ItemsPanel="{TemplateBinding ItemsPanel}" />
+            </Border>
+            <!-- The footnote stands under the plate in the secondary size,
+                 on the heading's edge, as the host prints a group's
+                 explanation; a row with an action belongs in the plate. -->
+            <ContentPresenter
+                Name="PART_Footer"
+                Margin="{DynamicResource ShellSettingsFooterInset}"
+                TextBlock.LineHeight="{DynamicResource ShellSecondaryLineHeight}"
+                Content="{TemplateBinding Footer}"
+                IsVisible="False" />
           </StackPanel>
         </ControlTemplate>
       </Setter>
-      <Style Selector="^:footed /template/ Border#PART_FooterSeparator">
+      <Style Selector="^:headed /template/ StackPanel#PART_Header, ^:described /template/ StackPanel#PART_Header">
         <Setter Property="IsVisible" Value="True" />
       </Style>
       <Style Selector="^:footed /template/ ContentPresenter#PART_Footer">
         <Setter Property="IsVisible" Value="True" />
       </Style>
     </ControlTheme>
-
     <!--
       A chooser tile sits on an overlay or launcher surface and reads as a
       sunken card the pointer can light up. Focus is the shell's focus ring, as

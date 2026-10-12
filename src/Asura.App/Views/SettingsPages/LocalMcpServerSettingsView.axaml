@@ -13,7 +13,7 @@
     state sits beside the switch as a chip, and every action lives on the row
     of the thing it acts on, so nothing has to be read twice to be understood.
   -->
-  <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
+  <StackPanel Spacing="{DynamicResource ShellSettingsGroupGap}">
       <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
     <controls:SettingsGroup
         Heading="Use Asura from another agent"
