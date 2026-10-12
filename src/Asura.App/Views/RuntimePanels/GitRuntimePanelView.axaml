@@ -32,7 +32,7 @@
     <Style Selector="ListBox.GitSections ListBoxItem">
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
       <Setter Property="Margin" Value="0" />
-      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
     </Style>
@@ -121,9 +121,14 @@
     <Style Selector="ListBox.GitSidebarList ListBoxItem">
       <Setter Property="Padding" Value="0" />
       <Setter Property="Margin" Value="0" />
-      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <!-- A sidebar list's row is a list row, as tall as its item, so the
+         hover band and the selection are one shape. -->
+    <Style Selector="ListBox.GitSidebarList Border.GitRefRow">
+      <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
     </Style>
     <Style Selector="ListBox.GitSidebarList ListBoxItem:selected Border.GitRefRow">
       <Setter Property="Background" Value="Transparent" />
@@ -189,11 +194,17 @@
       <Setter Property="CornerRadius" Value="{DynamicResource ShellInnerCornerRadius}" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       <Setter Property="VerticalContentAlignment" Value="Stretch" />
-      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
     </Style>
     <Style Selector="TextBlock.GitCommitCell">
       <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
       <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+    </Style>
+    <!-- The author, hash and date are the commit's metadata: a step under
+         its subject, as a Finder row's secondary column is. -->
+    <Style Selector="TextBlock.GitCommitCell.Muted">
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellSecondaryLineHeight}" />
     </Style>
     <!-- A ref name is a label, not something to act on, so it wears a
          neutral fill rather than the accent the selection and focus use. A
@@ -280,7 +291,7 @@
     <Style Selector="Border.GitRefRow">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="Padding" Value="0" />
-      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="MinHeight" Value="{DynamicResource ShellTreeRowMinHeight}" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
     </Style>
     <Style Selector="Border.GitRefRow:pointerover">
@@ -296,7 +307,7 @@
          the branches inside it. Without focus the shell's gray selection
          stands. -->
     <Style Selector="TreeView.GitRefTree:focus-within TreeViewItem:selected /template/ Border#PART_LayoutRoot, TreeView.GitRefTree:focus-within TreeViewItem:selected /template/ Border#PART_LayoutRoot:pointerover">
-      <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
     </Style>
     <Style Selector="TreeView.GitRefTree:focus-within TreeViewItem:selected > Panel.GitRefTreeRow Border.GitRefRow, TreeView.GitRefTree:focus-within TreeViewItem:selected > Panel.GitRefTreeRow Border.GitRefRow:pointerover">
       <Setter Property="Background" Value="Transparent" />
@@ -719,7 +730,7 @@
               <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
               <Setter Property="Padding" Value="0" />
               <Setter Property="BorderThickness" Value="0" />
-              <Setter Property="MinHeight" Value="24" />
+              <Setter Property="MinHeight" Value="{DynamicResource ShellTreeRowMinHeight}" />
               <Setter Property="HorizontalAlignment" Value="Stretch" />
               <!-- A ref row says what it is to VoiceOver by its name, and the
                    current branch says so as its status, not only by its
@@ -831,7 +842,7 @@
                           <TextBlock Text="{Binding Name}" Classes="GitSidebarRow"
                               VerticalAlignment="Center" IsVisible="{Binding IsFolder}" />
                           <Border IsVisible="{Binding HasRef}">
-                            <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" MinHeight="24"
+                            <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" MinHeight="{DynamicResource ShellTreeRowMinHeight}"
                                 Classes="GitRefRow"
                                 DoubleTapped="OnBranchRowDoubleTapped">
                               <!-- Three groups: what you do with the branch,
@@ -920,7 +931,7 @@
                           <TextBlock Text="{Binding Name}" Classes="GitSidebarRow"
                               VerticalAlignment="Center" IsVisible="{Binding IsFolder}" />
                           <Border IsVisible="{Binding HasRef}">
-                            <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" MinHeight="24" Classes="GitRefRow">
+                            <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" MinHeight="{DynamicResource ShellTreeRowMinHeight}" Classes="GitRefRow">
                               <Border.ContextMenu>
                                 <ContextMenu Opening="OnGitMenuOpening">
                                   <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitRemoteFetch}" Click="OnGitMenuCommand" />
@@ -973,7 +984,7 @@
                           <TextBlock Text="{Binding Name}" Classes="GitSidebarRow"
                               VerticalAlignment="Center" IsVisible="{Binding IsFolder}" />
                           <Border IsVisible="{Binding HasRef}">
-                            <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" MinHeight="24" Classes="GitRefRow">
+                            <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" MinHeight="{DynamicResource ShellTreeRowMinHeight}" Classes="GitRefRow">
                               <Border.ContextMenu>
                                 <ContextMenu Opening="OnGitMenuOpening">
                                   <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitTagCopyName}" Click="OnGitMenuCommand" />
@@ -1297,7 +1308,7 @@
                   <ControlTheme TargetType="TreeViewItem" x:DataType="vm:GitChangeTreeNodeViewModel" BasedOn="{StaticResource {x:Type TreeViewItem}}">
                     <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                     <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs}" />
-                    <Setter Property="MinHeight" Value="24" />
+                    <Setter Property="MinHeight" Value="{DynamicResource ShellTreeRowMinHeight}" />
                   </ControlTheme>
                 </TreeView.ItemContainerTheme>
                 <TreeView.ItemTemplate>
@@ -1435,7 +1446,7 @@
                   <ControlTheme TargetType="TreeViewItem" x:DataType="vm:GitChangeTreeNodeViewModel" BasedOn="{StaticResource {x:Type TreeViewItem}}">
                     <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                     <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs}" />
-                    <Setter Property="MinHeight" Value="24" />
+                    <Setter Property="MinHeight" Value="{DynamicResource ShellTreeRowMinHeight}" />
                   </ControlTheme>
                 </TreeView.ItemContainerTheme>
                 <TreeView.ItemTemplate>
@@ -1811,7 +1822,7 @@
                     <ControlTheme TargetType="TreeViewItem" x:DataType="vm:GitTreeNodeViewModel" BasedOn="{StaticResource {x:Type TreeViewItem}}">
                       <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                       <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs}" />
-                      <Setter Property="MinHeight" Value="24" />
+                      <Setter Property="MinHeight" Value="{DynamicResource ShellTreeRowMinHeight}" />
                     </ControlTheme>
                   </TreeView.ItemContainerTheme>
                   <TreeView.ItemTemplate>

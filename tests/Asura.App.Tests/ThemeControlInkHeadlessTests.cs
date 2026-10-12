@@ -31,7 +31,7 @@ public sealed class ThemeControlInkHeadlessTests
 
             Assert.Equal(Brush(window, "ShellAccentForegroundBrush"), Color(label.Foreground));
             Assert.Equal(Colors.White, Color(label.Foreground));
-            var fill = Brush(window, "ShellAccentBrush");
+            var fill = Brush(window, "ShellAccentFillBrush");
             Assert.Equal(fill, Color(button.Background));
             Assert.True(
                 EffectiveAppearanceResourceMapper.ContrastRatio(fill, Colors.White) >= 4.5,

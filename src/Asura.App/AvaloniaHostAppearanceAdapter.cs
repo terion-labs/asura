@@ -229,6 +229,7 @@ internal sealed record EffectiveAppearanceResources(
     Color Text,
     Color MutedText,
     Color Accent,
+    Color AccentFill,
     Color AccentForeground,
     Color AccentText,
     Color AccentSoft,
@@ -548,24 +549,18 @@ internal static class EffectiveAppearanceResourceMapper
                 TextContrast,
                 text);
         }
-        else
-        {
-            // A filled accent control always wears white, as the host's do:
-            // choosing black or white by measurement put black on a graphite,
-            // yellow, green or orange default button and white on the next
-            // one, so two buttons of the same role read as two kinds. The fill
-            // is darkened just far enough for white to clear 4.5:1, and it
-            // still clears the 3:1 a mark needs against the window.
-            accent = FillUnderWhiteText(accent);
-        }
 
-        // What sits on a filled accent control. White, except under Increase
-        // Contrast, where the accent is also read as text on the selected
-        // sidebar row: in the dark that keeps it too light to carry white, so
-        // there the better of black and white is measured.
-        var accentForeground = theme.HighContrast
-            ? MeasuredInk(accent)
-            : Colors.White;
+        // What a filled accent control is filled with: the accent, darkened
+        // just far enough for its white label to clear 4.5:1. The accent
+        // itself stays the colour that was asked for — a focus ring, a switch,
+        // a tab indicator is a mark, not a plate for text — and only the
+        // plates that carry a label take the darker fill. Choosing black or
+        // white by measurement put black on a graphite, yellow, green or
+        // orange default button and white on the next one, so two buttons of
+        // the same role read as two kinds; a filled control always wears
+        // white, as the host's do, Increase Contrast included.
+        var accentFill = FillUnderWhiteText(accent);
+        var accentForeground = Colors.White;
 
         var accentSoft = Blend(accent, background, theme.HighContrast ? 0.24 : 0.18);
 
@@ -618,16 +613,14 @@ internal static class EffectiveAppearanceResourceMapper
             text);
 
         // A strongly selected row. AppKit's selected-content colour when the
-        // host has one; otherwise the accent, which is what that colour is.
-        // It carries white text, as a selected Finder row does, so it is held
-        // to the same rule as an accent fill. (AppKit's colour is only read
-        // without Increase Contrast.)
+        // host has one; otherwise the accent fill, which is what that colour
+        // is. It carries white text, as a selected Finder row does, so it is
+        // held to the same rule as an accent fill. (AppKit's colour is only
+        // read without Increase Contrast.)
         var selectedContent = hostSelection is { } reportedSelection
             ? FillUnderWhiteText(reportedSelection)
-            : accent;
-        var selectedContentForeground = theme.HighContrast
-            ? MeasuredInk(selectedContent)
-            : Colors.White;
+            : accentFill;
+        var selectedContentForeground = Colors.White;
 
         var metrics = PlatformMetrics.For(theme.PlatformProfile);
         var densityScale = DensityScale(theme.Density);
@@ -734,6 +727,7 @@ internal static class EffectiveAppearanceResourceMapper
             text,
             muted,
             accent,
+            accentFill,
             accentForeground,
             accentText,
             accentSoft,
@@ -974,12 +968,6 @@ internal static class EffectiveAppearanceResourceMapper
 
         return Colors.Black;
     }
-
-    /// <summary>Whichever of black and white reads better on a fill.</summary>
-    private static Color MeasuredInk(Color fill) =>
-        ContrastRatio(fill, Colors.Black) >= ContrastRatio(fill, Colors.White)
-            ? Colors.Black
-            : Colors.White;
 
     /// <summary>The colour with its alpha dropped.</summary>
     private static Color Opaque(Color color) => Color.FromRgb(color.R, color.G, color.B);

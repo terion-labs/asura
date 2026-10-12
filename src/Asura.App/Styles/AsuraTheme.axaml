@@ -307,6 +307,21 @@
     <Setter Property="Padding" Value="0" />
   </Style>
 
+  <!-- A submenu is a menu: the same surface, edge, corner and inset as the
+       menu it opens from. Fluent draws it from its own presenter resources —
+       a stock fill, its overlay corner and theme padding — so Git Flow and
+       Tracking opened as a differently coloured, squarer menu beside the
+       shell's. The inset comes from the scroller margin, as above. The
+       selector carries :open, the only state a submenu is seen in, because
+       values the template writes outrank a plain style. -->
+  <Style Selector="MenuItem:open /template/ Popup#PART_Popup > Border">
+    <Setter Property="Background" Value="{DynamicResource ShellPopupSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellCardCornerRadius}" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
   <Style Selector="MenuItem">
     <Setter Property="MinHeight" Value="{DynamicResource ShellMenuItemHeight}" />
     <Setter Property="Padding" Value="{DynamicResource ShellMenuItemPadding}" />
@@ -375,7 +390,7 @@
   </Style>
 
   <Style Selector="Button.PrimaryButton">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="FontWeight" Value="SemiBold" />
@@ -387,7 +402,7 @@
        pressed, as the host's does: the hover gray behind its measured ink
        read as black on gray. -->
   <Style Selector="Button.PrimaryButton:pointerover /template/ ContentPresenter, Button.PrimaryButton:pressed /template/ ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
   </Style>
 
   <Style Selector="Button.SecondaryButton">
@@ -496,6 +511,12 @@
     <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
     <!-- Rows fill the list so trailing badges and shortcuts stay right-aligned. -->
     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <!-- Never shorter than a macOS 26 list or sidebar row, and growing with
+         the text. Only a handful of lists asked for it, so every other panel
+         list kept rows a few points under the Finder sidebar beside it. A
+         reading surface — a Dense list, a diff or a log that draws its own
+         selection — opts out below. -->
+    <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
   </Style>
 
   <!-- A list that is a reading surface, not a set of controls: no chrome of
@@ -510,6 +531,12 @@
     <Setter Property="Margin" Value="0" />
     <Setter Property="MinHeight" Value="0" />
     <Setter Property="CornerRadius" Value="0" />
+  </Style>
+
+  <!-- A list that draws its own selection is a run of lines — a diff, a
+       log — and keeps each line at the height of its text. -->
+  <Style Selector="ListBox.OwnSelection ListBoxItem">
+    <Setter Property="MinHeight" Value="0" />
   </Style>
 
   <!-- A list of rows — controls|ListItem in a ListBox — where the list itself
@@ -528,8 +555,6 @@
        else in the column. -->
   <Style Selector="ListBox.Rows ListBoxItem">
     <Setter Property="Margin" Value="{controls:Inset Horizontal=Sm}" />
-    <!-- Never shorter than a macOS 26 list row. -->
-    <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
   </Style>
 
   <!--
@@ -560,7 +585,7 @@
        Text recoloured for an accent fill the row never gets is text measured
        against the wrong background. -->
   <Style Selector="ListBox:not(.OwnSelection):focus-within ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
   </Style>
 
@@ -1117,14 +1142,14 @@
   </Style>
 
   <Style Selector="Button.RuntimeTabActivator.active">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
   </Style>
 
   <!-- The stock hover wash would take the accent back off the active tab, and
        hovering the tab you are already in should change nothing. -->
   <Style Selector="Button.RuntimeTabActivator.active:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
   </Style>
 
   <!-- The close button is the tab's sibling rather than its content, so it
@@ -2074,7 +2099,7 @@
   <Style Selector="TextBox.SearchField icons|SymbolIcon.SearchFieldGlyph">
     <Setter Property="Margin" Value="{controls:Inset Left=Sm}" />
     <Setter Property="VerticalAlignment" Value="Center" />
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize12}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellIconSizeSm}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
   </Style>
 
@@ -2087,7 +2112,7 @@
   </Style>
 
   <Style Selector="TextBox.SearchField Button.SearchFieldClear icons|SymbolIcon">
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize12}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellIconSizeSm}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
   </Style>
 

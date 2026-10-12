@@ -2,7 +2,9 @@ using Asura.App.Controls;
 using Asura.Core;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
+using Avalonia.Data;
 using Avalonia.Headless;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -66,6 +68,105 @@ public sealed class MacOsMetricsHeadlessTests
         });
 
     /// <summary>
+    /// A submenu — Git Flow, Tracking — is a menu like the one it opens from:
+    /// the shell's popup surface, edge and corner, items of one height and
+    /// one even inset. Fluent drew it from its own presenter resources, a
+    /// stock fill and a squarer corner beside the shell's menu.
+    /// </summary>
+    [Fact]
+    public Task A_submenu_is_a_menu_with_the_same_surface_and_inset() =>
+        RunHeadlessAsync(window =>
+        {
+            var children = new[] { "Start Feature", "Finish Feature", "Start Release" }
+                .Select(header => new MenuItem { Header = header })
+                .ToArray();
+            var parent = new MenuItem { Header = "Git Flow", ItemsSource = children };
+            var menu = new MenuFlyoutPresenter
+            {
+                ItemsSource = new[] { parent },
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+            Show(window, menu);
+            parent.IsSubMenuOpen = true;
+            window.UpdateLayout();
+
+            var popup = parent.GetVisualDescendants().OfType<Popup>().Single(candidate => candidate.Name == "PART_Popup");
+            Assert.True(popup.IsOpen);
+            var surface = Assert.IsType<Border>(popup.Child);
+            Assert.Equal(Brush(window, "ShellPopupSurfaceBrush"), Color(surface.Background));
+            Assert.Equal(Brush(window, "ShellBorderBrush"), Color(surface.BorderBrush));
+            Assert.Equal(new Thickness(1), surface.BorderThickness);
+            Assert.Equal(Assert.IsType<CornerRadius>(Resource(window, "ShellCardCornerRadius")), surface.CornerRadius);
+
+            var itemHeight = Number(window, "ShellMenuItemHeight");
+            Assert.All(children, item => Assert.Equal(itemHeight, item.Bounds.Height, precision: 1));
+            AssertEvenInset(window, surface, children[0], children[^1]);
+        });
+
+    /// <summary>
+    /// Items with an icon, a shortcut or a submenu chevron are the same
+    /// height as a plain one, and a separator does not add a gap of its own
+    /// at either end of the menu.
+    /// </summary>
+    [Fact]
+    public Task Icons_shortcuts_and_separators_keep_the_menu_even() =>
+        RunHeadlessAsync(window =>
+        {
+            var withIcon = new MenuItem { Header = "Copy", Icon = new SymbolIcon { Symbol = FluentIcons.Common.Symbol.Copy } };
+            var withGesture = new MenuItem { Header = "Paste", InputGesture = Avalonia.Input.KeyGesture.Parse("Cmd+V") };
+            var plain = new MenuItem { Header = "Select All" };
+            var withChildren = new MenuItem { Header = "Tracking", ItemsSource = new[] { new MenuItem { Header = "origin/main" } } };
+            var menu = new ContextMenu
+            {
+                ItemsSource = new object[] { withIcon, withGesture, new Separator(), plain, withChildren },
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+            Show(window, new Border { Padding = new Thickness(20), Child = menu });
+
+            var itemHeight = Number(window, "ShellMenuItemHeight");
+            foreach (var item in new[] { withIcon, withGesture, plain, withChildren })
+            {
+                Assert.Equal(itemHeight, item.Bounds.Height, precision: 1);
+            }
+
+            AssertEvenInset(window, menu, withIcon, withChildren);
+        });
+
+    /// <summary>
+    /// An open pop-up button's list stands its items in the menu's one inset.
+    /// </summary>
+    [Fact]
+    public Task An_open_pop_up_list_has_one_even_inset() =>
+        RunHeadlessAsync(window =>
+        {
+            var items = new[] { "Direct", "System Proxy", "Custom" }
+                .Select(text => new ComboBoxItem { Content = text })
+                .ToArray();
+            var comboBox = new ComboBox
+            {
+                ItemsSource = items,
+                SelectedIndex = 0,
+                Width = 200,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+            Show(window, comboBox);
+            comboBox.IsDropDownOpen = true;
+            window.UpdateLayout();
+
+            var popup = comboBox.GetVisualDescendants().OfType<Popup>().Single(candidate => candidate.Name == "PART_Popup");
+            Assert.True(popup.IsOpen);
+            var popupBorder = Assert.IsType<Border>(popup.Child);
+            Assert.Equal("PopupBorder", popupBorder.Name);
+            Assert.Equal(Thickness(window, "ShellMenuPadding"), popupBorder.Padding);
+            var itemHeight = Number(window, "ShellMenuItemHeight");
+            Assert.All(items, item => Assert.Equal(itemHeight, item.Bounds.Height, precision: 1));
+            AssertEvenInset(window, popupBorder, items[0], items[^1]);
+        });
+
+    /// <summary>
     /// A pop-up button's list and a menu built from buttons are menus too, and
     /// take a menu item's height and corner.
     /// </summary>
@@ -118,6 +219,34 @@ public sealed class MacOsMetricsHeadlessTests
                 .ToArray();
             Assert.NotEmpty(treeRows);
             Assert.All(treeRows, row => Assert.True(row.Bounds.Height >= 24, $"tree row {row.Bounds.Height}"));
+        });
+
+    /// <summary>
+    /// The row floor is the list's, not a class a panel has to remember: the
+    /// Git sections and most panel lists never asked for it and kept rows of
+    /// about 24 points beside a 28-point Finder sidebar. A reading surface —
+    /// a Dense list, or a diff or log that draws its own selection — keeps
+    /// each line at its text's height.
+    /// </summary>
+    [Fact]
+    public Task Every_list_row_is_a_host_row_unless_the_list_is_a_reading_surface() =>
+        RunHeadlessAsync(window =>
+        {
+            var plain = new ListBox { ItemsSource = new[] { "Local Changes", "All Commits" } };
+            var dense = new ListBox { Classes = { "Dense" }, ItemsSource = new[] { "line 1", "line 2" } };
+            var log = new ListBox { Classes = { "OwnSelection" }, ItemsSource = new[] { "log 1", "log 2" } };
+            Show(window, new StackPanel { Children = { plain, dense, log } });
+
+            var row = Number(window, "ShellRowMinHeight");
+            var plainRows = plain.GetVisualDescendants().OfType<ListBoxItem>().ToArray();
+            Assert.NotEmpty(plainRows);
+            Assert.All(plainRows, item => Assert.True(item.Bounds.Height >= row, $"list row {item.Bounds.Height}"));
+            foreach (var reading in new[] { dense, log })
+            {
+                var lines = reading.GetVisualDescendants().OfType<ListBoxItem>().ToArray();
+                Assert.NotEmpty(lines);
+                Assert.All(lines, item => Assert.True(item.Bounds.Height < row, $"reading line {item.Bounds.Height}"));
+            }
         });
 
     /// <summary>
@@ -222,8 +351,65 @@ public sealed class MacOsMetricsHeadlessTests
                 EffectiveAppearanceResourceMapper.ContrastRatio(Brush(window, "ShellDangerFillBrush"), Colors.White) >= 4.5);
             Assert.Equal(Colors.White, Brush(window, "ShellAccentForegroundBrush"));
             Assert.True(
-                EffectiveAppearanceResourceMapper.ContrastRatio(Brush(window, "ShellAccentBrush"), Colors.White) >= 4.5);
+                EffectiveAppearanceResourceMapper.ContrastRatio(Brush(window, "ShellAccentFillBrush"), Colors.White) >= 4.5);
         });
+
+    /// <summary>
+    /// The accent brush and Fluent's accent colour stay the accent that was
+    /// asked for — they draw marks — while every plate that carries a white
+    /// label is the darkened fill: the default button, the selected row of
+    /// the focused list, a checked toggle button and the stock accent button.
+    /// </summary>
+    [Fact]
+    public Task Labelled_accent_plates_take_the_fill_and_marks_keep_the_accent() =>
+        RunHeadlessAsync(window =>
+        {
+            var primary = new Button { Classes = { "PrimaryButton" }, Content = "Turn On" };
+            var list = new ListBox { ItemsSource = new[] { "jobsworth-db-1", "jobsworth-web-1" } };
+            Show(window, new StackPanel { Children = { primary, list } });
+            list.SelectedIndex = 0;
+            window.UpdateLayout();
+            list.GetVisualDescendants().OfType<ListBoxItem>().First(item => item.IsSelected).Focus();
+            window.UpdateLayout();
+
+            var brand = Avalonia.Media.Color.Parse("#FF8400");
+            var fill = EffectiveAppearanceResourceMapper.FillUnderWhiteText(brand);
+            Assert.Equal(brand, Brush(window, "ShellAccentBrush"));
+            Assert.Equal(brand, Assert.IsType<Color>(Resource(window, "SystemAccentColor")));
+            Assert.Equal(fill, Brush(window, "ShellAccentFillBrush"));
+            Assert.Equal(fill, Color(primary.Background));
+            Assert.Equal(Colors.White, Color(primary.Foreground));
+            foreach (var key in new[] { "AccentButtonBackground", "AccentButtonBackgroundPointerOver", "ToggleButtonBackgroundChecked" })
+            {
+                Assert.Equal(fill, Brush(window, key));
+            }
+
+            var selected = list.GetVisualDescendants().OfType<ListBoxItem>().First(item => item.IsSelected);
+            var plate = selected.GetVisualDescendants().OfType<ContentPresenter>().First(presenter => presenter.Name == "PART_ContentPresenter");
+            Assert.Equal(fill, Color(plate.Background));
+        });
+
+    /// <summary>
+    /// The first item stands the menu's inset in from the top and the left
+    /// of the surface's inner edge, and the last item the same from the
+    /// bottom and the right.
+    /// </summary>
+    private static void AssertEvenInset(Window window, Control surface, Control first, Control last)
+    {
+        var inset = Thickness(window, "ShellMenuPadding").Top;
+        var border = surface switch
+        {
+            Border drawn => drawn.BorderThickness,
+            TemplatedControl templated => templated.BorderThickness,
+            _ => default,
+        };
+        var topLeft = first.TranslatePoint(default, surface)!.Value;
+        var bottomRight = last.TranslatePoint(new Point(last.Bounds.Width, last.Bounds.Height), surface)!.Value;
+        Assert.Equal(inset, topLeft.Y - border.Top, precision: 1);
+        Assert.Equal(inset, topLeft.X - border.Left, precision: 1);
+        Assert.Equal(inset, surface.Bounds.Height - border.Bottom - bottomRight.Y, precision: 1);
+        Assert.Equal(inset, surface.Bounds.Width - border.Right - bottomRight.X, precision: 1);
+    }
 
     private static T Part<T>(Visual owner, string name)
         where T : Control =>
@@ -253,7 +439,42 @@ public sealed class MacOsMetricsHeadlessTests
         window.UpdateLayout();
     }
 
-    private static async Task RunHeadlessAsync(Action<Window> assertion)
+    /// <summary>
+    /// A length laid out for 13-point text follows the text-size setting, not
+    /// the profile's body: on Windows, whose body is 14, every scaled width
+    /// had grown by a fourteenth once the numeric tokens followed the ramp.
+    /// </summary>
+    [Theory]
+    [InlineData(1.0, 352)]
+    [InlineData(1.5, 528)]
+    public Task A_text_scaled_length_follows_the_text_size_not_the_profiles_body(double textScale, double expected) =>
+        RunHeadlessAsync(
+            window =>
+            {
+                var box = new Border { HorizontalAlignment = HorizontalAlignment.Left };
+                box.Bind(Layoutable.WidthProperty, (MultiBinding)new TextScaledExtension(352).ProvideValue(null!));
+                Show(window, box);
+
+                Assert.Equal(14 * textScale, Number(window, "ShellBodyFontSize"));
+                Assert.Equal(expected, box.Width);
+            },
+            new EffectiveTheme(
+                EffectiveAppearanceMode.Dark,
+                PlatformProfile.Windows11,
+                RgbColor.Parse("#FF8400"),
+                AccentSource.Host,
+                HighContrast: false,
+                MotionEnabled: true,
+                AdvancedMaterialsEnabled: false,
+                TextScale: textScale));
+
+    private static Task RunHeadlessAsync(Action<Window> assertion) =>
+        RunHeadlessAsync(
+            assertion,
+            ThemePreference.Default.Resolve(
+                new HostAppearance(HostOperatingSystem.MacOS, HostColorScheme.Dark, accent: null)));
+
+    private static async Task RunHeadlessAsync(Action<Window> assertion, EffectiveTheme theme)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
@@ -263,9 +484,7 @@ public sealed class MacOsMetricsHeadlessTests
                 () =>
                 {
                     var app = Assert.IsType<App>(Avalonia.Application.Current);
-                    app.ApplyApplicationResources(EffectiveAppearanceResourceMapper.Map(
-                        ThemePreference.Default.Resolve(
-                            new HostAppearance(HostOperatingSystem.MacOS, HostColorScheme.Dark, accent: null))));
+                    app.ApplyApplicationResources(EffectiveAppearanceResourceMapper.Map(theme));
                     var window = new Window { Width = 600, Height = 700 };
                     try
                     {

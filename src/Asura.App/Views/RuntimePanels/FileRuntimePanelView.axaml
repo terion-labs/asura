@@ -629,7 +629,11 @@
                 IsChecked="{Binding AutoDownloadPreviews, Mode=TwoWay}"
                 IsVisible="{Binding RequiresHostTransferForPreview}"
                 AutomationProperties.Name="Automatically preview files under the size threshold" />
-            <controls:SurfaceCard Padding="0" Grid.Row="2" Margin="{controls:Inset Sm}" IsVisible="{Binding HasSelectedMetadata}">
+            <!-- The details card and the content under it share one inset:
+                 the card keeps it on three sides and the content supplies
+                 the step between them, so card-to-content is the same Sm as
+                 card-to-edge rather than two of them stacked. -->
+            <controls:SurfaceCard Name="PreviewDetails" Padding="0" Grid.Row="2" Margin="{controls:Inset Horizontal=Sm, Top=Sm}" IsVisible="{Binding HasSelectedMetadata}">
               <StackPanel>
                 <Grid Margin="{controls:Inset Horizontal=Md, Vertical=Sm}" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource ShellSpaceSm}" ColumnSpacing="{DynamicResource ShellSpaceMd}">
                 <StackPanel Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Kind" /><TextBlock FontSize="{DynamicResource ShellFontSize12}" Text="{Binding SelectedMetadata.Kind}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SelectedMetadata.Kind}" /></StackPanel>
@@ -678,7 +682,7 @@
             </controls:SurfaceCard>
             <Grid Grid.Row="3">
               <components:CodePreviewView
-                  Margin="{controls:Inset Md}"
+                  Margin="{controls:Inset Sm}"
                   IsVisible="{Binding HasSourcePreview}"
                   Text="{Binding PreviewText}"
                   WordWrap="{Binding WrapPreviewText}"
@@ -721,7 +725,7 @@
                    the listing, flush with neither, the pager read as a stray
                    button rather than the way to the rest of the archive. -->
               <Grid Name="ArchivePreview" RowDefinitions="*,Auto" IsVisible="{Binding HasTreePreview}">
-                <components:PreviewTreeView Margin="{controls:Inset Sm}" DataContext="{Binding PreviewTree}" />
+                <components:PreviewTreeView Name="ArchiveListing" Margin="{controls:Inset Sm}" DataContext="{Binding PreviewTree}" />
                 <StackPanel
                     Name="ArchivePager"
                     Grid.Row="1"

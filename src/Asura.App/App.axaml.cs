@@ -866,13 +866,20 @@ public sealed partial class App : Avalonia.Application
                     ? "0 8 32 0 #2E000000, 0 1 4 0 #1F000000"
                     : "0 8 48 0 #8C000000, 0 2 14 0 #59000000")
                 + $", inset 0 0 40 0 #38{accentHex}"));
+        // What a filled accent control — the default button, the active tab,
+        // the selected row of the focused list — is filled with: the accent
+        // darkened only as far as its white label needs. The accent brush
+        // above stays the colour that was asked for, for every mark.
+        Publish("ShellAccentFillBrush", Brush(resources.AccentFill));
         Publish("ShellAccentForegroundBrush", Brush(resources.AccentForeground));
         // A toggle that is on, and the stock accent button, stand on the same
-        // accent fill as the default button, so they wear the same measured
-        // ink. The stock theme's white on an orange or yellow accent fell to
-        // between 1.4:1 and 2.5:1.
+        // fill as the default button and wear the same white, in every state:
+        // Fluent's own hover and pressed shades of the accent were lighter
+        // than the fill, and white on them fell under 4.5:1.
         foreach (var state in new[] { string.Empty, "PointerOver", "Pressed" })
         {
+            Publish($"ToggleButtonBackgroundChecked{state}", Brush(resources.AccentFill));
+            Publish($"AccentButtonBackground{state}", Brush(resources.AccentFill));
             Publish($"ToggleButtonForegroundChecked{state}", Brush(resources.AccentForeground));
             Publish($"AccentButtonForeground{state}", Brush(resources.AccentForeground));
         }
@@ -997,6 +1004,10 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellBodyLineHeight", LineHeightFor(resources.BodyFontSize));
         Publish("ShellSecondaryLineHeight", LineHeightFor(resources.SecondaryFontSize));
         Publish("ShellCaptionLineHeight", LineHeightFor(resources.CaptionFontSize));
+        // What a length laid out for 13-point text scales against: the text
+        // size setting alone. ShellFontSize13 is the profile's Body, which is
+        // 14 on Windows, and a fixed length keyed to it grew with the profile.
+        Publish("ShellTextScaleReferenceSize", TextScaledExtension.DesignBodyFontSize * resources.TextScale);
         foreach (var baseFontSize in ScalableFontSizes)
         {
             Publish($"ShellFontSize{baseFontSize}", resources.ScaleFontSize(baseFontSize));
@@ -1032,6 +1043,8 @@ public sealed partial class App : Avalonia.Application
         // Fluent's menu templates write their inset on the items presenter
         // from this resource rather than from the menu's Padding.
         Publish("MenuFlyoutScrollerMargin", new Thickness(menuInset));
+        // A submenu's own presenter padding would stack on that margin.
+        Publish("MenuFlyoutPresenterThemePadding", new Thickness(0));
         Publish("ShellMenuItemPadding", new Thickness(MenuItemTextInset * resources.TextScale, 0));
         Publish("ShellMenuItemCornerRadius", new CornerRadius(MenuItemCornerRadius));
         Publish("ShellMenuSeparatorMargin", new Thickness(MenuItemTextInset * resources.TextScale, menuInset));

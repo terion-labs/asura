@@ -73,14 +73,14 @@
         <Setter Property="Background" Value="{DynamicResource ShellSidebarBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource ShellSidebarBorderBrush}" />
       </Style>
-      <!-- A notice is information. Its card is the neutral raised surface —
-           the info tone's fill and edge are published neutral — and only a
-           callout's glyph carries the tone. Tinted, every note and every row
-           of an inventory turned the page blue; drawn in the accent, it read
-           as a warning whenever the accent was orange or yellow. -->
+      <!-- A notice is information, and information is not an alert: it sits
+           on the neutral secondary surface, and a callout tints only its
+           glyph. Filled with the info blue, every note, list row, and undo
+           bar that used the tone turned a settings page into a stack of
+           blue boxes. Drawn in the accent it read as a warning whenever the
+           accent was orange or yellow. -->
       <Style Selector="^:tone-notice">
-        <Setter Property="Background" Value="{DynamicResource ShellInfoSoftBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource ShellInfoBorderBrush}" />
+        <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
       </Style>
       <Style Selector="^:tone-danger">
         <Setter Property="Background" Value="{DynamicResource ShellDangerSoftBrush}" />

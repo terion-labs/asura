@@ -347,6 +347,7 @@ public sealed partial class AgentChatViewModelTests
                 ("ShellFontSize10", 10d),
                 ("ShellFontSize11", 11d),
                 ("ShellFontSize13", 13d),
+                ("ShellTextScaleReferenceSize", 13d),
                 ("ShellSecondaryFontSize", 11d),
                 ("ShellIconSizeXs", 10d),
                 ("ShellIconSizeSm", 13d),

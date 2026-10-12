@@ -14,7 +14,7 @@
                             Margin="{controls:Inset Bottom=Xs}" AutomationProperties.Name="{Binding Message}" AutomationProperties.LiveSetting="Assertive">
             <controls:Callout.Action>
               <Button Classes="IconButton" Click="OnDismissClick" ToolTip.Tip="Dismiss error" AutomationProperties.Name="Dismiss error">
-                <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellFontSize12}" />
+                <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeSm}" />
               </Button>
             </controls:Callout.Action>
           </controls:Callout>

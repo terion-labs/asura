@@ -26,7 +26,8 @@
           <SolidColorBrush x:Key="ShellControlHoverBrush" Color="#2E2E2E" />
           <SolidColorBrush x:Key="ShellTextBrush" Color="#FFFFFF" />
           <SolidColorBrush x:Key="ShellMutedBrush" Color="#B8B9B6" />
-          <SolidColorBrush x:Key="ShellAccentBrush" Color="#B75F00" />
+          <SolidColorBrush x:Key="ShellAccentBrush" Color="#FF8400" />
+          <SolidColorBrush x:Key="ShellAccentFillBrush" Color="#B75F00" />
           <SolidColorBrush x:Key="ShellAccentTextBrush" Color="#FF8400" />
           <SolidColorBrush x:Key="ShellAccentForegroundBrush" Color="#FFFFFF" />
           <SolidColorBrush x:Key="ShellAccentSoftBrush" Color="#291C0F" />
@@ -38,14 +39,14 @@
           <SolidColorBrush x:Key="ShellDangerForegroundBrush" Color="#FFFFFF" />
           <SolidColorBrush x:Key="ShellDangerFillBrush" Color="#BA5953" />
           <SolidColorBrush x:Key="ShellDangerTextBrush" Color="#FF8E86" />
-          <SolidColorBrush x:Key="ShellDangerSoftBrush" Color="#3A1715" />
-          <SolidColorBrush x:Key="ShellDangerBorderBrush" Color="#A84C45" />
+          <SolidColorBrush x:Key="ShellDangerSoftBrush" Color="#291818" />
+          <SolidColorBrush x:Key="ShellDangerBorderBrush" Color="#704240" />
           <SolidColorBrush x:Key="ShellSuccessBrush" Color="#77D797" />
-          <SolidColorBrush x:Key="ShellSuccessSoftBrush" Color="#173222" />
-          <SolidColorBrush x:Key="ShellSuccessBorderBrush" Color="#2E6743" />
+          <SolidColorBrush x:Key="ShellSuccessSoftBrush" Color="#18251E" />
+          <SolidColorBrush x:Key="ShellSuccessBorderBrush" Color="#335040" />
           <SolidColorBrush x:Key="ShellWarningBrush" Color="#E1A45F" />
-          <SolidColorBrush x:Key="ShellWarningSoftBrush" Color="#32241A" />
-          <SolidColorBrush x:Key="ShellWarningBorderBrush" Color="#75502F" />
+          <SolidColorBrush x:Key="ShellWarningSoftBrush" Color="#251E1A" />
+          <SolidColorBrush x:Key="ShellWarningBorderBrush" Color="#564436" />
           <SolidColorBrush x:Key="ShellInfoBrush" Color="#6CB4FF" />
           <SolidColorBrush x:Key="ShellInfoSoftBrush" Color="#1A1A1A" />
           <SolidColorBrush x:Key="ShellInfoBorderBrush" Color="#2E2E2E" />
@@ -102,7 +103,8 @@
           <SolidColorBrush x:Key="ShellControlHoverBrush" Color="#CBCCC9" />
           <SolidColorBrush x:Key="ShellTextBrush" Color="#111111" />
           <SolidColorBrush x:Key="ShellMutedBrush" Color="#5C5E5A" />
-          <SolidColorBrush x:Key="ShellAccentBrush" Color="#B75F00" />
+          <SolidColorBrush x:Key="ShellAccentBrush" Color="#FF8400" />
+          <SolidColorBrush x:Key="ShellAccentFillBrush" Color="#B75F00" />
           <SolidColorBrush x:Key="ShellAccentTextBrush" Color="#A35400" />
           <SolidColorBrush x:Key="ShellAccentForegroundBrush" Color="#FFFFFF" />
           <SolidColorBrush x:Key="ShellAccentSoftBrush" Color="#E9E3D8" />
@@ -114,14 +116,14 @@
           <SolidColorBrush x:Key="ShellDangerForegroundBrush" Color="#FFFFFF" />
           <SolidColorBrush x:Key="ShellDangerFillBrush" Color="#B42318" />
           <SolidColorBrush x:Key="ShellDangerTextBrush" Color="#B42318" />
-          <SolidColorBrush x:Key="ShellDangerSoftBrush" Color="#FDE8E5" />
-          <SolidColorBrush x:Key="ShellDangerBorderBrush" Color="#A73528" />
+          <SolidColorBrush x:Key="ShellDangerSoftBrush" Color="#F2E8E5" />
+          <SolidColorBrush x:Key="ShellDangerBorderBrush" Color="#B0786F" />
           <SolidColorBrush x:Key="ShellSuccessBrush" Color="#147A3F" />
-          <SolidColorBrush x:Key="ShellSuccessSoftBrush" Color="#E2F5E8" />
-          <SolidColorBrush x:Key="ShellSuccessBorderBrush" Color="#41935E" />
+          <SolidColorBrush x:Key="ShellSuccessSoftBrush" Color="#E4EEE6" />
+          <SolidColorBrush x:Key="ShellSuccessBorderBrush" Color="#7CA68A" />
           <SolidColorBrush x:Key="ShellWarningBrush" Color="#8A4B08" />
-          <SolidColorBrush x:Key="ShellWarningSoftBrush" Color="#FFF0D6" />
-          <SolidColorBrush x:Key="ShellWarningBorderBrush" Color="#B46B20" />
+          <SolidColorBrush x:Key="ShellWarningSoftBrush" Color="#F3ECDE" />
+          <SolidColorBrush x:Key="ShellWarningBorderBrush" Color="#B6926B" />
           <SolidColorBrush x:Key="ShellInfoBrush" Color="#0B5CAD" />
           <SolidColorBrush x:Key="ShellInfoSoftBrush" Color="#FFFFFF" />
           <SolidColorBrush x:Key="ShellInfoBorderBrush" Color="#CBCCC9" />
@@ -214,6 +216,7 @@
       <x:Double x:Key="ShellBodyLineHeight">17.5</x:Double>
       <x:Double x:Key="ShellSecondaryLineHeight">16</x:Double>
       <x:Double x:Key="ShellCaptionLineHeight">15</x:Double>
+      <x:Double x:Key="ShellTextScaleReferenceSize">13</x:Double>
       <!-- Rows and menus at macOS 26 metrics. -->
       <x:Double x:Key="ShellRowMinHeight">28</x:Double>
       <x:Double x:Key="ShellTreeRowMinHeight">24</x:Double>
@@ -228,6 +231,7 @@
            vertical-only margin, so the first item sat further from the top
            than from the sides. Republished with the text size. -->
       <Thickness x:Key="MenuFlyoutScrollerMargin">5</Thickness>
+      <Thickness x:Key="MenuFlyoutPresenterThemePadding">0</Thickness>
       <CornerRadius x:Key="ShellGroupCornerRadius">7</CornerRadius>
       <CornerRadius x:Key="ShellControlCornerRadius">7</CornerRadius>
       <CornerRadius x:Key="ShellCardCornerRadius">9</CornerRadius>

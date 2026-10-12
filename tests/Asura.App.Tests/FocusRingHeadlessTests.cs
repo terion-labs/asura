@@ -143,7 +143,7 @@ public sealed class FocusRingHeadlessTests
                 var presenter = row.GetVisualDescendants()
                     .OfType<ContentPresenter>()
                     .Single(part => part.Name == "PART_ContentPresenter");
-                Assert.True(window.TryFindResource("ShellAccentBrush", window.ActualThemeVariant, out var accent));
+                Assert.True(window.TryFindResource("ShellAccentFillBrush", window.ActualThemeVariant, out var accent));
                 Assert.Equal(
                     Assert.IsAssignableFrom<ISolidColorBrush>(accent).Color,
                     Assert.IsAssignableFrom<ISolidColorBrush>(presenter.Background).Color);

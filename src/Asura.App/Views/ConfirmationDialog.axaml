@@ -66,8 +66,8 @@
           TextWrapping="Wrap" />
       <TextBlock
           x:Name="DetailText"
-          FontSize="{DynamicResource ShellFontSize11}"
-          LineHeight="{DynamicResource ShellLineHeight11}"
+          FontSize="{DynamicResource ShellSecondaryFontSize}"
+          LineHeight="{DynamicResource ShellSecondaryLineHeight}"
           Text="{Binding Detail}"
           TextAlignment="Center"
           TextWrapping="Wrap" />
@@ -76,8 +76,8 @@
       <TextBlock
           x:Name="NoticeText"
           Classes="Muted"
-          FontSize="{DynamicResource ShellFontSize11}"
-          LineHeight="{DynamicResource ShellLineHeight11}"
+          FontSize="{DynamicResource ShellSecondaryFontSize}"
+          LineHeight="{DynamicResource ShellSecondaryLineHeight}"
           Text="{Binding Notice}"
           TextAlignment="Center"
           TextWrapping="Wrap"

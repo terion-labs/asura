@@ -80,8 +80,11 @@ public sealed class AvaloniaHostAppearanceAdapterTests
         var resources = EffectiveAppearanceResourceMapper.Map(effective);
 
         Assert.Equal(AccentSource.Host, effective.AccentSource);
-        // The host's blue, darkened only as far as its white label needs.
-        Assert.Equal(EffectiveAppearanceResourceMapper.FillUnderWhiteText(hostAccent), resources.Accent);
+        // The host's blue is the accent itself; only the plate under a white
+        // label is darkened, as far as that label needs.
+        Assert.Equal(hostAccent, resources.Accent);
+        Assert.Equal(EffectiveAppearanceResourceMapper.FillUnderWhiteText(hostAccent), resources.AccentFill);
+        Assert.DoesNotContain("contrast adjusted", resources.AccentStatus, StringComparison.Ordinal);
         Assert.Contains("host accent", resources.AccentStatus, StringComparison.Ordinal);
     }
 
@@ -455,6 +458,15 @@ public sealed class AvaloniaHostAppearanceAdapterTests
         Assert.Equal(1.3, imported.Scale);
     }
 
+    private static Color Over(Color foreground, Color background)
+    {
+        var amount = foreground.A / 255d;
+        return Color.FromRgb(
+            (byte)Math.Round((foreground.R * amount) + (background.R * (1 - amount))),
+            (byte)Math.Round((foreground.G * amount) + (background.G * (1 - amount))),
+            (byte)Math.Round((foreground.B * amount) + (background.B * (1 - amount))));
+    }
+
     private static EffectiveTheme Bronze(
         EffectiveAppearanceMode appearance,
         bool highContrast = false) =>
@@ -470,11 +482,11 @@ public sealed class AvaloniaHostAppearanceAdapterTests
 
     /// <summary>
     /// A filled accent control wears white in every theme and on every macOS
-    /// accent, and the fill is darkened until white clears 4.5:1. Choosing
-    /// black or white by measurement put black on a graphite, yellow, green or
-    /// orange default button and white on a blue one, so two buttons of the
-    /// same role read as two kinds. The darkened fill is still a mark: it
-    /// clears 3:1 against the window.
+    /// accent, Increase Contrast included, and its fill is the accent darkened
+    /// until white clears 4.5:1. Choosing black or white by measurement put
+    /// black on a graphite, yellow, green or orange default button and white
+    /// on a blue one, so two buttons of the same role read as two kinds. The
+    /// darkened fill is still a mark: it clears 3:1 against the window.
     /// </summary>
     [Theory]
     [InlineData("#0A84FF", EffectiveAppearanceMode.Dark)] // blue
@@ -506,20 +518,65 @@ public sealed class AvaloniaHostAppearanceAdapterTests
                      PlatformProfile.Asura,
                  })
         {
+            foreach (var highContrast in new[] { false, true })
+            {
+                var resources = EffectiveAppearanceResourceMapper.Map(
+                    EffectiveThemeFor(profile, appearance) with
+                    {
+                        Accent = RgbColor.Parse(accent),
+                        HighContrast = highContrast,
+                    });
+                var label = $"{accent} {appearance} {profile} hc={highContrast}";
+
+                Assert.Equal(Colors.White, resources.AccentForeground);
+                Assert.True(
+                    EffectiveAppearanceResourceMapper.ContrastRatio(resources.AccentFill, Colors.White) >= 4.5,
+                    $"{label}: white on {resources.AccentFill}");
+                Assert.True(
+                    EffectiveAppearanceResourceMapper.ContrastRatio(resources.AccentFill, resources.Background) >= 3,
+                    $"{label}: {resources.AccentFill} on {resources.Background}");
+                Assert.Equal(Colors.White, resources.SelectedContentForeground);
+                Assert.True(
+                    EffectiveAppearanceResourceMapper.ContrastRatio(resources.SelectedContent, Colors.White) >= 4.5,
+                    $"{label}: white on selection {resources.SelectedContent}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// The accent is a mark — a focus ring, a switch, a tab indicator, the
+    /// Fluent accent family — and stays the colour that was asked for whenever
+    /// it already clears the 3:1 a mark needs against the window. Only the
+    /// plate under a white label is darkened: darkening the accent itself
+    /// turned a yellow accent olive everywhere and reported "contrast
+    /// adjusted" for the default accent.
+    /// </summary>
+    [Theory]
+    [InlineData("#0A84FF", EffectiveAppearanceMode.Dark)]
+    [InlineData("#A550A7", EffectiveAppearanceMode.Dark)]
+    [InlineData("#F74F9E", EffectiveAppearanceMode.Dark)]
+    [InlineData("#FF5257", EffectiveAppearanceMode.Dark)]
+    [InlineData("#FF9F0A", EffectiveAppearanceMode.Dark)]
+    [InlineData("#FFD60A", EffectiveAppearanceMode.Dark)]
+    [InlineData("#32D74B", EffectiveAppearanceMode.Dark)]
+    [InlineData("#8C8C8C", EffectiveAppearanceMode.Dark)]
+    [InlineData("#FF8400", EffectiveAppearanceMode.Dark)]
+    [InlineData("#007AFF", EffectiveAppearanceMode.Light)]
+    [InlineData("#953D96", EffectiveAppearanceMode.Light)]
+    public void The_accent_mark_is_the_accent_that_was_asked_for(
+        string accent,
+        EffectiveAppearanceMode appearance)
+    {
+        foreach (var profile in new[] { PlatformProfile.MacOsClassic, PlatformProfile.MacOsLiquidGlass })
+        {
+            var requested = Color.Parse(accent);
             var resources = EffectiveAppearanceResourceMapper.Map(
                 EffectiveThemeFor(profile, appearance) with { Accent = RgbColor.Parse(accent) });
 
-            Assert.Equal(Colors.White, resources.AccentForeground);
-            Assert.True(
-                EffectiveAppearanceResourceMapper.ContrastRatio(resources.Accent, Colors.White) >= 4.5,
-                $"{accent} {appearance} {profile}: white on {resources.Accent}");
-            Assert.True(
-                EffectiveAppearanceResourceMapper.ContrastRatio(resources.Accent, resources.Background) >= 3,
-                $"{accent} {appearance} {profile}: {resources.Accent} on {resources.Background}");
-            Assert.Equal(Colors.White, resources.SelectedContentForeground);
-            Assert.True(
-                EffectiveAppearanceResourceMapper.ContrastRatio(resources.SelectedContent, Colors.White) >= 4.5,
-                $"{accent} {appearance} {profile}: white on selection {resources.SelectedContent}");
+            Assert.True(EffectiveAppearanceResourceMapper.ContrastRatio(requested, resources.Background) >= 3);
+            Assert.Equal(requested, resources.Accent);
+            Assert.DoesNotContain("contrast adjusted", resources.AccentStatus, StringComparison.Ordinal);
+            Assert.Equal(EffectiveAppearanceResourceMapper.FillUnderWhiteText(requested), resources.AccentFill);
         }
     }
 
@@ -567,9 +624,10 @@ public sealed class AvaloniaHostAppearanceAdapterTests
         var resources = EffectiveAppearanceResourceMapper.Map(Bronze(EffectiveAppearanceMode.Dark));
 
         Assert.Equal(Colors.White, resources.AccentForeground);
+        Assert.Equal(Color.Parse("#FF8400"), resources.Accent);
         Assert.Equal(
             EffectiveAppearanceResourceMapper.FillUnderWhiteText(Color.Parse("#FF8400")),
-            resources.Accent);
+            resources.AccentFill);
     }
 
     /// <summary>
@@ -1049,15 +1107,24 @@ public sealed class AvaloniaHostAppearanceAdapterTests
     /// trade anyone should be making on the user's behalf.
     /// </summary>
     [Fact]
-    public void High_contrast_keeps_the_measured_choice_even_in_the_dark()
+    public void High_contrast_fills_carry_white_even_in_the_dark()
     {
+        // Increase Contrast lifts the dark accent until it reads as text on
+        // the selected sidebar row, which leaves it too light to carry a
+        // label; the fill under a label is its own, darker colour, so a
+        // primary button is white on it here too.
         var resources = EffectiveAppearanceResourceMapper.Map(
             Bronze(EffectiveAppearanceMode.Dark, highContrast: true));
 
+        Assert.Equal(Colors.White, resources.AccentForeground);
+        Assert.True(
+            EffectiveAppearanceResourceMapper.ContrastRatio(
+                resources.AccentFill,
+                resources.AccentForeground) >= 4.5);
         Assert.True(
             EffectiveAppearanceResourceMapper.ContrastRatio(
                 resources.Accent,
-                resources.AccentForeground) >= 4.5);
+                Over(resources.SidebarSelectionSurface, resources.SidebarSurface)) >= 4.5);
     }
 
     [Fact]

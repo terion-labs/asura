@@ -1,4 +1,6 @@
+using System.Xml.Linq;
 using Asura.Core;
+using Asura.Testing;
 using Avalonia.Media;
 
 namespace Asura.App.Tests;
@@ -183,6 +185,65 @@ public sealed class ThemeToneContrastTests
                     $"{profile} {appearance} HC={highContrast} {accent}: {resources.FocusRing} on {plate} is {Ratio(resources.FocusRing, plate):0.00}:1.");
             }
         }
+    }
+
+    /// <summary>
+    /// The palette App.axaml carries until the mapper first publishes is the
+    /// mapper's own output for the product profile: a tinted card or an
+    /// accent plate drawn from the fallbacks — before publishing, or in a
+    /// design-QA route — showed the old full-strength tones and the
+    /// undarkened fill.
+    /// </summary>
+    [Theory]
+    [InlineData(EffectiveAppearanceMode.Dark, "Dark")]
+    [InlineData(EffectiveAppearanceMode.Light, "Light")]
+    public void The_fallback_tones_are_the_mappers(EffectiveAppearanceMode appearance, string dictionary)
+    {
+        var resources = Map(PlatformProfile.Asura, appearance, false, "#FF8400");
+        // The fallback warning is the amber one, the warning beside any accent
+        // that is not orange.
+        var tones = Map(PlatformProfile.Asura, appearance, false, "#007AFF");
+        var fallback = FallbackBrushes(dictionary);
+        var mismatches = new List<string>();
+
+        foreach (var (key, color) in new[]
+                 {
+                     ("ShellAccentFillBrush", resources.AccentFill),
+                     ("ShellSelectedContentBrush", resources.SelectedContent),
+                     ("ShellDangerSoftBrush", tones.DangerSoft),
+                     ("ShellDangerBorderBrush", tones.DangerBorder),
+                     ("ShellDangerFillBrush", tones.DangerFill),
+                     ("ShellSuccessSoftBrush", tones.SuccessSoft),
+                     ("ShellSuccessBorderBrush", tones.SuccessBorder),
+                     ("ShellWarningSoftBrush", tones.WarningSoft),
+                     ("ShellWarningBorderBrush", tones.WarningBorder),
+                 })
+        {
+            Assert.True(fallback.TryGetValue(key, out var value), $"{dictionary} has no {key}.");
+            if (Color.Parse(value) != color)
+            {
+                mismatches.Add($"{key}: fallback {value}, mapper #{color.R:X2}{color.G:X2}{color.B:X2}");
+            }
+        }
+
+        Assert.True(mismatches.Count == 0, $"{dictionary}: {string.Join("; ", mismatches)}");
+    }
+
+    private static Dictionary<string, string> FallbackBrushes(string dictionary)
+    {
+        var catalog = ApplicationViewCatalog.Load();
+        var document = XDocument.Load(Path.Combine(catalog.RepositoryRoot, "src", "Asura.App", "App.axaml"));
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+        var themeDictionary = document.Descendants()
+            .Single(element =>
+                string.Equals(element.Name.LocalName, "ResourceDictionary", StringComparison.Ordinal)
+                && string.Equals((string?)element.Attribute(xaml + "Key"), dictionary, StringComparison.Ordinal));
+        return themeDictionary.Elements()
+            .Where(element => string.Equals(element.Name.LocalName, "SolidColorBrush", StringComparison.Ordinal))
+            .ToDictionary(
+                element => (string)element.Attribute(xaml + "Key")!,
+                element => (string)element.Attribute("Color")!,
+                StringComparer.Ordinal);
     }
 
     [Theory]

@@ -186,6 +186,7 @@ public sealed class WorkspaceAgentOverlayHeadlessTests
             var workspace = new WorkspaceView();
             var window = new Window { Width = 1440, Height = 1400, Content = workspace };
             window.Resources["ShellFontSize13"] = 13d;
+            window.Resources["ShellTextScaleReferenceSize"] = 13d;
             try
             {
                 window.Show();
@@ -198,6 +199,7 @@ public sealed class WorkspaceAgentOverlayHeadlessTests
                 Assert.Equal(620, agent.Bounds.Height);
 
                 window.Resources["ShellFontSize13"] = 19.5d;
+                window.Resources["ShellTextScaleReferenceSize"] = 19.5d;
                 window.UpdateLayout();
 
                 Assert.Equal(528, agent.Bounds.Width);
