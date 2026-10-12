@@ -326,13 +326,13 @@ public sealed partial class MainWindow
     private static readonly List<MainWindow> s_openMainWindows = [];
 
     /// <summary>
-    /// The main windows open on this UI thread, least recently active first —
-    /// the ones the Settings window can be handed to. The last is the window
-    /// the Mac brings forward when the active one closes.
+    /// The main windows open in this application, least recently active
+    /// first — the ones the Settings window can be handed to. The last is the
+    /// window the Mac brings forward when the active one closes.
     /// </summary>
     private static IEnumerable<MainWindow> OpenMainWindows()
     {
-        _ = s_openMainWindows.RemoveAll(window => !window.CheckAccess());
+        _ = s_openMainWindows.RemoveAll(window => !SettingsWindow.BelongsToRunningApplication(window));
         return [.. s_openMainWindows];
     }
 

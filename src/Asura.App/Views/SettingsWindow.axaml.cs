@@ -131,15 +131,24 @@ public sealed partial class SettingsWindow : Window
     private static SettingsWindow? s_current;
 
     /// <summary>
-    /// The open Settings window, if there is one. A window that belongs to
-    /// another UI thread — a headless session that has ended — is not this
-    /// application's.
+    /// The open Settings window, if there is one. A window left by a headless
+    /// session that has ended is not this application's.
     /// </summary>
     internal static SettingsWindow? Current
     {
-        get => s_current is { } window && window.CheckAccess() ? window : null;
+        get => s_current is { } window && BelongsToRunningApplication(window) ? window : null;
         private set => s_current = value;
     }
+
+    /// <summary>
+    /// Whether <paramref name="window"/> was made under the dispatcher running
+    /// now. A thread check is not enough: a headless session runs on a pool
+    /// thread, and a later session on the same thread passes it for windows
+    /// the ended one left open. Handing Settings to such a window put content
+    /// built under the old application's theme into this one's tree.
+    /// </summary>
+    internal static bool BelongsToRunningApplication(Window window) =>
+        ReferenceEquals(window.Dispatcher, Dispatcher.UIThread);
 
     /// <summary>Where the window's page and frame are kept between runs.</summary>
     internal static ISettingsWindowStateStore? StateStore { get; set; }
