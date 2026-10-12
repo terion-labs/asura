@@ -18,6 +18,15 @@
     <Style Selector="TextBox.ElidedPath:not(:focus-within)">
       <Setter Property="Foreground" Value="Transparent" />
     </Style>
+    <!-- A grouped list with nothing selected in it, as Settings draws one:
+         its rows edge to edge in one card with a hairline between them. -->
+    <Style Selector="ItemsControl.Separated > ContentPresenter">
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+    <Style Selector="ItemsControl.Separated > ContentPresenter:nth-last-child(1)">
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
   </UserControl.Styles>
   <!--
     A rail and a detail column, because editing a workspace is mostly comparing
@@ -112,7 +121,7 @@
             <controls:SettingsGroup
                 Heading="Appearance"
                 Description="How this workspace is recognized — on its tab, in the rail, and in the launcher."
-                ControlWidth="300">
+                ControlWidth="320">
               <controls:SettingRow
                   Label="Color"
                   Description="The mark this workspace carries wherever it appears.">
@@ -307,7 +316,7 @@
             <controls:SettingsGroup
                 Heading="Networking"
                 Description="Which proxy or VPN route this workspace's panels, connections, and terminals use."
-                ControlWidth="300">
+                ControlWidth="360">
               <controls:SettingRow
                   Label="Network policy"
                   Description="{Binding NetworkModeSummary}">
@@ -362,16 +371,22 @@
                   IsStacked="True"
                   IsVisible="{Binding OverridesNetworkSettings}">
                 <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                  <ItemsControl ItemsSource="{Binding NetworkPolicy.Connections}">
-                    <ItemsControl.ItemsPanel>
-                      <ItemsPanelTemplate>
-                        <StackPanel Spacing="{DynamicResource ShellSpaceSm}" />
-                      </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate x:DataType="vm:NetworkPolicyConnectionOptionViewModel">
-                        <controls:SurfaceCard Tone="Raised" Padding="{DynamicResource ShellCardPaddingCompact}">
-                          <controls:ListItem Title="{Binding Name}" Detail="{Binding Summary}">
+                  <!-- One grouped list: the connections sit edge to edge in a
+                       single card with a hairline between them, as every
+                       settings list does, instead of a card apiece. -->
+                  <controls:SurfaceCard
+                      Tone="Raised"
+                      Padding="0"
+                      ClipsContent="True"
+                      IsVisible="{Binding NetworkPolicy.HasConnections}">
+                    <ItemsControl Classes="Separated StretchItems" ItemsSource="{Binding NetworkPolicy.Connections}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:NetworkPolicyConnectionOptionViewModel">
+                          <controls:ListItem
+                              Margin="{DynamicResource ShellInsetXs}"
+                              ContentPadding="{DynamicResource ShellListRowPadding}"
+                              Title="{Binding Name}"
+                              Detail="{Binding Summary}">
                             <controls:ListItem.Leading>
                               <CheckBox
                                   IsChecked="{Binding IsAvailable, Mode=TwoWay}"
@@ -381,10 +396,10 @@
                               <controls:StatusChip Shape="Rounded" Tone="Default" Content="{Binding KindLabel}" />
                             </controls:ListItem.Trailing>
                           </controls:ListItem>
-                        </controls:SurfaceCard>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </controls:SurfaceCard>
                   <controls:Callout
                       Tone="Notice"
                       ShowsGlyph="False"
@@ -721,6 +736,7 @@
                 <controls:SettingRow
                     Label="Run the AI agent in the workspace environment"
                     Padding="0"
+                    IsLast="True"
                     Description="When this is on, the provider is reached through this workspace’s route, and providers available only on this computer can’t be chosen. When it’s off, the provider is reached over this computer’s network."
                     IsVisible="{Binding IsIsolated}">
                   <ToggleSwitch

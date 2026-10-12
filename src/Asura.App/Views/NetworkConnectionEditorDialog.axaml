@@ -43,14 +43,20 @@
 
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
       <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
-      <Border IsVisible="{Binding !HasError}">
+      <!-- The status line shows only while there is one and no error
+           notice stands in for it. An empty wrapper would still take a
+           slot in the stack and double the gap above the next card. -->
       <controls:Callout
           Tone="Notice"
           ShowsGlyph="False"
-          Text="{Binding OperationStatus}"
-          Classes.Warning="{Binding HasError}"
-          IsVisible="{Binding HasOperationStatus}" />
-      </Border>
+          Text="{Binding OperationStatus}">
+        <controls:Callout.IsVisible>
+          <MultiBinding Converter="{x:Static BoolConverters.And}">
+            <Binding Path="!HasError" FallbackValue="False" />
+            <Binding Path="HasOperationStatus" FallbackValue="False" />
+          </MultiBinding>
+        </controls:Callout.IsVisible>
+      </controls:Callout>
 
       <StackPanel
           x:DataType="vm:NetworkConnectionProfileEditorViewModel"
