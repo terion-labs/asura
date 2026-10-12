@@ -2175,6 +2175,10 @@ public sealed class FileRuntimePanelViewModelTests
         await panel.PreviewSelectedAsync();
         Assert.Equal(250, panel.PreviewTree!.Nodes.Count);
         Assert.True(panel.HasNextArchivePage);
+        // The page controls ride on the listing, for its footer to show.
+        var paging = Assert.IsType<PreviewTreePaging>(panel.PreviewTree.Paging);
+        Assert.Same(panel.NextArchivePageCommand, paging.Next);
+        Assert.Same(panel.PreviousArchivePageCommand, paging.Previous);
         // Several pages: each summary says which page it is.
         Assert.StartsWith("Page 1 · ", panel.PreviewTree.Summary, StringComparison.Ordinal);
         await panel.ChangeArchivePageAsync(1);

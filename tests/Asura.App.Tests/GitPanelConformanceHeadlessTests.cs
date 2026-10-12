@@ -544,6 +544,38 @@ public sealed class GitPanelConformanceHeadlessTests
         }
     }, BranchesAndTags());
 
+    /// <summary>
+    /// Beside a macOS 26 Finder sidebar the Git sidebar read a size and a band
+    /// smaller: 11-point names in 24-point rows. Its rows read at the body
+    /// size in 28-point bands, and only the count badge keeps the caption.
+    /// </summary>
+    [Fact]
+    public Task Sidebar_rows_read_at_the_body_size_in_finder_height_bands() => RunPanelAsync((view, panel, window) =>
+    {
+        // The ramp the app publishes at start-up, which a headless run doesn't.
+        window.Resources["ShellBaseFontSize"] = 13d;
+        window.Resources["ShellFontSize11"] = 11d;
+        window.Resources["ShellLineHeight13"] = 17.5d;
+        window.UpdateLayout();
+
+        var current = RefItem(view.FindControl<TreeView>("GitLocalBranchTree")!, "main");
+        var name = current.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Text == "main" && text.IsEffectivelyVisible);
+        Assert.Equal(13, name.FontSize);
+        Assert.True(current.Bounds.Height >= 28, $"A ref row is {current.Bounds.Height} points tall.");
+
+        var sections = view.FindControl<ListBox>("GitSectionList")!;
+        var localChanges = sections.GetVisualDescendants().OfType<ListBoxItem>().First();
+        Assert.True(localChanges.Bounds.Height >= 28, $"A section row is {localChanges.Bounds.Height} points tall.");
+        var label = localChanges.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Text == "Local Changes");
+        Assert.Equal(13, label.FontSize);
+        var count = localChanges.GetVisualDescendants().OfType<Border>().Single(border => border.Classes.Contains("GitCountBadge"))
+            .GetVisualDescendants().OfType<TextBlock>().Single();
+        Assert.Equal(11, count.FontSize);
+
+        Assert.Equal(13, view.FindControl<Button>("GitBranchMenuButton")!.FontSize);
+        return Task.CompletedTask;
+    }, BranchesAndTags());
+
     [Fact]
     public Task Stage_and_unstage_everything_say_their_verb() => RunPanelAsync((view, panel, window) =>
     {

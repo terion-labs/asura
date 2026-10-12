@@ -14,13 +14,13 @@
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Md, Vertical=Sm}" />
     </Style>
     <Style Selector="Border.PropertyRow TextBlock">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
     </Style>
     <Style Selector="Border.PropertyRow TextBlock.Muted">
       <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
     </Style>
     <Style Selector="Border.PropertyRow TextBlock.Value">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
     </Style>
 
     <!-- A section's heading is the shared SectionHeading role; this only
@@ -36,7 +36,7 @@
     </Style>
     <Style Selector="ToggleButton.SectionDisclosure">
       <Setter Property="Margin" Value="{controls:Inset Left=Xs, Right=Xs, Top=Md}" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 

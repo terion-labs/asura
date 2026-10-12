@@ -1182,26 +1182,28 @@
        through the middle; as a minimum it is the same 24 at the default size
        and grows with its text.
 
-       The text is the host's small control size, 11 points: at 10 a dense
-       toolbar read a size below the secondary text beside it. -->
+       Dense trims the height, never the text: the label reads at the body
+       size, as every button and field label does. At the small control size
+       a panel's toolbars and filter bars read a size below the rows they
+       act on. -->
   <Style Selector="Button.Dense">
     <Setter Property="MinHeight" Value="24" />
     <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
-    <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
   </Style>
 
   <Style Selector="ComboBox.Dense">
     <Setter Property="MinHeight" Value="24" />
     <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
-    <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
   </Style>
 
   <Style Selector="TextBox.Dense">
     <Setter Property="MinHeight" Value="24" />
     <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
-    <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
   </Style>
 
   <!-- Data grids present values, not prose; they read at the data size. The
@@ -1214,8 +1216,10 @@
        than a ruled grid, no fill under the pointer, and the selection drawn
        the way a list's is. The full grid of hairlines read as a spreadsheet,
        and the hover wash was easily taken for the selection. -->
+  <!-- A panel's table is primary content: its cells read at the body size,
+       as a Finder list does, and its headers at the secondary size. -->
   <Style Selector="DataGrid.DatabaseGrid">
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="GridLinesVisibility" Value="None" />
@@ -1234,15 +1238,15 @@
   </Style>
 
   <Style Selector="DataGrid.DatabaseGrid DataGridCell">
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
   </Style>
 
-  <!-- A header is set at the data size, never under the 11-point floor for
-       secondary text, and starts its label where the cells under it start
-       theirs: a small inset in, the one every value cell carries. The stock
-       twelve put each label a few points right of its column. -->
+  <!-- A header is set at the secondary size, and starts its label where the
+       cells under it start theirs: a small inset in, the one every value cell
+       carries. The stock twelve put each label a few points right of its
+       column. -->
   <Style Selector="DataGrid.DatabaseGrid DataGridColumnHeader">
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />

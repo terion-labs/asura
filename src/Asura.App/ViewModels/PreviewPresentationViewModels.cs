@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using Asura.Application.Previews;
 
 namespace Asura.App.ViewModels;
@@ -258,21 +259,39 @@ public sealed class PreviewHexViewModel : ObservableObject
 
 }
 
+/// <summary>
+/// Turning the pages of a long listing. The commands belong to the owner that
+/// reads the pages, so they stay disabled while a page is being read.
+/// </summary>
+public sealed record PreviewTreePaging(ICommand Previous, ICommand Next);
+
 /// <summary>An archive's contents, as the folders its entry paths describe.</summary>
 public sealed class PreviewTreeViewModel
 {
     private readonly IReadOnlyList<PreviewTreeNodeViewModel> _nodes;
 
-    public PreviewTreeViewModel(IReadOnlyList<PreviewTreeNode> roots, string summary)
+    public PreviewTreeViewModel(
+        IReadOnlyList<PreviewTreeNode> roots,
+        string summary,
+        PreviewTreePaging? paging = null)
     {
         ArgumentNullException.ThrowIfNull(roots);
         Summary = summary;
+        Paging = paging;
         // Opened at the top level: an archive with a single wrapping folder —
         // the common shape — should not need a click to show anything at all.
         _nodes = [.. roots.Select(node => new PreviewTreeNodeViewModel(node, roots.Count == 1))];
     }
 
     public string Summary { get; }
+
+    /// <summary>
+    /// The page controls of a listing too long for one page, shown in the
+    /// listing's own footer beside its summary; null when it fits on one.
+    /// </summary>
+    public PreviewTreePaging? Paging { get; }
+
+    public bool HasPaging => Paging is not null;
 
     public ObservableCollection<PreviewTreeNodeViewModel> Nodes { get; } = [];
 

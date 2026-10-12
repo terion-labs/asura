@@ -47,10 +47,11 @@
       <Setter Property="Margin" Value="0" />
     </Style>
 
-    <!-- A dense form row keeps its check box at the dense size too. -->
+    <!-- A dense form row keeps its check box at the dense height; its label
+         reads at the body size, as every control label does. -->
     <Style Selector="CheckBox.Dense">
       <Setter Property="MinHeight" Value="24" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
     </Style>
 
     <!-- A row of a collection form: its inputs are one run, the remove sits
@@ -70,7 +71,7 @@
       <Setter Property="HorizontalAlignment" Value="Left" />
       <Setter Property="MinHeight" Value="0" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs, Vertical=Xs}" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
     </Style>
 
     <!-- A Redis key is an identifier, so the row's title reads in the data
@@ -79,12 +80,12 @@
       <Setter Property="FontFamily" Value="{DynamicResource ShellDataFontFamily}" />
       <!-- Keys share prefixes ("user:1042:sessions"), so both ends stay. -->
       <Setter Property="TextTrimming" Value="{x:Static TextTrimming.PrefixCharacterEllipsis}" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize12}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight12}" />
     </Style>
     <Style Selector="controls|ListItem.RedisKeyRow /template/ TextBlock#PART_Detail">
       <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight12}" />
     </Style>
   </UserControl.Styles>
   <controls:PanelChrome
@@ -346,7 +347,7 @@
                     <TextBlock
                         Classes="Muted"
                         FontSize="{DynamicResource ShellSecondaryFontSize}"
-                        LineHeight="{DynamicResource ShellLineHeight11}"
+                        LineHeight="{DynamicResource ShellLineHeight12}"
                         Text="{Binding SelectedKeyMetadata}" />
                   </StackPanel>
                   <StackPanel

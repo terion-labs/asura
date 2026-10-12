@@ -468,7 +468,7 @@
                         <icons:SymbolIcon Symbol="Folder" IconVariant="Filled" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding ShowsFolderGlyph}" />
                         <icons:SymbolIcon Symbol="{Binding Glyph}" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding ShowsFileGlyph}" />
                       </Panel>
-                      <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize12}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
+                      <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellBaseFontSize}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
                     </Grid>
                     <TextBlock Grid.Column="2" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Size}" TextTrimming="CharacterEllipsis" />
                     <components:FittingTextBlock Grid.Column="4" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" FullText="{Binding Modified}" CompactText="{Binding ModifiedCompact}" />
@@ -500,7 +500,7 @@
                       <icons:SymbolIcon Symbol="Folder" IconVariant="Filled" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding ShowsFolderGlyph}" />
                       <icons:SymbolIcon Symbol="{Binding Glyph}" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding ShowsFileGlyph}" />
                     </Panel>
-                    <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize12}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
+                    <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellBaseFontSize}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
                     <TextBlock Grid.Column="2" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Size}" />
                   </Grid>
                 </DataTemplate>
@@ -534,7 +534,7 @@
                         <icons:SymbolIcon Symbol="Folder" IconVariant="Filled" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding ShowsFolderGlyph}" />
                         <icons:SymbolIcon Symbol="{Binding Glyph}" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding ShowsFileGlyph}" />
                       </Panel>
-                      <TextBlock FontSize="{DynamicResource ShellFontSize12}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
+                      <TextBlock FontSize="{DynamicResource ShellBaseFontSize}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
                       <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Size}" />
                     </StackPanel>
                   </controls:SurfaceCard>
@@ -632,9 +632,9 @@
             <controls:SurfaceCard Padding="0" Grid.Row="2" Margin="{controls:Inset Sm}" IsVisible="{Binding HasSelectedMetadata}">
               <StackPanel>
                 <Grid Margin="{controls:Inset Horizontal=Md, Vertical=Sm}" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource ShellSpaceSm}" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                <StackPanel Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Kind" /><TextBlock FontSize="{DynamicResource ShellFontSize12}" Text="{Binding SelectedMetadata.Kind}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SelectedMetadata.Kind}" /></StackPanel>
-                <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Size" /><TextBlock FontSize="{DynamicResource ShellFontSize12}" Text="{Binding SelectedMetadata.Size}" TextTrimming="CharacterEllipsis" /></StackPanel>
-                <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Modified" /><TextBlock FontSize="{DynamicResource ShellFontSize12}" Text="{Binding SelectedMetadata.Modified}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SelectedMetadata.Modified}" /></StackPanel>
+                <StackPanel Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Kind" /><TextBlock FontSize="{DynamicResource ShellBaseFontSize}" Text="{Binding SelectedMetadata.Kind}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SelectedMetadata.Kind}" /></StackPanel>
+                <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Size" /><TextBlock FontSize="{DynamicResource ShellBaseFontSize}" Text="{Binding SelectedMetadata.Size}" TextTrimming="CharacterEllipsis" /></StackPanel>
+                <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Modified" /><TextBlock FontSize="{DynamicResource ShellBaseFontSize}" Text="{Binding SelectedMetadata.Modified}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SelectedMetadata.Modified}" /></StackPanel>
                 </Grid>
                 <!-- A provider's version tag is a hash to most people: kept
                      behind a disclosure, and absent when there is none. -->
@@ -715,14 +715,16 @@
                     FontSize="{DynamicResource ShellSecondaryFontSize}"
                     Text="{Binding PreviewBinary.Detail}" />
               </StackPanel>
-              <!-- An archive is listed, never unpacked. -->
-              <Grid RowDefinitions="Auto,*" IsVisible="{Binding HasTreePreview}">
-                <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                  <Button Content="Previous Archive Page" Command="{Binding PreviousArchivePageCommand}" IsVisible="{Binding HasPreviousArchivePage}" />
-                  <Button Content="Next Archive Page" Command="{Binding NextArchivePageCommand}" IsVisible="{Binding HasNextArchivePage}" />
-                </StackPanel>
-                <components:PreviewTreeView Grid.Row="1" Margin="{controls:Inset Sm}" DataContext="{Binding PreviewTree}" />
-              </Grid>
+              <!-- An archive is listed, never unpacked. A long one is paged
+                   from the listing's own footer, beside its summary, so the
+                   entries follow the details card directly. The card's own
+                   bottom margin is the gap above the list; a top margin here
+                   would double it. -->
+              <components:PreviewTreeView
+                  x:Name="ArchivePreview"
+                  Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
+                  DataContext="{Binding PreviewTree}"
+                  IsVisible="{Binding $parent[UserControl].DataContext.HasTreePreview}" />
               <!-- Markdown is laid out as native controls, so its text stays
                    selectable and copyable like any other text in the shell. -->
               <ScrollViewer

@@ -8,16 +8,21 @@
     xmlns:icons="using:FluentIcons.Avalonia"
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch">
+  <!-- The entries, then one footer: the listing's summary on the left and,
+       for a listing too long for one page, the page controls on the right.
+       Paging is part of the list it pages, not a control wedged between the
+       details above and the entries. -->
   <Grid RowDefinitions="*,Auto">
-    <TreeView ItemsSource="{Binding Nodes}" Background="Transparent" BorderThickness="0">
+    <TreeView x:Name="Entries" ItemsSource="{Binding Nodes}" Background="Transparent" BorderThickness="0">
       <TreeView.ItemContainerTheme>
         <ControlTheme TargetType="TreeViewItem" x:DataType="vm:PreviewTreeNodeViewModel" BasedOn="{StaticResource {x:Type TreeViewItem}}">
           <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+          <Setter Property="MinHeight" Value="{controls:TextScaled 24}" />
         </ControlTheme>
       </TreeView.ItemContainerTheme>
       <TreeView.ItemTemplate>
         <TreeDataTemplate x:DataType="vm:PreviewTreeNodeViewModel" ItemsSource="{Binding Children}">
-          <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+          <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
             <icons:SymbolIcon
                 VerticalAlignment="Center"
                 FontSize="{DynamicResource ShellIconSizeSm}"
@@ -32,8 +37,9 @@
                 Symbol="Document"
                 IsVisible="{Binding !IsContainer}" />
             <TextBlock
+                Classes="PreviewTreeName"
                 VerticalAlignment="Center"
-                FontSize="{DynamicResource ShellFontSize12}"
+                FontSize="{DynamicResource ShellBaseFontSize}"
                 Text="{Binding Name}" />
             <TextBlock
                 VerticalAlignment="Center"
@@ -44,11 +50,43 @@
         </TreeDataTemplate>
       </TreeView.ItemTemplate>
     </TreeView>
-    <TextBlock
+    <Grid
+        x:Name="Footer"
         Grid.Row="1"
-        Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}"
-        Classes="Muted"
-        FontSize="{DynamicResource ShellSecondaryFontSize}"
-        Text="{Binding Summary}" />
+        MinHeight="{controls:TextScaled 28}"
+        Margin="{controls:Inset Horizontal=Sm}"
+        ColumnDefinitions="*,Auto"
+        ColumnSpacing="{DynamicResource ShellSpaceSm}">
+      <TextBlock
+          VerticalAlignment="Center"
+          Classes="Muted"
+          FontSize="{DynamicResource ShellSecondaryFontSize}"
+          Text="{Binding Summary}"
+          TextTrimming="CharacterEllipsis" />
+      <StackPanel
+          x:Name="Pager"
+          Grid.Column="1"
+          VerticalAlignment="Center"
+          Orientation="Horizontal"
+          Spacing="{DynamicResource ShellSpaceXs}"
+          IsVisible="{Binding HasPaging}">
+        <Button
+            x:Name="PreviousPageButton"
+            Classes="IconButton"
+            Command="{Binding Paging.Previous, FallbackValue={x:Null}}"
+            ToolTip.Tip="Previous page"
+            AutomationProperties.Name="Previous archive page">
+          <icons:SymbolIcon Symbol="ChevronLeft" FontSize="{DynamicResource ShellIconSizeSm}" />
+        </Button>
+        <Button
+            x:Name="NextPageButton"
+            Classes="IconButton"
+            Command="{Binding Paging.Next, FallbackValue={x:Null}}"
+            ToolTip.Tip="Next page"
+            AutomationProperties.Name="Next archive page">
+          <icons:SymbolIcon Symbol="ChevronRight" FontSize="{DynamicResource ShellIconSizeSm}" />
+        </Button>
+      </StackPanel>
+    </Grid>
   </Grid>
 </UserControl>

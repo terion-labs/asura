@@ -94,7 +94,7 @@
               Classes="BrowserAddress"
               VerticalAlignment="Center"
               AutomationProperties.Name="Browser address"
-              FontSize="{DynamicResource ShellFontSize12}"
+              FontSize="{DynamicResource ShellBaseFontSize}"
               GotFocus="OnAddressGotFocus"
               IsEnabled="{Binding IsLive, ElementName=RuntimeBrowser}"
               KeyDown="OnAddressKeyDown"
@@ -110,7 +110,7 @@
                 x:Name="AddressDisplay"
                 Margin="{Binding #AddressBox.Padding}"
                 VerticalAlignment="Center"
-                FontSize="{DynamicResource ShellFontSize12}"
+                FontSize="{DynamicResource ShellBaseFontSize}"
                 Text="{Binding AddressText, ElementName=RuntimeBrowser}"
                 TextTrimming="CharacterEllipsis" />
           </Border>
@@ -139,7 +139,7 @@
                       FontSize="{DynamicResource ShellSecondaryFontSize}" />
                   <Button Grid.Column="1" Classes="IconButton" Click="OnClearHistoryClick"
                       AutomationProperties.Name="Clear browsing history" ToolTip.Tip="Clear browsing history">
-                    <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize11}" Symbol="Delete" />
+                    <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="Delete" />
                   </Button>
                 </Grid>
                 <ListBox x:Name="HistoryList" Classes="Rows" ItemsSource="{Binding HistorySuggestions}"
@@ -161,7 +161,7 @@
                             Foreground="{DynamicResource ShellMutedBrush}" VerticalAlignment="Center" />
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
                           <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"
-                              FontSize="{DynamicResource ShellFontSize12}" />
+                              FontSize="{DynamicResource ShellBaseFontSize}" />
                           <TextBlock Text="{Binding DisplayAddress}"
                               Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" />
                         </StackPanel>
@@ -348,7 +348,7 @@
               Classes="IconButton"
               Click="OnDismissProductNoticeClick"
               ToolTip.Tip="Dismiss">
-            <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="Dismiss" />
+            <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="Dismiss" />
           </Button>
           <ProgressBar
               Grid.Row="1"
@@ -391,13 +391,13 @@
               FontSize="{DynamicResource ShellSecondaryFontSize}"
               Text="{Binding FindResultText, ElementName=RuntimeBrowser}" />
           <Button Grid.Column="2" AutomationProperties.Name="Previous find match" Classes="IconButton" Click="OnFindPreviousClick" ToolTip.Tip="Previous match">
-            <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize11}" Symbol="ChevronUp" />
+            <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="ChevronUp" />
           </Button>
           <Button Grid.Column="3" AutomationProperties.Name="Next find match" Classes="IconButton" Click="OnFindNextClick" ToolTip.Tip="Next match">
-            <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize11}" Symbol="ChevronDown" />
+            <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="ChevronDown" />
           </Button>
           <Button Grid.Column="4" AutomationProperties.Name="Close find in page" Classes="IconButton" Click="OnCloseFindClick" ToolTip.Tip="Close find">
-            <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize11}" Symbol="Dismiss" />
+            <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="Dismiss" />
           </Button>
         </Grid>
       </Border>

@@ -62,7 +62,7 @@
         <controls:SurfaceCard Padding="0" IsVisible="{Binding HasHostKeyReview}">
           <StackPanel Margin="{controls:Inset Md}" Spacing="{DynamicResource ShellSpaceXs}">
             <TextBlock Classes="Headline" Text="{Binding HostKeyReviewTitle}" TextAlignment="Center" />
-            <TextBlock FontSize="{DynamicResource ShellFontSize12}" Text="{Binding HostKeyReview.Presented.Algorithm}" TextAlignment="Center" />
+            <TextBlock FontSize="{DynamicResource ShellBaseFontSize}" Text="{Binding HostKeyReview.Presented.Algorithm}" TextAlignment="Center" />
             <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding HostKeyReview.Presented.Sha256Fingerprint}" TextAlignment="Center" TextWrapping="Wrap" />
             <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding TrustedHostKeyFingerprint}" TextAlignment="Center" TextWrapping="Wrap" />
             <Button Classes="SecondaryButton" Click="OnTrustHostKeyClick" Content="{Binding TrustHostKeyLabel}" IsVisible="{Binding CanTrustHostKey}" />

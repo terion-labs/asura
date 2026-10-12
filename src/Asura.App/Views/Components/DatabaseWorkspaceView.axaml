@@ -222,7 +222,7 @@
               <TextBlock
                   Grid.Column="1"
                   VerticalAlignment="Center"
-                  FontSize="{DynamicResource ShellFontSize11}"
+                  FontSize="{DynamicResource ShellBaseFontSize}"
                   FontWeight="SemiBold"
                   Classes="MiddleTruncated"
                   Text="{Binding CurrentDatabaseLabel}" />
@@ -299,7 +299,7 @@
                       <TextBlock
                           Grid.Column="1"
                           VerticalAlignment="Center"
-                          FontSize="{DynamicResource ShellFontSize11}"
+                          FontSize="{DynamicResource ShellBaseFontSize}"
                           Classes="MiddleTruncated"
                           Text="{Binding Name}" />
                     </Grid>
@@ -388,7 +388,7 @@
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
                 <TextBlock
                     VerticalAlignment="Center"
-                    FontSize="{DynamicResource ShellFontSize11}"
+                    FontSize="{DynamicResource ShellBaseFontSize}"
                     Classes="MiddleTruncated"
                     Text="{Binding ObjectPickerLabel}" />
                 <icons:SymbolIcon
@@ -439,7 +439,7 @@
                                 <TextBlock
                                     Grid.Column="1"
                                     VerticalAlignment="Center"
-                                    FontSize="{DynamicResource ShellFontSize11}"
+                                    FontSize="{DynamicResource ShellBaseFontSize}"
                                     Classes="MiddleTruncated"
                                     Text="{Binding Name}" />
                               </Grid>
@@ -1125,7 +1125,7 @@
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                                   <TextBlock
                                       VerticalAlignment="Center"
-                                      FontSize="{DynamicResource ShellFontSize11}"
+                                      FontSize="{DynamicResource ShellBaseFontSize}"
                                       FontWeight="SemiBold"
                                       Classes="MiddleTruncated"
                                       Text="{Binding Name}" />
@@ -1165,7 +1165,7 @@
                                   <TextBlock
                                       Classes.Muted="{Binding IsNull}"
                                       FontFamily="{DynamicResource ShellDataFontFamily}"
-                                      FontSize="{DynamicResource ShellFontSize11}"
+                                      FontSize="{DynamicResource ShellFontSize12}"
                                       IsVisible="{Binding !HasGrammar}"
                                       Text="{Binding Text}"
                                       TextWrapping="Wrap" />

@@ -24,7 +24,7 @@
     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
       <TextBlock
           VerticalAlignment="Center"
-          FontSize="{DynamicResource ShellFontSize12}"
+          FontSize="{DynamicResource ShellBaseFontSize}"
           FontWeight="SemiBold"
           Text="{Binding SelectedLabel, ElementName=Root}"
           TextTrimming="CharacterEllipsis" />

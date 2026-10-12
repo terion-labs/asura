@@ -451,8 +451,11 @@ public sealed class RuntimePanelViewContractTests
             element => string.Equals(element.Name.LocalName, "TextBlock"
 , StringComparison.Ordinal) && HasClass(element, "DockerPropertyValue"));
         Assert.Equal("Wrap", AttributeValue(propertyValue, "TextWrapping"));
+        // The value reads at the body size it inherits, so its wrapped lines
+        // take the body's line box; the 12-point box crowded 13-point lines.
+        Assert.Null(AttributeValue(propertyValue, "FontSize"));
         Assert.Equal(
-            "{DynamicResource ShellLineHeight12}",
+            "{DynamicResource ShellLineHeight13}",
             AttributeValue(propertyValue, "LineHeight"));
         Assert.Null(AttributeValue(propertyValue, "TextTrimming"));
     }
