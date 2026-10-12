@@ -401,7 +401,8 @@ public sealed class LocalArtifactControlViewModel : ObservableObject, IDisposabl
         var bytes = inventory.Artifacts.Sum(static item => item.TotalBytes);
         return files == 0
             ? "No app-managed cache files or inactive persistent logs are stored."
-            : $"{FormatFileCount(files)} use {LocalArtifactItemViewModel.FormatBytes(bytes)}.";
+            : $"{FormatFileCount(files)} {(files == 1 ? "takes" : "take")} up "
+                + $"{LocalArtifactItemViewModel.FormatBytes(bytes)} in all.";
     }
 
     private static string ClearStatus(LocalArtifactClearReceipt receipt) =>

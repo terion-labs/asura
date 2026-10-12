@@ -349,11 +349,10 @@
                 </ComboBox>
               </controls:SettingRow>
               <controls:SettingRow
-                  IsLeading="True"
                   Label="Kill switch"
                   Description="Block routed traffic if the connection fails instead of falling back to a direct route. An isolated workspace holds every program to it; other programs can ignore proxy settings."
                   IsVisible="{Binding OverridesNetworkSettings}">
-                <CheckBox
+                <ToggleSwitch
                     IsChecked="{Binding NetworkPolicy.KillSwitchEnabled, Mode=TwoWay}"
                     AutomationProperties.Name="Workspace network kill switch" />
               </controls:SettingRow>
@@ -716,15 +715,15 @@
                 Heading="AI configuration"
                 Description="Use app defaults or choose a provider, model, and tool permissions for this workspace.">
               <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceMd}">
-                <!-- An option, not the section's master: a checkbox whose
-                     label is its content, as everywhere else in the editor. -->
+                <!-- An option, not the section's master: a switch at the
+                     row's trailing edge with its label on the left, as every
+                     on/off setting in the editor and in Settings is drawn. -->
                 <controls:SettingRow
-                    IsLeading="True"
                     Label="Run the AI agent in the workspace environment"
                     Padding="0"
                     Description="When this is on, the provider is reached through this workspace’s route, and providers available only on this computer can’t be chosen. When it’s off, the provider is reached over this computer’s network."
                     IsVisible="{Binding IsIsolated}">
-                  <CheckBox
+                  <ToggleSwitch
                       IsChecked="{CompiledBinding RunAgentInIsolation, Mode=TwoWay}"
                       AutomationProperties.Name="Run the AI agent in the workspace environment" />
                 </controls:SettingRow>
@@ -862,10 +861,9 @@
                     AutomationProperties.Name="Workspace description" />
               </controls:SettingRow>
               <controls:SettingRow
-                  IsLeading="True"
                   Label="Autosave"
                   Description="Save tab and panel changes back to this workspace while you work.">
-                <CheckBox
+                <ToggleSwitch
                     IsChecked="{Binding AutoSave, Mode=TwoWay}"
                     AutomationProperties.Name="Autosave workspace changes" />
               </controls:SettingRow>

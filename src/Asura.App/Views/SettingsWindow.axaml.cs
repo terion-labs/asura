@@ -3,6 +3,7 @@ using Asura.App.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform;
 
 namespace Asura.App.Views;
 
@@ -14,6 +15,12 @@ namespace Asura.App.Views;
 /// </summary>
 public sealed partial class SettingsWindow : Window
 {
+    /// <summary>
+    /// How much of the screen's working area the window may take, leaving
+    /// room for its title bar and the windows around it.
+    /// </summary>
+    private const double ScreenFraction = 0.9;
+
     private static SettingsWindowState? s_state;
 
     private MainWindow? _host;
@@ -182,42 +189,77 @@ public sealed partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// The first time, the window takes its natural width, but never more of
-    /// the screen than there is.
+    /// The window keeps one frame whichever page it shows, as a Mac settings
+    /// window with a sidebar does: a page longer than the window scrolls.
+    /// Fitting the height to each page made the window jump on every page
+    /// change, and on a screen too short for the page the frame the system
+    /// granted was shorter than the one laid out, so the bottom of a long
+    /// page could not be scrolled into view.
+    ///
+    /// The frame is never larger than the screen the window opens on, title
+    /// bar included.
     /// </summary>
-    private void FitToScreen()
+    /// <param name="screen">
+    /// The screen the frame is on. Before the window is shown it has no screen
+    /// of its own to ask, so a restored frame names the one it was saved on;
+    /// left out, it is the window's screen, or the primary one.
+    /// </param>
+    private void FitToScreen(Screen? screen = null)
     {
-        if (AvailableScreenSize() is not { } available)
+        SizeToContent = SizeToContent.Manual;
+        var screens = Screens;
+        screen ??= (IsVisible ? screens.ScreenFromWindow(this) : null)
+            ?? screens.Primary
+            ?? screens.All.FirstOrDefault();
+        if (screen is null)
         {
             return;
         }
 
-        Width = Math.Max(MinWidth, Math.Min(Width, available.Width * 0.9));
+        var size = FitSize(
+            new Size(Width, Height),
+            new Size(MinWidth, MinHeight),
+            screen.WorkingArea.Size.ToSize(screen.Scaling));
+        Width = size.Width;
+        Height = size.Height;
     }
 
     /// <summary>
-    /// The window is as tall as the page on show, as a Mac settings window
-    /// is: a short page leaves no empty space below it, and one longer than
-    /// the screen allows scrolls. Choosing another page fits it again, even
-    /// after the window was resized by hand.
+    /// A frame's size on a screen with <paramref name="available"/> room: no
+    /// more than <see cref="ScreenFraction"/> of it, and no less than the
+    /// window's minimum.
     /// </summary>
-    private void FitHeightToPage()
+    internal static Size FitSize(Size wanted, Size minimum, Size available) => new(
+        Math.Max(minimum.Width, Math.Min(wanted.Width, available.Width * ScreenFraction)),
+        Math.Max(minimum.Height, Math.Min(wanted.Height, available.Height * ScreenFraction)));
+
+    /// <summary>
+    /// The screen a restored frame belongs to: the one holding its origin
+    /// once it has been brought on screen, else the one holding the saved
+    /// origin, else the primary one. Fitting against the primary screen
+    /// shrank a frame saved on a larger second display and let one saved on
+    /// a smaller display stay taller than it.
+    /// </summary>
+    internal static T HomeScreen<T>(
+        PixelPoint placed,
+        PixelPoint saved,
+        IEnumerable<T> screens,
+        Func<T, PixelRect> workingArea,
+        T primary)
     {
-        if (AvailableScreenSize() is { } available)
+        var all = screens.ToArray();
+        foreach (var origin in new[] { placed, saved })
         {
-            MaxHeight = Math.Max(MinHeight, available.Height * 0.9);
+            foreach (var screen in all)
+            {
+                if (workingArea(screen).Contains(origin))
+                {
+                    return screen;
+                }
+            }
         }
 
-        SizeToContent = SizeToContent.Height;
-    }
-
-    private Size? AvailableScreenSize()
-    {
-        var screens = Screens;
-        var screen = (IsVisible ? screens.ScreenFromWindow(this) : null)
-            ?? screens.Primary
-            ?? screens.All.FirstOrDefault();
-        return screen?.WorkingArea.Size.ToSize(screen.Scaling);
+        return primary;
     }
 
     private async Task ConfirmCloseAsync(MainWindow host)
@@ -244,7 +286,6 @@ public sealed partial class SettingsWindow : Window
         {
             RefreshTitle();
             Remember(_viewModel?.SettingsPage);
-            FitHeightToPage();
         }
     }
 
@@ -268,7 +309,6 @@ public sealed partial class SettingsWindow : Window
     private void RestoreFrame()
     {
         var state = State;
-        FitHeightToPage();
         if (!state.HasFrame)
         {
             FitToScreen();
@@ -294,8 +334,9 @@ public sealed partial class SettingsWindow : Window
         var size = frame.Size.ToSize(scaling);
         WindowStartupLocation = WindowStartupLocation.Manual;
         Position = frame.Position;
-        // The width is the person's; the height follows the page.
         Width = Math.Max(MinWidth, size.Width);
+        Height = Math.Max(MinHeight, size.Height);
+        FitToScreen(HomeScreen(frame.Position, origin, screens.All, screen => screen.WorkingArea, primary));
     }
 
     private void SaveState()

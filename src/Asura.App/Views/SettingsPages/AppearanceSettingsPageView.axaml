@@ -10,7 +10,7 @@
     xmlns:icons="using:FluentIcons.Avalonia"
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch">
-  <StackPanel Spacing="{DynamicResource ShellSpaceXl}">
+  <StackPanel Spacing="{DynamicResource ShellSpaceSection}">
     <components:SettingsPageHeader
         Heading="Appearance"
         Description="Customize how the app looks — color scheme, accent, and window style." />
@@ -470,9 +470,10 @@
       <components:SectionHeader
           Heading="Corners &amp; UI"
           Description="Window corners, density, and interface behavior." />
-      <!-- Every on/off choice here is one shape: a checkbox naming the
-           option, its description under the words. The cursor's settings
-           moved to the Terminal page, beside the rest of the cursor. -->
+      <!-- Every on/off choice here is one shape: the option's name and its
+           description on the left, a switch at the row's trailing edge. The
+           cursor's settings moved to the Terminal page, beside the rest of
+           the cursor. -->
       <controls:SettingsGroup ControlWidth="300">
         <controls:SettingRow
             Label="Density"
@@ -488,29 +489,26 @@
           </controls:SegmentedControl>
         </controls:SettingRow>
         <controls:SettingRow
-            IsLeading="True"
             Label="Translucency"
             Description="Show the desktop through the window’s sidebars and title bar.">
-          <CheckBox
+          <ToggleSwitch
               x:Name="TranslucencyToggle"
               IsCheckedChanged="OnAppearanceChanged"
               AutomationProperties.Name="Translucency" />
         </controls:SettingRow>
         <controls:SettingRow
-            IsLeading="True"
             Label="Glass panels"
             Description="Let the desktop show through the panels too, not only the sidebars and title bar.">
-          <CheckBox
+          <ToggleSwitch
               x:Name="GlassPanelsToggle"
               IsEnabled="{Binding #TranslucencyToggle.IsChecked}"
               IsCheckedChanged="OnAppearanceChanged"
               AutomationProperties.Name="Glass panels" />
         </controls:SettingRow>
         <controls:SettingRow
-            IsLeading="True"
             Label="Set background opacity"
             Description="Off leaves the material’s own translucency alone. On paints the window’s color over it: lower values let more of the desktop through; at full, it reads as a frame around the panels rather than as glass.">
-          <CheckBox
+          <ToggleSwitch
               x:Name="OverrideOpacityToggle"
               IsEnabled="{Binding #TranslucencyToggle.IsChecked}"
               IsCheckedChanged="OnAppearanceChanged"
@@ -539,17 +537,16 @@
              has no material to show: translucency off, Reduce Transparency,
              Increase Contrast, or a host without it. -->
         <controls:SettingRow
-            IsLeading="True"
             Label="Translucent terminal background"
             Description="{DynamicResource ShellTerminalTranslucencyStatus}">
-          <CheckBox
+          <ToggleSwitch
               x:Name="TranslucentTerminalToggle"
               IsEnabled="{DynamicResource ShellTerminalTranslucencyAvailable}"
               IsCheckedChanged="OnAppearanceChanged"
               AutomationProperties.Name="Translucent terminal background" />
         </controls:SettingRow>
-        <controls:SettingRow IsLeading="True" Label="Show tab bar" IsLast="True">
-          <CheckBox x:Name="ShowTabBarSwitch" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Show tab bar" />
+        <controls:SettingRow Label="Show tab bar" IsLast="True">
+          <ToggleSwitch x:Name="ShowTabBarSwitch" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Show tab bar" />
         </controls:SettingRow>
       </controls:SettingsGroup>
     </StackPanel>
@@ -560,8 +557,8 @@
           Heading="Tabs &amp; Workspaces"
           Description="Where the tab strip sits, plus how the workspaces panel is arranged." />
       <controls:SettingsGroup>
-        <controls:SettingRow IsLeading="True" Label="Show workspaces panel" IsLast="True">
-          <CheckBox x:Name="ShowWorkspacesPanelSwitch" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Show workspaces panel" />
+        <controls:SettingRow Label="Show workspaces panel" IsLast="True">
+          <ToggleSwitch x:Name="ShowWorkspacesPanelSwitch" IsCheckedChanged="OnAppearanceChanged" AutomationProperties.Name="Show workspaces panel" />
         </controls:SettingRow>
       </controls:SettingsGroup>
       <controls:SurfaceCard Tone="Raised">
@@ -718,7 +715,14 @@
 
     <!-- Stored profile -->
     <controls:SurfaceCard>
-      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceLg}">
+      <!-- The validation line runs the card's full width under both
+           columns: beside the buttons, an unwrapped warning took the whole
+           width and squeezed the saved profile's details out of view. -->
+      <Grid
+          ColumnDefinitions="*,Auto"
+          RowDefinitions="Auto,Auto"
+          ColumnSpacing="{DynamicResource ShellSpaceLg}"
+          RowSpacing="{DynamicResource ShellSpaceSm}">
         <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
           <TextBlock Classes="SectionHeading" Text="Saved appearance" />
           <TextBlock Text="{Binding ThemeMode, StringFormat={}Mode: {0}}" />
@@ -728,23 +732,27 @@
           <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{DynamicResource ShellAccentStatus}" AutomationProperties.Name="Effective accent status" AutomationProperties.LiveSetting="Polite" />
           <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{DynamicResource ShellMaterialStatus}" AutomationProperties.Name="Effective material status" AutomationProperties.LiveSetting="Polite" />
         </StackPanel>
-        <StackPanel Grid.Column="1" HorizontalAlignment="Right" Spacing="{DynamicResource ShellSpaceSm}">
-          <controls:LiveRegionTextBlock
-              x:Name="AppearanceValidationStatus"
-              AutomationProperties.Name="Appearance validation status"
-              AutomationProperties.LiveSetting="Polite"
-              HorizontalAlignment="Right"
-              Classes="Muted"
-              FontSize="{DynamicResource ShellSecondaryFontSize}"
-              IsVisible="False" />
-          <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-            <Button Classes="SecondaryButton" Click="OnImportClick" Content="Import…" />
-            <Button Classes="SecondaryButton" Click="OnExportClick" Content="Export…" />
-            <Button Classes="DestructiveButton" Click="OnResetClick" Content="Reset App Defaults" AutomationProperties.Name="Reset application appearance to defaults" />
-            <Button Classes="DestructiveButton" Click="OnCancelClick" Content="Discard Changes" IsVisible="{Binding CanRetryAppearanceSave}" AutomationProperties.Name="Discard unsaved appearance changes" />
-            <Button Classes="PrimaryButton" Click="OnApplyClick" Content="Try Again" IsVisible="{Binding CanRetryAppearanceSave}" AutomationProperties.Name="Retry saving appearance changes" />
-          </StackPanel>
+        <StackPanel
+            Grid.Column="1"
+            VerticalAlignment="Top"
+            Orientation="Horizontal"
+            Spacing="{DynamicResource ShellSpaceSm}">
+          <Button Classes="SecondaryButton" Click="OnImportClick" Content="Import…" />
+          <Button Classes="SecondaryButton" Click="OnExportClick" Content="Export…" />
+          <Button Classes="DestructiveButton" Click="OnResetClick" Content="Reset App Defaults" AutomationProperties.Name="Reset application appearance to defaults" />
+          <Button Classes="DestructiveButton" Click="OnCancelClick" Content="Discard Changes" IsVisible="{Binding CanRetryAppearanceSave}" AutomationProperties.Name="Discard unsaved appearance changes" />
+          <Button Classes="PrimaryButton" Click="OnApplyClick" Content="Try Again" IsVisible="{Binding CanRetryAppearanceSave}" AutomationProperties.Name="Retry saving appearance changes" />
         </StackPanel>
+        <controls:LiveRegionTextBlock
+            x:Name="AppearanceValidationStatus"
+            Grid.Row="1"
+            Grid.ColumnSpan="2"
+            AutomationProperties.Name="Appearance validation status"
+            AutomationProperties.LiveSetting="Polite"
+            Classes="Muted"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
+            TextWrapping="Wrap"
+            IsVisible="False" />
       </Grid>
     </controls:SurfaceCard>
   </StackPanel>

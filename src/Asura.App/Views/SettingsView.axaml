@@ -14,13 +14,6 @@
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch">
   <UserControl.Styles>
-    <!-- A checkbox at a row's trailing edge lines up with every other row's
-         control, as a switch did. An option row (SettingRow IsLeading) leads
-         with its checkbox instead and names it in the box's own label. -->
-    <Style Selector="controls|SettingRow:not(:leading) > CheckBox">
-      <Setter Property="HorizontalAlignment" Value="Right" />
-    </Style>
-
     <!-- The page on show is the sidebar's selected row, drawn as every other
          selected sidebar row: the accent fill with its measured ink while the
          sidebar has focus, and the unemphasized gray with plain label text
@@ -47,20 +40,62 @@
       <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
     </Style>
 
-    <!-- A list card separates its rows with hairlines, and the + and – that
-         act on it sit in a bar attached to the card's bottom edge, as in a
-         Mac settings list. -->
+    <!-- A settings list is one rounded card, as in System Settings: the
+         rows sit edge to edge inside it with a hairline between them, and
+         the + and – that act on it sit in a bar along the card's bottom
+         edge. A row's highlight is inset by the same amount on every side,
+         from the card's edges and from the hairlines alike; the stock row
+         was inset at its sides only, so a selected row met the card's top
+         edge and the hairline under it while it stood clear of the sides. -->
     <Style Selector="ListBox.Separated > ListBoxItem">
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Panel>
+            <ContentPresenter
+                Name="PART_ContentPresenter"
+                Margin="{DynamicResource ShellInsetXs}"
+                Padding="{TemplateBinding Padding}"
+                Background="{TemplateBinding Background}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Content="{TemplateBinding Content}"
+                ContentTemplate="{TemplateBinding ContentTemplate}"
+                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+            <Border
+                Name="PART_Separator"
+                Height="1"
+                VerticalAlignment="Bottom"
+                Background="{DynamicResource ShellBorderBrush}" />
+          </Panel>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="ListBox.Separated > ListBoxItem:nth-last-child(1) /template/ Border#PART_Separator">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <!-- The same card for a list nothing is selected in: the layouts. -->
+    <Style Selector="ItemsControl.Separated > ContentPresenter">
       <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
       <Setter Property="BorderThickness" Value="0,0,0,1" />
     </Style>
-    <Style Selector="ListBox.Separated > ListBoxItem:nth-last-child(1)">
+    <Style Selector="ItemsControl.Separated > ContentPresenter:nth-last-child(1)">
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <!-- The hairline between a list and its + and – bar is the list's own
+         bottom edge, not the bar's top edge, so an empty list draws none:
+         the bar's line sat right under the card's border, a doubled edge
+         on a card with nothing in it. -->
+    <Style Selector="ListBox.Separated">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+    <Style Selector="ListBox.Separated:empty">
       <Setter Property="BorderThickness" Value="0" />
     </Style>
     <Style Selector="Border.ListActionBar">
-      <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
-      <Setter Property="BorderThickness" Value="0,1,0,0" />
-      <Setter Property="Padding" Value="{controls:Inset Xs}" />
+      <Setter Property="Padding" Value="{DynamicResource ShellInsetXs}" />
     </Style>
   </UserControl.Styles>
   <!--
@@ -231,16 +266,15 @@
                   DataContext="{Binding NetworkSettings}" />
             </Grid>
 
-            <StackPanel x:Name="WorkspacesSettingsPage" Spacing="{DynamicResource ShellSpaceXl}" IsVisible="{Binding IsWorkspaceSettingsVisible}">
+            <StackPanel x:Name="WorkspacesSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsWorkspaceSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="Workspaces &amp; Screens"
                   Description="Manage saved workspaces, the screens they open, and launch layouts." />
               <controls:SettingsGroup>
                 <controls:SettingRow
-                    IsLeading="True"
                     Label="Restore sessions on start"
                     Description="Reopen the tabs, panels, connections, and locations from the previous session.">
-                  <CheckBox
+                  <ToggleSwitch
                       AutomationProperties.Name="Restore sessions on start"
                       IsChecked="{Binding RestoreSessionsOnStart, Mode=OneWay}"
                       IsCheckedChanged="OnRestoreSessionsOnStartChanged"
@@ -424,11 +458,18 @@
               </StackPanel>
               <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                 <Grid ColumnDefinitions="*,Auto"><TextBlock VerticalAlignment="Center" Classes="SectionHeading" Text="Layouts" /><Button Grid.Column="1" Classes="SecondaryButton" Click="OnShowLayoutDesignerClick" Content="Layout Designer…" /></Grid>
-                <ItemsControl ItemsSource="{Binding Layouts}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <controls:SurfaceCard Padding="{DynamicResource ShellCardPaddingCompact}" Margin="{controls:Inset Bottom=Sm}">
-                        <controls:ListItem Title="{Binding Name}" Detail="{Binding GridSummary}">
+                <controls:SurfaceCard Padding="0" ClipsContent="True">
+                  <Panel>
+                  <controls:StateOverlay
+                      Margin="{controls:Inset Xl}"
+                      Kind="Empty"
+                      Heading="No layouts"
+                      Body="Open the Layout Designer to make one."
+                      IsVisible="{Binding !Layouts.Count}" />
+                  <ItemsControl Classes="Separated StretchItems" ItemsSource="{Binding Layouts}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <controls:ListItem Margin="{DynamicResource ShellInsetXs}" ContentPadding="{DynamicResource ShellListRowPadding}" Title="{Binding Name}" Detail="{Binding GridSummary}">
                           <controls:ListItem.Leading>
                             <Border Width="72" Height="44" Background="{DynamicResource ShellBackgroundBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellInnerCornerRadius}" ClipToBounds="True">
                               <ItemsControl Margin="{DynamicResource ShellPreviewTileInset}" ItemsSource="{Binding PreviewPanels}">
@@ -448,10 +489,11 @@
                             </StackPanel>
                           </controls:ListItem.Trailing>
                         </controls:ListItem>
-                      </controls:SurfaceCard>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  </Panel>
+                </controls:SurfaceCard>
               </StackPanel>
               <controls:SettingsGroup Heading="Export and import">
                 <controls:SettingRow
@@ -468,7 +510,7 @@
               </controls:SettingsGroup>
             </StackPanel>
 
-            <StackPanel x:Name="KeybindingsSettingsPage" Spacing="{DynamicResource ShellSpaceLg}" IsVisible="{Binding IsKeybindingSettingsVisible}">
+            <StackPanel x:Name="KeybindingsSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsKeybindingSettingsVisible}">
               <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                 <components:SettingsPageHeader
                     Heading="Keyboard Shortcuts"
@@ -539,17 +581,25 @@
                     Description="{Binding KeybindingEditorSession.PrefixShortcut}">
                   <StackPanel
                       HorizontalAlignment="Right"
-                      VerticalAlignment="Center"
                       Orientation="Horizontal"
-                      Spacing="{DynamicResource ShellSpaceSm}"
-                      IsEnabled="{Binding KeybindingEditorSession.CanEditPrefix}">
-                    <CheckBox
-                        x:Name="KeybindingPrefixRepeatable"
-                        Content="Repeatable"
-                        IsChecked="{Binding KeybindingEditorSession.PrefixRepeatable}"
-                        IsCheckedChanged="OnKeybindingPrefixOptionsChanged"
-                        AutomationProperties.Name="Repeatable prefix" />
+                      Spacing="{DynamicResource ShellSpaceSm}">
+                    <Button Classes="SecondaryButton" Click="OnRecordKeybindingPrefixClick" Content="Record Prefix…" IsEnabled="{Binding KeybindingEditorSession.CanEditPrefix}" />
+                    <!-- A draft edit like a row's Reset, and styled like it:
+                         Record is the bordered action and the edit beside it
+                         is a text button, as in each shortcut row. Nothing is
+                         lost until Save Shortcuts, so neither is destructive. -->
+                    <Button Classes="TextButton" Click="OnClearKeybindingPrefixClick" Content="Clear" IsEnabled="{Binding KeybindingEditorSession.CanEditPrefix}" AutomationProperties.Name="Clear application prefix" />
                   </StackPanel>
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Label="Repeatable"
+                    Description="Until the timeout passes, further shortcuts work without pressing the prefix again.">
+                  <ToggleSwitch
+                      x:Name="KeybindingPrefixRepeatable"
+                      IsChecked="{Binding KeybindingEditorSession.PrefixRepeatable}"
+                      IsCheckedChanged="OnKeybindingPrefixOptionsChanged"
+                      IsEnabled="{Binding KeybindingEditorSession.CanEditPrefix}"
+                      AutomationProperties.Name="Repeatable prefix" />
                 </controls:SettingRow>
                 <controls:SettingRow Label="Timeout">
                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
@@ -576,19 +626,6 @@
                       SelectionChanged="OnKeybindingPrefixOptionsChanged"
                       IsEnabled="{Binding KeybindingEditorSession.CanEditPrefix}" />
                 </controls:SettingRow>
-                <controls:SettingsGroup.Footer>
-                  <StackPanel
-                      HorizontalAlignment="Right"
-                      Orientation="Horizontal"
-                      Spacing="{DynamicResource ShellSpaceSm}">
-                    <Button Classes="SecondaryButton" Click="OnRecordKeybindingPrefixClick" Content="Record Prefix…" IsEnabled="{Binding KeybindingEditorSession.CanEditPrefix}" />
-                    <!-- A draft edit like a row's Reset, and styled like it:
-                         Record is the bordered action and the edits beside it
-                         are text buttons, as in each shortcut row. Nothing is
-                         lost until Save Shortcuts, so neither is destructive. -->
-                    <Button Classes="TextButton" Click="OnClearKeybindingPrefixClick" Content="Clear" IsEnabled="{Binding KeybindingEditorSession.CanEditPrefix}" AutomationProperties.Name="Clear application prefix" />
-                  </StackPanel>
-                </controls:SettingsGroup.Footer>
               </controls:SettingsGroup>
 
               <!-- Columns size to what they hold and line up across rows through
@@ -669,7 +706,7 @@
               </Grid>
             </StackPanel>
 
-            <StackPanel x:Name="FilesSettingsPage" Spacing="{DynamicResource ShellSpaceLg}" IsVisible="{Binding IsFilesSettingsVisible}">
+            <StackPanel x:Name="FilesSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsFilesSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="Files &amp; Transfers"
                   Description="Manage file locations, transfers, and previews." />
@@ -678,64 +715,68 @@
                      below the list, its context menu, or Delete removes it.
                      Edit… stays on the row. -->
                 <TextBlock Classes="SectionHeading" Text="Configured providers" />
-                <controls:SurfaceCard Padding="0" ClipsContent="True" IsVisible="{Binding !!FileProviderDefinitions.Count}">
-                  <ListBox
-                      x:Name="FileProviderList"
-                      Classes="Rows"
-                      ItemsSource="{Binding FileProviderDefinitions}"
-                      AutomationProperties.Name="Configured file providers">
-                    <ListBox.ItemTemplate>
-                      <DataTemplate x:DataType="vm:FileProviderProfileItemViewModel">
-                        <controls:ListItem ContentPadding="{DynamicResource ShellListRowPadding}" Title="{Binding Name}" Detail="{Binding Endpoint}" Metadata="{Binding StatusDetail}">
-                          <controls:ListItem.ContextMenu>
-                            <ContextMenu>
-                              <MenuItem Header="Edit…" Click="OnEditFileProviderClick" />
-                              <Separator />
-                              <MenuItem Header="Delete" Click="OnDeleteFileProviderClick" />
-                            </ContextMenu>
-                          </controls:ListItem.ContextMenu>
-                          <controls:ListItem.Leading>
-                            <controls:IdentityTile TileSize="Small" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="Folder" />
-                          </controls:ListItem.Leading>
-                          <controls:ListItem.Trailing>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-                              <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding Kind}" />
-                              <!-- Neutral until something needs attention: a
-                                   provider still loading is not good news. The
-                                   tone is three classes that never apply
-                                   together, because a Tone pseudo-class is
-                                   declared after the classes and would win. -->
-                              <controls:StatusChip
-                                  Classes.Neutral="{Binding IsStatusNeutral}"
-                                  Classes.Warning="{Binding HasWarning}"
-                                  Classes.Danger="{Binding HasError}"
-                                  Content="{Binding Status}" />
-                              <Button Classes="SecondaryButton" Click="OnEditFileProviderClick" Content="Edit…" AutomationProperties.Name="{Binding Name, StringFormat={}Edit file provider {0}}" />
-                            </StackPanel>
-                          </controls:ListItem.Trailing>
-                        </controls:ListItem>
-                      </DataTemplate>
-                    </ListBox.ItemTemplate>
-                  </ListBox>
+                <controls:SurfaceCard Padding="0" ClipsContent="True">
+                  <StackPanel>
+                    <ListBox
+                        x:Name="FileProviderList"
+                        Classes="Rows Separated"
+                        ItemsSource="{Binding FileProviderDefinitions}"
+                        AutomationProperties.Name="Configured file providers">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:FileProviderProfileItemViewModel">
+                          <controls:ListItem ContentPadding="{DynamicResource ShellListRowPadding}" Title="{Binding Name}" Detail="{Binding Endpoint}" Metadata="{Binding StatusDetail}">
+                            <controls:ListItem.ContextMenu>
+                              <ContextMenu>
+                                <MenuItem Header="Edit…" Click="OnEditFileProviderClick" />
+                                <Separator />
+                                <MenuItem Header="Delete" Click="OnDeleteFileProviderClick" />
+                              </ContextMenu>
+                            </controls:ListItem.ContextMenu>
+                            <controls:ListItem.Leading>
+                              <controls:IdentityTile TileSize="Small" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="Folder" />
+                            </controls:ListItem.Leading>
+                            <controls:ListItem.Trailing>
+                              <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
+                                <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding Kind}" />
+                                <!-- Neutral until something needs attention: a
+                                     provider still loading is not good news. The
+                                     tone is three classes that never apply
+                                     together, because a Tone pseudo-class is
+                                     declared after the classes and would win. -->
+                                <controls:StatusChip
+                                    Classes.Neutral="{Binding IsStatusNeutral}"
+                                    Classes.Warning="{Binding HasWarning}"
+                                    Classes.Danger="{Binding HasError}"
+                                    Content="{Binding Status}" />
+                                <Button Classes="SecondaryButton" Click="OnEditFileProviderClick" Content="Edit…" AutomationProperties.Name="{Binding Name, StringFormat={}Edit file provider {0}}" />
+                              </StackPanel>
+                            </controls:ListItem.Trailing>
+                          </controls:ListItem>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+                  <Border Classes="ListActionBar">
+                    <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+                      <Button
+                          Classes="IconButton"
+                          Click="OnAddFileProviderClick"
+                          ToolTip.Tip="Add provider…"
+                          AutomationProperties.Name="Add file provider">
+                        <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
+                      </Button>
+                      <Button
+                          x:Name="DeleteFileProviderButton"
+                          Classes="IconButton"
+                          Click="OnDeleteFileProviderClick"
+                          IsEnabled="False"
+                          ToolTip.Tip="Delete provider"
+                          AutomationProperties.Name="Delete selected file provider">
+                        <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
+                      </Button>
+                    </StackPanel>
+                  </Border>
+                  </StackPanel>
                 </controls:SurfaceCard>
-                <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                  <Button
-                      Classes="IconButton"
-                      Click="OnAddFileProviderClick"
-                      ToolTip.Tip="Add provider…"
-                      AutomationProperties.Name="Add file provider">
-                    <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
-                  </Button>
-                  <Button
-                      x:Name="DeleteFileProviderButton"
-                      Classes="IconButton"
-                      Click="OnDeleteFileProviderClick"
-                      IsEnabled="False"
-                      ToolTip.Tip="Delete provider"
-                      AutomationProperties.Name="Delete selected file provider">
-                    <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
-                  </Button>
-                </StackPanel>
                 <controls:Callout
                     ShowsGlyph="False"
                     Text="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Home is always available as a built-in local provider. Credentials for saved providers stay in {0}.'}" />
@@ -753,10 +794,9 @@
                     </StackPanel>
                   </controls:SettingRow>
                   <controls:SettingRow
-                      IsLeading="True"
                       Label="Keep downloaded previews between runs"
                       Description="When on, downloaded files stay on disk so opening one again is instant, even after a restart. When off, previews are kept only while Asura runs, in memory or in an encrypted file, and are deleted when you quit. A copy left behind if Asura quits unexpectedly can't be read.">
-                    <CheckBox
+                    <ToggleSwitch
                         IsChecked="{Binding FilePreviewSettingsEditor.KeepPreviewsBetweenRuns}"
                         AutomationProperties.Name="Keep downloaded previews between runs" />
                   </controls:SettingRow>
@@ -783,7 +823,7 @@
               </StackPanel>
             </StackPanel>
 
-            <StackPanel x:Name="BrowserSettingsPage" Spacing="{DynamicResource ShellSpaceLg}" IsVisible="{Binding IsBrowserSettingsVisible}">
+            <StackPanel x:Name="BrowserSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsBrowserSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="Browser"
                   Description="Manage browser profiles. Persistent profiles keep cookies, site storage, cache, and history in encrypted storage between runs. Permission requests and downloads are blocked." />
@@ -831,7 +871,7 @@
                 </controls:SettingRow>
               </controls:SettingsGroup>
               <!-- The selection is the context for the two cards below. Each
-                   row keeps its own Enabled checkbox; deleting follows the Mac
+                   row keeps its own Enabled switch; deleting follows the Mac
                    list pattern: – below the list, the row's context menu, or
                    Delete removes the selected profile. -->
               <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
@@ -865,12 +905,11 @@
                                 Foreground="{DynamicResource ShellTextBrush}"
                                 Symbol="Globe" />
                           </controls:ListItem.Leading>
-                          <!-- The checkbox is the state; a chip saying the
+                          <!-- The switch is the state; a chip saying the
                                same beside it was the second copy. -->
                           <controls:ListItem.Trailing>
-                            <CheckBox
+                            <ToggleSwitch
                                 VerticalAlignment="Center"
-                                Content="Enabled"
                                 IsChecked="{Binding IsEnabled, Mode=OneWay}"
                                 IsCheckedChanged="OnBrowserProfileEnabledChanged"
                                 AutomationProperties.Name="{Binding Name, StringFormat=Enable browser profile {0}}" />
@@ -880,35 +919,69 @@
                     </ListBox.ItemTemplate>
                   </ListBox>
                   <!-- + and – under the list, as on the other Settings lists.
-                       A profile is created with the name typed beside them,
-                       so the name field shares the bar; + asks which kind. -->
+                       + opens a popover that asks for the new profile's name
+                       and kind; the field used to sit in the bar itself,
+                       where its default name read as a button. -->
                   <Border Classes="ListActionBar">
-                    <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                    <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
                       <Button
                           x:Name="AddBrowserProfileButton"
                           Classes="IconButton"
-                          ToolTip.Tip="Add profile"
+                          ToolTip.Tip="Add profile…"
                           AutomationProperties.Name="Add browser profile">
                         <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                         <Button.Flyout>
-                          <MenuFlyout Placement="BottomEdgeAlignedLeft">
-                            <MenuItem
-                                Header="Persistent Profile"
-                                Command="{Binding BrowserProfileSettingsEditor.CreateDurableCommand}"
-                                ToolTip.Tip="Kept between runs, encrypted when Asura quits"
-                                AutomationProperties.Name="Add persistent browser profile" />
-                            <MenuItem
-                                Header="Private Profile"
-                                Command="{Binding BrowserProfileSettingsEditor.CreatePrivateCommand}"
-                                ToolTip.Tip="Discarded when its panel closes"
-                                AutomationProperties.Name="Add private-session browser profile" />
-                          </MenuFlyout>
+                          <Flyout Placement="BottomEdgeAlignedLeft">
+                            <!-- The popover speaks to the profile editor alone; it
+                                 closes when the editor says a profile was made. -->
+                            <StackPanel
+                                x:Name="BrowserProfilePopover"
+                                x:DataType="vm:BrowserProfileSettingsEditorViewModel"
+                                DataContext="{Binding BrowserProfileSettingsEditor}"
+                                Width="{controls:TextScaled 300}"
+                                Spacing="{DynamicResource ShellSpaceMd}">
+                              <controls:LabeledField Label="Profile name">
+                                <TextBox
+                                    Text="{Binding NewProfileName, Mode=TwoWay}"
+                                    PlaceholderText="New profile name"
+                                    AutomationProperties.Name="New browser profile name" />
+                              </controls:LabeledField>
+                              <!-- A refused name is said here, beside the field
+                                   it is about, and the popover stays open on it. -->
+                              <controls:LiveRegionTextBlock
+                                  x:Name="BrowserProfileCreationError"
+                                  Foreground="{DynamicResource ShellDangerBrush}"
+                                  FontSize="{DynamicResource ShellSecondaryFontSize}"
+                                  Text="{Binding CreationError}"
+                                  TextWrapping="Wrap"
+                                  IsVisible="{Binding HasCreationError}"
+                                  AutomationProperties.LiveSetting="Assertive" />
+                              <!-- Return in the name field adds a persistent
+                                   profile, the kind most profiles are. -->
+                              <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+                                <Button
+                                    x:Name="AddPrivateBrowserProfileButton"
+                                    Classes="SecondaryButton"
+                                    Command="{Binding CreatePrivateCommand}"
+                                    Content="Add Private"
+                                    ToolTip.Tip="Discarded when its panel closes"
+                                    AutomationProperties.Name="Add private-session browser profile" />
+                                <Button
+                                    x:Name="AddPersistentBrowserProfileButton"
+                                    Classes="PrimaryButton"
+                                    Command="{Binding CreateDurableCommand}"
+                                    Content="Add Persistent"
+                                    IsDefault="True"
+                                    ToolTip.Tip="Kept between runs, encrypted when Asura quits"
+                                    AutomationProperties.Name="Add persistent browser profile" />
+                              </StackPanel>
+                            </StackPanel>
+                          </Flyout>
                         </Button.Flyout>
                       </Button>
                       <!-- Built-in profiles cannot be deleted, so – dims for them. -->
                       <Button
                           x:Name="DeleteBrowserProfileButton"
-                          Grid.Column="1"
                           Classes="IconButton"
                           Click="OnDeleteBrowserProfileClick"
                           IsEnabled="False"
@@ -916,14 +989,7 @@
                           AutomationProperties.Name="Delete selected browser profile">
                         <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                       </Button>
-                      <TextBox
-                          Grid.Column="2"
-                          MaxWidth="260"
-                          HorizontalAlignment="Left"
-                          Text="{Binding BrowserProfileSettingsEditor.NewProfileName, Mode=TwoWay}"
-                          PlaceholderText="New profile name"
-                          AutomationProperties.Name="New browser profile name" />
-                    </Grid>
+                    </StackPanel>
                   </Border>
                   </StackPanel>
                 </controls:SurfaceCard>
@@ -1048,7 +1114,7 @@
               </controls:SettingsGroup>
             </StackPanel>
 
-            <StackPanel x:Name="TerminalSettingsPage" Spacing="{DynamicResource ShellSpaceLg}" IsVisible="{Binding IsTerminalSettingsVisible}">
+            <StackPanel x:Name="TerminalSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsTerminalSettingsVisible}">
               <!-- Applied as each setting changes, to new sessions. -->
               <components:SettingsPageHeader
                   Heading="Terminal"
@@ -1058,11 +1124,10 @@
                    settings group with its heading, and each setting a row. -->
               <controls:SettingsGroup Heading="Continuity">
                 <controls:SettingRow
-                    IsLeading="True"
                     Label="Multiplex SSH terminals"
                     Description="New SSH terminals use an app-managed tmux session, with GNU Screen as a fallback. Disconnecting or closing Asura preserves it; explicitly closing the panel, tab, or workspace ends it."
                     IsLast="True">
-                  <CheckBox
+                  <ToggleSwitch
                       IsChecked="{Binding UseTerminalMultiplexingForSshTerminals, Mode=OneWay}"
                       IsEnabled="{Binding CanChangeTerminalMultiplexing}"
                       IsCheckedChanged="OnTerminalMultiplexingChanged"
@@ -1122,8 +1187,8 @@
                 <controls:SettingRow Label="Cursor shape">
                   <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding TerminalSettingsEditor.CursorStyles}" SelectedItem="{Binding TerminalSettingsEditor.CursorStyle}" AutomationProperties.Name="Cursor shape" />
                 </controls:SettingRow>
-                <controls:SettingRow IsLeading="True" Label="Blink cursor">
-                  <CheckBox
+                <controls:SettingRow Label="Blink cursor">
+                  <ToggleSwitch
                       IsChecked="{Binding TerminalSettingsEditor.CursorBlink}"
                       AutomationProperties.Name="Blink cursor" />
                 </controls:SettingRow>
@@ -1145,14 +1210,14 @@
                 <controls:SettingRow Label="Open terminal links">
                   <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding TerminalSettingsEditor.LinkPolicies}" SelectedItem="{Binding TerminalSettingsEditor.LinkPolicy}" />
                 </controls:SettingRow>
-                <controls:SettingRow IsLeading="True" Label="Enable IME input">
-                  <CheckBox
+                <controls:SettingRow Label="Enable IME input">
+                  <ToggleSwitch
                       IsChecked="{Binding TerminalSettingsEditor.ImeEnabled}" />
                 </controls:SettingRow>
                 <!-- Turns back on what "Don't ask again" in a close or quit
                      alert turned off. -->
-                <controls:SettingRow IsLeading="True" Label="Ask before closing running sessions" IsLast="True">
-                  <CheckBox
+                <controls:SettingRow Label="Ask before closing running sessions" IsLast="True">
+                  <ToggleSwitch
                       IsChecked="{Binding TerminalSettingsEditor.AskBeforeClosing}" />
                 </controls:SettingRow>
               </controls:SettingsGroup>
@@ -1189,11 +1254,11 @@
                   DataContext="{Binding GitSettings}" />
             </Grid>
 
-            <StackPanel x:Name="SecretsSettingsPage" Spacing="{DynamicResource ShellSpaceLg}" IsVisible="{Binding IsSecretsSettingsVisible}">
+            <StackPanel x:Name="SecretsSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsSecretsSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="Security &amp; Secrets"
                   Description="Manage app encryption and saved credentials." />
-              <StackPanel Spacing="{DynamicResource ShellSpaceLg}">
+              <StackPanel Spacing="{DynamicResource ShellSpaceSection}">
                 <controls:SettingsGroup Heading="Application security">
                   <controls:SettingRow
                       Label="Enable app encryption"
@@ -1404,48 +1469,52 @@
               <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                 <TextBlock Classes="SectionHeading" Text="Saved credentials" />
                 <controls:SurfaceCard Padding="0" ClipsContent="True" IsVisible="{Binding !HasNoSecrets}">
-                  <ListBox
-                      x:Name="SecretList"
-                      Classes="Rows"
-                      ItemsSource="{Binding Secrets}"
-                      AutomationProperties.Name="Stored credentials">
-                    <ListBox.ItemTemplate>
-                      <DataTemplate x:DataType="vm:SecretMetadataViewModel">
-                        <Grid Margin="{DynamicResource ShellListRowPadding}" Background="Transparent" ColumnDefinitions="Auto,*,220,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                          <Grid.ContextMenu>
-                            <ContextMenu>
-                              <MenuItem Header="Edit…" Click="OnEditSecretClick" />
-                              <Separator />
-                              <MenuItem Header="Delete…" Click="OnDeleteSecretClick" />
-                            </ContextMenu>
-                          </Grid.ContextMenu>
-                          <controls:IdentityTile VerticalAlignment="Center" TileSize="Small" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="Key" />
-                          <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
-                            <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}"><TextBlock FontWeight="SemiBold" Text="{Binding Label}" /><TextBlock Classes="Eyebrow" Text="{Binding Kind}" /></StackPanel>
-                            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Scope}" />
-                            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Dependencies}" />
-                            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding LastUsed, StringFormat={}Last used: {0}}" />
-                          </StackPanel>
-                          <TextBox Grid.Column="2" VerticalAlignment="Center" FontFamily="{DynamicResource ShellDataFontFamily}" FontSize="{DynamicResource ShellSecondaryFontSize}" IsReadOnly="True" Text="{Binding Reference.Value}" AutomationProperties.Name="Credential ID" />
-                          <Button Grid.Column="3" VerticalAlignment="Center" Classes="SecondaryButton" Click="OnEditSecretClick" Content="Edit…" AutomationProperties.Name="{Binding Label, StringFormat={}Edit credential {0}}" />
-                        </Grid>
-                      </DataTemplate>
-                    </ListBox.ItemTemplate>
-                  </ListBox>
+                  <StackPanel>
+                    <ListBox
+                        x:Name="SecretList"
+                        Classes="Rows Separated"
+                        ItemsSource="{Binding Secrets}"
+                        AutomationProperties.Name="Stored credentials">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SecretMetadataViewModel">
+                          <Grid Margin="{DynamicResource ShellListRowPadding}" Background="Transparent" ColumnDefinitions="Auto,*,220,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                            <Grid.ContextMenu>
+                              <ContextMenu>
+                                <MenuItem Header="Edit…" Click="OnEditSecretClick" />
+                                <Separator />
+                                <MenuItem Header="Delete…" Click="OnDeleteSecretClick" />
+                              </ContextMenu>
+                            </Grid.ContextMenu>
+                            <controls:IdentityTile VerticalAlignment="Center" TileSize="Small" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="Key" />
+                            <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
+                              <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}"><TextBlock FontWeight="SemiBold" Text="{Binding Label}" /><TextBlock Classes="Eyebrow" Text="{Binding Kind}" /></StackPanel>
+                              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Scope}" />
+                              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Dependencies}" />
+                              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding LastUsed, StringFormat={}Last used: {0}}" />
+                            </StackPanel>
+                            <TextBox Grid.Column="2" VerticalAlignment="Center" FontFamily="{DynamicResource ShellDataFontFamily}" FontSize="{DynamicResource ShellSecondaryFontSize}" IsReadOnly="True" Text="{Binding Reference.Value}" AutomationProperties.Name="Credential ID" />
+                            <Button Grid.Column="3" VerticalAlignment="Center" Classes="SecondaryButton" Click="OnEditSecretClick" Content="Edit…" AutomationProperties.Name="{Binding Label, StringFormat={}Edit credential {0}}" />
+                          </Grid>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+                  <Border Classes="ListActionBar">
+                    <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+                      <Button
+                          x:Name="DeleteSecretButton"
+                          Classes="IconButton"
+                          Click="OnDeleteSecretClick"
+                          IsEnabled="False"
+                          ToolTip.Tip="Delete credential…"
+                          AutomationProperties.Name="Delete selected credential">
+                        <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
+                      </Button>
+                    </StackPanel>
+                  </Border>
+                  </StackPanel>
                 </controls:SurfaceCard>
                 <!-- Credentials are stored from the forms above; – removes the
                      selected one, as its context menu and Delete do. -->
-                <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}" IsVisible="{Binding !HasNoSecrets}">
-                  <Button
-                      x:Name="DeleteSecretButton"
-                      Classes="IconButton"
-                      Click="OnDeleteSecretClick"
-                      IsEnabled="False"
-                      ToolTip.Tip="Delete credential…"
-                      AutomationProperties.Name="Delete selected credential">
-                    <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
-                  </Button>
-                </StackPanel>
                 <controls:SurfaceCard IsVisible="{Binding HasNoSecrets}">
                   <controls:StateOverlay
                       Kind="Empty"
@@ -1455,8 +1524,8 @@
               </StackPanel>
             </StackPanel>
 
-            <StackPanel x:Name="AiSettingsPage" Spacing="{DynamicResource ShellSpaceXl}" IsVisible="{Binding IsAgentSettingsVisible}">
-              <StackPanel Spacing="{DynamicResource ShellSpaceLg}">
+            <StackPanel x:Name="AiSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsAgentSettingsVisible}">
+              <StackPanel Spacing="{DynamicResource ShellSpaceSection}">
               <components:SettingsPageHeader
                   Heading="AI"
                   Description="Choose agent defaults, connect model providers, and manage MCP servers. Workspaces and saved screens can override agent defaults." />
@@ -1645,79 +1714,85 @@
                 </controls:SettingsGroup.Footer>
               </controls:SettingsGroup>
 
-              <components:SectionHeader
-                  Heading="Providers"
-                  Description="Connect and manage model providers." />
+              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+                <components:SectionHeader
+                    Heading="Providers"
+                    Description="Connect and manage model providers." />
 
-              <!-- The Mac list pattern: select a provider, then – below the
-                   list, its context menu, or Delete removes it. -->
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}" IsVisible="{Binding HasAiProviders}">
-                <controls:SurfaceCard Padding="0" ClipsContent="True">
-                  <ListBox
-                      x:Name="AiProviderList"
-                      Classes="Rows"
-                      ItemsSource="{Binding AiProviderDefinitions}"
-                      AutomationProperties.Name="AI providers">
-                    <ListBox.ItemTemplate>
-                      <DataTemplate x:DataType="vm:AiProviderProfileItemViewModel">
-                        <Grid Margin="{DynamicResource ShellListRowPadding}" Background="Transparent" ColumnDefinitions="Auto,2*,2*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                          <Grid.ContextMenu>
-                            <ContextMenu>
-                              <MenuItem Header="Edit…" Click="OnEditAiProviderClick" />
-                              <Separator />
-                              <MenuItem Header="Delete…" Click="OnDeleteAiProviderClick" />
-                            </ContextMenu>
-                          </Grid.ContextMenu>
-                          <controls:IdentityTile VerticalAlignment="Center" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="Bot" />
-                          <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
-                            <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                              <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
-                              <TextBlock Classes="Eyebrow" Text="{Binding Kind}" />
-                            </StackPanel>
-                            <TextBlock Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Endpoint}" />
-                            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding DefaultModel, StringFormat={}Default model: {0}}" />
-                          </StackPanel>
-                          <StackPanel Grid.Column="2" Spacing="{DynamicResource ShellSpaceXs}">
-                            <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                              <TextBlock FontWeight="SemiBold" Text="{Binding Status}" />
-                              <TextBlock Classes="Eyebrow" Text="{Binding Order, StringFormat={}Order {0}}" />
-                            </StackPanel>
-                            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding StatusDetail}" TextWrapping="Wrap" />
-                          </StackPanel>
-                          <Button Grid.Column="3" VerticalAlignment="Center" Classes="SecondaryButton" Click="OnEditAiProviderClick" Content="Edit…" AutomationProperties.Name="{Binding Name, StringFormat={}Edit AI provider {0}}" />
-                        </Grid>
-                      </DataTemplate>
-                    </ListBox.ItemTemplate>
-                  </ListBox>
-                </controls:SurfaceCard>
-                <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                  <Button
-                      Classes="IconButton"
-                      Click="OnAddAiProviderClick"
-                      ToolTip.Tip="Add provider…"
-                      AutomationProperties.Name="Add AI provider">
-                    <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
-                  </Button>
-                  <Button
-                      x:Name="DeleteAiProviderButton"
-                      Classes="IconButton"
-                      Click="OnDeleteAiProviderClick"
-                      IsEnabled="False"
-                      ToolTip.Tip="Delete provider…"
-                      AutomationProperties.Name="Delete selected AI provider">
-                    <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
-                  </Button>
+                <!-- The Mac list pattern: select a provider, then – below the
+                     list, its context menu, or Delete removes it. -->
+                <StackPanel Spacing="{DynamicResource ShellSpaceSm}" IsVisible="{Binding HasAiProviders}">
+                  <controls:SurfaceCard Padding="0" ClipsContent="True">
+                    <StackPanel>
+                      <ListBox
+                          x:Name="AiProviderList"
+                          Classes="Rows Separated"
+                          ItemsSource="{Binding AiProviderDefinitions}"
+                          AutomationProperties.Name="AI providers">
+                        <ListBox.ItemTemplate>
+                          <DataTemplate x:DataType="vm:AiProviderProfileItemViewModel">
+                            <Grid Margin="{DynamicResource ShellListRowPadding}" Background="Transparent" ColumnDefinitions="Auto,2*,2*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                              <Grid.ContextMenu>
+                                <ContextMenu>
+                                  <MenuItem Header="Edit…" Click="OnEditAiProviderClick" />
+                                  <Separator />
+                                  <MenuItem Header="Delete…" Click="OnDeleteAiProviderClick" />
+                                </ContextMenu>
+                              </Grid.ContextMenu>
+                              <controls:IdentityTile VerticalAlignment="Center" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="Bot" />
+                              <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
+                                <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+                                  <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
+                                  <TextBlock Classes="Eyebrow" Text="{Binding Kind}" />
+                                </StackPanel>
+                                <TextBlock Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Endpoint}" />
+                                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding DefaultModel, StringFormat={}Default model: {0}}" />
+                              </StackPanel>
+                              <StackPanel Grid.Column="2" Spacing="{DynamicResource ShellSpaceXs}">
+                                <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+                                  <TextBlock FontWeight="SemiBold" Text="{Binding Status}" />
+                                  <TextBlock Classes="Eyebrow" Text="{Binding Order, StringFormat={}Order {0}}" />
+                                </StackPanel>
+                                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding StatusDetail}" TextWrapping="Wrap" />
+                              </StackPanel>
+                              <Button Grid.Column="3" VerticalAlignment="Center" Classes="SecondaryButton" Click="OnEditAiProviderClick" Content="Edit…" AutomationProperties.Name="{Binding Name, StringFormat={}Edit AI provider {0}}" />
+                            </Grid>
+                          </DataTemplate>
+                        </ListBox.ItemTemplate>
+                      </ListBox>
+                    <Border Classes="ListActionBar">
+                      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+                        <Button
+                            Classes="IconButton"
+                            Click="OnAddAiProviderClick"
+                            ToolTip.Tip="Add provider…"
+                            AutomationProperties.Name="Add AI provider">
+                          <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
+                        </Button>
+                        <Button
+                            x:Name="DeleteAiProviderButton"
+                            Classes="IconButton"
+                            Click="OnDeleteAiProviderClick"
+                            IsEnabled="False"
+                            ToolTip.Tip="Delete provider…"
+                            AutomationProperties.Name="Delete selected AI provider">
+                          <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
+                        </Button>
+                      </StackPanel>
+                    </Border>
+                    </StackPanel>
+                  </controls:SurfaceCard>
                 </StackPanel>
-              </StackPanel>
 
-              <controls:SurfaceCard Padding="0" IsVisible="{Binding HasNoAiProviders}">
-                <controls:StateOverlay Margin="{controls:Inset Xl}"
-                    Kind="Empty"
-                    Heading="No provider configured"
-                    Body="Add a provider to start using the AI agent.">
-                  <Button HorizontalAlignment="Center" Classes="SecondaryButton" Click="OnAddAiProviderClick" Content="Add Provider…" AutomationProperties.Name="Add first AI provider" />
-                </controls:StateOverlay>
-              </controls:SurfaceCard>
+                <controls:SurfaceCard Padding="0" IsVisible="{Binding HasNoAiProviders}">
+                  <controls:StateOverlay Margin="{controls:Inset Xl}"
+                      Kind="Empty"
+                      Heading="No provider configured"
+                      Body="Add a provider to start using the AI agent.">
+                    <Button HorizontalAlignment="Center" Classes="SecondaryButton" Click="OnAddAiProviderClick" Content="Add Provider…" AutomationProperties.Name="Add first AI provider" />
+                  </controls:StateOverlay>
+                </controls:SurfaceCard>
+              </StackPanel>
 
               <!-- The credential slot belongs to a saved profile, so with no
                    profile there is nothing to fill: the card stays visible to
@@ -1755,7 +1830,7 @@
                    title already names the page. The heading has the rank of
                    every other section heading here (SectionHeader's), not a
                    page title's, and keeps its heading level for VoiceOver. -->
-              <StackPanel x:Name="McpSettingsSection" Spacing="{DynamicResource ShellSpaceLg}">
+              <StackPanel x:Name="McpSettingsSection" Spacing="{DynamicResource ShellSpaceSection}">
               <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                 <TextBlock Classes="Headline" Text="MCP" AutomationProperties.HeadingLevel="2" />
                 <TextBlock
@@ -1767,119 +1842,125 @@
 
               <settingsPages:LocalMcpServerSettingsView DataContext="{Binding LocalMcpServerSettings}" />
 
-              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                <components:SectionHeader
-                    Heading="Connected servers"
-                    Description="Servers the agent can call. Each one lists the tools it offers; enable only the ones you want." />
-                <StackPanel
-                    Grid.Column="1"
-                    Orientation="Horizontal"
-                    VerticalAlignment="Center"
-                    Spacing="{DynamicResource ShellSpaceSm}">
-                  <Button
-                      Classes="DestructiveButton"
-                      Click="OnClearMcpServerDiagnosticHistoryClick"
-                      Content="Clear History"
-                      IsVisible="{Binding HasMcpDiagnosticHistory}"
-                      AutomationProperties.Name="Clear MCP diagnostic history" />
+              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                  <components:SectionHeader
+                      Heading="Connected servers"
+                      Description="Servers the agent can call. Each one lists the tools it offers; enable only the ones you want." />
+                  <StackPanel
+                      Grid.Column="1"
+                      Orientation="Horizontal"
+                      VerticalAlignment="Center"
+                      Spacing="{DynamicResource ShellSpaceSm}">
+                    <Button
+                        Classes="DestructiveButton"
+                        Click="OnClearMcpServerDiagnosticHistoryClick"
+                        Content="Clear History"
+                        IsVisible="{Binding HasMcpDiagnosticHistory}"
+                        AutomationProperties.Name="Clear MCP diagnostic history" />
+                  </StackPanel>
+                </Grid>
+                <!-- The Mac list pattern: select a server, then – below the
+                     list, its context menu, or Delete removes it. -->
+                <StackPanel Spacing="{DynamicResource ShellSpaceSm}" IsVisible="{Binding HasMcpServers}">
+                  <controls:SurfaceCard Padding="0" ClipsContent="True">
+                    <StackPanel>
+                      <ListBox
+                          x:Name="McpServerList"
+                          Classes="Rows Separated"
+                          ItemsSource="{Binding McpServerDefinitions}"
+                          AutomationProperties.Name="Connected MCP servers">
+                        <ListBox.ItemTemplate>
+                          <DataTemplate x:DataType="vm:McpServerProfileItemViewModel">
+                            <Grid Margin="{DynamicResource ShellListRowPadding}" Background="Transparent"
+                                ColumnDefinitions="Auto,2*,2*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}"
+                                AutomationProperties.Name="{Binding Name, StringFormat={}MCP server {0}}">
+                              <Grid.ContextMenu>
+                                <ContextMenu>
+                                  <MenuItem Header="Edit…" Click="OnEditMcpServerClick" />
+                                  <Separator />
+                                  <MenuItem Header="Delete…" Click="OnDeleteMcpServerClick" />
+                                </ContextMenu>
+                              </Grid.ContextMenu>
+                              <controls:IdentityTile VerticalAlignment="Center" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="Code" />
+                              <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
+                                <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
+                                <TextBlock
+                                    Classes="Muted MiddleTruncated"
+                                    FontSize="{DynamicResource ShellSecondaryFontSize}"
+                                    Text="{Binding Address}"
+                                    ToolTip.Tip="{Binding Address}" />
+                                <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+                                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding TransportSummary}" />
+                                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ArgumentSummary}" IsVisible="{Binding IsStdio}" />
+                                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding CredentialBindingSummary}" />
+                                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding EnabledToolSummary}" />
+                                </StackPanel>
+                              </StackPanel>
+                              <StackPanel Grid.Column="2" Spacing="{DynamicResource ShellSpaceXs}">
+                                <controls:LiveRegionTextBlock
+                                    FontWeight="SemiBold"
+                                    Text="{Binding Status}"
+                                    AutomationProperties.LiveSetting="Polite"
+                                    AutomationProperties.Name="{Binding Status, StringFormat={}MCP server status · {0}}" />
+                                <TextBlock
+                                    Classes="Muted"
+                                    FontSize="{DynamicResource ShellSecondaryFontSize}"
+                                    Text="{Binding StatusDetail}"
+                                    TextWrapping="Wrap" />
+                              </StackPanel>
+                              <Button
+                                  Grid.Column="3"
+                                  VerticalAlignment="Center"
+                                  Classes="SecondaryButton"
+                                  Click="OnTestMcpServerClick"
+                                  Content="{Binding TestActionLabel}"
+                                  IsEnabled="{Binding CanTest}"
+                                  AutomationProperties.Name="{Binding Name, StringFormat={}Test MCP server {0}}" />
+                              <Button
+                                  Grid.Column="4"
+                                  VerticalAlignment="Center"
+                                  Classes="SecondaryButton"
+                                  Click="OnEditMcpServerClick"
+                                  Content="Edit…"
+                                  AutomationProperties.Name="{Binding Name, StringFormat={}Edit MCP server {0}}" />
+                            </Grid>
+                          </DataTemplate>
+                        </ListBox.ItemTemplate>
+                      </ListBox>
+                    <Border Classes="ListActionBar">
+                      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+                        <Button
+                            Classes="IconButton"
+                            Click="OnAddMcpServerClick"
+                            ToolTip.Tip="Add server…"
+                            AutomationProperties.Name="Add MCP server">
+                          <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
+                        </Button>
+                        <Button
+                            x:Name="DeleteMcpServerButton"
+                            Classes="IconButton"
+                            Click="OnDeleteMcpServerClick"
+                            IsEnabled="False"
+                            ToolTip.Tip="Delete server…"
+                            AutomationProperties.Name="Delete selected MCP server">
+                          <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
+                        </Button>
+                      </StackPanel>
+                    </Border>
+                    </StackPanel>
+                  </controls:SurfaceCard>
                 </StackPanel>
-              </Grid>
-              <!-- The Mac list pattern: select a server, then – below the
-                   list, its context menu, or Delete removes it. -->
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}" IsVisible="{Binding HasMcpServers}">
-                <controls:SurfaceCard Padding="0" ClipsContent="True">
-                  <ListBox
-                      x:Name="McpServerList"
-                      Classes="Rows"
-                      ItemsSource="{Binding McpServerDefinitions}"
-                      AutomationProperties.Name="Connected MCP servers">
-                    <ListBox.ItemTemplate>
-                      <DataTemplate x:DataType="vm:McpServerProfileItemViewModel">
-                        <Grid Margin="{DynamicResource ShellListRowPadding}" Background="Transparent"
-                            ColumnDefinitions="Auto,2*,2*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}"
-                            AutomationProperties.Name="{Binding Name, StringFormat={}MCP server {0}}">
-                          <Grid.ContextMenu>
-                            <ContextMenu>
-                              <MenuItem Header="Edit…" Click="OnEditMcpServerClick" />
-                              <Separator />
-                              <MenuItem Header="Delete…" Click="OnDeleteMcpServerClick" />
-                            </ContextMenu>
-                          </Grid.ContextMenu>
-                          <controls:IdentityTile VerticalAlignment="Center" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="Code" />
-                          <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
-                            <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
-                            <TextBlock
-                                Classes="Muted MiddleTruncated"
-                                FontSize="{DynamicResource ShellSecondaryFontSize}"
-                                Text="{Binding Address}"
-                                ToolTip.Tip="{Binding Address}" />
-                            <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding TransportSummary}" />
-                              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ArgumentSummary}" IsVisible="{Binding IsStdio}" />
-                              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding CredentialBindingSummary}" />
-                              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding EnabledToolSummary}" />
-                            </StackPanel>
-                          </StackPanel>
-                          <StackPanel Grid.Column="2" Spacing="{DynamicResource ShellSpaceXs}">
-                            <controls:LiveRegionTextBlock
-                                FontWeight="SemiBold"
-                                Text="{Binding Status}"
-                                AutomationProperties.LiveSetting="Polite"
-                                AutomationProperties.Name="{Binding Status, StringFormat={}MCP server status · {0}}" />
-                            <TextBlock
-                                Classes="Muted"
-                                FontSize="{DynamicResource ShellSecondaryFontSize}"
-                                Text="{Binding StatusDetail}"
-                                TextWrapping="Wrap" />
-                          </StackPanel>
-                          <Button
-                              Grid.Column="3"
-                              VerticalAlignment="Center"
-                              Classes="SecondaryButton"
-                              Click="OnTestMcpServerClick"
-                              Content="{Binding TestActionLabel}"
-                              IsEnabled="{Binding CanTest}"
-                              AutomationProperties.Name="{Binding Name, StringFormat={}Test MCP server {0}}" />
-                          <Button
-                              Grid.Column="4"
-                              VerticalAlignment="Center"
-                              Classes="SecondaryButton"
-                              Click="OnEditMcpServerClick"
-                              Content="Edit…"
-                              AutomationProperties.Name="{Binding Name, StringFormat={}Edit MCP server {0}}" />
-                        </Grid>
-                      </DataTemplate>
-                    </ListBox.ItemTemplate>
-                  </ListBox>
-                </controls:SurfaceCard>
-                <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                  <Button
-                      Classes="IconButton"
-                      Click="OnAddMcpServerClick"
-                      ToolTip.Tip="Add server…"
-                      AutomationProperties.Name="Add MCP server">
-                    <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
-                  </Button>
-                  <Button
-                      x:Name="DeleteMcpServerButton"
-                      Classes="IconButton"
-                      Click="OnDeleteMcpServerClick"
-                      IsEnabled="False"
-                      ToolTip.Tip="Delete server…"
-                      AutomationProperties.Name="Delete selected MCP server">
-                    <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
-                  </Button>
-                </StackPanel>
-              </StackPanel>
 
-              <controls:SurfaceCard Padding="0" IsVisible="{Binding HasNoMcpServers}">
-                <controls:StateOverlay Margin="{controls:Inset Xl}"
-                    Kind="Empty"
-                    Heading="No MCP server configured"
-                    Body="Add a local or remote MCP server to make its selected tools available to the agent.">
-                  <Button Classes="SecondaryButton" Click="OnAddMcpServerClick" Content="Add Server…" AutomationProperties.Name="Add first MCP server" />
-                </controls:StateOverlay>
-              </controls:SurfaceCard>
+                <controls:SurfaceCard Padding="0" IsVisible="{Binding HasNoMcpServers}">
+                  <controls:StateOverlay Margin="{controls:Inset Xl}"
+                      Kind="Empty"
+                      Heading="No MCP server configured"
+                      Body="Add a local or remote MCP server to make its selected tools available to the agent.">
+                    <Button Classes="SecondaryButton" Click="OnAddMcpServerClick" Content="Add Server…" AutomationProperties.Name="Add first MCP server" />
+                  </controls:StateOverlay>
+                </controls:SurfaceCard>
+              </StackPanel>
 
               <controls:SettingsGroup
                   Heading="Store MCP credential"
@@ -1946,7 +2027,7 @@
               </StackPanel>
             </StackPanel>
 
-            <StackPanel x:Name="DiagnosticsSettingsPage" Spacing="{DynamicResource ShellSpaceLg}" IsVisible="{Binding IsDiagnosticsSettingsVisible}">
+            <StackPanel x:Name="DiagnosticsSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsDiagnosticsSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="Data &amp; Diagnostics"
                   Description="Export support information without terminal content, commands, credentials, or environment values." />
@@ -1972,14 +2053,14 @@
 
             <!-- The same content the About window shows, so the two never
                  disagree about the version or what is bundled. -->
-            <StackPanel x:Name="AboutSettingsPage" Spacing="{DynamicResource ShellSpaceLg}" IsVisible="{Binding IsAboutSettingsVisible}">
+            <StackPanel x:Name="AboutSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsAboutSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="About"
                   Description="Version, updates, and the open-source components Asura bundles." />
               <components:AboutAsuraView ShowsComponents="True" />
             </StackPanel>
 
-            <StackPanel x:Name="NotificationsSettingsPage" Spacing="{DynamicResource ShellSpaceLg}" IsVisible="{Binding IsNotificationSettingsVisible}">
+            <StackPanel x:Name="NotificationsSettingsPage" Spacing="{DynamicResource ShellSpaceSection}" IsVisible="{Binding IsNotificationSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="Notifications"
                   Description="Choose what Asura posts to the system's notification center while you work in another app. While Asura is in front, it shows the same news as attention marks on the panel, tab, and workspace instead of a banner." />
@@ -2014,26 +2095,23 @@
                   Description="Each source posts on its own. Turning one off stops its banners; its attention marks inside Asura stay."
                   IsEnabled="{Binding NotificationSettings.IsAvailable}">
                 <controls:SettingRow
-                    IsLeading="True"
                     Label="Terminal"
                     Description="Notifications that programs send from the terminal, the bell when the terminal profile sends it to the system, and work that finishes in a workspace behind the one on show.">
-                  <CheckBox
+                  <ToggleSwitch
                       IsChecked="{Binding NotificationSettings.ShowsTerminal}"
                       AutomationProperties.Name="Terminal notifications" />
                 </controls:SettingRow>
                 <controls:SettingRow
-                    IsLeading="True"
                     Label="Agent runs"
                     Description="An agent run that finishes or fails while its panel is out of sight.">
-                  <CheckBox
+                  <ToggleSwitch
                       IsChecked="{Binding NotificationSettings.ShowsAgent}"
                       AutomationProperties.Name="Agent run notifications" />
                 </controls:SettingRow>
                 <controls:SettingRow
-                    IsLeading="True"
                     Label="File transfers"
                     Description="A file transfer that finishes or fails.">
-                  <CheckBox
+                  <ToggleSwitch
                       IsChecked="{Binding NotificationSettings.ShowsFileTransfers}"
                       AutomationProperties.Name="File transfer notifications" />
                 </controls:SettingRow>

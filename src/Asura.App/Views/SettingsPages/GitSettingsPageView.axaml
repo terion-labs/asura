@@ -22,7 +22,7 @@
     signing are the repository's, and stay in the panel. Every choice applies
     as it changes and reaches every open Git panel at once.
   -->
-  <StackPanel Spacing="{DynamicResource ShellSpaceXl}">
+  <StackPanel Spacing="{DynamicResource ShellSpaceSection}">
     <components:SettingsPageHeader
         Heading="Git"
         Description="Choices that apply to every Git panel. A repository's identity and signing are set in its panel, from Tools ▸ Repository." />
@@ -46,11 +46,10 @@
         </StackPanel>
       </controls:SettingRow>
       <controls:SettingRow
-          IsLeading="True"
           Label="Fetch in the background"
           Description="Fetches from every remote every five minutes while a repository is open."
           IsLast="True">
-        <CheckBox
+        <ToggleSwitch
             IsChecked="{Binding BackgroundFetch}"
             AutomationProperties.Name="Fetch in the background" />
       </controls:SettingRow>
@@ -110,20 +109,20 @@
     <controls:SettingsGroup
         Heading="Diffs"
         Description="How Git panels show changes. A panel's View menu changes the same choices.">
-      <controls:SettingRow IsLeading="True" Label="Show side by side">
-        <CheckBox IsChecked="{Binding DiffIsSplit}" AutomationProperties.Name="Show diffs side by side" />
+      <controls:SettingRow Label="Show side by side">
+        <ToggleSwitch IsChecked="{Binding DiffIsSplit}" AutomationProperties.Name="Show diffs side by side" />
       </controls:SettingRow>
-      <controls:SettingRow IsLeading="True" Label="Wrap long lines">
-        <CheckBox IsChecked="{Binding DiffWrap}" AutomationProperties.Name="Wrap long lines in diffs" />
+      <controls:SettingRow Label="Wrap long lines">
+        <ToggleSwitch IsChecked="{Binding DiffWrap}" AutomationProperties.Name="Wrap long lines in diffs" />
       </controls:SettingRow>
-      <controls:SettingRow IsLeading="True" Label="Ignore whitespace changes">
-        <CheckBox IsChecked="{Binding DiffIgnoresWhitespace}" AutomationProperties.Name="Ignore whitespace changes in diffs" />
+      <controls:SettingRow Label="Ignore whitespace changes">
+        <ToggleSwitch IsChecked="{Binding DiffIgnoresWhitespace}" AutomationProperties.Name="Ignore whitespace changes in diffs" />
       </controls:SettingRow>
-      <controls:SettingRow IsLeading="True" Label="Show whitespace characters">
-        <CheckBox IsChecked="{Binding DiffShowsInvisibles}" AutomationProperties.Name="Show whitespace characters in diffs" />
+      <controls:SettingRow Label="Show whitespace characters">
+        <ToggleSwitch IsChecked="{Binding DiffShowsInvisibles}" AutomationProperties.Name="Show whitespace characters in diffs" />
       </controls:SettingRow>
-      <controls:SettingRow IsLeading="True" Label="Highlight changed words" IsLast="True">
-        <CheckBox IsChecked="{Binding DiffHighlightsWords}" AutomationProperties.Name="Highlight changed words in diffs" />
+      <controls:SettingRow Label="Highlight changed words" IsLast="True">
+        <ToggleSwitch IsChecked="{Binding DiffHighlightsWords}" AutomationProperties.Name="Highlight changed words in diffs" />
       </controls:SettingRow>
     </controls:SettingsGroup>
 
@@ -135,28 +134,43 @@
           Heading="Saved commands"
           Description="Commands saved from Run Custom Command… in a Git panel. Every Git panel offers them." />
       <controls:SurfaceCard Padding="0" ClipsContent="True" IsVisible="{Binding HasCustomCommands}">
-        <ListBox
-            x:Name="CustomCommandList"
-            Classes="Rows"
-            ItemsSource="{Binding CustomCommands}"
-            SelectedItem="{Binding SelectedCustomCommand}"
-            KeyDown="OnCustomCommandListKeyDown"
-            AutomationProperties.Name="Saved commands">
-          <ListBox.ItemTemplate>
-            <DataTemplate x:DataType="vm:GitCustomCommandItemViewModel">
-              <controls:ListItem
-                  ContentPadding="{DynamicResource ShellListRowPadding}"
-                  Title="{Binding Name}"
-                  Detail="{Binding CommandLine}">
-                <controls:ListItem.ContextMenu>
-                  <ContextMenu>
-                    <MenuItem Header="Delete" Click="OnDeleteCustomCommandClick" />
-                  </ContextMenu>
-                </controls:ListItem.ContextMenu>
-              </controls:ListItem>
-            </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
+        <StackPanel>
+          <ListBox
+              x:Name="CustomCommandList"
+              Classes="Rows Separated"
+              ItemsSource="{Binding CustomCommands}"
+              SelectedItem="{Binding SelectedCustomCommand}"
+              KeyDown="OnCustomCommandListKeyDown"
+              AutomationProperties.Name="Saved commands">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:GitCustomCommandItemViewModel">
+                <controls:ListItem
+                    ContentPadding="{DynamicResource ShellListRowPadding}"
+                    Title="{Binding Name}"
+                    Detail="{Binding CommandLine}">
+                  <controls:ListItem.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="Delete" Click="OnDeleteCustomCommandClick" />
+                    </ContextMenu>
+                  </controls:ListItem.ContextMenu>
+                </controls:ListItem>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <Border Classes="ListActionBar">
+            <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+              <Button
+                  x:Name="RemoveCustomCommandButton"
+                  Classes="IconButton"
+                  Click="OnRemoveCustomCommandClick"
+                  IsEnabled="{Binding CanRemoveCustomCommand}"
+                  ToolTip.Tip="Delete command"
+                  AutomationProperties.Name="Delete selected command">
+                <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
+              </Button>
+            </StackPanel>
+          </Border>
+        </StackPanel>
       </controls:SurfaceCard>
       <TextBlock
           Classes="Muted"
@@ -164,17 +178,6 @@
           IsVisible="{Binding !HasCustomCommands}"
           Text="No saved commands."
           TextWrapping="Wrap" />
-      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}" IsVisible="{Binding HasCustomCommands}">
-        <Button
-            x:Name="RemoveCustomCommandButton"
-            Classes="IconButton"
-            Click="OnRemoveCustomCommandClick"
-            IsEnabled="{Binding CanRemoveCustomCommand}"
-            ToolTip.Tip="Delete command"
-            AutomationProperties.Name="Delete selected command">
-          <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
-        </Button>
-      </StackPanel>
     </StackPanel>
   </StackPanel>
 </UserControl>

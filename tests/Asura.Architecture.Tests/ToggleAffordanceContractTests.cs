@@ -3,37 +3,33 @@ using System.Xml.Linq;
 namespace Asura.Architecture.Tests;
 
 /// <summary>
-/// The HIG reserves a switch for a prominent setting in the body of a window
-/// and gives lists, groups of options, and minor options a checkbox. Settings
-/// keeps a switch only for the few settings that turn a whole feature on or
-/// off; everything else there is a checkbox.
+/// Settings draws a boolean as macOS System Settings does: a switch at the
+/// trailing edge of its row. A checkbox stays only where several options in
+/// one list are checked together, the way a list of choices in a dialog is.
 /// </summary>
 public sealed class ToggleAffordanceContractTests
 {
     private static readonly string RepositoryRoot = FindRepositoryRoot();
 
     /// <summary>
-    /// The prominent, top-level settings that keep a switch, by accessible name.
-    /// Each turns a feature on or off rather than tuning one.
+    /// The checkboxes Settings keeps, by accessible name: each marks one item
+    /// of a list in which any number may be checked at once.
     /// </summary>
-    private static readonly string[] ProminentSettingSwitches =
+    private static readonly string[] ListOptionCheckBoxes =
     [
-        "Restore sessions on start",
-        "Multiplex SSH terminals",
-        "Enable app encryption",
-        "Terminal notifications",
-        "Agent run notifications",
-        "File transfer notifications",
-        "Enable Asura MCP server",
-        "Use an application network connection",
+        "{Binding Name, StringFormat=Offer {0} in this workspace}",
     ];
 
     private static bool IsSettingsSurface(string file) =>
         file.Contains(Path.Combine("Views", "SettingsPages"), StringComparison.Ordinal)
-        || Path.GetFileName(file) is "SettingsView.axaml";
+        || Path.GetFileName(file) is "SettingsView.axaml"
+            or "WorkspaceEditorView.axaml"
+            or "LocalArtifactControlView.axaml"
+            or "RecoveryDataControlView.axaml"
+            or "DiagnosticsExportView.axaml";
 
     [Fact]
-    public void Settings_keep_switches_for_prominent_settings_and_checkboxes_for_minor_options()
+    public void Settings_draw_booleans_as_switches_and_keep_checkboxes_for_option_lists()
     {
         var offenders = Directory
             .EnumerateFiles(
@@ -43,19 +39,20 @@ public sealed class ToggleAffordanceContractTests
             .Where(IsSettingsSurface)
             .SelectMany(file => XDocument.Load(file)
                 .Descendants()
-                .Where(element => string.Equals(element.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal))
+                .Where(element => string.Equals(element.Name.LocalName, "CheckBox", StringComparison.Ordinal))
                 .Select(element => (
                     File: Path.GetRelativePath(RepositoryRoot, file),
                     Name: element.Attribute("AutomationProperties.Name")?.Value)))
             .Where(item => item.Name is null
-                || !ProminentSettingSwitches.Contains(item.Name, StringComparer.Ordinal))
-            .Select(item => $"{item.File}: {item.Name ?? "<unnamed switch>"}")
+                || !ListOptionCheckBoxes.Contains(item.Name, StringComparer.Ordinal))
+            .Select(item => $"{item.File}: {item.Name ?? "<unnamed checkbox>"}")
             .ToArray();
 
         Assert.True(
             offenders.Length == 0,
-            "These Settings rows use a switch for a minor option. Use a CheckBox, or "
-            + "add the setting to the prominent list with the reason:"
+            "These Settings controls are checkboxes. A setting that is on or off is a "
+            + "ToggleSwitch at its row's trailing edge; a checkbox is only for one item "
+            + "of a list whose items are checked together:"
             + Environment.NewLine
             + string.Join(Environment.NewLine, offenders));
     }

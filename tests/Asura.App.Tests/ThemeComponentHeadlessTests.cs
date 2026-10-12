@@ -536,6 +536,96 @@ public sealed class ThemeComponentHeadlessTests
         });
 
     /// <summary>
+    /// A switch takes its own width, not the group's control column: the
+    /// label and description fill the row up to the switch. Reserving a
+    /// 300-point column for a 38-point switch wrapped a three-word setting
+    /// onto four lines beside an empty half row, and at a large text size
+    /// moved the switch under its label for room it never needed.
+    /// </summary>
+    [Theory]
+    [InlineData(1.0)]
+    [InlineData(2.5)]
+    public Task A_switch_row_gives_its_words_the_row_and_keeps_the_switch_trailing(double textScale) =>
+        RunHeadlessAsync(
+            window =>
+            {
+                var toggle = new ToggleSwitch { IsChecked = true };
+                var row = new SettingRow
+                {
+                    Label = "Set background opacity",
+                    Description = "Lets the window's background show what is behind it.",
+                    Content = toggle,
+                };
+                // Narrow enough that a 300-point column cannot fit beside the
+                // label's minimum, while a switch can.
+                var group = new SettingsGroup { ControlWidth = new GridLength(300), Items = { row }, Width = 420 };
+                Show(window, group);
+
+                Assert.False(row.IsWrapped);
+                var label = Part<TextBlock>(row, "PART_Label");
+                var words = label.GetVisualParent<Control>()!;
+                var switchLeft = toggle.TranslatePoint(default, row)!.Value.X;
+                var wordsRight = words.TranslatePoint(new Point(words.Bounds.Width, 0), row)!.Value.X;
+                Assert.True(
+                    switchLeft - wordsRight <= Number(window, "ShellSpaceLg") + Number(window, "ShellSpaceXs") + 0.5,
+                    $"The words end at {wordsRight} and the switch starts at {switchLeft}: the row keeps a column the switch does not use.");
+                var trailing = row.Bounds.Width - (switchLeft + toggle.Bounds.Width);
+                Assert.Equal(row.Padding.Right, trailing, precision: 0);
+                Assert.True(switchLeft > wordsRight, "The switch moved under its label.");
+            },
+            textScale);
+
+    /// <summary>
+    /// A settings row is a grouped list row: 10 across and 6 down from its
+    /// card, its label standing in a further 4 so it starts where a list
+    /// row's title starts inside its inset highlight, and at least the
+    /// host's 28-point row tall. It was 16,12 around a control-tall column,
+    /// which stood a single switch in a band 52 points tall.
+    /// </summary>
+    [Fact]
+    public Task A_setting_row_has_grouped_row_metrics() =>
+        RunHeadlessAsync(window =>
+        {
+            var toggle = new ToggleSwitch();
+            var row = new SettingRow { Label = "Show workspaces panel", Content = toggle };
+            Show(window, new SettingsGroup { Items = { row }, Width = 560 });
+
+            Assert.Equal(new Thickness(10, 6), row.Padding);
+            var label = Part<TextBlock>(row, "PART_Label");
+            Assert.Equal(14, label.TranslatePoint(default, row)!.Value.X, precision: 0);
+            Assert.InRange(row.Bounds.Height, 28, 41);
+        });
+
+    /// <summary>
+    /// A switch on the selected row of the focused list stands on the accent
+    /// fill, where an accent track vanished and left a white knob floating
+    /// on the row. There it is drawn in the selection's ink, with the knob in
+    /// the accent.
+    /// </summary>
+    [Fact]
+    public Task A_switch_stays_visible_on_an_accent_selected_row() =>
+        RunHeadlessAsync(window =>
+        {
+            var toggle = new ToggleSwitch { IsChecked = true };
+            var item = new ListBoxItem { Content = toggle };
+            var list = new ListBox { Items = { item }, SelectedIndex = 0 };
+            Show(window, list);
+            item.Focus();
+            window.UpdateLayout();
+            Assert.True(list.IsKeyboardFocusWithin);
+
+            var accent = Brush(window, "ShellAccentBrush");
+            var row = item.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>()
+                .First(presenter => presenter.Name == "PART_ContentPresenter");
+            Assert.Equal(accent, Color(row.Background));
+            var track = Part<Border>(toggle, "SwitchTrack");
+            var knob = Part<Border>(toggle, "SwitchKnob");
+            Assert.NotEqual(accent, Color(track.Background));
+            Assert.Equal(Brush(window, "ShellAccentForegroundBrush"), Color(track.Background));
+            Assert.NotEqual(Color(track.Background), Color(knob.Background));
+        });
+
+    /// <summary>
     /// A checkbox row leads with the box, takes the setting's name as the
     /// box's title and sets the description under the title.
     /// </summary>
@@ -612,7 +702,7 @@ public sealed class ThemeComponentHeadlessTests
         window.UpdateLayout();
     }
 
-    private static async Task RunHeadlessAsync(Action<Window> assertion)
+    private static async Task RunHeadlessAsync(Action<Window> assertion, double textScale = 1)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
@@ -624,7 +714,11 @@ public sealed class ThemeComponentHeadlessTests
                     var app = Assert.IsType<App>(Avalonia.Application.Current);
                     app.ApplyApplicationResources(EffectiveAppearanceResourceMapper.Map(
                         ThemePreference.Default.Resolve(
-                            new HostAppearance(HostOperatingSystem.MacOS, HostColorScheme.Dark, accent: null))));
+                            new HostAppearance(
+                                HostOperatingSystem.MacOS,
+                                HostColorScheme.Dark,
+                                accent: null,
+                                textScale: textScale))));
                     var window = new Window { Width = 600, Height = 600 };
                     try
                     {

@@ -306,10 +306,10 @@ public sealed class SettingsViewContractTests
     public void Workspace_settings_expose_the_persisted_session_restore_toggle()
     {
         var settings = LoadView("SettingsView");
-        // A minor option, so a checkbox that names itself, not a switch.
+        // A setting's boolean is a switch at the row's trailing edge.
         var toggle = Assert.Single(
             settings.Descendants(),
-            element => string.Equals(element.Name.LocalName, "CheckBox"
+            element => string.Equals(element.Name.LocalName, "ToggleSwitch"
 , StringComparison.Ordinal) && string.Equals(
                     AttributeValue(element, "AutomationProperties.Name"),
                     "Restore sessions on start",
@@ -482,7 +482,7 @@ public sealed class SettingsViewContractTests
         // Terminal used to say 22 and 20 for the same intent, which is the drift
         // the scale exists to stop; a literal pinned here would reintroduce it.
         Assert.Equal(
-            "{DynamicResource ShellSpaceXl}",
+            "{DynamicResource ShellSpaceSection}",
             AttributeValue(content, "Spacing"));
         Assert.Null(AttributeValue(content, "Margin"));
         Assert.Null(AttributeValue(content, "IsVisible"));
@@ -646,7 +646,7 @@ public sealed class SettingsViewContractTests
         // written here. A literal is a gap the density and text-scale settings
         // cannot reach, and pinning one in a test is how it would stay that way.
         Assert.Equal(
-            "{DynamicResource ShellSpaceXl}",
+            "{DynamicResource ShellSpaceSection}",
             AttributeValue(content, "Spacing"));
         Assert.Null(AttributeValue(content, "Margin"));
         Assert.Null(AttributeValue(content, "IsVisible"));
@@ -716,12 +716,12 @@ public sealed class SettingsViewContractTests
                     "Active window follows whichever app is in front, or Asura where that isn’t possible. Asura window follows Asura. Primary display always uses the main display.",
                     StringComparison.Ordinal));
 
-        // Minor options of the drop-down are checkboxes, not switches.
+        // Every on/off option of the drop-down is a trailing switch.
         Assert.DoesNotContain(
             root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal));
+            element => string.Equals(element.Name.LocalName, "CheckBox", StringComparison.Ordinal));
         var toggles = root.Descendants()
-            .Where(element => string.Equals(element.Name.LocalName, "CheckBox", StringComparison.Ordinal))
+            .Where(element => string.Equals(element.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal))
             .ToArray();
         Assert.Equal(7, toggles.Length);
         Assert.Equal(
@@ -980,45 +980,269 @@ public sealed class SettingsViewContractTests
     }
 
     /// <summary>
-    /// One rule for booleans: an option is a checkbox whose label is its own
-    /// text; a switch is kept only for the setting that turns a whole section
-    /// on or off.
+    /// One rule for booleans, as in macOS System Settings: a setting that is
+    /// on or off is a switch at its row's trailing edge, the label on the
+    /// left. A checkbox leading the row with the setting's name beside it
+    /// was the older Mac shape, and read as a form in a settings window.
     /// </summary>
     [Theory]
-    [InlineData("SettingsView", "Enable app encryption")]
-    [InlineData("SettingsPages/NetworkingSettingsPageView", "Use an application network connection")]
-    [InlineData("SettingsPages/LocalMcpServerSettingsView", "Enable Asura MCP server")]
-    [InlineData("SettingsPages/GitSettingsPageView", null)]
-    [InlineData("SettingsPages/QuickTerminalSettingsPageView", null)]
-    [InlineData("SettingsPages/AppearanceSettingsPageView", null)]
-    [InlineData("WorkspaceEditorView", "Isolate workspace|Use a workspace network connection|Override AI configuration for this workspace")]
-    public void Settings_pages_keep_switches_for_section_masters_only(string view, string? masters)
+    [InlineData("SettingsView")]
+    [InlineData("SettingsPages/NetworkingSettingsPageView")]
+    [InlineData("SettingsPages/LocalMcpServerSettingsView")]
+    [InlineData("SettingsPages/GitSettingsPageView")]
+    [InlineData("SettingsPages/QuickTerminalSettingsPageView")]
+    [InlineData("SettingsPages/AppearanceSettingsPageView")]
+    [InlineData("WorkspaceEditorView")]
+    public void Settings_rows_put_their_switch_at_the_trailing_edge(string view)
     {
         var root = Assert.IsType<XElement>(LoadView(view).Root);
-        var switches = root.Descendants()
-            .Where(element => string.Equals(element.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal)
-                || string.Equals(element.Name.LocalName, "ToggleField", StringComparison.Ordinal))
-            .Select(element => AttributeValue(element, "AutomationProperties.Name"))
+        var rows = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "SettingRow", StringComparison.Ordinal))
             .ToArray();
-        string?[] expected = masters is null ? [] : masters.Split('|');
-        Assert.Equal(expected, switches);
-
-        // Every checkbox in a settings row is a leading option named by its
-        // row's label, which the checkbox shows as its title; none sits bare
-        // at the row's trailing edge. The name lives on the row so search
-        // finds the row it names.
-        foreach (var row in root.Descendants().Where(element =>
-                     string.Equals(element.Name.LocalName, "SettingRow", StringComparison.Ordinal)
-                     && element.Elements().Any(child =>
-                         string.Equals(child.Name.LocalName, "CheckBox", StringComparison.Ordinal))))
+        Assert.NotEmpty(rows);
+        foreach (var row in rows)
         {
-            Assert.Equal("True", AttributeValue(row, "IsLeading"));
-            Assert.Null(AttributeValue(row, "Classes"));
-            Assert.False(string.IsNullOrWhiteSpace(AttributeValue(row, "Label")));
-            var box = row.Elements().Single(child =>
-                string.Equals(child.Name.LocalName, "CheckBox", StringComparison.Ordinal));
-            Assert.Null(AttributeValue(box, "Content"));
+            Assert.Null(AttributeValue(row, "IsLeading"));
+            Assert.DoesNotContain(
+                row.Elements(),
+                child => string.Equals(child.Name.LocalName, "CheckBox", StringComparison.Ordinal));
         }
+
+        // A switch in a row is named by that row's label, which search finds.
+        foreach (var row in rows.Where(row => row.Elements().Any(child =>
+                     string.Equals(child.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal))))
+        {
+            Assert.False(string.IsNullOrWhiteSpace(AttributeValue(row, "Label")));
+            Assert.Null(AttributeValue(row, "IsStacked"));
+        }
+    }
+
+    /// <summary>
+    /// Data &amp; Diagnostics lists its storage and its recovery runs as rows of
+    /// one neutral card, as every settings list is. Each used to be a card of
+    /// its own filled with the notice tone, inside the section's card, so
+    /// the page read as a stack of blue boxes.
+    /// </summary>
+    [Theory]
+    [InlineData("LocalArtifactControlView", "LocalArtifactList")]
+    [InlineData("RecoveryDataControlView", "RecoveryRunList")]
+    public void Diagnostics_lists_are_rows_of_one_neutral_card(string view, string listName)
+    {
+        var root = Assert.IsType<XElement>(LoadView(view).Root);
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => element.Name.LocalName is "SurfaceCard" or "Callout"
+                && element.Ancestors().Any(ancestor => string.Equals(
+                    ancestor.Name.LocalName,
+                    "DataTemplate",
+                    StringComparison.Ordinal)));
+
+        var card = Assert.Single(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "SurfaceCard", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Name"), listName, StringComparison.Ordinal));
+        Assert.Null(AttributeValue(card, "Tone"));
+        Assert.Equal("0", AttributeValue(card, "Padding"));
+        var rows = Assert.Single(
+            card.Descendants(),
+            element => string.Equals(element.Name.LocalName, "ItemsControl", StringComparison.Ordinal));
+        Assert.Contains("Separated", AttributeValue(rows, "Classes") ?? string.Empty, StringComparison.Ordinal);
+
+        // The section is a page section, not a card of its own.
+        Assert.NotEqual("SurfaceCard", root.Elements().First().Name.LocalName, StringComparer.Ordinal);
+        Assert.Contains(
+            root.Descendants(),
+            element => string.Equals(AttributeValue(element, "Classes"), "Headline", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "AutomationProperties.HeadingLevel"), "2", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// A notice is information, not an alert: its card is the neutral
+    /// secondary surface, and a callout tints only its glyph.
+    /// </summary>
+    [Fact]
+    public void Notice_tone_draws_a_neutral_surface()
+    {
+        var designSystem = File.ReadAllText(Path.Combine(
+            ApplicationViews.RepositoryRoot,
+            "src",
+            "Asura.App",
+            "Styles",
+            "DesignSystem.axaml"));
+        var start = designSystem.IndexOf("<Style Selector=\"^:tone-notice\">", StringComparison.Ordinal);
+        Assert.True(start >= 0);
+        var end = designSystem.IndexOf("</Style>", start, StringComparison.Ordinal);
+        var notice = designSystem[start..end];
+        Assert.Contains("ShellSurfaceRaisedBrush", notice, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShellInfo", notice, StringComparison.Ordinal);
+        Assert.Contains(
+            "<Style Selector=\"^:tone-notice /template/ icons|SymbolIcon#PART_Glyph\">",
+            designSystem,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Every list on a settings page is one card holding its rows edge to
+    /// edge with hairlines between them, and the + and – that act on it sit
+    /// in a bar along the card's bottom edge rather than loose under it.
+    /// </summary>
+    [Theory]
+    [InlineData("SettingsView")]
+    [InlineData("SettingsPages/NetworkingSettingsPageView")]
+    [InlineData("SettingsPages/GitSettingsPageView")]
+    public void Settings_lists_are_cards_with_their_actions_in_a_bottom_bar(string view)
+    {
+        var root = Assert.IsType<XElement>(LoadView(view).Root);
+        var lists = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "ListBox", StringComparison.Ordinal)
+                && (AttributeValue(element, "Classes") ?? string.Empty).Contains("Rows", StringComparison.Ordinal))
+            .ToArray();
+        Assert.NotEmpty(lists);
+        foreach (var list in lists)
+        {
+            Assert.Contains("Separated", AttributeValue(list, "Classes"), StringComparison.Ordinal);
+            Assert.Contains(
+                list.Ancestors(),
+                ancestor => string.Equals(ancestor.Name.LocalName, "SurfaceCard", StringComparison.Ordinal));
+        }
+
+        var listActions = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "SymbolIcon", StringComparison.Ordinal)
+                && AttributeValue(element, "Symbol") is "Add" or "Subtract"
+                && element.Parent is { } button
+                && string.Equals(button.Name.LocalName, "Button", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(button, "Classes"), "IconButton", StringComparison.Ordinal))
+            .ToArray();
+        Assert.NotEmpty(listActions);
+        foreach (var action in listActions)
+        {
+            var bar = action.Ancestors().FirstOrDefault(ancestor =>
+                string.Equals(ancestor.Name.LocalName, "Border", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(ancestor, "Classes"), "ListActionBar", StringComparison.Ordinal));
+            Assert.True(bar is not null, $"{AttributeValue(action.Parent!, "AutomationProperties.Name")} is not in a list's action bar.");
+            Assert.Contains(
+                bar!.Ancestors(),
+                ancestor => string.Equals(ancestor.Name.LocalName, "SurfaceCard", StringComparison.Ordinal));
+        }
+    }
+
+    /// <summary>
+    /// Every settings page puts one gap between its sections: the section
+    /// token, 20 points at 100%. Pages used 24, Keyboard Shortcuts, About and
+    /// AI used 16, so the rhythm changed from one page to the next.
+    /// </summary>
+    [Fact]
+    public void Every_settings_page_uses_one_section_gap()
+    {
+        const string section = "{DynamicResource ShellSpaceSection}";
+        var settings = Assert.IsType<XElement>(LoadView("SettingsView").Root);
+        var pages = settings.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "StackPanel", StringComparison.Ordinal)
+                && (AttributeValue(element, "Name") ?? string.Empty).EndsWith("SettingsPage", StringComparison.Ordinal))
+            .ToArray();
+        Assert.True(pages.Length >= 10, $"Found {pages.Length} inline settings pages.");
+        foreach (var page in pages)
+        {
+            Assert.Equal(section, AttributeValue(page, "Spacing"));
+        }
+
+        // The AI page's two halves are sections of their own.
+        Assert.Equal(section, AttributeValue(FindNamedElement(settings, "McpSettingsSection"), "Spacing"));
+        Assert.Equal(
+            section,
+            AttributeValue(FindNamedElement(settings, "AiSettingsPage").Elements().First(), "Spacing"));
+
+        foreach (var page in new[] { "AppearanceSettingsPageView", "GitSettingsPageView", "NetworkingSettingsPageView", "QuickTerminalSettingsPageView" })
+        {
+            var root = Assert.IsType<XElement>(LoadSettingsPage(page).Root);
+            var stack = root.Elements().First(element => string.Equals(element.Name.LocalName, "StackPanel", StringComparison.Ordinal));
+            Assert.Equal(section, AttributeValue(stack, "Spacing"));
+        }
+    }
+
+    /// <summary>
+    /// Data &amp; Diagnostics shows each state of its two lists — loading,
+    /// empty, couldn't load — in the card the list would fill, so the page
+    /// keeps one shape. The cache section's empty state sat in a card while
+    /// the recovery section's sat bare on the page, and one failure was a
+    /// warning callout while the other was a retry state.
+    /// </summary>
+    [Theory]
+    [InlineData("LocalArtifactControlView")]
+    [InlineData("RecoveryDataControlView")]
+    public void Diagnostics_states_sit_in_the_card_their_list_fills(string view)
+    {
+        var root = Assert.IsType<XElement>(LoadView(view).Root);
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "EmptyStatePanel", StringComparison.Ordinal));
+        var states = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "StateOverlay", StringComparison.Ordinal))
+            .ToArray();
+        Assert.Equal(
+            ["Loading", "Empty", "Retry"],
+            states.Select(state => AttributeValue(state, "Kind")),
+            StringComparer.Ordinal);
+        foreach (var state in states)
+        {
+            var card = Assert.IsType<XElement>(state.Parent);
+            Assert.Equal("SurfaceCard", card.Name.LocalName);
+            Assert.Equal("0", AttributeValue(card, "Padding"));
+            Assert.Null(AttributeValue(card, "Tone"));
+            Assert.Equal("{controls:Inset Xl}", AttributeValue(state, "Margin"));
+        }
+    }
+
+    /// <summary>
+    /// The + popover for a browser profile adds a persistent profile on
+    /// Return and says a refused name inside itself.
+    /// </summary>
+    [Fact]
+    public void Browser_profile_popover_adds_on_return_and_refuses_in_place()
+    {
+        var root = Assert.IsType<XElement>(LoadView("SettingsView").Root);
+        var persistent = FindNamedElement(root, "AddPersistentBrowserProfileButton");
+        var @private = FindNamedElement(root, "AddPrivateBrowserProfileButton");
+        Assert.Equal("True", AttributeValue(persistent, "IsDefault"));
+        Assert.Null(AttributeValue(@private, "IsDefault"));
+        foreach (var button in new[] { persistent, @private })
+        {
+            // The command makes the profile; the popover closes when the
+            // editor says it exists, not on the click, which closed it before
+            // the name was checked.
+            Assert.NotNull(AttributeValue(button, "Command"));
+            Assert.Null(AttributeValue(button, "Click"));
+        }
+
+        var error = FindNamedElement(root, "BrowserProfileCreationError");
+        Assert.Equal("{Binding CreationError}", AttributeValue(error, "Text"));
+        Assert.Equal(
+            "{Binding BrowserProfileSettingsEditor}",
+            AttributeValue(FindNamedElement(root, "BrowserProfilePopover"), "DataContext"));
+        Assert.Contains(
+            persistent.Ancestors(),
+            ancestor => string.Equals(ancestor.Name.LocalName, "Flyout", StringComparison.Ordinal)
+                && ancestor.Descendants().Contains(error));
+    }
+
+    /// <summary>
+    /// With no layouts, the layouts card says so rather than drawing an
+    /// empty rounded outline.
+    /// </summary>
+    [Fact]
+    public void Layouts_card_says_when_it_has_no_layouts()
+    {
+        var root = Assert.IsType<XElement>(LoadView("SettingsView").Root);
+        var layouts = Assert.Single(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "ItemsControl", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "ItemsSource"), "{Binding Layouts}", StringComparison.Ordinal));
+        var card = layouts.Ancestors().First(ancestor => string.Equals(ancestor.Name.LocalName, "SurfaceCard", StringComparison.Ordinal));
+        var empty = Assert.Single(
+            card.Descendants(),
+            element => string.Equals(element.Name.LocalName, "StateOverlay", StringComparison.Ordinal));
+        Assert.Equal("Empty", AttributeValue(empty, "Kind"));
+        Assert.Equal("{Binding !Layouts.Count}", AttributeValue(empty, "IsVisible"));
     }
 
     /// <summary>

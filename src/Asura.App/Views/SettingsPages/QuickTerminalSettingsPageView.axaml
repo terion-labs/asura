@@ -19,7 +19,7 @@
     The page now says only what each setting is. Where the label sits, how wide the
     control column is, and which row draws a separator are the group's business.
   -->
-  <StackPanel Spacing="{DynamicResource ShellSpaceXl}">
+  <StackPanel Spacing="{DynamicResource ShellSpaceSection}">
     <!-- Every setting here applies as it changes; there is nothing to save. -->
     <components:SettingsPageHeader
         Heading="Quick Terminal"
@@ -149,10 +149,9 @@
         </Grid>
       </controls:SettingRow>
       <controls:SettingRow
-          IsLeading="True"
           Label="Translucency"
           Description="Whether the terminal sits on the platform's own material, so the desktop shows through it. The amount of blur is the platform's to decide.">
-        <CheckBox
+        <ToggleSwitch
             IsChecked="{Binding QuickTerminalSettingsEditor.IsTranslucent}"
             AutomationProperties.Name="Quick Terminal translucency" />
       </controls:SettingRow>
@@ -170,18 +169,16 @@
         Description="Control how the panel enters, leaves, and retains its terminal session."
         ControlWidth="280">
       <controls:SettingRow
-          IsLeading="True"
           Label="Animate the drop-down"
           Description="Slide the panel in and out instead of snapping.">
-        <CheckBox
+        <ToggleSwitch
             IsChecked="{Binding QuickTerminalSettingsEditor.AnimateSlide}"
             AutomationProperties.Name="Animate Quick Terminal" />
       </controls:SettingRow>
       <controls:SettingRow
-          IsLeading="True"
           Label="Reduce motion"
           Description="Disable slide animation even when animation is enabled.">
-        <CheckBox
+        <ToggleSwitch
             IsChecked="{Binding QuickTerminalSettingsEditor.ReduceMotion}"
             AutomationProperties.Name="Reduce Quick Terminal motion" />
       </controls:SettingRow>
@@ -203,34 +200,30 @@
         </Grid>
       </controls:SettingRow>
       <controls:SettingRow
-          IsLeading="True"
           Label="Hide on focus loss"
           Description="Dismiss the panel when focus moves to another application.">
-        <CheckBox
+        <ToggleSwitch
             IsChecked="{Binding QuickTerminalSettingsEditor.HideOnFocusLoss}"
             AutomationProperties.Name="Hide Quick Terminal on focus loss" />
       </controls:SettingRow>
       <controls:SettingRow
-          IsLeading="True"
           Label="Escape hides Quick Terminal"
           Description="Dismiss the panel with Escape. When off, Escape reaches the program in the terminal, such as vim or less.">
-        <CheckBox
+        <ToggleSwitch
             IsChecked="{Binding QuickTerminalSettingsEditor.HideOnEscape}"
             AutomationProperties.Name="Escape hides Quick Terminal" />
       </controls:SettingRow>
       <controls:SettingRow
-          IsLeading="True"
           Label="Keep terminal session"
           Description="Retain the terminal and scrollback between openings. Turning this off starts a fresh shell next time.">
-        <CheckBox
+        <ToggleSwitch
             IsChecked="{Binding QuickTerminalSettingsEditor.RestoreLastSession}"
             AutomationProperties.Name="Keep Quick Terminal session" />
       </controls:SettingRow>
       <controls:SettingRow
-          IsLeading="True"
           Label="Restore on start"
           Description="Reopen Quick Terminal tabs and their connections when Asura starts, like main-window session restore.">
-        <CheckBox
+        <ToggleSwitch
             IsChecked="{Binding QuickTerminalSettingsEditor.RestoreOnStart}"
             AutomationProperties.Name="Restore Quick Terminal on start" />
       </controls:SettingRow>

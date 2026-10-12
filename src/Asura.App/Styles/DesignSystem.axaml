@@ -1222,8 +1222,13 @@
       </Style>
     </ControlTheme>
 
+    <!-- A settings row is a grouped list row, System Settings': 10 across and
+         6 down from the card, with the label standing in a further step so it
+         starts where a list row's title starts inside its inset highlight.
+         The row was 16,12 around a control-tall column, which stood a single
+         switch in a band 52 points tall. -->
     <ControlTheme x:Key="{x:Type controls:SettingRow}" TargetType="controls:SettingRow">
-      <Setter Property="Padding" Value="{DynamicResource ShellRowPadding}" />
+      <Setter Property="Padding" Value="{DynamicResource ShellListRowPadding}" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="Template">
@@ -1269,9 +1274,13 @@
                     TextWrapping="Wrap"
                     IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
               </StackPanel>
+              <!-- At least a control's height, so a row whose control is a
+                   switch stands as tall as one whose control is a pop-up
+                   button: a group of rows reads as one even list. -->
               <ContentPresenter
                   Name="PART_Control"
                   Grid.Column="1"
+                  MinHeight="{DynamicResource ShellControlMinHeight}"
                   Content="{TemplateBinding Content}"
                   ContentTemplate="{TemplateBinding ContentTemplate}"
                   HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
@@ -1404,7 +1413,8 @@
                     IsVisible="False" />
                 <ContentPresenter
                     Name="PART_Footer"
-                    Margin="{DynamicResource ShellRowPadding}"
+                    Margin="{DynamicResource ShellListRowPadding}"
+                    Padding="{controls:Inset Horizontal=Xs}"
                     Content="{TemplateBinding Footer}"
                     IsVisible="False" />
               </StackPanel>

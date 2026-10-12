@@ -284,6 +284,163 @@ public sealed class SettingsWindowHeadlessTests
         }, CancellationToken.None));
     }
 
+    /// <summary>
+    /// A settings list is one card with its rows edge to edge and the + and –
+    /// along its bottom edge; a selected row's highlight stands the same
+    /// distance from the row's edges on all four sides. The stock row was
+    /// inset at its sides only, so the highlight met the card's top edge and
+    /// the hairline under it.
+    /// </summary>
+    [Theory]
+    [InlineData(SettingsPage.Workspaces, "WorkspaceList", "DeleteWorkspaceButton")]
+    [InlineData(SettingsPage.Browser, "BrowserProfileList", "DeleteBrowserProfileButton")]
+    [InlineData(SettingsPage.Files, "FileProviderList", "DeleteFileProviderButton")]
+    public async Task Settings_lists_are_one_card_with_an_evenly_inset_selection(
+        SettingsPage page,
+        string listName,
+        string minusName)
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            using var viewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();
+            viewModel.ShowSettings(page);
+            var view = new SettingsView { DataContext = viewModel };
+            var host = new Window { Content = view, Width = 1000, Height = 800 };
+            host.Show();
+            try
+            {
+                host.UpdateLayout();
+                var list = view.GetLogicalDescendants().OfType<ListBox>()
+                    .Single(item => string.Equals(item.Name, listName, StringComparison.Ordinal));
+                var minus = view.GetLogicalDescendants().OfType<Button>()
+                    .Single(item => string.Equals(item.Name, minusName, StringComparison.Ordinal));
+                Assert.Contains("Separated", list.Classes, StringComparer.Ordinal);
+
+                // The + and – sit in the bar inside the list's own card.
+                var card = list.GetVisualAncestors().OfType<Asura.App.Controls.SurfaceCard>().First();
+                var bar = minus.GetVisualAncestors().OfType<Border>()
+                    .First(border => border.Classes.Contains("ListActionBar"));
+                Assert.Contains(card, bar.GetVisualAncestors());
+
+                // The hairline over the bar is the list's own bottom edge, so
+                // an empty list draws none: the bar's line sat right under the
+                // card's border, a doubled edge on an empty card.
+                Assert.Equal(0, bar.BorderThickness.Top);
+                if (list.ItemCount == 0)
+                {
+                    Assert.Equal(default, list.BorderThickness);
+                    return true;
+                }
+
+                Assert.Equal(new Thickness(0, 0, 0, 1), list.BorderThickness);
+
+                list.SelectedIndex = 0;
+                Dispatcher.UIThread.RunJobs();
+                host.UpdateLayout();
+                var item = Assert.IsType<ListBoxItem>(list.ContainerFromIndex(0));
+                var highlight = item.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>()
+                    .First(presenter => string.Equals(presenter.Name, "PART_ContentPresenter", StringComparison.Ordinal));
+                var origin = highlight.TranslatePoint(default, item)!.Value;
+                var left = origin.X;
+                var top = origin.Y;
+                var right = item.Bounds.Width - origin.X - highlight.Bounds.Width;
+                var bottom = item.Bounds.Height - origin.Y - highlight.Bounds.Height;
+                Assert.True(left > 0, "The highlight touches the row's leading edge.");
+                Assert.Equal(left, top, 3);
+                Assert.Equal(left, right, 3);
+                Assert.Equal(left, bottom, 3);
+                // The row itself spans the card edge to edge.
+                Assert.Equal(list.Bounds.Width, item.Bounds.Width, 3);
+
+                // macOS 26 grouped-row metrics: the highlight inset 4 on every
+                // side, the row's content 10 across and 6 down inside it, and
+                // the row at least the host's 28 points tall.
+                Assert.Equal(4, left, 3);
+                var row = item.GetVisualDescendants().OfType<Asura.App.Controls.ListItem>().First();
+                Assert.Equal(new Thickness(10, 6), row.ContentPadding);
+                var leading = row.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>()
+                    .First(presenter => string.Equals(presenter.Name, "PART_Leading", StringComparison.Ordinal));
+                Assert.Equal(14, leading.TranslatePoint(default, item)!.Value.X, 3);
+                Assert.True(item.Bounds.Height >= 28, $"The row is {item.Bounds.Height} tall.");
+                return true;
+            }
+            finally
+            {
+                host.Close();
+            }
+        }, CancellationToken.None));
+    }
+
+    /// <summary>
+    /// The + popover for a browser profile stays open on a refused name and
+    /// says why under the field, and closes once the profile exists. It used
+    /// to close on the click, before the name was checked, and report the
+    /// refusal elsewhere on the page.
+    /// </summary>
+    [Fact]
+    public async Task Browser_profile_popover_closes_only_once_the_profile_exists()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            using var viewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();
+            viewModel.ShowSettings(SettingsPage.Browser);
+            var view = new SettingsView { DataContext = viewModel };
+            var host = new Window { Content = view, Width = 1000, Height = 800 };
+            host.Show();
+            try
+            {
+                host.UpdateLayout();
+                var add = view.GetLogicalDescendants().OfType<Button>()
+                    .Single(item => string.Equals(item.Name, "AddBrowserProfileButton", StringComparison.Ordinal));
+                var flyout = Assert.IsType<Flyout>(add.Flyout);
+                flyout.ShowAt(add);
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(flyout.IsOpen);
+
+                var popover = Assert.IsType<StackPanel>(flyout.Content);
+                var editor = viewModel.BrowserProfileSettingsEditor;
+                Assert.Same(editor, popover.DataContext);
+                var persistent = popover.GetLogicalDescendants().OfType<Button>()
+                    .Single(item => string.Equals(item.Name, "AddPersistentBrowserProfileButton", StringComparison.Ordinal));
+                Assert.True(persistent.IsDefault);
+                Assert.Equal(string.Empty, editor.NewProfileName);
+
+                persistent.Command!.Execute(null);
+                await WaitUntilAsync(() => editor.HasCreationError);
+                Assert.True(flyout.IsOpen, "A refused name closed the popover.");
+                var error = popover.GetLogicalDescendants().OfType<TextBlock>()
+                    .Single(item => string.Equals(item.Name, "BrowserProfileCreationError", StringComparison.Ordinal));
+                Assert.True(error.IsVisible);
+
+                editor.NewProfileName = "Staging";
+                var before = editor.Profiles.Count;
+                persistent.Command.Execute(null);
+                await WaitUntilAsync(() => editor.Profiles.Count > before);
+                Dispatcher.UIThread.RunJobs();
+                Assert.False(flyout.IsOpen, "The popover stayed open after the profile was made.");
+                Assert.Equal(string.Empty, editor.NewProfileName);
+                return true;
+            }
+            finally
+            {
+                host.Close();
+            }
+        }, CancellationToken.None));
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!condition())
+        {
+            Assert.True(DateTime.UtcNow < deadline, "The condition never held.");
+            Dispatcher.UIThread.RunJobs();
+            await Task.Delay(10);
+        }
+    }
+
     [Fact]
     public async Task Settings_search_finds_rows_a_list_draws_and_says_when_the_page_has_none()
     {
@@ -355,9 +512,10 @@ public sealed class SettingsWindowHeadlessTests
                         .OfType<Asura.App.Controls.SettingRow>()
                         .Single(row => string.Equals(row.Label, label, StringComparison.Ordinal));
 
-                // An option's name is its checkbox's title; the row it names
-                // is the one search keeps.
-                Assert.Equal(found, Assert.IsType<CheckBox>(Row(found).Content).Content);
+                // An option is a switch at its row's trailing edge, named by
+                // the row's label; the row it names is the one search keeps.
+                Assert.False(Row(found).IsLeading);
+                Assert.IsType<ToggleSwitch>(Row(found).Content);
                 view.SearchQuery = query;
                 Dispatcher.UIThread.RunJobs();
                 Assert.True(Row(found).IsEffectivelyVisible);
@@ -377,13 +535,13 @@ public sealed class SettingsWindowHeadlessTests
     }
 
     [Fact]
-    public async Task A_saved_frame_off_every_screen_is_brought_back_and_the_height_follows_the_page()
+    public async Task A_saved_frame_off_every_screen_is_brought_back_at_its_saved_size()
     {
         await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var store = new MemorySettingsWindowStateStore(
-                new SettingsWindowState("About", X: -40_000, Y: -40_000, Width: 900, Height: 2_000));
+                new SettingsWindowState("About", X: -40_000, Y: -40_000, Width: 900, Height: 640));
             ForgetSettingsWindowState(store);
             using var viewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();
             var window = new MainWindow { DataContext = viewModel, Width = 1400, Height = 900 };
@@ -395,7 +553,8 @@ public sealed class SettingsWindowHeadlessTests
                 var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
                 Assert.Equal(SettingsPage.About, viewModel.SettingsPage);
                 Assert.Equal(900, settings.Width);
-                Assert.Equal(SizeToContent.Height, settings.SizeToContent);
+                Assert.Equal(640, settings.Height);
+                Assert.Equal(SizeToContent.Manual, settings.SizeToContent);
                 if (settings.Screens.Primary is { } screen)
                 {
                     Assert.True(screen.WorkingArea.Contains(settings.Position)
@@ -407,6 +566,8 @@ public sealed class SettingsWindowHeadlessTests
                 var saved = Assert.IsType<SettingsWindowState>(store.Saved);
                 Assert.Equal("About", saved.LastPage);
                 Assert.True(saved.HasFrame);
+                Assert.Equal(900, saved.Width);
+                Assert.Equal(640, saved.Height);
                 return true;
             }
             finally
@@ -416,6 +577,151 @@ public sealed class SettingsWindowHeadlessTests
                 ForgetSettingsWindowState();
             }
         }, CancellationToken.None));
+    }
+
+    /// <summary>
+    /// A saved frame taller than the screen comes back no taller than the
+    /// screen allows, title bar included, rather than past its bottom edge,
+    /// where the end of a long page could never be scrolled into view.
+    /// </summary>
+    [Fact]
+    public async Task A_saved_frame_taller_than_the_screen_fits_the_screen()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            ForgetSettingsWindowState(new MemorySettingsWindowStateStore(
+                new SettingsWindowState("About", X: 0, Y: 0, Width: 900, Height: 50_000)));
+            using var viewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();
+            var window = new MainWindow { DataContext = viewModel, Width = 1400, Height = 900 };
+            window.Show();
+            try
+            {
+                window.NavigateToSettings();
+                Dispatcher.UIThread.RunJobs();
+                var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
+                var screen = settings.Screens.Primary ?? settings.Screens.All.First();
+                var available = screen.WorkingArea.Size.ToSize(screen.Scaling);
+                Assert.True(
+                    settings.Height < available.Height,
+                    $"The window is {settings.Height} tall on a {available.Height} working area.");
+                return true;
+            }
+            finally
+            {
+                SettingsWindow.Current?.CloseForHost();
+                window.Close();
+                ForgetSettingsWindowState();
+            }
+        }, CancellationToken.None));
+    }
+
+    /// <summary>
+    /// The window keeps one size whichever page it shows, and every page
+    /// scrolls all the way to its last control. The window used to fit its
+    /// height to each page, so it jumped on every page change, and a long
+    /// page laid out taller than the frame it was given could not be
+    /// scrolled to its end.
+    ///
+    /// The size and SizeToContent assertions are what catch that regression
+    /// here. The scroll assertion guards the page's own layout (a page whose
+    /// scroller grows past the window, or a last control the scroller cannot
+    /// reach); it cannot see the native frame being shorter than the laid-out
+    /// one, because the headless platform grants every frame it is asked for.
+    /// </summary>
+    [Fact]
+    public async Task Settings_keeps_one_size_and_every_page_scrolls_to_its_end()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            ForgetSettingsWindowState();
+            using var viewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();
+            var window = new MainWindow { DataContext = viewModel, Width = 1400, Height = 900 };
+            window.Show();
+            try
+            {
+                window.NavigateToSettings(SettingsPage.About);
+                Dispatcher.UIThread.RunJobs();
+                var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
+                settings.UpdateLayout();
+                var width = settings.Width;
+                var height = settings.Height;
+                Assert.Equal(SizeToContent.Manual, settings.SizeToContent);
+
+                foreach (var page in Enum.GetValues<SettingsPage>())
+                {
+                    Assert.True(await window.RequestSettingsPageAsync(page));
+                    Dispatcher.UIThread.RunJobs();
+                    settings.UpdateLayout();
+                    Assert.Equal(width, settings.Width);
+                    Assert.Equal(height, settings.Height);
+                    Assert.Equal(SizeToContent.Manual, settings.SizeToContent);
+
+                    var scroll = settings.GetVisualDescendants()
+                        .OfType<ScrollViewer>()
+                        .Single(viewer => string.Equals(viewer.Name, "SettingsPageScroll", StringComparison.Ordinal));
+                    Assert.True(
+                        scroll.Bounds.Height <= settings.ClientSize.Height + 0.5,
+                        $"{page}: the page scroller is {scroll.Bounds.Height} tall in a {settings.ClientSize.Height} window.");
+                    scroll.ScrollToEnd();
+                    Dispatcher.UIThread.RunJobs();
+                    settings.UpdateLayout();
+
+                    var content = Assert.IsAssignableFrom<Control>(scroll.Content);
+                    var last = content.GetVisualDescendants()
+                        .OfType<Control>()
+                        .Where(control => control.IsEffectivelyVisible && control.Bounds.Height > 0)
+                        .Select(control => control.TranslatePoint(new Point(0, control.Bounds.Height), scroll))
+                        .Where(point => point is not null)
+                        .Max(point => point!.Value.Y);
+                    Assert.True(
+                        last <= scroll.Viewport.Height + 0.5,
+                        $"{page}: the last control ends at {last}, below the {scroll.Viewport.Height} the page shows.");
+                }
+
+                return true;
+            }
+            finally
+            {
+                SettingsWindow.Current?.CloseForHost();
+                window.Close();
+                ForgetSettingsWindowState();
+            }
+        }, CancellationToken.None));
+    }
+
+    /// <summary>
+    /// A restored frame is fitted to the screen it was saved on, not the
+    /// primary one: fitting against the primary screen shrank a frame saved
+    /// on a larger second display and let one saved on a smaller display
+    /// stay taller than it.
+    /// </summary>
+    [Fact]
+    public void A_restored_frame_fits_the_screen_it_was_saved_on()
+    {
+        var primary = new PixelRect(0, 0, 1440, 900);
+        var large = new PixelRect(1440, 0, 2560, 1440);
+        var small = new PixelRect(-1024, 0, 1024, 600);
+        PixelRect[] screens = [primary, large, small];
+
+        Assert.Equal(
+            large,
+            SettingsWindow.HomeScreen(new PixelPoint(1500, 40), new PixelPoint(1500, 40), screens, area => area, primary));
+        Assert.Equal(
+            small,
+            SettingsWindow.HomeScreen(new PixelPoint(-900, 20), new PixelPoint(-900, 20), screens, area => area, primary));
+        // Brought back from off every screen, it belongs to where it landed.
+        Assert.Equal(
+            primary,
+            SettingsWindow.HomeScreen(new PixelPoint(100, 100), new PixelPoint(-40_000, -40_000), screens, area => area, primary));
+
+        var minimum = new Size(760, 480);
+        var saved = new Size(1600, 1100);
+        Assert.Equal(saved, SettingsWindow.FitSize(saved, minimum, large.Size.ToSize(1)));
+        Assert.Equal(new Size(primary.Width * 0.9, primary.Height * 0.9), SettingsWindow.FitSize(saved, minimum, primary.Size.ToSize(1)));
+        Assert.Equal(new Size(small.Width * 0.9, small.Height * 0.9), SettingsWindow.FitSize(saved, minimum, small.Size.ToSize(1)));
+        Assert.Equal(minimum, SettingsWindow.FitSize(new Size(100, 100), minimum, large.Size.ToSize(1)));
     }
 
     private static void ForgetSettingsWindowState(ISettingsWindowStateStore? store = null)

@@ -12099,8 +12099,34 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             {
                 "get_Snapshot" => Snapshot,
                 "add_Changed" or "remove_Changed" => null,
+                // Settings' + popover makes a browser profile; it lands in the
+                // snapshot as a new one would.
+                nameof(IDefinitionCatalog.SaveBrowserProfileAsync) => SaveBrowserProfile(
+                    (BrowserProfileDefinition)args![0]!,
+                    (long?)args[1]),
                 _ => throw new NotSupportedException(targetMethod?.Name),
             };
+
+        private ValueTask<DefinitionStoreResult<StoredDefinition<BrowserProfileDefinition>>> SaveBrowserProfile(
+            BrowserProfileDefinition definition,
+            long? expectedRevision)
+        {
+            var stored = new StoredDefinition<BrowserProfileDefinition>(
+                definition,
+                (expectedRevision ?? 0) + 1,
+                DateTimeOffset.UnixEpoch,
+                DateTimeOffset.UnixEpoch);
+            Snapshot = Snapshot with
+            {
+                BrowserProfiles =
+                [
+                    .. Snapshot.BrowserProfiles.Where(item => item.Value.Id != definition.Id),
+                    stored,
+                ],
+            };
+            return ValueTask.FromResult(
+                DefinitionStoreResult<StoredDefinition<BrowserProfileDefinition>>.Success(stored));
+        }
     }
 
     public class MutableWorkspaceCatalogProxy : DispatchProxy
