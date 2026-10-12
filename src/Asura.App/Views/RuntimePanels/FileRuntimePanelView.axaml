@@ -716,12 +716,28 @@
                     Text="{Binding PreviewBinary.Detail}" />
               </StackPanel>
               <!-- An archive is listed, never unpacked. -->
-              <Grid RowDefinitions="Auto,*" IsVisible="{Binding HasTreePreview}">
-                <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                  <Button Content="Previous Archive Page" Command="{Binding PreviousArchivePageCommand}" IsVisible="{Binding HasPreviousArchivePage}" />
-                  <Button Content="Next Archive Page" Command="{Binding NextArchivePageCommand}" IsVisible="{Binding HasNextArchivePage}" />
+              <!-- The listing first and its pager under it, trailing, on the
+                   listing's own inset: wedged between the details card and
+                   the listing, flush with neither, the pager read as a stray
+                   button rather than the way to the rest of the archive. -->
+              <Grid Name="ArchivePreview" RowDefinitions="*,Auto" IsVisible="{Binding HasTreePreview}">
+                <components:PreviewTreeView Margin="{controls:Inset Sm}" DataContext="{Binding PreviewTree}" />
+                <StackPanel
+                    Name="ArchivePager"
+                    Grid.Row="1"
+                    Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal"
+                    Spacing="{DynamicResource ShellSpaceSm}">
+                  <StackPanel.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.Or}">
+                      <Binding Path="HasPreviousArchivePage" />
+                      <Binding Path="HasNextArchivePage" />
+                    </MultiBinding>
+                  </StackPanel.IsVisible>
+                  <Button Classes="Dense" Content="Previous Archive Page" Command="{Binding PreviousArchivePageCommand}" IsVisible="{Binding HasPreviousArchivePage}" />
+                  <Button Classes="Dense" Content="Next Archive Page" Command="{Binding NextArchivePageCommand}" IsVisible="{Binding HasNextArchivePage}" />
                 </StackPanel>
-                <components:PreviewTreeView Grid.Row="1" Margin="{controls:Inset Sm}" DataContext="{Binding PreviewTree}" />
               </Grid>
               <!-- Markdown is laid out as native controls, so its text stays
                    selectable and copyable like any other text in the shell. -->
