@@ -673,7 +673,8 @@ public sealed partial class App
     /// <summary>
     /// A window closed while Asura goes on running: it is not reopened next
     /// time, and its frame is where the next new window starts. Closing the
-    /// last window where that ends the app is quitting, and keeps it.
+    /// last window where that ends the app is quitting, and keeps it, as does
+    /// a confirmed quit; see <see cref="ClosedWindowPolicy"/>.
     /// </summary>
     private void ForgetClosedWindow(MainWindow window, bool isLastWindow)
     {
@@ -687,35 +688,39 @@ public sealed partial class App
             _windowsAwaitingRestore.Remove(viewModel);
         }
 
-        // A quit saved every window before closing any of them.
-        var quitting = _quitInProgress || _quitApproved || _desktopExitStarted;
-        var endsApp = isLastWindow && !KeepsRunningWithoutWindows;
-        if (!quitting && endsApp)
+        var fate = ClosedWindowPolicy.FateOf(
+            quitConfirmed: _quitApproved,
+            exitStarted: _desktopExitStarted,
+            isLastWindow,
+            KeepsRunningWithoutWindows);
+        switch (fate)
         {
-            // The lifetime has already let go of the closing window, so it is
-            // named here to be reopened next time.
-            SaveWindowPlacements(closing: window);
-        }
-        else if (!quitting)
-        {
-            if (CapturePlacement(window) is { } closed)
-            {
-                _lastClosedPlacement = closed with { State = WindowPlacementState.Normal };
-            }
+            case ClosedWindowFate.Reopened:
+                // The lifetime has already let go of the closing window, so it
+                // is named here to be reopened next time.
+                SaveWindowPlacements(closing: window);
+                break;
+            case ClosedWindowFate.Forgotten:
+                if (CapturePlacement(window) is { } closed)
+                {
+                    _lastClosedPlacement = closed with { State = WindowPlacementState.Normal };
+                }
 
-            recovery?.ReleaseWindowSlot();
-        }
-        else if (_quitApproved)
-        {
-            // Kept for the next launch, unless a later window stops the quit.
-            _quitClosedWindows.Closed(
-                CapturePlacement(window),
-                () => recovery?.ReleaseWindowSlot());
+                recovery?.ReleaseWindowSlot();
+                break;
+            case ClosedWindowFate.KeptForQuit:
+                // Captured before its slot and frame are let go below.
+                _quitClosedWindows.Closed(
+                    CapturePlacement(window),
+                    () => recovery?.ReleaseWindowSlot());
+                break;
+            case ClosedWindowFate.KeptForExit:
+                break;
         }
 
         _windowSlots.Remove(window);
         _normalFrames.Remove(window);
-        if (!quitting && !endsApp)
+        if (fate == ClosedWindowFate.Forgotten)
         {
             SaveWindowPlacements();
         }

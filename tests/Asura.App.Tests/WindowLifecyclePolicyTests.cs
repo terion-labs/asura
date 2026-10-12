@@ -525,6 +525,105 @@ public sealed class WindowLifecyclePolicyTests
         Assert.Equal(0, released);
     }
 
+    [Fact]
+    public async Task A_quit_whose_close_fails_outright_still_forgets_the_windows_it_closed()
+    {
+        var closedFirst = new WindowPlacement(0, 10, 20, 1200, 800, WindowPlacementState.Normal);
+        var survivor = new WindowPlacement(1, 80, 90, 900, 700, WindowPlacementState.Normal);
+        var closedWindows = new QuitClosedWindows();
+        var released = new List<int>();
+        var saves = new List<WindowPlacementSet>();
+        var approved = false;
+        var windows = new[]
+        {
+            new FakeQuitWindow
+            {
+                OnClosed = () => closedWindows.Closed(closedFirst, () => released.Add(closedFirst.Slot)),
+            },
+            new FakeQuitWindow { CloseFailure = new InvalidOperationException("The session host went away.") },
+        };
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => ApplicationQuit.RunAsync(
+            windows,
+            () => Task.FromResult<IReadOnlyList<ActiveSessionSummary>?>([]),
+            _ => Task.FromResult(true),
+            () =>
+            {
+                closedWindows.Approve(new WindowPlacementSet([survivor, closedFirst], null));
+                approved = true;
+            },
+            () =>
+            {
+                approved = false;
+                if (closedWindows.Withdraw() is { } kept)
+                {
+                    saves.Add(kept);
+                }
+            }));
+
+        Assert.Equal("The session host went away.", failure.Message);
+        Assert.False(approved);
+        var saved = Assert.Single(saves);
+        Assert.Equal([survivor], saved.Windows);
+        Assert.Equal([closedFirst.Slot], released);
+    }
+
+    [Theory]
+    // Closed on its own, also while a quit is still asking its questions:
+    // nothing is saved for that quit yet, and it may still be cancelled.
+    [InlineData(false, false, false, false, nameof(ClosedWindowFate.Forgotten))]
+    [InlineData(false, false, true, true, nameof(ClosedWindowFate.Forgotten))]
+    // The last window, where that ends the app.
+    [InlineData(false, false, true, false, nameof(ClosedWindowFate.Reopened))]
+    // Closed by a confirmed quit, which saved every window first.
+    [InlineData(true, false, false, false, nameof(ClosedWindowFate.KeptForQuit))]
+    [InlineData(true, false, true, false, nameof(ClosedWindowFate.KeptForQuit))]
+    [InlineData(true, true, false, true, nameof(ClosedWindowFate.KeptForQuit))]
+    // Closed by an exit already under way.
+    [InlineData(false, true, false, false, nameof(ClosedWindowFate.KeptForExit))]
+    [InlineData(false, true, true, false, nameof(ClosedWindowFate.KeptForExit))]
+    public void A_closing_window_is_forgotten_unless_a_confirmed_quit_or_exit_keeps_it(
+        bool quitConfirmed,
+        bool exitStarted,
+        bool isLastWindow,
+        bool keepsRunningWithoutWindows,
+        string expected)
+    {
+        Assert.Equal(
+            Enum.Parse<ClosedWindowFate>(expected),
+            ClosedWindowPolicy.FateOf(quitConfirmed, exitStarted, isLastWindow, keepsRunningWithoutWindows));
+    }
+
+    [Fact]
+    public async Task A_window_closed_while_the_quit_is_still_asking_is_forgotten_when_it_is_cancelled()
+    {
+        var quitConfirmed = false;
+        var fates = new List<ClosedWindowFate>();
+        var windows = new[]
+        {
+            new FakeQuitWindow
+            {
+                // Another window is closed while this one asks about its edits.
+                OnAskedAboutEdits = () => fates.Add(ClosedWindowPolicy.FateOf(
+                    quitConfirmed,
+                    exitStarted: false,
+                    isLastWindow: false,
+                    keepsRunningWithoutWindows: false)),
+            },
+            new FakeQuitWindow { Running = [Session("build")] },
+        };
+
+        var outcome = await ApplicationQuit.RunAsync(
+            windows,
+            () => Task.FromResult<IReadOnlyList<ActiveSessionSummary>?>([]),
+            _ => Task.FromResult(false),
+            () => quitConfirmed = true,
+            () => quitConfirmed = false);
+
+        Assert.Equal(QuitOutcome.Cancelled, outcome);
+        Assert.Equal([ClosedWindowFate.Forgotten], fates);
+    }
+
     private sealed class FakeQuitWindow : IQuitParticipant
     {
         public bool DiscardsEdits { get; init; } = true;
@@ -535,6 +634,10 @@ public sealed class WindowLifecyclePolicyTests
 
         public Action? OnClosed { get; init; }
 
+        public Action? OnAskedAboutEdits { get; init; }
+
+        public Exception? CloseFailure { get; init; }
+
         public bool WasAskedAboutEdits { get; private set; }
 
         public bool WasInspected { get; private set; }
@@ -544,6 +647,7 @@ public sealed class WindowLifecyclePolicyTests
         public Task<bool> ConfirmDiscardPendingEditsAsync()
         {
             WasAskedAboutEdits = true;
+            OnAskedAboutEdits?.Invoke();
             return Task.FromResult(DiscardsEdits);
         }
 
@@ -555,6 +659,11 @@ public sealed class WindowLifecyclePolicyTests
 
         public Task<bool> CloseForQuitAsync()
         {
+            if (CloseFailure is not null)
+            {
+                return Task.FromException<bool>(CloseFailure);
+            }
+
             Closed = Closes;
             if (Closes)
             {

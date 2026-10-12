@@ -71,7 +71,20 @@ internal static class ApplicationQuit
         approve();
         foreach (var window in windows)
         {
-            if (!await window.CloseForQuitAsync())
+            bool closed;
+            try
+            {
+                closed = await window.CloseForQuitAsync();
+            }
+            catch
+            {
+                // A close that fails outright stops the quit too, and Asura
+                // keeps running without the windows already closed.
+                withdraw();
+                throw;
+            }
+
+            if (!closed)
             {
                 // That window reported why. The ones already closed stay
                 // closed; the rest stay open and Asura keeps running.
@@ -81,6 +94,57 @@ internal static class ApplicationQuit
         }
 
         return QuitOutcome.ReadyToExit;
+    }
+}
+
+/// <summary>What happens to a window's saved frame and workspace as it closes.</summary>
+internal enum ClosedWindowFate
+{
+    /// <summary>
+    /// Closed while Asura goes on running: not reopened, its frame is where
+    /// the next new window starts, and its recovery slot is emptied.
+    /// </summary>
+    Forgotten,
+
+    /// <summary>The last window, where that ends the app: saved to reopen next time.</summary>
+    Reopened,
+
+    /// <summary>
+    /// Closed by a confirmed quit, which saved every window first: kept for
+    /// the next launch unless a later window stops the quit.
+    /// </summary>
+    KeptForQuit,
+
+    /// <summary>Closed by an exit already under way, which keeps every window.</summary>
+    KeptForExit,
+}
+
+internal static class ClosedWindowPolicy
+{
+    /// <summary>
+    /// What a closing window leaves behind. A quit that is still asking its
+    /// questions has saved nothing yet and may be cancelled, so a window
+    /// closed meanwhile is forgotten like any other.
+    /// </summary>
+    public static ClosedWindowFate FateOf(
+        bool quitConfirmed,
+        bool exitStarted,
+        bool isLastWindow,
+        bool keepsRunningWithoutWindows)
+    {
+        if (quitConfirmed)
+        {
+            return ClosedWindowFate.KeptForQuit;
+        }
+
+        if (exitStarted)
+        {
+            return ClosedWindowFate.KeptForExit;
+        }
+
+        return isLastWindow && !keepsRunningWithoutWindows
+            ? ClosedWindowFate.Reopened
+            : ClosedWindowFate.Forgotten;
     }
 }
 
