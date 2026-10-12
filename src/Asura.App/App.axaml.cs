@@ -109,6 +109,9 @@ public sealed partial class App : Avalonia.Application
         // timing from Avalonia's default interaction handler.
         DefaultMenuInteractionHandler.MenuShowDelay = SubmenuHoverDelay;
 
+        // A scroll puts tooltips away until the pointer itself moves, so
+        // content sliding under a still pointer does not pop one per row.
+        ScrollQuietToolTips.Install();
 
         // A dock splitter is laid out by its Width or Height, while its panel
         // reserves the current Thickness. Dock copies Thickness to the active
