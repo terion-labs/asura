@@ -312,8 +312,8 @@ internal sealed class QaApplication : Avalonia.Application
     private static readonly QaGitRepositoryClient Git = new();
 
     /// <summary>The Settings window's size when a route does not ask for more.</summary>
-    private const int SettingsCaptureWidth = 980;
-    private const int SettingsCaptureHeight = 720;
+    private const int SettingsCaptureWidth = 850;
+    private const int SettingsCaptureHeight = 800;
     private const int DefaultCaptureHeight = 900;
 
     private static readonly RouteCapture[] Routes =
@@ -339,7 +339,41 @@ internal sealed class QaApplication : Avalonia.Application
             vm => vm.ShowSettings(SettingsPage.Mcp),
             PrepareCapture: ScrollSettingsToMcp),
         new("settings-secrets", vm => vm.ShowSettings(SettingsPage.Secrets)),
-        new("settings-diagnostics", vm => vm.ShowSettings(SettingsPage.Diagnostics)),
+        // With the page's own sections bound, as the product binds them: the
+        // cache and logs, the crash-recovery runs, and the bundle.
+        new(
+            "settings-diagnostics",
+            vm => vm.ShowSettings(SettingsPage.Diagnostics),
+            PrepareCapture: QaDiagnostics.BindSettingsPage),
+        new(
+            "settings-diagnostics-full",
+            vm => vm.ShowSettings(SettingsPage.Diagnostics),
+            Height: 1500,
+            PrepareCapture: QaDiagnostics.BindSettingsPage),
+        // The grouped form in the appearances it has to survive: light, the
+        // high-contrast plates that gain an edge, and the largest text sizes,
+        // where the sidebar widens and rows grow with their text.
+        new(
+            "settings-terminal-light",
+            vm => vm.ShowSettings(SettingsPage.Terminal),
+            Theme: new ThemePreference(
+                ThemePreference.Default.Id,
+                ThemePreference.Default.Name,
+                AppearanceMode.Light,
+                PlatformProfile.Automatic,
+                AccentPreference.FollowHost)),
+        new(
+            "settings-terminal-high-contrast",
+            vm => vm.ShowSettings(SettingsPage.Terminal),
+            HighContrast: true),
+        new(
+            "settings-terminal-scale-200",
+            vm => vm.ShowSettings(SettingsPage.Terminal),
+            Theme: AppearanceScale(2)),
+        new(
+            "settings-appearance-scale-250",
+            vm => vm.ShowSettings(SettingsPage.Appearance),
+            Theme: AppearanceScale(2.5)),
         new("settings-about", vm => vm.ShowSettings(SettingsPage.About)),
         new("settings-notifications", vm => vm.ShowSettings(SettingsPage.Notifications)),
         new("settings-git", vm => vm.ShowSettings(SettingsPage.Git)),
