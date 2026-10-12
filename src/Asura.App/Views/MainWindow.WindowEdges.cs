@@ -5,14 +5,22 @@ using Avalonia.Input;
 namespace Asura.App.Views;
 
 /// <summary>
-/// The window's inner resize band on a Mac: the gutter inside the left, right
-/// and bottom edges resizes the window as AppKit's own edge does, so the edge
-/// is not a three-point target. See <see cref="MacOsWindowEdgeResize"/>.
+/// The window's inner resize grips on a Mac: the gutter inside the left,
+/// right and bottom edges and the bottom corners resizes the window as
+/// AppKit's own edge does, so the edge is not a three-point target. See
+/// <see cref="MacOsWindowEdgeResize"/> and <see cref="MacOsWindowResizeGrip"/>.
 /// </summary>
 public sealed partial class MainWindow
 {
     private MacOsWindowEdgeResize.Session? _edgeResize;
     private bool _windowEdgesAttached;
+
+    /// <summary>Starts a drag of the real AppKit window; a test puts its own frame here.</summary>
+    internal Func<Window, WindowResizeEdges, MacOsWindowEdgeResize.Session?> BeginWindowEdgeResize { get; set; } =
+        MacOsWindowEdgeResize.TryBegin;
+
+    /// <summary>Whether a grip is being dragged.</summary>
+    internal bool IsResizingFromEdge => _edgeResize is not null;
 
     private void AttachWindowEdges()
     {
@@ -23,30 +31,23 @@ public sealed partial class MainWindow
 
         _windowEdgesAttached = true;
         // Looked up by name: this window loads its XAML itself.
-        foreach (var (name, edges) in new[]
+        if (this.FindControl<Panel>("WindowResizeBand") is { } band)
         {
-            ("WindowResizeLeft", WindowResizeEdges.Left),
-            ("WindowResizeRight", WindowResizeEdges.Right),
-            ("WindowResizeBottom", WindowResizeEdges.Bottom),
-        })
-        {
-            if (this.FindControl<Border>(name) is not { } band)
+            foreach (var grip in band.Children.OfType<MacOsWindowResizeGrip>())
             {
-                continue;
+                grip.PointerPressed += OnWindowEdgePressed;
+                grip.PointerMoved += (_, _) => _edgeResize?.Update();
+                grip.PointerReleased += (_, _) => _edgeResize = null;
+                grip.PointerCaptureLost += (_, _) => _edgeResize = null;
             }
-
-            band.PointerPressed += (_, e) => BeginEdgeResize(band, edges, e);
-            band.PointerMoved += (_, _) => _edgeResize?.Update();
-            band.PointerReleased += (_, _) => _edgeResize = null;
-            band.PointerCaptureLost += (_, _) => _edgeResize = null;
         }
 
         RefreshWindowEdges();
     }
 
     /// <summary>
-    /// The band is there while the window can be resized from its edges: not
-    /// in full screen, and not for a window that cannot be resized at all.
+    /// The grips are there while the window can be resized from its edges:
+    /// not in full screen, and not for a window that cannot be resized at all.
     /// </summary>
     private void RefreshWindowEdges()
     {
@@ -70,20 +71,21 @@ public sealed partial class MainWindow
         WindowState state) =>
         supported && canResize && state != WindowState.FullScreen;
 
-    private void BeginEdgeResize(Border band, WindowResizeEdges edges, PointerPressedEventArgs e)
+    private void OnWindowEdgePressed(object? sender, PointerPressedEventArgs e)
     {
-        if (!e.GetCurrentPoint(band).Properties.IsLeftButtonPressed)
+        if (sender is not MacOsWindowResizeGrip grip
+            || !e.GetCurrentPoint(grip).Properties.IsLeftButtonPressed)
         {
             return;
         }
 
-        // Handled either way: a press in the gutter is never meant for the
-        // backdrop behind it.
+        // Handled either way: a grip takes only points over the backdrop, so
+        // the press was never meant for anything behind it.
         e.Handled = true;
-        _edgeResize = MacOsWindowEdgeResize.TryBegin(this, edges);
+        _edgeResize = BeginWindowEdgeResize(this, grip.Edges);
         if (_edgeResize is not null)
         {
-            e.Pointer.Capture(band);
+            e.Pointer.Capture(grip);
         }
     }
 

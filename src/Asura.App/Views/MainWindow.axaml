@@ -408,6 +408,7 @@
   -->
   <Grid
       Background="{DynamicResource ShellWindowBackdropBrush}"
+      views:MacOsWindowResizeGrip.IsWindowBackdrop="True"
       controls:Concentric.IsContainer="True"
       controls:Concentric.ContainerRadius="{DynamicResource ShellWindowCornerRadius}">
     <!-- Everything the app draws lives inside this one layer so locking can
@@ -686,31 +687,43 @@
         DataContext="{CompiledBinding ApplicationSecurityEditor}"
         IsVisible="{CompiledBinding IsLocked}" />
 
-    <!-- The window's inner resize band on a Mac: the gutter between the frame
-         and the rail and panels, left, right and bottom, resizes the window
-         as the frame's own edge does. It is no wider than that gutter, so it
-         never covers a control, and it sits above everything so an overlay
-         cannot take the edge away. Shown by the code-behind; see
-         MacOsWindowEdgeResize. -->
+    <!-- The window's inner resize grips on a Mac: the gutter between the
+         frame and the rail and panels, left, right and bottom, and the two
+         bottom corners resize the window as the frame's own edge does. A grip
+         takes a point only where the backdrop shows through beneath it, so it
+         never covers a control, a tab, the title bar or an overlay in any
+         layout. It sits above the content so that it is asked first. Shown
+         by the code-behind; see MacOsWindowEdgeResize. -->
     <Panel x:Name="WindowResizeBand" ZIndex="10000" IsVisible="False">
-      <Border
+      <views:MacOsWindowResizeGrip
           x:Name="WindowResizeLeft"
+          Edges="Left"
           Width="{DynamicResource ShellSpaceSm}"
-          HorizontalAlignment="Left"
-          Background="Transparent"
-          Cursor="SizeWestEast" />
-      <Border
+          HorizontalAlignment="Left" />
+      <views:MacOsWindowResizeGrip
           x:Name="WindowResizeRight"
+          Edges="Right"
           Width="{DynamicResource ShellSpaceSm}"
-          HorizontalAlignment="Right"
-          Background="Transparent"
-          Cursor="SizeWestEast" />
-      <Border
+          HorizontalAlignment="Right" />
+      <views:MacOsWindowResizeGrip
           x:Name="WindowResizeBottom"
+          Edges="Bottom"
           Height="{DynamicResource ShellSpaceSm}"
-          VerticalAlignment="Bottom"
-          Background="Transparent"
-          Cursor="SizeNorthSouth" />
+          VerticalAlignment="Bottom" />
+      <views:MacOsWindowResizeGrip
+          x:Name="WindowResizeBottomLeft"
+          Edges="BottomLeft"
+          Width="{DynamicResource ShellSpaceLg}"
+          Height="{DynamicResource ShellSpaceLg}"
+          HorizontalAlignment="Left"
+          VerticalAlignment="Bottom" />
+      <views:MacOsWindowResizeGrip
+          x:Name="WindowResizeBottomRight"
+          Edges="BottomRight"
+          Width="{DynamicResource ShellSpaceLg}"
+          Height="{DynamicResource ShellSpaceLg}"
+          HorizontalAlignment="Right"
+          VerticalAlignment="Bottom" />
     </Panel>
   </Grid>
 </Window>
