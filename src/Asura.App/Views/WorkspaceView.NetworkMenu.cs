@@ -1,4 +1,5 @@
 using System.Globalization;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -21,23 +22,16 @@ public sealed partial class WorkspaceView
     private void OnWorkspaceNetworkMenuOpening(object? sender, EventArgs e)
     {
         _ = e;
-        if (sender is not MenuFlyout menu)
+        if (sender is not DynamicMenuFlyout menu)
         {
             return;
         }
 
         // The button's tag carries the workspace's route control, as the
         // Workspaces menu's carries the workspace list.
-        menu.Items.Clear();
-        if (WorkspaceNetworkButton.Tag is not WorkspaceNetworkControlViewModel network)
-        {
-            return;
-        }
-
-        foreach (var item in BuildWorkspaceNetworkMenu(network))
-        {
-            menu.Items.Add(item);
-        }
+        menu.ReplaceItems(WorkspaceNetworkButton.Tag is WorkspaceNetworkControlViewModel network
+            ? BuildWorkspaceNetworkMenu(network)
+            : []);
     }
 
     internal IReadOnlyList<Control> BuildWorkspaceNetworkMenu(WorkspaceNetworkControlViewModel network)

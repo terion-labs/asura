@@ -35,7 +35,7 @@ public sealed class WorkspaceOrderHeadlessTests
         try
         {
             var menu = view.FindControl<Button>("WorkspacesMenuButton")!;
-            var flyout = Assert.IsType<MenuFlyout>(menu.Flyout);
+            var flyout = Assert.IsType<DynamicMenuFlyout>(menu.Flyout);
             flyout.ShowAt(menu);
             await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
             var items = flyout.Items.OfType<MenuItem>().ToArray();
@@ -299,7 +299,7 @@ public sealed class WorkspaceOrderHeadlessTests
     private static Point Position(WorkspaceRailTile tile, Window window, double fraction) =>
         tile.TranslatePoint(new Point(tile.Bounds.Width / 2, tile.Bounds.Height * fraction), window)!.Value;
 
-    private static MainWindowViewModel CreateModel(out OrderCatalog catalog)
+    internal static MainWindowViewModel CreateModel(out OrderCatalog catalog)
     {
         var dependency = DispatchProxy.Create<IDefinitionCatalog, OrderCatalog>();
         catalog = (OrderCatalog)(object)dependency;

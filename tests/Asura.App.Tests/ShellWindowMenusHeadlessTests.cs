@@ -128,6 +128,41 @@ public sealed class ShellWindowMenusHeadlessTests
         return Task.CompletedTask;
     });
 
+    [Fact]
+    public Task Network_route_menu_draws_its_items_when_it_opens() => RunAsync(async () =>
+    {
+        using var model = CreateModel();
+        var view = new WorkspaceView { DataContext = model };
+        var window = new Window { Width = 1000, Height = 700, Content = view, DataContext = model };
+        window.Show();
+        try
+        {
+            var network = new WorkspaceNetworkControlViewModel(
+                new WorkspaceNetworkPolicyUpdate(
+                    new NetworkPolicy([FirstId, SecondId], SecondId, isEnabled: true, killSwitchEnabled: false),
+                    [Profile(FirstId, "First"), Profile(SecondId, "Second")]),
+                session: null,
+                new ImmediateDispatcher());
+            var button = view.FindControl<Button>("WorkspaceNetworkButton")!;
+            button.Tag = network;
+            button.IsVisible = true;
+            window.UpdateLayout();
+
+            // Filled as it opens, and drawn: a menu filled after its presenter
+            // was made opened as an empty hairline.
+            var flyout = Assert.IsType<DynamicMenuFlyout>(button.Flyout);
+            flyout.ShowAt(button);
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+            var presenter = Assert.IsType<MenuFlyoutPresenter>(flyout.Popup.Child);
+            Assert.Equal(view.BuildWorkspaceNetworkMenu(network).Count, presenter.ItemCount);
+            Assert.Contains(
+                presenter.GetRealizedContainers().OfType<MenuItem>(),
+                item => Equals(item.Header, "Second") && item.IsChecked);
+            flyout.Hide();
+        }
+        finally { window.Close(); }
+    });
+
     private static NetworkConnectionProfile Profile(NetworkConnectionId id, string name) =>
         new(
             id,

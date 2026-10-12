@@ -137,7 +137,7 @@
         AutomationProperties.Name="Show all tabs">
       <icons:SymbolIcon Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
       <Button.Flyout>
-        <MenuFlyout Placement="BottomEdgeAlignedRight" Opening="OnOverflowMenuOpening" />
+        <controls:DynamicMenuFlyout Placement="BottomEdgeAlignedRight" Opening="OnOverflowMenuOpening" />
       </Button.Flyout>
     </Button>
     <ScrollViewer

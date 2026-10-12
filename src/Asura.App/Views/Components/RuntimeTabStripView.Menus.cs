@@ -1,5 +1,6 @@
 using System.Collections;
 using System.ComponentModel;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
@@ -255,12 +256,12 @@ public sealed partial class RuntimeTabStripView
     private void OnOverflowMenuOpening(object? sender, EventArgs e)
     {
         _ = e;
-        if (sender is not MenuFlyout menu)
+        if (sender is not DynamicMenuFlyout menu)
         {
             return;
         }
 
-        menu.Items.Clear();
+        var items = new List<Control>();
         foreach (var tab in (Tabs ?? Array.Empty<object>()).OfType<IRuntimeTabStripItem>())
         {
             var item = new MenuItem
@@ -271,8 +272,10 @@ public sealed partial class RuntimeTabStripView
                 IsChecked = tab.IsActive,
             };
             item.Click += OnActivate;
-            menu.Items.Add(item);
+            items.Add(item);
         }
+
+        menu.ReplaceItems(items);
     }
 }
 

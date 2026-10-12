@@ -31,21 +31,17 @@ public sealed partial class WorkspaceView
     private void OnWorkspacesMenuOpening(object? sender, EventArgs e)
     {
         _ = e;
-        if (sender is not MenuFlyout menu)
+        if (sender is not DynamicMenuFlyout menu)
         {
             return;
         }
 
         // The button's tag carries the shell's workspace list: this view
         // forwards to the shell and does not know its view model's type.
-        menu.Items.Clear();
         var workspaces = WorkspacesMenuButton.Tag is System.Collections.IEnumerable list
             ? list.OfType<LauncherWorkspaceViewModel>()
             : [];
-        foreach (var item in BuildWorkspacesMenu(workspaces))
-        {
-            menu.Items.Add(item);
-        }
+        menu.ReplaceItems(BuildWorkspacesMenu(workspaces));
     }
 
     internal IReadOnlyList<Control> BuildWorkspacesMenu(

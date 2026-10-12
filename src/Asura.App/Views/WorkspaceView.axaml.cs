@@ -307,13 +307,6 @@ public sealed partial class WorkspaceView : UserControl
 
     public event EventHandler<RoutedEventArgs>? ShowSettingsRequested;
 
-    /// <summary>
-    /// Whether the title bar carries its own Settings button. On macOS the
-    /// app menu and ⌘, are where Settings lives; Windows and Linux draw no
-    /// menu bar, so the button is the pointer's only way in there.
-    /// </summary>
-    public static bool ShowsSettingsButton { get; } = !OperatingSystem.IsMacOS();
-
     public event EventHandler<RoutedEventArgs>? SubmitAgentQuestionRequested;
 
     public event EventHandler<RoutedEventArgs>? ToggleAgentRequested;
