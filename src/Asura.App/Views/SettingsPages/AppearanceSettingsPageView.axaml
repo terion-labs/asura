@@ -702,7 +702,7 @@
                   </StackPanel>
                 </Border>
                 <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                  <Border Background="{DynamicResource ShellAccentBrush}" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Horizontal=Md, Vertical=Xs}">
+                  <Border Background="{DynamicResource ShellAccentFillBrush}" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Horizontal=Md, Vertical=Xs}">
                     <TextBlock FontSize="{DynamicResource ShellFontSize11}" FontWeight="SemiBold" Foreground="{DynamicResource ShellAccentForegroundBrush}" Text="New Tab" />
                   </Border>
                   <Border Background="{DynamicResource ShellSurfaceRaisedBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" Padding="{controls:Inset Horizontal=Md, Vertical=Xs}">

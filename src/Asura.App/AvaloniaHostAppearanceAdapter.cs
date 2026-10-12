@@ -229,6 +229,7 @@ internal sealed record EffectiveAppearanceResources(
     Color Text,
     Color MutedText,
     Color Accent,
+    Color AccentFill,
     Color AccentForeground,
     Color AccentText,
     Color AccentSoft,
@@ -240,6 +241,7 @@ internal sealed record EffectiveAppearanceResources(
     Color Danger,
     Color DangerText,
     Color DangerForeground,
+    Color DangerFill,
     Color DangerSoft,
     Color DangerBorder,
     Color Success,
@@ -258,7 +260,6 @@ internal sealed record EffectiveAppearanceResources(
     FontFamily FontFamily,
     double BaseFontSize,
     double TextScale,
-    double PillFontSize,
     double ControlMinHeight,
     CornerRadius ControlCornerRadius,
     Thickness ControlPadding,
@@ -280,48 +281,92 @@ internal sealed record EffectiveAppearanceResources(
 {
     /// <summary>
     /// The smallest size any interface text renders at, before the text-scale
-    /// multiplier: macOS's Caption and Footnote styles.
+    /// multiplier: the Caption of the macOS 26 ramp, kept for badges, keycaps,
+    /// counts and chart axes. Nothing renders below it.
     /// </summary>
-    internal const double MinimumFontSize = 10;
+    internal const double MinimumFontSize = 11;
 
     /// <summary>
-    /// The smallest size for a secondary line under a primary one: macOS's
-    /// Subheadline. Smaller than this and the second line stops being read.
+    /// The largest nominal size token that names a caption. The numeric tokens
+    /// were written against an older, smaller ramp; anything at or below this
+    /// is a badge-sized label.
     /// </summary>
-    internal const double MinimumSecondaryFontSize = 11;
+    internal const double CaptionNominalSize = 10;
 
     /// <summary>
-    /// A size token as rendered. The numeric tokens follow the macOS text
-    /// styles — Body 13, Callout 12, Subheadline 11, Footnote and Caption 10 —
-    /// so hierarchy comes from size as well as weight. Nothing renders below
-    /// Caption, and the text-scale multiplier applies to every step.
+    /// The largest nominal size token that names primary text. Every nominal
+    /// size above Caption up to this one is a row, a field, a button or a
+    /// header title, and renders at Body: on macOS 26 a list, a sidebar and a
+    /// panel header all read at 13 points. Markup that asked for 11 or 12 drew
+    /// whole panels a size or two under the Finder sidebar beside them.
     /// </summary>
-    internal double ScaleFontSize(double baseFontSize)
+    internal const double BodyNominalSize = 13;
+
+    /// <summary>
+    /// Body: every primary run of text — rows, fields, menu items, buttons,
+    /// panel titles, settings labels. 13 points on macOS.
+    /// </summary>
+    internal double BodyFontSize => BaseFontSize;
+
+    /// <summary>
+    /// Secondary: subtitles, metadata and descriptions under a primary line.
+    /// A point under Body, 12 on macOS, and never under Caption.
+    /// </summary>
+    internal double SecondaryFontSize =>
+        Math.Clamp(BaseFontSize - TextScale, MinimumFontSize * TextScale, BaseFontSize);
+
+    /// <summary>
+    /// Caption: badges, keycaps, counts and chart axes. Two points under Body,
+    /// 11 on macOS, and never under <see cref="MinimumFontSize"/>.
+    /// </summary>
+    internal double CaptionFontSize =>
+        Math.Clamp(BaseFontSize - (2 * TextScale), MinimumFontSize * TextScale, BaseFontSize);
+
+    /// <summary>A pill or a chip carries a caption.</summary>
+    internal double PillFontSize => CaptionFontSize;
+
+    /// <summary>
+    /// A nominal size token as rendered. Nominal sizes up to
+    /// <see cref="CaptionNominalSize"/> are captions; those above it up to
+    /// <see cref="BodyNominalSize"/> are Body; the heading sizes above that
+    /// keep their own value. The text-scale multiplier applies to every step,
+    /// and nothing renders under Caption.
+    /// </summary>
+    internal double ScaleFontSize(double nominalFontSize)
     {
-        if (!double.IsFinite(baseFontSize) || baseFontSize <= 0)
+        if (!double.IsFinite(nominalFontSize) || nominalFontSize <= 0)
         {
             throw new ArgumentOutOfRangeException(
-                nameof(baseFontSize),
-                baseFontSize,
+                nameof(nominalFontSize),
+                nominalFontSize,
                 "A base font size must be finite and greater than zero.");
         }
 
-        return Math.Max(MinimumFontSize, baseFontSize) * TextScale;
-    }
+        if (nominalFontSize <= CaptionNominalSize)
+        {
+            return CaptionFontSize;
+        }
 
-    /// <summary>The size of a row's secondary line.</summary>
-    internal double SecondaryFontSize => MinimumSecondaryFontSize * TextScale;
+        return nominalFontSize <= BodyNominalSize
+            ? BodyFontSize
+            : Math.Max(BodyFontSize, nominalFontSize * TextScale);
+    }
 }
 
 internal static class EffectiveAppearanceResourceMapper
 {
-    private const double PillBaseFontSize = 10;
-
     /// <summary>What normal-size text has to clear against what it sits on.</summary>
     internal const double TextContrast = 4.5;
 
     /// <summary>What a non-text mark — a status dot, an accent fill — has to clear.</summary>
     internal const double GraphicContrast = 3.0;
+
+    /// <summary>
+    /// How much of a status tone's own tint and edge a tinted card keeps; the
+    /// rest is the neutral card's. At full strength a warning or danger card
+    /// was the loudest surface on any page it sat on.
+    /// </summary>
+    private const double ToneQuietening = 0.5;
 
     /// <summary>
     /// How far a push button's hover moves from its resting fill toward the
@@ -505,16 +550,17 @@ internal static class EffectiveAppearanceResourceMapper
                 text);
         }
 
-        // What sits on a filled accent control: whichever of black and white
-        // reads better, in every theme. White is what most of the platform's
-        // accents wear in the dark, but on yellow, green, orange — and on the
-        // brand orange itself — it falls to between 1.4:1 and 2.5:1, which
-        // fails the primary button and the active tab, the labels that matter
-        // most. One of the two always clears 4.5:1.
-        var accentForeground = ContrastRatio(accent, Colors.Black)
-            >= ContrastRatio(accent, Colors.White)
-            ? Colors.Black
-            : Colors.White;
+        // What a filled accent control is filled with: the accent, darkened
+        // just far enough for its white label to clear 4.5:1. The accent
+        // itself stays the colour that was asked for — a focus ring, a switch,
+        // a tab indicator is a mark, not a plate for text — and only the
+        // plates that carry a label take the darker fill. Choosing black or
+        // white by measurement put black on a graphite, yellow, green or
+        // orange default button and white on the next one, so two buttons of
+        // the same role read as two kinds; a filled control always wears
+        // white, as the host's do, Increase Contrast included.
+        var accentFill = FillUnderWhiteText(accent);
+        var accentForeground = Colors.White;
 
         var accentSoft = Blend(accent, background, theme.HighContrast ? 0.24 : 0.18);
 
@@ -567,12 +613,14 @@ internal static class EffectiveAppearanceResourceMapper
             text);
 
         // A strongly selected row. AppKit's selected-content colour when the
-        // host has one; otherwise the accent, which is what that colour is.
-        var selectedContent = hostSelection ?? accent;
-        var selectedContentForeground = ContrastRatio(selectedContent, Colors.Black)
-            > ContrastRatio(selectedContent, Colors.White)
-            ? Colors.Black
-            : Colors.White;
+        // host has one; otherwise the accent fill, which is what that colour
+        // is. It carries white text, as a selected Finder row does, so it is
+        // held to the same rule as an accent fill. (AppKit's colour is only
+        // read without Increase Contrast.)
+        var selectedContent = hostSelection is { } reportedSelection
+            ? FillUnderWhiteText(reportedSelection)
+            : accentFill;
+        var selectedContentForeground = Colors.White;
 
         var metrics = PlatformMetrics.For(theme.PlatformProfile);
         var densityScale = DensityScale(theme.Density);
@@ -595,19 +643,25 @@ internal static class EffectiveAppearanceResourceMapper
         // Status colours mean the same thing everywhere, so they are tokens
         // rather than per-view hex values, and each is held to the text
         // standard on the plates and on its own tinted fill.
-        var dangerSoft = Parse(isLight ? "#FDE8E5" : "#3A1715");
-        var successSoft = Parse(isLight ? "#E2F5E8" : "#173222");
+        // The tinted cards keep their tone but quietly: each tint is held half
+        // way to the card surface it replaces, so a warning reads as a warning
+        // without being the loudest thing on the page.
+        var dangerSoft = ToneWash(isLight ? "#FDE8E5" : "#3A1715");
+        var successSoft = ToneWash(isLight ? "#E2F5E8" : "#173222");
         // A warning is amber, which with an orange accent was the accent: a
         // warning chip and the default button were the same colour. Beside an
         // orange accent the warning moves to yellow, so a status is never
         // taken for something to press.
         var warningIsYellow = IsOrange(requestedAccent);
-        var warningSoft = Parse(warningIsYellow
+        var warningSoft = ToneWash(warningIsYellow
             ? isLight ? "#FFF6CC" : "#2E2912"
             : isLight ? "#FFF0D6" : "#32241A");
         // Notice is information, not a warning and not the accent: with an
-        // orange accent a notice drawn in the accent read as a warning.
-        var infoSoft = Parse(isLight ? "#E5F0FC" : "#15253A");
+        // orange accent a notice drawn in the accent read as a warning. Its
+        // card is neutral, the raised secondary surface, and only its glyph
+        // carries the info tone: a blue-filled card for every note and every
+        // row of an inventory turned whole settings pages blue.
+        var infoSoft = raised;
         var danger = StatusColor(isLight ? "#B42318" : "#FF7B72", dangerSoft);
         var success = StatusColor(isLight ? "#147A3F" : "#77D797", successSoft);
         var warning = StatusColor(
@@ -635,10 +689,12 @@ internal static class EffectiveAppearanceResourceMapper
             readingSurfaces,
             theme.HighContrast ? TextContrast : GraphicContrast,
             text);
-        var dangerForeground = ContrastRatio(danger, Colors.Black)
-            >= ContrastRatio(danger, Colors.White)
-            ? Colors.Black
-            : Colors.White;
+        // A destructive action that fills with the danger tone wears white, as
+        // a filled accent button does; the fill is the danger tone darkened
+        // until white clears 4.5:1. The plain dark-mode danger red is light
+        // enough to be read as text, which is exactly why it cannot carry it.
+        var dangerFill = FillUnderWhiteText(danger);
+        var dangerForeground = Colors.White;
         // A tone's border on its own tinted card. At normal contrast these are
         // quiet edges, as the neutral card's is; Increase Contrast holds them,
         // as it holds the neutral one, to the 3:1 a boundary needs against the
@@ -650,7 +706,8 @@ internal static class EffectiveAppearanceResourceMapper
                 ? isLight ? "#B08A00" : "#7A6A2A"
                 : isLight ? "#B46B20" : "#75502F",
             warningSoft);
-        var infoBorder = ToneBorder(isLight ? "#6C9BD2" : "#2F5A86", infoSoft);
+        // A notice's edge is the neutral card's.
+        var infoBorder = border;
 
         return new EffectiveAppearanceResources(
             isLight ? ThemeVariant.Light : ThemeVariant.Dark,
@@ -670,6 +727,7 @@ internal static class EffectiveAppearanceResourceMapper
             text,
             muted,
             accent,
+            accentFill,
             accentForeground,
             accentText,
             accentSoft,
@@ -681,6 +739,7 @@ internal static class EffectiveAppearanceResourceMapper
             danger,
             dangerText,
             dangerForeground,
+            dangerFill,
             dangerSoft,
             dangerBorder,
             success,
@@ -697,9 +756,10 @@ internal static class EffectiveAppearanceResourceMapper
             Scrim(isLight, theme.HighContrast),
             OverlayShadow(isLight),
             ResolveFontFamily(metrics),
-            metrics.BaseFontSize * theme.TextScale,
+            // Body never renders under Caption either: a profile whose own
+            // body is smaller is lifted to it.
+            Math.Max(EffectiveAppearanceResources.MinimumFontSize, metrics.BaseFontSize) * theme.TextScale,
             theme.TextScale,
-            PillBaseFontSize * theme.TextScale,
             metrics.ControlMinHeight * theme.TextScale * densityScale,
             new CornerRadius(controlRadius),
             new Thickness(
@@ -733,9 +793,11 @@ internal static class EffectiveAppearanceResourceMapper
         Color StatusColor(string value, Color soft) =>
             EnsureContrast(Parse(value), [.. readingSurfaces, soft], TextContrast, text);
 
+        Color ToneWash(string value) => Blend(Parse(value), surface, ToneQuietening);
+
         Color ToneBorder(string value, Color soft) => theme.HighContrast
             ? EnsureContrast(Parse(value), [soft, background, surface], GraphicContrast, text)
-            : Parse(value);
+            : Blend(Parse(value), border, ToneQuietening);
     }
 
     /// <summary>
@@ -861,6 +923,50 @@ internal static class EffectiveAppearanceResourceMapper
         }
 
         return target;
+    }
+
+    /// <summary>
+    /// The fill, darkened toward black only as far as white text on it needs
+    /// to clear <see cref="TextContrast"/>. A fill that already carries white
+    /// comes back unchanged. The search is fine-grained rather than in
+    /// twentieths, because every step past the threshold is a fill visibly
+    /// darker than the colour that was asked for.
+    /// </summary>
+    internal static Color FillUnderWhiteText(Color fill)
+    {
+        var opaque = Opaque(fill);
+        if (ContrastRatio(opaque, Colors.White) >= TextContrast)
+        {
+            return opaque;
+        }
+
+        double lighter = 0;
+        double darker = 1;
+        for (var iteration = 0; iteration < 24; iteration++)
+        {
+            var amount = (lighter + darker) / 2;
+            if (ContrastRatio(Blend(Colors.Black, opaque, amount), Colors.White) >= TextContrast)
+            {
+                darker = amount;
+            }
+            else
+            {
+                lighter = amount;
+            }
+        }
+
+        // Byte rounding can land a hair under the threshold; the next
+        // hundredth toward black is always on the right side of it.
+        for (var amount = darker; amount <= 1; amount += 0.01)
+        {
+            var candidate = Blend(Colors.Black, opaque, amount);
+            if (ContrastRatio(candidate, Colors.White) >= TextContrast)
+            {
+                return candidate;
+            }
+        }
+
+        return Colors.Black;
     }
 
     /// <summary>The colour with its alpha dropped.</summary>

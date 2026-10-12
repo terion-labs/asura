@@ -38,7 +38,7 @@
       <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
     </Style>
     <Style Selector="StackPanel#SettingsNavigation:focus-within Button.NavButton.active /template/ ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
     </Style>
     <Style Selector="StackPanel#SettingsNavigation:focus-within Button.NavButton.active TextBlock">
       <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />

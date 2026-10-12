@@ -49,19 +49,19 @@
         </TabItem>
         <TabItem Header="Current">
           <Grid RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
-            <SelectableTextBlock x:Name="CurrentIdentity" Classes="Muted" FontSize="{DynamicResource ShellFontSize11}" TextWrapping="Wrap" AutomationProperties.Name="Current revision and file object" />
+            <SelectableTextBlock x:Name="CurrentIdentity" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap" AutomationProperties.Name="Current revision and file object" />
             <TextBox Grid.Row="1" x:Name="CurrentInput" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" AutomationProperties.Name="Current version" />
           </Grid>
         </TabItem>
         <TabItem Header="Incoming">
           <Grid RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
-            <SelectableTextBlock x:Name="IncomingIdentity" Classes="Muted" FontSize="{DynamicResource ShellFontSize11}" TextWrapping="Wrap" AutomationProperties.Name="Incoming revision and file object" />
+            <SelectableTextBlock x:Name="IncomingIdentity" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap" AutomationProperties.Name="Incoming revision and file object" />
             <TextBox Grid.Row="1" x:Name="IncomingInput" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" AutomationProperties.Name="Incoming version" />
           </Grid>
         </TabItem>
         <TabItem Header="Base">
           <Grid RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
-            <SelectableTextBlock x:Name="BaseIdentity" Classes="Muted" FontSize="{DynamicResource ShellFontSize11}" TextWrapping="Wrap" AutomationProperties.Name="Common ancestor file object" />
+            <SelectableTextBlock x:Name="BaseIdentity" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap" AutomationProperties.Name="Common ancestor file object" />
             <TextBox Grid.Row="1" x:Name="BaseInput" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" AutomationProperties.Name="Common ancestor" />
           </Grid>
         </TabItem>

@@ -138,7 +138,7 @@
       <Setter Property="AutomationProperties.ItemStatus" Value="Selected" />
     </Style>
     <Style Selector="ItemsControl#ContainerStackList:focus-within Button.DockerResourceRow.selected">
-      <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
     </Style>
     <Style Selector="ItemsControl#ContainerStackList:focus-within Button.DockerResourceRow.selected TextBlock">

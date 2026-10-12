@@ -14,13 +14,16 @@ namespace Asura.App.Controls;
 /// </code>
 ///
 /// A fixed width sized for one text size clips its own content at a larger
-/// one. This binds to the published <c>ShellFontSize13</c> token instead of
-/// returning a number, for the same reason <see cref="InsetExtension"/> does:
-/// a text-size change then reflows the length along with the text inside it.
+/// one. This binds to the published <c>ShellTextScaleReferenceSize</c> token —
+/// 13 points times the text-size setting, whatever the profile's own body
+/// size is — instead of returning a number, for the same reason
+/// <see cref="InsetExtension"/> does: a text-size change then reflows the
+/// length along with the text inside it. It does not follow the type ramp, so
+/// a profile whose body is 14 points does not widen every scaled length.
 /// </summary>
 internal sealed class TextScaledExtension : MarkupExtension
 {
-    private const double DesignBodyFontSize = 13;
+    internal const double DesignBodyFontSize = 13;
 
     private static readonly IMultiValueConverter ToLength = new LengthConverter();
 
@@ -39,7 +42,7 @@ internal sealed class TextScaledExtension : MarkupExtension
         {
             Converter = ToLength,
             ConverterParameter = Length,
-            Bindings = { new DynamicResourceExtension("ShellFontSize13") },
+            Bindings = { new DynamicResourceExtension("ShellTextScaleReferenceSize") },
         };
 
     internal static double Scale(double length, object? bodyFontSize) =>

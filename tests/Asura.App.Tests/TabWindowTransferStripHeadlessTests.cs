@@ -93,6 +93,7 @@ public sealed class TabWindowTransferStripHeadlessTests
         RunHeadlessAsync(window =>
         {
             window.Resources["ShellFontSize13"] = 26d;
+            window.Resources["ShellTextScaleReferenceSize"] = 26d;
             window.Resources["ShellFontSize10"] = 20d;
             var tabs = new[] { new FakeTab("production-api", IsActive: true), new FakeTab("db", IsActive: false) };
             var strip = CreateStrip(tabs);
@@ -124,6 +125,7 @@ public sealed class TabWindowTransferStripHeadlessTests
 
             // At the designed size the chip is the chrome's 22 points.
             window.Resources["ShellFontSize13"] = 13d;
+            window.Resources["ShellTextScaleReferenceSize"] = 13d;
             window.Resources["ShellFontSize10"] = 10d;
             window.UpdateLayout();
             Assert.Equal(22, TabHost(strip, tabs[1]).Bounds.Height);

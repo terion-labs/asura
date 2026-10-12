@@ -80,7 +80,11 @@ public sealed class AvaloniaHostAppearanceAdapterTests
         var resources = EffectiveAppearanceResourceMapper.Map(effective);
 
         Assert.Equal(AccentSource.Host, effective.AccentSource);
+        // The host's blue is the accent itself; only the plate under a white
+        // label is darkened, as far as that label needs.
         Assert.Equal(hostAccent, resources.Accent);
+        Assert.Equal(EffectiveAppearanceResourceMapper.FillUnderWhiteText(hostAccent), resources.AccentFill);
+        Assert.DoesNotContain("contrast adjusted", resources.AccentStatus, StringComparison.Ordinal);
         Assert.Contains("host accent", resources.AccentStatus, StringComparison.Ordinal);
     }
 
@@ -203,11 +207,12 @@ public sealed class AvaloniaHostAppearanceAdapterTests
         Assert.Equal(17.5, resources.BaseFontSize);
         Assert.Equal(1.25, resources.TextScale);
         Assert.Equal(31.25, resources.ScaleFontSize(25));
-        // Small tokens follow the macOS text styles down to Caption at 10 pt
-        // rather than being clamped to body size; the multiplier still applies.
-        Assert.Equal(12.5, resources.ScaleFontSize(10));
-        Assert.Equal(12.5, resources.ScaleFontSize(8));
-        Assert.Equal(13.75, resources.ScaleFontSize(11));
+        // Caption tokens render two points under the profile's body, and the
+        // nominal sizes above Caption render at body; the multiplier applies.
+        Assert.Equal(15, resources.ScaleFontSize(10));
+        Assert.Equal(15, resources.ScaleFontSize(8));
+        Assert.Equal(17.5, resources.ScaleFontSize(11));
+        Assert.Equal(16.25, resources.SecondaryFontSize);
         Assert.Equal(FontFamily.Default, resources.FontFamily);
         Assert.True(resources.AdvancedMaterialsEnabled);
         Assert.Contains("Windows11", resources.AppearanceStatus, StringComparison.Ordinal);
@@ -410,8 +415,8 @@ public sealed class AvaloniaHostAppearanceAdapterTests
     }
 
     [Theory]
-    [InlineData(1, 10, 13)]
-    [InlineData(2, 20, 26)]
+    [InlineData(1, 11, 13)]
+    [InlineData(2, 22, 26)]
     public void Pill_typography_stays_below_body_text_and_tracks_text_scale(
         double textScale,
         double expectedPillFontSize,
@@ -453,6 +458,15 @@ public sealed class AvaloniaHostAppearanceAdapterTests
         Assert.Equal(1.3, imported.Scale);
     }
 
+    private static Color Over(Color foreground, Color background)
+    {
+        var amount = foreground.A / 255d;
+        return Color.FromRgb(
+            (byte)Math.Round((foreground.R * amount) + (background.R * (1 - amount))),
+            (byte)Math.Round((foreground.G * amount) + (background.G * (1 - amount))),
+            (byte)Math.Round((foreground.B * amount) + (background.B * (1 - amount))));
+    }
+
     private static EffectiveTheme Bronze(
         EffectiveAppearanceMode appearance,
         bool highContrast = false) =>
@@ -467,44 +481,153 @@ public sealed class AvaloniaHostAppearanceAdapterTests
             TextScale: 1);
 
     /// <summary>
-    /// What sits on a filled accent control is whichever of black and white
-    /// reads better, in every theme. White on these accents measured between
-    /// 1.4:1 and 3.7:1 in dark mode, on the primary buttons and the active tab.
+    /// A filled accent control wears white in every theme and on every macOS
+    /// accent, Increase Contrast included, and its fill is the accent darkened
+    /// until white clears 4.5:1. Choosing black or white by measurement put
+    /// black on a graphite, yellow, green or orange default button and white
+    /// on a blue one, so two buttons of the same role read as two kinds. The
+    /// darkened fill is still a mark: it clears 3:1 against the window.
     /// </summary>
     [Theory]
-    [InlineData("#FFD60A", EffectiveAppearanceMode.Dark)]
-    [InlineData("#32D74B", EffectiveAppearanceMode.Dark)]
-    [InlineData("#FF9F0A", EffectiveAppearanceMode.Dark)]
-    [InlineData("#FF8400", EffectiveAppearanceMode.Dark)]
+    [InlineData("#0A84FF", EffectiveAppearanceMode.Dark)] // blue
+    [InlineData("#A550A7", EffectiveAppearanceMode.Dark)] // purple
+    [InlineData("#F74F9E", EffectiveAppearanceMode.Dark)] // pink
+    [InlineData("#FF5257", EffectiveAppearanceMode.Dark)] // red
+    [InlineData("#FF9F0A", EffectiveAppearanceMode.Dark)] // orange
+    [InlineData("#FFD60A", EffectiveAppearanceMode.Dark)] // yellow
+    [InlineData("#32D74B", EffectiveAppearanceMode.Dark)] // green
+    [InlineData("#8C8C8C", EffectiveAppearanceMode.Dark)] // graphite
+    [InlineData("#FF8400", EffectiveAppearanceMode.Dark)] // brand orange
     [InlineData("#B8793A", EffectiveAppearanceMode.Dark)]
-    [InlineData("#0A84FF", EffectiveAppearanceMode.Dark)]
-    [InlineData("#007AFF", EffectiveAppearanceMode.Light)]
-    [InlineData("#FF8400", EffectiveAppearanceMode.Light)]
+    [InlineData("#007AFF", EffectiveAppearanceMode.Light)] // blue
+    [InlineData("#953D96", EffectiveAppearanceMode.Light)] // purple
+    [InlineData("#F7821B", EffectiveAppearanceMode.Light)] // orange
+    [InlineData("#FFC600", EffectiveAppearanceMode.Light)] // yellow
+    [InlineData("#62BA46", EffectiveAppearanceMode.Light)] // green
+    [InlineData("#8C8C8C", EffectiveAppearanceMode.Light)] // graphite
     [InlineData("#8E8E93", EffectiveAppearanceMode.Light)]
-    public void Text_on_a_filled_accent_clears_text_contrast_in_every_theme(
+    [InlineData("#FF8400", EffectiveAppearanceMode.Light)] // brand orange
+    public void A_filled_accent_wears_white_text_at_text_contrast_in_every_theme(
         string accent,
         EffectiveAppearanceMode appearance)
     {
-        foreach (var profile in new[] { PlatformProfile.MacOsLiquidGlass, PlatformProfile.Asura })
+        foreach (var profile in new[]
+                 {
+                     PlatformProfile.MacOsClassic,
+                     PlatformProfile.MacOsLiquidGlass,
+                     PlatformProfile.Asura,
+                 })
         {
-            var resources = EffectiveAppearanceResourceMapper.Map(
-                EffectiveThemeFor(profile, appearance) with { Accent = RgbColor.Parse(accent) });
+            foreach (var highContrast in new[] { false, true })
+            {
+                var resources = EffectiveAppearanceResourceMapper.Map(
+                    EffectiveThemeFor(profile, appearance) with
+                    {
+                        Accent = RgbColor.Parse(accent),
+                        HighContrast = highContrast,
+                    });
+                var label = $"{accent} {appearance} {profile} hc={highContrast}";
 
-            Assert.True(
-                EffectiveAppearanceResourceMapper.ContrastRatio(
-                    resources.Accent,
-                    resources.AccentForeground) >= 4.5,
-                $"{accent} {appearance} {profile}");
+                Assert.Equal(Colors.White, resources.AccentForeground);
+                Assert.True(
+                    EffectiveAppearanceResourceMapper.ContrastRatio(resources.AccentFill, Colors.White) >= 4.5,
+                    $"{label}: white on {resources.AccentFill}");
+                Assert.True(
+                    EffectiveAppearanceResourceMapper.ContrastRatio(resources.AccentFill, resources.Background) >= 3,
+                    $"{label}: {resources.AccentFill} on {resources.Background}");
+                Assert.Equal(Colors.White, resources.SelectedContentForeground);
+                Assert.True(
+                    EffectiveAppearanceResourceMapper.ContrastRatio(resources.SelectedContent, Colors.White) >= 4.5,
+                    $"{label}: white on selection {resources.SelectedContent}");
+            }
         }
     }
 
-    [Fact]
-    public void A_dark_theme_puts_dark_ink_on_the_brand_orange()
+    /// <summary>
+    /// The accent is a mark — a focus ring, a switch, a tab indicator, the
+    /// Fluent accent family — and stays the colour that was asked for whenever
+    /// it already clears the 3:1 a mark needs against the window. Only the
+    /// plate under a white label is darkened: darkening the accent itself
+    /// turned a yellow accent olive everywhere and reported "contrast
+    /// adjusted" for the default accent.
+    /// </summary>
+    [Theory]
+    [InlineData("#0A84FF", EffectiveAppearanceMode.Dark)]
+    [InlineData("#A550A7", EffectiveAppearanceMode.Dark)]
+    [InlineData("#F74F9E", EffectiveAppearanceMode.Dark)]
+    [InlineData("#FF5257", EffectiveAppearanceMode.Dark)]
+    [InlineData("#FF9F0A", EffectiveAppearanceMode.Dark)]
+    [InlineData("#FFD60A", EffectiveAppearanceMode.Dark)]
+    [InlineData("#32D74B", EffectiveAppearanceMode.Dark)]
+    [InlineData("#8C8C8C", EffectiveAppearanceMode.Dark)]
+    [InlineData("#FF8400", EffectiveAppearanceMode.Dark)]
+    [InlineData("#007AFF", EffectiveAppearanceMode.Light)]
+    [InlineData("#953D96", EffectiveAppearanceMode.Light)]
+    public void The_accent_mark_is_the_accent_that_was_asked_for(
+        string accent,
+        EffectiveAppearanceMode appearance)
     {
+        foreach (var profile in new[] { PlatformProfile.MacOsClassic, PlatformProfile.MacOsLiquidGlass })
+        {
+            var requested = Color.Parse(accent);
+            var resources = EffectiveAppearanceResourceMapper.Map(
+                EffectiveThemeFor(profile, appearance) with { Accent = RgbColor.Parse(accent) });
+
+            Assert.True(EffectiveAppearanceResourceMapper.ContrastRatio(requested, resources.Background) >= 3);
+            Assert.Equal(requested, resources.Accent);
+            Assert.DoesNotContain("contrast adjusted", resources.AccentStatus, StringComparison.Ordinal);
+            Assert.Equal(EffectiveAppearanceResourceMapper.FillUnderWhiteText(requested), resources.AccentFill);
+        }
+    }
+
+    /// <summary>
+    /// The fill is darkened only as far as white needs: an accent that
+    /// already carries white is left alone, and one that does not lands just
+    /// past the threshold rather than a twentieth-step darker.
+    /// </summary>
+    [Theory]
+    [InlineData("#0A84FF")]
+    [InlineData("#FFD60A")]
+    [InlineData("#8C8C8C")]
+    [InlineData("#FF9F0A")]
+    public void A_fill_is_darkened_only_as_far_as_white_text_needs(string accent)
+    {
+        var fill = EffectiveAppearanceResourceMapper.FillUnderWhiteText(Color.Parse(accent));
+
+        var ratio = EffectiveAppearanceResourceMapper.ContrastRatio(fill, Colors.White);
+        Assert.InRange(ratio, 4.5, 4.75);
         Assert.Equal(
-            Colors.Black,
-            EffectiveAppearanceResourceMapper.Map(
-                Bronze(EffectiveAppearanceMode.Dark)).AccentForeground);
+            Color.Parse("#B42318"),
+            EffectiveAppearanceResourceMapper.FillUnderWhiteText(Color.Parse("#B42318")));
+    }
+
+    /// <summary>
+    /// A prominent destructive action fills with the danger tone and wears
+    /// white; the dark-mode danger red is light enough to read as text, so
+    /// the fill is a darker red of its own.
+    /// </summary>
+    [Theory]
+    [InlineData(EffectiveAppearanceMode.Dark)]
+    [InlineData(EffectiveAppearanceMode.Light)]
+    public void A_filled_destructive_action_wears_white(EffectiveAppearanceMode appearance)
+    {
+        var resources = EffectiveAppearanceResourceMapper.Map(
+            EffectiveThemeFor(PlatformProfile.MacOsLiquidGlass, appearance));
+
+        Assert.Equal(Colors.White, resources.DangerForeground);
+        Assert.True(EffectiveAppearanceResourceMapper.ContrastRatio(resources.DangerFill, Colors.White) >= 4.5);
+    }
+
+    [Fact]
+    public void A_dark_theme_puts_white_ink_on_a_darkened_brand_orange()
+    {
+        var resources = EffectiveAppearanceResourceMapper.Map(Bronze(EffectiveAppearanceMode.Dark));
+
+        Assert.Equal(Colors.White, resources.AccentForeground);
+        Assert.Equal(Color.Parse("#FF8400"), resources.Accent);
+        Assert.Equal(
+            EffectiveAppearanceResourceMapper.FillUnderWhiteText(Color.Parse("#FF8400")),
+            resources.AccentFill);
     }
 
     /// <summary>
@@ -904,23 +1027,76 @@ public sealed class AvaloniaHostAppearanceAdapterTests
         Assert.True(glass.Veil < byte.MaxValue);
     }
 
+    /// <summary>
+    /// The macOS 26 ramp: Body 13 for every primary run of text, Secondary 12
+    /// under it, Caption 11 for badges and counts. The nominal tokens markup
+    /// names map onto it — the 11 and 12 that rows and panel headers asked
+    /// for render at Body, and 10 at Caption — so a panel reads at the size
+    /// of the Finder sidebar beside it.
+    /// </summary>
     [Fact]
-    public void Secondary_text_never_renders_below_eleven_points()
+    public void The_type_ramp_is_the_macos_26_ramp()
     {
         var resources = EffectiveAppearanceResourceMapper.Map(
             EffectiveThemeFor(PlatformProfile.MacOsLiquidGlass, EffectiveAppearanceMode.Dark));
 
-        Assert.Equal(11, resources.SecondaryFontSize);
-        Assert.Equal(10, resources.ScaleFontSize(9));
-        Assert.Equal(12, resources.ScaleFontSize(12));
+        Assert.Equal(13, resources.BodyFontSize);
+        Assert.Equal(12, resources.SecondaryFontSize);
+        Assert.Equal(11, resources.CaptionFontSize);
+        Assert.Equal(11, resources.PillFontSize);
+        Assert.Equal(11, resources.ScaleFontSize(9));
+        Assert.Equal(11, resources.ScaleFontSize(10));
+        Assert.Equal(13, resources.ScaleFontSize(11));
+        Assert.Equal(13, resources.ScaleFontSize(12));
         Assert.Equal(13, resources.ScaleFontSize(13));
+        Assert.Equal(15, resources.ScaleFontSize(15));
+        Assert.Equal(26, resources.ScaleFontSize(26));
+    }
+
+    /// <summary>
+    /// Nothing renders under Caption, on any profile, at any text size: not
+    /// a nominal token, not the secondary line, not a pill, not the body of a
+    /// profile whose own body is smaller.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(EveryProfileAndScale))]
+    public void No_text_token_renders_below_eleven_points(PlatformProfile profile, double textScale)
+    {
+        var resources = EffectiveAppearanceResourceMapper.Map(
+            EffectiveThemeFor(profile, EffectiveAppearanceMode.Dark) with { TextScale = textScale });
+        var floor = EffectiveAppearanceResources.MinimumFontSize * textScale;
+
+        Assert.True(resources.BodyFontSize >= floor, $"body {resources.BodyFontSize}");
+        Assert.True(resources.SecondaryFontSize >= floor, $"secondary {resources.SecondaryFontSize}");
+        Assert.True(resources.CaptionFontSize >= floor, $"caption {resources.CaptionFontSize}");
+        Assert.True(resources.PillFontSize >= floor, $"pill {resources.PillFontSize}");
+        Assert.True(resources.CaptionFontSize <= resources.SecondaryFontSize);
+        Assert.True(resources.SecondaryFontSize <= resources.BodyFontSize);
+        for (var nominal = 1; nominal <= 28; nominal++)
+        {
+            Assert.True(resources.ScaleFontSize(nominal) >= floor, $"ShellFontSize{nominal}");
+        }
+    }
+
+    public static TheoryData<PlatformProfile, double> EveryProfileAndScale()
+    {
+        var data = new TheoryData<PlatformProfile, double>();
+        foreach (var profile in Enum.GetValues<PlatformProfile>())
+        {
+            foreach (var scale in new[] { 0.85, 1, 1.25, 2 })
+            {
+                data.Add(profile, scale);
+            }
+        }
+
+        return data;
     }
 
     [Fact]
-    public void A_light_theme_keeps_the_measured_choice()
+    public void A_light_theme_puts_white_ink_on_the_brand_orange()
     {
         Assert.Equal(
-            Colors.Black,
+            Colors.White,
             EffectiveAppearanceResourceMapper.Map(
                 Bronze(EffectiveAppearanceMode.Light)).AccentForeground);
     }
@@ -931,15 +1107,24 @@ public sealed class AvaloniaHostAppearanceAdapterTests
     /// trade anyone should be making on the user's behalf.
     /// </summary>
     [Fact]
-    public void High_contrast_keeps_the_measured_choice_even_in_the_dark()
+    public void High_contrast_fills_carry_white_even_in_the_dark()
     {
+        // Increase Contrast lifts the dark accent until it reads as text on
+        // the selected sidebar row, which leaves it too light to carry a
+        // label; the fill under a label is its own, darker colour, so a
+        // primary button is white on it here too.
         var resources = EffectiveAppearanceResourceMapper.Map(
             Bronze(EffectiveAppearanceMode.Dark, highContrast: true));
 
+        Assert.Equal(Colors.White, resources.AccentForeground);
+        Assert.True(
+            EffectiveAppearanceResourceMapper.ContrastRatio(
+                resources.AccentFill,
+                resources.AccentForeground) >= 4.5);
         Assert.True(
             EffectiveAppearanceResourceMapper.ContrastRatio(
                 resources.Accent,
-                resources.AccentForeground) >= 4.5);
+                Over(resources.SidebarSelectionSurface, resources.SidebarSurface)) >= 4.5);
     }
 
     [Fact]

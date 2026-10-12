@@ -49,7 +49,7 @@
             Classes="IconButton"
             Click="OnFindPreviousClick"
             ToolTip.Tip="{x:Static controls:ManagedTerminalOverlay.FindPreviousTip}">
-          <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize11}" Symbol="ChevronUp" />
+          <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="ChevronUp" />
         </Button>
         <Button
             Grid.Column="3"
@@ -57,7 +57,7 @@
             Classes="IconButton"
             Click="OnFindNextClick"
             ToolTip.Tip="{x:Static controls:ManagedTerminalOverlay.FindNextTip}">
-          <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize11}" Symbol="ChevronDown" />
+          <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="ChevronDown" />
         </Button>
         <Button
             Grid.Column="4"

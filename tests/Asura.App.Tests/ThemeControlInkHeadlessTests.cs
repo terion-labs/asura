@@ -14,15 +14,15 @@ namespace Asura.App.Tests;
 /// What text and chrome the shared theme draws on its controls, under the real
 /// application styles and a published brand-orange palette. The text colour a
 /// control hands its content has to reach that content: a blanket text rule
-/// once painted every label the body colour, so the black a primary button
-/// measures for its orange fill came out white, and so did the muted label of
-/// an unselected segment and the red of a destructive action.
+/// once painted every label the body colour, overriding the label a primary
+/// button sets for its accent fill, the muted label of an unselected segment
+/// and the red of a destructive action.
 /// </summary>
 [Collection(AvaloniaUiCollection.Name)]
 public sealed class ThemeControlInkHeadlessTests
 {
     [Fact]
-    public Task A_label_written_inside_a_primary_button_takes_the_measured_accent_ink() =>
+    public Task A_label_written_inside_a_primary_button_is_white_on_the_darkened_accent() =>
         RunHeadlessAsync(window =>
         {
             var label = new TextBlock { Text = "Add Tab…" };
@@ -30,8 +30,12 @@ public sealed class ThemeControlInkHeadlessTests
             Show(window, button);
 
             Assert.Equal(Brush(window, "ShellAccentForegroundBrush"), Color(label.Foreground));
-            Assert.Equal(Colors.Black, Color(label.Foreground));
-            Assert.Equal(Avalonia.Media.Color.Parse("#FF8400"), Color(button.Background));
+            Assert.Equal(Colors.White, Color(label.Foreground));
+            var fill = Brush(window, "ShellAccentFillBrush");
+            Assert.Equal(fill, Color(button.Background));
+            Assert.True(
+                EffectiveAppearanceResourceMapper.ContrastRatio(fill, Colors.White) >= 4.5,
+                $"White on {fill}");
         });
 
     [Fact]
@@ -60,17 +64,17 @@ public sealed class ThemeControlInkHeadlessTests
         });
 
     /// <summary>
-    /// A toggle that is on stands on the accent, and its label takes the
-    /// measured ink rather than the stock white.
+    /// A toggle that is on stands on the accent, and its label is white, as
+    /// a default button's is.
     /// </summary>
     [Fact]
-    public Task A_checked_toggle_button_labels_its_accent_fill_with_the_measured_ink() =>
+    public Task A_checked_toggle_button_labels_its_accent_fill_in_white() =>
         RunHeadlessAsync(window =>
         {
             var toggle = new ToggleButton { Content = new TextBlock { Text = "Follow" }, IsChecked = true };
             Show(window, toggle);
 
-            Assert.Equal(Colors.Black, Color(Text(toggle).Foreground));
+            Assert.Equal(Colors.White, Color(Text(toggle).Foreground));
         });
 
     [Fact]

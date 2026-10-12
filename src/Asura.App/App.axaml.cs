@@ -71,6 +71,27 @@ public sealed partial class App : Avalonia.Application
         22, 23, 24, 25, 26, 27, 28,
     ];
 
+    /// <summary>The shortest a list or sidebar row is at 100% text: macOS 26's.</summary>
+    internal const double ListRowMinHeight = 28;
+
+    /// <summary>The shortest a tree row is at 100% text.</summary>
+    internal const double TreeRowMinHeight = 24;
+
+    /// <summary>One menu item's height at 100% text, macOS 26's.</summary>
+    internal const double MenuItemHeight = 24;
+
+    /// <summary>
+    /// A menu's padding on every side, which is also how far the highlight
+    /// stands in from the menu's edge.
+    /// </summary>
+    internal const double MenuInset = 5;
+
+    /// <summary>How far an item's title stands in from its own highlight.</summary>
+    internal const double MenuItemTextInset = 9;
+
+    /// <summary>The menu highlight's corner: rounded, inside the menu's own.</summary>
+    internal const double MenuItemCornerRadius = 5;
+
     static App()
     {
         // A dock splitter is laid out by its Width or Height, while its panel
@@ -845,13 +866,20 @@ public sealed partial class App : Avalonia.Application
                     ? "0 8 32 0 #2E000000, 0 1 4 0 #1F000000"
                     : "0 8 48 0 #8C000000, 0 2 14 0 #59000000")
                 + $", inset 0 0 40 0 #38{accentHex}"));
+        // What a filled accent control — the default button, the active tab,
+        // the selected row of the focused list — is filled with: the accent
+        // darkened only as far as its white label needs. The accent brush
+        // above stays the colour that was asked for, for every mark.
+        Publish("ShellAccentFillBrush", Brush(resources.AccentFill));
         Publish("ShellAccentForegroundBrush", Brush(resources.AccentForeground));
         // A toggle that is on, and the stock accent button, stand on the same
-        // accent fill as the default button, so they wear the same measured
-        // ink. The stock theme's white on an orange or yellow accent fell to
-        // between 1.4:1 and 2.5:1.
+        // fill as the default button and wear the same white, in every state:
+        // Fluent's own hover and pressed shades of the accent were lighter
+        // than the fill, and white on them fell under 4.5:1.
         foreach (var state in new[] { string.Empty, "PointerOver", "Pressed" })
         {
+            Publish($"ToggleButtonBackgroundChecked{state}", Brush(resources.AccentFill));
+            Publish($"AccentButtonBackground{state}", Brush(resources.AccentFill));
             Publish($"ToggleButtonForegroundChecked{state}", Brush(resources.AccentForeground));
             Publish($"AccentButtonForeground{state}", Brush(resources.AccentForeground));
         }
@@ -873,6 +901,9 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellDangerBrush", Brush(resources.Danger));
         Publish("ShellDangerTextBrush", Brush(resources.DangerText));
         Publish("ShellDangerForegroundBrush", Brush(resources.DangerForeground));
+        // What a destructive action fills with when it is prominent: the danger
+        // tone darkened until its white label clears 4.5:1.
+        Publish("ShellDangerFillBrush", Brush(resources.DangerFill));
         Publish("ShellDangerSoftBrush", Brush(resources.DangerSoft));
         Publish("ShellDangerBorderBrush", Brush(resources.DangerBorder));
         Publish("ShellSuccessBrush", Brush(resources.Success));
@@ -962,29 +993,61 @@ public sealed partial class App : Avalonia.Application
         // a menu or a tooltip read in the same face and size as the window.
         Publish("ContentControlThemeFontFamily", resources.FontFamily);
         Publish("ControlContentThemeFontSize", resources.BaseFontSize);
-        Publish("ShellBaseFontSize", resources.BaseFontSize);
+        // The type ramp by role: Body for every primary run of text, Secondary
+        // for the line under it, Caption for badges, keycaps, counts and axes.
+        // The numeric tokens below map onto the same three steps.
+        Publish("ShellBaseFontSize", resources.BodyFontSize);
+        Publish("ShellBodyFontSize", resources.BodyFontSize);
         Publish("ShellSecondaryFontSize", resources.SecondaryFontSize);
+        Publish("ShellCaptionFontSize", resources.CaptionFontSize);
         Publish("ShellPillFontSize", resources.PillFontSize);
+        Publish("ShellBodyLineHeight", LineHeightFor(resources.BodyFontSize));
+        Publish("ShellSecondaryLineHeight", LineHeightFor(resources.SecondaryFontSize));
+        Publish("ShellCaptionLineHeight", LineHeightFor(resources.CaptionFontSize));
+        // What a length laid out for 13-point text scales against: the text
+        // size setting alone. ShellFontSize13 is the profile's Body, which is
+        // 14 on Windows, and a fixed length keyed to it grew with the profile.
+        Publish("ShellTextScaleReferenceSize", TextScaledExtension.DesignBodyFontSize * resources.TextScale);
         foreach (var baseFontSize in ScalableFontSizes)
         {
             Publish($"ShellFontSize{baseFontSize}", resources.ScaleFontSize(baseFontSize));
-            Publish(
-                $"ShellLineHeight{baseFontSize}",
-                Math.Round(
-                    resources.ScaleFontSize(baseFontSize) * 1.35 * 2,
-                    MidpointRounding.AwayFromZero) / 2);
+            Publish($"ShellLineHeight{baseFontSize}", LineHeightFor(resources.ScaleFontSize(baseFontSize)));
         }
 
         // The icon ramp. A glyph is sized from the text it sits beside, so it
         // grows with the text-size setting instead of staying put while the
         // label next to it doubles: Xs inside dense data (sort chevrons), Sm in
         // a line of body text or a menu row, Md on a toolbar button or a list
-        // row, Lg on a grid tile, Xl as the subject of an empty state.
-        Publish("ShellIconSizeXs", resources.ScaleFontSize(10));
-        Publish("ShellIconSizeSm", resources.ScaleFontSize(13));
-        Publish("ShellIconSizeMd", resources.ScaleFontSize(16));
-        Publish("ShellIconSizeLg", resources.ScaleFontSize(32));
-        Publish("ShellIconSizeXl", resources.ScaleFontSize(48));
+        // row, Lg on a grid tile, Xl as the subject of an empty state. A glyph
+        // is not text, so it scales linearly rather than through the type
+        // ramp's floors.
+        Publish("ShellIconSizeXs", 10 * resources.TextScale);
+        Publish("ShellIconSizeSm", 13 * resources.TextScale);
+        Publish("ShellIconSizeMd", 16 * resources.TextScale);
+        Publish("ShellIconSizeLg", 32 * resources.TextScale);
+        Publish("ShellIconSizeXl", 48 * resources.TextScale);
+
+        // Rows, as macOS 26 draws them: a list or sidebar row at least 28
+        // points tall and a tree row at least 24, both growing with the text.
+        // Density may make them roomier but never shorter than that.
+        Publish("ShellRowMinHeight", RowMinHeight(resources, ListRowMinHeight));
+        Publish("ShellTreeRowMinHeight", RowMinHeight(resources, TreeRowMinHeight));
+
+        // Menus — context menus, menu flyouts, pop-up lists — at macOS 26
+        // metrics: every item one height, the menu's padding the same on all
+        // four sides and equal to the highlight's inset from the menu edge, so
+        // there is no extra gap above the first item or under the last.
+        var menuInset = HalfPoint(MenuInset * resources.TextScale);
+        Publish("ShellMenuItemHeight", Math.Round(MenuItemHeight * resources.TextScale));
+        Publish("ShellMenuPadding", new Thickness(menuInset));
+        // Fluent's menu templates write their inset on the items presenter
+        // from this resource rather than from the menu's Padding.
+        Publish("MenuFlyoutScrollerMargin", new Thickness(menuInset));
+        // A submenu's own presenter padding would stack on that margin.
+        Publish("MenuFlyoutPresenterThemePadding", new Thickness(0));
+        Publish("ShellMenuItemPadding", new Thickness(MenuItemTextInset * resources.TextScale, 0));
+        Publish("ShellMenuItemCornerRadius", new CornerRadius(MenuItemCornerRadius));
+        Publish("ShellMenuSeparatorMargin", new Thickness(MenuItemTextInset * resources.TextScale, menuInset));
 
         Publish("ShellControlMinHeight", resources.ControlMinHeight);
         Publish("ShellSurfaceOpacity", SurfaceOpacity);
@@ -1093,7 +1156,14 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellCardPaddingCompact", new Thickness(spacing.Medium));
         Publish("ShellPagePadding", new Thickness(spacing.Large));
         Publish("ShellRowPadding", new Thickness(spacing.Large, spacing.Medium));
-        Publish("ShellListRowPadding", new Thickness(spacing.Medium, spacing.Small));
+        // A list row's inset is macOS 26's: 10 across and 6 down at 100%, so a
+        // one-line row comes to the host's 28 points rather than floating in a
+        // band of 32.
+        Publish("ShellListRowPadding", new Thickness(HalfPoint(spacing.Small * 1.25), HalfPoint(spacing.Small * 0.75)));
+        // The gap between two sections of a page: 20 at 100%, between the
+        // gap between cards and the one around an empty state.
+        Publish("ShellSpaceSection", HalfPoint(spacing.Small * 2.5));
+        Publish("ShellInsetSection", new Thickness(HalfPoint(spacing.Small * 2.5)));
         Publish("ShellPillPadding", new Thickness(spacing.Small, spacing.ExtraSmall));
 
         // For a native child view that has to round its own layer because Avalonia
@@ -1118,6 +1188,21 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellMotionEnabled", resources.MotionEnabled);
         Publish("ShellAdvancedMaterialsEnabled", resources.AdvancedMaterialsEnabled);
     }
+
+    /// <summary>A length on the half-point grid, so filled surfaces meet without a seam.</summary>
+    private static double HalfPoint(double length) =>
+        Math.Round(length * 2, MidpointRounding.AwayFromZero) / 2;
+
+    /// <summary>A text size's leading, on the half-point grid.</summary>
+    internal static double LineHeightFor(double fontSize) =>
+        HalfPoint(fontSize * 1.35);
+
+    /// <summary>
+    /// A row's minimum height: the macOS 26 floor at the current text size,
+    /// or the control height when a roomier density asks for more.
+    /// </summary>
+    internal static double RowMinHeight(EffectiveAppearanceResources resources, double floor) =>
+        Math.Round(Math.Max(floor * resources.TextScale, resources.ControlMinHeight * floor / ListRowMinHeight));
 
     private void ApplyToWindow(
         Window window,

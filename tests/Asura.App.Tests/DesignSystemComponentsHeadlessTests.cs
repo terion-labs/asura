@@ -180,7 +180,7 @@ public sealed class DesignSystemComponentsHeadlessTests
 
             var row = Assert.IsType<ListBoxItem>(list.ContainerFromIndex(0));
             var presenter = Part<ContentPresenter>(row, "PART_ContentPresenter");
-            var accent = Brush(window, "ShellAccentBrush");
+            var accent = Brush(window, "ShellAccentFillBrush");
             var gray = Brush(window, "ShellUnemphasizedSelectionBrush");
 
             Assert.True(other.Focus());

@@ -331,7 +331,7 @@ public sealed class GitPanelConformanceHeadlessTests
         Assert.Equal(Colors.Magenta, Color(ownText.Foreground));
         Assert.NotEqual(Colors.Magenta, Color(nestedText.Foreground));
         var band = folder.GetVisualDescendants().OfType<Border>().First(border => border.Name == "PART_LayoutRoot");
-        var accent = window.TryFindResource("ShellAccentBrush", window.ActualThemeVariant, out var value)
+        var accent = window.TryFindResource("ShellAccentFillBrush", window.ActualThemeVariant, out var value)
             ? Color(value as IBrush)
             : null;
         Assert.Equal(accent, Color(band.Background));

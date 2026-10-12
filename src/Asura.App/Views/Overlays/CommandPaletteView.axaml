@@ -15,7 +15,7 @@
          palette has focus: its selection wears the accent, as Spotlight's
          does, rather than the gray of a list in the background. -->
     <Style Selector="controls|SurfaceCard:focus-within ListBox.CommandPaletteResults ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
     </Style>
     <Style Selector="controls|SurfaceCard:focus-within ListBox.CommandPaletteResults ListBoxItem:selected TextBlock">

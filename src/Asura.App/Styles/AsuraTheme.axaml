@@ -203,7 +203,7 @@
     <Setter Property="GridBrush" Value="{DynamicResource ShellBorderBrush}" />
     <Setter Property="LabelBrush" Value="{DynamicResource ShellMutedBrush}" />
     <Setter Property="ReadoutBackground" Value="{DynamicResource ShellSurfaceBrush}" />
-    <Setter Property="LabelFontSize" Value="{DynamicResource ShellFontSize10}" />
+    <Setter Property="LabelFontSize" Value="{DynamicResource ShellCaptionFontSize}" />
   </Style>
 
   <!-- A panel's toolbar band: the strip under the chrome header that holds a
@@ -265,7 +265,7 @@
        and a menu you can see the wallpaper through is a menu you cannot
        read. -->
   <Style Selector="FlyoutPresenter">
-    <Setter Property="Padding" Value="{DynamicResource ShellInsetXs}" />
+    <Setter Property="Padding" Value="{DynamicResource ShellMenuPadding}" />
     <Setter Property="Background" Value="{DynamicResource ShellPopupSurfaceBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
@@ -281,20 +281,65 @@
     <Setter Property="ClipToBounds" Value="True" />
   </Style>
 
+  <!-- A menu — a context menu, a menu flyout, a pop-up list — at the host's
+       metrics: one inset on all four sides, which is also how far the
+       highlight stands in from the menu's edge, and every item the same
+       height. The items carried a control's height and a vertical padding of
+       their own on top of Fluent's scroller margin, so the first item sat
+       further from the top than the last did from the bottom and each item
+       was taller than a menu's. -->
+  <!-- The inset is the items presenter's, MenuFlyoutScrollerMargin: a menu
+       flyout's template ignores Padding and a context menu's adds it on top,
+       so Padding is zero on both. -->
   <Style Selector="MenuFlyoutPresenter">
     <Setter Property="Background" Value="{DynamicResource ShellPopupSurfaceBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{DynamicResource ShellCardCornerRadius}" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="ContextMenu">
+    <Setter Property="Background" Value="{DynamicResource ShellPopupSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellCardCornerRadius}" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <!-- A submenu is a menu: the same surface, edge, corner and inset as the
+       menu it opens from. Fluent draws it from its own presenter resources —
+       a stock fill, its overlay corner and theme padding — so Git Flow and
+       Tracking opened as a differently coloured, squarer menu beside the
+       shell's. The inset comes from the scroller margin, as above. The
+       selector carries :open, the only state a submenu is seen in, because
+       values the template writes outrank a plain style. -->
+  <Style Selector="MenuItem:open /template/ Popup#PART_Popup > Border">
+    <Setter Property="Background" Value="{DynamicResource ShellPopupSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellCardCornerRadius}" />
+    <Setter Property="Padding" Value="0" />
   </Style>
 
   <Style Selector="MenuItem">
-    <Setter Property="MinHeight" Value="{DynamicResource ShellControlMinHeight}" />
-    <Setter Property="Padding" Value="{controls:Inset Horizontal=Md, Vertical=Sm}" />
+    <Setter Property="MinHeight" Value="{DynamicResource ShellMenuItemHeight}" />
+    <Setter Property="Padding" Value="{DynamicResource ShellMenuItemPadding}" />
+    <Setter Property="Margin" Value="0" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
     <Setter Property="BorderThickness" Value="0" />
-    <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellMenuItemCornerRadius}" />
+  </Style>
+
+  <!-- A menu's separator is a hairline lined up with the item titles, with
+       the menu's own inset above and below it. -->
+  <Style Selector="MenuFlyoutPresenter Separator, ContextMenu Separator, MenuItem Separator">
+    <Setter Property="Margin" Value="{DynamicResource ShellMenuSeparatorMargin}" />
+    <Setter Property="Height" Value="1" />
+    <Setter Property="MinHeight" Value="1" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="{DynamicResource ShellBorderBrush}" />
   </Style>
 
   <Style Selector="MenuItem:selected /template/ Border#PART_LayoutRoot">
@@ -313,14 +358,17 @@
     <Setter Property="controls:KeycapSymbols.AsText" Value="True" />
   </Style>
 
+  <!-- An item of a menu built from buttons is a menu item: the same height,
+       inset and highlight as one in a context menu. -->
   <Style Selector="Button.FlyoutMenuItem">
-    <Setter Property="MinHeight" Value="{DynamicResource ShellControlMinHeight}" />
+    <Setter Property="MinHeight" Value="{DynamicResource ShellMenuItemHeight}" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-    <Setter Property="Padding" Value="{DynamicResource ShellInsetSm}" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Padding" Value="{DynamicResource ShellMenuItemPadding}" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
-    <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellMenuItemCornerRadius}" />
   </Style>
 
   <Style Selector="Button.FlyoutMenuItem:pointerover /template/ ContentPresenter">
@@ -342,7 +390,7 @@
   </Style>
 
   <Style Selector="Button.PrimaryButton">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="FontWeight" Value="SemiBold" />
@@ -354,7 +402,7 @@
        pressed, as the host's does: the hover gray behind its measured ink
        read as black on gray. -->
   <Style Selector="Button.PrimaryButton:pointerover /template/ ContentPresenter, Button.PrimaryButton:pressed /template/ ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
   </Style>
 
   <Style Selector="Button.SecondaryButton">
@@ -421,7 +469,7 @@
   </Style>
 
   <Style Selector="Button.DestructiveButton:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource ShellDangerBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellDangerFillBrush}" />
     <Setter Property="TextElement.Foreground" Value="{DynamicResource ShellDangerForegroundBrush}" />
   </Style>
 
@@ -463,6 +511,12 @@
     <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
     <!-- Rows fill the list so trailing badges and shortcuts stay right-aligned. -->
     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <!-- Never shorter than a macOS 26 list or sidebar row, and growing with
+         the text. Only a handful of lists asked for it, so every other panel
+         list kept rows a few points under the Finder sidebar beside it. A
+         reading surface — a Dense list, a diff or a log that draws its own
+         selection — opts out below. -->
+    <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
   </Style>
 
   <!-- A list that is a reading surface, not a set of controls: no chrome of
@@ -477,6 +531,12 @@
     <Setter Property="Margin" Value="0" />
     <Setter Property="MinHeight" Value="0" />
     <Setter Property="CornerRadius" Value="0" />
+  </Style>
+
+  <!-- A list that draws its own selection is a run of lines — a diff, a
+       log — and keeps each line at the height of its text. -->
+  <Style Selector="ListBox.OwnSelection ListBoxItem">
+    <Setter Property="MinHeight" Value="0" />
   </Style>
 
   <!-- A list of rows — controls|ListItem in a ListBox — where the list itself
@@ -525,7 +585,7 @@
        Text recoloured for an accent fill the row never gets is text measured
        against the wrong background. -->
   <Style Selector="ListBox:not(.OwnSelection):focus-within ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
   </Style>
 
@@ -570,6 +630,12 @@
        while it has focus as well: a selected branch's text colour would also
        reach every row nested under it, and gray carries the row's own text at
        full contrast. -->
+  <!-- A tree row is never shorter than macOS 26's, and grows with the text:
+       the stock row held one height at every text size. -->
+  <Style Selector="TreeViewItem /template/ Border#PART_LayoutRoot">
+    <Setter Property="MinHeight" Value="{DynamicResource ShellTreeRowMinHeight}" />
+  </Style>
+
   <Style Selector="TreeViewItem /template/ Border#PART_LayoutRoot:pointerover">
     <Setter Property="Background" Value="{DynamicResource ShellSidebarSelectionBrush}" />
   </Style>
@@ -843,11 +909,12 @@
     <Setter Property="Data" Value="M 1.3,4.3 L 6,0 L 10.7,4.3 L 9.7,5.3 L 6,2 L 2.3,5.3 Z M 1.3,7.7 L 2.3,6.7 L 6,10 L 9.7,6.7 L 10.7,7.7 L 6,12 Z" />
   </Style>
 
+  <!-- A pop-up button's list is a menu, and takes a menu's metrics. -->
   <Style Selector="ComboBox:dropdownopen /template/ Border#PopupBorder">
     <Setter Property="Background" Value="{DynamicResource ShellPopupSurfaceBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="Padding" Value="{DynamicResource ShellInsetXs}" />
+    <Setter Property="Padding" Value="{DynamicResource ShellMenuPadding}" />
     <Setter Property="CornerRadius" Value="{DynamicResource ShellCardCornerRadius}" />
   </Style>
 
@@ -856,12 +923,14 @@
   </Style>
 
   <Style Selector="ComboBoxItem">
-    <Setter Property="MinHeight" Value="{DynamicResource ShellControlMinHeight}" />
-    <Setter Property="Padding" Value="{controls:Inset Horizontal=Md, Vertical=Sm}" />
+    <Setter Property="MinHeight" Value="{DynamicResource ShellMenuItemHeight}" />
+    <Setter Property="Padding" Value="{DynamicResource ShellMenuItemPadding}" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
     <Setter Property="BorderThickness" Value="0" />
-    <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellMenuItemCornerRadius}" />
   </Style>
 
   <Style Selector="ComboBoxItem:pointerover /template/ ContentPresenter">
@@ -909,7 +978,7 @@
     <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
     <Setter Property="FontWeight" Value="Medium" />
     <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
-    <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+    <Setter Property="LineHeight" Value="{DynamicResource ShellSecondaryLineHeight}" />
   </Style>
 
   <!-- Kept as a class so markup that asks for it still parses, but it no
@@ -1073,14 +1142,14 @@
   </Style>
 
   <Style Selector="Button.RuntimeTabActivator.active">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
   </Style>
 
   <!-- The stock hover wash would take the accent back off the active tab, and
        hovering the tab you are already in should change nothing. -->
   <Style Selector="Button.RuntimeTabActivator.active:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
   </Style>
 
   <!-- The close button is the tab's sibling rather than its content, so it
@@ -1182,31 +1251,33 @@
        through the middle; as a minimum it is the same 24 at the default size
        and grows with its text.
 
-       The text is the host's small control size, 11 points: at 10 a dense
-       toolbar read a size below the secondary text beside it. -->
+       The text is Body, as every button and field is: a dense row is
+       shorter, not smaller to read. At the secondary size a filter bar read
+       a step under the rows it filters. -->
   <Style Selector="Button.Dense">
     <Setter Property="MinHeight" Value="24" />
     <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
-    <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellBodyFontSize}" />
   </Style>
 
   <Style Selector="ComboBox.Dense">
     <Setter Property="MinHeight" Value="24" />
     <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
-    <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellBodyFontSize}" />
   </Style>
 
   <Style Selector="TextBox.Dense">
     <Setter Property="MinHeight" Value="24" />
     <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
-    <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellBodyFontSize}" />
   </Style>
 
-  <!-- Data grids present values, not prose; they read at the data size. The
-       cell and header carry it explicitly because the DataGrid theme sets its
-       own font size, which beats inheritance from the grid. The chrome lives
+  <!-- Data grids present values, not prose; they read at Body, as a Finder
+       list does. The cell and header carry it explicitly because the
+       DataGrid theme sets its own font size, which beats inheritance from
+       the grid. The chrome lives
        here too, so every value table in the shell — SQL results, Redis
        entries, message logs — is the same table.
 
@@ -1215,7 +1286,7 @@
        the way a list's is. The full grid of hairlines read as a spreadsheet,
        and the hover wash was easily taken for the selection. -->
   <Style Selector="DataGrid.DatabaseGrid">
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellBodyFontSize}" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="GridLinesVisibility" Value="None" />
@@ -1234,15 +1305,15 @@
   </Style>
 
   <Style Selector="DataGrid.DatabaseGrid DataGridCell">
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellBodyFontSize}" />
   </Style>
 
-  <!-- A header is set at the data size, never under the 11-point floor for
-       secondary text, and starts its label where the cells under it start
+  <!-- A header is set at the data size, Body, as a Finder list column
+       header is, and starts its label where the cells under it start
        theirs: a small inset in, the one every value cell carries. The stock
        twelve put each label a few points right of its column. -->
   <Style Selector="DataGrid.DatabaseGrid DataGridColumnHeader">
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellBodyFontSize}" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
@@ -1428,7 +1499,7 @@
 
   <!-- The name turns accent on the selected tile, and its check appears. -->
   <Style Selector="RadioButton.PresetCard TextBlock.PresetName">
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize12}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellBodyFontSize}" />
     <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
 
@@ -1714,7 +1785,7 @@
     <Setter Property="MinHeight" Value="0" />
     <Setter Property="Margin" Value="0" />
     <Setter Property="Padding" Value="{controls:Inset Horizontal=Md, Vertical=Xs}" />
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellBodyFontSize}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="VerticalAlignment" Value="Stretch" />
@@ -1993,7 +2064,7 @@
 
   <Style Selector="Border.Keycap TextBlock">
     <Setter Property="controls:KeycapSymbols.AsText" Value="True" />
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellCaptionFontSize}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
   </Style>
 
@@ -2028,7 +2099,7 @@
   <Style Selector="TextBox.SearchField icons|SymbolIcon.SearchFieldGlyph">
     <Setter Property="Margin" Value="{controls:Inset Left=Sm}" />
     <Setter Property="VerticalAlignment" Value="Center" />
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize12}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellIconSizeSm}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
   </Style>
 
@@ -2041,7 +2112,7 @@
   </Style>
 
   <Style Selector="TextBox.SearchField Button.SearchFieldClear icons|SymbolIcon">
-    <Setter Property="FontSize" Value="{DynamicResource ShellFontSize12}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellIconSizeSm}" />
     <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
   </Style>
 
