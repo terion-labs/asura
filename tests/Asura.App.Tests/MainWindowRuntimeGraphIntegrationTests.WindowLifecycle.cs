@@ -250,9 +250,20 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             snapshot,
             workspaceIsolationProvider: provider);
 
+        // The provider's progress is posted, not delivered inline, so the
+        // test waits for it to reach the view model rather than for a turn.
+        var percentShown = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        viewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(MainWindowViewModel.HasWorkspaceIsolationStartingPercent)
+                && viewModel.HasWorkspaceIsolationStartingPercent)
+            {
+                percentShown.TrySetResult();
+            }
+        };
         var opening = viewModel.OpenWorkspaceAsync(WorkspaceId);
         await provider.PrepareEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        await Task.Yield();
+        await percentShown.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.True(viewModel.IsWorkspaceIsolationProgressVisible);
         Assert.True(viewModel.HasWorkspaceIsolationStartingPercent);
         Assert.Equal(42, viewModel.WorkspaceIsolationStartingPercent, 3);
