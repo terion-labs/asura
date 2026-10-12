@@ -18,7 +18,6 @@ public sealed partial class RuntimeTabStripView
     private const double OverflowFadePixels = 56;
     private INotifyCollectionChanged? _observedCollection;
     private readonly List<INotifyPropertyChanged> _observedTabs = [];
-    private bool _revealActiveTab = true;
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -54,7 +53,6 @@ public sealed partial class RuntimeTabStripView
             }
         }
 
-        _revealActiveTab = true;
         InvalidateMeasure();
         QueueOverflowPresentation();
     }
@@ -82,11 +80,6 @@ public sealed partial class RuntimeTabStripView
     private void OnTabPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         _ = sender;
-        if (e.PropertyName is null or "IsActive")
-        {
-            _revealActiveTab = true;
-        }
-
         if (e.PropertyName is null or "IsActive" or "Title" or "IconSymbol")
         {
             QueueOverflowPresentation();
@@ -100,14 +93,8 @@ public sealed partial class RuntimeTabStripView
     {
         var tabHosts = TabHosts();
         AnnouncePositions(tabHosts);
-        if (_revealActiveTab && TabScrollViewer.Viewport is { Width: > 0, Height: > 0 })
-        {
-            _revealActiveTab = false;
-            RevealActiveTab(tabHosts);
-        }
-
         UpdateOverflowMenuVisibility();
-        UpdateOverflowFade(ActiveTabBounds(tabHosts));
+        UpdateOverflowFade(PinActiveTab(tabHosts));
     }
 
     private Grid[] TabHosts() =>
@@ -139,31 +126,6 @@ public sealed partial class RuntimeTabStripView
     }
 
     /// <summary>
-    /// The tab that was just chosen is scrolled into view, clear of the edge
-    /// fade where there is room. It used to be translated over its
-    /// neighbours instead, which kept it in sight by drawing it on top of the
-    /// tabs beside it and hid whichever one it landed on.
-    /// </summary>
-    private void RevealActiveTab(IReadOnlyList<Grid> tabHosts)
-    {
-        if (tabHosts.SingleOrDefault(host => host.Classes.Contains("active")) is not { } active
-            || active.FindAncestorOfType<ContentPresenter>() is not { } container)
-        {
-            return;
-        }
-
-        var horizontal = Orientation == Orientation.Horizontal;
-        var viewport = horizontal
-            ? TabScrollViewer.Viewport.Width
-            : TabScrollViewer.Viewport.Height;
-        var length = horizontal ? container.Bounds.Width : container.Bounds.Height;
-        var fade = Math.Max(0, Math.Min(OverflowFadePixels, (viewport - length) / 2));
-        container.BringIntoView(horizontal
-            ? new Rect(-fade, 0, container.Bounds.Width + (2 * fade), container.Bounds.Height)
-            : new Rect(0, -fade, container.Bounds.Width, container.Bounds.Height + (2 * fade)));
-    }
-
-    /// <summary>
     /// A horizontal strip settles this while it measures, because it reserves
     /// the room for the button; a side strip has the room already and shows
     /// the button once its rows run past the bottom.
@@ -181,16 +143,39 @@ public sealed partial class RuntimeTabStripView
     }
 
     /// <summary>
-    /// Where the active tab is drawn inside the scroll viewport, so the edge
-    /// fade can leave it opaque.
+    /// The selected tab is sticky: while the strip scrolls it stays pinned at
+    /// whichever edge it would leave by, drawn over the neighbours that pass
+    /// underneath it. That is deliberate — the tab you are in never goes out
+    /// of sight, and a neighbour it covers is still one click away in the
+    /// all-tabs pull-down. A render transform deliberately leaves its layout
+    /// slot behind, so neighbouring tabs travel underneath the raised active
+    /// chip instead of being reflowed. The generated presenter is the
+    /// StackPanel child, so it owns both the transform and z-index; raising
+    /// the template's inner grid cannot reorder it against sibling presenters.
+    /// Returns where the active tab is drawn inside the scroll viewport, so
+    /// the edge fade can leave it opaque.
     /// </summary>
-    private (double Leading, double Trailing)? ActiveTabBounds(IReadOnlyList<Grid> tabHosts)
+    private (double Leading, double Trailing)? PinActiveTab(IReadOnlyList<Grid> tabHosts)
     {
-        var activeContainer = tabHosts
-            .SingleOrDefault(host => host.Classes.Contains("active"))
-            ?.FindAncestorOfType<ContentPresenter>();
-        if (activeContainer is null
-            || TabScrollViewer.Viewport is { Width: <= 0 } or { Height: <= 0 })
+        foreach (var host in tabHosts)
+        {
+            var container = host.FindAncestorOfType<ContentPresenter>();
+            if (container is not null)
+            {
+                container.RenderTransform = null;
+                container.ZIndex = 0;
+            }
+        }
+
+        var active = tabHosts.SingleOrDefault(host => host.Classes.Contains("active"));
+        var activeContainer = active?.FindAncestorOfType<ContentPresenter>();
+        if (activeContainer is null)
+        {
+            return default;
+        }
+
+        activeContainer.ZIndex = 1;
+        if (TabScrollViewer.Viewport is { Width: <= 0 } or { Height: <= 0 })
         {
             return default;
         }
@@ -204,9 +189,25 @@ public sealed partial class RuntimeTabStripView
             return default;
         }
 
-        return Orientation == Orientation.Horizontal
-            ? (topLeft.Value.X, bottomRight.Value.X)
-            : (topLeft.Value.Y, bottomRight.Value.Y);
+        var horizontal = Orientation == Orientation.Horizontal;
+        var leading = horizontal ? topLeft.Value.X : topLeft.Value.Y;
+        var trailing = horizontal ? bottomRight.Value.X : bottomRight.Value.Y;
+        var viewport = horizontal
+            ? TabScrollViewer.Viewport.Width
+            : TabScrollViewer.Viewport.Height;
+        var translation = leading < 0
+            ? -leading
+            : trailing > viewport
+                ? viewport - trailing
+                : 0;
+        if (Math.Abs(translation) >= 0.5)
+        {
+            activeContainer.RenderTransform = horizontal
+                ? new TranslateTransform(translation, 0)
+                : new TranslateTransform(0, translation);
+        }
+
+        return (leading + translation, trailing + translation);
     }
 
     /// <summary>
@@ -265,10 +266,10 @@ public sealed partial class RuntimeTabStripView
             samples.Add(new GradientStop(Colors.Black, 1));
         }
 
-        // The mask belongs to the ScrollViewer, so the active tab cannot opt
-        // out of it on its own. Cut out only the active tab's interval instead
-        // of removing the whole edge ramp; scrolling siblings then keep fading
-        // in the gap beside the selected chip.
+        // The mask belongs to the ScrollViewer, so z-index alone cannot keep a
+        // child opaque. Cut out only the active tab's interval instead of
+        // removing the whole edge ramp; scrolling siblings then keep fading in
+        // the gap before the selected chip reaches its sticky boundary.
         if (activeBounds is { } active)
         {
             var activeStart = Math.Clamp(active.Leading / viewport, 0, 1);

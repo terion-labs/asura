@@ -102,14 +102,21 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
         Assert.False(RuntimeTabStripView.FitsWithoutScrolling(307, 3, 4));
     }
 
+    /// <summary>
+    /// The active tab is sticky: it never leaves the strip, it rides whichever
+    /// edge it would scroll out by, over the neighbours passing underneath,
+    /// and the strip itself does not jump to it. This is the designed
+    /// behaviour, not an overflow bug; a covered neighbour stays reachable
+    /// from the all-tabs pull-down.
+    /// </summary>
     [Fact]
-    public Task An_overflowing_strip_never_draws_the_active_tab_over_its_neighbours() =>
+    public Task Active_tab_sticks_to_both_overflow_edges() =>
         RunHeadlessAsync(() =>
         {
-            var tabs = Enumerable.Range(0, 8)
+            var tabs = Enumerable.Range(0, 10)
                 .Select(index => new FakeTab(
                     $"tab-{index}",
-                    IsActive: index == 6,
+                    IsActive: index == 5,
                     CanClose: true,
                     HasAttention: false))
                 .ToArray();
@@ -130,33 +137,130 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
+            var scroll = strip.GetVisualDescendants().OfType<ScrollViewer>().Single();
             var hosts = strip.GetVisualDescendants()
                 .OfType<Grid>()
                 .Where(grid => grid.Classes.Contains("RuntimeTabDropTarget"))
                 .ToArray();
-            var containers = hosts
+            var active = hosts.Single(host => ReferenceEquals(host.DataContext, tabs[5]));
+            var activeContainer = active.GetVisualAncestors().OfType<ContentPresenter>().First();
+            var siblings = hosts
+                .Where(host => !ReferenceEquals(host, active))
                 .Select(host => host.GetVisualAncestors().OfType<ContentPresenter>().First())
                 .ToArray();
-            // Every tab keeps its own slot: nothing is translated or raised
-            // over a neighbour.
-            Assert.All(containers, container =>
-            {
-                Assert.Null(container.RenderTransform);
-                Assert.Equal(0, container.ZIndex);
-            });
 
-            // The active tab was scrolled into view instead.
-            var scroll = strip.GetVisualDescendants().OfType<ScrollViewer>().Single();
-            var active = hosts.Single(host => ReferenceEquals(host.DataContext, tabs[6]));
-            var left = active.TranslatePoint(default, scroll);
+            // At rest the slot lies past the trailing edge, and the strip does
+            // not scroll to it: the chip is pinned to that edge instead.
+            Assert.Equal(0, scroll.Offset.X, precision: 3);
+            Assert.True(
+                activeContainer.Bounds.X > scroll.Viewport.Width,
+                $"slot={activeContainer.Bounds.X} viewport={scroll.Viewport.Width}");
             var right = active.TranslatePoint(new Point(active.Bounds.Width, 0), scroll);
-            Assert.NotNull(left);
             Assert.NotNull(right);
-            Assert.True(left.Value.X >= -1, $"left={left.Value.X}");
-            Assert.True(right.Value.X <= scroll.Viewport.Width + 1, $"right={right.Value.X} viewport={scroll.Viewport.Width}");
+            Assert.InRange(scroll.Viewport.Width - right.Value.X, -1, 1);
+            Assert.IsType<TranslateTransform>(activeContainer.RenderTransform);
+            Assert.Equal(1, activeContainer.ZIndex);
+            Assert.All(siblings, sibling =>
+            {
+                Assert.Null(sibling.RenderTransform);
+                Assert.True(activeContainer.ZIndex > sibling.ZIndex);
+            });
+            AssertPinnedChipTakesThePointer(window, active);
+
+            scroll.Offset = new Vector(1, 0);
+            window.UpdateLayout();
+            right = active.TranslatePoint(new Point(active.Bounds.Width, 0), scroll);
+            Assert.NotNull(right);
+            Assert.InRange(scroll.Viewport.Width - right.Value.X, -1, 1);
+
+            scroll.Offset = new Vector(scroll.Extent.Width, 0);
+            window.UpdateLayout();
+            var left = active.TranslatePoint(default, scroll);
+            Assert.NotNull(left);
+            Assert.InRange(left.Value.X, -1, 1);
+            Assert.Equal(1, activeContainer.ZIndex);
+            AssertPinnedChipTakesThePointer(window, active);
+
+            // Scrolled to where the slot is in view, the chip sits in it.
+            scroll.Offset = new Vector(
+                activeContainer.Bounds.X - ((scroll.Viewport.Width - activeContainer.Bounds.Width) / 2),
+                0);
+            window.UpdateLayout();
+            Assert.Null(activeContainer.RenderTransform);
+            Assert.Equal(1, activeContainer.ZIndex);
+
             window.Close();
             return Task.CompletedTask;
         });
+
+    [Fact]
+    public Task Side_docked_active_tab_sticks_to_the_bottom_edge() =>
+        RunHeadlessAsync(() =>
+        {
+            var tabs = Enumerable.Range(0, 16)
+                .Select(index => new FakeTab(
+                    $"tab-{index}",
+                    IsActive: index == 12,
+                    CanClose: true,
+                    HasAttention: false))
+                .ToArray();
+            var strip = new RuntimeTabStripView
+            {
+                Orientation = Orientation.Vertical,
+                Tabs = tabs,
+            };
+            var window = new Window
+            {
+                Width = 190,
+                Height = 200,
+                Content = strip,
+            };
+            window.Show();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            var scroll = strip.GetVisualDescendants().OfType<ScrollViewer>().Single();
+            var active = strip.GetVisualDescendants()
+                .OfType<Grid>()
+                .Single(grid => grid.Classes.Contains("RuntimeTabDropTarget")
+                    && ReferenceEquals(grid.DataContext, tabs[12]));
+            var activeContainer = active.GetVisualAncestors().OfType<ContentPresenter>().First();
+            Assert.Equal(0, scroll.Offset.Y, precision: 3);
+            Assert.True(activeContainer.Bounds.Y > scroll.Viewport.Height);
+            var bottom = active.TranslatePoint(new Point(0, active.Bounds.Height), scroll);
+            Assert.NotNull(bottom);
+            Assert.InRange(scroll.Viewport.Height - bottom.Value.Y, -1, 1);
+            Assert.Equal(1, activeContainer.ZIndex);
+            AssertPinnedChipTakesThePointer(window, active);
+
+            window.Close();
+            return Task.CompletedTask;
+        });
+
+    private static void AssertPinnedChipTakesThePointer(Window window, Grid active)
+    {
+        var centre = active.TranslatePoint(
+            new Point(active.Bounds.Width / 2, active.Bounds.Height / 2),
+            window);
+        Assert.NotNull(centre);
+
+        // The pointer is routed through the composed scene, which only takes
+        // the new transform and z-order once a few frames have gone through.
+        for (var frame = 0; frame < 3; frame++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        }
+
+        var hit = window.InputHitTest(centre.Value) as Visual;
+        Assert.NotNull(hit);
+        Assert.Same(
+            active,
+            hit.GetSelfAndVisualAncestors()
+                .OfType<Grid>()
+                .First(grid => grid.Classes.Contains("RuntimeTabDropTarget")));
+    }
 
     [Fact]
     public Task The_overflow_pull_down_lists_every_tab_and_activates_the_choice() =>

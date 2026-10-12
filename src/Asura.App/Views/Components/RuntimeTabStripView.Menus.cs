@@ -250,8 +250,8 @@ public sealed partial class RuntimeTabStripView
 
     /// <summary>
     /// Every tab, by name, with the open one checked: what the strip shows
-    /// once it cannot show them all. Choosing one activates it, and the strip
-    /// scrolls it into view.
+    /// once it cannot show them all, including a tab the sticky active chip
+    /// is covering. Choosing one activates it, and the strip pins it in view.
     /// </summary>
     private void OnOverflowMenuOpening(object? sender, EventArgs e)
     {
