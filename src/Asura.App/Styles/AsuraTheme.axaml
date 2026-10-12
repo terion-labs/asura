@@ -1680,22 +1680,39 @@
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
   </Style>
+  <!-- Fluent frames the open section's content on three sides from a rule
+       on the direction it opens in, and a rule with a condition outranks the
+       plain one above, so the frame came back as soon as the section opened.
+       Each direction is named so the content stays unframed. -->
+  <Style Selector="Expander:down /template/ Border#ExpanderContent, Expander:up /template/ Border#ExpanderContent, Expander:left /template/ Border#ExpanderContent, Expander:right /template/ Border#ExpanderContent">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
 
   <!-- The disclosure is the host's: a chevron beside the label, pointing at
        the label while the section is closed and down into it once it is open.
        The stock header put a down chevron at the far edge of the row, where
-       it read as a pop-up button and said nothing about the state. -->
+       it read as a pop-up button and said nothing about the state.
+       The header's parts are named for the shell, not for Fluent: Fluent's
+       header theme paints its Border#ToggleButtonBackground on hover and on
+       press with a near-black fill and an edge, and the shell's template
+       carried that name, so the rule reached through. The highlight is a
+       part of its own, so a surface that wants it inset can say so. -->
   <Style Selector="Expander /template/ ToggleButton#ExpanderHeader">
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
     <Setter Property="Template">
       <ControlTemplate>
-        <Border
-            Name="ToggleButtonBackground"
-            Background="{TemplateBinding Background}"
-            CornerRadius="{DynamicResource ShellControlCornerRadius}"
-            Padding="{TemplateBinding Padding}">
-          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+        <Panel Name="DisclosureHeaderRoot" Background="Transparent">
+          <Border
+              Name="DisclosureHighlight"
+              Background="{TemplateBinding Background}"
+              CornerRadius="{DynamicResource ShellControlCornerRadius}" />
+          <Grid
+              Margin="{TemplateBinding Padding}"
+              VerticalAlignment="Center"
+              ColumnDefinitions="Auto,*"
+              ColumnSpacing="{DynamicResource ShellSpaceXs}">
             <icons:SymbolIcon
                 Name="ExpandCollapseChevron"
                 VerticalAlignment="Center"
@@ -1709,7 +1726,7 @@
                 Content="{TemplateBinding Content}"
                 ContentTemplate="{TemplateBinding ContentTemplate}" />
           </Grid>
-        </Border>
+        </Panel>
       </ControlTemplate>
     </Setter>
   </Style>
@@ -2179,7 +2196,7 @@
     <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingOnAccentShadow}" />
   </Style>
 
-  <Style Selector="CheckBox:focus-visible /template/ Border#NormalRectangle, RadioButton:focus-visible /template/ Border#RootBorder, TabItem:focus-visible /template/ Border#PART_LayoutRoot, ComboBox:focus-visible /template/ Border#Background, Expander /template/ ToggleButton:focus-visible /template/ Border#ToggleButtonBackground, Slider:focus-visible /template/ Thumb /template/ Border">
+  <Style Selector="CheckBox:focus-visible /template/ Border#NormalRectangle, RadioButton:focus-visible /template/ Border#RootBorder, TabItem:focus-visible /template/ Border#PART_LayoutRoot, ComboBox:focus-visible /template/ Border#Background, Expander /template/ ToggleButton:focus-visible /template/ Border#DisclosureHighlight, Slider:focus-visible /template/ Thumb /template/ Border">
     <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
   </Style>
 

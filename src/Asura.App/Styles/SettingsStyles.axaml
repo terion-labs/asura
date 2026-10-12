@@ -369,6 +369,36 @@
     <Setter Property="CornerRadius" Value="{DynamicResource ShellPillCornerRadius}" />
   </Style>
 
+  <!-- ===== Disclosures ===== -->
+
+  <!-- A disclosure in a grouped form is a row of it: the row's height and
+       insets, the chevron on the label's edge, the label at body size. Its
+       highlight is a list row's — the shell's neutral hover, inset from the
+       plate and the hairlines by the same amount on every side. What it
+       opens on stands on the rows' edge under the header, unframed. -->
+  <!-- Fluent's template hands the expander's own minimum height to its
+       header, so the row's height is set on the expander. -->
+  <Style Selector="controls|SettingsGroup Expander">
+    <Setter Property="Margin" Value="{DynamicResource ShellInsetNone}" />
+    <Setter Property="MinHeight" Value="{DynamicResource ShellSettingsRowMinHeight}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+  </Style>
+  <Style Selector="controls|SettingsGroup Expander /template/ ToggleButton#ExpanderHeader">
+    <Setter Property="Padding" Value="{DynamicResource ShellSettingsRowPadding}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
+    <Setter Property="FontSize" Value="{DynamicResource ShellBodyFontSize}" />
+  </Style>
+  <Style Selector="controls|SettingsGroup Expander /template/ ToggleButton#ExpanderHeader /template/ Border#DisclosureHighlight">
+    <Setter Property="Margin" Value="{DynamicResource ShellInsetXs}" />
+  </Style>
+  <Style Selector="controls|SettingsGroup Expander /template/ ToggleButton#ExpanderHeader:pointerover">
+    <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
+  </Style>
+  <Style Selector="controls|SettingsGroup Expander:down /template/ Border#ExpanderContent">
+    <Setter Property="Padding" Value="{DynamicResource ShellSettingsDisclosureContentPadding}" />
+  </Style>
+
   <!-- ===== Lists ===== -->
 
   <!-- A settings list is one plate of the grouped form, as in System
